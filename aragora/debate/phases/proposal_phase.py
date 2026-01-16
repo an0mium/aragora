@@ -163,10 +163,20 @@ class ProposalPhase:
             logger.warning("No proposers available for proposal phase")
             return
 
-        # Create tasks for parallel execution
-        tasks = [
-            asyncio.create_task(self._generate_single_proposal(ctx, agent)) for agent in proposers
-        ]
+        # Create tasks with staggered starts to avoid API burst
+        # When all agents start simultaneously, API rate limits trigger 429 errors
+        # and OpenRouter fallback delays of 20-30 seconds
+        PROPOSAL_STAGGER_SECONDS = 2.0
+        tasks = []
+        for idx, agent in enumerate(proposers):
+            if idx > 0:
+                await asyncio.sleep(PROPOSAL_STAGGER_SECONDS)
+            task = asyncio.create_task(
+                self._generate_single_proposal(ctx, agent),
+                name=f"proposal_{agent.name}"
+            )
+            tasks.append(task)
+            logger.info(f"proposal_started agent={agent.name} stagger_idx={idx}")
 
         # Wait for all proposals and process as they complete
         for completed_task in asyncio.as_completed(tasks):

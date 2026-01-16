@@ -24,6 +24,11 @@ class StreamEventType(Enum):
     SYNTHESIS = "synthesis"  # Explicit synthesis event for guaranteed delivery
     DEBATE_END = "debate_end"
 
+    # Quick preview events (shown in first 5 seconds of debate initialization)
+    QUICK_CLASSIFICATION = "quick_classification"  # Haiku classification of question type/domain
+    AGENT_PREVIEW = "agent_preview"  # Agent roles, stances, and brief descriptions
+    CONTEXT_PREVIEW = "context_preview"  # Pulse/trending summary, research status
+
     # Token streaming events (for real-time response display)
     TOKEN_START = "token_start"  # Agent begins generating response
     TOKEN_DELTA = "token_delta"  # Incremental token(s) received

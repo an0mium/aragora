@@ -1578,6 +1578,31 @@ class Arena:
         # Notify subsystem coordinator of debate start
         self._trackers.on_debate_start(ctx)
 
+        # Emit agent preview for quick UI feedback
+        # Shows agent roles and stances while proposals are generated
+        if "on_agent_preview" in self.hooks:
+            try:
+                agent_previews = []
+                for agent in self.agents:
+                    role_info = self.current_role_assignments.get(agent.name, {})
+                    # Get brief persona description if available
+                    description = ""
+                    if hasattr(self, "persona_manager") and self.persona_manager:
+                        persona = self.persona_manager.get_persona(agent.name)
+                        if persona:
+                            description = getattr(persona, "brief_description", "")
+
+                    agent_previews.append({
+                        "name": agent.name,
+                        "role": str(role_info.get("role", "proposer")),
+                        "stance": role_info.get("stance", "neutral"),
+                        "description": description,
+                        "strengths": [],  # Could be populated from persona
+                    })
+                self.hooks["on_agent_preview"](agent_previews)
+            except Exception as e:
+                logger.debug(f"Agent preview emission failed: {e}")
+
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
             task=self.env.task,

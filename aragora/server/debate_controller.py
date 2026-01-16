@@ -34,6 +34,15 @@ from aragora.server.stream import (
     wrap_agent_for_streaming,
 )
 
+# Default classification when Haiku call fails or times out
+_DEFAULT_CLASSIFICATION = {
+    "type": "general",
+    "domain": "other",
+    "complexity": "moderate",
+    "aspects": [],
+    "approach": "Agents will analyze this topic from multiple perspectives.",
+}
+
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
 
@@ -174,6 +183,73 @@ class DebateController:
         self.auto_select_fn = auto_select_fn
         self.storage = storage
 
+    async def _quick_classify_async(self, question: str) -> dict:
+        """Fast Haiku classification of question type and domain.
+
+        This provides immediate context to users while the debate initializes.
+        Uses Claude 3.5 Haiku for speed (~100-200ms typical latency).
+
+        Args:
+            question: The debate question to classify
+
+        Returns:
+            Dict with type, domain, complexity, aspects, and approach
+        """
+        import json
+
+        try:
+            from anthropic import AsyncAnthropic
+
+            client = AsyncAnthropic()
+            response = await client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=300,
+                messages=[{
+                    "role": "user",
+                    "content": f"""Classify this debate question. Return ONLY valid JSON, no other text.
+
+Question: {question[:500]}
+
+Return JSON with these exact fields:
+- type: one of [factual, ethical, technical, creative, policy, comparative]
+- domain: one of [science, technology, philosophy, politics, society, economics, other]
+- complexity: one of [simple, moderate, complex]
+- aspects: array of 3-4 key focus areas as short phrases
+- approach: one sentence on how AI agents will analyze this"""
+                }]
+            )
+            # Parse JSON from response
+            content = response.content[0].text.strip()
+            # Handle potential markdown code blocks
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+            return json.loads(content)
+        except Exception as e:
+            logger.warning(f"Quick classification failed: {e}")
+            return _DEFAULT_CLASSIFICATION
+
+    def _quick_classify(self, question: str, debate_id: str) -> None:
+        """Run quick classification and emit event (sync wrapper)."""
+        try:
+            classification = run_async(self._quick_classify_async(question))
+            self.emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.QUICK_CLASSIFICATION,
+                    data={
+                        "question_type": classification.get("type", "general"),
+                        "domain": classification.get("domain", "other"),
+                        "complexity": classification.get("complexity", "moderate"),
+                        "key_aspects": classification.get("aspects", []),
+                        "suggested_approach": classification.get("approach", ""),
+                    },
+                    loop_id=debate_id,
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Failed to emit quick classification: {e}")
+
     def start_debate(self, request: DebateRequest) -> DebateResponse:
         """Start a new debate asynchronously.
 
@@ -235,6 +311,10 @@ class DebateController:
                 loop_id=debate_id,
             )
         )
+
+        # Quick classification with Haiku (~100-200ms) - shows immediately in UI
+        # This runs while the rest of initialization continues
+        self._quick_classify(request.question, debate_id)
 
         # Emit PHASE_PROGRESS to show research is starting
         # This gives users immediate feedback that something is happening

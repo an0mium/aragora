@@ -181,6 +181,44 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
+    def on_agent_preview(agents: list[dict]) -> None:
+        """Emit agent preview with roles, stances, and brief descriptions.
+
+        Called early in debate initialization to show agent info while
+        proposals are being generated.
+
+        Args:
+            agents: List of dicts with name, role, stance, description, strengths
+        """
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_PREVIEW,
+                data={"agents": agents, "topology": "collaborative"},
+                loop_id=loop_id,
+            )
+        )
+
+    def on_context_preview(
+        trending_topics: list[dict],
+        research_status: str = "gathering context...",
+        evidence_sources: list[str] | None = None,
+    ) -> None:
+        """Emit context preview with trending topics and research status.
+
+        Called when context gathering begins to show relevant background info.
+        """
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.CONTEXT_PREVIEW,
+                data={
+                    "trending_topics": trending_topics,
+                    "research_status": research_status,
+                    "evidence_sources": evidence_sources or [],
+                },
+                loop_id=loop_id,
+            )
+        )
+
     def on_round_start(round_num: int) -> None:
         emitter.emit(
             StreamEvent(
@@ -340,6 +378,8 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
 
     return {
         "on_debate_start": on_debate_start,
+        "on_agent_preview": on_agent_preview,
+        "on_context_preview": on_context_preview,
         "on_round_start": on_round_start,
         "on_message": on_message,
         "on_critique": on_critique,

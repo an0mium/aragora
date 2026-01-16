@@ -1,6 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { StreamEvent } from '@/types/events';
+import type {
+  QuickClassificationData,
+  AgentPreviewData,
+  ContextPreviewData,
+} from '@/types/events';
+import { getAgentColors } from '@/utils/agentColors';
 
 interface Props {
   task: string;
@@ -9,53 +16,177 @@ interface Props {
 }
 
 /**
- * Shows initialization progress while waiting for agent messages.
- * Displays task, agents, and phase progress from streamEvents.
+ * Shows rich initialization progress while waiting for agent messages.
+ * Displays quick classification, agent previews, and context gathering status.
  */
 export function DebateInitializationProgress({ task, agents, streamEvents }: Props) {
+  // Extract preview data from stream events
+  const classification = useMemo(() => {
+    const event = streamEvents.find(e => e.type === 'quick_classification');
+    return event?.data as QuickClassificationData | undefined;
+  }, [streamEvents]);
+
+  const agentPreviews = useMemo(() => {
+    const event = streamEvents.find(e => e.type === 'agent_preview');
+    return (event?.data as AgentPreviewData)?.agents;
+  }, [streamEvents]);
+
+  const contextPreview = useMemo(() => {
+    const event = streamEvents.find(e => e.type === 'context_preview');
+    return event?.data as ContextPreviewData | undefined;
+  }, [streamEvents]);
+
   // Get latest phase_progress event for status message
   const latestProgress = streamEvents
     .filter(e => e.type === 'phase_progress')
     .pop();
 
   const progressMessage = (latestProgress?.data as { message?: string })?.message;
-  const message = progressMessage
-    || (task ? 'Initializing debate...' : 'Connecting...');
+
+  // Calculate progress percentage based on available data
+  const progressPct = useMemo(() => {
+    if (agentPreviews) return 65;
+    if (contextPreview) return 55;
+    if (classification) return 45;
+    if (task) return 25;
+    return 10;
+  }, [task, classification, agentPreviews, contextPreview]);
 
   return (
-    <div className="text-center py-8 space-y-4">
-      {/* Task/Question */}
-      {task && (
-        <div className="text-sm text-text-muted font-mono max-w-2xl mx-auto">
-          {task}
+    <div className="space-y-4 animate-fade-in">
+      {/* Task with classification badges */}
+      <div className="p-4 border border-acid-green/30 bg-surface">
+        <div className="text-base font-mono text-acid-green mb-3">
+          {task || 'Waiting for debate topic...'}
         </div>
-      )}
 
-      {/* Agent badges */}
-      {agents.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-2">
-          {agents.map(agent => (
-            <span
-              key={agent}
-              className="px-2 py-1 bg-surface/50 border border-acid-green/20 rounded text-xs font-mono"
-            >
-              {agent}
+        {/* Classification badges */}
+        {classification && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            <span className="px-2 py-1 text-xs font-mono bg-accent/20 text-accent border border-accent/30">
+              {classification.question_type?.toUpperCase() || 'GENERAL'}
             </span>
-          ))}
-        </div>
-      )}
+            <span className="px-2 py-1 text-xs font-mono bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/30">
+              {classification.domain || 'other'}
+            </span>
+            <span className="px-2 py-1 text-xs font-mono bg-acid-yellow/20 text-acid-yellow border border-acid-yellow/30">
+              {classification.complexity || 'moderate'} complexity
+            </span>
+          </div>
+        )}
 
-      {/* Progress message */}
-      <div className="text-acid-cyan text-sm font-mono animate-pulse">
-        {message}
+        {/* Suggested approach */}
+        {classification?.suggested_approach && (
+          <p className="text-sm text-text-muted leading-relaxed">
+            {classification.suggested_approach}
+          </p>
+        )}
       </div>
 
-      {/* Progress bar */}
-      <div className="w-48 h-1 bg-surface/30 rounded mx-auto overflow-hidden">
-        <div
-          className="h-full bg-acid-green/50 animate-pulse transition-all duration-1000"
-          style={{ width: task ? '33%' : '10%' }}
-        />
+      {/* Key aspects to explore */}
+      {classification?.key_aspects && classification.key_aspects.length > 0 && (
+        <div className="p-3 border border-border bg-bg/50">
+          <div className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wider">
+            {'>'} Key Focus Areas
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {classification.key_aspects.map((aspect, i) => (
+              <span
+                key={i}
+                className="px-2 py-1 text-xs font-mono bg-surface border border-border text-text-secondary"
+              >
+                {aspect}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Agent preview cards */}
+      {agentPreviews && agentPreviews.length > 0 && (
+        <div className="p-3 border border-border bg-bg/50">
+          <div className="text-xs font-mono text-text-muted mb-3 uppercase tracking-wider">
+            {'>'} Debate Participants
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+            {agentPreviews.map((agent) => {
+              const colors = getAgentColors(agent.name);
+              return (
+                <div
+                  key={agent.name}
+                  className={`p-2 border ${colors.border} ${colors.bg} bg-opacity-10`}
+                >
+                  <div className={`text-xs font-mono ${colors.text} font-semibold`}>
+                    {agent.name}
+                  </div>
+                  <div className="text-xs text-text-muted mt-1">
+                    {agent.role} • {agent.stance}
+                  </div>
+                  {agent.description && (
+                    <div className="text-xs text-text-muted mt-1 line-clamp-2">
+                      {agent.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Context gathering status */}
+      {contextPreview && (
+        <div className="p-3 border border-accent/30 bg-accent/5">
+          <div className="text-xs font-mono text-accent mb-2 uppercase tracking-wider">
+            {'>'} Gathering Context...
+          </div>
+          {contextPreview.trending_topics && contextPreview.trending_topics.length > 0 && (
+            <div className="text-xs text-text-muted">
+              Related trends:{' '}
+              <span className="text-text-secondary">
+                {contextPreview.trending_topics.map(t => t.topic).join(', ')}
+              </span>
+            </div>
+          )}
+          {contextPreview.evidence_sources && contextPreview.evidence_sources.length > 0 && (
+            <div className="text-xs text-text-muted mt-1">
+              Sources:{' '}
+              <span className="text-text-secondary">
+                {contextPreview.evidence_sources.join(', ')}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Agent badges (fallback if no agent preview) */}
+      {!agentPreviews && agents.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {agents.map(agent => {
+            const colors = getAgentColors(agent);
+            return (
+              <span
+                key={agent}
+                className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+              >
+                {agent}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Progress indicator */}
+      <div className="flex items-center gap-3">
+        <div className="h-1 flex-1 bg-border overflow-hidden rounded-full">
+          <div
+            className="h-full bg-acid-green transition-all duration-1000 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        <span className="text-xs font-mono text-acid-cyan animate-pulse whitespace-nowrap">
+          {progressMessage || 'Agents preparing proposals...'}
+        </span>
       </div>
     </div>
   );

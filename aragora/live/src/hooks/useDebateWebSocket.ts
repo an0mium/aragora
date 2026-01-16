@@ -141,9 +141,9 @@ export function useDebateWebSocket({
   }, []);
 
   // Orphaned stream cleanup - handles agents that never send token_end
-  // NOTE: Backend agent timeout is 240s (4 min), stream chunk timeout is 90s
-  // Use 300s (5 min) to exceed backend agent timeout and prevent premature client-side timeouts
-  const STREAM_TIMEOUT_MS = 300000; // 300 seconds (5 minutes)
+  // Reduced from 300s to 60s to clean up orphaned streams faster and reduce blank periods
+  // The proposal staggering fix prevents most orphaned streams by avoiding API rate limit bursts
+  const STREAM_TIMEOUT_MS = 60000; // 60 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setStreamingMessages(prev => {
@@ -965,6 +965,43 @@ export function useDebateWebSocket({
         timestamp: (data.timestamp as number) || Date.now() / 1000,
       };
       addStreamEvent(event);
+    }
+
+    // Quick preview events (shown in first 5 seconds)
+    else if (data.type === 'quick_classification') {
+      const event: StreamEvent = {
+        type: 'quick_classification',
+        data: (eventData as Record<string, unknown>) || {},
+        timestamp: (data.timestamp as number) || Date.now() / 1000,
+      };
+      addStreamEvent(event);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[WS] QUICK_CLASSIFICATION:', eventData);
+      }
+    }
+
+    else if (data.type === 'agent_preview') {
+      const event: StreamEvent = {
+        type: 'agent_preview',
+        data: (eventData as Record<string, unknown>) || {},
+        timestamp: (data.timestamp as number) || Date.now() / 1000,
+      };
+      addStreamEvent(event);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[WS] AGENT_PREVIEW:', eventData);
+      }
+    }
+
+    else if (data.type === 'context_preview') {
+      const event: StreamEvent = {
+        type: 'context_preview',
+        data: (eventData as Record<string, unknown>) || {},
+        timestamp: (data.timestamp as number) || Date.now() / 1000,
+      };
+      addStreamEvent(event);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[WS] CONTEXT_PREVIEW:', eventData);
+      }
     }
 
     // Heartbeat events (debate is still alive)

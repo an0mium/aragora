@@ -83,7 +83,11 @@ export type StreamEventType =
   // Progress/heartbeat events (for detecting stalls)
   | 'heartbeat'
   | 'agent_error'
-  | 'phase_progress';
+  | 'phase_progress'
+  // Quick preview events (shown in first 5 seconds)
+  | 'quick_classification'
+  | 'agent_preview'
+  | 'context_preview';
 
 // Base interface for all stream events
 interface StreamEventBase {
@@ -224,6 +228,40 @@ export interface EvidenceFoundData {
   snippets: EvidenceSnippet[];
 }
 
+// Quick preview event data types (shown in first 5 seconds)
+export interface QuickClassificationData {
+  question_type: 'factual' | 'ethical' | 'technical' | 'creative' | 'policy' | 'comparative';
+  domain: 'science' | 'technology' | 'philosophy' | 'politics' | 'society' | 'economics' | 'other';
+  complexity: 'simple' | 'moderate' | 'complex';
+  key_aspects: string[];
+  suggested_approach: string;
+}
+
+export interface AgentPreviewItem {
+  name: string;
+  role: string;
+  stance: 'agree' | 'disagree' | 'neutral';
+  description: string;
+  strengths: string[];
+}
+
+export interface AgentPreviewData {
+  agents: AgentPreviewItem[];
+  topology: string;
+}
+
+export interface TrendingTopicPreview {
+  topic: string;
+  platform: string;
+  volume: number;
+}
+
+export interface ContextPreviewData {
+  trending_topics: TrendingTopicPreview[];
+  research_status: string;
+  evidence_sources: string[];
+}
+
 // Discriminated union of specific event types
 export type TypedStreamEvent =
   | (StreamEventBase & { type: 'agent_message'; data: AgentMessageData })
@@ -245,7 +283,10 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'trickster_intervention'; data: TricksterInterventionData })
   | (StreamEventBase & { type: 'rhetorical_observation'; data: RhetoricalObservationData })
   | (StreamEventBase & { type: 'uncertainty_analysis'; data: UncertaintyAnalysisData })
-  | (StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData });
+  | (StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData })
+  | (StreamEventBase & { type: 'quick_classification'; data: QuickClassificationData })
+  | (StreamEventBase & { type: 'agent_preview'; data: AgentPreviewData })
+  | (StreamEventBase & { type: 'context_preview'; data: ContextPreviewData });
 
 // Generic event type for events not yet specifically typed
 export interface GenericStreamEvent extends StreamEventBase {
@@ -284,6 +325,18 @@ export function isUncertaintyAnalysis(event: StreamEvent): event is StreamEventB
 
 export function isEvidenceFound(event: StreamEvent): event is StreamEventBase & { type: 'evidence_found'; data: EvidenceFoundData } {
   return event.type === 'evidence_found';
+}
+
+export function isQuickClassification(event: StreamEvent): event is StreamEventBase & { type: 'quick_classification'; data: QuickClassificationData } {
+  return event.type === 'quick_classification';
+}
+
+export function isAgentPreview(event: StreamEvent): event is StreamEventBase & { type: 'agent_preview'; data: AgentPreviewData } {
+  return event.type === 'agent_preview';
+}
+
+export function isContextPreview(event: StreamEvent): event is StreamEventBase & { type: 'context_preview'; data: ContextPreviewData } {
+  return event.type === 'context_preview';
 }
 
 export interface NomicState {
