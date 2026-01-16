@@ -373,9 +373,19 @@ export function useDebateWebSocket({
 
   // Helper to add message with deduplication
   const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
-    // Create key from agent + content prefix for deduplication
-    // NOTE: Timestamp excluded to prevent duplicates when same message arrives via sync vs streaming
-    const msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
+    // Create deduplication key based on message type
+    let msgKey: string;
+
+    if (msg.role === 'critic') {
+      // For critiques, dedupe by agent + round + role
+      // This prevents duplicates when target name varies (unknown vs actual)
+      msgKey = `${msg.agent}-critic-r${msg.round || 0}`;
+    } else {
+      // For other messages, use agent + content prefix
+      // NOTE: Timestamp excluded to prevent duplicates when same message arrives via sync vs streaming
+      msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
+    }
+
     if (seenMessagesRef.current.has(msgKey)) return false;
     seenMessagesRef.current.add(msgKey);
     setMessages(prev => [...prev, msg]);
@@ -969,15 +979,20 @@ export function useDebateWebSocket({
 
     // Quick preview events (shown in first 5 seconds)
     else if (data.type === 'quick_classification') {
+      // Always log classification for debugging (visible in browser console)
+      console.log('[WS] QUICK_CLASSIFICATION received:', {
+        question_type: (eventData as Record<string, unknown>)?.question_type,
+        domain: (eventData as Record<string, unknown>)?.domain,
+        complexity: (eventData as Record<string, unknown>)?.complexity,
+        key_aspects: (eventData as Record<string, unknown>)?.key_aspects,
+        timestamp: Date.now(),
+      });
       const event: StreamEvent = {
         type: 'quick_classification',
         data: (eventData as Record<string, unknown>) || {},
         timestamp: (data.timestamp as number) || Date.now() / 1000,
       };
       addStreamEvent(event);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[WS] QUICK_CLASSIFICATION:', eventData);
-      }
     }
 
     else if (data.type === 'agent_preview') {

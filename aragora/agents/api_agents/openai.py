@@ -1,11 +1,34 @@
 """
 OpenAI API agent with OpenRouter fallback support.
+
+Supports web search tool for web-capable responses when URLs
+or web-related keywords are detected in the prompt.
 """
+
+import logging
+import re
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import get_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
+
+logger = logging.getLogger(__name__)
+
+# Patterns that indicate web search would be helpful
+WEB_SEARCH_INDICATORS = [
+    r"https?://",  # URLs
+    r"github\.com",  # GitHub repos
+    r"\brepo\b",  # Repository mentions
+    r"\bwebsite\b",  # Website mentions
+    r"\bweb\s*page\b",  # Web page mentions
+    r"\bonline\b",  # Online content
+    r"\blatest\b",  # Latest information (might need fresh data)
+    r"\bcurrent\b",  # Current information
+    r"\brecent\b",  # Recent information
+    r"\bnews\b",  # News
+    r"\barticle\b",  # Articles
+]
 
 
 @AgentRegistry.register(
@@ -22,6 +45,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     Includes automatic fallback to OpenRouter when OpenAI quota is exceeded (429 error).
     The fallback uses the same GPT model via OpenRouter's API.
 
+    Supports web search tool for web-capable responses when URLs or web-related
+    keywords are detected in the prompt.
+
     Uses OpenAICompatibleMixin for standard OpenAI API implementation.
     """
 
@@ -32,6 +58,7 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         "gpt-4": "openai/gpt-4",
         "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
         "gpt-5.2": "openai/gpt-4o",  # Fallback to gpt-4o if gpt-5.2 not available
+        "gpt-4o-search-preview": "openai/gpt-4o",  # Search model fallback
     }
     DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
 
@@ -55,6 +82,42 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         self.agent_type = "openai"
         self.enable_fallback = enable_fallback
         self._fallback_agent = None
+        self.enable_web_search = True  # Enable web search tool by default
+        self._current_prompt = ""  # Track current prompt for web search detection
+
+    def _needs_web_search(self, prompt: str) -> bool:
+        """Detect if the prompt would benefit from web search.
+
+        Returns True if the prompt contains URLs, GitHub references,
+        or keywords indicating need for current/web information.
+        """
+        if not self.enable_web_search:
+            return False
+
+        for pattern in WEB_SEARCH_INDICATORS:
+            if re.search(pattern, prompt, re.IGNORECASE):
+                return True
+        return False
+
+    def _build_messages(self, full_prompt: str) -> list[dict]:
+        """Build messages and track prompt for web search detection."""
+        # Store prompt for _build_extra_payload to use
+        self._current_prompt = full_prompt
+        return super()._build_messages(full_prompt)
+
+    def _build_extra_payload(self) -> dict | None:
+        """Add web search tool if prompt indicates web content is needed."""
+        if self._needs_web_search(self._current_prompt):
+            logger.info(f"[{self.name}] Enabling web search tool for web content")
+            return {
+                "tools": [
+                    {
+                        "type": "web_search",
+                        "web_search": {},
+                    }
+                ]
+            }
+        return None
 
 
 __all__ = ["OpenAIAPIAgent"]

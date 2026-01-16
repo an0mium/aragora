@@ -241,6 +241,22 @@ class EvidenceCollector:
                         full_url = (
                             url if url.startswith(("http://", "https://")) else f"https://{url}"
                         )
+
+                        # Special handling for GitHub repos: fetch README
+                        if self._is_github_repo_url(full_url):
+                            readme_snippet = await self._fetch_github_readme(
+                                full_url, web_connector
+                            )
+                            if readme_snippet:
+                                all_snippets.append(readme_snippet)
+                                total_searched += 1
+                                logger.info(
+                                    f"Fetched GitHub README: {full_url} "
+                                    f"({len(readme_snippet.snippet)} chars)"
+                                )
+                                continue  # Skip regular URL fetch for repos
+
+                        # Regular URL fetch
                         if hasattr(web_connector, "fetch_url"):
                             evidence = await web_connector.fetch_url(full_url)
                             if evidence and getattr(evidence, "confidence", 0) > 0:
@@ -349,25 +365,120 @@ class EvidenceCollector:
             return [], 0
 
     def _extract_urls(self, task: str) -> List[str]:
-        """Extract explicit URLs and domain references from task description."""
-        patterns = [
-            r"https?://[^\s)<>\[\]]+",  # Full URLs (http/https)
-            r"www\.[^\s)<>\[\]]+",  # www URLs
-            r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov))\b",  # Domain names
-        ]
+        """Extract explicit URLs and domain references from task description.
+
+        Enhanced detection includes:
+        - Full URLs (http/https)
+        - www URLs
+        - Common domain TLDs
+        - GitHub repo references (owner/repo or github.com/owner/repo)
+        """
         urls = []
-        for pattern in patterns:
-            matches = re.findall(pattern, task, re.IGNORECASE)
-            urls.extend(matches)
-        # Deduplicate while preserving order
+
+        # Pattern 1: Full URLs with scheme
+        full_url_pattern = r"https?://[^\s)<>\[\]\"']+"
+        urls.extend(re.findall(full_url_pattern, task, re.IGNORECASE))
+
+        # Pattern 2: www URLs
+        www_pattern = r"www\.[^\s)<>\[\]\"']+"
+        urls.extend(re.findall(www_pattern, task, re.IGNORECASE))
+
+        # Pattern 3: GitHub repos without scheme (github.com/owner/repo)
+        github_pattern = r"\bgithub\.com/([\w.-]+)/([\w.-]+)"
+        for match in re.finditer(github_pattern, task, re.IGNORECASE):
+            full_match = match.group(0)
+            # Only add if not already captured by full URL pattern
+            if not any(full_match in url for url in urls):
+                urls.append(f"https://{full_match}")
+
+        # Pattern 4: Common domain TLDs
+        domain_pattern = r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov)(?:/[^\s)<>\[\]\"']*)?)\b"
+        for match in re.findall(domain_pattern, task, re.IGNORECASE):
+            if match and match not in urls:
+                urls.append(match)
+
+        # Deduplicate while preserving order, normalize trailing slashes
         seen = set()
         unique_urls = []
         for url in urls:
-            url_lower = url.lower()
-            if url_lower not in seen:
-                seen.add(url_lower)
+            # Normalize: strip trailing slashes for comparison
+            url_normalized = url.rstrip("/").lower()
+            if url_normalized not in seen:
+                seen.add(url_normalized)
                 unique_urls.append(url)
         return unique_urls
+
+    def _is_github_repo_url(self, url: str) -> bool:
+        """Check if URL points to a GitHub repository root."""
+        pattern = r"^https?://github\.com/([\w.-]+)/([\w.-]+)/?$"
+        return bool(re.match(pattern, url, re.IGNORECASE))
+
+    def _parse_github_repo(self, url: str) -> Optional[Tuple[str, str]]:
+        """Parse owner and repo from GitHub URL."""
+        pattern = r"github\.com/([\w.-]+)/([\w.-]+)"
+        match = re.search(pattern, url, re.IGNORECASE)
+        if match:
+            return match.group(1), match.group(2)
+        return None
+
+    async def _fetch_github_readme(
+        self, url: str, web_connector: Any
+    ) -> Optional[EvidenceSnippet]:
+        """Fetch README.md from a GitHub repository.
+
+        Tries multiple branch names (main, master, develop) and README variants.
+
+        Args:
+            url: GitHub repository URL
+            web_connector: Web connector with fetch_url method
+
+        Returns:
+            EvidenceSnippet with README content, or None if not found
+        """
+        parsed = self._parse_github_repo(url)
+        if not parsed:
+            return None
+
+        owner, repo = parsed
+        branches = ["main", "master", "develop"]
+        readme_files = ["README.md", "readme.md", "Readme.md", "README.rst", "README.txt"]
+
+        for branch in branches:
+            for readme_file in readme_files:
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{readme_file}"
+                try:
+                    if hasattr(web_connector, "fetch_url"):
+                        evidence = await web_connector.fetch_url(raw_url)
+                        if evidence and getattr(evidence, "content", ""):
+                            content = evidence.content
+                            # Skip if it looks like a 404 page
+                            if "404" in content[:100] or len(content) < 50:
+                                continue
+
+                            logger.info(
+                                f"Fetched README from {owner}/{repo} ({branch}/{readme_file})"
+                            )
+                            return EvidenceSnippet(
+                                id=f"gh_{owner}_{repo}_readme",
+                                source="github_readme",
+                                title=f"{owner}/{repo} README",
+                                snippet=self._truncate_snippet(content),
+                                url=f"https://github.com/{owner}/{repo}",
+                                reliability_score=0.85,  # High reliability for official README
+                                metadata={
+                                    "owner": owner,
+                                    "repo": repo,
+                                    "branch": branch,
+                                    "file": readme_file,
+                                    "raw_url": raw_url,
+                                },
+                            )
+                except Exception as e:
+                    logger.debug(f"Failed to fetch {raw_url}: {e}")
+                    continue
+
+        logger.warning(f"Could not find README for {owner}/{repo}")
+        return None
 
     def _extract_keywords(self, task: str) -> List[str]:
         """Extract search keywords from task description."""

@@ -195,18 +195,29 @@ class DebateController:
         Returns:
             Dict with type, domain, complexity, aspects, and approach
         """
+        import asyncio
         import json
+        import os
+
+        # Check for API key first
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            logger.error("[quick_classify] ANTHROPIC_API_KEY not set - skipping classification")
+            return _DEFAULT_CLASSIFICATION
+
+        logger.info("[quick_classify] Starting Haiku classification")
 
         try:
             from anthropic import AsyncAnthropic
 
             client = AsyncAnthropic()
-            response = await client.messages.create(
-                model="claude-3-5-haiku-20241022",
-                max_tokens=300,
-                messages=[{
-                    "role": "user",
-                    "content": f"""Classify this debate question. Return ONLY valid JSON, no other text.
+            # Wrap API call with 5 second timeout
+            response = await asyncio.wait_for(
+                client.messages.create(
+                    model="claude-3-5-haiku-20241022",
+                    max_tokens=300,
+                    messages=[{
+                        "role": "user",
+                        "content": f"""Classify this debate question. Return ONLY valid JSON, no other text.
 
 Question: {question[:500]}
 
@@ -216,7 +227,9 @@ Return JSON with these exact fields:
 - complexity: one of [simple, moderate, complex]
 - aspects: array of 3-4 key focus areas as short phrases
 - approach: one sentence on how AI agents will analyze this"""
-                }]
+                    }]
+                ),
+                timeout=5.0
             )
             # Parse JSON from response
             content = response.content[0].text.strip()
@@ -225,9 +238,17 @@ Return JSON with these exact fields:
                 content = content.split("```")[1]
                 if content.startswith("json"):
                     content = content[4:]
-            return json.loads(content)
+            result = json.loads(content)
+            logger.info(f"[quick_classify] Success: type={result.get('type')}, domain={result.get('domain')}")
+            return result
+        except asyncio.TimeoutError:
+            logger.error("[quick_classify] Haiku API timeout after 5s")
+            return _DEFAULT_CLASSIFICATION
+        except json.JSONDecodeError as e:
+            logger.error(f"[quick_classify] JSON parse error: {e}")
+            return _DEFAULT_CLASSIFICATION
         except Exception as e:
-            logger.warning(f"Quick classification failed: {e}")
+            logger.error(f"[quick_classify] Failed: {type(e).__name__}: {e}")
             return _DEFAULT_CLASSIFICATION
 
     def _quick_classify(self, question: str, debate_id: str) -> None:

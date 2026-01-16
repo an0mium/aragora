@@ -1,8 +1,12 @@
 """
 Anthropic API agent with OpenRouter fallback support.
+
+Supports web search tool for web-capable responses when URLs
+or web-related keywords are detected in the prompt.
 """
 
 import logging
+import re
 from typing import AsyncGenerator
 
 from aragora.agents.api_agents.base import APIAgent
@@ -24,6 +28,21 @@ from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
+
+# Patterns that indicate web search would be helpful
+WEB_SEARCH_INDICATORS = [
+    r"https?://",  # URLs
+    r"github\.com",  # GitHub repos
+    r"\brepo\b",  # Repository mentions
+    r"\bwebsite\b",  # Website mentions
+    r"\bweb\s*page\b",  # Web page mentions
+    r"\bonline\b",  # Online content
+    r"\blatest\b",  # Latest information (might need fresh data)
+    r"\bcurrent\b",  # Current information
+    r"\brecent\b",  # Recent information
+    r"\bnews\b",  # News
+    r"\barticle\b",  # Articles
+]
 
 
 @AgentRegistry.register(
@@ -74,6 +93,21 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         self.agent_type = "anthropic"
         self.enable_fallback = enable_fallback
         self._fallback_agent = None  # Cached by QuotaFallbackMixin
+        self.enable_web_search = True  # Enable web search tool by default
+
+    def _needs_web_search(self, prompt: str) -> bool:
+        """Detect if the prompt would benefit from web search.
+
+        Returns True if the prompt contains URLs, GitHub references,
+        or keywords indicating need for current/web information.
+        """
+        if not self.enable_web_search:
+            return False
+
+        for pattern in WEB_SEARCH_INDICATORS:
+            if re.search(pattern, prompt, re.IGNORECASE):
+                return True
+        return False
 
     @handle_agent_errors(
         max_retries=3,
@@ -93,17 +127,34 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         url = f"{self.base_url}/messages"
 
+        # Check if web search is needed
+        use_web_search = self._needs_web_search(full_prompt)
+
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
 
+        # Add beta header for web search if enabled
+        if use_web_search:
+            logger.info(f"[{self.name}] Enabling web search tool for web content")
+            headers["anthropic-beta"] = "web-search-2025-03-05"
+
         payload = {
             "model": self.model,
             "max_tokens": 4096,
             "messages": [{"role": "user", "content": full_prompt}],
         }
+
+        # Add web search tool if enabled
+        if use_web_search:
+            payload["tools"] = [
+                {
+                    "type": "web_search",
+                    "name": "web_search",
+                }
+            ]
 
         # Apply generation parameters from persona if set
         if self.temperature is not None:
@@ -146,6 +197,28 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                 )
 
                 try:
+                    # Extract text from response content blocks
+                    # May include multiple blocks: text, web_search_tool_result, etc.
+                    content_blocks = data.get("content", [])
+                    text_parts = []
+                    for block in content_blocks:
+                        if block.get("type") == "text":
+                            text_parts.append(block.get("text", ""))
+                        elif block.get("type") == "web_search_tool_result":
+                            # Include web search citations in response
+                            search_results = block.get("content", [])
+                            for result in search_results:
+                                if result.get("type") == "web_search_result":
+                                    # Format as a citation
+                                    title = result.get("title", "")
+                                    url = result.get("url", "")
+                                    if title and url:
+                                        text_parts.append(f"\n[Source: {title}]({url})")
+
+                    if text_parts:
+                        return "\n".join(text_parts)
+
+                    # Fallback to old format
                     return data["content"][0]["text"]
                 except (KeyError, IndexError):
                     raise AgentAPIError(
@@ -166,11 +239,19 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         url = f"{self.base_url}/messages"
 
+        # Check if web search is needed
+        use_web_search = self._needs_web_search(full_prompt)
+
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
+
+        # Add beta header for web search if enabled
+        if use_web_search:
+            logger.info(f"[{self.name}] Enabling web search tool for streaming")
+            headers["anthropic-beta"] = "web-search-2025-03-05"
 
         payload = {
             "model": self.model,
@@ -178,6 +259,15 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             "messages": [{"role": "user", "content": full_prompt}],
             "stream": True,
         }
+
+        # Add web search tool if enabled
+        if use_web_search:
+            payload["tools"] = [
+                {
+                    "type": "web_search",
+                    "name": "web_search",
+                }
+            ]
 
         # Apply generation parameters from persona if set
         if self.temperature is not None:
