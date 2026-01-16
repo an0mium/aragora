@@ -73,12 +73,14 @@ class BenchmarkAgent(Agent):
             await asyncio.sleep(self._delay)
         return f"Response from {self.name}"
 
-    async def critique(self, proposal: str, task: str, context: list = None) -> Critique:
+    async def critique(
+        self, proposal: str, task: str, context: list = None, target_agent: str = None
+    ) -> Critique:
         if self._delay > 0:
             await asyncio.sleep(self._delay)
         return Critique(
             agent=self.name,
-            target_agent="target",
+            target_agent=target_agent or "target",
             target_content=proposal[:100],
             issues=[],
             suggestions=[],

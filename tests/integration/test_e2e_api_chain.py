@@ -248,10 +248,10 @@ class TestHandlerCoordination:
             assert result.status_code in [200, 401, 403, 503]  # Valid HTTP codes
 
     def test_health_handler_always_responds(self, handler_context, mock_request):
-        """SystemHandler health endpoint should always work."""
-        from aragora.server.handlers.admin import SystemHandler
+        """HealthHandler health endpoint should always work."""
+        from aragora.server.handlers import HealthHandler
 
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
 
         result = handler.handle("/api/health", {}, mock_request)
 
@@ -261,10 +261,10 @@ class TestHandlerCoordination:
         assert result.status_code in [200, 503]
 
     def test_system_handler_returns_valid_json(self, handler_context, mock_request):
-        """SystemHandler should return valid JSON body."""
-        from aragora.server.handlers.admin import SystemHandler
+        """HealthHandler should return valid JSON body."""
+        from aragora.server.handlers import HealthHandler
 
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
         result = handler.handle("/api/health", {}, mock_request)
 
         assert result is not None
