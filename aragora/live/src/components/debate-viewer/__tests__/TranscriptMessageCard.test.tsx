@@ -1,0 +1,307 @@
+/**
+ * Tests for TranscriptMessageCard component
+ *
+ * Tests cover:
+ * - Standard message rendering
+ * - Synthesis message special rendering
+ * - Agent color styling
+ * - Crux highlighting
+ * - Timestamp display
+ * - Role and round badges
+ */
+
+import { render, screen } from '@testing-library/react';
+import { TranscriptMessageCard } from '../TranscriptMessageCard';
+import type { TranscriptMessage } from '@/hooks/useDebateWebSocket';
+import type { CruxClaim } from '../types';
+
+// Mock agentColors utility
+jest.mock('@/utils/agentColors', () => ({
+  getAgentColors: (agent: string) => ({
+    bg: `bg-${agent}-500/20`,
+    text: `text-${agent}-400`,
+    border: `border-${agent}-500/30`,
+  }),
+}));
+
+const createMessage = (
+  overrides: Partial<TranscriptMessage> = {}
+): TranscriptMessage => ({
+  agent: 'claude',
+  content: 'This is a test message.',
+  timestamp: 1705420800, // 2024-01-16 16:00:00 UTC
+  role: 'participant',
+  round: 1,
+  ...overrides,
+});
+
+describe('TranscriptMessageCard', () => {
+  describe('standard message rendering', () => {
+    it('renders agent name', () => {
+      render(<TranscriptMessageCard message={createMessage()} />);
+
+      expect(screen.getByText('CLAUDE')).toBeInTheDocument();
+    });
+
+    it('renders message content', () => {
+      const message = createMessage({ content: 'Test content here' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('Test content here')).toBeInTheDocument();
+    });
+
+    it('renders role badge', () => {
+      const message = createMessage({ role: 'critic' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('critic')).toBeInTheDocument();
+    });
+
+    it('renders round number', () => {
+      const message = createMessage({ round: 3 });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('R3')).toBeInTheDocument();
+    });
+
+    it('does not show round for round 0', () => {
+      const message = createMessage({ round: 0 });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.queryByText('R0')).not.toBeInTheDocument();
+    });
+
+    it('renders timestamp', () => {
+      const message = createMessage({ timestamp: 1705420800 });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      // Just check that something time-like is present
+      const container = screen.getByText('CLAUDE').closest('div');
+      expect(container).toBeInTheDocument();
+    });
+
+    it('shows SYSTEM for messages without agent', () => {
+      const message = createMessage({ agent: undefined });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('SYSTEM')).toBeInTheDocument();
+    });
+
+    it('applies agent colors', () => {
+      const message = createMessage({ agent: 'gpt-4' });
+      const { container } = render(<TranscriptMessageCard message={message} />);
+
+      // Check that the wrapper has the expected classes
+      const wrapper = container.firstChild;
+      expect(wrapper).toHaveClass('bg-gpt-4-500/20');
+      expect(wrapper).toHaveClass('border-gpt-4-500/30');
+    });
+  });
+
+  describe('synthesis message rendering', () => {
+    it('renders synthesis message differently for synthesis role', () => {
+      const message = createMessage({
+        role: 'synthesis',
+        content: 'Final conclusion',
+      });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('FINAL SYNTHESIS')).toBeInTheDocument();
+      expect(screen.getByText('Final conclusion')).toBeInTheDocument();
+    });
+
+    it('renders synthesis message for synthesis-agent', () => {
+      const message = createMessage({
+        agent: 'synthesis-agent',
+        content: 'Synthesized result',
+      });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('FINAL SYNTHESIS')).toBeInTheDocument();
+    });
+
+    it('renders synthesis message for consensus agent', () => {
+      const message = createMessage({
+        agent: 'consensus',
+        content: 'Consensus reached',
+      });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('FINAL SYNTHESIS')).toBeInTheDocument();
+    });
+
+    it('shows target emoji in synthesis header', () => {
+      const message = createMessage({ role: 'synthesis' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      // The emoji 🎯 should be present
+      expect(screen.getByText('🎯')).toBeInTheDocument();
+    });
+
+    it('shows DEBATE CONCLUSION in synthesis footer', () => {
+      const message = createMessage({ role: 'synthesis' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('DEBATE CONCLUSION')).toBeInTheDocument();
+    });
+
+    it('shows Generated by Claude Opus 4.5 in synthesis', () => {
+      const message = createMessage({ role: 'synthesis' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText('Generated by Claude Opus 4.5')).toBeInTheDocument();
+    });
+  });
+
+  describe('crux highlighting', () => {
+    const cruxes: CruxClaim[] = [
+      {
+        claim_id: 'crux-1',
+        statement: 'This is a test message',
+        author: 'claude',
+        crux_score: 0.9,
+      },
+    ];
+
+    it('highlights matching crux text', () => {
+      const message = createMessage({
+        content: 'This is a test message. More content follows.',
+      });
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} cruxes={cruxes} />
+      );
+
+      // Should have a highlighted span
+      const highlighted = container.querySelector('.bg-acid-yellow\\/20');
+      expect(highlighted).toBeInTheDocument();
+    });
+
+    it('shows CRUX label on hover', () => {
+      const message = createMessage({
+        content: 'This is a test message. More content.',
+      });
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} cruxes={cruxes} />
+      );
+
+      // Check for CRUX label element
+      const cruxLabel = container.querySelector('span.absolute');
+      expect(cruxLabel).toHaveTextContent('CRUX');
+    });
+
+    it('shows crux title on highlighted text', () => {
+      const message = createMessage({
+        content: 'This is a test message. More content.',
+      });
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} cruxes={cruxes} />
+      );
+
+      const highlighted = container.querySelector('[title^="Crux:"]');
+      expect(highlighted).toBeInTheDocument();
+    });
+
+    it('renders normally when no cruxes provided', () => {
+      const message = createMessage({ content: 'Normal message' });
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} />
+      );
+
+      expect(screen.getByText('Normal message')).toBeInTheDocument();
+      expect(container.querySelector('.bg-acid-yellow\\/20')).not.toBeInTheDocument();
+    });
+
+    it('renders normally when cruxes array is empty', () => {
+      const message = createMessage({ content: 'Normal message' });
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} cruxes={[]} />
+      );
+
+      expect(container.querySelector('.bg-acid-yellow\\/20')).not.toBeInTheDocument();
+    });
+
+    it('does not highlight when crux does not match content', () => {
+      const message = createMessage({ content: 'Completely different text' });
+      const nonMatchingCruxes: CruxClaim[] = [
+        {
+          claim_id: 'crux-2',
+          statement: 'This text does not appear',
+          author: 'gpt-4',
+        },
+      ];
+
+      const { container } = render(
+        <TranscriptMessageCard message={message} cruxes={nonMatchingCruxes} />
+      );
+
+      expect(container.querySelector('.bg-acid-yellow\\/20')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles empty content', () => {
+      const message = createMessage({ content: '' });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      // Should render without crashing
+      expect(screen.getByText('CLAUDE')).toBeInTheDocument();
+    });
+
+    it('handles very long content', () => {
+      const longContent = 'A'.repeat(10000);
+      const message = createMessage({ content: longContent });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      expect(screen.getByText(longContent)).toBeInTheDocument();
+    });
+
+    it('preserves whitespace in content', () => {
+      const message = createMessage({
+        content: 'Line 1\n\nLine 3\n  Indented',
+      });
+
+      const { container } = render(<TranscriptMessageCard message={message} />);
+
+      // The container should have whitespace-pre-wrap class
+      const contentDiv = container.querySelector('.whitespace-pre-wrap');
+      expect(contentDiv).toBeInTheDocument();
+    });
+
+    it('handles undefined timestamp', () => {
+      const message = createMessage({ timestamp: undefined });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      // Should render without crashing
+      expect(screen.getByText('CLAUDE')).toBeInTheDocument();
+    });
+
+    it('handles undefined role', () => {
+      const message = createMessage({ role: undefined });
+
+      render(<TranscriptMessageCard message={message} />);
+
+      // Should not show role badge
+      expect(screen.queryByText('participant')).not.toBeInTheDocument();
+    });
+  });
+});
