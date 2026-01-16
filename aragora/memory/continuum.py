@@ -24,7 +24,7 @@ import math
 import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDict
 
@@ -41,6 +41,10 @@ from aragora.memory.tier_manager import (
     TierManager,
     get_tier_manager,
 )
+
+# Import extracted modules for delegation
+from aragora.memory import continuum_consolidation as _consolidation
+from aragora.memory import continuum_stats as _stats
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
@@ -1035,41 +1039,7 @@ class ContinuumMemory(SQLiteStore):
         surprise_score: float,
     ) -> None:
         """Emit MEMORY_TIER_PROMOTION or MEMORY_TIER_DEMOTION event."""
-        if not self.event_emitter:
-            return
-
-        try:
-            from aragora.server.stream import StreamEvent, StreamEventType
-
-            stream_type = (
-                StreamEventType.MEMORY_TIER_PROMOTION
-                if event_type == "promotion"
-                else StreamEventType.MEMORY_TIER_DEMOTION
-            )
-
-            self.event_emitter.emit(
-                StreamEvent(
-                    type=stream_type,
-                    data={
-                        "memory_id": memory_id,
-                        "from_tier": from_tier.value,
-                        "to_tier": to_tier.value,
-                        "surprise_score": surprise_score,
-                    },
-                )
-            )
-        except ImportError:
-            # Stream module not available - expected in minimal installations
-            logger.debug("[memory] Stream module not available for tier event emission")
-        except (AttributeError, TypeError) as e:
-            # event_emitter not properly configured or emit() signature mismatch
-            logger.debug(f"[memory] Event emitter configuration error: {e}")
-        except (ValueError, KeyError) as e:
-            # Invalid event data or missing StreamEventType
-            logger.warning(f"[memory] Invalid tier event data: {e}")
-        except (ConnectionError, OSError) as e:
-            # Network/IO errors during event emission - non-critical
-            logger.debug(f"[memory] Event emission network error: {e}")
+        _consolidation.emit_tier_event(self, event_type, memory_id, from_tier, to_tier, surprise_score)
 
     def _promote_batch(
         self,
@@ -1082,74 +1052,8 @@ class ContinuumMemory(SQLiteStore):
 
         Uses executemany for efficient batch updates instead of N+1 queries.
         Thread-safe: uses lock to prevent race conditions with single-item operations.
-
-        Args:
-            from_tier: Source tier
-            to_tier: Target tier (must be one level faster)
-            ids: List of memory IDs to promote
-
-        Returns:
-            Number of successfully promoted entries
         """
-        if not ids:
-            return 0
-
-        now = datetime.now().isoformat()
-        cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
-        cutoff_time = (datetime.now() - timedelta(hours=cooldown_hours)).isoformat()
-
-        with self._tier_lock, self.connection() as conn:
-            cursor = conn.cursor()
-
-            # Batch UPDATE with cooldown check
-            # Only promote entries where last_promotion_at is NULL or older than cooldown
-            placeholders = ",".join("?" * len(ids))
-            cursor.execute(
-                f"""
-                UPDATE continuum_memory
-                SET tier = ?, last_promotion_at = ?, updated_at = ?
-                WHERE id IN ({placeholders})
-                  AND tier = ?
-                  AND (last_promotion_at IS NULL OR last_promotion_at < ?)
-                """,
-                (to_tier.value, now, now, *ids, from_tier.value, cutoff_time),
-            )
-            promoted_count = cursor.rowcount
-
-            # Batch INSERT tier transitions for promoted entries
-            # Only insert for entries that were actually updated
-            if promoted_count > 0:
-                cursor.execute(
-                    f"""
-                    SELECT id, surprise_score FROM continuum_memory
-                    WHERE id IN ({placeholders}) AND tier = ?
-                    """,
-                    (*ids, to_tier.value),
-                )
-                promoted_entries = cursor.fetchall()
-
-                if promoted_entries:
-                    cursor.executemany(
-                        """
-                        INSERT INTO tier_transitions
-                        (memory_id, from_tier, to_tier, reason, surprise_score)
-                        VALUES (?, ?, ?, 'high_surprise', ?)
-                        """,
-                        [
-                            (entry[0], from_tier.value, to_tier.value, entry[1])
-                            for entry in promoted_entries
-                        ],
-                    )
-
-            conn.commit()
-
-        if promoted_count > 0:
-            logger.info(
-                f"[memory] Batch promoted {promoted_count}/{len(ids)} entries: "
-                f"{from_tier.value} -> {to_tier.value}"
-            )
-
-        return promoted_count
+        return _consolidation.promote_batch(self, from_tier, to_tier, ids)
 
     def _demote_batch(
         self,
@@ -1162,230 +1066,25 @@ class ContinuumMemory(SQLiteStore):
 
         Uses executemany for efficient batch updates instead of N+1 queries.
         Thread-safe: uses lock to prevent race conditions with single-item operations.
-
-        Args:
-            from_tier: Source tier
-            to_tier: Target tier (must be one level slower)
-            ids: List of memory IDs to demote
-
-        Returns:
-            Number of successfully demoted entries
         """
-        if not ids:
-            return 0
-
-        now = datetime.now().isoformat()
-
-        with self._tier_lock, self.connection() as conn:
-            cursor = conn.cursor()
-
-            # Batch UPDATE - update_count check is already done in candidate selection
-            placeholders = ",".join("?" * len(ids))
-            cursor.execute(
-                f"""
-                UPDATE continuum_memory
-                SET tier = ?, updated_at = ?
-                WHERE id IN ({placeholders}) AND tier = ?
-                """,
-                (to_tier.value, now, *ids, from_tier.value),
-            )
-            demoted_count = cursor.rowcount
-
-            # Batch INSERT tier transitions for demoted entries
-            if demoted_count > 0:
-                cursor.execute(
-                    f"""
-                    SELECT id, surprise_score FROM continuum_memory
-                    WHERE id IN ({placeholders}) AND tier = ?
-                    """,
-                    (*ids, to_tier.value),
-                )
-                demoted_entries = cursor.fetchall()
-
-                if demoted_entries:
-                    cursor.executemany(
-                        """
-                        INSERT INTO tier_transitions
-                        (memory_id, from_tier, to_tier, reason, surprise_score)
-                        VALUES (?, ?, ?, 'high_stability', ?)
-                        """,
-                        [
-                            (entry[0], from_tier.value, to_tier.value, entry[1])
-                            for entry in demoted_entries
-                        ],
-                    )
-
-            conn.commit()
-
-        if demoted_count > 0:
-            logger.info(
-                f"[memory] Batch demoted {demoted_count}/{len(ids)} entries: "
-                f"{from_tier.value} -> {to_tier.value}"
-            )
-
-        return demoted_count
+        return _consolidation.demote_batch(self, from_tier, to_tier, ids)
 
     def consolidate(self) -> Dict[str, int]:
         """
         Run tier consolidation: promote/demote memories based on surprise.
 
         This should be called periodically (e.g., after each nomic cycle).
-
-        Uses batch operations to avoid N+1 query patterns for better performance
-        with large memory stores.
-
-        Each entry is only promoted/demoted once per consolidate call (one level
-        at a time), matching the behavior of the individual promote/demote methods.
-
-        Returns:
-            Dict with counts of promotions and demotions
+        Uses batch operations for better performance with large memory stores.
         """
-        logger.debug("[memory] Starting tier consolidation")
-        promotions = 0
-        demotions = 0
-
-        # Tier order for promotions: glacial -> slow -> medium -> fast
-        promotion_pairs = [
-            (MemoryTier.GLACIAL, MemoryTier.SLOW),
-            (MemoryTier.SLOW, MemoryTier.MEDIUM),
-            (MemoryTier.MEDIUM, MemoryTier.FAST),
-        ]
-
-        # Tier order for demotions: fast -> medium -> slow -> glacial
-        demotion_pairs = [
-            (MemoryTier.FAST, MemoryTier.MEDIUM),
-            (MemoryTier.MEDIUM, MemoryTier.SLOW),
-            (MemoryTier.SLOW, MemoryTier.GLACIAL),
-        ]
-
-        # Collect ALL candidates upfront before any processing
-        # This ensures each entry only moves one level per consolidate call
-        promotion_candidates: Dict[tuple, List[str]] = {}
-        demotion_candidates: Dict[tuple, List[str]] = {}
-
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            # Collect promotion candidates for all tier pairs
-            # Limit to 1000 per tier to prevent memory issues with large databases
-            batch_limit = 1000
-            for from_tier, to_tier in promotion_pairs:
-                config = TIER_CONFIGS[from_tier]
-                cursor.execute(
-                    """
-                    SELECT id FROM continuum_memory
-                    WHERE tier = ? AND surprise_score > ?
-                    ORDER BY surprise_score DESC
-                    LIMIT ?
-                    """,
-                    (from_tier.value, config.promotion_threshold, batch_limit),
-                )
-                ids = [row[0] for row in cursor.fetchall()]
-                if ids:
-                    promotion_candidates[(from_tier, to_tier)] = ids
-
-            # Collect demotion candidates for all tier pairs
-            for from_tier, to_tier in demotion_pairs:
-                config = TIER_CONFIGS[from_tier]
-                cursor.execute(
-                    """
-                    SELECT id FROM continuum_memory
-                    WHERE tier = ?
-                      AND (1.0 - surprise_score) > ?
-                      AND update_count > 10
-                    ORDER BY updated_at ASC
-                    LIMIT ?
-                    """,
-                    (from_tier.value, config.demotion_threshold, batch_limit),
-                )
-                ids = [row[0] for row in cursor.fetchall()]
-                if ids:
-                    demotion_candidates[(from_tier, to_tier)] = ids
-
-        # Process all promotions (outside the collection connection)
-        for (from_tier, to_tier), ids in promotion_candidates.items():
-            count = self._promote_batch(from_tier, to_tier, ids)
-            promotions += count
-            logger.debug(
-                f"Promoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
-            )
-
-        # Process all demotions (outside the collection connection)
-        for (from_tier, to_tier), ids in demotion_candidates.items():
-            count = self._demote_batch(from_tier, to_tier, ids)
-            demotions += count
-            logger.debug(
-                f"Demoted {count}/{len(ids)} entries from {from_tier.value} to {to_tier.value}"
-            )
-
-        if promotions > 0 or demotions > 0:
-            logger.info(
-                f"[memory] Consolidation complete: {promotions} promotions, {demotions} demotions"
-            )
-        else:
-            logger.debug("[memory] Consolidation complete: no tier changes")
-
-        return {"promotions": promotions, "demotions": demotions}
+        return _consolidation.consolidate(self)
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the continuum memory system."""
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            stats: Dict[str, Any] = {}
-
-            # Count by tier
-            cursor.execute(
-                """
-                SELECT tier, COUNT(*), AVG(importance), AVG(surprise_score), AVG(consolidation_score)
-                FROM continuum_memory
-                GROUP BY tier
-            """
-            )
-            stats["by_tier"] = {
-                row[0]: {
-                    "count": row[1],
-                    "avg_importance": row[2] or 0,
-                    "avg_surprise": row[3] or 0,
-                    "avg_consolidation": row[4] or 0,
-                }
-                for row in cursor.fetchall()
-            }
-
-            # Total counts
-            cursor.execute("SELECT COUNT(*) FROM continuum_memory")
-            row = cursor.fetchone()
-            stats["total_memories"] = row[0] if row else 0
-
-            # Transition history
-            cursor.execute(
-                """
-                SELECT from_tier, to_tier, COUNT(*)
-                FROM tier_transitions
-                GROUP BY from_tier, to_tier
-            """
-            )
-            stats["transitions"] = [
-                {"from": row[0], "to": row[1], "count": row[2]} for row in cursor.fetchall()
-            ]
-
-        return stats
+        return _stats.get_stats(self)
 
     def export_for_tier(self, tier: MemoryTier) -> List[Dict[str, Any]]:
         """Export all memories for a specific tier."""
-        entries = self.retrieve(tiers=[tier], limit=1000)
-        return [
-            {
-                "id": e.id,
-                "content": e.content,
-                "importance": e.importance,
-                "surprise_score": e.surprise_score,
-                "consolidation_score": e.consolidation_score,
-                "success_rate": e.success_rate,
-                "update_count": e.update_count,
-            }
-            for e in entries
-        ]
+        return _stats.export_for_tier(self, tier)
 
     def get_memory_pressure(self) -> float:
         """
@@ -1396,38 +1095,8 @@ class ContinuumMemory(SQLiteStore):
         - 1.0 = At least one tier is at or above its max_entries limit
 
         Use this to trigger cleanup when pressure exceeds a threshold (e.g., 0.8).
-
-        Returns:
-            Float between 0.0 and 1.0 indicating memory pressure level.
         """
-        max_entries = self.hyperparams["max_entries_per_tier"]
-        if not max_entries:
-            return 0.0
-
-        with self.connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT tier, COUNT(*)
-                FROM continuum_memory
-                GROUP BY tier
-            """
-            )
-            tier_counts: Dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
-
-        # Calculate utilization for each tier
-        max_pressure = 0.0
-        tier_names = ["fast", "medium", "slow", "glacial"]
-        for tier_name in tier_names:
-            # tier_name is validated to be one of the literal keys in tier_names list above
-            limit: int = max_entries[tier_name]  # type: ignore[literal-required]
-            if limit <= 0:
-                continue
-            count = tier_counts.get(tier_name, 0)
-            pressure = count / limit
-            max_pressure = max(max_pressure, pressure)
-
-        return min(max_pressure, 1.0)
+        return _stats.get_memory_pressure(self)
 
     def cleanup_expired_memories(
         self,
@@ -1449,78 +1118,7 @@ class ContinuumMemory(SQLiteStore):
         Returns:
             Dict with counts: {"archived": N, "deleted": N, "by_tier": {...}}
         """
-        results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
-        tiers_to_process = [tier] if tier else list(MemoryTier)
-        retention_multiplier = self.hyperparams["retention_multiplier"]
-
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            for t in tiers_to_process:
-                config = TIER_CONFIGS[t]
-                tier_name = t.value
-
-                # Calculate cutoff time
-                if max_age_hours is not None:
-                    retention_hours = max_age_hours
-                else:
-                    retention_hours = config.half_life_hours * retention_multiplier
-
-                cutoff = datetime.now() - timedelta(hours=retention_hours)
-                cutoff_str = cutoff.isoformat()
-
-                if archive:
-                    # Archive expired entries (excluding red-lined memories)
-                    cursor.execute(
-                        """
-                        INSERT INTO continuum_memory_archive
-                            (id, tier, content, importance, surprise_score,
-                             consolidation_score, update_count, success_count,
-                             failure_count, semantic_centroid, created_at,
-                             updated_at, archive_reason, metadata)
-                        SELECT id, tier, content, importance, surprise_score,
-                               consolidation_score, update_count, success_count,
-                               failure_count, semantic_centroid, created_at,
-                               updated_at, 'expired', metadata
-                        FROM continuum_memory
-                        WHERE tier = ?
-                          AND datetime(updated_at) < datetime(?)
-                          AND COALESCE(red_line, 0) = 0
-                        """,
-                        (tier_name, cutoff_str),
-                    )
-                    archived_count = cursor.rowcount
-                else:
-                    archived_count = 0
-
-                # Delete from main table (excluding red-lined memories)
-                cursor.execute(
-                    """
-                    DELETE FROM continuum_memory
-                    WHERE tier = ?
-                      AND datetime(updated_at) < datetime(?)
-                      AND COALESCE(red_line, 0) = 0
-                    """,
-                    (tier_name, cutoff_str),
-                )
-                deleted_count = cursor.rowcount
-
-                results["by_tier"][tier_name] = {
-                    "archived": archived_count if archive else 0,
-                    "deleted": deleted_count,
-                    "cutoff_hours": retention_hours,
-                }
-                results["archived"] += archived_count if archive else 0
-                results["deleted"] += deleted_count
-
-            conn.commit()
-
-        logger.info(
-            "Memory cleanup: archived=%d, deleted=%d",
-            results["archived"],
-            results["deleted"],
-        )
-        return results
+        return _stats.cleanup_expired_memories(self, tier, archive, max_age_hours)
 
     def delete(
         self,
@@ -1541,67 +1139,7 @@ class ContinuumMemory(SQLiteStore):
         Returns:
             Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
         """
-        result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id, "blocked": False}
-
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            # Check if memory exists and if it's red-lined
-            cursor.execute(
-                "SELECT id, red_line, red_line_reason FROM continuum_memory WHERE id = ?",
-                (memory_id,),
-            )
-            row = cursor.fetchone()
-            if not row:
-                logger.debug("Memory %s not found for deletion", memory_id)
-                return result
-
-            # Block deletion of red-lined entries unless forced
-            if row[1] and not force:  # red_line is True
-                logger.warning(
-                    "Blocked deletion of red-lined memory %s (reason: %s)",
-                    memory_id,
-                    row[2] or "unspecified",
-                )
-                result["blocked"] = True
-                result["red_line_reason"] = row[2] or "unspecified"
-                return result
-
-            if archive:
-                # Archive the entry before deletion
-                cursor.execute(
-                    """
-                    INSERT INTO continuum_memory_archive
-                        (id, tier, content, importance, surprise_score,
-                         consolidation_score, update_count, success_count,
-                         failure_count, semantic_centroid, created_at,
-                         updated_at, archive_reason, metadata)
-                    SELECT id, tier, content, importance, surprise_score,
-                           consolidation_score, update_count, success_count,
-                           failure_count, semantic_centroid, created_at,
-                           updated_at, ?, metadata
-                    FROM continuum_memory
-                    WHERE id = ?
-                    """,
-                    (reason, memory_id),
-                )
-                result["archived"] = cursor.rowcount > 0
-
-            # Delete from main table
-            cursor.execute(
-                "DELETE FROM continuum_memory WHERE id = ?",
-                (memory_id,),
-            )
-            result["deleted"] = cursor.rowcount > 0
-
-            conn.commit()
-
-        if result["deleted"]:
-            logger.info(
-                "Memory %s deleted (archived=%s, reason=%s)", memory_id, result["archived"], reason
-            )
-
-        return result
+        return _stats.delete_memory(self, memory_id, archive, reason, force)
 
     def enforce_tier_limits(
         self,
@@ -1621,118 +1159,8 @@ class ContinuumMemory(SQLiteStore):
         Returns:
             Dict with counts of removed entries by tier
         """
-        results: Dict[str, int] = {}
-        tiers_to_process = [tier] if tier else list(MemoryTier)
-        max_entries: MaxEntriesPerTier = self.hyperparams["max_entries_per_tier"]
-
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            for t in tiers_to_process:
-                tier_name = t.value
-                # get() returns Optional[int] but we provide a default, so result is always int
-                limit: int = max_entries.get(tier_name, 10000)  # type: ignore[assignment]
-
-                # Count current entries
-                cursor.execute(
-                    "SELECT COUNT(*) FROM continuum_memory WHERE tier = ?",
-                    (tier_name,),
-                )
-                row = cursor.fetchone()
-                count: int = row[0] if row else 0
-
-                if count <= limit:
-                    results[tier_name] = 0
-                    continue
-
-                excess: int = count - limit
-
-                if archive:
-                    # Archive lowest importance entries (excluding red-lined)
-                    cursor.execute(
-                        """
-                        INSERT INTO continuum_memory_archive
-                            (id, tier, content, importance, surprise_score,
-                             consolidation_score, update_count, success_count,
-                             failure_count, semantic_centroid, created_at,
-                             updated_at, archive_reason, metadata)
-                        SELECT id, tier, content, importance, surprise_score,
-                               consolidation_score, update_count, success_count,
-                               failure_count, semantic_centroid, created_at,
-                               updated_at, 'tier_limit', metadata
-                        FROM continuum_memory
-                        WHERE tier = ?
-                          AND COALESCE(red_line, 0) = 0
-                        ORDER BY importance ASC, updated_at ASC
-                        LIMIT ?
-                        """,
-                        (tier_name, excess),
-                    )
-
-                # Delete excess entries (lowest importance first, excluding red-lined)
-                cursor.execute(
-                    """
-                    DELETE FROM continuum_memory
-                    WHERE id IN (
-                        SELECT id FROM continuum_memory
-                        WHERE tier = ?
-                          AND COALESCE(red_line, 0) = 0
-                        ORDER BY importance ASC, updated_at ASC
-                        LIMIT ?
-                    )
-                    """,
-                    (tier_name, excess),
-                )
-
-                results[tier_name] = cursor.rowcount
-                logger.info(
-                    "Tier limit enforced: tier=%s, removed=%d (limit=%d)",
-                    tier_name,
-                    cursor.rowcount,
-                    limit,
-                )
-
-            conn.commit()
-
-        return results
+        return _stats.enforce_tier_limits(self, tier, archive)
 
     def get_archive_stats(self) -> Dict[str, Any]:
         """Get statistics about archived memories."""
-        with self.connection() as conn:
-            cursor = conn.cursor()
-
-            stats: Dict[str, Any] = {}
-
-            # Count by tier and reason
-            cursor.execute(
-                """
-                SELECT tier, archive_reason, COUNT(*)
-                FROM continuum_memory_archive
-                GROUP BY tier, archive_reason
-            """
-            )
-            by_tier_reason: Dict[str, Dict[str, int]] = {}
-            for row in cursor.fetchall():
-                tier, reason, count = row
-                if tier not in by_tier_reason:
-                    by_tier_reason[tier] = {}
-                by_tier_reason[tier][reason or "unknown"] = count
-            stats["by_tier_reason"] = by_tier_reason
-
-            # Total archived
-            cursor.execute("SELECT COUNT(*) FROM continuum_memory_archive")
-            row = cursor.fetchone()
-            stats["total_archived"] = row[0] if row else 0
-
-            # Oldest and newest archived
-            cursor.execute(
-                """
-                SELECT MIN(archived_at), MAX(archived_at)
-                FROM continuum_memory_archive
-            """
-            )
-            row = cursor.fetchone()
-            stats["oldest_archived"] = row[0]
-            stats["newest_archived"] = row[1]
-
-        return stats
+        return _stats.get_archive_stats(self)

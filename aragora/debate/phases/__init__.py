@@ -28,6 +28,7 @@ from aragora.debate.phases.belief_analysis import (
     DebateBeliefAnalyzer,
 )
 from aragora.debate.phases.consensus_phase import ConsensusPhase
+from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.context_init import ContextInitializer
 from aragora.debate.phases.synthesis_generator import SynthesisGenerator
@@ -39,6 +40,7 @@ from aragora.debate.phases.metrics import MetricsHelper, build_relationship_upda
 from aragora.debate.phases.proposal_phase import ProposalPhase
 from aragora.debate.phases.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
+from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.debate.phases.vote_aggregator import AggregatedVotes, VoteAggregator
 from aragora.debate.phases.vote_processor import VoteProcessor
 from aragora.debate.phases.vote_weighter import (
@@ -59,6 +61,7 @@ __all__ = [
     "ProposalPhase",
     "DebateRoundsPhase",
     "ConsensusPhase",
+    "ConsensusStorage",
     "AnalyticsPhase",
     "FeedbackPhase",
     "VotingPhase",
@@ -81,4 +84,5 @@ __all__ = [
     "VoteWeighterConfig",
     "VoteWeighterDeps",
     "SynthesisGenerator",
+    "TrainingEmitter",
 ]

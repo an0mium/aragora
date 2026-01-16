@@ -8,11 +8,9 @@ Provides a single entry point for:
 """
 
 import asyncio
-import json
 import os
 import re
 import sqlite3
-from collections import OrderedDict, deque
 from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -44,28 +42,19 @@ if TYPE_CHECKING:
     from aragora.server.middleware.rate_limit import RateLimitResult
     from aragora.storage import UserStore
 import logging
-
-# For ad-hoc debates
-import threading
 import time
-import uuid
 from urllib.parse import parse_qs, urlparse
 
 from .auth import auth_config, check_auth
-from .cors_config import cors_config
-from .middleware.tracing import TRACE_ID_HEADER, TracingMiddleware, get_trace_id
+from .middleware.tracing import TracingMiddleware
 from .prometheus import record_http_request
 from .storage import DebateStorage
-from .stream import (
-    DebateStreamServer,
-    SyncEventEmitter,
-)
+from .stream import DebateStreamServer, SyncEventEmitter
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 # Import centralized config and error utilities
-from aragora.config import ALLOWED_AGENT_TYPES
 from aragora.server.debate_controller import DebateController
 from aragora.server.debate_factory import DebateFactory
 from aragora.server.debate_utils import get_active_debates
@@ -74,31 +63,24 @@ from aragora.server.debate_utils import get_active_debates
 from aragora.server.http_utils import validate_query_params as _validate_query_params
 from aragora.server.validation import safe_query_float, safe_query_int
 
+# Import extracted modules
+from aragora.server.agent_selection import auto_select_agents
+from aragora.server.response_utils import ResponseHelpersMixin
+from aragora.server.upload_rate_limit import get_upload_limiter
+
 # DoS protection limits
 MAX_MULTIPART_PARTS = 10
-# Maximum content length for POST requests (100MB - DoS protection)
-MAX_CONTENT_LENGTH = 100 * 1024 * 1024
-# Maximum content length for JSON API requests (10MB)
-MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024
-
-# Note: SAFE_ID_PATTERN imported from validation.py (prevent path traversal)
+MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB for uploads
+MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB for JSON API
 
 # Trusted proxies for X-Forwarded-For header validation
-# Only trust X-Forwarded-For if request comes from these IPs
-
 TRUSTED_PROXIES = frozenset(
     p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
 
-
 # Import from initialization module (subsystem init functions)
-# Modular HTTP handlers via registry mixin
 from aragora.server.handler_registry import HandlerRegistryMixin
 from aragora.server.initialization import (
-    ROUTING_AVAILABLE,
-    AgentProfile,
-    AgentSelector,
-    TaskRequirements,
     init_consensus_memory,
     init_debate_embeddings,
     init_elo_system,
@@ -114,10 +96,11 @@ from aragora.server.initialization import (
 _server_start_time: float = time.time()
 
 
-class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
+class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
     """HTTP handler with API endpoints and static file serving.
 
     Handler routing is provided by HandlerRegistryMixin from handler_registry.py.
+    Response helpers are provided by ResponseHelpersMixin from response_utils.py.
     """
 
     storage: Optional[DebateStorage] = None
@@ -144,30 +127,15 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
     user_store: Optional["UserStore"] = None
     usage_tracker: Optional["UsageTracker"] = None
 
-    # Note: Modular HTTP handlers are provided by HandlerRegistryMixin
-    # Handler instance variables (_system_handler, etc.) and _handlers_initialized
-    # are inherited from the mixin along with _init_handlers() and _try_modular_handler()
-
     # Debate controller and factory (initialized lazily)
-    # Note: DebateController manages its own ThreadPoolExecutor with proper locking
     _debate_controller: Optional[DebateController] = None
     _debate_factory: Optional[DebateFactory] = None
 
-    # Upload rate limiting (IP-based, independent of auth)
-    # Uses OrderedDict for LRU eviction and deque with maxlen to prevent unbounded memory growth
-    _upload_counts: "OrderedDict[str, deque]" = OrderedDict()  # IP -> deque of upload timestamps
-    _upload_counts_lock = threading.Lock()
-    MAX_UPLOADS_PER_MINUTE = 5  # Maximum uploads per IP per minute
-    MAX_UPLOADS_PER_HOUR = 30  # Maximum uploads per IP per hour
-    _MAX_UPLOAD_TIMESTAMPS = 30  # Max timestamps to keep per IP (matches hourly limit)
-    MAX_TRACKED_IPS = 10000  # Prevent unbounded memory growth (LRU eviction beyond this)
-
     # Request logging for observability
-    _request_log_enabled = True  # Can be disabled via environment
-    _slow_request_threshold_ms = 1000  # Log warning for requests slower than this
+    _request_log_enabled = True
+    _slow_request_threshold_ms = 1000
 
     # Per-request rate limit result (set by _check_tier_rate_limit)
-    # Used to include X-RateLimit-* headers in all responses
     _rate_limit_result: Optional["RateLimitResult"] = None
 
     def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
@@ -424,86 +392,17 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         return True
 
     def _check_upload_rate_limit(self) -> bool:
-        """Check IP-based upload rate limit. Returns True if allowed, False if blocked.
+        """Check IP-based upload rate limit. Returns True if allowed, False if blocked."""
+        limiter = get_upload_limiter()
+        client_ip = limiter.get_client_ip(self)
+        allowed, error_info = limiter.check_allowed(client_ip)
 
-        Uses sliding window rate limiting per IP address.
-        Deques with maxlen prevent unbounded memory growth.
-        """
-        import time
-
-        # Get client IP (validate proxy headers for security)
-        remote_ip = self.client_address[0] if hasattr(self, "client_address") else "unknown"
-        client_ip = remote_ip  # Default to direct connection IP
-        if remote_ip in TRUSTED_PROXIES:
-            # Only trust X-Forwarded-For from trusted proxies
-            forwarded = self.headers.get("X-Forwarded-For", "")
-            if forwarded:
-                first_ip = forwarded.split(",")[0].strip()
-                if first_ip:
-                    client_ip = first_ip
-
-        now = time.time()
-        one_minute_ago = now - 60
-        one_hour_ago = now - 3600
-
-        with UnifiedHandler._upload_counts_lock:
-            # Get or create upload history for this IP (bounded deque)
-            if client_ip not in UnifiedHandler._upload_counts:
-                UnifiedHandler._upload_counts[client_ip] = deque(
-                    maxlen=UnifiedHandler._MAX_UPLOAD_TIMESTAMPS
-                )
-            else:
-                # Move to end for LRU tracking (most recently accessed)
-                UnifiedHandler._upload_counts.move_to_end(client_ip)
-
-            timestamps = UnifiedHandler._upload_counts[client_ip]
-
-            # Clean up old entries (rebuild deque with only recent timestamps)
-            recent_timestamps = [ts for ts in timestamps if ts > one_hour_ago]
-            timestamps.clear()
-            timestamps.extend(recent_timestamps)
-
-            # LRU eviction: enforce max tracked IPs limit
-            while len(UnifiedHandler._upload_counts) > UnifiedHandler.MAX_TRACKED_IPS:
-                # Remove oldest (first) entry - LRU eviction
-                UnifiedHandler._upload_counts.popitem(last=False)
-
-            # Periodically clean up stale IPs (those with no recent uploads)
-            # Do this occasionally to avoid overhead on every request
-            if len(UnifiedHandler._upload_counts) > 100:
-                stale_ips = [
-                    ip
-                    for ip, ts_deque in UnifiedHandler._upload_counts.items()
-                    if not ts_deque or max(ts_deque) < one_hour_ago
-                ]
-                for ip in stale_ips:
-                    del UnifiedHandler._upload_counts[ip]
-
-            # Check per-minute limit
-            recent_minute = sum(1 for ts in timestamps if ts > one_minute_ago)
-            if recent_minute >= UnifiedHandler.MAX_UPLOADS_PER_MINUTE:
-                self._send_json(
-                    {
-                        "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_MINUTE} uploads per minute.",
-                        "retry_after": 60,
-                    },
-                    status=429,
-                )
-                return False
-
-            # Check per-hour limit
-            if len(timestamps) >= UnifiedHandler.MAX_UPLOADS_PER_HOUR:
-                self._send_json(
-                    {
-                        "error": f"Upload rate limit exceeded. Max {UnifiedHandler.MAX_UPLOADS_PER_HOUR} uploads per hour.",
-                        "retry_after": 3600,
-                    },
-                    status=429,
-                )
-                return False
-
-            # Record this upload
-            timestamps.append(now)
+        if not allowed and error_info:
+            self._send_json(
+                {"error": error_info["message"], "retry_after": error_info["retry_after"]},
+                status=429,
+            )
+            return False
 
         return True
 
@@ -539,104 +438,13 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
         return UnifiedHandler._debate_controller
 
     def _auto_select_agents(self, question: str, config: dict) -> str:
-        """Select optimal agents using question classification and AgentSelector.
-
-        First tries the QuestionClassifier to match question type to appropriate
-        personas (e.g., ethical/theological -> philosopher, humanist).
-        Falls back to AgentSelector if classifier returns no recommendations.
-
-        Args:
-            question: The debate question/topic
-            config: Optional configuration with:
-                - primary_domain: Main domain (default: 'general')
-                - secondary_domains: Additional domains
-                - min_agents: Minimum team size (default: 2)
-                - max_agents: Maximum team size (default: 4)
-                - quality_priority: 0-1 scale (default: 0.7)
-                - diversity_preference: 0-1 scale (default: 0.5)
-
-        Returns:
-            Comma-separated string of agent types with optional roles
-        """
-        # Try question classifier first for better persona matching
-        try:
-            from aragora.server.question_classifier import classify_and_assign_agents
-
-            agent_string, classification = classify_and_assign_agents(question, use_llm=False)
-
-            if (
-                classification.recommended_personas
-                and len(classification.recommended_personas) >= 2
-            ):
-                logger.info(
-                    f"[auto_select] Classified as '{classification.category}' "
-                    f"(confidence={classification.confidence:.2f}), "
-                    f"personas={classification.recommended_personas}"
-                )
-                return agent_string
-            else:
-                logger.info(
-                    f"[auto_select] Classifier returned insufficient personas for "
-                    f"'{classification.category}', falling back to AgentSelector"
-                )
-        except Exception as e:
-            logger.warning(
-                f"[auto_select] Question classification failed: {e}, using AgentSelector"
-            )
-
-        # Fall back to AgentSelector
-        if not ROUTING_AVAILABLE:
-            return "gemini,anthropic-api"  # Fallback
-
-        try:
-            # Build task requirements from question and config
-            requirements = TaskRequirements(
-                task_id=f"debate-{uuid.uuid4().hex[:8]}",
-                description=question[:500],  # Truncate for safety
-                primary_domain=config.get("primary_domain", "general"),
-                secondary_domains=config.get("secondary_domains", []),
-                required_traits=config.get("required_traits", []),
-                min_agents=min(max(config.get("min_agents", 2), 2), 5),
-                max_agents=min(max(config.get("max_agents", 4), 2), 8),
-                quality_priority=min(max(config.get("quality_priority", 0.7), 0), 1),
-                diversity_preference=min(max(config.get("diversity_preference", 0.5), 0), 1),
-            )
-
-            # Create selector with ELO system and persona manager
-            selector = AgentSelector(
-                elo_system=self.elo_system,
-                persona_manager=self.persona_manager,
-            )
-
-            # Populate agent pool from allowed types
-            for agent_type in ALLOWED_AGENT_TYPES:
-                selector.register_agent(
-                    AgentProfile(
-                        name=agent_type,
-                        agent_type=agent_type,
-                    )
-                )
-
-            # Select optimal team
-            team = selector.select_team(requirements)
-
-            # Build agent string with roles if available
-            agent_specs = []
-            for agent in team.agents:
-                role = team.roles.get(agent.name, "")
-                if role:
-                    agent_specs.append(f"{agent.agent_type}:{role}")
-                else:
-                    agent_specs.append(agent.agent_type)
-
-            logger.info(
-                f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})"
-            )
-            return ",".join(agent_specs)
-
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"[auto_select] Failed: {e}, using fallback")
-            return "gemini,anthropic-api"  # Fallback on error
+        """Select optimal agents using question classification and AgentSelector."""
+        return auto_select_agents(
+            question=question,
+            config=config,
+            elo_system=self.elo_system,
+            persona_manager=self.persona_manager,
+        )
 
     def do_GET(self) -> None:
         """Handle GET requests."""
@@ -923,90 +731,8 @@ class UnifiedHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ign
             # Client disconnected before response could be sent
             logger.debug(f"Client disconnected during file serve: {type(e).__name__}")
 
-    def _send_json(self, data, status: int = 200) -> None:
-        """Send JSON response."""
-        self._response_status = status  # Track for metrics
-        content = json.dumps(data).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(content)))
-        self._add_cors_headers()
-        self._add_security_headers()
-        self._add_rate_limit_headers()
-        self._add_trace_headers()
-        self.end_headers()
-        self.wfile.write(content)
-
-    def _add_trace_headers(self) -> None:
-        """Add trace ID header to response for correlation."""
-        trace_id = get_trace_id()
-        if trace_id:
-            self.send_header(TRACE_ID_HEADER, trace_id)
-
-    def _add_rate_limit_headers(self) -> None:
-        """Add rate limit headers to response.
-
-        Includes X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset
-        headers if a rate limit check was performed for this request.
-        """
-        result = getattr(self, "_rate_limit_result", None)
-        if result is None:
-            return
-
-        from aragora.server.middleware.rate_limit import rate_limit_headers
-
-        headers = rate_limit_headers(result)
-        for name, value in headers.items():
-            self.send_header(name, value)
-
-    def _add_security_headers(self) -> None:
-        """Add security headers to prevent common attacks."""
-        # Prevent clickjacking
-        self.send_header("X-Frame-Options", "DENY")
-        # Prevent MIME type sniffing
-        self.send_header("X-Content-Type-Options", "nosniff")
-        # Enable XSS filter
-        self.send_header("X-XSS-Protection", "1; mode=block")
-        # Referrer policy - don't leak internal URLs
-        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
-        # Content Security Policy - prevent XSS and data injection
-        # Note: 'unsafe-inline' for styles needed by CSS-in-JS frameworks
-        # 'unsafe-eval' removed for security - blocks eval()/new Function()
-        self.send_header(
-            "Content-Security-Policy",
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "connect-src 'self' wss: https:; "
-            "font-src 'self' data:; "
-            "frame-ancestors 'none'",
-        )
-        # HTTP Strict Transport Security - enforce HTTPS
-        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-
-    def _add_cors_headers(self) -> None:
-        """Add CORS headers with origin validation."""
-        # Security: Validate origin against centralized allowlist
-        request_origin = self.headers.get("Origin", "")
-
-        if cors_config.is_origin_allowed(request_origin):
-            self.send_header("Access-Control-Allow-Origin", request_origin)
-            # Allow credentials (cookies, authorization headers) for authenticated requests
-            self.send_header("Access-Control-Allow-Credentials", "true")
-        elif not request_origin:
-            # Same-origin requests don't have Origin header
-            pass
-        # else: no CORS header = browser blocks cross-origin request
-
-        # Support all REST methods including DELETE for privacy endpoints
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-        self.send_header(
-            "Access-Control-Allow-Headers",
-            "Content-Type, X-Filename, Authorization, Accept, Origin, X-Requested-With",
-        )
-        # Cache preflight response for 1 hour to reduce OPTIONS requests
-        self.send_header("Access-Control-Max-Age", "3600")
+    # Note: _send_json, _add_cors_headers, _add_security_headers, _add_rate_limit_headers,
+    # and _add_trace_headers are inherited from ResponseHelpersMixin
 
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging."""
@@ -1192,158 +918,14 @@ class UnifiedServer:
 
     async def start(self) -> None:
         """Start both HTTP and WebSocket servers."""
-        # Initialize error monitoring (no-op if SENTRY_DSN not set)
-        try:
-            from aragora.server.error_monitoring import init_monitoring
+        # Run startup sequence (monitoring, tracing, metrics, background tasks, etc.)
+        from aragora.server.startup import run_startup_sequence
 
-            if init_monitoring():
-                logger.info("Error monitoring enabled (Sentry)")
-        except ImportError:
-            pass  # sentry-sdk not installed
-
-        # Initialize OpenTelemetry tracing (if OTEL_ENABLED=true)
-        try:
-            from aragora.observability.config import is_tracing_enabled
-            from aragora.observability.tracing import get_tracer
-
-            if is_tracing_enabled():
-                get_tracer()  # Initialize tracer singleton
-                logger.info("OpenTelemetry tracing enabled")
-            else:
-                logger.debug("OpenTelemetry tracing disabled (set OTEL_ENABLED=true to enable)")
-        except ImportError as e:
-            logger.debug(f"OpenTelemetry not available: {e}")
-        except Exception as e:
-            logger.warning(f"Failed to initialize OpenTelemetry: {e}")
-
-        # Initialize Prometheus metrics (if METRICS_ENABLED=true)
-        try:
-            from aragora.observability.config import is_metrics_enabled
-            from aragora.observability.metrics import start_metrics_server
-
-            if is_metrics_enabled():
-                # Note: start_metrics_server starts a separate HTTP server on METRICS_PORT (default 9090)
-                # The /metrics endpoint at /api path uses aragora.server.metrics instead
-                start_metrics_server()
-                logger.info("Prometheus metrics server started")
-        except ImportError as e:
-            logger.debug(f"Prometheus metrics not available: {e}")
-        except Exception as e:
-            logger.warning(f"Failed to start metrics server: {e}")
-
-        # Initialize circuit breaker persistence
-        try:
-            from aragora.resilience import (
-                init_circuit_breaker_persistence,
-                load_circuit_breakers,
-            )
-
-            data_dir = self.nomic_dir or Path(".data")
-            db_path = str(data_dir / "circuit_breaker.db")
-            init_circuit_breaker_persistence(db_path)
-            loaded = load_circuit_breakers()
-            if loaded > 0:
-                logger.info(f"Restored {loaded} circuit breaker states from disk")
-        except (ImportError, OSError, RuntimeError) as e:
-            logger.debug(f"Circuit breaker persistence not available: {e}")
-
-        # Initialize background tasks for maintenance
-        try:
-            from aragora.server.background import get_background_manager, setup_default_tasks
-
-            nomic_path = str(self.nomic_dir) if self.nomic_dir else None
-            # Pass the shared continuum_memory instance for efficient cleanup
-            # Note: continuum_memory is initialized lazily via get_continuum_memory()
-            setup_default_tasks(
-                nomic_dir=nomic_path,
-                memory_instance=None,  # Will use shared instance from get_continuum_memory()
-            )
-            background_mgr = get_background_manager()
-            background_mgr.start()
-            logger.info("Background task manager started")
-        except (ImportError, RuntimeError, OSError) as e:
-            logger.warning("Failed to start background tasks: %s", e)
-
-        # Auto-start pulse scheduler if configured
-        try:
-            from aragora.config.legacy import (
-                PULSE_SCHEDULER_AUTOSTART,
-                PULSE_SCHEDULER_MAX_PER_HOUR,
-                PULSE_SCHEDULER_POLL_INTERVAL,
-            )
-
-            if PULSE_SCHEDULER_AUTOSTART:
-                from aragora.server.handlers.pulse import get_pulse_scheduler
-
-                scheduler = get_pulse_scheduler()
-                if scheduler:
-                    # Update config from environment
-                    scheduler.update_config(
-                        {
-                            "poll_interval_seconds": PULSE_SCHEDULER_POLL_INTERVAL,
-                            "max_debates_per_hour": PULSE_SCHEDULER_MAX_PER_HOUR,
-                        }
-                    )
-
-                    # Set up debate creator callback
-                    async def auto_create_debate(topic_text: str, rounds: int, threshold: float):
-                        try:
-                            from aragora import Arena, DebateProtocol, Environment
-                            from aragora.agents import get_agents_by_names
-
-                            env = Environment(task=topic_text)
-                            agents = get_agents_by_names(["anthropic-api", "openai-api"])
-                            protocol = DebateProtocol(
-                                rounds=rounds,
-                                consensus="majority",
-                                convergence_detection=False,
-                                early_stopping=False,
-                            )
-                            if not agents:
-                                return None
-                            arena = Arena.from_env(env, agents, protocol)
-                            result = await arena.run()
-                            return {
-                                "debate_id": result.id,
-                                "consensus_reached": result.consensus_reached,
-                                "confidence": result.confidence,
-                                "rounds_used": result.rounds_used,
-                            }
-                        except Exception as e:
-                            logger.error(f"Auto-scheduled debate failed: {e}")
-                            return None
-
-                    scheduler.set_debate_creator(auto_create_debate)
-                    asyncio.create_task(scheduler.start())
-                    logger.info("Pulse scheduler auto-started (PULSE_SCHEDULER_AUTOSTART=true)")
-                else:
-                    logger.warning("Pulse scheduler not available for autostart")
-        except ImportError as e:
-            logger.debug(f"Pulse scheduler autostart not available: {e}")
-        except Exception as e:
-            logger.warning(f"Failed to auto-start pulse scheduler: {e}")
-
-        # Start periodic state cleanup task (prevents memory leaks from stale entries)
-        try:
-            from aragora.server.stream.state_manager import (
-                get_stream_state_manager,
-                start_cleanup_task,
-            )
-
-            stream_state_manager = get_stream_state_manager()
-            start_cleanup_task(stream_state_manager, interval_seconds=300)
-            logger.debug("State cleanup task started (5 min interval)")
-        except (ImportError, RuntimeError) as e:
-            logger.debug(f"State cleanup task not started: {e}")
-
-        # Start stuck debate watchdog (auto-cancels debates running too long)
-        try:
-            from aragora.server.debate_utils import watchdog_stuck_debates
-
-            self._watchdog_task = asyncio.create_task(watchdog_stuck_debates())
-            logger.info("Stuck debate watchdog started (10 min timeout)")
-        except (ImportError, RuntimeError) as e:
-            logger.debug(f"Stuck debate watchdog not started: {e}")
+        startup_status = await run_startup_sequence(
+            nomic_dir=self.nomic_dir,
+            stream_emitter=self.stream_server.emitter,
+        )
+        self._watchdog_task = startup_status.get("watchdog_task")
 
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
