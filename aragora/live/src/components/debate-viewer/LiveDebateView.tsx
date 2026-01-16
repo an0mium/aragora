@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
@@ -16,6 +16,7 @@ import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
 import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import { DebateInitializationProgress } from './DebateInitializationProgress';
 import { AudioDownloadSection } from './AudioDownloadSection';
+import { PhaseIndicator } from './PhaseIndicator';
 import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
 
@@ -55,6 +56,21 @@ export function LiveDebateView({
 }: LiveDebateViewProps) {
   const statusConfig = STATUS_CONFIG[status];
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Calculate current phase/round from stream events or messages
+  const currentPhase = useMemo(() => {
+    // Try to get phase from phase_progress events
+    const phaseEvents = streamEvents.filter(e => e.type === 'phase_progress');
+    if (phaseEvents.length > 0) {
+      const lastEvent = phaseEvents[phaseEvents.length - 1];
+      const phase = (lastEvent.data as { phase?: number; round?: number })?.phase
+                 ?? (lastEvent.data as { phase?: number; round?: number })?.round;
+      if (typeof phase === 'number') return phase;
+    }
+    // Fallback: estimate from messages
+    if (messages.length === 0) return 0;
+    return Math.max(...messages.map(m => m.round ?? 0));
+  }, [streamEvents, messages]);
 
   return (
     <div className="space-y-6">
@@ -98,6 +114,18 @@ export function LiveDebateView({
           </div>
         </div>
       </div>
+
+      {/* Phase Progress Indicator - visible during streaming */}
+      {status === 'streaming' && (
+        <div className="bg-surface border border-acid-green/30 p-4">
+          <PhaseIndicator
+            currentRound={currentPhase}
+            totalRounds={9}
+            isComplete={false}
+            showProgress={true}
+          />
+        </div>
+      )}
 
       {/* Analytics Meters - visible during streaming */}
       {status === 'streaming' && (

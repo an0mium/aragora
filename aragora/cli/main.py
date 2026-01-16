@@ -76,8 +76,8 @@ def parse_agents(agents_str: str) -> list[tuple[str, str | None]]:
 async def run_debate(
     task: str,
     agents_str: str,
-    rounds: int = 3,
-    consensus: str = "majority",
+    rounds: int = 8,  # 9-round format (0-8) default
+    consensus: str = "judge",  # Judge-based consensus default
     context: str = "",
     learn: bool = True,
     db_path: str = "agora_memory.db",
@@ -663,7 +663,7 @@ def cmd_memory(args: argparse.Namespace) -> None:
     elif action == "consolidate":
         print("Running memory consolidation...")
         stats = memory.consolidate()
-        print(f"Consolidation complete:")
+        print("Consolidation complete:")
         print(f"  Promotions: {stats.get('promotions', 0)}")
         print(f"  Demotions: {stats.get('demotions', 0)}")
 
@@ -781,7 +781,7 @@ def cmd_elo(args: argparse.Namespace) -> None:
                     losses = rival.get("total_losses", 0)
                     print(f"    {name}: {losses} losses")
 
-        except Exception as e:
+        except Exception:
             print(f"Agent not found: {agent}")
 
 
@@ -830,13 +830,13 @@ Examples:
             "Use agent:role for specific roles."
         ),
     )
-    ask_parser.add_argument("--rounds", "-r", type=int, default=3, help="Number of debate rounds")
+    ask_parser.add_argument("--rounds", "-r", type=int, default=8, help="Number of debate rounds (default: 8 for 9-round format)")
     ask_parser.add_argument(
         "--consensus",
         "-c",
         choices=["majority", "unanimous", "judge", "none"],
-        default="majority",
-        help="Consensus mechanism",
+        default="judge",
+        help="Consensus mechanism (default: judge)",
     )
     ask_parser.add_argument("--context", help="Additional context for the task")
     ask_parser.add_argument(
@@ -976,7 +976,7 @@ Examples:
         default="anthropic-api,openai-api",
         help="Comma-separated agents for debates",
     )
-    repl_parser.add_argument("--rounds", "-r", type=int, default=3, help="Debate rounds")
+    repl_parser.add_argument("--rounds", "-r", type=int, default=8, help="Debate rounds (default: 8)")
     repl_parser.set_defaults(func=cmd_repl)
 
     # Config command (manage settings)

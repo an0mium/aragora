@@ -302,11 +302,11 @@ class DebateFactory:
         if config.debate_format == "light":
             base_protocol = ARAGORA_AI_LIGHT_PROTOCOL
             max_rounds = 4
-            logger.info(f"debate_format=light using 4-round quick protocol")
+            logger.info("debate_format=light using 4-round quick protocol")
         else:
             base_protocol = ARAGORA_AI_PROTOCOL
             max_rounds = 9
-            logger.info(f"debate_format=full using 9-round thorough protocol")
+            logger.info("debate_format=full using 9-round thorough protocol")
 
         # Create environment with appropriate round count
         env = Environment(

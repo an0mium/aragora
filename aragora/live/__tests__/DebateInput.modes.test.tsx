@@ -15,7 +15,8 @@ global.fetch = mockFetch;
 // Mock config
 jest.mock('../src/config', () => ({
   DEFAULT_AGENTS: 'claude,gemini,gpt4',
-  DEFAULT_ROUNDS: 3,
+  DEFAULT_ROUNDS: 8,  // 9-round format default
+  DEFAULT_CONSENSUS: 'judge',
   AGENT_DISPLAY_NAMES: {
     claude: 'Claude',
     gemini: 'Gemini',

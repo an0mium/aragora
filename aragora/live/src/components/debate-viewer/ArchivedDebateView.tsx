@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { DebateForkPanel } from './DebateForkPanel';
+import { DownloadSection } from './DownloadSection';
 import { BroadcastPanel } from '@/components/broadcast';
 import { logger } from '@/utils/logger';
 import type { ArchivedDebateViewProps, TranscriptMessage } from './types';
@@ -119,6 +120,18 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
           {(debate.transcript as unknown as TranscriptMessage[]).map((msg, idx) => (
             <TranscriptMessageCard key={idx} message={msg} />
           ))}
+        </div>
+      </div>
+
+      {/* Download Section */}
+      <div className="bg-surface border border-acid-green/30">
+        <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
+          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+            {'>'} DOWNLOAD TRANSCRIPT
+          </span>
+        </div>
+        <div className="p-4">
+          <DownloadSection debateId={debate.id} isCompleted={true} />
         </div>
       </div>
 

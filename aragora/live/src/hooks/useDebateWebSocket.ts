@@ -16,6 +16,7 @@ export interface TranscriptMessage {
   role?: string;
   content: string;
   round?: number;
+  phase?: number;  // Current debate phase (0-8 for 9-round format)
   timestamp?: number;
 }
 
@@ -306,7 +307,7 @@ export function useDebateWebSocket({
       setError('Debate failed to start');
       setErrorDetails('The debate did not start within the expected time. This could be due to invalid configuration or server issues.');
     }
-  }, [debateId, hasReceivedDebateStart, reconnectAttempt, fetchDebateStatus]);
+  }, [hasReceivedDebateStart, reconnectAttempt, fetchDebateStatus]);
 
   // Schedule reconnection with exponential backoff
   const scheduleReconnect = useCallback(() => {

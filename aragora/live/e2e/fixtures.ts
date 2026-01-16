@@ -10,14 +10,14 @@ export const testData = {
     simple: {
       topic: 'Should AI systems be open source?',
       agents: ['claude', 'gpt'],
-      rounds: 3,
+      rounds: 8,  // 9-round format default
     },
     complex: {
       topic: 'What is the best approach to implementing rate limiting in distributed systems?',
       agents: ['claude', 'gpt', 'gemini'],
-      rounds: 5,
+      rounds: 8,  // 9-round format default
       options: {
-        consensus: 'majority',
+        consensus: 'judge',  // Judge-based consensus default
         enableEvidence: true,
       },
     },

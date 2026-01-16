@@ -167,7 +167,7 @@ const defaultBackend: BackendConfig = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765/ws',
   defaultAgents: (process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'anthropic-api,openai-api').split(','),
-  defaultRounds: parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '3', 10),
+  defaultRounds: parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '8', 10),  // 9-round format default
 };
 
 // ============================================================================
