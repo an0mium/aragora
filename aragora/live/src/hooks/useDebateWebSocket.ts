@@ -362,6 +362,13 @@ export function useDebateWebSocket({
 
   // Process a single event from the WebSocket
   const processEvent = useCallback((data: Record<string, unknown>) => {
+    // Debug logging for all WebSocket events (development only)
+    if (process.env.NODE_ENV === 'development') {
+      const eventInfo = data.agent ? ` from ${data.agent}` : '';
+      const seqInfo = data.seq ? ` (seq=${data.seq})` : '';
+      console.debug(`[WS] Event: ${data.type}${eventInfo}${seqInfo}`);
+    }
+
     // Track sequence numbers for gap detection
     // Note: Token events (token_delta) are intentionally reordered by the server
     // to group tokens by agent for smoother rendering. This causes expected
@@ -1005,6 +1012,9 @@ export function useDebateWebSocket({
 
     ws.onopen = () => {
       logger.debug('[WebSocket] Connected');
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[WS] Connected to debate ${debateId}`);
+      }
       setStatus('streaming');
       setError(null);
       setErrorDetails(null);

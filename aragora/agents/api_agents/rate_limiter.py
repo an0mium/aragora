@@ -149,12 +149,17 @@ class OpenRouterRateLimiter:
 
                 if self._tokens >= 1:
                     self._tokens -= 1
-                    # Add inter-request delay to prevent burst requests
-                    from aragora.config import OPENROUTER_INTER_REQUEST_DELAY
+                    acquired = True
+                else:
+                    acquired = False
 
-                    if OPENROUTER_INTER_REQUEST_DELAY > 0:
-                        await asyncio.sleep(OPENROUTER_INTER_REQUEST_DELAY)
-                    return True
+            # Stagger delay OUTSIDE lock to allow parallel token acquisition
+            if acquired:
+                from aragora.config import OPENROUTER_INTER_REQUEST_DELAY
+
+                if OPENROUTER_INTER_REQUEST_DELAY > 0:
+                    await asyncio.sleep(OPENROUTER_INTER_REQUEST_DELAY)
+                return True
 
             # Wait and retry
             if time.monotonic() >= deadline:
@@ -407,12 +412,17 @@ class ProviderRateLimiter:
 
                 if self._tokens >= 1:
                     self._tokens -= 1
-                    # Add inter-request delay to prevent burst requests
-                    from aragora.config import INTER_REQUEST_DELAY_SECONDS
+                    acquired = True
+                else:
+                    acquired = False
 
-                    if INTER_REQUEST_DELAY_SECONDS > 0:
-                        await asyncio.sleep(INTER_REQUEST_DELAY_SECONDS)
-                    return True
+            # Stagger delay OUTSIDE lock to allow parallel token acquisition
+            if acquired:
+                from aragora.config import INTER_REQUEST_DELAY_SECONDS
+
+                if INTER_REQUEST_DELAY_SECONDS > 0:
+                    await asyncio.sleep(INTER_REQUEST_DELAY_SECONDS)
+                return True
 
             # Wait and retry
             if time.monotonic() >= deadline:
