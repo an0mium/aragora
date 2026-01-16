@@ -261,11 +261,17 @@ and building on others' ideas."""
         elif phase.cognitive_mode == "Examiner":
             lines.append("Question directly. Clarify remaining disputes and test convictions.")
         elif phase.cognitive_mode == "Researcher":
-            lines.append("Gather evidence. Research background context, find supporting data, identify key sources.")
+            lines.append(
+                "Gather evidence. Research background context, find supporting data, identify key sources."
+            )
         elif phase.cognitive_mode == "Adjudicator":
-            lines.append("Render judgment. Weigh all arguments fairly, select the strongest position, explain your verdict.")
+            lines.append(
+                "Render judgment. Weigh all arguments fairly, select the strongest position, explain your verdict."
+            )
         elif phase.cognitive_mode == "Integrator":
-            lines.append("Connect the dots. Identify emerging patterns, bridge opposing views, highlight key trade-offs.")
+            lines.append(
+                "Connect the dots. Identify emerging patterns, bridge opposing views, highlight key trade-offs."
+            )
 
         return "\n".join(lines)
 

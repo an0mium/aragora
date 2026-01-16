@@ -830,7 +830,13 @@ Examples:
             "Use agent:role for specific roles."
         ),
     )
-    ask_parser.add_argument("--rounds", "-r", type=int, default=8, help="Number of debate rounds (default: 8 for 9-round format)")
+    ask_parser.add_argument(
+        "--rounds",
+        "-r",
+        type=int,
+        default=8,
+        help="Number of debate rounds (default: 8 for 9-round format)",
+    )
     ask_parser.add_argument(
         "--consensus",
         "-c",
@@ -976,7 +982,9 @@ Examples:
         default="anthropic-api,openai-api",
         help="Comma-separated agents for debates",
     )
-    repl_parser.add_argument("--rounds", "-r", type=int, default=8, help="Debate rounds (default: 8)")
+    repl_parser.add_argument(
+        "--rounds", "-r", type=int, default=8, help="Debate rounds (default: 8)"
+    )
     repl_parser.set_defaults(func=cmd_repl)
 
     # Config command (manage settings)
