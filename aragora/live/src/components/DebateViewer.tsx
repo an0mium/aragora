@@ -535,7 +535,7 @@ interface LiveDebateViewProps {
   onSuggest: (suggestion: string) => void;
   onAck: (callback: (msgType: string) => void) => () => void;
   onError: (callback: (message: string) => void) => () => void;
-  scrollContainerRef: React.RefObject<HTMLDivElement>;
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   userScrolled: boolean;
   onResumeAutoScroll: () => void;
