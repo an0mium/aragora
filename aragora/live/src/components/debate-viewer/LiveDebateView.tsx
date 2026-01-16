@@ -195,7 +195,8 @@ export function LiveDebateView({
             onScroll={onScroll}
             className="p-4 space-y-4 min-h-[400px]"
           >
-            {messages.length === 0 && streamingMessages.size === 0 && status === 'streaming' && (
+            {/* Show initialization progress OR classification summary during early streaming */}
+            {status === 'streaming' && messages.length === 0 && (
               <DebateInitializationProgress
                 task={task}
                 agents={agents}
