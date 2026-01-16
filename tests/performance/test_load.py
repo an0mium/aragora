@@ -145,6 +145,14 @@ def system_handler(mock_handler_context):
 
 
 @pytest.fixture
+def health_handler(mock_handler_context):
+    """Create HealthHandler instance for /api/health endpoints."""
+    from aragora.server.handlers.admin import HealthHandler
+
+    return HealthHandler(mock_handler_context)
+
+
+@pytest.fixture
 def agents_handler(mock_handler_context):
     """Create AgentsHandler instance."""
     from aragora.server.handlers.agents import AgentsHandler
@@ -287,7 +295,7 @@ async def run_async_load_test(
 class TestHealthEndpointLoad:
     """Load tests for health check endpoints."""
 
-    def test_health_endpoint_light_load(self, system_handler):
+    def test_health_endpoint_light_load(self, health_handler):
         """Health endpoint should handle light load."""
         config = LoadTestConfig(
             concurrent_users=5,
@@ -295,7 +303,7 @@ class TestHealthEndpointLoad:
             warmup_requests=5,
         )
 
-        result = run_load_test(system_handler, "/api/health", config)
+        result = run_load_test(health_handler, "/api/health", config)
 
         print(f"\n{result.summary()}")
         if result.errors:
@@ -306,7 +314,7 @@ class TestHealthEndpointLoad:
         assert result.successful_requests > 0, "At least some requests should succeed"
         assert result.total_requests == 100, "All requests should complete"
 
-    def test_health_endpoint_medium_load(self, system_handler):
+    def test_health_endpoint_medium_load(self, health_handler):
         """Health endpoint should handle medium load.
 
         Note: This is a smoke test with mocked dependencies.
@@ -318,7 +326,7 @@ class TestHealthEndpointLoad:
             warmup_requests=10,
         )
 
-        result = run_load_test(system_handler, "/api/health", config)
+        result = run_load_test(health_handler, "/api/health", config)
 
         print(f"\n{result.summary()}")
         # Verify completion and that we have latency data
@@ -329,7 +337,7 @@ class TestHealthEndpointLoad:
             assert result.p95_ms < 1000, f"P95 too high: {result.p95_ms:.1f}ms"
 
     @pytest.mark.slow
-    def test_health_endpoint_heavy_load(self, system_handler):
+    def test_health_endpoint_heavy_load(self, health_handler):
         """Health endpoint should handle heavy load."""
         config = LoadTestConfig(
             concurrent_users=50,
@@ -337,7 +345,7 @@ class TestHealthEndpointLoad:
             warmup_requests=20,
         )
 
-        result = run_load_test(system_handler, "/api/health", config)
+        result = run_load_test(health_handler, "/api/health", config)
 
         print(f"\n{result.summary()}")
         assert result.error_rate < 0.05  # Allow 5% errors under heavy load
@@ -384,7 +392,7 @@ class TestMetricsEndpointLoad:
 class TestMemoryStability:
     """Tests for memory stability under load."""
 
-    def test_no_memory_leak_repeated_requests(self, system_handler):
+    def test_no_memory_leak_repeated_requests(self, health_handler):
         """Repeated requests should not leak memory."""
         import tracemalloc
 
@@ -396,7 +404,7 @@ class TestMemoryStability:
 
         # Run many requests
         for _ in range(1000):
-            system_handler.handle("/api/health", {}, None)
+            health_handler.handle("/api/health", {}, None)
 
         # After load
         gc.collect()
@@ -411,7 +419,7 @@ class TestMemoryStability:
 
         tracemalloc.stop()
 
-    def test_memory_stable_under_concurrent_load(self, system_handler):
+    def test_memory_stable_under_concurrent_load(self, health_handler):
         """Memory should remain stable under concurrent load."""
         import resource
 
@@ -423,7 +431,7 @@ class TestMemoryStability:
             requests_per_user=100,
         )
 
-        run_load_test(system_handler, "/api/health", config)
+        run_load_test(health_handler, "/api/health", config)
 
         gc.collect()
         final_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -447,7 +455,7 @@ class TestMemoryStability:
 class TestConnectionPooling:
     """Tests for connection pooling behavior."""
 
-    def test_concurrent_connections_handled(self, system_handler):
+    def test_concurrent_connections_handled(self, health_handler):
         """Should handle many concurrent connections.
 
         Note: With mocked dependencies, thread safety may vary.
@@ -458,7 +466,7 @@ class TestConnectionPooling:
         def worker():
             for _ in range(10):
                 try:
-                    response = system_handler.handle("/api/health", {}, None)
+                    response = health_handler.handle("/api/health", {}, None)
                     results.append(response is not None and response.status_code == 200)
                 except Exception:
                     results.append(False)
@@ -484,14 +492,14 @@ class TestConnectionPooling:
 class TestRateLimitingBehavior:
     """Tests for rate limiting behavior under load."""
 
-    def test_burst_requests(self, system_handler):
+    def test_burst_requests(self, health_handler):
         """Should handle burst traffic."""
         # Simulate burst: 100 requests as fast as possible
         start = time.time()
         success_count = 0
 
         for _ in range(100):
-            response = system_handler.handle("/api/health", {}, None)
+            response = health_handler.handle("/api/health", {}, None)
             if response and response.status_code < 500:
                 success_count += 1
 
@@ -544,7 +552,7 @@ class TestEndpointSpecificLoad:
 class TestStressConditions:
     """Stress tests for extreme conditions."""
 
-    def test_sustained_high_load(self, system_handler):
+    def test_sustained_high_load(self, health_handler):
         """System should survive sustained high load."""
         config = LoadTestConfig(
             concurrent_users=100,
@@ -552,14 +560,14 @@ class TestStressConditions:
             warmup_requests=50,
         )
 
-        result = run_load_test(system_handler, "/api/health", config)
+        result = run_load_test(health_handler, "/api/health", config)
 
         print(f"\n{result.summary()}")
         # Under extreme load, accept higher error rate
         assert result.error_rate < 0.20, f"Error rate: {result.error_rate:.2%}"
         assert result.successful_requests > result.failed_requests
 
-    def test_rapid_ramp_up(self, system_handler):
+    def test_rapid_ramp_up(self, health_handler):
         """System should handle rapid ramp-up in traffic."""
         results = []
 
@@ -571,7 +579,7 @@ class TestStressConditions:
                 warmup_requests=0,  # No warmup to simulate sudden spike
             )
 
-            result = run_load_test(system_handler, "/api/health", config)
+            result = run_load_test(health_handler, "/api/health", config)
             results.append((concurrent, result))
             print(f"\n{concurrent} users: {result.summary()}")
 
@@ -589,14 +597,14 @@ class TestStressConditions:
 class TestAsyncLoad:
     """Async load tests."""
 
-    async def test_async_concurrent_requests(self, system_handler):
+    async def test_async_concurrent_requests(self, health_handler):
         """Should handle async concurrent requests."""
         config = LoadTestConfig(
             concurrent_users=20,
             requests_per_user=10,
         )
 
-        result = await run_async_load_test(system_handler, "/api/health", config)
+        result = await run_async_load_test(health_handler, "/api/health", config)
 
         print(f"\n{result.summary()}")
         assert result.error_rate < 0.05
@@ -635,9 +643,9 @@ def benchmark_endpoint(
 class TestBenchmarks:
     """Benchmark tests for performance baselines."""
 
-    def test_health_benchmark(self, system_handler):
+    def test_health_benchmark(self, health_handler):
         """Benchmark health endpoint."""
-        result = benchmark_endpoint(system_handler, "/api/health", iterations=100)
+        result = benchmark_endpoint(health_handler, "/api/health", iterations=100)
 
         print(f"\nHealth endpoint benchmark:")
         for key, value in result.items():
