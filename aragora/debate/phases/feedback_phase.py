@@ -30,6 +30,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.agents.errors import _build_error_action
+from aragora.debate.phases.consensus_storage import ConsensusStorage
+from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.typing import (
     BroadcastPipelineProtocol,
     CalibrationTrackerProtocol,
@@ -177,6 +179,15 @@ class FeedbackPhase:
         self._update_continuum_memory_outcomes = update_continuum_memory_outcomes
         self._index_debate_async = index_debate_async
 
+        # Initialize helper classes for extracted logic
+        self._consensus_storage = ConsensusStorage(consensus_memory=consensus_memory)
+        self._training_emitter = TrainingEmitter(
+            training_exporter=training_exporter,
+            event_emitter=event_emitter,
+            insight_store=insight_store,
+            loop_id=loop_id,
+        )
+
     async def execute(self, ctx: "DebateContext") -> None:
         """
         Execute all feedback loops.
@@ -210,10 +221,12 @@ class FeedbackPhase:
         self._detect_flips(ctx)
 
         # 8. Store debate outcome in ConsensusMemory for historical retrieval
-        self._store_consensus_outcome(ctx)
+        consensus_id = self._consensus_storage.store_consensus_outcome(ctx)
+        if consensus_id:
+            setattr(ctx, "_last_consensus_id", consensus_id)
 
         # 9. Store belief cruxes for future seeding
-        self._store_cruxes(ctx)
+        self._consensus_storage.store_cruxes(ctx, consensus_id)
 
         # 10. Store debate outcome in ContinuumMemory
         self._store_memory(ctx)
@@ -243,10 +256,10 @@ class FeedbackPhase:
         self._assess_risks(ctx)
 
         # 19. Record insight usage for learning loop (B2)
-        await self._record_insight_usage(ctx)
+        await self._training_emitter.record_insight_usage(ctx)
 
         # 20. Emit training data for Tinker fine-tuning
-        await self._emit_training_data(ctx)
+        await self._training_emitter.emit_training_data(ctx)
 
         # 21. Auto-trigger broadcast for high-quality debates
         await self._maybe_trigger_broadcast(ctx)

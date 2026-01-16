@@ -1,0 +1,439 @@
+"""
+Statistics, cleanup, and retention logic for Continuum Memory System.
+
+Extracted from continuum.py to reduce module size while maintaining functionality.
+All functions operate on ContinuumMemory instances passed as the first parameter.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
+
+if TYPE_CHECKING:
+    from aragora.memory.continuum import ContinuumMemory, MaxEntriesPerTier
+
+logger = logging.getLogger(__name__)
+
+
+def get_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
+    """Get statistics about the continuum memory system."""
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+
+        stats: Dict[str, Any] = {}
+
+        # Count by tier
+        cursor.execute(
+            """
+            SELECT tier, COUNT(*), AVG(importance), AVG(surprise_score), AVG(consolidation_score)
+            FROM continuum_memory
+            GROUP BY tier
+        """
+        )
+        stats["by_tier"] = {
+            row[0]: {
+                "count": row[1],
+                "avg_importance": row[2] or 0,
+                "avg_surprise": row[3] or 0,
+                "avg_consolidation": row[4] or 0,
+            }
+            for row in cursor.fetchall()
+        }
+
+        # Total counts
+        cursor.execute("SELECT COUNT(*) FROM continuum_memory")
+        row = cursor.fetchone()
+        stats["total_memories"] = row[0] if row else 0
+
+        # Transition history
+        cursor.execute(
+            """
+            SELECT from_tier, to_tier, COUNT(*)
+            FROM tier_transitions
+            GROUP BY from_tier, to_tier
+        """
+        )
+        stats["transitions"] = [
+            {"from": row[0], "to": row[1], "count": row[2]} for row in cursor.fetchall()
+        ]
+
+    return stats
+
+
+def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> List[Dict[str, Any]]:
+    """Export all memories for a specific tier."""
+    entries = cms.retrieve(tiers=[tier], limit=1000)
+    return [
+        {
+            "id": e.id,
+            "content": e.content,
+            "importance": e.importance,
+            "surprise_score": e.surprise_score,
+            "consolidation_score": e.consolidation_score,
+            "success_rate": e.success_rate,
+            "update_count": e.update_count,
+        }
+        for e in entries
+    ]
+
+
+def get_memory_pressure(cms: "ContinuumMemory") -> float:
+    """
+    Calculate memory pressure as a 0-1 score based on tier utilization.
+
+    Returns the highest utilization ratio across all tiers, where:
+    - 0.0 = All tiers are empty
+    - 1.0 = At least one tier is at or above its max_entries limit
+
+    Use this to trigger cleanup when pressure exceeds a threshold (e.g., 0.8).
+
+    Returns:
+        Float between 0.0 and 1.0 indicating memory pressure level.
+    """
+    max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
+    if not max_entries:
+        return 0.0
+
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT tier, COUNT(*)
+            FROM continuum_memory
+            GROUP BY tier
+        """
+        )
+        tier_counts: Dict[str, int] = {row[0]: row[1] for row in cursor.fetchall()}
+
+    # Calculate utilization for each tier
+    max_pressure = 0.0
+    tier_names = ["fast", "medium", "slow", "glacial"]
+    for tier_name in tier_names:
+        # tier_name is validated to be one of the literal keys in tier_names list above
+        limit: int = max_entries[tier_name]  # type: ignore[literal-required]
+        if limit <= 0:
+            continue
+        count = tier_counts.get(tier_name, 0)
+        pressure = count / limit
+        max_pressure = max(max_pressure, pressure)
+
+    return min(max_pressure, 1.0)
+
+
+def cleanup_expired_memories(
+    cms: "ContinuumMemory",
+    tier: Optional[MemoryTier] = None,
+    archive: bool = True,
+    max_age_hours: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Remove or archive expired memories based on tier retention policies.
+
+    Memories are considered expired when they are older than:
+    tier_half_life * retention_multiplier (default 2x)
+
+    Args:
+        cms: ContinuumMemory instance
+        tier: Specific tier to cleanup (None = all tiers)
+        archive: If True, move to archive table; if False, delete permanently
+        max_age_hours: Override default retention (uses tier half-life * multiplier if None)
+
+    Returns:
+        Dict with counts: {"archived": N, "deleted": N, "by_tier": {...}}
+    """
+    results: Dict[str, Any] = {"archived": 0, "deleted": 0, "by_tier": {}}
+    tiers_to_process = [tier] if tier else list(MemoryTier)
+    retention_multiplier = cms.hyperparams["retention_multiplier"]
+
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+
+        for t in tiers_to_process:
+            config = DEFAULT_TIER_CONFIGS[t]
+            tier_name = t.value
+
+            # Calculate cutoff time
+            if max_age_hours is not None:
+                retention_hours = max_age_hours
+            else:
+                retention_hours = config.half_life_hours * retention_multiplier
+
+            cutoff = datetime.now() - timedelta(hours=retention_hours)
+            cutoff_str = cutoff.isoformat()
+
+            if archive:
+                # Archive expired entries (excluding red-lined memories)
+                cursor.execute(
+                    """
+                    INSERT INTO continuum_memory_archive
+                        (id, tier, content, importance, surprise_score,
+                         consolidation_score, update_count, success_count,
+                         failure_count, semantic_centroid, created_at,
+                         updated_at, archive_reason, metadata)
+                    SELECT id, tier, content, importance, surprise_score,
+                           consolidation_score, update_count, success_count,
+                           failure_count, semantic_centroid, created_at,
+                           updated_at, 'expired', metadata
+                    FROM continuum_memory
+                    WHERE tier = ?
+                      AND datetime(updated_at) < datetime(?)
+                      AND COALESCE(red_line, 0) = 0
+                    """,
+                    (tier_name, cutoff_str),
+                )
+                archived_count = cursor.rowcount
+            else:
+                archived_count = 0
+
+            # Delete from main table (excluding red-lined memories)
+            cursor.execute(
+                """
+                DELETE FROM continuum_memory
+                WHERE tier = ?
+                  AND datetime(updated_at) < datetime(?)
+                  AND COALESCE(red_line, 0) = 0
+                """,
+                (tier_name, cutoff_str),
+            )
+            deleted_count = cursor.rowcount
+
+            results["by_tier"][tier_name] = {
+                "archived": archived_count if archive else 0,
+                "deleted": deleted_count,
+                "cutoff_hours": retention_hours,
+            }
+            results["archived"] += archived_count if archive else 0
+            results["deleted"] += deleted_count
+
+        conn.commit()
+
+    logger.info(
+        "Memory cleanup: archived=%d, deleted=%d",
+        results["archived"],
+        results["deleted"],
+    )
+    return results
+
+
+def delete_memory(
+    cms: "ContinuumMemory",
+    memory_id: str,
+    archive: bool = True,
+    reason: str = "user_deleted",
+    force: bool = False,
+) -> Dict[str, Any]:
+    """
+    Delete a specific memory entry by ID.
+
+    Args:
+        cms: ContinuumMemory instance
+        memory_id: The ID of the memory to delete
+        archive: If True, archive before deletion; if False, delete permanently
+        reason: Reason for deletion (stored in archive)
+        force: If True, delete even if entry is red-lined (dangerous!)
+
+    Returns:
+        Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
+    """
+    result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id, "blocked": False}
+
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+
+        # Check if memory exists and if it's red-lined
+        cursor.execute(
+            "SELECT id, red_line, red_line_reason FROM continuum_memory WHERE id = ?",
+            (memory_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            logger.debug("Memory %s not found for deletion", memory_id)
+            return result
+
+        # Block deletion of red-lined entries unless forced
+        if row[1] and not force:  # red_line is True
+            logger.warning(
+                "Blocked deletion of red-lined memory %s (reason: %s)",
+                memory_id,
+                row[2] or "unspecified",
+            )
+            result["blocked"] = True
+            result["red_line_reason"] = row[2] or "unspecified"
+            return result
+
+        if archive:
+            # Archive the entry before deletion
+            cursor.execute(
+                """
+                INSERT INTO continuum_memory_archive
+                    (id, tier, content, importance, surprise_score,
+                     consolidation_score, update_count, success_count,
+                     failure_count, semantic_centroid, created_at,
+                     updated_at, archive_reason, metadata)
+                SELECT id, tier, content, importance, surprise_score,
+                       consolidation_score, update_count, success_count,
+                       failure_count, semantic_centroid, created_at,
+                       updated_at, ?, metadata
+                FROM continuum_memory
+                WHERE id = ?
+                """,
+                (reason, memory_id),
+            )
+            result["archived"] = cursor.rowcount > 0
+
+        # Delete from main table
+        cursor.execute(
+            "DELETE FROM continuum_memory WHERE id = ?",
+            (memory_id,),
+        )
+        result["deleted"] = cursor.rowcount > 0
+
+        conn.commit()
+
+    if result["deleted"]:
+        logger.info(
+            "Memory %s deleted (archived=%s, reason=%s)", memory_id, result["archived"], reason
+        )
+
+    return result
+
+
+def enforce_tier_limits(
+    cms: "ContinuumMemory",
+    tier: Optional[MemoryTier] = None,
+    archive: bool = True,
+) -> Dict[str, int]:
+    """
+    Enforce max entries per tier by removing lowest importance entries.
+
+    When a tier exceeds its limit, the lowest importance entries are
+    archived (or deleted) until the tier is within limits.
+
+    Args:
+        cms: ContinuumMemory instance
+        tier: Specific tier to enforce (None = all tiers)
+        archive: If True, archive excess; if False, delete permanently
+
+    Returns:
+        Dict with counts of removed entries by tier
+    """
+    results: Dict[str, int] = {}
+    tiers_to_process = [tier] if tier else list(MemoryTier)
+    max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
+
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+
+        for t in tiers_to_process:
+            tier_name = t.value
+            # get() returns Optional[int] but we provide a default, so result is always int
+            limit: int = max_entries.get(tier_name, 10000)  # type: ignore[assignment]
+
+            # Count current entries
+            cursor.execute(
+                "SELECT COUNT(*) FROM continuum_memory WHERE tier = ?",
+                (tier_name,),
+            )
+            row = cursor.fetchone()
+            count: int = row[0] if row else 0
+
+            if count <= limit:
+                results[tier_name] = 0
+                continue
+
+            excess: int = count - limit
+
+            if archive:
+                # Archive lowest importance entries (excluding red-lined)
+                cursor.execute(
+                    """
+                    INSERT INTO continuum_memory_archive
+                        (id, tier, content, importance, surprise_score,
+                         consolidation_score, update_count, success_count,
+                         failure_count, semantic_centroid, created_at,
+                         updated_at, archive_reason, metadata)
+                    SELECT id, tier, content, importance, surprise_score,
+                           consolidation_score, update_count, success_count,
+                           failure_count, semantic_centroid, created_at,
+                           updated_at, 'tier_limit', metadata
+                    FROM continuum_memory
+                    WHERE tier = ?
+                      AND COALESCE(red_line, 0) = 0
+                    ORDER BY importance ASC, updated_at ASC
+                    LIMIT ?
+                    """,
+                    (tier_name, excess),
+                )
+
+            # Delete excess entries (lowest importance first, excluding red-lined)
+            cursor.execute(
+                """
+                DELETE FROM continuum_memory
+                WHERE id IN (
+                    SELECT id FROM continuum_memory
+                    WHERE tier = ?
+                      AND COALESCE(red_line, 0) = 0
+                    ORDER BY importance ASC, updated_at ASC
+                    LIMIT ?
+                )
+                """,
+                (tier_name, excess),
+            )
+
+            results[tier_name] = cursor.rowcount
+            logger.info(
+                "Tier limit enforced: tier=%s, removed=%d (limit=%d)",
+                tier_name,
+                cursor.rowcount,
+                limit,
+            )
+
+        conn.commit()
+
+    return results
+
+
+def get_archive_stats(cms: "ContinuumMemory") -> Dict[str, Any]:
+    """Get statistics about archived memories."""
+    with cms.connection() as conn:
+        cursor = conn.cursor()
+
+        stats: Dict[str, Any] = {}
+
+        # Count by tier and reason
+        cursor.execute(
+            """
+            SELECT tier, archive_reason, COUNT(*)
+            FROM continuum_memory_archive
+            GROUP BY tier, archive_reason
+        """
+        )
+        by_tier_reason: Dict[str, Dict[str, int]] = {}
+        for row in cursor.fetchall():
+            tier, reason, count = row
+            if tier not in by_tier_reason:
+                by_tier_reason[tier] = {}
+            by_tier_reason[tier][reason or "unknown"] = count
+        stats["by_tier_reason"] = by_tier_reason
+
+        # Total archived
+        cursor.execute("SELECT COUNT(*) FROM continuum_memory_archive")
+        row = cursor.fetchone()
+        stats["total_archived"] = row[0] if row else 0
+
+        # Oldest and newest archived
+        cursor.execute(
+            """
+            SELECT MIN(archived_at), MAX(archived_at)
+            FROM continuum_memory_archive
+        """
+        )
+        row = cursor.fetchone()
+        stats["oldest_archived"] = row[0]
+        stats["newest_archived"] = row[1]
+
+    return stats
