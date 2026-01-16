@@ -186,6 +186,7 @@ class EvidenceStore(SQLiteStore):
 
         # Check for existing evidence with same content
         with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT id FROM evidence WHERE content_hash = ?",
@@ -605,6 +606,7 @@ class EvidenceStore(SQLiteStore):
             Dictionary of statistics
         """
         with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             # Total evidence count
             cursor.execute("SELECT COUNT(*) as count FROM evidence")
@@ -667,7 +669,13 @@ class EvidenceStore(SQLiteStore):
 
         return data
 
-    # close() is inherited from SQLiteStore
+    def close(self) -> None:
+        """Close database connections.
+
+        Closes the underlying database manager connections.
+        """
+        if hasattr(self, "_manager") and self._manager:
+            self._manager.close()
 
 
 class InMemoryEvidenceStore:

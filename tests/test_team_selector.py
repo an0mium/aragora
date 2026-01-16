@@ -49,7 +49,7 @@ class MockCalibrationTracker:
     def __init__(self, brier_scores: dict[str, float] = None):
         self._scores = brier_scores or {}
 
-    def get_brier_score(self, agent_name: str) -> float:
+    def get_brier_score(self, agent_name: str, domain: str = None) -> float:
         if agent_name not in self._scores:
             raise KeyError(f"Unknown agent: {agent_name}")
         return self._scores[agent_name]

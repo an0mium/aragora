@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.debate.complexity_governor import get_complexity_governor
+from aragora.debate.phases.vote_collector import VoteCollector, VoteCollectorConfig
 from aragora.debate.phases.weight_calculator import WeightCalculator
 from aragora.server.stream.arena_hooks import streaming_task_context
 
@@ -213,6 +214,24 @@ class ConsensusPhase:
     # in parallel, so this should be sufficient for most cases. With sequential
     # voting (rare), partial votes are returned when this expires.
     VOTE_COLLECTION_TIMEOUT = AGENT_TIMEOUT_SECONDS + 60  # Same as consensus timeout
+
+    @property
+    def _vote_collector(self) -> VoteCollector:
+        """Lazy-initialized VoteCollector instance."""
+        if not hasattr(self, "_vote_collector_instance"):
+            config = VoteCollectorConfig(
+                vote_with_agent=self._vote_with_agent,
+                with_timeout=self._with_timeout,
+                notify_spectator=self._notify_spectator,
+                hooks=self.hooks,
+                recorder=self.recorder,
+                position_tracker=self.position_tracker,
+                group_similar_votes=self._group_similar_votes,
+                vote_collection_timeout=self.VOTE_COLLECTION_TIMEOUT,
+                agent_timeout=AGENT_TIMEOUT_SECONDS,
+            )
+            self._vote_collector_instance = VoteCollector(config)
+        return self._vote_collector_instance
 
     async def execute(self, ctx: "DebateContext") -> None:
         """
@@ -689,200 +708,21 @@ class ConsensusPhase:
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection.
 
+        Delegates to VoteCollector for the actual implementation.
         Uses VOTE_COLLECTION_TIMEOUT to prevent total vote collection time from
         exceeding reasonable bounds (N agents * per-agent timeout could be very long).
         If timeout is reached, returns partial votes collected so far.
         """
-        if not self._vote_with_agent:
-            logger.warning("No vote_with_agent callback, skipping votes")
-            return []
-
-        votes: list["Vote"] = []
-        task = ctx.env.task if ctx.env else ""
-
-        async def cast_vote(agent):
-            """Cast a vote for a single agent with timeout protection.
-
-            Requests a vote from the given agent, applying complexity-scaled
-            timeout to prevent slow agents from blocking consensus.
-
-            Args:
-                agent: The Agent instance to request a vote from.
-
-            Returns:
-                Tuple of (agent, vote_result) where vote_result is either
-                a Vote object on success or an Exception if voting failed.
-
-            Note:
-                Never raises - failures captured in return tuple for partial collection.
-            """
-            logger.debug(f"agent_voting agent={agent.name}")
-            try:
-                # Use complexity-scaled timeout from governor
-                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
-                if self._with_timeout:
-                    vote_result = await self._with_timeout(
-                        self._vote_with_agent(agent, ctx.proposals, task),
-                        agent.name,
-                        timeout_seconds=timeout,
-                    )
-                else:
-                    vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
-                return (agent, vote_result)
-            except Exception as e:
-                # Catch all exceptions to prevent voting failures from crashing the phase
-                logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
-                return (agent, e)
-
-        async def collect_all_votes():
-            """Collect votes from all agents concurrently with as-completed processing.
-
-            Creates parallel vote tasks for all agents and processes results as they
-            complete. This ensures faster agents don't wait for slower ones, and
-            allows partial vote collection if the outer timeout is reached.
-
-            Successful votes are appended to the enclosing scope's `votes` list.
-            Failed votes are logged but don't block other agents.
-
-            Raises:
-                asyncio.CancelledError: Re-raised if the task is cancelled.
-            """
-            vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
-
-            for completed_task in asyncio.as_completed(vote_tasks):
-                try:
-                    agent, vote_result = await completed_task
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    logger.error(f"task_exception phase=vote error={e}")
-                    continue
-
-                if vote_result is None or isinstance(vote_result, Exception):
-                    if isinstance(vote_result, Exception):
-                        logger.error(f"vote_error agent={agent.name} error={vote_result}")
-                    else:
-                        logger.error(f"vote_error agent={agent.name} error=vote returned None")
-                else:
-                    votes.append(vote_result)
-                    self._handle_vote_success(ctx, agent, vote_result)
-
-        # Apply outer timeout to prevent N*agent_timeout runaway
-        try:
-            await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
-        except asyncio.TimeoutError:
-            logger.warning(
-                f"vote_collection_timeout collected={len(votes)} "
-                f"expected={len(ctx.agents)} timeout={self.VOTE_COLLECTION_TIMEOUT}s"
-            )
-            # Return partial votes - better than nothing
-
-        return votes
+        return await self._vote_collector.collect_votes(ctx)
 
     async def _collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
         """Collect votes with error tracking and outer timeout protection.
 
+        Delegates to VoteCollector for the actual implementation.
         Used for unanimity mode where we need to track errors.
         Uses VOTE_COLLECTION_TIMEOUT to prevent runaway collection time.
         """
-        if not self._vote_with_agent:
-            return [], 0
-
-        votes: list["Vote"] = []
-        voting_errors = 0
-        task = ctx.env.task if ctx.env else ""
-
-        async def cast_vote(agent):
-            """Cast a vote for unanimous consensus with timeout protection.
-
-            Similar to cast_vote in _collect_votes(), but used specifically for
-            unanimous consensus mode where error tracking is important.
-
-            Args:
-                agent: The Agent instance to request a vote from.
-
-            Returns:
-                Tuple of (agent, vote_result) where vote_result is either
-                a Vote object on success or an Exception if voting failed.
-
-            Note:
-                Uses complexity-scaled timeout from ComplexityGovernor.
-            """
-            logger.debug(f"agent_voting_unanimous agent={agent.name}")
-            try:
-                # Use complexity-scaled timeout from governor
-                timeout = get_complexity_governor().get_scaled_timeout(float(AGENT_TIMEOUT_SECONDS))
-                if self._with_timeout:
-                    vote_result = await self._with_timeout(
-                        self._vote_with_agent(agent, ctx.proposals, task),
-                        agent.name,
-                        timeout_seconds=timeout,
-                    )
-                else:
-                    vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
-                return (agent, vote_result)
-            except Exception as e:
-                # Catch all exceptions to prevent voting failures from crashing the phase
-                logger.warning(
-                    f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
-                )
-                return (agent, e)
-
-        async def collect_all_votes():
-            """Collect votes from all agents with error counting for unanimity checks.
-
-            Similar to collect_all_votes in _collect_votes(), but increments the
-            nonlocal `voting_errors` counter for each failed vote. This is critical
-            for unanimous consensus mode where we need to know exactly how many
-            agents failed to vote.
-
-            Modifies:
-                voting_errors: Incremented for each vote failure (timeout, exception,
-                    None result).
-                votes: Successful Vote objects are appended to this enclosing list.
-
-            Raises:
-                asyncio.CancelledError: Re-raised to allow proper task cancellation.
-            """
-            nonlocal voting_errors
-            vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
-
-            for completed_task in asyncio.as_completed(vote_tasks):
-                try:
-                    agent, vote_result = await completed_task
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    logger.error(f"task_exception phase=unanimous_vote error={e}")
-                    voting_errors += 1
-                    continue
-
-                if vote_result is None or isinstance(vote_result, Exception):
-                    if isinstance(vote_result, Exception):
-                        logger.error(f"vote_error_unanimous agent={agent.name} error={vote_result}")
-                    else:
-                        logger.error(
-                            f"vote_error_unanimous agent={agent.name} error=vote returned None"
-                        )
-                    voting_errors += 1
-                else:
-                    votes.append(vote_result)
-                    self._handle_vote_success(ctx, agent, vote_result, unanimous=True)
-
-        # Apply outer timeout to prevent N*agent_timeout runaway
-        try:
-            await asyncio.wait_for(collect_all_votes(), timeout=self.VOTE_COLLECTION_TIMEOUT)
-        except asyncio.TimeoutError:
-            # Treat timeout as errors for missing votes
-            missing = len(ctx.agents) - len(votes) - voting_errors
-            voting_errors += missing
-            logger.warning(
-                f"vote_collection_timeout_unanimous collected={len(votes)} "
-                f"errors={voting_errors} expected={len(ctx.agents)} "
-                f"timeout={self.VOTE_COLLECTION_TIMEOUT}s"
-            )
-
-        return votes, voting_errors
+        return await self._vote_collector.collect_votes_with_errors(ctx)
 
     def _handle_vote_success(
         self,
@@ -939,23 +779,11 @@ class ConsensusPhase:
     def _compute_vote_groups(
         self, votes: list["Vote"]
     ) -> tuple[dict[str, list[str]], dict[str, str]]:
-        """Group similar votes and create choice mapping."""
-        if not self._group_similar_votes:
-            # No grouping, identity mapping
-            choices = set(v.choice for v in votes if not isinstance(v, Exception))
-            return {c: [c] for c in choices}, {c: c for c in choices}
+        """Group similar votes and create choice mapping.
 
-        vote_groups = self._group_similar_votes(votes)
-
-        choice_mapping: dict[str, str] = {}
-        for canonical, variants in vote_groups.items():
-            for variant in variants:
-                choice_mapping[variant] = canonical
-
-        if vote_groups:
-            logger.debug(f"vote_grouping_merged groups={vote_groups}")
-
-        return vote_groups, choice_mapping
+        Delegates to VoteCollector for the actual implementation.
+        """
+        return self._vote_collector.compute_vote_groups(votes)
 
     def _compute_vote_weights(self, ctx: "DebateContext") -> dict[str, float]:
         """Pre-compute vote weights for all agents.

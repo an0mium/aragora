@@ -28,8 +28,13 @@ class AgentScorer(Protocol):
 class CalibrationScorer(Protocol):
     """Protocol for calibration scoring systems."""
 
-    def get_brier_score(self, agent_name: str) -> float:
-        """Get agent's Brier score (lower is better)."""
+    def get_brier_score(self, agent_name: str, domain: Optional[str] = None) -> float:
+        """Get agent's Brier score (lower is better).
+
+        Args:
+            agent_name: Name of the agent
+            domain: Optional domain for domain-specific calibration
+        """
         ...
 
 
@@ -87,14 +92,14 @@ class TeamSelector:
         # Filter unavailable agents via circuit breaker
         available_names = self._filter_available(agents)
 
-        # Score remaining agents
+        # Score remaining agents (using domain-specific calibration)
         scored: list[tuple[Agent, float]] = []
         for agent in agents:
             if agent.name not in available_names:
                 logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
                 continue
 
-            score = self._compute_score(agent)
+            score = self._compute_score(agent, domain=domain)
             scored.append((agent, score))
 
         if not scored:
@@ -127,8 +132,13 @@ class TeamSelector:
 
         return available_names
 
-    def _compute_score(self, agent: Agent) -> float:
-        """Compute composite score for an agent."""
+    def _compute_score(self, agent: Agent, domain: Optional[str] = None) -> float:
+        """Compute composite score for an agent.
+
+        Args:
+            agent: Agent to score
+            domain: Optional domain for domain-specific calibration lookup
+        """
         score = self.config.base_score
 
         # ELO contribution
@@ -141,16 +151,22 @@ class TeamSelector:
                 logger.debug(f"ELO rating not found for {agent.name}: {e}")
 
         # Calibration contribution (well-calibrated agents get a bonus)
+        # Uses domain-specific calibration when available
         if self.calibration_tracker:
             try:
-                brier = self.calibration_tracker.get_brier_score(agent.name)
+                brier = self.calibration_tracker.get_brier_score(agent.name, domain=domain)
                 # Lower Brier = better calibration = higher score
                 score += (1 - brier) * self.config.calibration_weight
-            except (KeyError, AttributeError) as e:
+            except (KeyError, AttributeError, TypeError) as e:
                 logger.debug(f"Calibration score not found for {agent.name}: {e}")
 
         return score
 
-    def score_agent(self, agent: Agent) -> float:
-        """Get score for a single agent (for external use)."""
-        return self._compute_score(agent)
+    def score_agent(self, agent: Agent, domain: Optional[str] = None) -> float:
+        """Get score for a single agent (for external use).
+
+        Args:
+            agent: Agent to score
+            domain: Optional domain for domain-specific calibration
+        """
+        return self._compute_score(agent, domain=domain)

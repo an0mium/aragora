@@ -376,7 +376,10 @@ class TestEvidenceStore:
 
     def test_init_creates_tables(self, store):
         """Test initialization creates required tables."""
-        with store._cursor() as cursor:
+        import sqlite3
+        with store.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = {row["name"] for row in cursor.fetchall()}
         assert "evidence" in tables
@@ -402,7 +405,10 @@ class TestEvidenceStore:
         )
 
         # Query directly
-        with store._cursor() as cursor:
+        import sqlite3
+        with store.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             cursor.execute(
                 "SELECT * FROM evidence WHERE id = ?",
                 ("persist-001",),
@@ -439,7 +445,10 @@ class TestEvidenceStore:
             round_number=1,
         )
 
-        with store._cursor() as cursor:
+        import sqlite3
+        with store.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
             cursor.execute(
                 "SELECT * FROM debate_evidence WHERE debate_id = ?",
                 ("test-debate",),
