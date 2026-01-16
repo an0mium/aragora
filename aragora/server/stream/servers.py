@@ -35,13 +35,8 @@ from concurrent.futures import ThreadPoolExecutor
 logger = logging.getLogger(__name__)
 
 # Import from sibling modules (core streaming components)
-from .arena_hooks import (
-    create_arena_hooks,
-    wrap_agent_for_streaming,
-)
-from .emitter import (
-    TokenBucket,
-)
+from .arena_hooks import wrap_agent_for_streaming
+from .emitter import TokenBucket
 from .events import (
     AudienceMessage,
     StreamEvent,
@@ -60,30 +55,20 @@ from .state_manager import (
 )
 from .stream_handlers import StreamAPIHandlersMixin
 
-# Import debate components (lazy-loaded for optional functionality)
-try:
-    from aragora.agents.base import create_agent
-    from aragora.core import Environment
-    from aragora.debate.orchestrator import Arena, DebateProtocol
+# Import debate execution logic (extracted module)
+from .debate_executor import (
+    DEBATE_AVAILABLE,
+    execute_debate_thread,
+    fetch_trending_topic_async,
+    parse_debate_request,
+)
 
-    DEBATE_AVAILABLE = True
-except ImportError:
-    DEBATE_AVAILABLE = False
-    Arena = None  # type: ignore[misc, assignment]
-    DebateProtocol = None  # type: ignore[misc, assignment]
-    create_agent = None  # type: ignore[misc, assignment]
-    Environment = None  # type: ignore[misc, assignment]
-
-# Import centralized config and error utilities
+# Import centralized config
 from aragora.config import (
-    ALLOWED_AGENT_TYPES,
     DB_INSIGHTS_PATH,
     DB_PERSONAS_PATH,
-    DEBATE_TIMEOUT_SECONDS,
-    MAX_AGENTS_PER_DEBATE,
     MAX_CONCURRENT_DEBATES,
 )
-from aragora.server.error_utils import safe_error_message as _safe_error_message
 
 # Backward compatibility aliases
 _active_debates = get_active_debates()
@@ -475,71 +460,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     # NOTE: HTTP API handlers (_handle_options, _handle_leaderboard, etc.)
     # are provided by StreamAPIHandlersMixin from stream_handlers.py
 
-    def _parse_debate_request(self, data: dict) -> tuple[Optional[dict], Optional[str]]:
-        """Parse and validate debate request data.
-
-        Returns:
-            Tuple of (parsed_config, error_message). If error_message is set,
-            parsed_config will be None.
-        """
-        # Validate required fields with length limits
-        question = data.get("question", "").strip()
-        if not question:
-            return None, "question field is required"
-        if len(question) > 10000:
-            return None, "question must be under 10,000 characters"
-
-        # Parse optional fields with validation
-        agents_str = data.get("agents", "anthropic-api,openai-api,gemini,grok")
-        try:
-            rounds = min(max(int(data.get("rounds", 3)), 1), 10)  # Clamp to 1-10
-        except (ValueError, TypeError):
-            rounds = 3
-        consensus = data.get("consensus", "majority")
-
-        return {
-            "question": question,
-            "agents_str": agents_str,
-            "rounds": rounds,
-            "consensus": consensus,
-            "use_trending": data.get("use_trending", False),
-            "trending_category": data.get("trending_category", None),
-        }, None
+    # NOTE: Debate execution methods are delegated to debate_executor module:
+    # - parse_debate_request() -> debate_executor.parse_debate_request()
+    # - _fetch_trending_topic_async() -> debate_executor.fetch_trending_topic_async()
+    # - _execute_debate_thread() -> debate_executor.execute_debate_thread()
 
     async def _fetch_trending_topic_async(self, category: Optional[str] = None) -> Optional[Any]:
-        """Fetch a trending topic for the debate.
-
-        Returns:
-            A TrendingTopic object or None if unavailable.
-        """
-        try:
-            from aragora.pulse.ingestor import (
-                HackerNewsIngestor,
-                PulseManager,
-                RedditIngestor,
-                TwitterIngestor,
-            )
-
-            manager = PulseManager()
-            manager.add_ingestor("twitter", TwitterIngestor())
-            manager.add_ingestor("hackernews", HackerNewsIngestor())
-            manager.add_ingestor("reddit", RedditIngestor())
-
-            filters = {}
-            if category:
-                filters["categories"] = [category]
-
-            topics = await manager.get_trending_topics(
-                limit_per_platform=3, filters=filters if filters else None
-            )
-            topic = manager.select_topic_for_debate(topics)
-
-            if topic:
-                logger.info(f"Selected trending topic: {topic.topic}")
-            return topic
-        except Exception as e:
-            logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
-            return None
+        """Fetch a trending topic for the debate. Delegates to debate_executor."""
+        return await fetch_trending_topic_async(category)
 
     def _execute_debate_thread(
         self,
@@ -552,141 +480,18 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         user_id: str = "",
         org_id: str = "",
     ) -> None:
-        """Execute a debate in a background thread.
-
-        This method is run in a ThreadPoolExecutor to avoid blocking the event loop.
-        """
-        import asyncio as _asyncio
-
-        try:
-            # Parse agents with bounds check
-            agent_list = [s.strip() for s in agents_str.split(",") if s.strip()]
-            if len(agent_list) > MAX_AGENTS_PER_DEBATE:
-                with _active_debates_lock:
-                    _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id][
-                        "error"
-                    ] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
-                    _active_debates[debate_id]["completed_at"] = time.time()
-                return
-            if len(agent_list) < 2:
-                with _active_debates_lock:
-                    _active_debates[debate_id]["status"] = "error"
-                    _active_debates[debate_id]["error"] = "At least 2 agents required for a debate"
-                    _active_debates[debate_id]["completed_at"] = time.time()
-                return
-
-            agent_specs = []
-            for spec in agent_list:
-                spec = spec.strip()
-                if ":" in spec:
-                    agent_type, role = spec.split(":", 1)
-                else:
-                    agent_type = spec
-                    role = None
-                # Validate agent type against allowlist
-                if agent_type.lower() not in ALLOWED_AGENT_TYPES:
-                    raise ValueError(
-                        f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
-                    )
-                agent_specs.append((agent_type, role))
-
-            # Create agents with streaming support
-            # All agents are proposers for full participation in all rounds
-            agents: list[Agent] = []
-            for i, (agent_type, role) in enumerate(agent_specs):
-                if role is None:
-                    role = "proposer"  # All agents propose and participate fully
-                agent = create_agent(
-                    model_type=agent_type,  # type: ignore[arg-type]
-                    name=f"{agent_type}_{role}",
-                    role=role,
-                )
-                # Wrap agent for token streaming if supported
-                agent = _wrap_agent_for_streaming(agent, self.emitter, debate_id)
-                agents.append(agent)
-
-            # Create environment and protocol
-            env = Environment(task=question, context="", max_rounds=rounds)
-            protocol = DebateProtocol(
-                rounds=rounds,
-                consensus=consensus,  # type: ignore[arg-type]
-                proposer_count=len(agents),  # All agents propose initially
-                topology="all-to-all",  # Everyone critiques everyone
-                # Disable early termination to ensure full rounds with all phases
-                early_stopping=False,
-                convergence_detection=False,
-                min_rounds_before_early_stop=rounds,
-            )
-
-            # Create arena with hooks and available context systems
-            # Pass loop_id explicitly to prevent race conditions with concurrent debates
-            hooks = create_arena_hooks(self.emitter, loop_id=debate_id)
-
-            # Initialize usage tracking if user/org context is available
-            usage_tracker = None
-            if user_id or org_id:
-                try:
-                    from aragora.billing.usage import UsageTracker
-
-                    usage_tracker = UsageTracker()
-                except ImportError:
-                    pass
-
-            arena = Arena(
-                env,
-                agents,
-                protocol,  # type: ignore[arg-type]
-                event_hooks=hooks,
-                event_emitter=self.emitter,
-                loop_id=debate_id,
-                trending_topic=trending_topic,
-                user_id=user_id,
-                org_id=org_id,
-                usage_tracker=usage_tracker,
-            )
-
-            # Run debate with timeout protection
-            # Use protocol timeout if configured, otherwise use global default
-            protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
-            timeout = (
-                protocol_timeout
-                if isinstance(protocol_timeout, (int, float)) and protocol_timeout > 0
-                else DEBATE_TIMEOUT_SECONDS
-            )
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "running"
-
-            async def run_with_timeout():
-                return await _asyncio.wait_for(arena.run(), timeout=timeout)
-
-            result = _asyncio.run(run_with_timeout())
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "completed"
-                _active_debates[debate_id]["completed_at"] = time.time()
-                _active_debates[debate_id]["result"] = {
-                    "final_answer": result.final_answer,
-                    "consensus_reached": result.consensus_reached,
-                    "confidence": result.confidence,
-                }
-
-        except Exception as e:
-            import traceback
-
-            safe_msg = _safe_error_message(e, "debate_execution")
-            error_trace = traceback.format_exc()
-            with _active_debates_lock:
-                _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id]["completed_at"] = time.time()
-                _active_debates[debate_id]["error"] = safe_msg
-            logger.error(f"[debate] Thread error in {debate_id}: {str(e)}\n{error_trace}")
-            # Emit error event to client
-            self.emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.ERROR,
-                    data={"error": safe_msg, "debate_id": debate_id},
-                )
-            )
+        """Execute a debate in a background thread. Delegates to debate_executor."""
+        execute_debate_thread(
+            debate_id=debate_id,
+            question=question,
+            agents_str=agents_str,
+            rounds=rounds,
+            consensus=consensus,
+            trending_topic=trending_topic,
+            emitter=self.emitter,
+            user_id=user_id,
+            org_id=org_id,
+        )
 
     async def _handle_start_debate(self, request) -> "aiohttp.web.Response":
         """POST /api/debate - Start an ad-hoc debate with specified question.
@@ -755,7 +560,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             )
 
         # Parse and validate request
-        config, error = self._parse_debate_request(data)
+        config, error = parse_debate_request(data)
         if error or config is None:
             return web.json_response(
                 {"error": error or "Invalid request"},
@@ -1180,7 +985,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                             if debate_id:
                                 with self._client_subscriptions_lock:
                                     self._client_subscriptions[ws_id] = debate_id
-                                ws._bound_loop_id = debate_id  # type: ignore[attr-defined]
+                                setattr(ws, "_bound_loop_id", debate_id)
                                 logger.info(
                                     f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
                                 )
@@ -1247,7 +1052,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                                 continue
 
                             # Bind loop_id to WebSocket for future reference (proprioceptive socket)
-                            ws._bound_loop_id = loop_id  # type: ignore[attr-defined]
+                            setattr(ws, "_bound_loop_id", loop_id)
 
                             # Validate payload
                             payload, error = self._validate_audience_payload(data)
