@@ -109,7 +109,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
                 <span className="text-acid-green">+</span> Audit-ready receipts
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> 15-45 min turnaround
+                <span className="text-acid-green">+</span> 5-15 min turnaround
               </span>
             </div>
           </div>

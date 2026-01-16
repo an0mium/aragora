@@ -193,7 +193,15 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  PyPI v0.9.0
+                  PyPI v1.5.1
+                </a>
+                <a
+                  href="https://www.npmjs.com/package/@aragora/sdk"
+                  className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  npm @aragora/sdk
                 </a>
                 <a
                   href="https://github.com/an0mium/aragora"
