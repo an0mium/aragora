@@ -45,7 +45,7 @@ def find_stray_db_files(project_root: Path) -> list[Issue]:
                 severity="warning",
                 file_path=str(db_file),
                 line_number=0,
-                message=f"Stray database file in project root. Should be in ARAGORA_DATA_DIR (.nomic/)",
+                message="Stray database file in project root. Should be in ARAGORA_DATA_DIR (.nomic/)",
             )
         )
 

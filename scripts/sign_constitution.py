@@ -158,7 +158,7 @@ def cmd_sign(args: argparse.Namespace) -> int:
     # Save back
     save_constitution(constitution, constitution_path)
 
-    print(f"Constitution signed successfully")
+    print("Constitution signed successfully")
     print(f"  Version: {constitution.version}")
     print(f"  Rules: {len(constitution.rules)}")
     print(f"  Signed at: {constitution.signed_at}")

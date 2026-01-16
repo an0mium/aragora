@@ -26,7 +26,7 @@ def check_env_var(name: str, prefix: str = None, required: bool = True) -> tuple
 
     if not value:
         if required:
-            return False, f"NOT SET"
+            return False, "NOT SET"
         return True, "not set (optional)"
 
     if prefix and not value.startswith(prefix):
@@ -120,7 +120,7 @@ def check_prices() -> tuple[bool, str]:
         if invalid:
             return False, f"{valid}/3 valid, issues: {', '.join(invalid)}"
 
-        return True, f"All 3 price IDs valid"
+        return True, "All 3 price IDs valid"
     except Exception as e:
         return False, f"Error: {e}"
 

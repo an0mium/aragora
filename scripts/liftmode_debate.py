@@ -291,12 +291,12 @@ async def run_debate():
     transcript_path = output_dir / f"transcript_{timestamp}.md"
 
     with open(transcript_path, "w") as f:
-        f.write(f"# LiftMode Business Turnaround Debate\n\n")
+        f.write("# LiftMode Business Turnaround Debate\n\n")
         f.write(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write(f"## Business Context\n\n{COMPANY_CONTEXT}\n\n")
         f.write(f"## Task\n\n{DEBATE_TASK}\n\n")
         f.write("---\n\n")
-        f.write(f"## Debate Transcript\n\n")
+        f.write("## Debate Transcript\n\n")
 
         # Group messages by round
         current_round = 0
@@ -311,13 +311,13 @@ async def run_debate():
 
         # Write critiques
         if result.critiques:
-            f.write(f"## Critiques\n\n")
+            f.write("## Critiques\n\n")
             for critique in result.critiques:
                 f.write(f"**{critique.critic}** critiqued **{critique.target}**:\n\n")
                 f.write(f"*Score*: {critique.score}/10\n\n")
                 f.write(f"{critique.feedback}\n\n---\n\n")
 
-        f.write(f"## Final Result\n\n")
+        f.write("## Final Result\n\n")
         f.write(f"**Consensus Reached**: {result.consensus_reached}\n\n")
         f.write(f"**Confidence**: {result.confidence:.1%}\n\n")
         f.write(f"**Rounds Used**: {result.rounds_used}\n\n")
@@ -325,11 +325,11 @@ async def run_debate():
         if result.final_answer:
             f.write(f"**Final Recommendation**:\n\n{result.final_answer}\n\n")
         if result.votes:
-            f.write(f"**Voting Results**:\n\n")
+            f.write("**Voting Results**:\n\n")
             for vote in result.votes:
                 f.write(f"- {vote.voter}: {vote.choice} (reasoning: {vote.reasoning[:100]}...)\n")
         if result.dissenting_views:
-            f.write(f"\n**Dissenting Views**:\n\n")
+            f.write("\n**Dissenting Views**:\n\n")
             for view in result.dissenting_views:
                 f.write(f"- {view}\n")
 

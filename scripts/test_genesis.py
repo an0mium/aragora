@@ -120,7 +120,7 @@ def test_population():
 
     # Evolve population
     evolved = manager.evolve_population(population)
-    print(f"\nEvolved population:")
+    print("\nEvolved population:")
     print(f"  Size: {evolved.size}")
     print(f"  Generation: {evolved.generation}")
 

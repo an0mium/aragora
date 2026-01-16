@@ -278,8 +278,8 @@ async def phase_implement():
 
     save_phase("implement", data)
 
-    print(f"\nNext step: Implement the design, then run:")
-    print(f"  python scripts/nomic_staged.py verify")
+    print("\nNext step: Implement the design, then run:")
+    print("  python scripts/nomic_staged.py verify")
 
     return data
 
@@ -360,7 +360,7 @@ async def phase_verify():
     print(f"Verification: {'PASSED' if all_passed else 'FAILED'}")
 
     if all_passed:
-        print(f"\nNext step: python scripts/nomic_staged.py commit")
+        print("\nNext step: python scripts/nomic_staged.py commit")
 
     return data
 

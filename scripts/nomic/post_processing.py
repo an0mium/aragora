@@ -224,7 +224,7 @@ class PostDebateProcessor:
                     topic=ctx.topic,
                     agents=[a.name for a in ctx.agents],
                 )
-                self._log(f"  [insights] Extracted insights from debate")
+                self._log("  [insights] Extracted insights from debate")
         except Exception as e:
             self._log(f"  [insights] Extraction failed: {e}")
 
@@ -317,7 +317,7 @@ class PostDebateProcessor:
 
         try:
             if not ctx.result.consensus_reached:
-                self._log(f"  [elo] Skipped - no consensus reached")
+                self._log("  [elo] Skipped - no consensus reached")
                 return
 
             # Determine winner based on final answer attribution

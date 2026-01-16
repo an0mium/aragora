@@ -60,7 +60,10 @@ class ProfileResult:
 def timer():
     """Simple context manager for timing operations."""
     start = time.perf_counter()
-    elapsed = lambda: time.perf_counter() - start
+
+    def elapsed():
+        return time.perf_counter() - start
+
     yield elapsed
 
 

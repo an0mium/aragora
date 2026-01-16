@@ -68,7 +68,7 @@ class FairDebateArena:
         self.log("")
         self.log(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self.log(f"**Rounds**: {self.rounds}")
-        self.log(f"**Participants**:")
+        self.log("**Participants**:")
         for name, agent in self.agents.items():
             self.log(f"  - {name} (model: {agent.model})")
         self.log("")
@@ -280,7 +280,7 @@ HYBRID_ROLES:
                 # Parse vote
                 vote_reasoning[voter_name] = vote_response
                 if "VOTE:" in vote_response:
-                    vote_line = [l for l in vote_response.split("\n") if "VOTE:" in l][0]
+                    vote_line = [line for line in vote_response.split("\n") if "VOTE:" in line][0]
                     vote = vote_line.split("VOTE:")[1].strip().lower()
 
                     # Normalize vote

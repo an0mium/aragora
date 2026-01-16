@@ -381,7 +381,7 @@ Designs missing any of these will be automatically rejected."""
                     result.final_answer = arbitrated
                     result.consensus_reached = True
                     result.confidence = 0.7
-                    self._log(f"  [fast-track] Judge selected design")
+                    self._log("  [fast-track] Judge selected design")
                     return result
 
         # Try counterfactual resolution via nomic integration

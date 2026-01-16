@@ -44,7 +44,7 @@ def check_recent_fixes():
         if "bb1cd6e" in result.stdout:
             return "Recent reliability commit found"
         return "No recent reliability commits"
-    except:
+    except Exception:
         return "Git check failed"
 
 
@@ -96,18 +96,18 @@ def run_verification():
     recent = check_recent_fixes()
     fork_bridge = check_fork_bridge()
 
-    print(f"\n1. SANITIZATION STATUS:")
+    print("\n1. SANITIZATION STATUS:")
     for finding in sanitization:
         print(f"   • {finding}")
 
-    print(f"\n2. RECENT COMMITS:")
+    print("\n2. RECENT COMMITS:")
     print(f"   • {recent}")
 
-    print(f"\n3. FORK BRIDGE STATUS:")
+    print("\n3. FORK BRIDGE STATUS:")
     for finding in fork_bridge:
         print(f"   • {finding}")
 
-    print(f"\n4. RECOMMENDATION:")
+    print("\n4. RECOMMENDATION:")
     needs_sanitization = any("No explicit" in f for f in sanitization)
     fork_integrated = any("integrated" in f and "not" not in f for f in fork_bridge)
 

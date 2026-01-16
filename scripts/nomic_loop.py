@@ -63,10 +63,13 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Callable, Any
+from typing import TYPE_CHECKING, Optional, List, Callable, Any
 import traceback
 import logging
 from collections import defaultdict
+
+if TYPE_CHECKING:
+    from aragora.core import DebateResult, DisagreementReport
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -479,7 +482,6 @@ _PROTECTED_FILE_CHECKSUMS: dict[str, str] = {}
 
 def _compute_file_checksum(filepath: Path) -> str:
     """Compute SHA-256 checksum of a file."""
-    import hashlib
 
     if not filepath.exists():
         return ""
@@ -1541,9 +1543,9 @@ class NomicLoop:
                         f"[constitution] Loaded v{self.constitution_verifier.constitution.version} with {rules} rules"
                     )
                 else:
-                    print(f"[constitution] File exists but failed to load")
+                    print("[constitution] File exists but failed to load")
             else:
-                print(f"[constitution] No constitution.json found (safety rules disabled)")
+                print("[constitution] No constitution.json found (safety rules disabled)")
         except Exception as e:
             print(f"[constitution] Failed to initialize: {e}")
 
@@ -1573,7 +1575,7 @@ class NomicLoop:
         if EMBEDDINGS_AVAILABLE:
             embeddings_path = self.nomic_dir / "debate_embeddings.db"
             self.debate_embeddings = DebateEmbeddingsDatabase(str(embeddings_path))
-            print(f"[embeddings] Debate embeddings database initialized")
+            print("[embeddings] Debate embeddings database initialized")
 
         # CritiqueStore for patterns and agent reputation tracking
         self.critique_store = None
@@ -1582,7 +1584,7 @@ class NomicLoop:
 
             critique_db_path = self.nomic_dir / "agora_memory.db"
             self.critique_store = CritiqueStore(str(critique_db_path))
-            print(f"[memory] CritiqueStore initialized for patterns and reputation")
+            print("[memory] CritiqueStore initialized for patterns and reputation")
         except ImportError:
             pass
 
@@ -1591,7 +1593,7 @@ class NomicLoop:
         if CONTINUUM_AVAILABLE:
             continuum_path = self.nomic_dir / "continuum.db"
             self.continuum = ContinuumMemory(str(continuum_path))
-            print(f"[continuum] Multi-timescale memory initialized")
+            print("[continuum] Multi-timescale memory initialized")
 
         # ReplayRecorder will be created per cycle
         self.replay_recorder = None
@@ -1601,14 +1603,14 @@ class NomicLoop:
         if METALEARNER_AVAILABLE and self.continuum:
             meta_learner_path = self.nomic_dir / "meta_learning.db"
             self.meta_learner = MetaLearner(str(meta_learner_path))
-            print(f"[meta] MetaLearner initialized for hyperparameter tuning")
+            print("[meta] MetaLearner initialized for hyperparameter tuning")
 
         # ArgumentCartographer will be created per cycle for visualization
         self.cartographer = None
         self.visualizations_dir = self.nomic_dir / "visualizations"
         self.visualizations_dir.mkdir(exist_ok=True)
         if CARTOGRAPHER_AVAILABLE:
-            print(f"[viz] ArgumentCartographer available for debate visualization")
+            print("[viz] ArgumentCartographer available for debate visualization")
 
         # WebhookDispatcher for external event notifications
         self.webhook_dispatcher = None
@@ -1633,13 +1635,13 @@ class NomicLoop:
             consensus_db_path = self.nomic_dir / "consensus_memory.db"
             self.consensus_memory = ConsensusMemory(str(consensus_db_path))
             self.dissent_retriever = DissentRetriever(self.consensus_memory)
-            print(f"[consensus] ConsensusMemory initialized for topic tracking")
+            print("[consensus] ConsensusMemory initialized for topic tracking")
 
         # InsightExtractor for post-debate pattern learning
         self.insight_extractor = None
         if INSIGHTS_AVAILABLE:
             self.insight_extractor = InsightExtractor()
-            print(f"[insights] InsightExtractor initialized for pattern learning")
+            print("[insights] InsightExtractor initialized for pattern learning")
 
         # InsightStore for persisting debate insights (debate consensus feature)
         self.insight_store = None
@@ -1649,7 +1651,7 @@ class NomicLoop:
 
                 insights_path = self.nomic_dir / "aragora_insights.db"
                 self.insight_store = InsightStore(str(insights_path))
-                print(f"[insights] InsightStore initialized for debate persistence")
+                print("[insights] InsightStore initialized for debate persistence")
             except Exception as e:
                 print(f"[insights] InsightStore init failed: {e}")
 
@@ -1668,7 +1670,7 @@ class NomicLoop:
                     enable_counterfactual=True,  # Fork on contested claims
                     enable_checkpointing=True,  # Phase checkpointing
                 )
-                print(f"[integration] NomicIntegration initialized for advanced features")
+                print("[integration] NomicIntegration initialized for advanced features")
             except Exception as e:
                 print(f"[integration] Failed to initialize: {e}")
                 self.nomic_integration = None
@@ -1678,19 +1680,19 @@ class NomicLoop:
         if MEMORY_STREAM_AVAILABLE:
             memory_db_path = self.nomic_dir / "agent_memories.db"
             self.memory_stream = MemoryStream(str(memory_db_path))
-            print(f"[memory] Per-agent MemoryStream initialized")
+            print("[memory] Per-agent MemoryStream initialized")
 
         # Phase 3: LocalDocsConnector for evidence grounding
         self.local_docs = None
         if LOCAL_DOCS_AVAILABLE:
             self.local_docs = LocalDocsConnector(root_path=str(self.aragora_path), file_types="all")
-            print(f"[connectors] LocalDocsConnector initialized for evidence grounding")
+            print("[connectors] LocalDocsConnector initialized for evidence grounding")
 
         # Phase 3: CounterfactualOrchestrator for deadlock resolution
         self.counterfactual = None
         if COUNTERFACTUAL_AVAILABLE:
             self.counterfactual = CounterfactualOrchestrator()
-            print(f"[counterfactual] Deadlock resolution via forking enabled")
+            print("[counterfactual] Deadlock resolution via forking enabled")
 
         # Citation Grounding: CitationStore + CitationExtractor for evidence-backed verdicts
         self.citation_store = None
@@ -1698,32 +1700,32 @@ class NomicLoop:
         if CITATION_GROUNDING_AVAILABLE:
             self.citation_store = CitationStore()
             self.citation_extractor = CitationExtractor()
-            print(f"[citations] Citation grounding enabled for evidence-backed verdicts")
+            print("[citations] Citation grounding enabled for evidence-backed verdicts")
 
         # Pulse Integration: PulseManager for trending topic awareness
         self.pulse_manager = None
         if PULSE_AVAILABLE:
             self.pulse_manager = PulseManager()
-            print(f"[pulse] PulseManager initialized for trending topic awareness")
+            print("[pulse] PulseManager initialized for trending topic awareness")
 
         # Broadcast: Generate post-debate summaries
         self.summary_generator = None
         if BROADCAST_AVAILABLE:
             self.summary_generator = DebateSummaryGenerator()
-            print(f"[broadcast] Debate summary generation enabled")
+            print("[broadcast] Debate summary generation enabled")
 
         # Phase 3: CapabilityProber for agent quality assurance
         self.prober = None
         if PROBER_AVAILABLE:
             self.prober = CapabilityProber()
-            print(f"[prober] Agent capability probing enabled")
+            print("[prober] Agent capability probing enabled")
 
         # Phase 4: PersonaManager for agent traits/expertise evolution
         self.persona_manager = None
         if PERSONAS_AVAILABLE:
             persona_db_path = self.nomic_dir / DB_PERSONAS_PATH
             self.persona_manager = PersonaManager(str(persona_db_path))
-            print(f"[personas] Agent personality evolution enabled")
+            print("[personas] Agent personality evolution enabled")
 
         # Phase 4: PromptEvolver for prompt evolution from winning patterns
         self.prompt_evolver = None
@@ -1734,7 +1736,7 @@ class NomicLoop:
                 critique_store=self.critique_store,
                 strategy=EvolutionStrategy.HYBRID,
             )
-            print(f"[evolver] Prompt evolution enabled")
+            print("[evolver] Prompt evolution enabled")
 
         # Phase 4: Tournament tracking for periodic competitive benchmarking
         self.last_tournament_cycle = 0
@@ -1746,13 +1748,13 @@ class NomicLoop:
             self.convergence_detector = ConvergenceDetector(
                 convergence_threshold=0.85, min_rounds_before_check=2
             )
-            print(f"[convergence] Early stopping enabled")
+            print("[convergence] Early stopping enabled")
 
         # Phase 5: MetaCritiqueAnalyzer for process feedback
         self.meta_analyzer = None
         if META_CRITIQUE_AVAILABLE:
             self.meta_analyzer = MetaCritiqueAnalyzer()
-            print(f"[meta] Process feedback enabled")
+            print("[meta] Process feedback enabled")
 
         # P5-Phase2: Cache for meta-critique observations to inject into next debate
         self._cached_meta_observations: list = []
@@ -1782,7 +1784,7 @@ class NomicLoop:
         if ELO_AVAILABLE:
             elo_db_path = self.nomic_dir / "agent_elo.db"
             self.elo_system = EloSystem(str(elo_db_path))
-            print(f"[elo] Agent skill tracking enabled")
+            print("[elo] Agent skill tracking enabled")
 
         # Phase 5: AgentSelector for smart team selection
         self.agent_selector = None
@@ -1790,18 +1792,18 @@ class NomicLoop:
             self.agent_selector = AgentSelector(
                 elo_system=self.elo_system, persona_manager=self.persona_manager
             )
-            print(f"[selector] Smart agent selection enabled")
+            print("[selector] Smart agent selection enabled")
 
         # Phase 10: ProbeFilter for probe-aware agent selection
         self.probe_filter = None
         if PROBE_FILTER_AVAILABLE:
             self.probe_filter = ProbeFilter(nomic_dir=str(self.nomic_dir))
-            print(f"[probe-filter] Probe-aware agent selection enabled")
+            print("[probe-filter] Probe-aware agent selection enabled")
 
             # Wire ProbeFilter into AgentSelector for reliability-weighted team selection
             if self.agent_selector and hasattr(self.agent_selector, "set_probe_filter"):
                 self.agent_selector.set_probe_filter(self.probe_filter)
-                print(f"[selector] Probe reliability weighting enabled")
+                print("[selector] Probe reliability weighting enabled")
 
         # =================================================================
         # Phase 9: Grounded Personas & Truth-Based Identity
@@ -1812,21 +1814,21 @@ class NomicLoop:
         if POSITION_TRACKER_AVAILABLE:
             position_db_path = self.nomic_dir / "aragora_positions.db"
             self.position_tracker = PositionTracker(str(position_db_path))
-            print(f"[positions] Truth-grounded position tracking enabled")
+            print("[positions] Truth-grounded position tracking enabled")
 
         # Phase 9: PositionLedger for evidence-based identity
         self.position_ledger = None
         if GROUNDED_PERSONAS_AVAILABLE and PositionLedger:
             ledger_db_path = self.nomic_dir / "grounded_positions.db"
             self.position_ledger = PositionLedger(str(ledger_db_path))
-            print(f"[ledger] Evidence-based position ledger enabled")
+            print("[ledger] Evidence-based position ledger enabled")
 
         # Phase 9: RelationshipTracker for inter-agent dynamics
         self.relationship_tracker = None
         if GROUNDED_PERSONAS_AVAILABLE and RelationshipTracker:
             relationship_db_path = self.nomic_dir / "agent_relationships.db"
             self.relationship_tracker = RelationshipTracker(str(relationship_db_path))
-            print(f"[relationships] Agent relationship tracking enabled")
+            print("[relationships] Agent relationship tracking enabled")
 
         # Phase 9: MomentDetector for significant debate moments
         self.moment_detector = None
@@ -1836,26 +1838,26 @@ class NomicLoop:
                 position_ledger=self.position_ledger,
                 relationship_tracker=self.relationship_tracker,
             )
-            print(f"[moments] Significant moment detection enabled")
+            print("[moments] Significant moment detection enabled")
 
         # Phase 10: CalibrationTracker for prediction accuracy
         self.calibration_tracker = None
         if CALIBRATION_AVAILABLE and CalibrationTracker:
             calibration_db_path = self.nomic_dir / "agent_calibration.db"
             self.calibration_tracker = CalibrationTracker(str(calibration_db_path))
-            print(f"[calibration] Agent prediction calibration tracking enabled")
+            print("[calibration] Agent prediction calibration tracking enabled")
 
             # Wire CalibrationTracker into AgentSelector for calibration-weighted team selection
             if self.agent_selector and hasattr(self.agent_selector, "set_calibration_tracker"):
                 self.agent_selector.set_calibration_tracker(self.calibration_tracker)
-                print(f"[selector] Calibration quality weighting enabled")
+                print("[selector] Calibration quality weighting enabled")
 
         # Phase 10: SuggestionFeedbackTracker for audience suggestion effectiveness
         self.suggestion_tracker = None
         if SUGGESTION_FEEDBACK_AVAILABLE and SuggestionFeedbackTracker:
             suggestion_db_path = self.nomic_dir / "suggestion_feedback.db"
             self.suggestion_tracker = SuggestionFeedbackTracker(str(suggestion_db_path))
-            print(f"[suggestions] Audience suggestion feedback tracking enabled")
+            print("[suggestions] Audience suggestion feedback tracking enabled")
 
         # Phase 9: PersonaSynthesizer for grounded identity prompts
         self.persona_synthesizer = None
@@ -1865,7 +1867,7 @@ class NomicLoop:
                 relationship_tracker=self.relationship_tracker,
                 elo_system=self.elo_system,
             )
-            print(f"[synthesizer] Grounded persona synthesis enabled")
+            print("[synthesizer] Grounded persona synthesis enabled")
 
         # Phase 9: FlipDetector for position reversal tracking (cached instance)
         self.flip_detector = None
@@ -1876,7 +1878,7 @@ class NomicLoop:
                 # Use grounded_positions.db where PositionLedger stores data
                 flip_db_path = self.nomic_dir / "grounded_positions.db"
                 self.flip_detector = FlipDetector(str(flip_db_path))
-                print(f"[flip] Position flip detection enabled")
+                print("[flip] Position flip detection enabled")
             except Exception as e:
                 print(f"[flip] Initialization failed: {e}")
 
@@ -1887,20 +1889,20 @@ class NomicLoop:
         # Phase 6: ClaimsKernel for structured reasoning (P16)
         self.claims_kernel = None
         if CLAIMS_KERNEL_AVAILABLE:
-            self.claims_kernel = ClaimsKernel(debate_id=f"nomic-cycle-0")
-            print(f"[claims] Structured reasoning enabled")
+            self.claims_kernel = ClaimsKernel(debate_id="nomic-cycle-0")
+            print("[claims] Structured reasoning enabled")
 
         # Phase 6: ProvenanceManager for evidence tracking (P17)
         self.provenance_manager = None
         if PROVENANCE_AVAILABLE:
-            self.provenance_manager = ProvenanceManager(debate_id=f"nomic-cycle-0")
-            print(f"[provenance] Evidence chain tracking enabled")
+            self.provenance_manager = ProvenanceManager(debate_id="nomic-cycle-0")
+            print("[provenance] Evidence chain tracking enabled")
 
         # Phase 6: BeliefNetwork for probabilistic reasoning (P18)
         self.belief_network = None
         if BELIEF_NETWORK_AVAILABLE:
-            self.belief_network = BeliefNetwork(debate_id=f"nomic-cycle-0")
-            print(f"[belief] Probabilistic reasoning enabled")
+            self.belief_network = BeliefNetwork(debate_id="nomic-cycle-0")
+            print("[belief] Probabilistic reasoning enabled")
 
         # P3-Phase2: Cache for crux injection - store cruxes from one debate to inject into next
         self._cached_cruxes: list = []
@@ -1911,13 +1913,13 @@ class NomicLoop:
         if PROOF_EXECUTOR_AVAILABLE:
             self.proof_executor = ProofExecutor(allow_filesystem=True, default_timeout=30.0)
             self.claim_verifier = ClaimVerifier(self.proof_executor)
-            print(f"[proofs] Executable verification enabled")
+            print("[proofs] Executable verification enabled")
 
         # Phase 6: ScenarioComparator for robustness testing (P20)
         self.scenario_comparator = None
         if SCENARIO_MATRIX_AVAILABLE:
             self.scenario_comparator = ScenarioComparator()
-            print(f"[scenarios] Robustness testing enabled")
+            print("[scenarios] Robustness testing enabled")
 
         # Phase 7: Resilience, Living Documents, & Observability
 
@@ -1925,9 +1927,9 @@ class NomicLoop:
         # Note: This REPLACES the base ProvenanceManager from Phase 6 if available
         if ENHANCED_PROVENANCE_AVAILABLE:
             self.provenance_manager = EnhancedProvenanceManager(
-                debate_id=f"nomic-cycle-0", repo_path=str(self.aragora_path)
+                debate_id="nomic-cycle-0", repo_path=str(self.aragora_path)
             )
-            print(f"[provenance] Enhanced with staleness detection")
+            print("[provenance] Enhanced with staleness detection")
 
         # Phase 7: CheckpointManager for pause/resume (P22)
         self.checkpoint_manager = None
@@ -1938,7 +1940,7 @@ class NomicLoop:
                 store=FileCheckpointStore(str(checkpoint_dir)),
                 config=CheckpointConfig(interval_rounds=1, max_checkpoints=5),
             )
-            print(f"[checkpoint] Pause/resume enabled")
+            print("[checkpoint] Pause/resume enabled")
 
         # Phase 7: BreakpointManager for human intervention (P23)
         self.breakpoint_manager = None
@@ -1946,13 +1948,13 @@ class NomicLoop:
             self.breakpoint_manager = BreakpointManager(
                 config=BreakpointConfig(min_confidence=0.5, max_deadlock_rounds=3)
             )
-            print(f"[breakpoints] Human intervention enabled")
+            print("[breakpoints] Human intervention enabled")
 
         # Phase 7: ReliabilityScorer for confidence scoring (P24)
         self.reliability_scorer = None
         if RELIABILITY_SCORER_AVAILABLE and self.provenance_manager:
             self.reliability_scorer = ReliabilityScorer(provenance=self.provenance_manager)
-            print(f"[reliability] Confidence scoring enabled")
+            print("[reliability] Confidence scoring enabled")
 
         # Phase 7: DebateTracer for audit logs (P25)
         # Note: DebateTracer is created per-debate, so we just store the path
@@ -1962,7 +1964,7 @@ class NomicLoop:
             trace_dir = self.nomic_dir / "traces"
             trace_dir.mkdir(exist_ok=True)
             self.debate_trace_db = str(trace_dir / "debate_traces.db")
-            print(f"[tracer] Audit logging enabled")
+            print("[tracer] Audit logging enabled")
 
         # Phase 8: Agent Evolution, Semantic Memory & Advanced Debates
 
@@ -1973,27 +1975,27 @@ class NomicLoop:
             self.persona_lab = PersonaLaboratory(
                 persona_manager=self.persona_manager, db_path=str(lab_db)
             )
-            print(f"[lab] Persona evolution enabled")
+            print("[lab] Persona evolution enabled")
 
         # Phase 8: SemanticRetriever for pattern matching (P27)
         self.semantic_retriever = None
         if SEMANTIC_RETRIEVER_AVAILABLE:
             retriever_db = self.nomic_dir / "semantic_patterns.db"
             self.semantic_retriever = SemanticRetriever(db_path=str(retriever_db))
-            print(f"[semantic] Pattern retrieval enabled")
+            print("[semantic] Pattern retrieval enabled")
 
         # Phase 8: FormalVerificationManager for theorem proving (P28)
         self.formal_verifier = None
         if FORMAL_VERIFICATION_AVAILABLE:
             self.formal_verifier = FormalVerificationManager()
-            print(f"[formal] Z3 verification enabled")
+            print("[formal] Z3 verification enabled")
 
         # Phase 8: DebateGraph for DAG-based debates (P29)
         # Note: GraphDebateOrchestrator is created per-debate with specific agents
         self.graph_debate_enabled = False
         if DEBATE_GRAPH_AVAILABLE and GraphDebateOrchestrator:
             self.graph_debate_enabled = True
-            print(f"[graph] DAG debate structure enabled")
+            print("[graph] DAG debate structure enabled")
 
         # Phase 8: DebateForker for parallel exploration (P30)
         # Note: DebateForker is created per-debate
@@ -2003,7 +2005,7 @@ class NomicLoop:
             if os.environ.get("ARAGORA_ENABLE_FORKING", "0") == "1":
                 self.fork_debate_enabled = True
                 self.execute_forks = True
-                print(f"[forking] Parallel branch exploration enabled (ARAGORA_ENABLE_FORKING=1)")
+                print("[forking] Parallel branch exploration enabled (ARAGORA_ENABLE_FORKING=1)")
             else:
                 print(
                     "[forking] Forking available but disabled. "
@@ -2032,7 +2034,7 @@ class NomicLoop:
                 "Extracted phase classes not available. "
                 "Ensure aragora.nomic.phases module is installed."
             )
-        print(f"[phases] Using extracted modular phase classes")
+        print("[phases] Using extracted modular phase classes")
         self._setup_phase_metrics()
         self._extracted_phases = {}
 
@@ -2080,7 +2082,7 @@ class NomicLoop:
                 phase_recorder=record_nomic_phase,
                 agent_recorder=record_nomic_agent_phase,
             )
-            print(f"[metrics] Phase profiling enabled via Prometheus")
+            print("[metrics] Phase profiling enabled via Prometheus")
         except ImportError as e:
             logger.debug(f"[metrics] Prometheus metrics not available: {e}")
         except Exception as e:
@@ -4539,7 +4541,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return
 
         try:
-            self._log(f"  [prober] Running capability probes...")
+            self._log("  [prober] Running capability probes...")
             agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
 
             for agent in agents:
@@ -4677,10 +4679,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return
 
         try:
-            self._log(f"  [evolver] Evolving agent prompts...")
+            self._log("  [evolver] Evolving agent prompts...")
             patterns = self.prompt_evolver.get_top_patterns(limit=5)
             if not patterns:
-                self._log(f"  [evolver] No patterns accumulated yet")
+                self._log("  [evolver] No patterns accumulated yet")
                 return
 
             for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
@@ -4817,7 +4819,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     self._cached_meta_observations = issues[:5]  # Cache top 5 issues
                     # Log warning if quality is low
                     if critique.overall_quality < 0.6:
-                        self._log(f"  [meta] ⚠️ LOW QUALITY: Reflection needed")
+                        self._log("  [meta] ⚠️ LOW QUALITY: Reflection needed")
 
             if critique.recommendations:
                 self._log(f"  [meta] Top recommendation: {critique.recommendations[0]}")
@@ -5070,7 +5072,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return
         try:
             leaderboard = self.elo_system.get_leaderboard(limit=4)
-            self._log(f"  [elo] === LEADERBOARD ===")
+            self._log("  [elo] === LEADERBOARD ===")
             for i, rating in enumerate(leaderboard):
                 self._log(
                     f"  [elo] #{i+1} {rating.agent_name}: {rating.elo:.0f} "
@@ -5286,14 +5288,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         if self.flip_detector:
                             consistency = self.flip_detector.get_agent_consistency(agent.name)
                             if consistency.total_flips > 0:
-                                flip_warning = f"\n\n## Consistency Warning\n"
+                                flip_warning = "\n\n## Consistency Warning\n"
                                 flip_warning += f"You have changed your position {consistency.total_flips} times.\n"
                                 flip_warning += f"- Contradictions: {consistency.contradictions}\n"
                                 flip_warning += f"- Retractions: {consistency.retractions}\n"
                                 flip_warning += (
                                     f"Consistency score: {consistency.consistency_score:.0%}\n"
                                 )
-                                flip_warning += f"Be mindful of intellectual consistency. Acknowledge past positions when changing."
+                                flip_warning += "Be mindful of intellectual consistency. Acknowledge past positions when changing."
                                 full_prompt += flip_warning
                     except Exception as e:
                         self._log(f"  [flip] Warning injection failed for {agent.name}: {e}")
@@ -5754,7 +5756,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not SCENARIO_MATRIX_AVAILABLE:
             return {}
         try:
-            self._log(f"  [scenarios] Running robustness check...")
+            self._log("  [scenarios] Running robustness check...")
             matrix = ScenarioMatrix.from_presets("risk")
 
             # Create lightweight debate function
@@ -6377,14 +6379,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not DEBATE_GRAPH_AVAILABLE or not self.graph_debate_enabled:
             return None
         try:
-            self._log(f"  [graph] Running graph-based debate...")
+            self._log("  [graph] Running graph-based debate...")
             # Create orchestrator on demand with the specific agents
             orchestrator = GraphDebateOrchestrator(agents=agents)
             result = await orchestrator.run_debate(task)
             # Verify result has required DebateResult interface (consensus_reached, confidence)
             # GraphDebateOrchestrator is a placeholder - returns DebateGraph not DebateResult
             if not hasattr(result, "consensus_reached") or not hasattr(result, "confidence"):
-                self._log(f"  [graph] Incomplete result - falling back to arena")
+                self._log("  [graph] Incomplete result - falling back to arena")
                 return None
             return result
         except Exception as e:
@@ -6658,9 +6660,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                         lines.append(
                             f"- WARNING: {agent_name} has high calibration error ({ece:.2f})"
                         )
-                        lines.append(
-                            f"  Consider weighing their opinions lower on uncertain topics"
-                        )
+                        lines.append("  Consider weighing their opinions lower on uncertain topics")
 
             if flagged:
                 self._log(f"  [calibration] Flagged {len(flagged)} poorly calibrated agents")
@@ -7417,7 +7417,7 @@ Synthesize these suggestions into a coherent, working implementation.
                             )
                         else:
                             self._log(
-                                f"    [forking] ⚠️ Fork execution failed, continuing with main path"
+                                "    [forking] ⚠️ Fork execution failed, continuing with main path"
                             )
                             self._add_risk_entry(
                                 {
@@ -7661,7 +7661,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             self._log(f"  {phase_name} fractal debate ERROR: {e}")
             self._save_state({"phase": phase_name, "stage": "fractal_error", "error": str(e)})
             # Fall back to regular arena on error
-            self._log(f"  Falling back to regular arena...")
+            self._log("  Falling back to regular arena...")
             env = Environment(task=task)
             protocol = DebateProtocol(
                 rounds=2,
@@ -7853,7 +7853,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         if deadlock:
             action = await self._handle_deadlock(deadlock)
             if action == "skip":
-                self._log(f"  [DEADLOCK] Skipping cycle due to repeated failures")
+                self._log("  [DEADLOCK] Skipping cycle due to repeated failures")
                 cycle_result["outcome"] = "skipped_deadlock"
                 return cycle_result
 
@@ -8221,7 +8221,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             cycle_result["timeout_phase"] = "implement"
             return cycle_result
 
-        self._log(f"\nImplementation complete")
+        self._log("\nImplementation complete")
         self._log(f"Changed files:\n{impl_result.get('diff', 'No changes')}")
 
         # === Check evidence staleness after implementation ===
@@ -8248,7 +8248,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                         )
 
                     if staleness.needs_redebate:
-                        self._log(f"  [staleness] WARNING: High-severity stale evidence detected!")
+                        self._log("  [staleness] WARNING: High-severity stale evidence detected!")
                         cycle_result["needs_redebate"] = True
                         cycle_result["stale_claims"] = [c.claim_id for c in staleness.stale_claims]
             except Exception as e:
@@ -8346,7 +8346,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 self.phase_recovery.record_failure("verify", e)
 
             if verify_result.get("all_passed"):
-                self._log(f"\nVerification passed!")
+                self._log("\nVerification passed!")
                 break  # Success - exit the fix loop
 
             # Get test output for progress tracking
@@ -8467,7 +8467,6 @@ Start directly with "## 1. FILE CHANGES" or similar."""
 
             # Step 1: Codex reviews the failed changes
             self._log("\n  Step 1: Codex analyzing test failures...", agent="codex")
-            from aragora.implement import HybridExecutor
 
             executor = HybridExecutor(self.aragora_path)
             diff = self._get_git_diff()
@@ -8483,7 +8482,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             failing_test_files = self._extract_failing_files(test_output)
             failing_tests_info = ""
             if failing_test_files:
-                failing_tests_info = f"\n## Failing Test Files (FIX THESE)\n" + "\n".join(
+                failing_tests_info = "\n## Failing Test Files (FIX THESE)\n" + "\n".join(
                     f"- {f}" for f in failing_test_files[:5]
                 )
 
@@ -8529,7 +8528,7 @@ Provide specific, actionable fixes. Focus on:
                 review_prompt, timeout=2400
             )  # 40 min for thorough review
             iteration_result["codex_review"] = review_result
-            self._log(f"    Codex review complete", agent="codex")
+            self._log("    Codex review complete", agent="codex")
             # Emit Codex's full review
             if review_result.get("review"):
                 self._stream_emit(
@@ -8658,7 +8657,7 @@ Working directory: {self.aragora_path}
                     )
                     iteration_result["grok_fix"] = grok_result if grok_result else "No response"
                     if grok_result and not ("[Agent" in grok_result and "failed" in grok_result):
-                        self._log(f"    Grok fix applied", agent="grok")
+                        self._log("    Grok fix applied", agent="grok")
                         self._stream_emit(
                             "on_log_message", grok_result, level="info", phase="fix", agent="grok"
                         )
@@ -8694,7 +8693,7 @@ Working directory: {self.aragora_path}
 
             self._log("\n  Re-running verification...")
 
-        self._log(f"\nVerification passed")
+        self._log("\nVerification passed")
 
         # Phase 5: Commit (with recovery tracking)
         try:

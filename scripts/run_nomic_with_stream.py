@@ -115,7 +115,7 @@ async def run_with_streaming(
     print(f"Loop ID:      {loop_id}")
     print(f"Loop Name:    {loop_name}")
     print(f"Server:       http://localhost:{actual_port} (HTTP + WebSocket)")
-    print(f"Live view:    https://aragora.ai")
+    print("Live view:    https://aragora.ai")
     print(f"Cycles:       {cycles}")
     print(f"Auto-commit:  {'Yes' if auto_commit else 'No (requires confirmation)'}")
     print("=" * 60)

@@ -82,9 +82,7 @@ Examples:
             docs_dir = aragora_root / "docs"
             if docs_dir.exists():
                 static_dir = docs_dir
-                print(
-                    f"Note: Using docs/ for static files. Build live dashboard for full features."
-                )
+                print("Note: Using docs/ for static files. Build live dashboard for full features.")
 
     # Nomic directory - default to aragora/.nomic
     nomic_dir = args.nomic_dir
@@ -101,12 +99,12 @@ Examples:
     print("=" * 60)
     print()
     print("Endpoints:")
-    print(f"  GET  /                    Dashboard homepage")
-    print(f"  GET  /api/health          Health check")
-    print(f"  GET  /api/nomic/state     Current nomic loop state")
-    print(f"  GET  /api/nomic/log       Recent log entries")
-    print(f"  GET  /api/debates         List recent debates")
-    print(f"  GET  /api/debates/<slug>  Get debate by slug")
+    print("  GET  /                    Dashboard homepage")
+    print("  GET  /api/health          Health check")
+    print("  GET  /api/nomic/state     Current nomic loop state")
+    print("  GET  /api/nomic/log       Recent log entries")
+    print("  GET  /api/debates         List recent debates")
+    print("  GET  /api/debates/<slug>  Get debate by slug")
     print(f"  WS   ws://...:{args.ws_port}  Real-time event stream")
     print()
     print("Press Ctrl+C to stop the server.")
