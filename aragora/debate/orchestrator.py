@@ -595,17 +595,22 @@ class Arena:
     def _broadcast_health_event(self, event: dict) -> None:
         """Broadcast health events to WebSocket clients via EventBus."""
         try:
+            # Extract data, filtering out event_type to avoid duplicate kwarg
+            data = event.get("data", event)
+            if isinstance(data, dict):
+                data = {k: v for k, v in data.items() if k not in ("event_type", "debate_id")}
+
             if self.event_bus:
                 self.event_bus.emit_sync(
                     event_type="health_event",
                     debate_id=getattr(self, "_current_debate_id", ""),
-                    **event.get("data", event),
+                    **data,
                 )
             else:
                 # Fallback to event_bridge if event_bus not initialized yet
                 self.event_bridge.notify(
                     event_type="health_event",
-                    **event.get("data", event),
+                    **data,
                 )
         except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug(f"health_broadcast_failed error={e}")
