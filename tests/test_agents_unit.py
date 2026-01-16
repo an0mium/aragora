@@ -783,8 +783,10 @@ REASONING: This is the reasoning."""
 
         critique = agent._parse_critique(response, "proposal", "test proposal")
         assert critique is not None
+        # Critique.severity uses 0-10 scale (see aragora/core.py)
+        # Input "SEVERITY: 0.7" is detected as 0-1 scale and converted to 7.0
         assert critique.severity >= 0.0
-        assert critique.severity <= 1.0
+        assert critique.severity <= 10.0
         assert len(critique.issues) >= 1
 
     def test_parse_critique_minimal_format(self):
