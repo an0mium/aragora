@@ -262,7 +262,7 @@ class TestErrorContainment:
                 result = await mock_agent.generate("prompt", [])
                 results.append(result)
             except Exception:
-                results.append(f"[System: Agent error - skipping]")
+                results.append("[System: Agent error - skipping]")
 
         # All should be error messages, debate should not crash
         assert len(results) == 3

@@ -396,7 +396,7 @@ class TestLoopRegistration:
         loop_list = server.get_loop_list()
 
         assert len(loop_list) == 2
-        loop_ids = {l["loop_id"] for l in loop_list}
+        loop_ids = {loop["loop_id"] for loop in loop_list}
         assert loop_ids == {"loop_1", "loop_2"}
 
 

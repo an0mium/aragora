@@ -338,7 +338,7 @@ class TestTrendingEndpoint:
         mock_detector = Mock()
         mock_detector._moment_cache = {
             "claude": [
-                MockMoment(f"m{i}", "upset_victory", "claude", f"Won", 0.5, f"d{i}")
+                MockMoment(f"m{i}", "upset_victory", "claude", "Won", 0.5, f"d{i}")
                 for i in range(10)
             ],
         }

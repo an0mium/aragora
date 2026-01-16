@@ -40,7 +40,6 @@ from aragora.debate.extensions import ArenaExtensions
 from aragora.debate.immune_system import get_immune_system
 from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.optional_imports import OptionalImports
-from aragora.debate.phase_executor import PhaseExecutor
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.debate.result_formatter import ResultFormatter
 from aragora.debate.roles_manager import RolesManager

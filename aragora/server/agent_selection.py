@@ -8,7 +8,7 @@ This module provides intelligent agent selection using:
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from aragora.config import ALLOWED_AGENT_TYPES
 from aragora.server.initialization import (

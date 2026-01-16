@@ -105,7 +105,10 @@ class TestJudgmentPhaseInit:
 
     def test_init_optional_calibration_fn(self, protocol, three_agents):
         """Should accept optional calibration weight function."""
-        cal_fn = lambda name: 0.8
+
+        def cal_fn(name):
+            return 0.8
+
         phase = JudgmentPhase(protocol, three_agents, calibration_weight_fn=cal_fn)
         assert phase._get_calibration_weight is cal_fn
 
@@ -499,7 +502,9 @@ class TestGetJudgeStats:
 
     def test_includes_calibration_weight_when_fn_available(self, protocol, three_agents):
         """Should include calibration weight when function provided."""
-        cal_fn = lambda name: 0.85
+
+        def cal_fn(name):
+            return 0.85
 
         phase = JudgmentPhase(
             protocol,

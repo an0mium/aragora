@@ -75,7 +75,10 @@ class TestVoteWeightCalculator:
 
     def test_reputation_weight(self):
         """Test weight with reputation source."""
-        reputation = lambda name: 1.2 if name == "expert" else 0.8
+
+        def reputation(name):
+            return 1.2 if name == "expert" else 0.8
+
         calculator = VoteWeightCalculator(reputation_source=reputation)
 
         assert calculator.compute_weight("expert") == 1.2
@@ -91,8 +94,11 @@ class TestVoteWeightCalculator:
 
     def test_consistency_weight(self):
         """Test weight with consistency source."""
+
         # Consistency score 0-1 maps to 0.5-1.0 weight multiplier
-        consistency = lambda name: 1.0 if name == "consistent" else 0.0
+        def consistency(name):
+            return 1.0 if name == "consistent" else 0.0
+
         calculator = VoteWeightCalculator(consistency_source=consistency)
 
         assert calculator.compute_weight("consistent") == 1.0  # 0.5 + (1.0 * 0.5)
@@ -100,7 +106,10 @@ class TestVoteWeightCalculator:
 
     def test_calibration_weight(self):
         """Test weight with calibration source."""
-        calibration = lambda name: 1.3 if name == "calibrated" else 0.7
+
+        def calibration(name):
+            return 1.3 if name == "calibrated" else 0.7
+
         calculator = VoteWeightCalculator(calibration_source=calibration)
 
         assert calculator.compute_weight("calibrated") == 1.3
@@ -598,7 +607,8 @@ class TestCountWeightedVotes:
         user_votes = [{"choice": "B", "intensity": 10}]
 
         # Intensity multiplier: doubles weight at intensity 10
-        multiplier = lambda intensity, protocol: intensity / 5.0
+        def multiplier(intensity, protocol):
+            return intensity / 5.0
 
         result = voting.count_weighted_votes(
             votes,
@@ -895,7 +905,8 @@ class TestVotingIntegration:
             {"choice": "A", "user_id": "user2", "intensity": 6},
         ]
 
-        intensity_multiplier = lambda intensity, protocol: intensity / 10.0
+        def intensity_multiplier(intensity, protocol):
+            return intensity / 10.0
 
         result = voting.count_weighted_votes(
             agent_votes,

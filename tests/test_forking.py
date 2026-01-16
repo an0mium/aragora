@@ -413,7 +413,7 @@ class TestForkDetectorShouldFork:
             Message(
                 role="proposer",
                 agent=f"agent{i}",
-                content=f"I disagree with everyone. Wrong approach.",
+                content="I disagree with everyone. Wrong approach.",
                 round=2,
             )
             for i in range(5)

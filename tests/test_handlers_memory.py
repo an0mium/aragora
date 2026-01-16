@@ -321,7 +321,6 @@ class TestMemoryHandlerImport:
 
     def test_continuum_available_flag(self):
         """CONTINUUM_AVAILABLE flag is defined."""
-        from aragora.server.handlers.memory import CONTINUUM_AVAILABLE
 
         assert isinstance(CONTINUUM_AVAILABLE, bool)
 

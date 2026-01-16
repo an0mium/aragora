@@ -247,7 +247,6 @@ class TestDatabaseSettings:
     def test_is_postgresql_property(self):
         """Test is_postgresql property logic."""
         from aragora.config.settings import get_settings, reset_settings
-        import os
 
         reset_settings()
 

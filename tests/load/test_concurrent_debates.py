@@ -223,7 +223,7 @@ class TestConcurrentDebatesSmoke:
             max_concurrent=10,
         )
 
-        print(f"\n=== 10 Concurrent Debates (Smoke Test) ===")
+        print("\n=== 10 Concurrent Debates (Smoke Test) ===")
         for k, v in metrics.summary().items():
             print(f"  {k}: {v}")
 
@@ -254,7 +254,7 @@ class TestConcurrentDebatesSmoke:
         tasks = [mock_db_operation() for _ in range(50)]
         await asyncio.gather(*tasks)
 
-        print(f"\n=== Database Connection Test ===")
+        print("\n=== Database Connection Test ===")
         print(f"  Max concurrent connections: {max_connections}")
 
         # Should complete without deadlock
@@ -274,7 +274,7 @@ class TestConcurrentDebatesModerate:
             max_concurrent=10,
         )
 
-        print(f"\n=== 50 Concurrent Debates (Moderate Load) ===")
+        print("\n=== 50 Concurrent Debates (Moderate Load) ===")
         for k, v in metrics.summary().items():
             print(f"  {k}: {v}")
 
@@ -296,7 +296,7 @@ class TestConcurrentDebatesHeavy:
             max_concurrent=10,
         )
 
-        print(f"\n=== 100 Concurrent Debates (Heavy Load) ===")
+        print("\n=== 100 Concurrent Debates (Heavy Load) ===")
         for k, v in metrics.summary().items():
             print(f"  {k}: {v}")
 
@@ -316,7 +316,7 @@ class TestConcurrentDebatesHeavy:
             max_concurrent=20,
         )
 
-        print(f"\n=== 100 Debates @ 20 Concurrent ===")
+        print("\n=== 100 Debates @ 20 Concurrent ===")
         for k, v in metrics.summary().items():
             print(f"  {k}: {v}")
 
@@ -360,7 +360,7 @@ class TestDebateQueueLoad:
 
         final_status = queue.get_batch_status(batch_id)
 
-        print(f"\n=== Queue Batch Test (20 items) ===")
+        print("\n=== Queue Batch Test (20 items) ===")
         print(f"  Status: {final_status['status']}")
         print(f"  Completed: {final_status['completed']}/{final_status['total_items']}")
         print(f"  Duration: {final_status.get('duration_seconds', 'N/A')}s")
@@ -408,7 +408,7 @@ class TestDebateQueueLoad:
 
         await queue.shutdown()
 
-        print(f"\n=== Priority Ordering Test ===")
+        print("\n=== Priority Ordering Test ===")
         print(f"  Processing order: {processing_order}")
 
         # High priority items should be processed first
@@ -444,7 +444,7 @@ class TestMemoryUnderLoad:
             current_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             memory_samples.append(current_memory - initial_memory)
 
-        print(f"\n=== Memory Stability Test ===")
+        print("\n=== Memory Stability Test ===")
         print(f"  Memory growth per batch (KB): {memory_samples}")
 
         # Memory should not grow significantly between batches

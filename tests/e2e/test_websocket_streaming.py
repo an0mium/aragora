@@ -190,7 +190,6 @@ class TestWebSocketMessageFormat:
 
     def test_message_is_valid_json(self, mock_ws_client):
         """Messages should be valid JSON."""
-        import asyncio
 
         asyncio.run(
             mock_ws_client.send(

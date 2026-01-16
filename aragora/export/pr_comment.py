@@ -5,14 +5,14 @@ Generates GitHub-flavored markdown comments from debate results.
 Designed to be scannable in 30 seconds with clear severity hierarchy.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "PRCommentConfig",
     "format_compact_comment",
     "format_pr_comment",
     "format_slack_message",
 ]
-
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional

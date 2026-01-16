@@ -111,7 +111,10 @@ class TestServiceDescriptor:
 
     def test_create_with_factory(self):
         """Test creating descriptor with factory."""
-        factory = lambda: MockService("factory")
+
+        def factory():
+            return MockService("factory")
+
         descriptor = ServiceDescriptor(service_type=MockService, factory=factory)
         assert descriptor.factory == factory
 

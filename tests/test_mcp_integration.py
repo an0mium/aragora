@@ -138,7 +138,7 @@ class TestMCPToolsModuleStructure:
         from aragora.mcp.tools import TOOLS_METADATA
 
         for tool in TOOLS_METADATA:
-            assert "name" in tool, f"Tool missing 'name' field"
+            assert "name" in tool, "Tool missing 'name' field"
             assert (
                 "description" in tool
             ), f"Tool {tool.get('name', 'unknown')} missing 'description'"

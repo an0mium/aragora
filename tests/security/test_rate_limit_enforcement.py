@@ -508,7 +508,7 @@ class TestSlidingWindowRateLimiting:
 # =============================================================================
 
 
-class TestRateLimitHeaders:
+class TestRateLimitHeaderGeneration:
     """Test rate limit headers generation."""
 
     def test_rate_limit_headers_allowed(self):

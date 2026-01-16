@@ -653,8 +653,8 @@ class TestGenerateMetrics:
         output = generate_metrics()
 
         lines = output.split("\n")
-        help_lines = [l for l in lines if l.startswith("# HELP")]
-        type_lines = [l for l in lines if l.startswith("# TYPE")]
+        help_lines = [line for line in lines if line.startswith("# HELP")]
+        type_lines = [line for line in lines if line.startswith("# TYPE")]
 
         assert len(help_lines) > 0
         assert len(type_lines) > 0

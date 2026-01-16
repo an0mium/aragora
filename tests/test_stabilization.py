@@ -24,7 +24,7 @@ async def test_observer_null_byte_detection():
     attempt_id = observer.record_agent_attempt("test_agent", 30.0)
     observer.record_agent_completion(attempt_id, "output\x00with nulls")
     metrics = observer.metrics[attempt_id]
-    assert metrics["has_null_bytes"] == True
+    assert metrics["has_null_bytes"]
 
 
 @pytest.mark.asyncio

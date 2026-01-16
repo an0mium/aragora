@@ -15,7 +15,6 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.debate.context import DebateContext
     from aragora.debate.context_gatherer import ContextGatherer
     from aragora.debate.memory_manager import MemoryManager
     from aragora.debate.state_cache import DebateStateCache

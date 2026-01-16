@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.server.stream import DebateStreamServer
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -76,7 +76,7 @@ class TestReliabilityLevel:
     def test_all_6_levels_exist(self):
         """Should have all 6 reliability levels."""
         expected = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW", "VERY_LOW", "SPECULATIVE"]
-        actual = [l.name for l in ReliabilityLevel]
+        actual = [level.name for level in ReliabilityLevel]
 
         for e in expected:
             assert e in actual

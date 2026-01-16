@@ -628,7 +628,7 @@ class TestRegressionSafety:
                     if re.search(r"execute\s*\([^)]+%\s*\(", line):
                         violations.append(f"{filepath}:{i}: % formatting in execute()")
 
-        assert len(violations) == 0, f"SQL injection risks found:\n" + "\n".join(violations)
+        assert len(violations) == 0, "SQL injection risks found:\n" + "\n".join(violations)
 
     def test_parameterized_pattern_count(self):
         """Verify parameterized query patterns are used consistently.

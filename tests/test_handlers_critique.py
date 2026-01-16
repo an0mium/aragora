@@ -90,7 +90,7 @@ def temp_nomic_dir_with_db():
 
         cursor.execute(
             """
-            INSERT INTO agent_reputations 
+            INSERT INTO agent_reputations
             (agent_name, reputation_score, vote_weight, proposal_acceptance_rate, critique_value, debates_participated)
             VALUES (?, ?, ?, ?, ?, ?)
         """,

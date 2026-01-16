@@ -275,7 +275,6 @@ class TestAPIKeyTenantScoping:
     def test_api_key_validates_against_database(self):
         """Verify API key validates against user store."""
         from aragora.billing.auth.context import UserAuthContext, _validate_api_key
-        from unittest.mock import MagicMock
 
         # Mock user store
         mock_store = MagicMock()
@@ -298,7 +297,6 @@ class TestAPIKeyTenantScoping:
     def test_api_key_rejected_for_inactive_user(self):
         """Verify API key rejected for inactive user."""
         from aragora.billing.auth.context import UserAuthContext, _validate_api_key
-        from unittest.mock import MagicMock
 
         mock_store = MagicMock()
         mock_user = MagicMock()

@@ -121,7 +121,6 @@ class TestEmbeddingCacheConcurrency:
 
     def test_cache_without_provider_raises_error(self, temp_db):
         """Cache should raise error if provider not initialized."""
-        from unittest.mock import patch, MagicMock
 
         _get_cached_embedding.cache_clear()
         # Reset the module-level provider reference

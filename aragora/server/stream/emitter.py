@@ -329,7 +329,7 @@ class SyncEventEmitter:
         except queue.Full:
             # Should not happen with unbounded queue, but defensive
             self._overflow_count += 1
-            logger.error(f"[stream] Unexpected queue full condition")
+            logger.error("[stream] Unexpected queue full condition")
 
         # Notify subscribers outside lock (they don't need seq consistency)
         for sub in self._subscribers:

@@ -145,7 +145,10 @@ class TestMemoryManagerInit:
 
     def test_init_with_domain_extractor(self):
         """Test initialization with domain extractor callable."""
-        extractor = lambda: "testing"
+
+        def extractor():
+            return "testing"
+
         manager = MemoryManager(domain_extractor=extractor)
         assert manager._domain_extractor == extractor
 

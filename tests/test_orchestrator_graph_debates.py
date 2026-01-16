@@ -58,7 +58,7 @@ class GraphMockAgent(Agent):
         # Suggest branch if keyword found
         issues = ["Could be improved"]
         if self._branch_on and self._branch_on.lower() in proposal.lower():
-            issues.append(f"[BRANCH] This deserves a separate exploration")
+            issues.append("[BRANCH] This deserves a separate exploration")
             self.branches_suggested.append(proposal[:50])
 
         return Critique(

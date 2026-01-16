@@ -10,6 +10,8 @@ Analyzes debate traces for:
 Produces a structured risk register for project management.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "Risk",
     "RiskAnalyzer",
@@ -18,8 +20,6 @@ __all__ = [
     "RiskRegister",
     "generate_risk_register",
 ]
-
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime

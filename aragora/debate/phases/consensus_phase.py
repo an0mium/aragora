@@ -41,7 +41,7 @@ from aragora.debate.phases.winner_selector import WinnerSelector
 from aragora.server.stream.arena_hooks import streaming_task_context
 
 if TYPE_CHECKING:
-    from aragora.core import Agent, Vote
+    from aragora.core import Vote
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)

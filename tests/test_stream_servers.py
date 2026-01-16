@@ -249,7 +249,7 @@ class TestLoopRegistration:
 
         assert len(loops) == 2
         # get_loop_list returns dicts with 'loop_id' key (not 'id')
-        loop_ids = [l["loop_id"] for l in loops]
+        loop_ids = [loop["loop_id"] for loop in loops]
         assert "loop-1" in loop_ids
         assert "loop-2" in loop_ids
 

@@ -10,7 +10,7 @@ dissenting views, and learned patterns.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext

@@ -22,10 +22,13 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
 from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .state_manager import LoopInstance
+
+if TYPE_CHECKING:
+    from .events import StreamEvent
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +244,7 @@ class ServerBase:
         Access fields via attributes (event.loop_id) and nested data via event.data.
         """
         # Import here to avoid circular imports
-        from aragora.server.stream.events import StreamEvent, StreamEventType
+        from aragora.server.stream.events import StreamEventType
 
         # Handle both StreamEvent objects and dicts (for backwards compatibility)
         if isinstance(event, dict):

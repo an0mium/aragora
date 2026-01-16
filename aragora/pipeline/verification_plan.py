@@ -8,6 +8,8 @@ Creates structured test plans based on:
 - Integration points
 """
 
+from __future__ import annotations
+
 __all__ = [
     "CasePriority",
     "TestPriority",
@@ -18,8 +20,6 @@ __all__ = [
     "VerificationType",
     "generate_test_plan",
 ]
-
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime

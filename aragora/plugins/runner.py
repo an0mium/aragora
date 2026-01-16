@@ -14,7 +14,6 @@ Key features:
 import asyncio
 import importlib
 import logging
-import sys
 
 # resource module is Unix-only, used for memory limits
 try:

@@ -253,8 +253,8 @@ class TestLeanBackend:
             mock_which.side_effect = lambda cmd: None if cmd == "lean" else f"/usr/bin/{cmd}"
             assert backend.is_available is False
 
-    def test_is_available_false_when_lean_missing(self, backend):
-        """is_available returns False when lean command missing."""
+    def test_is_available_false_when_lean_missing_fresh_backend(self, backend):
+        """is_available returns False when lean command missing (fresh backend)."""
         with patch("shutil.which") as mock_which:
             mock_which.return_value = None
             # Create new backend to avoid cached version

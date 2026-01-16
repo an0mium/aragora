@@ -329,7 +329,7 @@ class TestConsensusTopicValidation:
     def test_topic_exactly_500_chars_accepted(self):
         """Test topic at exactly 500 chars is accepted."""
         from aragora.server.handlers.consensus import ConsensusHandler
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         handler = ConsensusHandler(MagicMock())
         topic = "x" * 500
@@ -373,7 +373,7 @@ class TestConsensusTopicValidation:
     def test_topic_as_list_handled(self):
         """Test topic passed as list (URL query param edge case)."""
         from aragora.server.handlers.consensus import ConsensusHandler
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         handler = ConsensusHandler(MagicMock())
         # Mock ConsensusMemory to avoid database access

@@ -647,7 +647,7 @@ class TestBenchmarks:
         """Benchmark health endpoint."""
         result = benchmark_endpoint(health_handler, "/api/health", iterations=100)
 
-        print(f"\nHealth endpoint benchmark:")
+        print("\nHealth endpoint benchmark:")
         for key, value in result.items():
             print(f"  {key}: {value:.2f}")
 
@@ -658,7 +658,7 @@ class TestBenchmarks:
         """Benchmark version endpoint."""
         result = benchmark_endpoint(system_handler, "/api/version", iterations=100)
 
-        print(f"\nVersion endpoint benchmark:")
+        print("\nVersion endpoint benchmark:")
         for key, value in result.items():
             print(f"  {key}: {value:.2f}")
 

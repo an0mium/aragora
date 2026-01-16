@@ -709,7 +709,7 @@ class TestDebateStateManager:
         loop_list = manager.get_loop_list()
         assert len(loop_list) == 2
 
-        ids = [l["loop_id"] for l in loop_list]
+        ids = [loop["loop_id"] for loop in loop_list]
         assert "loop-1" in ids
         assert "loop-2" in ids
 

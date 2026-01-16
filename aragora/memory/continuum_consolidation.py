@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
 

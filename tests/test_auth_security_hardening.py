@@ -351,9 +351,9 @@ class TestConfigValidator:
             assert "llm_keys" in summary
             # Check structure - llm_keys maps full env var names
             assert "ANTHROPIC_API_KEY" in summary["llm_keys"]
-            assert summary["llm_keys"]["ANTHROPIC_API_KEY"] == True
+            assert summary["llm_keys"]["ANTHROPIC_API_KEY"]
             assert "OPENAI_API_KEY" in summary["llm_keys"]
-            assert summary["llm_keys"]["OPENAI_API_KEY"] == False
+            assert not summary["llm_keys"]["OPENAI_API_KEY"]
 
     def test_validate_and_log_returns_correct_status(self):
         """Test validate_and_log returns correct boolean."""
@@ -369,7 +369,7 @@ class TestConfigValidator:
         ):
             # Development mode - should pass even without all required vars
             result = ConfigValidator.validate_and_log()
-            assert result == True
+            assert result
 
     def test_production_requires_api_token(self):
         """Test production mode requires API token."""

@@ -291,7 +291,7 @@ class TestRateLimiting:
         def check_rate():
             try:
                 for i in range(100):
-                    allowed, _ = auth.check_rate_limit(f"thread_token")
+                    allowed, _ = auth.check_rate_limit("thread_token")
                     results.append(allowed)
             except Exception as e:
                 errors.append(e)

@@ -500,7 +500,7 @@ class TestMetricsUnderLoad:
 
         # Verify latencies are reasonable
         assert len(latencies) == 5
-        assert all(l > 0 for l in latencies)
+        assert all(lat > 0 for lat in latencies)
 
     @pytest.mark.asyncio
     async def test_concurrent_request_counter(self):

@@ -696,7 +696,7 @@ class TestDebateIdValidation:
             if result:
                 assert (
                     result.status_code != 400
-                    or "not found" in json.loads(result.body).get("error", "").lower() == False
+                    or "not found" in json.loads(result.body).get("error", "").lower() is False
                 )
 
 

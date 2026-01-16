@@ -787,7 +787,6 @@ class TestConcurrentDebates:
     @pytest.mark.asyncio
     async def test_parallel_debates_complete(self):
         """Multiple debates can run in parallel without interference."""
-        import asyncio
 
         async def run_debate(task_id: int):
             alice = MockAgent(f"alice-{task_id}", role="proposer")
@@ -814,7 +813,6 @@ class TestConcurrentDebates:
     @pytest.mark.asyncio
     async def test_parallel_debates_with_shared_memory(self, temp_db):
         """Parallel debates can share memory store."""
-        import asyncio
 
         store = CritiqueStore(temp_db)
 

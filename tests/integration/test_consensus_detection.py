@@ -29,7 +29,7 @@ class TestUnanimousConsensus:
         agents = [
             MockAgent(
                 name=f"agent_{i}",
-                responses=[f"I propose solution A because it's optimal."],
+                responses=["I propose solution A because it's optimal."],
                 votes=[
                     Vote(
                         agent=f"agent_{i}",

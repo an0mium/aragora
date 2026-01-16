@@ -55,8 +55,6 @@ from .response_formatting import (
     CACHE_TTL_DEBATES_LIST,
     CACHE_TTL_IMPASSE,
     CACHE_TTL_SEARCH,
-    STATUS_MAP,
-    STATUS_REVERSE_MAP,
     denormalize_status,
     normalize_debate_response,
     normalize_status,

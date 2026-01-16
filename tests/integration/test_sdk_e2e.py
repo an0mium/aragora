@@ -284,7 +284,7 @@ class TestDebatesAPI:
             assert result.debate_id == "debate-123"
             assert result.status == DebateStatus.COMPLETED
             assert result.consensus is not None
-            assert result.consensus.reached == True
+            assert result.consensus.reached
 
     def test_list_debates_sync(self, mock_client, mock_responses):
         """Test synchronous debate listing."""
@@ -352,7 +352,7 @@ class TestGraphDebatesAPI:
 
             assert result.debate_id == "graph-123"
             assert len(result.branches) == 1
-            assert result.branches[0].is_main == True
+            assert result.branches[0].is_main
 
     def test_get_branches_sync(self, mock_client, mock_responses):
         """Test synchronous branch retrieval."""
@@ -457,10 +457,10 @@ class TestVerificationAPI:
         with patch.object(mock_client, "_get", return_value=mock_responses["verify_status"]):
             result = mock_client.verification.status()
 
-            assert result.available == True
+            assert result.available
             assert len(result.backends) == 2
             assert result.backends[0].name == "z3"
-            assert result.backends[0].available == True
+            assert result.backends[0].available
 
     @pytest.mark.asyncio
     async def test_verify_claim_async(self, mock_client, mock_responses):
@@ -499,7 +499,7 @@ class TestMemoryAPI:
             result = mock_client.memory.snapshot()
 
             assert result.snapshot_id == "snap-123"
-            assert result.success == True
+            assert result.success
 
     @pytest.mark.asyncio
     async def test_analytics_async(self, mock_client, mock_responses):
@@ -795,7 +795,7 @@ class TestResponseValidation:
         with patch.object(mock_client, "_get", return_value=mock_responses["debate_get"]):
             debate = mock_client.debates.get("debate-123")
 
-            assert debate.consensus.reached == True
+            assert debate.consensus.reached
             assert debate.consensus.conclusion == "Test conclusion"
             assert debate.consensus.confidence == 0.85
             assert len(debate.consensus.supporting_agents) == 2
@@ -805,7 +805,7 @@ class TestResponseValidation:
         with patch.object(mock_client, "_get", return_value=mock_responses["verify_status"]):
             status = mock_client.verification.status()
 
-            assert status.available == True
+            assert status.available
             assert status.backends[0].version == "4.12.0"
 
     def test_memory_tier_stats_parsing(self, mock_client, mock_responses):

@@ -22,8 +22,8 @@ class TestTokenBucket:
         bucket = TokenBucket(rate_per_minute=5.0, burst_size=10)
 
         # Should have full tokens initially
-        assert bucket.consume(10) == True
-        assert bucket.consume(1) == False  # Should be empty
+        assert bucket.consume(10)
+        assert not bucket.consume(1)  # Should be empty
 
     @pytest.mark.slow
     def test_token_bucket_refill(self):
@@ -31,14 +31,14 @@ class TestTokenBucket:
         bucket = TokenBucket(rate_per_minute=5.0, burst_size=10)
 
         # Consume all tokens
-        assert bucket.consume(10) == True
-        assert bucket.consume(1) == False
+        assert bucket.consume(10)
+        assert not bucket.consume(1)
 
         # Wait for tokens to refill (at least 12 seconds for 1 token)
         time.sleep(13)
 
         # Should have at least 1 token now
-        assert bucket.consume(1) == True
+        assert bucket.consume(1)
 
 
 class TestAudienceInbox:

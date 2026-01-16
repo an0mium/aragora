@@ -223,7 +223,7 @@ class TestRoutingConflicts:
                 conflicts.append(f"{path}: {matching_handlers}")
 
         if conflicts:
-            pytest.fail(f"Routing conflicts detected:\n" + "\n".join(conflicts))
+            pytest.fail("Routing conflicts detected:\n" + "\n".join(conflicts))
 
 
 class TestHandlerInitialization:

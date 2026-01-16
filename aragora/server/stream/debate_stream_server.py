@@ -435,9 +435,7 @@ class DebateStreamServer(ServerBase):
                     async with asyncio.timeout(5.0):
                         await client.send(message)
                 except asyncio.TimeoutError:
-                    logger.warning(
-                        f"Client send timed out during broadcast, marking for disconnect"
-                    )
+                    logger.warning("Client send timed out during broadcast, marking for disconnect")
                     disconnected.add(client)
                 except Exception as e:
                     logger.debug(f"Client disconnected during broadcast: {e}")
@@ -493,7 +491,7 @@ class DebateStreamServer(ServerBase):
                         await client.send(message)
                 except asyncio.TimeoutError:
                     logger.warning(
-                        f"Client send timed out during batch broadcast, marking for disconnect"
+                        "Client send timed out during batch broadcast, marking for disconnect"
                     )
                     disconnected.add(client)
                 except Exception as e:

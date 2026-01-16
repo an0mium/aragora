@@ -293,7 +293,6 @@ class TestResourceContention:
 
     def test_executor_thread_pool_limits(self):
         """Thread pool should respect limits under load."""
-        from concurrent.futures import ThreadPoolExecutor
 
         max_workers = 4
         concurrent_count = [0]

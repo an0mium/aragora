@@ -10,13 +10,19 @@ Endpoints:
     POST /api/audit/verify      - Verify audit log integrity
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from aiohttp import web
+
+if TYPE_CHECKING:
+    from aragora.audit import AuditLog
 
 logger = logging.getLogger(__name__)
 

@@ -28,24 +28,6 @@ from aragora.server.errors import (
     ErrorCode,
     # Error classes
     AragoraAPIError,
-    BadRequestError,
-    ValidationError,
-    AuthenticationError,
-    ForbiddenError,
-    NotFoundError,
-    MethodNotAllowedError,
-    ConflictError,
-    RateLimitError,
-    PayloadTooLargeError,
-    InternalError,
-    ServiceUnavailableError,
-    GatewayTimeoutError,
-    DatabaseError,
-    ExternalServiceError,
-    DebateError,
-    VerificationError,
-    MemoryError,
-    # Functions from error_utils.py (now in errors.py)
     safe_error_message,
     ERROR_SUGGESTIONS,
     get_error_suggestion,
@@ -57,7 +39,6 @@ from aragora.server.errors import (
     get_status_code,
     wrap_exception,
     log_error,
-    EXCEPTION_MAP,
 )
 
 # Re-export sanitization utilities (originally imported from utils.error_sanitizer)

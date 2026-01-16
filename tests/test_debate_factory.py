@@ -114,7 +114,7 @@ class TestDebateConfig:
 
     def test_parse_agent_specs_too_many_agents(self):
         """Too many agents raises ValueError."""
-        agents = ",".join([f"anthropic-api"] * (MAX_AGENTS_PER_DEBATE + 1))
+        agents = ",".join(["anthropic-api"] * (MAX_AGENTS_PER_DEBATE + 1))
         config = DebateConfig(question="Q", agents_str=agents)
         with pytest.raises(ValueError, match="Too many agents"):
             config.parse_agent_specs()

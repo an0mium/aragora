@@ -232,11 +232,11 @@ class TestCodeProposal:
             author="agent",
             changes=[change],
         )
-        patch = proposal.to_patch()
-        assert "--- a/test.py" in patch
-        assert "+++ b/test.py" in patch
-        assert "-x = 1" in patch
-        assert "+x = 2" in patch
+        patch_content = proposal.to_patch()
+        assert "--- a/test.py" in patch_content
+        assert "+++ b/test.py" in patch_content
+        assert "-x = 1" in patch_content
+        assert "+x = 2" in patch_content
 
 
 # =============================================================================

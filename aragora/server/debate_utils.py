@@ -15,7 +15,6 @@ import time
 import warnings
 from typing import Any, Dict, Optional
 
-from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.state import get_state_manager
 from aragora.server.stream import SyncEventEmitter
 
