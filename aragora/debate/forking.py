@@ -489,3 +489,414 @@ class DebateForker:
     def get_branches(self, parent_debate_id: str) -> list[Branch]:
         """Get all branches for a debate."""
         return self.branches.get(parent_debate_id, [])
+
+
+@dataclass
+class DeadlockSignal:
+    """Signal indicating a debate is deadlocked."""
+
+    debate_id: str
+    round: int
+    stagnation_score: float  # 0-1, higher = more deadlocked
+    rounds_without_progress: int
+    pattern: str  # "positional", "circular", "exhaustion"
+    recommendation: str  # "fork", "conclude", "inject_perspective"
+    detected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+class DeadlockResolver:
+    """
+    Automatically detects and resolves debate deadlocks.
+
+    Monitors debates for stagnation patterns:
+    1. Positional deadlock - agents maintain fixed positions
+    2. Circular arguments - same points repeated cyclically
+    3. Argument exhaustion - no new substantive content
+
+    When deadlock is detected, triggers forking with counterfactual
+    scenarios to break the impasse.
+    """
+
+    # Configuration thresholds
+    MIN_ROUNDS_FOR_DETECTION = 3
+    STAGNATION_THRESHOLD = 0.7
+    MAX_ROUNDS_WITHOUT_PROGRESS = 2
+
+    def __init__(self, forker: Optional[DebateForker] = None):
+        """Initialize the deadlock resolver.
+
+        Args:
+            forker: DebateForker instance for auto-forking. If None, creates one.
+        """
+        self.forker = forker or DebateForker()
+        self.debate_history: dict[str, list[dict]] = {}  # debate_id -> round summaries
+        self.deadlock_signals: list[DeadlockSignal] = []
+
+    def analyze_round(
+        self,
+        debate_id: str,
+        round_num: int,
+        messages: list[Message],
+        previous_positions: Optional[dict[str, str]] = None,
+    ) -> Optional[DeadlockSignal]:
+        """
+        Analyze a round for deadlock indicators.
+
+        Args:
+            debate_id: Debate identifier
+            round_num: Current round number
+            messages: Messages from this round
+            previous_positions: Optional dict of agent -> position from last round
+
+        Returns:
+            DeadlockSignal if deadlock detected, None otherwise
+        """
+        if round_num < self.MIN_ROUNDS_FOR_DETECTION:
+            return None
+
+        # Extract current positions
+        current_positions = self._extract_positions(messages)
+
+        # Store round summary
+        if debate_id not in self.debate_history:
+            self.debate_history[debate_id] = []
+
+        round_summary = {
+            "round": round_num,
+            "positions": current_positions,
+            "message_count": len(messages),
+            "unique_arguments": self._count_unique_arguments(messages),
+        }
+        self.debate_history[debate_id].append(round_summary)
+
+        # Calculate stagnation metrics
+        positional_stagnation = self._calculate_positional_stagnation(
+            debate_id, current_positions, previous_positions
+        )
+        circular_score = self._detect_circular_arguments(debate_id)
+        exhaustion_score = self._calculate_argument_exhaustion(debate_id)
+
+        # Combined stagnation score
+        stagnation_score = max(
+            positional_stagnation * 0.4 + circular_score * 0.3 + exhaustion_score * 0.3,
+            positional_stagnation,  # High positional stagnation alone triggers
+        )
+
+        # Count rounds without progress
+        rounds_without_progress = self._count_stagnant_rounds(debate_id)
+
+        # Determine pattern type
+        if positional_stagnation > 0.8:
+            pattern = "positional"
+        elif circular_score > 0.7:
+            pattern = "circular"
+        else:
+            pattern = "exhaustion"
+
+        # Check if deadlock threshold exceeded
+        if (
+            stagnation_score > self.STAGNATION_THRESHOLD
+            or rounds_without_progress >= self.MAX_ROUNDS_WITHOUT_PROGRESS
+        ):
+            recommendation = self._get_recommendation(
+                stagnation_score, rounds_without_progress, pattern
+            )
+
+            signal = DeadlockSignal(
+                debate_id=debate_id,
+                round=round_num,
+                stagnation_score=stagnation_score,
+                rounds_without_progress=rounds_without_progress,
+                pattern=pattern,
+                recommendation=recommendation,
+            )
+            self.deadlock_signals.append(signal)
+
+            logger.info(
+                "Deadlock detected: debate=%s, round=%d, score=%.2f, pattern=%s, recommendation=%s",
+                debate_id,
+                round_num,
+                stagnation_score,
+                pattern,
+                recommendation,
+            )
+
+            return signal
+
+        return None
+
+    def auto_resolve(
+        self,
+        signal: DeadlockSignal,
+        messages: list[Message],
+        agents: list[Agent],
+    ) -> Optional[list[Branch]]:
+        """
+        Automatically resolve a detected deadlock.
+
+        Args:
+            signal: The deadlock signal
+            messages: All debate messages up to this point
+            agents: Participating agents
+
+        Returns:
+            List of created branches if forking, None otherwise
+        """
+        if signal.recommendation != "fork":
+            logger.info(
+                "Deadlock resolution skipped: recommendation=%s",
+                signal.recommendation,
+            )
+            return None
+
+        # Create counterfactual fork decision
+        decision = self._create_counterfactual_decision(signal, messages, agents)
+
+        if not decision.should_fork:
+            return None
+
+        # Execute fork
+        branches = self.forker.fork(
+            parent_debate_id=signal.debate_id,
+            fork_round=signal.round,
+            messages_so_far=messages,
+            decision=decision,
+        )
+
+        logger.info(
+            "Auto-fork executed: debate=%s, branches=%d",
+            signal.debate_id,
+            len(branches),
+        )
+
+        return branches
+
+    def _extract_positions(self, messages: list[Message]) -> dict[str, str]:
+        """Extract summarized positions from messages."""
+        positions = {}
+        for msg in messages:
+            # Extract key stance indicators
+            content = msg.content.lower()
+
+            # Look for position markers
+            stance = "neutral"
+            if any(w in content for w in ["strongly agree", "definitely", "absolutely"]):
+                stance = "strong_support"
+            elif any(w in content for w in ["agree", "support", "yes"]):
+                stance = "support"
+            elif any(w in content for w in ["strongly disagree", "absolutely not", "never"]):
+                stance = "strong_oppose"
+            elif any(w in content for w in ["disagree", "oppose", "no"]):
+                stance = "oppose"
+
+            # Hash first 200 chars as position fingerprint
+            position_hash = hash(content[:200]) % 10000
+            positions[msg.agent] = f"{stance}_{position_hash}"
+
+        return positions
+
+    def _calculate_positional_stagnation(
+        self,
+        debate_id: str,
+        current_positions: dict[str, str],
+        previous_positions: Optional[dict[str, str]],
+    ) -> float:
+        """Calculate how much positions have stagnated."""
+        history = self.debate_history.get(debate_id, [])
+        if len(history) < 2:
+            return 0.0
+
+        # Compare with previous round
+        if previous_positions:
+            matching = sum(
+                1 for agent, pos in current_positions.items()
+                if previous_positions.get(agent) == pos
+            )
+            if current_positions:
+                return matching / len(current_positions)
+
+        # Compare position patterns over recent rounds
+        recent_positions = [r["positions"] for r in history[-3:]]
+        if len(recent_positions) < 2:
+            return 0.0
+
+        # Check if positions are repeating
+        unchanged_count = 0
+        for agent in current_positions:
+            agent_positions = [rp.get(agent) for rp in recent_positions if agent in rp]
+            if len(set(agent_positions)) == 1 and len(agent_positions) > 1:
+                unchanged_count += 1
+
+        return unchanged_count / max(len(current_positions), 1)
+
+    def _detect_circular_arguments(self, debate_id: str) -> float:
+        """Detect circular argument patterns."""
+        history = self.debate_history.get(debate_id, [])
+        if len(history) < 3:
+            return 0.0
+
+        # Check if argument counts are cycling
+        arg_counts = [r["unique_arguments"] for r in history[-5:]]
+        if len(arg_counts) < 3:
+            return 0.0
+
+        # Look for repeating patterns (A -> B -> A)
+        for i in range(len(arg_counts) - 2):
+            if arg_counts[i] == arg_counts[i + 2] and arg_counts[i] != arg_counts[i + 1]:
+                return 0.8
+
+        # Check for flat argument count (no new arguments)
+        if len(set(arg_counts[-3:])) == 1:
+            return 0.6
+
+        return 0.0
+
+    def _calculate_argument_exhaustion(self, debate_id: str) -> float:
+        """Calculate argument exhaustion score."""
+        history = self.debate_history.get(debate_id, [])
+        if len(history) < 2:
+            return 0.0
+
+        # Compare recent argument counts
+        recent = history[-3:]
+        if len(recent) < 2:
+            return 0.0
+
+        # Declining new arguments is exhaustion
+        arg_counts = [r["unique_arguments"] for r in recent]
+        if all(arg_counts[i] >= arg_counts[i + 1] for i in range(len(arg_counts) - 1)):
+            # Monotonic decrease
+            decline_rate = (arg_counts[0] - arg_counts[-1]) / max(arg_counts[0], 1)
+            return min(decline_rate, 1.0)
+
+        return 0.0
+
+    def _count_unique_arguments(self, messages: list[Message]) -> int:
+        """Count unique argument phrases in messages."""
+        arguments = set()
+        indicators = [
+            "because", "therefore", "however", "since", "given that",
+            "evidence", "suggests", "implies", "conclude", "argue"
+        ]
+
+        for msg in messages:
+            sentences = msg.content.replace("!", ".").replace("?", ".").split(".")
+            for sentence in sentences:
+                sentence_lower = sentence.lower().strip()
+                if any(ind in sentence_lower for ind in indicators):
+                    # Normalize and hash
+                    normalized = " ".join(sentence_lower.split())[:80]
+                    arguments.add(normalized)
+
+        return len(arguments)
+
+    def _count_stagnant_rounds(self, debate_id: str) -> int:
+        """Count consecutive rounds without progress."""
+        history = self.debate_history.get(debate_id, [])
+        if len(history) < 2:
+            return 0
+
+        stagnant = 0
+        for i in range(len(history) - 1, 0, -1):
+            curr = history[i]
+            prev = history[i - 1]
+
+            # Check for progress
+            if (
+                curr["unique_arguments"] > prev["unique_arguments"]
+                or curr["positions"] != prev["positions"]
+            ):
+                break
+            stagnant += 1
+
+        return stagnant
+
+    def _get_recommendation(
+        self,
+        stagnation_score: float,
+        rounds_without_progress: int,
+        pattern: str,
+    ) -> str:
+        """Determine the best resolution strategy."""
+        # High stagnation with positional deadlock -> fork
+        if pattern == "positional" and stagnation_score > 0.8:
+            return "fork"
+
+        # Long circular argument -> fork with counterfactuals
+        if pattern == "circular" and rounds_without_progress >= 2:
+            return "fork"
+
+        # Argument exhaustion -> conclude or inject
+        if pattern == "exhaustion":
+            if rounds_without_progress >= 3:
+                return "conclude"
+            return "inject_perspective"
+
+        # Default: fork if score high enough
+        if stagnation_score > 0.75:
+            return "fork"
+
+        return "inject_perspective"
+
+    def _create_counterfactual_decision(
+        self,
+        signal: DeadlockSignal,
+        messages: list[Message],
+        agents: list[Agent],
+    ) -> ForkDecision:
+        """Create fork decision with counterfactual scenarios."""
+        # Get latest agent positions
+        latest_by_agent = {}
+        for msg in reversed(messages):
+            if msg.agent not in latest_by_agent:
+                latest_by_agent[msg.agent] = msg
+
+        # Create counterfactual branches
+        branches = []
+
+        # Branch 1: Assume first position is correct
+        agent_list = list(latest_by_agent.keys())
+        if agent_list:
+            branches.append({
+                "hypothesis": f"Assume {agent_list[0]}'s position is valid",
+                "lead_agent": agent_list[0],
+            })
+
+        # Branch 2: Assume opposite/alternative position
+        if len(agent_list) > 1:
+            branches.append({
+                "hypothesis": f"Assume {agent_list[1]}'s position is valid",
+                "lead_agent": agent_list[1],
+            })
+
+        # Branch 3: Synthesis - what if both are partially right?
+        if len(agent_list) >= 2:
+            branches.append({
+                "hypothesis": "Explore synthesis: both positions may be partially correct",
+                "lead_agent": agent_list[0],  # Arbiter role
+            })
+
+        return ForkDecision(
+            should_fork=len(branches) >= 2,
+            reason=f"Deadlock detected ({signal.pattern}): exploring counterfactuals",
+            branches=branches[:3],
+            disagreement_score=signal.stagnation_score,
+        )
+
+    def reset(self, debate_id: Optional[str] = None) -> None:
+        """Reset resolver state.
+
+        Args:
+            debate_id: If provided, reset only that debate. Otherwise reset all.
+        """
+        if debate_id:
+            self.debate_history.pop(debate_id, None)
+        else:
+            self.debate_history.clear()
+            self.deadlock_signals.clear()
+
+    def get_signals(self, debate_id: Optional[str] = None) -> list[DeadlockSignal]:
+        """Get deadlock signals, optionally filtered by debate."""
+        if debate_id:
+            return [s for s in self.deadlock_signals if s.debate_id == debate_id]
+        return self.deadlock_signals

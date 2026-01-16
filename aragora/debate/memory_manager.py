@@ -11,7 +11,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.typing import EventEmitterProtocol
+from aragora.types.protocols import EventEmitterProtocol
 
 from aragora.agents.errors import _build_error_action
 

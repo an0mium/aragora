@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDict
 
 if TYPE_CHECKING:
-    from aragora.typing import EventEmitterProtocol
+    from aragora.types.protocols import EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
 # Schema version for ContinuumMemory
-CONTINUUM_SCHEMA_VERSION = 2
+CONTINUUM_SCHEMA_VERSION = 3
 
 # Default retention multiplier (entries older than multiplier * half_life are eligible for cleanup)
 DEFAULT_RETENTION_MULTIPLIER = 2.0
@@ -98,6 +98,8 @@ class ContinuumMemoryEntry:
     created_at: str
     updated_at: str
     metadata: Dict[str, Any] = field(default_factory=dict)
+    red_line: bool = False  # If True, entry cannot be deleted/forgotten
+    red_line_reason: str = ""  # Why this entry is protected
 
     @property
     def success_rate(self) -> float:
@@ -179,7 +181,9 @@ class ContinuumMemory(SQLiteStore):
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             metadata TEXT DEFAULT '{}',
-            expires_at TEXT
+            expires_at TEXT,
+            red_line INTEGER DEFAULT 0,
+            red_line_reason TEXT DEFAULT ''
         );
 
         -- Indexes for efficient tier-based retrieval
@@ -240,7 +244,19 @@ class ContinuumMemory(SQLiteStore):
         -- Indexes for archive queries
         CREATE INDEX IF NOT EXISTS idx_archive_tier ON continuum_memory_archive(tier);
         CREATE INDEX IF NOT EXISTS idx_archive_archived_at ON continuum_memory_archive(archived_at);
+
+        -- Index for red line protected entries
+        CREATE INDEX IF NOT EXISTS idx_continuum_red_line ON continuum_memory(red_line);
     """
+
+    # Migration from version 2 to version 3: Add red_line columns
+    SCHEMA_MIGRATIONS = {
+        3: """
+            ALTER TABLE continuum_memory ADD COLUMN red_line INTEGER DEFAULT 0;
+            ALTER TABLE continuum_memory ADD COLUMN red_line_reason TEXT DEFAULT '';
+            CREATE INDEX IF NOT EXISTS idx_continuum_red_line ON continuum_memory(red_line);
+        """
+    }
 
     def __init__(
         self,
@@ -454,7 +470,8 @@ class ContinuumMemory(SQLiteStore):
             cursor.execute(
                 """
                 SELECT id, tier, content, importance, surprise_score, consolidation_score,
-                       update_count, success_count, failure_count, created_at, updated_at, metadata
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
                 FROM continuum_memory
                 WHERE id = ?
                 """,
@@ -478,7 +495,114 @@ class ContinuumMemory(SQLiteStore):
             created_at=row[9],
             updated_at=row[10],
             metadata=safe_json_loads(row[11], {}),
+            red_line=bool(row[12]),
+            red_line_reason=row[13],
         )
+
+    def mark_red_line(
+        self,
+        memory_id: str,
+        reason: str,
+        promote_to_glacial: bool = True,
+    ) -> bool:
+        """
+        Mark a memory entry as a red line - cannot be forgotten or overwritten.
+
+        Red line entries are critical memories that should never be deleted,
+        such as safety-critical decisions, irreversible actions taken, or
+        foundational knowledge that must be preserved.
+
+        Args:
+            memory_id: The ID of the memory to protect
+            reason: Why this entry is critical (for auditing)
+            promote_to_glacial: If True, promote to glacial tier for maximum retention
+
+        Returns:
+            True if the entry was marked, False if entry not found
+        """
+        now = datetime.now().isoformat()
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if memory exists
+            cursor.execute("SELECT tier FROM continuum_memory WHERE id = ?", (memory_id,))
+            row = cursor.fetchone()
+            if not row:
+                logger.warning("Cannot mark non-existent memory as red line: %s", memory_id)
+                return False
+
+            current_tier = row[0]
+
+            # Mark as red line
+            if promote_to_glacial and current_tier != MemoryTier.GLACIAL.value:
+                cursor.execute(
+                    """
+                    UPDATE continuum_memory
+                    SET red_line = 1, red_line_reason = ?, tier = ?,
+                        importance = 1.0, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (reason, MemoryTier.GLACIAL.value, now, memory_id),
+                )
+                logger.info(
+                    "Marked memory %s as red line and promoted to glacial tier (reason: %s)",
+                    memory_id,
+                    reason,
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE continuum_memory
+                    SET red_line = 1, red_line_reason = ?, importance = 1.0, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (reason, now, memory_id),
+                )
+                logger.info("Marked memory %s as red line (reason: %s)", memory_id, reason)
+
+            conn.commit()
+            return True
+
+    def get_red_line_memories(self) -> List[ContinuumMemoryEntry]:
+        """Get all red-lined memory entries.
+
+        Returns:
+            List of all protected memory entries
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                FROM continuum_memory
+                WHERE red_line = 1
+                ORDER BY created_at ASC
+                """
+            )
+            rows = cursor.fetchall()
+
+        return [
+            ContinuumMemoryEntry(
+                id=row[0],
+                tier=MemoryTier(row[1]),
+                content=row[2],
+                importance=row[3],
+                surprise_score=row[4],
+                consolidation_score=row[5],
+                update_count=row[6],
+                success_count=row[7],
+                failure_count=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+                metadata=safe_json_loads(row[11], {}),
+                red_line=bool(row[12]),
+                red_line_reason=row[13],
+            )
+            for row in rows
+        ]
 
     def retrieve(
         self,
@@ -1346,7 +1470,7 @@ class ContinuumMemory(SQLiteStore):
                 cutoff_str = cutoff.isoformat()
 
                 if archive:
-                    # Archive expired entries
+                    # Archive expired entries (excluding red-lined memories)
                     cursor.execute(
                         """
                         INSERT INTO continuum_memory_archive
@@ -1361,6 +1485,7 @@ class ContinuumMemory(SQLiteStore):
                         FROM continuum_memory
                         WHERE tier = ?
                           AND datetime(updated_at) < datetime(?)
+                          AND COALESCE(red_line, 0) = 0
                         """,
                         (tier_name, cutoff_str),
                     )
@@ -1368,12 +1493,13 @@ class ContinuumMemory(SQLiteStore):
                 else:
                     archived_count = 0
 
-                # Delete from main table
+                # Delete from main table (excluding red-lined memories)
                 cursor.execute(
                     """
                     DELETE FROM continuum_memory
                     WHERE tier = ?
                       AND datetime(updated_at) < datetime(?)
+                      AND COALESCE(red_line, 0) = 0
                     """,
                     (tier_name, cutoff_str),
                 )
@@ -1401,6 +1527,7 @@ class ContinuumMemory(SQLiteStore):
         memory_id: str,
         archive: bool = True,
         reason: str = "user_deleted",
+        force: bool = False,
     ) -> Dict[str, Any]:
         """
         Delete a specific memory entry by ID.
@@ -1409,19 +1536,35 @@ class ContinuumMemory(SQLiteStore):
             memory_id: The ID of the memory to delete
             archive: If True, archive before deletion; if False, delete permanently
             reason: Reason for deletion (stored in archive)
+            force: If True, delete even if entry is red-lined (dangerous!)
 
         Returns:
-            Dict with result: {"deleted": bool, "archived": bool, "id": str}
+            Dict with result: {"deleted": bool, "archived": bool, "id": str, "blocked": bool}
         """
-        result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id}
+        result: Dict[str, Any] = {"deleted": False, "archived": False, "id": memory_id, "blocked": False}
 
         with self.connection() as conn:
             cursor = conn.cursor()
 
-            # Check if memory exists
-            cursor.execute("SELECT id FROM continuum_memory WHERE id = ?", (memory_id,))
-            if not cursor.fetchone():
+            # Check if memory exists and if it's red-lined
+            cursor.execute(
+                "SELECT id, red_line, red_line_reason FROM continuum_memory WHERE id = ?",
+                (memory_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
                 logger.debug("Memory %s not found for deletion", memory_id)
+                return result
+
+            # Block deletion of red-lined entries unless forced
+            if row[1] and not force:  # red_line is True
+                logger.warning(
+                    "Blocked deletion of red-lined memory %s (reason: %s)",
+                    memory_id,
+                    row[2] or "unspecified",
+                )
+                result["blocked"] = True
+                result["red_line_reason"] = row[2] or "unspecified"
                 return result
 
             if archive:
@@ -1505,7 +1648,7 @@ class ContinuumMemory(SQLiteStore):
                 excess: int = count - limit
 
                 if archive:
-                    # Archive lowest importance entries
+                    # Archive lowest importance entries (excluding red-lined)
                     cursor.execute(
                         """
                         INSERT INTO continuum_memory_archive
@@ -1519,19 +1662,21 @@ class ContinuumMemory(SQLiteStore):
                                updated_at, 'tier_limit', metadata
                         FROM continuum_memory
                         WHERE tier = ?
+                          AND COALESCE(red_line, 0) = 0
                         ORDER BY importance ASC, updated_at ASC
                         LIMIT ?
                         """,
                         (tier_name, excess),
                     )
 
-                # Delete excess entries (lowest importance first)
+                # Delete excess entries (lowest importance first, excluding red-lined)
                 cursor.execute(
                     """
                     DELETE FROM continuum_memory
                     WHERE id IN (
                         SELECT id FROM continuum_memory
                         WHERE tier = ?
+                          AND COALESCE(red_line, 0) = 0
                         ORDER BY importance ASC, updated_at ASC
                         LIMIT ?
                     )

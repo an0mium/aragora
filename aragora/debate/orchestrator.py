@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.reasoning.citations import CitationExtractor
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
+    from aragora.types.protocols import EventEmitterProtocol
 
 
 @register_lru_cache
@@ -150,7 +151,7 @@ class Arena:
         protocol: DebateProtocol = None,
         memory=None,  # CritiqueStore instance
         event_hooks: dict = None,  # Optional hooks for streaming events
-        event_emitter=None,  # Optional event emitter for subscribing to user events
+        event_emitter: Optional["EventEmitterProtocol"] = None,  # Optional event emitter for subscribing to user events
         spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates
@@ -425,7 +426,7 @@ class Arena:
         protocol: DebateProtocol | None,
         memory,
         event_hooks: dict | None,
-        event_emitter,
+        event_emitter: Optional["EventEmitterProtocol"],
         spectator: SpectatorStream | None,
         debate_embeddings,
         insight_store,
@@ -480,7 +481,7 @@ class Arena:
             logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
         self.memory = memory
         self.hooks = event_hooks or {}
-        self.event_emitter = event_emitter
+        self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
         self.spectator = spectator or SpectatorStream(enabled=False)
         self.debate_embeddings = debate_embeddings
         self.insight_store = insight_store
