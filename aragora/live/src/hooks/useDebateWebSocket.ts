@@ -120,6 +120,12 @@ export function useDebateWebSocket({
   // Sequence tracking for gap detection
   const lastSeqRef = useRef<number>(0);
 
+  // Track last event timestamp for stall detection
+  const lastEventTimestampRef = useRef<number>(Date.now());
+
+  // Stall detection timeout
+  const STALL_WARNING_MS = 120000; // 2 minutes
+
   // Stream events buffer limit to prevent unbounded memory growth
   const MAX_STREAM_EVENTS = 500;
 
@@ -179,6 +185,22 @@ export function useDebateWebSocket({
       seenMessagesRef.current.clear();
       setStreamEvents([]);
     }
+  }, [status]);
+
+  // Stall detection - warn if no events received for 2 minutes during streaming
+  useEffect(() => {
+    if (status !== 'streaming') return;
+
+    const checkStall = () => {
+      const timeSinceLastEvent = Date.now() - lastEventTimestampRef.current;
+      if (timeSinceLastEvent > STALL_WARNING_MS) {
+        console.warn(`[WS] Debate may be stalled - no events for ${Math.round(timeSinceLastEvent / 1000)}s`);
+        console.warn('[WS] Check server logs for consensus_phase or synthesis_or_hooks_failed errors');
+      }
+    };
+
+    const interval = setInterval(checkStall, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
   }, [status]);
 
   // Reset all state when debateId changes to prevent data leaking between debates
@@ -362,11 +384,19 @@ export function useDebateWebSocket({
 
   // Process a single event from the WebSocket
   const processEvent = useCallback((data: Record<string, unknown>) => {
+    // Update last event timestamp for stall detection
+    lastEventTimestampRef.current = Date.now();
+
     // Debug logging for all WebSocket events (development only)
     if (process.env.NODE_ENV === 'development') {
       const eventInfo = data.agent ? ` from ${data.agent}` : '';
       const seqInfo = data.seq ? ` (seq=${data.seq})` : '';
       console.debug(`[WS] Event: ${data.type}${eventInfo}${seqInfo}`);
+    }
+
+    // Enhanced logging for debate completion events
+    if (data.type === 'consensus' || data.type === 'debate_end') {
+      console.log(`[WS] DEBATE COMPLETION: ${data.type}`, data);
     }
 
     // Track sequence numbers for gap detection
@@ -584,6 +614,9 @@ export function useDebateWebSocket({
       const agent = (data.agent as string) || (eventData?.agent as string);
       const taskId = (data.task_id as string) || '';  // Extract task_id for concurrent outputs
       if (agent) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[WS] TOKEN_START: ${agent} (task=${taskId || 'default'})`);
+        }
         const streamKey = makeStreamingKey(agent, taskId);
         setStreamingMessages(prev => {
           const updated = new Map(prev);
@@ -683,6 +716,12 @@ export function useDebateWebSocket({
               for (const seq of sortedSeqs) {
                 finalContent += existing.pendingTokens.get(seq)!;
               }
+            }
+
+            // Log completion stats in development
+            if (process.env.NODE_ENV === 'development') {
+              const duration = Date.now() - existing.startTime;
+              console.log(`[WS] TOKEN_END: ${agent} - ${finalContent.length} chars in ${duration}ms`);
             }
 
             if (finalContent) {
@@ -956,6 +995,11 @@ export function useDebateWebSocket({
 
       // Handle batched events (array) or single events (object)
       if (Array.isArray(parsed)) {
+        // Diagnostic logging: count token_delta events in batch
+        if (process.env.NODE_ENV === 'development' && parsed.length > 10) {
+          const tokenDeltas = parsed.filter((e: Record<string, unknown>) => e.type === 'token_delta').length;
+          console.log(`[WS] BATCH: ${parsed.length} events (${tokenDeltas} token_deltas)`);
+        }
         for (const evt of parsed) {
           processEvent(evt as Record<string, unknown>);
         }

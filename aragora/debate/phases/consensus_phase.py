@@ -273,31 +273,37 @@ class ConsensusPhase:
             await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
 
         # Always generate final synthesis regardless of consensus mode
-        # This method is guaranteed to produce output (has internal fallbacks)
-        synthesis_generated = await self._generate_mandatory_synthesis(ctx)
+        # Wrap in try/finally to GUARANTEE event emission even on unexpected failures
+        try:
+            synthesis_generated = await self._generate_mandatory_synthesis(ctx)
 
-        if not synthesis_generated:
-            # This should never happen due to internal fallbacks, but log if it does
-            logger.error("synthesis_failed_all_fallbacks - this should not happen")
-            # Create minimal synthesis as last resort
-            if ctx.proposals:
-                fallback_synthesis = (
-                    f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
-                )
-                ctx.result.synthesis = fallback_synthesis
-                ctx.result.final_answer = fallback_synthesis
-                if self.hooks and "on_message" in self.hooks:
-                    self.hooks["on_message"](
-                        agent="synthesis-agent",
-                        content=fallback_synthesis,
-                        role="synthesis",
-                        round_num=(self.protocol.rounds if self.protocol else 3) + 1,
+            if not synthesis_generated:
+                # This should never happen due to internal fallbacks, but log if it does
+                logger.error("synthesis_failed_all_fallbacks - this should not happen")
+                # Create minimal synthesis as last resort
+                if ctx.proposals:
+                    fallback_synthesis = (
+                        f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
                     )
-
-        # CRITICAL: Emit consensus and debate_end events directly from consensus phase
-        # These events must fire regardless of whether analytics phase runs (it's optional)
-        # This ensures the frontend always knows when the debate completes
-        self._emit_guaranteed_events(ctx)
+                    ctx.result.synthesis = fallback_synthesis
+                    ctx.result.final_answer = fallback_synthesis
+                    try:
+                        if self.hooks and "on_message" in self.hooks:
+                            self.hooks["on_message"](
+                                agent="synthesis-agent",
+                                content=fallback_synthesis,
+                                role="synthesis",
+                                round_num=(self.protocol.rounds if self.protocol else 3) + 1,
+                            )
+                    except Exception as hook_err:
+                        logger.warning(f"on_message hook failed in fallback: {hook_err}")
+        except Exception as e:
+            logger.error(f"synthesis_or_hooks_failed: {e}", exc_info=True)
+        finally:
+            # CRITICAL: ALWAYS emit consensus and debate_end events
+            # This ensures the frontend always knows when debate completes
+            logger.info("consensus_phase_emitting_guaranteed_events")
+            self._emit_guaranteed_events(ctx)
 
     def _emit_guaranteed_events(self, ctx: "DebateContext") -> None:
         """Emit consensus and debate_end events with guaranteed delivery.
@@ -1737,30 +1743,40 @@ class ConsensusPhase:
         ctx.result.final_answer = synthesis
 
         # Emit explicit synthesis event (guaranteed delivery)
-        if self.hooks and "on_synthesis" in self.hooks:
-            self.hooks["on_synthesis"](
-                content=synthesis,
-                confidence=ctx.result.confidence if ctx.result else 0.0,
-            )
+        # Wrap hook calls in try/except to prevent failures from blocking completion
+        try:
+            if self.hooks and "on_synthesis" in self.hooks:
+                self.hooks["on_synthesis"](
+                    content=synthesis,
+                    confidence=ctx.result.confidence if ctx.result else 0.0,
+                )
+        except Exception as e:
+            logger.warning(f"on_synthesis hook failed: {e}")
 
         # Also emit as agent_message for backwards compatibility
-        if self.hooks and "on_message" in self.hooks:
-            rounds = self.protocol.rounds if self.protocol else 3
-            self.hooks["on_message"](
-                agent="synthesis-agent",
-                content=synthesis,
-                role="synthesis",  # Special role for frontend styling
-                round_num=rounds + 1,
-            )
+        try:
+            if self.hooks and "on_message" in self.hooks:
+                rounds = self.protocol.rounds if self.protocol else 3
+                self.hooks["on_message"](
+                    agent="synthesis-agent",
+                    content=synthesis,
+                    role="synthesis",  # Special role for frontend styling
+                    round_num=rounds + 1,
+                )
+        except Exception as e:
+            logger.warning(f"on_message hook failed: {e}")
 
         # Notify spectator
-        if self._notify_spectator:
-            self._notify_spectator(
-                "synthesis",
-                agent="synthesis-agent",
-                details=f"Final synthesis ({len(synthesis)} chars, source={synthesis_source})",
-                metric=ctx.result.confidence if ctx.result else 0.0,
-            )
+        try:
+            if self._notify_spectator:
+                self._notify_spectator(
+                    "synthesis",
+                    agent="synthesis-agent",
+                    details=f"Final synthesis ({len(synthesis)} chars, source={synthesis_source})",
+                    metric=ctx.result.confidence if ctx.result else 0.0,
+                )
+        except Exception as e:
+            logger.warning(f"notify_spectator failed: {e}")
 
         # Generate export download links for aragora.ai debates
         debate_id = getattr(ctx, "debate_id", None) or getattr(ctx.result, "debate_id", None)
@@ -1776,11 +1792,14 @@ class ConsensusPhase:
             logger.info(f"export_links_generated debate_id={debate_id}")
 
             # Emit export ready event
-            if self.hooks and "on_export_ready" in self.hooks:
-                self.hooks["on_export_ready"](
-                    debate_id=debate_id,
-                    links=ctx.result.export_links,
-                )
+            try:
+                if self.hooks and "on_export_ready" in self.hooks:
+                    self.hooks["on_export_ready"](
+                        debate_id=debate_id,
+                        links=ctx.result.export_links,
+                    )
+            except Exception as e:
+                logger.warning(f"on_export_ready hook failed: {e}")
 
         return True
 
