@@ -903,8 +903,30 @@ class Arena:
 
         # Initialize PhaseExecutor with all phases for centralized execution
         from aragora.debate.phase_executor import PhaseConfig
+        from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES
 
-        timeout = getattr(self.protocol, "timeout", 300.0)
+        # Calculate dynamic timeout based on agents and rounds
+        # This prevents timeout issues with slow agents (e.g., kimi taking 30-85s/critique)
+        num_agents = len(self.agents) if self.agents else 4
+        num_rounds = getattr(self.protocol, "rounds", 3)
+
+        # Minimum time: (agents / concurrent) × timeout × 2 phases × rounds + buffer
+        min_timeout_needed = (
+            (num_agents / max(MAX_CONCURRENT_CRITIQUES, 1))
+            * AGENT_TIMEOUT_SECONDS
+            * 2  # critique + revision phases per round
+            * num_rounds
+            + 180  # 3 minute buffer for overhead
+        )
+
+        # Use configured timeout if larger, else use calculated minimum (at least 10 minutes)
+        base_timeout = getattr(self.protocol, "timeout", 300.0)
+        timeout = max(base_timeout, min_timeout_needed, 600.0)
+
+        logger.info(
+            f"debate_timeout_calculated agents={num_agents} rounds={num_rounds} "
+            f"base={base_timeout}s calculated={min_timeout_needed:.0f}s final={timeout:.0f}s"
+        )
 
         # Create wrapper for context_initializer to match Phase protocol
         # (context_initializer uses .initialize() instead of .execute())
@@ -929,12 +951,9 @@ class Arena:
             phases=phases_dict,
             config=PhaseConfig(
                 total_timeout_seconds=timeout,
-                # Per-phase timeout: at least 300s or 80% of total, whichever is larger
-                # This ensures phases have enough time for:
-                # - Complex debate rounds with multiple agents
-                # - Consensus phase with synthesis generation (has 3-tier fallback)
-                # - Recovery from slow agent responses
-                phase_timeout_seconds=max(300.0, timeout * 0.8),
+                # Per-phase timeout: 90% of total or at least 300s
+                # Higher percentage (was 80%) ensures slow agents complete within phase budget
+                phase_timeout_seconds=max(300.0, timeout * 0.9),
                 enable_tracing=True,
             ),
         )

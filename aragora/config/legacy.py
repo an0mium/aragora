@@ -236,8 +236,10 @@ INTER_REQUEST_DELAY_SECONDS = _env_float("ARAGORA_INTER_REQUEST_DELAY", 1.5)
 OPENROUTER_INTER_REQUEST_DELAY = _env_float("ARAGORA_OPENROUTER_INTER_REQUEST_DELAY", 2.0)
 
 # Streaming configuration for real-time token display
-STREAM_BATCH_SIZE = _env_int("ARAGORA_STREAM_BATCH_SIZE", 50)
-STREAM_DRAIN_INTERVAL_MS = _env_int("ARAGORA_STREAM_DRAIN_INTERVAL_MS", 10)
+# Reduced batch size (was 50) for more progressive streaming appearance
+STREAM_BATCH_SIZE = _env_int("ARAGORA_STREAM_BATCH_SIZE", 10)
+# Reduced interval (was 10) for faster token delivery to frontend
+STREAM_DRAIN_INTERVAL_MS = _env_int("ARAGORA_STREAM_DRAIN_INTERVAL_MS", 5)
 
 # === Agents ===
 DEFAULT_AGENTS = _env_str(

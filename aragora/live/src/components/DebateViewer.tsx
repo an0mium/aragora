@@ -704,7 +704,10 @@ function LiveDebateView({
             {Array.from(streamingMessages.values())
               .sort((a, b) => a.agent.localeCompare(b.agent))
               .map((streamMsg) => (
-              <StreamingMessageCard key={`streaming-${streamMsg.agent}`} message={streamMsg} />
+              <StreamingMessageCard
+                key={`streaming-${streamMsg.agent}-${streamMsg.taskId || 'default'}`}
+                message={streamMsg}
+              />
             ))}
           </div>
         </div>

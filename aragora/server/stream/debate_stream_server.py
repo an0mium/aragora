@@ -548,21 +548,30 @@ class DebateStreamServer(ServerBase):
     async def _drain_loop(self) -> None:
         """Background task that drains the emitter queue and broadcasts.
 
-        Uses smaller batch sizes and faster drain rates for more responsive token streaming.
-        Events are still grouped by agent to prevent visual interleaving during parallel
-        generation, but the shorter drain interval (~10ms vs 30ms) provides ~3x faster updates.
+        Token events are sent in small batches (3 tokens) for progressive display.
+        Other events are batched normally for efficiency. This prevents large blocks
+        of text appearing all at once when API responses are buffered.
         """
         from aragora.config import STREAM_BATCH_SIZE, STREAM_DRAIN_INTERVAL_MS
 
         while self._running:
-            # Smaller batch size for more granular streaming (default 50 vs 1000)
             events = list(self._emitter.drain(max_batch_size=STREAM_BATCH_SIZE))
             if events:
-                # Group token events by agent for smoother streaming display
-                grouped = self._group_events_by_agent(events)
-                await self.broadcast_batch(grouped)
+                # Separate token events for immediate delivery
+                token_events = [e for e in events if e.type == StreamEventType.TOKEN_DELTA]
+                other_events = [e for e in events if e.type != StreamEventType.TOKEN_DELTA]
 
-            # Faster drain rate for responsive streaming (default 10ms vs 30ms)
+                # Send tokens progressively in small batches of 3 for efficiency
+                if token_events:
+                    for i in range(0, len(token_events), 3):
+                        batch = token_events[i : i + 3]
+                        await self.broadcast_batch(batch)
+
+                # Batch other events normally with agent grouping
+                if other_events:
+                    grouped = self._group_events_by_agent(other_events)
+                    await self.broadcast_batch(grouped)
+
             await asyncio.sleep(STREAM_DRAIN_INTERVAL_MS / 1000.0)
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:

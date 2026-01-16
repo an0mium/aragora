@@ -18,6 +18,7 @@ export interface TranscriptMessage {
 
 export interface StreamingMessage {
   agent: string;
+  taskId: string;  // Task ID for composite React key support
   content: string;
   isComplete: boolean;
   startTime: number;
@@ -90,9 +91,9 @@ interface DebateActions {
   clearMessages: () => void;
 
   // Streaming actions
-  startStream: (agent: string) => void;
-  appendStreamToken: (agent: string, token: string, agentSeq?: number) => void;
-  endStream: (agent: string) => void;
+  startStream: (agent: string, taskId?: string) => void;
+  appendStreamToken: (agent: string, token: string, agentSeq?: number, taskId?: string) => void;
+  endStream: (agent: string, taskId?: string) => void;
   cleanupOrphanedStreams: (timeoutMs: number) => void;
 
   // Stream events
@@ -245,11 +246,14 @@ export const useDebateStore = create<DebateStore>()(
       ),
 
       // Streaming actions
-      startStream: (agent) => set(
+      startStream: (agent, taskId = '') => set(
         (state) => {
           const updated = new Map(state.current.streamingMessages);
-          updated.set(agent, {
+          // Use composite key if taskId provided, otherwise just agent
+          const key = taskId ? `${agent}:${taskId}` : agent;
+          updated.set(key, {
             agent,
+            taskId,
             content: '',
             isComplete: false,
             startTime: Date.now(),
@@ -262,10 +266,12 @@ export const useDebateStore = create<DebateStore>()(
         'startStream'
       ),
 
-      appendStreamToken: (agent, token, agentSeq) => set(
+      appendStreamToken: (agent, token, agentSeq, taskId = '') => set(
         (state) => {
           const updated = new Map(state.current.streamingMessages);
-          const existing = updated.get(agent);
+          // Use composite key if taskId provided, otherwise just agent
+          const key = taskId ? `${agent}:${taskId}` : agent;
+          const existing = updated.get(key);
 
           if (existing) {
             if (agentSeq && agentSeq > 0) {
@@ -281,7 +287,7 @@ export const useDebateStore = create<DebateStore>()(
                   nextExpected++;
                 }
 
-                updated.set(agent, {
+                updated.set(key, {
                   ...existing,
                   content: newContent,
                   expectedSeq: nextExpected,
@@ -290,19 +296,20 @@ export const useDebateStore = create<DebateStore>()(
               } else if (agentSeq > existing.expectedSeq) {
                 const pending = new Map(existing.pendingTokens);
                 pending.set(agentSeq, token);
-                updated.set(agent, { ...existing, pendingTokens: pending });
+                updated.set(key, { ...existing, pendingTokens: pending });
               }
             } else {
               // Simple append (no sequence)
-              updated.set(agent, {
+              updated.set(key, {
                 ...existing,
                 content: existing.content + token,
               });
             }
           } else {
             // New stream without token_start
-            updated.set(agent, {
+            updated.set(key, {
               agent,
+              taskId,
               content: token,
               isComplete: false,
               startTime: Date.now(),
@@ -317,9 +324,11 @@ export const useDebateStore = create<DebateStore>()(
         'appendStreamToken'
       ),
 
-      endStream: (agent) => {
+      endStream: (agent, taskId = '') => {
         const state = get();
-        const existing = state.current.streamingMessages.get(agent);
+        // Use composite key if taskId provided, otherwise just agent
+        const key = taskId ? `${agent}:${taskId}` : agent;
+        const existing = state.current.streamingMessages.get(key);
 
         if (existing) {
           // Flush pending tokens
@@ -334,7 +343,7 @@ export const useDebateStore = create<DebateStore>()(
           // Add as completed message
           if (finalContent) {
             const msg: TranscriptMessage = {
-              agent,
+              agent: existing.agent,  // Use agent from existing, not the key
               content: finalContent,
               timestamp: Date.now() / 1000,
             };
@@ -345,7 +354,7 @@ export const useDebateStore = create<DebateStore>()(
         // Remove from streaming
         set((s) => {
           const updated = new Map(s.current.streamingMessages);
-          updated.delete(agent);
+          updated.delete(key);
           return { current: { ...s.current, streamingMessages: updated } };
         }, false, 'endStream');
       },

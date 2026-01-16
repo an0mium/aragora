@@ -45,6 +45,7 @@ export interface ArchivedDebateViewProps {
 
 export interface StreamingMessage {
   agent: string;
+  taskId?: string;  // Task ID for composite React key support
   content: string;
   startTime: number;
 }
