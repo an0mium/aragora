@@ -75,8 +75,9 @@ class TestOriginValidation:
         server = AiohttpUnifiedServer(port=8080)
 
         # Test with no origin (same-origin request)
+        # Same-origin requests don't need CORS headers, so Access-Control-Allow-Origin is not set
         headers = server._cors_headers(None)
-        assert "Access-Control-Allow-Origin" in headers
+        assert "Access-Control-Allow-Origin" not in headers
         assert "Access-Control-Allow-Methods" in headers
 
         # Test with allowed origin
@@ -86,11 +87,12 @@ class TestOriginValidation:
             allowed = list(WS_ALLOWED_ORIGINS)[0]
             headers = server._cors_headers(allowed)
             assert headers.get("Access-Control-Allow-Origin") == allowed
+            assert headers.get("Access-Control-Allow-Credentials") == "true"
 
         # Test with unauthorized origin
         headers = server._cors_headers("https://evil.com")
         # Should NOT have Allow-Origin for unauthorized origins
-        assert headers.get("Access-Control-Allow-Origin") != "https://evil.com"
+        assert "Access-Control-Allow-Origin" not in headers
 
 
 class TestRateLimiting:
