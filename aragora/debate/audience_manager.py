@@ -72,6 +72,7 @@ class AudienceManager:
         self._votes: deque[dict] = deque(maxlen=queue_size)
         self._suggestions: deque[dict] = deque(maxlen=queue_size)
         self._data_lock = threading.Lock()  # Protects votes/suggestions access
+        self._lock_timeout = 1.0  # Lock timeout to prevent deadlocks
 
         # Optional callback for notifications
         self._notify_callback: Optional[Callable[[str], None]] = None
@@ -122,6 +123,7 @@ class AudienceManager:
         - Before vote aggregation that includes user votes
 
         This is the 'digest' phase of the Stadium Mailbox pattern.
+        Uses timeout-based lock acquisition to prevent deadlocks.
 
         Returns:
             Number of events processed
@@ -129,17 +131,31 @@ class AudienceManager:
         from aragora.server.stream.events import StreamEventType
 
         drained_count = 0
+        skipped_count = 0
         while True:
             try:
                 event_type, event_data = self._event_queue.get_nowait()
-                with self._data_lock:
+                # Use timeout-based lock acquisition to prevent deadlocks
+                acquired = self._data_lock.acquire(timeout=self._lock_timeout)
+                if not acquired:
+                    logger.warning(
+                        "[audience] Lock timeout during drain, skipping event"
+                    )
+                    skipped_count += 1
+                    continue
+                try:
                     if event_type == StreamEventType.USER_VOTE:
                         self._votes.append(event_data)  # deque auto-evicts oldest
                     elif event_type == StreamEventType.USER_SUGGESTION:
                         self._suggestions.append(event_data)  # deque auto-evicts oldest
+                finally:
+                    self._data_lock.release()
                 drained_count += 1
             except queue.Empty:
                 break
+
+        if skipped_count > 0:
+            logger.warning(f"[audience] Skipped {skipped_count} events due to lock timeout")
 
         if drained_count > 0 and self._notify_callback:
             self._notify_callback(  # type: ignore[call-arg]

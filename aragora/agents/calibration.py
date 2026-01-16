@@ -17,6 +17,16 @@ Auto-tuning features:
 - Rolling window: auto-recomputes optimal parameters periodically
 """
 
+__all__ = [
+    "temperature_scale",
+    "TemperatureParams",
+    "CalibrationBucket",
+    "CalibrationSummary",
+    "adjust_agent_confidence",
+    "CalibrationTracker",
+    "integrate_with_position_ledger",
+]
+
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -343,15 +353,10 @@ class CalibrationTracker(SQLiteStore):
 
         This handles the case where the database was created with an older schema
         that didn't include this table, or where migrations didn't run properly.
-        Uses direct sqlite3 connection to avoid any async/context issues.
+        Uses pooled connection from parent class to avoid WAL mutex contention.
         """
-        import sqlite3 as sqlite3_module
-
         try:
-            # Use direct connection to bypass any complex connection management
-            db_path = str(self.db_path)
-            conn = sqlite3_module.connect(db_path, timeout=self._timeout)
-            try:
+            with self.connection() as conn:
                 conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS temperature_params (
@@ -361,11 +366,9 @@ class CalibrationTracker(SQLiteStore):
                         last_tuned TEXT,
                         predictions_at_tune INTEGER DEFAULT 0
                     )
-                """
+                    """
                 )
                 conn.commit()
-            finally:
-                conn.close()
         except Exception as e:
             # Log but don't fail - the table might already exist or be created elsewhere
             import logging

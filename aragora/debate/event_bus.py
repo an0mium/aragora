@@ -375,22 +375,34 @@ class EventBus:
     # User Event Queue (Thread-Safe)
     # =========================================================================
 
+    # Lock timeout to prevent deadlocks (1 second)
+    LOCK_TIMEOUT = 1.0
+
     def queue_user_event(self, event: Dict[str, Any]) -> None:
         """
-        Queue a user participation event (thread-safe).
+        Queue a user participation event (thread-safe with timeout).
 
         Extracted from Arena._handle_user_event().
 
         Args:
             event: User event data (vote, suggestion, etc.)
         """
-        with self._user_event_lock:
+        acquired = self._user_event_lock.acquire(timeout=self.LOCK_TIMEOUT)
+        if not acquired:
+            logger.warning(
+                f"[event_bus] Lock timeout in queue_user_event, dropping event: "
+                f"{event.get('type', 'unknown')}"
+            )
+            return
+        try:
             self._user_event_queue.put(event)
+        finally:
+            self._user_event_lock.release()
         logger.debug(f"Queued user event: {event.get('type', 'unknown')}")
 
     async def drain_user_events(self, debate_id: str) -> List[Dict[str, Any]]:
         """
-        Process all queued user events.
+        Process all queued user events (with timeout protection).
 
         Extracted from Arena._drain_user_events().
 
@@ -401,13 +413,19 @@ class EventBus:
             List of processed events
         """
         events = []
-        with self._user_event_lock:
+        acquired = self._user_event_lock.acquire(timeout=self.LOCK_TIMEOUT)
+        if not acquired:
+            logger.warning("[event_bus] Lock timeout in drain_user_events, returning empty")
+            return events
+        try:
             while not self._user_event_queue.empty():
                 try:
                     event = self._user_event_queue.get_nowait()
                     events.append(event)
                 except queue.Empty:
                     break
+        finally:
+            self._user_event_lock.release()
 
         # Process events through audience manager if available
         if self._audience_manager is not None and events:

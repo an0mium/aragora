@@ -551,6 +551,9 @@ class DebateStreamServer(ServerBase):
         Token events are sent in small batches (3 tokens) for progressive display.
         Other events are batched normally for efficiency. This prevents large blocks
         of text appearing all at once when API responses are buffered.
+
+        Broadcasts have timeouts to prevent slow/hung WebSocket clients from
+        blocking the entire drain loop (which would cause event queue backup).
         """
         from aragora.config import STREAM_BATCH_SIZE, STREAM_DRAIN_INTERVAL_MS
 
@@ -561,16 +564,29 @@ class DebateStreamServer(ServerBase):
                 token_events = [e for e in events if e.type == StreamEventType.TOKEN_DELTA]
                 other_events = [e for e in events if e.type != StreamEventType.TOKEN_DELTA]
 
-                # Send tokens progressively in small batches of 3 for efficiency
-                if token_events:
-                    for i in range(0, len(token_events), 3):
-                        batch = token_events[i : i + 3]
-                        await self.broadcast_batch(batch)
+                # Add timeout protection to prevent slow clients from blocking drain
+                try:
+                    # Send tokens progressively in small batches of 3 for efficiency
+                    if token_events:
+                        for i in range(0, len(token_events), 3):
+                            batch = token_events[i : i + 3]
+                            await asyncio.wait_for(
+                                self.broadcast_batch(batch),
+                                timeout=2.0  # 2 second timeout per token batch
+                            )
 
-                # Batch other events normally with agent grouping
-                if other_events:
-                    grouped = self._group_events_by_agent(other_events)
-                    await self.broadcast_batch(grouped)
+                    # Batch other events normally with agent grouping
+                    if other_events:
+                        grouped = self._group_events_by_agent(other_events)
+                        await asyncio.wait_for(
+                            self.broadcast_batch(grouped),
+                            timeout=5.0  # 5 second timeout for other events
+                        )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "[ws] Broadcast timed out - slow client may be blocking. "
+                        "Some events may be dropped to prevent queue backup."
+                    )
 
             await asyncio.sleep(STREAM_DRAIN_INTERVAL_MS / 1000.0)
 

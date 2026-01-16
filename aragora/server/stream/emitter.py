@@ -259,7 +259,9 @@ class SyncEventEmitter:
     MAX_QUEUE_SIZE = MAX_EVENT_QUEUE_SIZE
 
     def __init__(self, loop_id: str = ""):
-        self._queue: queue.Queue[StreamEvent] = queue.Queue(maxsize=MAX_EVENT_QUEUE_SIZE)
+        # Use unbounded queue - we handle size limits manually to avoid blocking
+        # A bounded queue's put() can block even after overflow handling due to races
+        self._queue: queue.Queue[StreamEvent] = queue.Queue()
         self._subscribers: list[Callable[[StreamEvent], None]] = []
         self._loop_id = loop_id  # Default loop_id for all events
         self._overflow_count = 0  # Track dropped events for monitoring
@@ -295,9 +297,7 @@ class SyncEventEmitter:
                 "This may cause text interleaving between concurrent streams."
             )
 
-        # Assign sequence numbers AND queue event atomically (thread-safe)
-        # This prevents race conditions where events get dropped but their
-        # sequence numbers are already assigned, causing sequence gaps
+        # Assign sequence numbers (thread-safe)
         with self._seq_lock:
             self._global_seq += 1
             event.seq = self._global_seq
@@ -309,20 +309,27 @@ class SyncEventEmitter:
                 self._agent_seqs[event.agent] += 1
                 event.agent_seq = self._agent_seqs[event.agent]
 
-            # Enforce queue size limit to prevent memory exhaustion
-            # Must be inside lock to prevent race between seq assignment and queue
-            if self._queue.qsize() >= self.MAX_QUEUE_SIZE:
-                # Drop oldest event to make room (backpressure)
+        # Enforce queue size limit OUTSIDE the seq_lock to minimize lock hold time
+        # Use put_nowait() which NEVER blocks (critical for avoiding deadlocks)
+        try:
+            # Drop oldest events to make room if queue is too large
+            while self._queue.qsize() >= self.MAX_QUEUE_SIZE:
                 try:
                     self._queue.get_nowait()
                     self._overflow_count += 1
-                    logger.warning(
-                        f"[stream] Queue overflow, dropped event (total: {self._overflow_count})"
-                    )
+                    if self._overflow_count % 1000 == 1:
+                        logger.warning(
+                            f"[stream] Queue overflow, dropping old events (total: {self._overflow_count})"
+                        )
                 except queue.Empty:
-                    pass
+                    break
 
-            self._queue.put(event)
+            # put_nowait() never blocks - safe for debate threads
+            self._queue.put_nowait(event)
+        except queue.Full:
+            # Should not happen with unbounded queue, but defensive
+            self._overflow_count += 1
+            logger.error(f"[stream] Unexpected queue full condition")
 
         # Notify subscribers outside lock (they don't need seq consistency)
         for sub in self._subscribers:
