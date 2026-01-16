@@ -511,14 +511,9 @@ class TestDebateErrorHandling:
 
     @pytest.mark.asyncio
     async def test_empty_task(self, basic_agents):
-        """Debate with empty task should still complete."""
-        env = Environment(task="", max_rounds=1)
-        protocol = DebateProtocol(rounds=1)
-
-        arena = Arena(env, basic_agents, protocol)
-        result = await arena.run()
-
-        assert isinstance(result, DebateResult)
+        """Empty task should raise ValueError during Environment creation."""
+        with pytest.raises(ValueError, match="Task cannot be empty"):
+            Environment(task="", max_rounds=1)
 
     @pytest.mark.asyncio
     async def test_long_task(self, basic_agents):
