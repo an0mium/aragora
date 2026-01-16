@@ -70,7 +70,27 @@ __all__ = [
     "RedTeamResult",
     "VulnerabilitySummary",
     "_escape_like_pattern",
+    "get_elo_store",
 ]
+
+
+# Singleton EloSystem instance
+_elo_store: Optional["EloSystem"] = None
+
+
+def get_elo_store() -> "EloSystem":
+    """Get the global EloSystem singleton instance.
+
+    Returns a singleton EloSystem instance, creating it if necessary.
+    Uses the default database path from configuration.
+
+    Returns:
+        EloSystem: The global ELO store instance
+    """
+    global _elo_store
+    if _elo_store is None:
+        _elo_store = EloSystem()
+    return _elo_store
 
 # Use centralized config values (can be overridden via environment variables)
 DEFAULT_ELO = ELO_INITIAL_RATING

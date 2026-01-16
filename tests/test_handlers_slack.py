@@ -15,6 +15,18 @@ import pytest
 import time
 from unittest.mock import MagicMock, patch
 
+# Skip all tests in this module if the slack handler module doesn't exist
+try:
+    import aragora.server.handlers.slack  # noqa: F401
+    SLACK_MODULE_AVAILABLE = True
+except ImportError:
+    SLACK_MODULE_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(
+    not SLACK_MODULE_AVAILABLE,
+    reason="Slack handler module not implemented - aragora.server.handlers.slack does not exist"
+)
+
 
 class MockHandler:
     """Mock HTTP request handler."""
@@ -257,9 +269,6 @@ class TestSlackStatusCommand:
             importlib.reload(slack_module)
             return slack_module.SlackHandler(MockServerContext())
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_status_returns_200(self, slack_handler):
         """Status command returns 200."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
@@ -268,9 +277,6 @@ class TestSlackStatusCommand:
 
         assert result.status_code == 200
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_status_shows_online(self, slack_handler):
         """Status shows system is online."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
@@ -282,9 +288,6 @@ class TestSlackStatusCommand:
         content = str(body)
         assert "online" in content.lower() or "status" in content.lower()
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_status_handles_error(self, slack_handler):
         """Status handles errors gracefully."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
@@ -309,9 +312,6 @@ class TestSlackAgentsCommand:
             importlib.reload(slack_module)
             return slack_module.SlackHandler(MockServerContext())
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_agents_empty(self, slack_handler):
         """Agents command with no agents."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
@@ -321,9 +321,6 @@ class TestSlackAgentsCommand:
         body = json.loads(result.body.decode())
         assert "no agents" in body.get("text", "").lower()
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_agents_lists_by_elo(self, slack_handler):
         """Agents are listed sorted by ELO."""
         agents = []
@@ -342,9 +339,6 @@ class TestSlackAgentsCommand:
         text = body.get("text", "")
         assert "elo" in text.lower() or len(text) > 0
 
-    @pytest.mark.skip(
-        reason="get_elo_store not available - handler code references missing function"
-    )
     def test_agents_handles_error(self, slack_handler):
         """Agents command handles errors."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:

@@ -127,10 +127,101 @@ class PromptEvolver(SQLiteStore):
         db_path: str = "aragora_evolution.db",
         critique_store: CritiqueStore = None,
         strategy: EvolutionStrategy = EvolutionStrategy.APPEND,
+        mutation_rate: float = 0.1,
     ):
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.critique_store = critique_store
         self.strategy = strategy
+        self.mutation_rate = mutation_rate
+
+    def mutate(self, prompt: str) -> str:
+        """Apply mutation to a prompt based on mutation_rate.
+
+        Mutations include:
+        - Adding emphasis phrases
+        - Reordering instructions
+        - Adding clarifying phrases
+
+        Args:
+            prompt: The prompt to mutate
+
+        Returns:
+            The mutated prompt
+        """
+        import random
+
+        if not prompt:
+            return prompt
+
+        mutations = [
+            ("Be precise", "Be highly precise and specific"),
+            ("helpful", "helpful and thorough"),
+            ("accurate", "accurate and well-reasoned"),
+            (".", ". Think step by step."),
+            ("assistant", "expert assistant"),
+        ]
+
+        result = prompt
+        for old, new in mutations:
+            if random.random() < self.mutation_rate and old in result:
+                result = result.replace(old, new, 1)
+                break  # Apply one mutation at a time
+
+        # If no mutation was applied, add a suffix
+        if result == prompt and random.random() < self.mutation_rate:
+            suffixes = [
+                " Consider multiple perspectives.",
+                " Provide clear reasoning.",
+                " Be thorough in your analysis.",
+            ]
+            result = prompt.rstrip() + random.choice(suffixes)
+
+        return result
+
+    def crossover(self, parent1: str, parent2: str) -> str:
+        """Combine traits from two prompts to create offspring.
+
+        Uses a simple sentence-level crossover strategy where
+        sentences are selected from either parent.
+
+        Args:
+            parent1: First parent prompt
+            parent2: Second parent prompt
+
+        Returns:
+            Offspring prompt combining traits from both parents
+        """
+        import random
+
+        if not parent1 or not parent2:
+            return parent1 or parent2 or ""
+
+        # Split into sentences
+        sentences1 = [s.strip() for s in parent1.split(".") if s.strip()]
+        sentences2 = [s.strip() for s in parent2.split(".") if s.strip()]
+
+        if not sentences1:
+            return parent2
+        if not sentences2:
+            return parent1
+
+        # Combine sentences, selecting from each parent
+        offspring_sentences = []
+        max_len = max(len(sentences1), len(sentences2))
+
+        for i in range(max_len):
+            if random.random() < 0.5:
+                if i < len(sentences1):
+                    offspring_sentences.append(sentences1[i])
+            else:
+                if i < len(sentences2):
+                    offspring_sentences.append(sentences2[i])
+
+        # Ensure we have at least some content
+        if not offspring_sentences:
+            offspring_sentences = sentences1[:1] + sentences2[:1]
+
+        return ". ".join(offspring_sentences) + "."
 
     def extract_winning_patterns(
         self,

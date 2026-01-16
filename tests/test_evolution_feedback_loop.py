@@ -104,7 +104,6 @@ class TestPatternExtraction:
 class TestPromptMutation:
     """Tests for prompt mutation in evolution."""
 
-    @pytest.mark.skip(reason="PromptEvolver.mutate() not implemented - future API")
     def test_mutate_prompt(self):
         """Test basic prompt mutation."""
         from aragora.evolution.evolver import PromptEvolver
@@ -116,7 +115,6 @@ class TestPromptMutation:
         assert mutated is not None
         assert mutated != original_prompt or len(mutated) > 0
 
-    @pytest.mark.skip(reason="PromptEvolver.crossover() not implemented - future API")
     def test_crossover_prompts(self):
         """Test combining traits from two prompts."""
         from aragora.evolution.evolver import PromptEvolver
@@ -128,7 +126,6 @@ class TestPromptMutation:
 
         assert offspring is not None
 
-    @pytest.mark.skip(reason="PromptEvolver mutation_rate param not implemented - future API")
     def test_mutation_rate_affects_output(self):
         """Test that mutation rate affects output diversity."""
         from aragora.evolution.evolver import PromptEvolver
@@ -448,7 +445,6 @@ class TestGenesisLedger:
 class TestEvolutionErrorHandling:
     """Tests for error handling in evolution system."""
 
-    @pytest.mark.skip(reason="PromptEvolver.mutate() not implemented - future API")
     def test_mutation_handles_empty_prompt(self):
         """Test mutation handles empty prompts gracefully."""
         from aragora.evolution.evolver import PromptEvolver
