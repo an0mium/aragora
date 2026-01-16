@@ -87,6 +87,7 @@ class AgentsHandler(BaseHandler):
         "/api/agent/*/performance",
         "/api/agent/*/head-to-head/*",
         "/api/agent/*/opponent-briefing/*",
+        "/api/agent/*/introspect",
         "/api/flips/recent",
         "/api/flips/summary",
     ]
@@ -222,6 +223,9 @@ class AgentsHandler(BaseHandler):
             "positions": lambda: self._get_positions(agent, get_int_param(params, "limit", 20)),
             "domains": lambda: self._get_domains(agent),
             "performance": lambda: self._get_performance(agent),
+            "introspect": lambda: self._get_agent_introspect(
+                agent, params.get("debate_id")
+            ),
         }
 
         if endpoint in handlers:
@@ -870,6 +874,159 @@ class AgentsHandler(BaseHandler):
                 },
             }
         )
+
+    @handle_errors("agent introspect")
+    def _get_agent_introspect(
+        self, agent: str, debate_id: Optional[str] = None
+    ) -> HandlerResult:
+        """Get agent introspection data for self-awareness and debugging.
+
+        This endpoint provides comprehensive internal state information that
+        agents can query to understand their own cognitive state, useful for
+        debugging, self-improvement, and mid-debate introspection.
+
+        Args:
+            agent: Agent name to introspect
+            debate_id: Optional debate ID for debate-specific state
+
+        Returns:
+            JSON with agent's internal state including:
+            - identity: Basic agent info and persona
+            - calibration: Prediction accuracy metrics
+            - positions: Recent stance history
+            - performance: Win/loss and rating data
+            - memory_summary: Memory tier statistics
+            - fatigue_indicators: Signs of cognitive fatigue (if available)
+        """
+        elo = self.get_elo_system()
+
+        introspection: dict[str, Any] = {
+            "agent_id": agent,
+            "timestamp": self._get_timestamp(),
+            "identity": {"name": agent},
+            "calibration": {},
+            "positions": [],
+            "performance": {},
+            "memory_summary": {},
+            "fatigue_indicators": None,  # Placeholder for fatigue detection
+            "debate_context": None,
+        }
+
+        # Get basic rating/performance data
+        if elo:
+            try:
+                rating = elo.get_rating(agent)
+                total_games = rating.wins + rating.losses + rating.draws
+                introspection["performance"] = {
+                    "elo": rating.elo,
+                    "total_games": total_games,
+                    "wins": rating.wins,
+                    "losses": rating.losses,
+                    "win_rate": rating.wins / total_games if total_games > 0 else 0.0,
+                }
+                introspection["calibration"] = {
+                    "accuracy": round(rating.calibration_accuracy, 3),
+                    "brier_score": round(rating.calibration_brier_score, 3),
+                    "prediction_count": rating.calibration_total,
+                    "confidence_level": self._compute_confidence(rating),
+                }
+            except Exception as e:
+                logger.debug(f"Could not get ELO data for {agent}: {e}")
+
+        # Get position history
+        try:
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir:
+                from aragora.ranking.position_tracker import PositionTracker
+
+                tracker_path = nomic_dir / "position_tracker.json"
+                if tracker_path.exists():
+                    tracker = PositionTracker(str(tracker_path))
+                    positions = tracker.get_agent_positions(agent, limit=5)
+                    introspection["positions"] = [
+                        {
+                            "topic": p.get("topic", ""),
+                            "stance": p.get("stance", ""),
+                            "confidence": p.get("confidence", 0.5),
+                            "timestamp": p.get("timestamp", ""),
+                        }
+                        for p in positions
+                    ]
+        except Exception as e:
+            logger.debug(f"Could not get position data for {agent}: {e}")
+
+        # Get memory tier summary
+        try:
+            from aragora.memory.continuum import ContinuumMemory
+
+            memory = ContinuumMemory()
+            tier_stats = memory.get_tier_counts()
+            introspection["memory_summary"] = {
+                "tier_counts": tier_stats,
+                "total_memories": sum(tier_stats.values()),
+                "red_line_count": len(memory.get_red_line_memories()),
+            }
+        except Exception as e:
+            logger.debug(f"Could not get memory data: {e}")
+
+        # Get persona info if available
+        try:
+            from aragora.agents.personas import PersonaManager
+
+            persona_mgr = PersonaManager()
+            persona = persona_mgr.get_persona(agent)
+            if persona:
+                introspection["identity"]["persona"] = {
+                    "style": getattr(persona, "style", None),
+                    "temperature": getattr(persona, "temperature", None),
+                    "system_prompt_preview": (
+                        getattr(persona, "system_prompt", "")[:200]
+                        if getattr(persona, "system_prompt", None)
+                        else None
+                    ),
+                }
+        except Exception as e:
+            logger.debug(f"Could not get persona data for {agent}: {e}")
+
+        # Add debate-specific context if debate_id provided
+        if debate_id:
+            try:
+                storage = self.get_storage()
+                if storage:
+                    debate = storage.get_debate(debate_id)
+                    if debate:
+                        # Find agent's messages in this debate
+                        agent_msgs = [
+                            m for m in debate.get("messages", [])
+                            if m.get("agent") == agent
+                        ]
+                        introspection["debate_context"] = {
+                            "debate_id": debate_id,
+                            "messages_sent": len(agent_msgs),
+                            "current_round": debate.get("current_round", 0),
+                            "debate_status": debate.get("status", "unknown"),
+                        }
+            except Exception as e:
+                logger.debug(f"Could not get debate context: {e}")
+
+        return json_response(introspection)
+
+    def _compute_confidence(self, rating) -> str:
+        """Compute confidence level from calibration data."""
+        accuracy = rating.calibration_accuracy
+        count = rating.calibration_total
+        if count < 5:
+            return "insufficient_data"
+        if accuracy >= 0.8:
+            return "high"
+        if accuracy >= 0.6:
+            return "medium"
+        return "low"
+
+    def _get_timestamp(self) -> str:
+        """Get current ISO timestamp."""
+        from datetime import datetime
+        return datetime.now().isoformat()
 
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_H2H, key_prefix="agent_h2h", skip_first=True)
     @handle_errors("head-to-head stats")

@@ -761,6 +761,8 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 return self._format_txt(debate)
             elif format == "md":
                 return self._format_md(debate)
+            elif format in ("latex", "tex"):
+                return self._format_latex(debate)
             else:  # format == "html"
                 return self._format_html(debate)
 
@@ -822,6 +824,18 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         from aragora.server.debate_export import format_debate_md
 
         result = format_debate_md(debate)
+        return HandlerResult(
+            status_code=200,
+            content_type=result.content_type,
+            body=result.content,
+            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        )
+
+    def _format_latex(self, debate: dict) -> HandlerResult:
+        """Format debate as LaTeX document."""
+        from aragora.server.debate_export import format_debate_latex
+
+        result = format_debate_latex(debate)
         return HandlerResult(
             status_code=200,
             content_type=result.content_type,

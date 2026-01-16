@@ -542,3 +542,198 @@ def format_debate_md(debate: dict) -> ExportResult:
         content_type="text/markdown; charset=utf-8",
         filename=f"debate-{debate_id}.md",
     )
+
+
+def format_debate_latex(debate: dict) -> ExportResult:
+    """Format debate as LaTeX document.
+
+    Creates a properly formatted LaTeX document suitable for academic papers
+    or formal documentation. Uses standard article class with custom styling.
+
+    Args:
+        debate: Debate data dictionary
+
+    Returns:
+        ExportResult with LaTeX content
+    """
+    debate_id = debate.get("slug", debate.get("id", "export"))
+    topic = _latex_escape(debate.get("topic", "Untitled Debate"))
+    messages = debate.get("messages", [])
+    critiques = debate.get("critiques", [])
+    consensus = debate.get("consensus_reached", False)
+    final_answer = _latex_escape(debate.get("final_answer", ""))
+    synthesis = _latex_escape(debate.get("synthesis", ""))
+
+    lines = []
+
+    # Document preamble
+    lines.append(r"\documentclass[11pt,a4paper]{article}")
+    lines.append(r"\usepackage[utf8]{inputenc}")
+    lines.append(r"\usepackage[T1]{fontenc}")
+    lines.append(r"\usepackage{geometry}")
+    lines.append(r"\usepackage{xcolor}")
+    lines.append(r"\usepackage{titlesec}")
+    lines.append(r"\usepackage{enumitem}")
+    lines.append(r"\usepackage{hyperref}")
+    lines.append(r"\usepackage{fancyhdr}")
+    lines.append(r"\usepackage{booktabs}")
+    lines.append(r"\usepackage{longtable}")
+    lines.append("")
+    lines.append(r"\geometry{margin=1in}")
+    lines.append("")
+    lines.append(r"% Custom colors")
+    lines.append(r"\definecolor{aragora}{RGB}{76, 175, 80}")
+    lines.append(r"\definecolor{critic}{RGB}{255, 87, 34}")
+    lines.append(r"\definecolor{judge}{RGB}{33, 150, 243}")
+    lines.append(r"\definecolor{darkbg}{RGB}{26, 26, 46}")
+    lines.append("")
+    lines.append(r"% Hyperref setup")
+    lines.append(r"\hypersetup{colorlinks=true,linkcolor=aragora,urlcolor=aragora}")
+    lines.append("")
+    lines.append(r"% Custom quote environment for agent messages")
+    lines.append(r"\newenvironment{agentmsg}[2]{%")
+    lines.append(r"  \par\vspace{0.5em}")
+    lines.append(r"  \noindent\textbf{\textcolor{#1}{#2}}\par")
+    lines.append(r"  \begin{quote}")
+    lines.append(r"}{%")
+    lines.append(r"  \end{quote}")
+    lines.append(r"  \vspace{0.5em}")
+    lines.append(r"}")
+    lines.append("")
+    lines.append(r"\title{Aragora Debate Transcript\\[0.5em]\large " + topic + r"}")
+    lines.append(r"\author{Multi-Agent AI Debate System}")
+    lines.append(r"\date{" + _latex_escape(debate.get("started_at", "")) + r"}")
+    lines.append("")
+    lines.append(r"\begin{document}")
+    lines.append("")
+    lines.append(r"\maketitle")
+    lines.append("")
+
+    # Metadata section
+    lines.append(r"\section*{Debate Metadata}")
+    lines.append(r"\begin{tabular}{ll}")
+    lines.append(r"\toprule")
+    lines.append(r"\textbf{Field} & \textbf{Value} \\")
+    lines.append(r"\midrule")
+    lines.append(f"Debate ID & \\texttt{{{_latex_escape(debate_id)}}} \\\\")
+    lines.append(f"Started & {_latex_escape(debate.get('started_at', 'N/A'))} \\\\")
+    lines.append(f"Ended & {_latex_escape(debate.get('ended_at', 'N/A'))} \\\\")
+    lines.append(f"Rounds & {debate.get('rounds_used', 0)} \\\\")
+    lines.append(f"Messages & {len(messages)} \\\\")
+    lines.append(f"Critiques & {len(critiques)} \\\\")
+    lines.append(f"Consensus & {'Yes' if consensus else 'No'} \\\\")
+    confidence = debate.get('confidence', 0)
+    lines.append(f"Confidence & {confidence:.1%} \\\\")
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append("")
+
+    # Timeline section
+    lines.append(r"\section{Debate Timeline}")
+    lines.append("")
+
+    current_round = -1
+    for msg in messages:
+        round_num = msg.get("round", 0)
+        if round_num != current_round:
+            current_round = round_num
+            lines.append(f"\\subsection{{Round {current_round}}}")
+            lines.append("")
+
+        agent = _latex_escape(msg.get("agent", "unknown"))
+        role = msg.get("role", "speaker")
+        content = _latex_escape(msg.get("content", ""))
+
+        # Color based on role
+        color = {"speaker": "aragora", "critic": "critic", "judge": "judge"}.get(role, "black")
+        role_label = {"speaker": "Proposer", "critic": "Critic", "judge": "Judge"}.get(role, role.title())
+
+        lines.append(f"\\begin{{agentmsg}}{{{color}}}{{{agent} ({role_label})}}")
+        lines.append(content)
+        lines.append(r"\end{agentmsg}")
+        lines.append("")
+
+    # Critiques section
+    if critiques:
+        lines.append(r"\section{Critiques}")
+        lines.append("")
+        for critique in critiques:
+            critic = _latex_escape(critique.get("critic", "unknown"))
+            target = _latex_escape(critique.get("target", "unknown"))
+            severity = critique.get("severity", 0)
+            summary = _latex_escape(critique.get("summary", ""))
+
+            severity_text = "High" if severity > 0.7 else "Medium" if severity > 0.4 else "Low"
+            lines.append(f"\\paragraph{{{critic} $\\rightarrow$ {target} (Severity: {severity_text})}}")
+            lines.append(summary)
+            lines.append("")
+
+    # Conclusion section
+    lines.append(r"\section{Conclusion}")
+    lines.append("")
+
+    if synthesis:
+        lines.append(r"\subsection{Synthesis}")
+        lines.append(synthesis)
+        lines.append("")
+
+    if final_answer:
+        lines.append(r"\subsection{Final Answer}")
+        if consensus:
+            lines.append(r"\textbf{\textcolor{aragora}{$\checkmark$ Consensus Reached}}")
+        else:
+            lines.append(r"\textbf{\textcolor{critic}{$\times$ No Consensus}}")
+        lines.append("")
+        lines.append(final_answer)
+    elif not synthesis:
+        lines.append(r"\emph{No conclusion reached.}")
+
+    lines.append("")
+    lines.append(r"\vfill")
+    lines.append(r"\begin{center}")
+    lines.append(r"\small\textit{Exported from \href{https://aragora.ai}{Aragora} -- Multi-Agent AI Debate System}")
+    lines.append(r"\end{center}")
+    lines.append("")
+    lines.append(r"\end{document}")
+
+    content = "\n".join(lines)
+
+    return ExportResult(
+        content=content.encode("utf-8"),
+        content_type="application/x-latex; charset=utf-8",
+        filename=f"debate-{debate_id}.tex",
+    )
+
+
+def _latex_escape(text: str) -> str:
+    """Escape special LaTeX characters in text.
+
+    Args:
+        text: Raw text to escape
+
+    Returns:
+        Text with LaTeX special characters escaped
+    """
+    if not text:
+        return ""
+
+    # Order matters: backslash must be first
+    replacements = [
+        ("\\", r"\textbackslash{}"),
+        ("&", r"\&"),
+        ("%", r"\%"),
+        ("$", r"\$"),
+        ("#", r"\#"),
+        ("_", r"\_"),
+        ("{", r"\{"),
+        ("}", r"\}"),
+        ("~", r"\textasciitilde{}"),
+        ("^", r"\textasciicircum{}"),
+        ("<", r"\textless{}"),
+        (">", r"\textgreater{}"),
+    ]
+
+    for old, new in replacements:
+        text = text.replace(old, new)
+
+    return text
