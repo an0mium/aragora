@@ -10,7 +10,7 @@ import logging
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, cast
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
@@ -150,7 +150,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
             # Fall back to non-streaming
             if full_response:
                 return full_response
-            return await original_generate(prompt, context)
+            return cast(str, await original_generate(prompt, context))
 
     # Replace the generate method
     agent.generate = streaming_generate

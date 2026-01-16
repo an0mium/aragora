@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Empty, Full, Queue
-from typing import Any, ContextManager, Generator, Optional, Union
+from typing import Any, ContextManager, Generator, Optional, Union, cast
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ class SQLiteBackend(DatabaseBackend):
         """Execute query and fetch single row."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
-            return cursor.fetchone()
+            return cast(Optional[tuple], cursor.fetchone())
 
     def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
         """Execute query and fetch all rows."""
@@ -360,7 +360,7 @@ class PostgreSQLBackend(DatabaseBackend):
         with self.connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(sql, params)
-                return cursor.fetchone()
+                return cast(Optional[tuple], cursor.fetchone())
 
     def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
         """Execute query and fetch all rows."""
@@ -368,7 +368,7 @@ class PostgreSQLBackend(DatabaseBackend):
         with self.connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(sql, params)
-                return cursor.fetchall()
+                return cast(list[tuple], cursor.fetchall())
 
     def execute_write(self, sql: str, params: tuple = ()) -> None:
         """Execute a write operation."""
@@ -497,7 +497,7 @@ def get_database_backend(
             backend_type = "sqlite"
 
         # Create backend
-        if backend_type == "postgresql" and db_settings:
+        if backend_type == "postgresql" and db_settings and db_settings.url:
             try:
                 _backend = PostgreSQLBackend(
                     database_url=db_settings.url,

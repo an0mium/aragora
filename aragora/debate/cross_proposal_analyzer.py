@@ -225,7 +225,7 @@ class CrossProposalAnalyzer:
         coverage_scores = {agent: cov.coverage for agent, cov in agent_coverage.items()}
 
         # Find weakest agent
-        weakest = min(coverage_scores, key=coverage_scores.get) if coverage_scores else None
+        weakest = min(coverage_scores, key=lambda k: coverage_scores.get(k, 0.0)) if coverage_scores else None
 
         return CrossProposalAnalysis(
             shared_evidence=shared,

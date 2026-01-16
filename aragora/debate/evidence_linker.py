@@ -161,7 +161,7 @@ class EvidenceClaimLinker:
         self._embedder = None
         if use_embeddings is True and not EMBEDDINGS_AVAILABLE:
             logger.warning("Embeddings requested but sentence-transformers not installed")
-        elif use_embeddings is not False and EMBEDDINGS_AVAILABLE:
+        elif use_embeddings is not False and EMBEDDINGS_AVAILABLE and SentenceTransformer is not None:
             try:
                 self._embedder = SentenceTransformer(embedding_model)
                 logger.debug(f"Loaded embedding model: {embedding_model}")
@@ -364,7 +364,7 @@ class EvidenceClaimLinker:
 
     def _compute_semantic_similarity(self, text1: str, text2: str) -> float:
         """Compute semantic similarity using embeddings."""
-        if self._embedder is None:
+        if self._embedder is None or np is None:
             return 0.5
 
         embeddings = self._embedder.encode([text1, text2])

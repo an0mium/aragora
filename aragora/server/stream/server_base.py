@@ -155,7 +155,9 @@ class ServerBase:
             # Get or create
             self._rate_limiter_last_access[client_id] = now
             if client_id not in self._rate_limiters:
-                self._rate_limiters[client_id] = TokenBucket(rate=rate, capacity=capacity)  # type: ignore[call-arg]
+                self._rate_limiters[client_id] = TokenBucket(
+                    rate_per_minute=rate, burst_size=capacity
+                )
 
             return self._rate_limiters[client_id]
 
@@ -212,7 +214,7 @@ class ServerBase:
         if not self._debate_states_last_access:
             return None
 
-        oldest = min(self._debate_states_last_access, key=self._debate_states_last_access.get)
+        oldest = min(self._debate_states_last_access, key=lambda k: self._debate_states_last_access.get(k, 0.0))
         self.debate_states.pop(oldest, None)
         self._debate_states_last_access.pop(oldest, None)
         return oldest
@@ -352,7 +354,7 @@ class ServerBase:
         if not self._active_loops_last_access:
             return None
 
-        oldest = min(self._active_loops_last_access, key=self._active_loops_last_access.get)
+        oldest = min(self._active_loops_last_access, key=lambda k: self._active_loops_last_access.get(k, 0.0))
         self.active_loops.pop(oldest, None)
         self._active_loops_last_access.pop(oldest, None)
         logger.warning(f"Evicted stale loop: {oldest}")
@@ -448,8 +450,8 @@ class ServerBase:
             state = self._ws_auth_states.get(ws_id)
             if not state or not state.get("authenticated"):
                 return False
-            last_validated = state.get("last_validated", 0)
-            return (time.time() - last_validated) > WS_TOKEN_REVALIDATION_INTERVAL
+            last_validated: float = state.get("last_validated", 0)
+            return bool((time.time() - last_validated) > WS_TOKEN_REVALIDATION_INTERVAL)
 
     def mark_ws_token_validated(self, ws_id: int) -> None:
         """Mark a WebSocket token as recently validated."""
