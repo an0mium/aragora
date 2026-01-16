@@ -7,22 +7,17 @@ title = "Aragora Secret Scanning"
 # Use default rules
 useDefault = true
 
-# Allow test keys and example placeholders
-[[rules]]
-id = "allow-test-keys"
-description = "Allow test keys in test files"
-regex = '''sk-ant-test-.*'''
-allowlist = true
-
-[[rules]]
-id = "allow-example-placeholders"
-description = "Allow example/placeholder values"
-regex = '''your-.*-key|your-api-key|<your-.*>|YOUR_.*'''
-allowlist = true
-
-# Paths to exclude from scanning
+# Global allowlist for paths and patterns
 [allowlist]
 description = "Global allowlist"
+regexTarget = "match"
+regexes = [
+    '''sk-ant-test-.*''',
+    '''your-.*-key''',
+    '''your-api-key''',
+    '''<your-.*>''',
+    '''YOUR_.*''',
+]
 paths = [
     '''.*_test\.py$''',
     '''.*test_.*\.py$''',

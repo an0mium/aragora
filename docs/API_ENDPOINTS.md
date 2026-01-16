@@ -1,220 +1,50 @@
 Discovering endpoints...
-21:12:14 DEBUG    aragora.utils.cache_registry: Registered LRU cache: _compute_domain_from_task
-21:12:14 DEBUG    aragora.services.registry: ServiceRegistry initialized
-21:12:14 DEBUG    aragora.services.registry: Registered factory: RateLimiterRegistry
-21:12:14 DEBUG    aragora.services.registry: Lazily initialized service: RateLimiterRegistry
-21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. This will fail in production.
-21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. This will fail in production.
-21:12:15 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_ERROR_URL not set, using localhost fallback. This will fail in production.
-21:12:15 DEBUG    aragora.server.handlers.oauth: [OAuth] Using localhost for allowed redirect hosts (dev mode)
-21:12:15 INFO     aragora.server.oauth_state_store: OAuth state store initialized: in-memory
-21:12:15 DEBUG    aragora.server.handlers.social: [Social] Using localhost for OAuth hosts (dev mode)
-21:12:15 DEBUG    aragora.server.cors_config: [CORS] Using default origins (dev mode). Set ARAGORA_ALLOWED_ORIGINS to customize.
-21:12:15 DEBUG    aragora.server.cors_config: [CORS] Allowed origins: {'http://127.0.0.1:3000', 'http://127.0.0.1:8080', 'https://aragora.ai', 'http://localhost:8080', 'https://www.aragora.ai', 'https://api.aragora.ai', 'http://localhost:3000'}
-21:12:15 WARNING  aragora.server.auth: Authentication disabled (no API token). Set ARAGORA_API_TOKEN for access control.
-Found 298 endpoints in 56 groups
+19:14:50 DEBUG    aragora.utils.cache_registry: Registered LRU cache: _compute_domain_from_task
+19:14:50 DEBUG    aragora.services.registry: ServiceRegistry initialized
+19:14:50 DEBUG    aragora.services.registry: Registered factory: RateLimiterRegistry
+19:14:50 DEBUG    aragora.services.registry: Lazily initialized service: RateLimiterRegistry
+19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. This will fail in production.
+19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. This will fail in production.
+19:14:50 WARNING  aragora.server.handlers.oauth: [OAuth] OAUTH_ERROR_URL not set, using localhost fallback. This will fail in production.
+19:14:50 DEBUG    aragora.server.handlers.oauth: [OAuth] Using localhost for allowed redirect hosts (dev mode)
+19:14:50 INFO     aragora.server.oauth_state_store: OAuth state store initialized: in-memory
+19:14:50 DEBUG    aragora.server.handlers.social.social_media: [Social] Using localhost for OAuth hosts (dev mode)
+19:14:50 DEBUG    aragora.server.cors_config: [CORS] Using default origins (dev mode). Set ARAGORA_ALLOWED_ORIGINS to customize.
+19:14:50 DEBUG    aragora.server.cors_config: [CORS] Allowed origins: {'http://127.0.0.1:8080', 'http://localhost:8080', 'https://live.aragora.ai', 'https://api.aragora.ai', 'https://www.aragora.ai', 'http://localhost:3000', 'http://127.0.0.1:3000', 'https://aragora.ai'}
+19:14:50 WARNING  aragora.server.auth: Authentication disabled (no API token). Set ARAGORA_API_TOKEN for access control.
+Found 128 endpoints in 26 groups
 # Aragora API Documentation
 
 This document describes the HTTP API endpoints provided by the Aragora server.
 
 ## Table of Contents
 
-- [Admin](#admin)
-- [Agents](#agents)
 - [Analytics](#analytics)
-- [Audio](#audio)
 - [Auditing](#auditing)
-- [Auth](#auth)
 - [Belief](#belief)
-- [Billing](#billing)
 - [Breakpoints](#breakpoints)
-- [Broadcast](#broadcast)
-- [Calibration](#calibration)
 - [Checkpoints](#checkpoints)
 - [Consensus](#consensus)
 - [Critique](#critique)
-- [Dashboard](#dashboard)
-- [Debates](#debates)
 - [Docs](#docs)
-- [Documents](#documents)
-- [Evidence](#evidence)
-- [Evolution](#evolution)
-- [Evolution Ab Testing](#evolution-ab-testing)
-- [Features](#features)
-- [Formal Verification](#formal-verification)
 - [Gallery](#gallery)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
-- [Graph Debates](#graph-debates)
-- [Health](#health)
-- [Insights](#insights)
 - [Introspection](#introspection)
 - [Laboratory](#laboratory)
-- [LeaderboardView](#leaderboardview)
-- [Learning](#learning)
-- [Matrix Debates](#matrix-debates)
-- [Memory](#memory)
-- [Memory Analytics](#memory-analytics)
 - [Metrics](#metrics)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth](#oauth)
 - [Organizations](#organizations)
 - [Persona](#persona)
-- [Plugins](#plugins)
-- [Probes](#probes)
-- [Pulse](#pulse)
-- [Relationship](#relationship)
+- [Privacy](#privacy)
 - [Replays](#replays)
 - [Reviews](#reviews)
-- [Sharing](#sharing)
-- [Slack](#slack)
-- [Social](#social)
-- [System](#system)
+- [Selection](#selection)
 - [Tournament](#tournament)
 - [Training](#training)
-- [Verification](#verification)
 - [Webhook](#webhook)
-
----
-
-## Admin
-
-Admin API Handlers.
-
-### `GET` `/api/admin/organizations`
-
-List all organizations
-
-### `GET` `/api/admin/users`
-
-List all users
-
-### `GET` `/api/admin/stats`
-
-Get system-wide statistics
-
-### `GET` `/api/admin/system/metrics`
-
-Get aggregated system metrics
-
-### `POST` `/api/admin/impersonate/:user_id`
-
-Create impersonation token
-
-### `POST` `/api/admin/users/:user_id/deactivate`
-
-Deactivate a user
-
-### `POST` `/api/admin/users/:user_id/activate`
-
-Activate a user
-
-### `POST` `/api/admin/users/:user_id/unlock`
-
-Unlock a locked user account
-
-### `GET` `/api/admin/nomic/status`
-
-Get detailed nomic status
-
-### `GET` `/api/admin/nomic/circuit-breakers`
-
-Get circuit breaker status
-
-### `POST` `/api/admin/nomic/reset`
-
-Reset nomic to a specific phase
-
-### `POST` `/api/admin/nomic/pause`
-
-Pause the nomic loop
-
-### `POST` `/api/admin/nomic/resume`
-
-Resume the nomic loop
-
-### `POST` `/api/admin/nomic/circuit-breakers/reset`
-
-Reset all circuit breakers
-
----
-
-## Agents
-
-Agent-related endpoint handlers.
-
-### `GET` `/api/leaderboard`
-
-Get agent rankings
-
-### `GET` `/api/rankings`
-
-Get agent rankings (alias)
-
-### `GET` `/api/agents/local`
-
-List detected local LLM servers
-
-### `GET` `/api/agents/local/status`
-
-Get local LLM availability status
-
-### `GET` `/api/agent/{name}/profile`
-
-Get agent profile
-
-### `GET` `/api/agent/{name}/history`
-
-Get agent match history
-
-### `GET` `/api/agent/{name}/calibration`
-
-Get calibration scores
-
-### `GET` `/api/agent/{name}/consistency`
-
-Get consistency score
-
-### `GET` `/api/agent/{name}/flips`
-
-Get agent flip history
-
-### `GET` `/api/agent/{name}/network`
-
-Get relationship network
-
-### `GET` `/api/agent/{name}/rivals`
-
-Get top rivals
-
-### `GET` `/api/agent/{name}/allies`
-
-Get top allies
-
-### `GET` `/api/agent/{name}/moments`
-
-Get significant moments
-
-### `GET` `/api/agent/{name}/positions`
-
-Get position history
-
-### `GET` `/api/agent/compare`
-
-Compare multiple agents
-
-### `GET` `/api/agent/{name}/head-to-head/{opponent}`
-
-Get head-to-head stats
-
-### `GET` `/api/flips/recent`
-
-Get recent flips across all agents
-
-### `GET` `/api/flips/summary`
-
-Get flip summary for dashboard
 
 ---
 
@@ -244,24 +74,6 @@ Get memory statistics
 
 ---
 
-## Audio
-
-Audio and Podcast endpoint handlers.
-
-### `GET` `/audio/{id}.mp3`
-
-Serve audio file
-
-### `GET` `/api/podcast/feed.xml`
-
-iTunes-compatible RSS feed
-
-### `GET` `/api/podcast/episodes`
-
-JSON episode listing
-
----
-
 ## Auditing
 
 Auditing and security analysis endpoint handlers.
@@ -277,56 +89,6 @@ Run deep audit on a task
 ### `POST` `/api/debates/:id/red-team`
 
 Run red team analysis on a debate
-
----
-
-## Auth
-
-User Authentication Handlers.
-
-### `POST` `/api/auth/register`
-
-Create a new user account
-
-### `POST` `/api/auth/login`
-
-Authenticate and get tokens
-
-### `POST` `/api/auth/logout`
-
-Invalidate current token (adds to blacklist)
-
-### `POST` `/api/auth/logout-all`
-
-Invalidate all tokens for user (logout all devices)
-
-### `POST` `/api/auth/refresh`
-
-Refresh access token (revokes old refresh token)
-
-### `POST` `/api/auth/revoke`
-
-Explicitly revoke a specific token
-
-### `GET` `/api/auth/me`
-
-Get current user information
-
-### `PUT` `/api/auth/me`
-
-Update current user information
-
-### `POST` `/api/auth/password`
-
-Change password
-
-### `POST` `/api/auth/api-key`
-
-Generate API key
-
-### `DELETE` `/api/auth/api-key`
-
-Revoke API key
 
 ---
 
@@ -356,44 +118,6 @@ Get argument graph statistics
 
 ---
 
-## Billing
-
-Billing API Handlers.
-
-### `GET` `/api/billing/plans`
-
-List available subscription plans
-
-### `GET` `/api/billing/usage`
-
-Get current usage for authenticated user
-
-### `GET` `/api/billing/subscription`
-
-Get current subscription
-
-### `POST` `/api/billing/checkout`
-
-Create checkout session for subscription
-
-### `POST` `/api/billing/portal`
-
-Create billing portal session
-
-### `POST` `/api/billing/cancel`
-
-Cancel subscription
-
-### `POST` `/api/billing/resume`
-
-Resume canceled subscription
-
-### `POST` `/api/webhooks/stripe`
-
-Handle Stripe webhooks
-
----
-
 ## Breakpoints
 
 Breakpoints endpoint handlers for human-in-the-loop intervention.
@@ -409,42 +133,6 @@ Resolve a pending breakpoint
 ### `GET` `/api/breakpoints/{id}/status`
 
 Get status of a specific breakpoint
-
----
-
-## Broadcast
-
-Broadcast generation handler.
-
-### `POST` `/api/debates/{id}/broadcast`
-
-Generate podcast audio from debate trace
-
-### `POST` `/api/debates/{id}/broadcast/full`
-
-Run full broadcast pipeline
-
-### `GET` `/api/podcast/feed.xml`
-
-Get RSS podcast feed
-
----
-
-## Calibration
-
-Calibration endpoint handlers.
-
-### `GET` `/api/agent/{name}/calibration-curve`
-
-Get calibration curve (confidence vs accuracy)
-
-### `GET` `/api/agent/{name}/calibration-summary`
-
-Get calibration summary metrics
-
-### `GET` `/api/calibration/leaderboard`
-
-Get top agents by calibration score
 
 ---
 
@@ -538,86 +226,6 @@ Get specific agent reputation
 
 ---
 
-## Dashboard
-
-Handler for dashboard endpoint.
-
-### `GET` `/api/dashboard/debates` 🔒
-
-Get consolidated debate metrics for dashboard
-
-**Parameters:**
-
-| Name | Type | Description |
-|------|------|-------------|
-| `domain` | string | Optional domain filter |
-| `limit` | string | Max items per list section |
-| `hours` | string | Time window for recent activity |
-
-### `GET` `/api/dashboard/quality-metrics`
-
-GET /api/dashboard/quality-metrics
-
----
-
-## Debates
-
-Debate-related endpoint handlers.
-
-### `GET` `/api/debates` 🔒
-
-List all debates
-
-### `GET` `/api/debates/{slug}` 🔒
-
-Get debate by slug
-
-### `GET` `/api/debates/slug/{slug}` 🔒
-
-Get debate by slug (alternative)
-
-### `GET` `/api/debates/{id}/export/{format}` 🔒
-
-Export debate
-
-### `GET` `/api/debates/{id}/impasse` 🔒
-
-Detect debate impasse
-
-### `GET` `/api/debates/{id}/convergence` 🔒
-
-Get convergence status
-
-### `GET` `/api/debates/{id}/citations` 🔒
-
-Get evidence citations for debate
-
-### `GET` `/api/debates/{id}/evidence` 🔒
-
-Get comprehensive evidence trail
-
-### `GET` `/api/debate/{id}/meta-critique`
-
-Get meta-level debate analysis
-
-### `GET` `/api/debate/{id}/graph/stats`
-
-Get argument graph statistics
-
-### `POST` `/api/debates/{id}/fork` 🔒
-
-Fork debate at a branch point
-
-### `PATCH` `/api/debates/{id}` 🔒
-
-Update debate metadata (title, tags, status)
-
-### `GET` `/api/search`
-
-Cross-debate search by query
-
----
-
 ## Docs
 
 API documentation endpoint handlers.
@@ -645,162 +253,6 @@ Swagger UI interactive documentation
 ### `GET` `/api/redoc`
 
 ReDoc API documentation viewer
-
----
-
-## Documents
-
-Document management endpoint handlers.
-
-### `GET` `/api/documents`
-
-List all uploaded documents
-
-### `GET` `/api/documents/formats`
-
-Get supported file formats
-
-### `GET` `/api/documents/{doc_id}`
-
-Get a document by ID
-
-### `POST` `/api/documents/upload`
-
-Upload a document
-
-### `DELETE` `/api/documents/{doc_id}`
-
-Delete a document by ID
-
----
-
-## Evidence
-
-Handler for evidence-related API endpoints.
-
-### `GET` `/api/evidence`
-
-Get or create evidence collector instance
-
-### `GET` `/api/evidence/statistics`
-
-Handle GET /api/evidence/statistics - get store stats
-
-### `GET` `/api/evidence/search`
-
-Handle POST /api/evidence/search - full-text search
-
-### `GET` `/api/evidence/collect`
-
-Get or create evidence collector instance
-
----
-
-## Evolution
-
-Prompt evolution endpoint handlers.
-
-### `GET` `/api/evolution/patterns`
-
-Get top patterns across all agents
-
-### `GET` `/api/evolution/summary`
-
-Get evolution summary statistics
-
-### `GET` `/api/evolution/{agent}/history`
-
-Get prompt evolution history for an agent
-
-### `GET` `/api/evolution/{agent}/prompt`
-
-Get current/specific prompt version for an agent
-
----
-
-## Evolution Ab Testing
-
-Evolution A/B testing endpoint handlers.
-
-### `GET` `/api/evolution/ab-tests` 🔒
-
-List all A/B tests
-
-### `GET` `/api/evolution/ab-tests/{agent}/active` 🔒
-
-Get active test for agent
-
-### `POST` `/api/evolution/ab-tests` 🔒
-
-Start new A/B test
-
-### `GET` `/api/evolution/ab-tests/{id}` 🔒
-
-Get specific test
-
-### `POST` `/api/evolution/ab-tests/{id}/record` 🔒
-
-Record debate result
-
-### `POST` `/api/evolution/ab-tests/{id}/conclude` 🔒
-
-Conclude test
-
-### `DELETE` `/api/evolution/ab-tests/{id}` 🔒
-
-Cancel test
-
----
-
-## Features
-
-Handler for feature availability endpoints.
-
-### `GET` `/api/features`
-
-Get full feature matrix
-
-### `GET` `/api/features/available`
-
-Get list of available features
-
-### `GET` `/api/features/all`
-
-Get full feature matrix
-
-### `GET` `/api/features/handlers`
-
-GET /api/features/handlers
-
-### `GET` `/api/features/config`
-
-Get user's feature configuration
-
-### `GET` `/api/features/{feature_id}`
-
-GET /api/features/{feature_id}
-
----
-
-## Formal Verification
-
-Formal Verification API Endpoints.
-
-### `POST` `/api/verify/claim`
-
-Verify a single claim
-
-### `POST` `/api/verify/batch`
-
-Batch verification of multiple claims
-
-### `GET` `/api/verify/status`
-
-Get backend availability status
-
-### `POST` `/api/verify/translate`
-
-Translate claim to formal language only
 
 ---
 
@@ -890,68 +342,6 @@ Get single genome details
 
 ---
 
-## Graph Debates
-
-Graph debates endpoint handlers.
-
-### `POST` `/api/debates/graph` 🔒
-
-Run a graph-structured debate with branching
-
-### `GET` `/api/debates/graph/{id}` 🔒
-
-Get graph debate by ID
-
-### `GET` `/api/debates/graph/{id}/branches` 🔒
-
-Get all branches for a debate
-
-### `GET` `/api/debates/graph/{id}/nodes` 🔒
-
-Get all nodes in debate graph
-
----
-
-## Health
-
-Health and readiness endpoint handlers.
-
-### `GET` `/healthz`
-
-Kubernetes liveness probe (lightweight)
-
-### `GET` `/readyz`
-
-Kubernetes readiness probe (checks dependencies)
-
-### `GET` `/api/health`
-
-Comprehensive health check
-
-### `GET` `/api/health/detailed`
-
-Detailed health with observer metrics
-
-### `GET` `/api/health/deep`
-
-Deep health check with all external dependencies
-
----
-
-## Insights
-
-Insights-related endpoint handlers.
-
-### `GET` `/api/insights/recent`
-
-Get recent insights from InsightStore
-
-### `POST` `/api/insights/extract-detailed` 🔒
-
-Extract detailed insights from content
-
----
-
 ## Introspection
 
 Introspection endpoint handlers.
@@ -985,124 +375,6 @@ Get emergent traits from agent performance
 ### `POST` `/api/laboratory/cross-pollinations/suggest`
 
 Suggest beneficial trait transfers
-
----
-
-## LeaderboardView
-
-Handler for consolidated leaderboard view endpoint.
-
-### `GET` `/api/leaderboard-view`
-
-GET /api/leaderboard-view
-
----
-
-## Learning
-
-Cross-cycle learning analytics endpoint handlers.
-
-### `GET` `/api/learning/cycles`
-
-Get all cycle summaries
-
-### `GET` `/api/learning/patterns`
-
-Get learned patterns across cycles
-
-### `GET` `/api/learning/agent-evolution`
-
-Get agent performance evolution
-
-### `GET` `/api/learning/insights`
-
-Get aggregated insights from cycles
-
----
-
-## Matrix Debates
-
-Matrix debates endpoint handlers.
-
-### `POST` `/api/debates/matrix` 🔒
-
-Run parallel scenario debates
-
-### `GET` `/api/debates/matrix/{id}` 🔒
-
-Get matrix debate results
-
-### `GET` `/api/debates/matrix/{id}/scenarios` 🔒
-
-Get all scenario results
-
-### `GET` `/api/debates/matrix/{id}/conclusions` 🔒
-
-Get universal/conditional conclusions
-
----
-
-## Memory
-
-Memory-related endpoint handlers.
-
-### `GET` `/api/memory/continuum/retrieve`
-
-Retrieve memories from continuum
-
-### `POST` `/api/memory/continuum/consolidate`
-
-Trigger memory consolidation
-
-### `POST` `/api/memory/continuum/cleanup`
-
-Cleanup expired memories
-
-### `GET` `/api/memory/tier-stats`
-
-Get tier statistics
-
-### `GET` `/api/memory/archive-stats`
-
-Get archive statistics
-
-### `GET` `/api/memory/pressure`
-
-Get memory pressure and utilization
-
-### `DELETE` `/api/memory/continuum/{id}`
-
-Delete a memory by ID
-
-### `GET` `/api/memory/tiers`
-
-List all memory tiers with detailed stats
-
-### `GET` `/api/memory/search`
-
-Search memories across tiers
-
-### `GET` `/api/memory/critiques`
-
-Browse critique store entries
-
----
-
-## Memory Analytics
-
-Memory analytics endpoint handlers.
-
-### `GET` `/api/memory/analytics`
-
-Get comprehensive memory tier analytics
-
-### `GET` `/api/memory/analytics/tier/{tier}`
-
-Get stats for specific tier
-
-### `POST` `/api/memory/analytics/snapshot`
-
-Take a manual snapshot
 
 ---
 
@@ -1290,95 +562,25 @@ Get position accuracy stats
 
 ---
 
-## Plugins
+## Privacy
 
-Plugins endpoint handlers.
+Privacy Handler - GDPR/CCPA Compliant Data Export and Account Deletion.
 
-### `GET` `/api/plugins`
+### `GET` `/api/privacy/export`
 
-List all available plugins
+Export all user data (GDPR Article 15, CCPA Right to Know)
 
-### `GET` `/api/plugins/{name}`
+### `GET` `/api/privacy/data-inventory`
 
-Get details for a specific plugin
+Get summary of data categories collected
 
-### `POST` `/api/plugins/{name}/run`
+### `DELETE` `/api/privacy/account`
 
-Run a plugin with provided input
+Delete user account (GDPR Article 17, CCPA Right to Delete)
 
-### `GET` `/api/plugins/installed`
+### `POST` `/api/privacy/preferences`
 
-List installed plugins for user/org
-
-### `POST` `/api/plugins/{name}/install`
-
-Install a plugin
-
-### `DELETE` `/api/plugins/{name}/install`
-
-Uninstall a plugin
-
-### `POST` `/api/plugins/submit`
-
-Submit a new plugin for review
-
-### `GET` `/api/plugins/submissions`
-
-List user's plugin submissions
-
----
-
-## Probes
-
-Capability probing endpoint handlers.
-
-### `POST` `/api/probes/capability`
-
-Run capability probes on an agent to find vulnerabilities
-
----
-
-## Pulse
-
-Pulse and trending topics endpoint handlers.
-
-### `GET` `/api/pulse/trending`
-
-Get trending topics from multiple sources
-
-### `GET` `/api/pulse/suggest`
-
-Suggest a trending topic for debate
-
-### `GET` `/api/pulse/analytics`
-
-Get analytics on trending topic debate outcomes
-
-### `POST` `/api/pulse/debate-topic`
-
-Start a debate on a trending topic
-
----
-
-## Relationship
-
-Relationship endpoint handlers.
-
-### `GET` `/api/relationships/summary`
-
-Global relationship overview
-
-### `GET` `/api/relationships/graph`
-
-Full relationship graph for visualizations
-
-### `GET` `/api/relationships/stats`
-
-Relationship system statistics
-
-### `GET` `/api/relationship/{agent_a}/{agent_b}`
-
-Detailed relationship between two agents
+Update privacy preferences (CCPA Do Not Sell)
 
 ---
 
@@ -1418,111 +620,25 @@ List recent reviews
 
 ---
 
-## Sharing
+## Selection
 
-Handler for debate sharing endpoints.
+Handler for selection plugin endpoints.
 
-### `GET` `/api/debates/*/share`
+### `GET` `/api/selection/plugins` 🔒
 
-Generate a secure share token
+List all available selection plugins
 
-### `GET` `/api/debates/*/share/revoke` 🔒
+### `GET` `/api/selection/defaults` 🔒
 
-Revoke all share links for a debate
+Get default plugin configuration
 
-### `GET` `/api/shared/*`
+### `GET` `/api/selection/score` 🔒
 
-GET /api/shared/*
+Get information about a specific scorer
 
----
+### `GET` `/api/selection/team` 🔒
 
-## Slack
-
-Slack integration endpoint handlers.
-
-### `POST` `/api/integrations/slack/commands`
-
-Handle Slack slash commands
-
-### `POST` `/api/integrations/slack/interactive`
-
-Handle interactive components
-
-### `POST` `/api/integrations/slack/events`
-
-Handle Slack events
-
----
-
-## Social
-
-Social Media endpoint handlers for Twitter and YouTube.
-
-### `GET` `/api/youtube/auth`
-
-Get YouTube OAuth authorization URL
-
-### `GET` `/api/youtube/callback`
-
-Handle YouTube OAuth callback
-
-### `GET` `/api/youtube/status`
-
-Get YouTube connector status
-
-### `POST` `/api/debates/{id}/publish/twitter`
-
-Publish debate to Twitter/X
-
-### `POST` `/api/debates/{id}/publish/youtube`
-
-Publish debate to YouTube
-
----
-
-## System
-
-System and utility endpoint handlers.
-
-### `GET` `/api/debug/test`
-
-Debug test endpoint
-
-### `GET` `/api/history/cycles`
-
-Get cycle history
-
-### `GET` `/api/history/events`
-
-Get event history
-
-### `GET` `/api/history/debates`
-
-Get debate history
-
-### `GET` `/api/history/summary`
-
-Get history summary
-
-### `GET` `/api/system/maintenance?task=<task>`
-
-Run database maintenance
-
-### `GET` `/api/auth/stats`
-
-Get authentication statistics
-
-### `POST` `/api/auth/revoke`
-
-Revoke a token to invalidate it
-
-### `GET` `/api/circuit-breakers`
-
-Circuit breaker metrics
-
-### `GET` `/metrics`
-
-Prometheus metrics
+Get information about a specific team selector
 
 ---
 
@@ -1583,20 +699,6 @@ GET /api/training/stats
 ### `GET` `/api/training/formats`
 
 GET /api/training/formats
-
----
-
-## Verification
-
-Formal verification endpoint handlers.
-
-### `GET` `/api/verification/status`
-
-Get status of formal verification backends
-
-### `POST` `/api/verification/formal-verify`
-
-Verify a claim using Z3 SMT solver
 
 ---
 
