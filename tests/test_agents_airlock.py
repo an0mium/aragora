@@ -614,10 +614,10 @@ class TestFallbackGenerators:
         agent = MockAgent(name="critic")
         proxy = AirlockProxy(agent)
 
-        fallback = proxy._critique_fallback("proposal", "task")
+        fallback = proxy._critique_fallback("proposal", "task", "target_agent_name")
 
         assert fallback["agent"] == "critic"
-        assert fallback["target_agent"] == "unknown"
+        assert fallback["target_agent"] == "target_agent_name"
         assert "proposal" in fallback["target_content"]
         assert len(fallback["issues"]) > 0
         assert fallback["severity"] == 0.1
