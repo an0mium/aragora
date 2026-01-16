@@ -522,7 +522,7 @@ interface LiveDebateViewProps {
   task: string;
   agents: string[];
   messages: TranscriptMessage[];
-  streamingMessages: Map<string, { agent: string; content: string; startTime: number }>;
+  streamingMessages: Map<string, { agent: string; taskId?: string; content: string; startTime: number }>;
   streamEvents: import('@/types/events').StreamEvent[];
   hasCitations: boolean;
   showCitations: boolean;
