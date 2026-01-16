@@ -8,7 +8,7 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Total Endpoints** | 297 | All API routes from 55 handler modules |
+| **Total Endpoints** | 297 | All API routes from 78 handler modules |
 | **Actively Used** | ~40 | Called from frontend components |
 | **Ready to Wire** | ~10 | High-value, not yet connected to frontend |
 | **Advanced/Analytics** | ~247 | Specialized features, plugins, analytics |

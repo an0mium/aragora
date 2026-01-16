@@ -42,9 +42,9 @@ aragora/
 │   ├── continuum.py        # Multi-tier memory (fast/medium/slow/glacial)
 │   └── consensus.py        # Historical debate outcomes
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (106+ endpoints)
-│   ├── handlers/           # HTTP endpoint handlers (41 modules)
-│   └── stream/             # WebSocket streaming (9 modules)
+│   ├── unified_server.py   # Main server (297 endpoints)
+│   ├── handlers/           # HTTP endpoint handlers (78 modules)
+│   └── stream/             # WebSocket streaming (10 modules)
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
