@@ -788,12 +788,15 @@ class TestConcurrency(unittest.TestCase):
         for t in threads:
             t.join()
 
-        # Wait for all to be processed
-        time.sleep(1.0)
+        # Wait for all to be processed (poll with timeout for CI environments)
+        total_expected = num_threads * events_per_thread
+        deadline = time.time() + 10.0  # 10 second timeout
+        while len(self.received) < total_expected and time.time() < deadline:
+            time.sleep(0.1)
+
         dispatcher.stop()
 
         # All events should be delivered
-        total_expected = num_threads * events_per_thread
         self.assertEqual(len(self.received), total_expected)
 
     def test_stats_thread_safe(self):
