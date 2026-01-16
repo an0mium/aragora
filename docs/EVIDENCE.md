@@ -430,8 +430,263 @@ def test_with_mock_connector():
     assert results[0].confidence == 0.9
 ```
 
+## REST API Reference
+
+The Evidence API provides HTTP endpoints for managing evidence collection and storage.
+
+### Authentication
+
+All endpoints require authentication via `Authorization: Bearer <token>` header when `ARAGORA_API_TOKEN` is set.
+
+### Rate Limits
+
+| Operation | Limit |
+|-----------|-------|
+| Read operations (GET) | 60 requests/minute |
+| Write operations (POST, DELETE) | 10 requests/minute |
+
+### Endpoints
+
+#### List Evidence
+
+```http
+GET /api/evidence
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | int | 20 | Maximum results to return |
+| `offset` | int | 0 | Pagination offset |
+| `source` | string | - | Filter by source name |
+| `min_reliability` | float | 0.0 | Minimum reliability score (0.0-1.0) |
+
+**Response:**
+```json
+{
+  "evidence": [...],
+  "total": 150,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+#### Get Evidence by ID
+
+```http
+GET /api/evidence/:id
+```
+
+**Response:**
+```json
+{
+  "evidence": {
+    "id": "evid-abc123",
+    "source": "arxiv",
+    "title": "Large Language Model Safety",
+    "snippet": "...",
+    "url": "https://arxiv.org/abs/...",
+    "reliability_score": 0.85,
+    "metadata": {...}
+  }
+}
+```
+
+**Errors:**
+- `404` - Evidence not found
+
+#### Search Evidence
+
+```http
+POST /api/evidence/search
+```
+
+**Request Body:**
+```json
+{
+  "query": "AI safety techniques",
+  "limit": 20,
+  "source": "arxiv",
+  "min_reliability": 0.5,
+  "context": {
+    "topic": "AI alignment",
+    "keywords": ["safety", "alignment"],
+    "preferred_sources": ["arxiv", "nature"],
+    "max_age_days": 365
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "query": "AI safety techniques",
+  "results": [...],
+  "count": 15
+}
+```
+
+#### Collect Evidence
+
+Collect new evidence from configured connectors.
+
+```http
+POST /api/evidence/collect
+```
+
+**Request Body:**
+```json
+{
+  "task": "What are the best practices for AI safety?",
+  "connectors": ["arxiv", "hackernews"],
+  "debate_id": "debate-123",
+  "round": 2
+}
+```
+
+**Response:**
+```json
+{
+  "task": "What are the best practices for AI safety?",
+  "keywords": ["AI", "safety", "best practices"],
+  "snippets": [...],
+  "count": 12,
+  "total_searched": 45,
+  "average_reliability": 0.78,
+  "average_freshness": 0.65,
+  "saved_ids": ["evid-1", "evid-2"],
+  "debate_id": "debate-123"
+}
+```
+
+#### Get Debate Evidence
+
+```http
+GET /api/evidence/debate/:debate_id
+```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `round` | int | Filter by debate round (optional) |
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "round": 2,
+  "evidence": [...],
+  "count": 8
+}
+```
+
+#### Associate Evidence with Debate
+
+```http
+POST /api/evidence/debate/:debate_id
+```
+
+**Request Body:**
+```json
+{
+  "evidence_ids": ["evid-1", "evid-2", "evid-3"],
+  "round": 2
+}
+```
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "associated": ["evid-1", "evid-2", "evid-3"],
+  "count": 3
+}
+```
+
+#### Delete Evidence
+
+```http
+DELETE /api/evidence/:id
+```
+
+**Response:**
+```json
+{
+  "deleted": true,
+  "evidence_id": "evid-abc123"
+}
+```
+
+**Errors:**
+- `404` - Evidence not found
+
+#### Get Statistics
+
+```http
+GET /api/evidence/statistics
+```
+
+**Response:**
+```json
+{
+  "statistics": {
+    "total_evidence": 1250,
+    "sources": {
+      "arxiv": 450,
+      "hackernews": 320,
+      "wikipedia": 280,
+      "newsapi": 200
+    },
+    "average_reliability": 0.72,
+    "debates_with_evidence": 45
+  }
+}
+```
+
+### Error Responses
+
+All errors return JSON in this format:
+
+```json
+{
+  "error": "Evidence not found: evid-invalid",
+  "code": "NOT_FOUND"
+}
+```
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | VALIDATION_ERROR | Invalid request parameters |
+| 401 | UNAUTHORIZED | Missing or invalid authentication |
+| 404 | NOT_FOUND | Resource not found |
+| 429 | RATE_LIMITED | Rate limit exceeded |
+| 500 | INTERNAL_ERROR | Server error |
+
+### Python SDK Usage
+
+```python
+from aragora.client import AragoraClient
+
+client = AragoraClient(base_url="http://localhost:8080")
+
+# Search evidence
+results = client._request("POST", "/api/evidence/search", json={
+    "query": "transformer architecture",
+    "limit": 10
+})
+
+# Collect evidence for a debate
+evidence = client._request("POST", "/api/evidence/collect", json={
+    "task": "Compare GPT-4 vs Claude 3.5",
+    "debate_id": "debate-123",
+    "connectors": ["arxiv", "hackernews"]
+})
+```
+
+---
+
 ## See Also
 
 - [Pulse System Guide](PULSE.md) - Trending topic integration
 - [Provenance Documentation](PROVENANCE.md) - Full provenance system details
-- [API Reference](API_REFERENCE.md) - REST API for evidence endpoints
+- [API Endpoints](API_ENDPOINTS.md) - Full API endpoint reference

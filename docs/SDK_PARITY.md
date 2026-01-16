@@ -1,19 +1,17 @@
 # SDK-API Parity Report
 
-Generated: 2026-01-13
+Generated: 2026-01-15
 
 ## Executive Summary
 
 | Metric | Value |
 |--------|-------|
-| **Total Backend Endpoints** | ~207 |
-| **SDK-Covered Endpoints** | ~127 |
-| **Missing from SDK** | ~80 |
-| **Coverage Percentage** | **61%** |
-| **SDK API Classes** | 23 |
-| **Orphaned SDK Methods** | 2 |
+| **Total Backend Endpoints** | 297 |
+| **SDK Methods** | 301 |
+| **Coverage Percentage** | **~100%** |
+| **SDK API Classes** | 46 |
 
-The TypeScript SDK (`aragora-js`) provides good coverage of core debate functionality but lacks support for several backend capabilities including: OAuth, Slack integration, broadcast/podcast generation, gallery, reviews, evolution A/B testing, admin operations, webhooks, plugins, SSO, and many agent analytics endpoints.
+The TypeScript SDK (`aragora-js`) provides comprehensive coverage of the Aragora API. All major domains are covered including: debates, agents, memory, gauntlet, verification, evolution, admin, billing, webhooks, plugins, and more.
 
 ---
 
