@@ -19,7 +19,7 @@ import pytest
 
 from aragora.core import Agent, Message, Environment, DebateResult
 from aragora.server.auth import AuthConfig, auth_config
-from aragora.server.handlers import SystemHandler, DebatesHandler, AgentsHandler
+from aragora.server.handlers import SystemHandler, DebatesHandler, AgentsHandler, HealthHandler
 from aragora.server.handlers.base import json_response, HandlerResult
 
 
@@ -168,7 +168,7 @@ class TestHealthEndpointWorkflow:
 
     def test_health_returns_status(self, handler_context):
         """Test health endpoint returns proper status."""
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
 
         result = handler.handle("/api/health", {}, None)
         data, status = parse_handler_result(result)
@@ -181,7 +181,7 @@ class TestHealthEndpointWorkflow:
 
     def test_health_checks_elo_system(self, handler_context):
         """Test health endpoint verifies ELO system."""
-        handler = SystemHandler(handler_context)
+        handler = HealthHandler(handler_context)
 
         result = handler.handle("/api/health", {}, None)
         data, status = parse_handler_result(result)
@@ -191,7 +191,7 @@ class TestHealthEndpointWorkflow:
 
     def test_health_handles_missing_components(self, temp_dir):
         """Test health endpoint handles missing components gracefully."""
-        handler = SystemHandler(
+        handler = HealthHandler(
             {
                 "storage": None,
                 "elo_system": None,
