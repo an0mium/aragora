@@ -355,37 +355,31 @@ class TestEvolutionHandlerIntegration:
         except ImportError:
             pytest.skip("Evolution handler not available")
 
-    @pytest.mark.skip(reason="EvolutionHandler._get_patterns() signature changed - needs arguments")
-    def test_get_patterns_endpoint(self):
+    def test_get_patterns_endpoint(self, tmp_path):
         """Test patterns endpoint returns data."""
         from aragora.server.handlers.evolution import EvolutionHandler
 
-        ctx = {"prompt_evolver": Mock()}
+        # Need nomic_dir in context
+        ctx = {"prompt_evolver": Mock(), "nomic_dir": tmp_path}
         handler = EvolutionHandler(ctx)
 
-        result = handler._get_patterns()
+        # _get_patterns now takes pattern_type and limit arguments
+        result = handler._get_patterns(pattern_type=None, limit=10)
 
         assert result.status_code == 200
         data = json.loads(result.body)
-        assert "patterns" in data or "error" not in data
+        assert "patterns" in data
 
-    @pytest.mark.skip(reason="EvolutionHandler._get_agent_history() not implemented - future API")
-    def test_get_agent_evolution_history(self):
+    def test_get_agent_evolution_history(self, tmp_path):
         """Test getting evolution history for an agent."""
         from aragora.server.handlers.evolution import EvolutionHandler
 
-        mock_evolver = Mock()
-        mock_evolver.get_agent_history = Mock(
-            return_value=[
-                {"generation": 0, "prompt_version": 1},
-                {"generation": 1, "prompt_version": 2},
-            ]
-        )
-
-        ctx = {"prompt_evolver": mock_evolver}
+        # Need nomic_dir in context
+        ctx = {"prompt_evolver": Mock(), "nomic_dir": tmp_path}
         handler = EvolutionHandler(ctx)
 
-        result = handler._get_agent_history("claude")
+        # Method is _get_evolution_history, takes agent and limit
+        result = handler._get_evolution_history(agent="claude", limit=10)
 
         assert result.status_code == 200
         data = json.loads(result.body)

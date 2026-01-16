@@ -209,6 +209,7 @@ disallow_untyped_defs = false
 module = [
     "aragora.core",
     "aragora.config.*",
+    "aragora.types.*",
     "aragora.persistence.db_config",
     "aragora.persistence.models",
     "aragora.server.validation.*",

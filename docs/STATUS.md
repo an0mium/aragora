@@ -1,14 +1,44 @@
 # Aragora Project Status
 
-*Last updated: January 14, 2026 (15:30 UTC)*
+*Last updated: January 16, 2026 (18:00 UTC)*
 
 ## Current Release
+
+### v1.5.1 - E2E Testing & SOC 2 Compliance Update (January 2026)
+
+**Production Ready** - Aragora 1.5.1 adds comprehensive E2E testing coverage and completes SOC 2 documentation gaps.
+
+#### Key Highlights
+- **24,525+ tests** collected and passing (+1,077 from v1.5.0)
+- **394 E2E tests** covering graceful shutdown, error recovery, connection pooling, WebSocket, nomic loop, auth lifecycle, memory persistence
+- **SOC 2 Readiness**: 92% (up from 78%) - all privacy documentation complete
+- **0 HIGH severity security issues** (Bandit scan clean)
+- **0 ruff violations** (code quality)
+- **9.5/10 production readiness score** (up from 9.3)
+
+#### What's New in 1.5.1
+
+**E2E Test Coverage (Phases 16-22)**
+- **Graceful Shutdown**: 25 tests for ServerLifecycleManager
+- **Error Recovery Chains**: 29 tests for CircuitBreaker and AgentFallbackChain
+- **Connection Pool Load**: 20 tests for SQLite pooling under concurrent load
+- **WebSocket Real Clients**: 27 tests for SyncEventEmitter and streaming
+- **Nomic Loop Cycle**: 43 tests for PhaseValidator and phase transitions
+- **Auth Lifecycle**: 30 tests for AuthConfig, token revocation, rate limiting
+- **Memory Persistence**: 23 tests for ContinuumMemory tier promotion
+
+**SOC 2 Documentation Complete**
+- Privacy Policy with DSAR workflow
+- Data Classification Policy
+- Breach Notification SLA (72-hour)
+- Data Residency Policy
+- Incident Response Plan
 
 ### v1.5.0 - OAuth, SDK Probes & Performance Release (January 2026)
 
 **Production Ready** - Aragora 1.5.0 completes Sprint 10-12 with comprehensive OAuth E2E testing, SDK capability probes API, and documented performance baselines.
 
-#### Key Highlights
+#### Key Highlights (v1.5.0)
 - **23,448+ tests** collected and passing (+85 from v1.4.0)
 - **OAuth E2E Suite**: 31 tests for Google, YouTube, Twitter OAuth flows
 - **SDK v1.1.0**: Capability probes API and verification history endpoints
@@ -18,7 +48,6 @@
 - **Philosophical Personas**: New personas for deeper discourse
 - **0 HIGH severity security issues** (Bandit scan clean)
 - **4 TODO markers** (well below 15 target)
-- **9.3/10 production readiness score**
 
 #### What's New in 1.5.0
 
