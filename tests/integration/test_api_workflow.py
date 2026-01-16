@@ -19,7 +19,7 @@ import pytest
 
 from aragora.core import Agent, Message, Environment, DebateResult
 from aragora.server.auth import AuthConfig, auth_config
-from aragora.server.handlers import SystemHandler, DebatesHandler, AgentsHandler, HealthHandler
+from aragora.server.handlers import SystemHandler, DebatesHandler, AgentsHandler, HealthHandler, NomicHandler
 from aragora.server.handlers.base import json_response, HandlerResult
 
 
@@ -284,7 +284,7 @@ class TestModesSwitchWorkflow:
 
     def test_modes_list_returns_available_modes(self, handler_context):
         """Test modes list endpoint."""
-        handler = SystemHandler(handler_context)
+        handler = NomicHandler(handler_context)
 
         result = handler.handle("/api/modes", {}, None)
         data, status = parse_handler_result(result)

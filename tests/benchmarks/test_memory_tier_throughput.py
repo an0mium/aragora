@@ -177,6 +177,8 @@ class TestWriteThroughput:
             await tier.set(f"key-{i}", values[i])
         elapsed = time.time() - start
 
+        # Prevent division by zero on fast systems
+        elapsed = max(elapsed, 0.001)
         bytes_per_second = (num_writes * value_size) / elapsed
 
         assert tier.size() == num_writes
