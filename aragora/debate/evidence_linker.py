@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 # Catching broad exceptions as sentence-transformers can fail for various reasons
 # (e.g., keras version conflicts, missing dependencies)
 EMBEDDINGS_AVAILABLE = False
-SentenceTransformer = None  # type: ignore
-np = None  # type: ignore
+SentenceTransformer = None
+np = None
 
 try:
     import numpy as _np

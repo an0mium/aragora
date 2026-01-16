@@ -79,7 +79,7 @@ class AudienceManager:
 
     def set_notify_callback(self, callback: Callable[..., None]) -> None:
         """Set callback for spectator notifications."""
-        self._notify_callback = callback  # type: ignore[assignment]
+        self._notify_callback = callback
 
     def subscribe_to_emitter(self, event_emitter) -> None:
         """Subscribe to an event emitter for user participation events."""

@@ -347,7 +347,7 @@ class ContextGatherer:
             )
 
             if evidence_pack.snippets:
-                self._research_evidence_pack = evidence_pack  # type: ignore[assignment]
+                self._research_evidence_pack = evidence_pack
 
                 # Update prompt builder if available
                 if self._prompt_builder:

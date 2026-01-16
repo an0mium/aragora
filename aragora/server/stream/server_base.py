@@ -116,7 +116,7 @@ class ServerBase:
         self._ws_auth_lock = threading.Lock()  # Lock #4 in hierarchy
 
         # Subscribe to emitter to maintain debate states
-        self._emitter.subscribe(self._update_debate_state)  # type: ignore[arg-type]
+        self._emitter.subscribe(self._update_debate_state)
 
     @property
     def emitter(self) -> SyncEventEmitter:

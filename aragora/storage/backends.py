@@ -45,9 +45,9 @@ try:
 
     POSTGRESQL_AVAILABLE = True
 except ImportError:
-    psycopg2 = None  # type: ignore
-    pg_pool = None  # type: ignore
-    RealDictCursor = None  # type: ignore
+    psycopg2 = None
+    pg_pool = None
+    RealDictCursor = None
     POSTGRESQL_AVAILABLE = False
 
 
