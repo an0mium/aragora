@@ -30,6 +30,7 @@ from aragora.debate.phases.belief_analysis import (
 from aragora.debate.phases.consensus_phase import ConsensusPhase
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.context_init import ContextInitializer
+from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 from aragora.debate.phases.critique import CritiquePhase
 from aragora.debate.phases.debate_rounds import DebateRoundsPhase
 from aragora.debate.phases.feedback_phase import FeedbackPhase
@@ -79,4 +80,5 @@ __all__ = [
     "VoteWeighter",
     "VoteWeighterConfig",
     "VoteWeighterDeps",
+    "SynthesisGenerator",
 ]

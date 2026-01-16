@@ -1,0 +1,169 @@
+"""
+Context delegation methods for Arena.
+
+Extracted from Arena to reduce orchestrator size. Contains methods
+for gathering, caching, and managing debate context including:
+- Historical context from past debates
+- Continuum memory context
+- Evidence research context
+- Trending/pulse context
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from aragora.debate.context import DebateContext
+    from aragora.debate.context_gatherer import ContextGatherer
+    from aragora.debate.memory_manager import MemoryManager
+    from aragora.debate.state_cache import DebateStateCache
+    from aragora.reasoning.evidence_grounding import EvidenceGrounder
+
+logger = logging.getLogger(__name__)
+
+
+class ContextDelegator:
+    """Handles context gathering and caching delegations for Arena.
+
+    Centralizes context-related operations that were spread across Arena:
+    - Historical debate context
+    - Continuum memory context
+    - Evidence/research context
+    - Trending topics context
+
+    Usage:
+        delegator = ContextDelegator(
+            context_gatherer=gatherer,
+            memory_manager=manager,
+            cache=cache,
+            evidence_grounder=grounder,
+        )
+        context = delegator.get_continuum_context(domain, task)
+    """
+
+    def __init__(
+        self,
+        context_gatherer: Optional["ContextGatherer"] = None,
+        memory_manager: Optional["MemoryManager"] = None,
+        cache: Optional["DebateStateCache"] = None,
+        evidence_grounder: Optional["EvidenceGrounder"] = None,
+        continuum_memory=None,
+        env=None,
+        extract_domain_fn: Optional[callable] = None,
+    ) -> None:
+        self.context_gatherer = context_gatherer
+        self.memory_manager = memory_manager
+        self._cache = cache
+        self.evidence_grounder = evidence_grounder
+        self.continuum_memory = continuum_memory
+        self.env = env
+        self._extract_domain = extract_domain_fn or (lambda: "general")
+
+    def get_continuum_context(self) -> str:
+        """Retrieve relevant memories from ContinuumMemory for debate context."""
+        if self._cache and self._cache.has_continuum_context():
+            return self._cache.continuum_context
+
+        if not self.continuum_memory:
+            return ""
+
+        domain = self._extract_domain()
+        task = self.env.task if self.env else ""
+        context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
+            continuum_memory=self.continuum_memory,
+            domain=domain,
+            task=task,
+        )
+
+        # Track retrieved IDs and tiers for outcome updates
+        if self._cache:
+            self._cache.track_continuum_retrieval(context, retrieved_ids, retrieved_tiers)
+        return context
+
+    async def perform_research(self, task: str) -> str:
+        """Perform multi-source research for the debate topic."""
+        result = await self.context_gatherer.gather_all(task)
+        # Update cache and evidence grounder
+        if self._cache:
+            self._cache.evidence_pack = self.context_gatherer.evidence_pack
+        if self.evidence_grounder:
+            self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
+        return result
+
+    async def gather_aragora_context(self, task: str) -> Optional[str]:
+        """Gather Aragora-specific documentation context if relevant."""
+        return await self.context_gatherer.gather_aragora_context(task)
+
+    async def gather_evidence_context(self, task: str) -> Optional[str]:
+        """Gather evidence from web, GitHub, and local docs connectors."""
+        result = await self.context_gatherer.gather_evidence_context(task)
+        # Update cache and evidence grounder
+        if self._cache:
+            self._cache.evidence_pack = self.context_gatherer.evidence_pack
+        if self.evidence_grounder:
+            self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
+        return result
+
+    async def gather_trending_context(self) -> Optional[str]:
+        """Gather pulse/trending context from social platforms."""
+        return await self.context_gatherer.gather_trending_context()
+
+    async def refresh_evidence_for_round(
+        self,
+        combined_text: str,
+        evidence_collector,
+        task: str,
+        evidence_store_callback,
+        prompt_builder=None,
+    ) -> int:
+        """Refresh evidence based on claims made during a debate round.
+
+        Args:
+            combined_text: Combined text from proposals and critiques
+            evidence_collector: EvidenceCollector instance
+            task: The debate task
+            evidence_store_callback: Callback to store evidence in memory
+            prompt_builder: Optional PromptBuilder to update
+
+        Returns:
+            Number of new evidence snippets added
+        """
+        count, updated_pack = await self.context_gatherer.refresh_evidence_for_round(
+            combined_text=combined_text,
+            evidence_collector=evidence_collector,
+            task=task,
+            evidence_store_callback=evidence_store_callback,
+        )
+
+        if updated_pack:
+            if self._cache:
+                self._cache.evidence_pack = updated_pack
+            if self.evidence_grounder:
+                self.evidence_grounder.set_evidence_pack(updated_pack)
+            if prompt_builder:
+                prompt_builder.set_evidence_pack(updated_pack)
+
+        return count
+
+    async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
+        """Fetch similar past debates for historical context."""
+        if not self.memory_manager:
+            return ""
+        return await self.memory_manager.fetch_historical_context(task, limit)
+
+    def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
+        """Format learned patterns as prompt context for agents."""
+        if not self.memory_manager:
+            return ""
+        return self.memory_manager._format_patterns_for_prompt(patterns)
+
+    def get_successful_patterns(self, limit: int = 5) -> str:
+        """Retrieve successful patterns from CritiqueStore memory."""
+        if not self.memory_manager:
+            return ""
+        return self.memory_manager.get_successful_patterns(limit)
+
+
+__all__ = ["ContextDelegator"]

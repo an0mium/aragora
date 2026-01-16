@@ -15,11 +15,10 @@ from functools import lru_cache
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
-from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
 from aragora.debate.arena_config import ArenaConfig
-from aragora.debate.arena_phases import init_phases
+from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
@@ -28,11 +27,14 @@ from aragora.debate.complexity_governor import (
     get_complexity_governor,
 )
 from aragora.debate.context import DebateContext
+from aragora.debate.context_delegation import ContextDelegator
 from aragora.debate.convergence import (
     ConvergenceDetector,
     cleanup_embedding_cache,
 )
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.grounded_operations import GroundedOperations
+from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.extensions import ArenaExtensions
 from aragora.debate.immune_system import get_immune_system
@@ -323,8 +325,17 @@ class Arena:
         self._init_convergence()
         self._init_caches()
 
+        # Initialize grounded operations helper (uses position_ledger, elo_system)
+        self._init_grounded_operations()
+
         # Initialize phase classes for orchestrator decomposition
         self._init_phases()
+
+        # Initialize prompt context builder (uses persona_manager, flip_detector, etc.)
+        self._init_prompt_context_builder()
+
+        # Initialize context delegator (after phases since it needs evidence_grounder)
+        self._init_context_delegator()
 
         # Initialize termination checker
         self._init_termination_checker()
@@ -364,59 +375,7 @@ class Arena:
             environment=environment,
             agents=agents,
             protocol=protocol,
-            memory=config.memory,
-            event_hooks=config.event_hooks,
-            event_emitter=config.event_emitter,
-            spectator=config.spectator,
-            debate_embeddings=config.debate_embeddings,
-            insight_store=config.insight_store,
-            recorder=config.recorder,
-            agent_weights=config.agent_weights,
-            position_tracker=config.position_tracker,
-            position_ledger=config.position_ledger,
-            enable_position_ledger=config.enable_position_ledger,
-            elo_system=config.elo_system,
-            persona_manager=config.persona_manager,
-            dissent_retriever=config.dissent_retriever,
-            consensus_memory=config.consensus_memory,
-            flip_detector=config.flip_detector,
-            calibration_tracker=config.calibration_tracker,
-            continuum_memory=config.continuum_memory,
-            relationship_tracker=config.relationship_tracker,
-            moment_detector=config.moment_detector,
-            tier_analytics_tracker=config.tier_analytics_tracker,
-            loop_id=config.loop_id,
-            strict_loop_scoping=config.strict_loop_scoping,
-            circuit_breaker=config.circuit_breaker,
-            initial_messages=config.initial_messages,
-            trending_topic=config.trending_topic,
-            pulse_manager=config.pulse_manager,
-            auto_fetch_trending=config.auto_fetch_trending,
-            population_manager=config.population_manager,
-            auto_evolve=config.auto_evolve,
-            breeding_threshold=config.breeding_threshold,
-            evidence_collector=config.evidence_collector,
-            breakpoint_manager=config.breakpoint_manager,
-            performance_monitor=config.performance_monitor,
-            enable_performance_monitor=config.enable_performance_monitor,
-            enable_telemetry=config.enable_telemetry,
-            use_airlock=config.use_airlock,
-            airlock_config=config.airlock_config,
-            agent_selector=config.agent_selector,
-            use_performance_selection=config.use_performance_selection,
-            prompt_evolver=config.prompt_evolver,
-            enable_prompt_evolution=config.enable_prompt_evolution,
-            checkpoint_manager=config.checkpoint_manager,
-            enable_checkpointing=config.enable_checkpointing,
-            org_id=config.org_id,
-            user_id=config.user_id,
-            usage_tracker=config.usage_tracker,
-            broadcast_pipeline=config.broadcast_pipeline,
-            auto_broadcast=config.auto_broadcast,
-            broadcast_min_confidence=config.broadcast_min_confidence,
-            training_exporter=config.training_exporter,
-            auto_export_training=config.auto_export_training,
-            training_export_min_confidence=config.training_export_min_confidence,
+            **config.to_arena_kwargs(),
         )
 
     def _init_core(
@@ -593,26 +552,32 @@ class Arena:
         # Connect immune system to event bridge for WebSocket broadcasting
         self.immune_system.set_broadcast_callback(self._broadcast_health_event)
 
+    def _extract_health_event_data(self, event: dict) -> dict:
+        """Extract and filter health event data for broadcasting.
+
+        Removes event_type and debate_id keys to avoid duplicate kwargs.
+        """
+        data = event.get("data", event)
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if k not in ("event_type", "debate_id")}
+        return data if isinstance(data, dict) else {}
+
+    def _emit_health_event(self, data: dict) -> None:
+        """Emit health event via EventBus or fallback to event_bridge."""
+        if self.event_bus:
+            self.event_bus.emit_sync(
+                event_type="health_event",
+                debate_id=getattr(self, "_current_debate_id", ""),
+                **data,
+            )
+        else:
+            self.event_bridge.notify(event_type="health_event", **data)
+
     def _broadcast_health_event(self, event: dict) -> None:
         """Broadcast health events to WebSocket clients via EventBus."""
         try:
-            # Extract data, filtering out event_type to avoid duplicate kwarg
-            data = event.get("data", event)
-            if isinstance(data, dict):
-                data = {k: v for k, v in data.items() if k not in ("event_type", "debate_id")}
-
-            if self.event_bus:
-                self.event_bus.emit_sync(
-                    event_type="health_event",
-                    debate_id=getattr(self, "_current_debate_id", ""),
-                    **data,
-                )
-            else:
-                # Fallback to event_bridge if event_bus not initialized yet
-                self.event_bridge.notify(
-                    event_type="health_event",
-                    **data,
-                )
+            data = self._extract_health_event_data(event)
+            self._emit_health_event(data)
         except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug(f"health_broadcast_failed error={e}")
 
@@ -703,73 +668,38 @@ class Arena:
         )
 
     def _auto_init_position_ledger(self) -> None:
-        """Auto-initialize PositionLedger for tracking agent positions.
-
-        PositionLedger tracks every position agents take across debates,
-        including outcomes and reversals. This enables:
-        - Position accuracy tracking per agent
-        - Reversal detection for flip analysis
-        - Historical position queries for grounded personas
-        """
-        try:
-            from aragora.agents.positions import PositionLedger
-
-            self.position_ledger = PositionLedger()
-            logger.debug("Auto-initialized PositionLedger for position tracking")
-        except ImportError:
-            logger.warning("PositionLedger not available - position tracking disabled")
-        except (TypeError, ValueError, RuntimeError) as e:
-            logger.warning("PositionLedger auto-init failed: %s", e)
+        """Auto-initialize PositionLedger. See SubsystemCoordinator for details."""
+        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+        temp = SubsystemCoordinator(enable_position_ledger=True)
+        self.position_ledger = temp.position_ledger
 
     def _auto_init_calibration_tracker(self) -> None:
-        """Auto-initialize CalibrationTracker when enable_calibration is True."""
-        try:
-            from aragora.agents.calibration import CalibrationTracker
-
-            self.calibration_tracker = CalibrationTracker()
-            logger.debug("Auto-initialized CalibrationTracker for prediction calibration")
-        except ImportError:
-            logger.warning("CalibrationTracker not available - calibration disabled")
-        except (TypeError, ValueError, RuntimeError) as e:
-            logger.warning("CalibrationTracker auto-init failed: %s", e)
+        """Auto-initialize CalibrationTracker. See SubsystemCoordinator for details."""
+        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+        temp = SubsystemCoordinator(enable_calibration=True)
+        self.calibration_tracker = temp.calibration_tracker
 
     def _auto_init_dissent_retriever(self) -> None:
-        """Auto-initialize DissentRetriever when consensus_memory is available.
-
-        The DissentRetriever enables seeding new debates with historical minority
-        views, helping agents avoid past groupthink and consider diverse perspectives.
-        """
-        try:
-            from aragora.memory.consensus import DissentRetriever
-
-            self.dissent_retriever = DissentRetriever(self.consensus_memory)
-            logger.debug("Auto-initialized DissentRetriever for historical minority views")
-        except ImportError:
-            logger.debug("DissentRetriever not available - historical dissent disabled")
-        except (TypeError, ValueError, RuntimeError) as e:
-            logger.warning("DissentRetriever auto-init failed: %s", e)
+        """Auto-initialize DissentRetriever. See SubsystemCoordinator for details."""
+        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+        temp = SubsystemCoordinator(consensus_memory=self.consensus_memory)
+        self.dissent_retriever = temp.dissent_retriever
 
     def _auto_init_moment_detector(self) -> None:
-        """Auto-initialize MomentDetector when elo_system is available."""
-        try:
-            from aragora.agents.grounded import MomentDetector as MD
-
-            self.moment_detector = MD(
-                elo_system=self.elo_system,
-                position_ledger=self.position_ledger,
-                relationship_tracker=self.relationship_tracker,
-            )
-            logger.debug("Auto-initialized MomentDetector for significant moment detection")
-        except ImportError:
-            pass  # MomentDetector not available
-        except (TypeError, ValueError, RuntimeError) as e:
-            logger.debug("MomentDetector auto-init failed: %s", e)
+        """Auto-initialize MomentDetector. See SubsystemCoordinator for details."""
+        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+        temp = SubsystemCoordinator(
+            elo_system=self.elo_system,
+            position_ledger=self.position_ledger,
+            relationship_tracker=self.relationship_tracker,
+            enable_moment_detection=True,
+        )
+        self.moment_detector = temp.moment_detector
 
     def _auto_init_breakpoint_manager(self) -> None:
         """Auto-initialize BreakpointManager when enable_breakpoints is True."""
         try:
             from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
-
             config = self.protocol.breakpoint_config or BreakpointConfig()
             self.breakpoint_manager = BreakpointManager(config=config)
             logger.debug("Auto-initialized BreakpointManager for human-in-the-loop breakpoints")
@@ -898,66 +828,49 @@ class Arena:
         """
         self._cache = DebateStateCache()
 
+    def _init_grounded_operations(self) -> None:
+        """Initialize GroundedOperations helper for verdict and relationship management."""
+        # Note: evidence_grounder is set later in _init_phases
+        self._grounded_ops = GroundedOperations(
+            position_ledger=self.position_ledger,
+            elo_system=self.elo_system,
+            evidence_grounder=None,  # Set after _init_phases
+        )
+
+    def _init_prompt_context_builder(self) -> None:
+        """Initialize PromptContextBuilder for agent prompt context."""
+        self._prompt_context = PromptContextBuilder(
+            persona_manager=self.persona_manager,
+            flip_detector=self.flip_detector,
+            protocol=self.protocol,
+            prompt_builder=self.prompt_builder,
+            audience_manager=self.audience_manager,
+            spectator=self.spectator,
+            notify_callback=self._notify_spectator,
+        )
+
+    def _init_context_delegator(self) -> None:
+        """Initialize ContextDelegator for context gathering operations."""
+        self._context_delegator = ContextDelegator(
+            context_gatherer=self.context_gatherer,
+            memory_manager=self.memory_manager,
+            cache=self._cache,
+            evidence_grounder=getattr(self, "evidence_grounder", None),
+            continuum_memory=self.continuum_memory,
+            env=self.env,
+            extract_domain_fn=self._extract_debate_domain,
+        )
+
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
         init_phases(self)
 
-        # Initialize PhaseExecutor with all phases for centralized execution
-        from aragora.debate.phase_executor import PhaseConfig
-        from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES
+        # Create PhaseExecutor with all phases for centralized execution
+        self.phase_executor = create_phase_executor(self)
 
-        # Calculate dynamic timeout based on agents and rounds
-        # This prevents timeout issues with slow agents (e.g., kimi taking 30-85s/critique)
-        num_agents = len(self.agents) if self.agents else 4
-        num_rounds = getattr(self.protocol, "rounds", 3)
-
-        # Minimum time: (agents / concurrent) × timeout × 2 phases × rounds + buffer
-        min_timeout_needed = (
-            (num_agents / max(MAX_CONCURRENT_CRITIQUES, 1))
-            * AGENT_TIMEOUT_SECONDS
-            * 2  # critique + revision phases per round
-            * num_rounds
-            + 180  # 3 minute buffer for overhead
-        )
-
-        # Use configured timeout if larger, else use calculated minimum (at least 10 minutes)
-        base_timeout = getattr(self.protocol, "timeout", 300.0)
-        timeout = max(base_timeout, min_timeout_needed, 600.0)
-
-        logger.info(
-            f"debate_timeout_calculated agents={num_agents} rounds={num_rounds} "
-            f"base={base_timeout}s calculated={min_timeout_needed:.0f}s final={timeout:.0f}s"
-        )
-
-        # Create wrapper for context_initializer to match Phase protocol
-        # (context_initializer uses .initialize() instead of .execute())
-        class ContextInitWrapper:
-            name = "context_initializer"
-
-            def __init__(self, initializer):
-                self._initializer = initializer
-
-            async def execute(self, context):
-                return await self._initializer.initialize(context)
-
-        phases_dict: dict[str, Any] = {
-            "context_initializer": ContextInitWrapper(self.context_initializer),
-            "proposal": self.proposal_phase,
-            "debate_rounds": self.debate_rounds_phase,
-            "consensus": self.consensus_phase,
-            "analytics": self.analytics_phase,
-            "feedback": self.feedback_phase,
-        }
-        self.phase_executor = PhaseExecutor(
-            phases=phases_dict,
-            config=PhaseConfig(
-                total_timeout_seconds=timeout,
-                # Per-phase timeout: 90% of total or at least 300s
-                # Higher percentage (was 80%) ensures slow agents complete within phase budget
-                phase_timeout_seconds=max(300.0, timeout * 0.9),
-                enable_tracing=True,
-            ),
-        )
+        # Now that phases are initialized, set evidence_grounder on _grounded_ops
+        if hasattr(self, "_grounded_ops") and self._grounded_ops:
+            self._grounded_ops.evidence_grounder = self.evidence_grounder
 
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""
@@ -1002,26 +915,8 @@ class Arena:
         self.prompt_builder.user_suggestions = self.user_suggestions  # type: ignore[assignment]
 
     def _get_continuum_context(self) -> str:
-        """Retrieve relevant memories from ContinuumMemory for debate context.
-
-        Delegates to ContextGatherer.get_continuum_context().
-        """
-        if self._cache.has_continuum_context():
-            return self._cache.continuum_context
-
-        if not self.continuum_memory:
-            return ""
-
-        domain = self._extract_debate_domain()
-        context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
-            continuum_memory=self.continuum_memory,
-            domain=domain,
-            task=self.env.task,
-        )
-
-        # Track retrieved IDs and tiers for outcome updates
-        self._cache.track_continuum_retrieval(context, retrieved_ids, retrieved_tiers)
-        return context
+        """Retrieve relevant memories from ContinuumMemory for debate context."""
+        return self._context_delegator.get_continuum_context()
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
         """Store debate outcome in ContinuumMemory for future retrieval."""
@@ -1046,6 +941,16 @@ class Arena:
         # Clear local tracking
         self._cache.clear_continuum_tracking()
 
+    def _has_high_priority_needs(self, needs: list[dict]) -> list[dict]:
+        """Filter citation needs to high-priority items only."""
+        return [n for n in needs if n["priority"] == "high"]
+
+    def _log_citation_needs(self, agent_name: str, needs: list[dict]) -> None:
+        """Log high-priority citation needs for an agent if any exist."""
+        high_priority = self._has_high_priority_needs(needs)
+        if high_priority:
+            logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
+
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
         """Extract claims that need citations from all proposals.
 
@@ -1059,10 +964,7 @@ class Arena:
             needs = self.citation_extractor.identify_citation_needs(proposal)
             if needs:
                 citation_needs[agent_name] = needs
-                # Log high-priority citation needs
-                high_priority = [n for n in needs if n["priority"] == "high"]
-                if high_priority:
-                    logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
+                self._log_citation_needs(agent_name, needs)
 
         return citation_needs
 
@@ -1184,6 +1086,50 @@ class Arena:
             # Fallback to event_bridge for backward compatibility
             self.event_bridge.emit_moment(moment)
 
+    def _should_emit_preview(self) -> bool:
+        """Check if agent preview hook is registered."""
+        return "on_agent_preview" in self.hooks
+
+    def _get_agent_role(self, agent: Agent) -> str:
+        """Get the role string for an agent from current assignments."""
+        role_data = self.current_role_assignments.get(agent.name, {})
+        return str(role_data.get("role", "proposer"))
+
+    def _get_agent_stance(self, agent: Agent) -> str:
+        """Get the stance string for an agent from current assignments."""
+        role_data = self.current_role_assignments.get(agent.name, {})
+        return role_data.get("stance", "neutral")
+
+    def _get_agent_description(self, agent: Agent) -> str:
+        """Get the persona description for an agent."""
+        if not self.persona_manager:
+            return ""
+        persona = self.persona_manager.get_persona(agent.name)
+        return getattr(persona, "brief_description", "")
+
+    def _build_agent_preview(self, agent: Agent) -> dict:
+        """Build preview data for a single agent."""
+        return {
+            "name": agent.name,
+            "role": self._get_agent_role(agent),
+            "stance": self._get_agent_stance(agent),
+            "description": self._get_agent_description(agent),
+            "strengths": [],
+        }
+
+    def _emit_agent_preview(self) -> None:
+        """Emit agent preview for quick UI feedback.
+
+        Shows agent roles and stances while proposals are being generated.
+        """
+        if not self._should_emit_preview():
+            return
+        try:
+            previews = [self._build_agent_preview(a) for a in self.agents]
+            self.hooks["on_agent_preview"](previews)
+        except Exception as e:
+            logger.debug(f"Agent preview emission failed: {e}")
+
     def _record_grounded_position(
         self,
         agent_name: str,
@@ -1193,174 +1139,81 @@ class Arena:
         confidence: float = 0.7,
         domain: Optional[str] = None,
     ):
-        """Record a position to the grounded persona ledger."""
-        if not self.position_ledger:
-            return
-        try:
-            self.position_ledger.record_position(
-                agent_name=agent_name,
-                claim=content[:1000],
-                confidence=confidence,
-                debate_id=debate_id,
-                round_num=round_num,
-                domain=domain,
-            )
-        except (AttributeError, TypeError, ValueError) as e:
-            # Expected parameter or state errors
-            logger.warning(f"Position ledger error: {e}")
-        except (KeyError, RuntimeError, OSError) as e:
-            # Unexpected error - log type for debugging
-            logger.warning(f"Position ledger error (type={type(e).__name__}): {e}")
+        """Record a position to the grounded persona ledger.
+
+        Delegates to GroundedOperations.record_position().
+        """
+        self._grounded_ops.record_position(
+            agent_name=agent_name,
+            content=content,
+            debate_id=debate_id,
+            round_num=round_num,
+            confidence=confidence,
+            domain=domain,
+        )
 
     def _update_agent_relationships(
         self, debate_id: str, participants: list[str], winner: Optional[str], votes: list
     ):
         """Update agent relationships after debate completion.
 
-        Uses batch update for O(1) database connections instead of O(n²) for n participants.
+        Delegates to GroundedOperations.update_relationships().
         """
-        if not self.elo_system:
-            return
-        try:
-            vote_choices = {
-                v.agent: v.choice for v in votes if hasattr(v, "agent") and hasattr(v, "choice")
-            }
-            # Build batch of relationship updates
-            updates = []
-            for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1 :]:
-                    agreed = (
-                        agent_a in vote_choices
-                        and agent_b in vote_choices
-                        and vote_choices[agent_a] == vote_choices[agent_b]
-                    )
-                    a_win = 1 if winner == agent_a else 0
-                    b_win = 1 if winner == agent_b else 0
-                    updates.append(
-                        {
-                            "agent_a": agent_a,
-                            "agent_b": agent_b,
-                            "debate_increment": 1,
-                            "agreement_increment": 1 if agreed else 0,
-                            "a_win": a_win,
-                            "b_win": b_win,
-                        }
-                    )
-            # Single transaction for all updates
-            self.elo_system.update_relationships_batch(updates)
-        except (AttributeError, TypeError, KeyError) as e:
-            # Expected data access errors
-            logger.warning(f"Relationship update error: {e}")
-        except (ValueError, RuntimeError, OSError) as e:
-            # Unexpected error - log type for debugging
-            logger.warning(f"Relationship update error (type={type(e).__name__}): {e}")
+        self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
 
-    def _create_grounded_verdict(self, result: "DebateResult"):
+    def _create_grounded_verdict(self, result: "DebateResult") -> Any:
         """Create a GroundedVerdict for the final answer.
 
-        Heavy3-inspired: Wrap final answers with evidence grounding analysis.
-        Delegates to EvidenceGrounder for the actual grounding logic.
+        Delegates to GroundedOperations.create_grounded_verdict().
         """
-        if not result.final_answer:
-            return None
-
-        return self.evidence_grounder.create_grounded_verdict(
-            final_answer=result.final_answer,
-            confidence=result.confidence,
-        )
+        return self._grounded_ops.create_grounded_verdict(result)
 
     async def _verify_claims_formally(self, result: "DebateResult") -> None:
         """Verify decidable claims using Z3 SMT solver.
 
-        For arithmetic, logic, and constraint claims, attempts formal verification
-        to provide machine-verified evidence. Delegates to EvidenceGrounder.
+        Delegates to GroundedOperations.verify_claims_formally().
         """
-        if not result.grounded_verdict:
-            return
-
-        await self.evidence_grounder.verify_claims_formally(result.grounded_verdict)
+        await self._grounded_ops.verify_claims_formally(result)
 
     async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context."""
-        return await self.memory_manager.fetch_historical_context(task, limit)
+        return await self._context_delegator.fetch_historical_context(task, limit)
 
     def _format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents."""
-        return self.memory_manager._format_patterns_for_prompt(patterns)
+        return self._context_delegator.format_patterns_for_prompt(patterns)
 
     def _get_successful_patterns_from_memory(self, limit: int = 5) -> str:
         """Retrieve successful patterns from CritiqueStore memory."""
-        return self.memory_manager.get_successful_patterns(limit)
+        return self._context_delegator.get_successful_patterns(limit)
 
     async def _perform_research(self, task: str) -> str:
-        """Perform multi-source research for the debate topic and return formatted context.
-
-        Delegates to ContextGatherer which uses EvidenceCollector with multiple connectors:
-        - WebConnector: DuckDuckGo search for general web results
-        - GitHubConnector: Code/docs from GitHub repositories
-        - LocalDocsConnector: Local documentation files
-
-        Also includes pulse/trending context when available.
-        """
-        result = await self.context_gatherer.gather_all(task)
-        # Update local cache and evidence grounder for backwards compatibility
-        self._cache.evidence_pack = self.context_gatherer.evidence_pack
-        self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
-        return result
+        """Perform multi-source research for the debate topic."""
+        return await self._context_delegator.perform_research(task)
 
     async def _gather_aragora_context(self, task: str) -> Optional[str]:
-        """Gather Aragora-specific documentation context if relevant to task.
-
-        Delegates to ContextGatherer.gather_aragora_context().
-        """
-        return await self.context_gatherer.gather_aragora_context(task)
+        """Gather Aragora-specific documentation context if relevant to task."""
+        return await self._context_delegator.gather_aragora_context(task)
 
     async def _gather_evidence_context(self, task: str) -> Optional[str]:
-        """Gather evidence from web, GitHub, and local docs connectors.
-
-        Delegates to ContextGatherer.gather_evidence_context().
-        """
-        result = await self.context_gatherer.gather_evidence_context(task)
-        # Update local cache and evidence grounder for backwards compatibility
-        self._cache.evidence_pack = self.context_gatherer.evidence_pack
-        self.evidence_grounder.set_evidence_pack(self.context_gatherer.evidence_pack)
-        return result
+        """Gather evidence from web, GitHub, and local docs connectors."""
+        return await self._context_delegator.gather_evidence_context(task)
 
     async def _gather_trending_context(self) -> Optional[str]:
-        """Gather pulse/trending context from social platforms.
-
-        Delegates to ContextGatherer.gather_trending_context().
-        """
-        return await self.context_gatherer.gather_trending_context()
+        """Gather pulse/trending context from social platforms."""
+        return await self._context_delegator.gather_trending_context()
 
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int
     ) -> int:
-        """Refresh evidence based on claims made during a debate round.
-
-        Delegates to ContextGatherer.refresh_evidence_for_round().
-
-        Args:
-            combined_text: Combined text from proposals and critiques
-            ctx: The DebateContext
-            round_num: Current round number
-
-        Returns:
-            Number of new evidence snippets added
-        """
-        count, updated_pack = await self.context_gatherer.refresh_evidence_for_round(
+        """Refresh evidence based on claims made during a debate round."""
+        return await self._context_delegator.refresh_evidence_for_round(
             combined_text=combined_text,
             evidence_collector=self.evidence_collector,
             task=self.env.task if self.env else "",
             evidence_store_callback=self._store_evidence_in_memory,
+            prompt_builder=self.prompt_builder,
         )
-
-        if updated_pack and hasattr(self, "prompt_builder") and self.prompt_builder:
-            self._cache.evidence_pack = updated_pack
-            self.evidence_grounder.set_evidence_pack(updated_pack)
-            self.prompt_builder.set_evidence_pack(updated_pack)
-
-        return count
 
     def _format_conclusion(self, result: "DebateResult") -> str:
         """Format a clear, readable debate conclusion with full context.
@@ -1370,15 +1223,15 @@ class Arena:
         formatter = ResultFormatter()
         return formatter.format_conclusion(result)
 
-    def _assign_roles(self):
+    def _assign_roles(self) -> None:
         """Assign roles to agents based on protocol. Delegates to RolesManager."""
         self.roles_manager.assign_initial_roles()
 
-    def _apply_agreement_intensity(self):
+    def _apply_agreement_intensity(self) -> None:
         """Apply agreement intensity guidance. Delegates to RolesManager."""
         self.roles_manager.apply_agreement_intensity()
 
-    def _assign_stances(self, round_num: int = 0):
+    def _assign_stances(self, round_num: int = 0) -> None:
         """Assign debate stances to agents. Delegates to RolesManager."""
         self.roles_manager.assign_stances(round_num)
 
@@ -1445,38 +1298,69 @@ class Arena:
         """
         await self._cleanup()
 
+    def _is_arena_task(self, task: asyncio.Task) -> bool:
+        """Check if an asyncio task is arena-related and should be cancelled."""
+        task_name = task.get_name() if hasattr(task, "get_name") else ""
+        return bool(task_name and task_name.startswith(("arena_", "debate_")))
+
+    async def _cancel_arena_task(self, task: asyncio.Task) -> None:
+        """Cancel and await a single arena-related task with timeout."""
+        task.cancel()
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+
+    async def _cancel_arena_tasks(self) -> None:
+        """Cancel all pending arena-related asyncio tasks."""
+        try:
+            for task in asyncio.all_tasks():
+                if self._is_arena_task(task):
+                    await self._cancel_arena_task(task)
+        except Exception as e:
+            logger.debug(f"Error cancelling tasks during cleanup: {e}")
+
+    async def _close_checkpoint_manager(self) -> None:
+        """Close the checkpoint manager if it exists and has a close method."""
+        if not self.checkpoint_manager or not hasattr(self.checkpoint_manager, "close"):
+            return
+        try:
+            close_result = self.checkpoint_manager.close()
+            if asyncio.iscoroutine(close_result):
+                await close_result
+        except Exception as e:
+            logger.debug(f"Error closing checkpoint manager: {e}")
+
+    def _count_open_circuit_breakers(self) -> int:
+        """Count the number of open circuit breakers across all agents."""
+        if not self.circuit_breaker:
+            return 0
+        agent_states = getattr(self.circuit_breaker, "_agent_states", {})
+        return sum(1 for state in agent_states.values() if getattr(state, "is_open", False))
+
+    def _track_circuit_breaker_metrics(self) -> None:
+        """Track circuit breaker state in metrics if circuit breaker is enabled."""
+        if self.circuit_breaker:
+            track_circuit_breaker_state(self._count_open_circuit_breakers())
+
+    def _log_phase_failures(self, execution_result) -> None:
+        """Log any failed phases from the execution result."""
+        if execution_result.success:
+            return
+        error_phases = [
+            p.phase_name for p in execution_result.phases if p.status.value == "failed"
+        ]
+        if error_phases:
+            logger.warning(f"Phase failures: {error_phases}")
+
     async def _cleanup(self) -> None:
         """Internal cleanup implementation.
 
         Can be called directly if not using context manager.
         """
-        # Cancel any pending arena-related asyncio tasks
-        try:
-            for task in asyncio.all_tasks():
-                task_name = task.get_name() if hasattr(task, "get_name") else ""
-                if task_name and task_name.startswith(("arena_", "debate_")):
-                    task.cancel()
-                    try:
-                        await asyncio.wait_for(
-                            asyncio.shield(task),
-                            timeout=1.0,
-                        )
-                    except (asyncio.CancelledError, asyncio.TimeoutError):
-                        pass
-        except Exception as e:
-            logger.debug(f"Error cancelling tasks during cleanup: {e}")
-
-        # Clear internal caches
+        await self._cancel_arena_tasks()
         self._cache.clear()
-
-        # Close checkpoint manager if we created it
-        if self.checkpoint_manager and hasattr(self.checkpoint_manager, "close"):
-            try:
-                close_result = self.checkpoint_manager.close()
-                if asyncio.iscoroutine(close_result):
-                    await close_result
-            except Exception as e:
-                logger.debug(f"Error closing checkpoint manager: {e}")
+        await self._close_checkpoint_manager()
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.
@@ -1580,29 +1464,7 @@ class Arena:
         self._trackers.on_debate_start(ctx)
 
         # Emit agent preview for quick UI feedback
-        # Shows agent roles and stances while proposals are generated
-        if "on_agent_preview" in self.hooks:
-            try:
-                agent_previews = []
-                for agent in self.agents:
-                    role_info = self.current_role_assignments.get(agent.name, {})
-                    # Get brief persona description if available
-                    description = ""
-                    if hasattr(self, "persona_manager") and self.persona_manager:
-                        persona = self.persona_manager.get_persona(agent.name)
-                        if persona:
-                            description = getattr(persona, "brief_description", "")
-
-                    agent_previews.append({
-                        "name": agent.name,
-                        "role": str(role_info.get("role", "proposer")),
-                        "stance": role_info.get("stance", "neutral"),
-                        "description": description,
-                        "strengths": [],  # Could be populated from persona
-                    })
-                self.hooks["on_agent_preview"](agent_previews)
-            except Exception as e:
-                logger.debug(f"Agent preview emission failed: {e}")
+        self._emit_agent_preview()
 
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
@@ -1646,13 +1508,7 @@ class Arena:
                     debate_id=debate_id,
                 )
 
-                # Check for phase failures
-                if not execution_result.success:
-                    error_phases = [
-                        p.phase_name for p in execution_result.phases if p.status.value == "failed"
-                    ]
-                    if error_phases:
-                        logger.warning(f"Phase failures: {error_phases}")
+                self._log_phase_failures(execution_result)
 
             except asyncio.TimeoutError:
                 # Timeout recovery - use partial results from context
@@ -1717,14 +1573,7 @@ class Arena:
                     domain=domain,
                 )
 
-                # Track circuit breaker state
-                if self.circuit_breaker:
-                    open_count = sum(
-                        1
-                        for state in getattr(self.circuit_breaker, "_agent_states", {}).values()
-                        if getattr(state, "is_open", False)
-                    )
-                    track_circuit_breaker_state(open_count)
+                self._track_circuit_breaker_metrics()
 
         # Notify subsystem coordinator of debate completion
         if ctx.result:
@@ -1824,32 +1673,18 @@ class Arena:
         """Get agreement intensity guidance. Delegates to RolesManager."""
         return self.roles_manager._get_agreement_intensity_guidance()
 
-    def _format_successful_patterns(self, limit: int = 3) -> str:
-        """Format successful critique patterns for prompt injection."""
-        if not self.memory:
-            return ""
-        try:
-            patterns = self.memory.retrieve_patterns(min_success=2, limit=limit)
-            if not patterns:
-                return ""
+    def _format_role_assignments_for_log(self) -> str:
+        """Format current role assignments as a log-friendly string."""
+        return ", ".join(
+            f"{name}: {assign.role.value}"
+            for name, assign in self.current_role_assignments.items()
+        )
 
-            lines = ["## SUCCESSFUL PATTERNS (from past debates)"]
-            for p in patterns:
-                issue_preview = (
-                    p.issue_text[:100] + "..." if len(p.issue_text) > 100 else p.issue_text
-                )
-                fix_preview = (
-                    p.suggestion_text[:80] + "..."
-                    if len(p.suggestion_text) > 80
-                    else p.suggestion_text
-                )
-                lines.append(f"- **{p.issue_type}**: {issue_preview}")
-                if fix_preview:
-                    lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
-            return "\n".join(lines)
-        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError, OSError) as e:
-            logger.warning(f"Pattern retrieval error: {e}")
-            return ""
+    def _log_role_assignments(self, round_num: int) -> None:
+        """Log current role assignments if any exist."""
+        if self.current_role_assignments:
+            roles_str = self._format_role_assignments_for_log()
+            logger.debug(f"role_assignments round={round_num} roles={roles_str}")
 
     def _update_role_assignments(self, round_num: int) -> None:
         """Update cognitive role assignments for the current round.
@@ -1861,14 +1696,7 @@ class Arena:
 
         # Sync role assignments back to orchestrator for backward compatibility
         self.current_role_assignments = self.roles_manager.current_role_assignments
-
-        # Log role assignments
-        if self.current_role_assignments:
-            roles_str = ", ".join(
-                f"{name}: {assign.role.value}"
-                for name, assign in self.current_role_assignments.items()
-            )
-            logger.debug(f"role_assignments round={round_num} roles={roles_str}")
+        self._log_role_assignments(round_num)
 
     def _get_role_context(self, agent: Agent) -> str:
         """Get cognitive role context for an agent in the current round.
@@ -1878,79 +1706,18 @@ class Arena:
         return self.roles_manager.get_role_context(agent)
 
     def _get_persona_context(self, agent: Agent) -> str:
-        """Get persona context for agent specialization."""
-        if not self.persona_manager:
-            return ""
+        """Get persona context for agent specialization.
 
-        # Try to get persona from database
-        persona = self.persona_manager.get_persona(agent.name)
-        if not persona:
-            # Try default persona based on agent type (e.g., "claude_proposer" -> "claude")
-            agent_type = agent.name.split("_")[0].lower()
-            from aragora.agents.personas import DEFAULT_PERSONAS
-
-            if agent_type in DEFAULT_PERSONAS:
-                # DEFAULT_PERSONAS contains Persona objects directly
-                persona = DEFAULT_PERSONAS[agent_type]
-            else:
-                return ""
-
-        return persona.to_prompt_context()
+        Delegates to PromptContextBuilder.get_persona_context().
+        """
+        return self._prompt_context.get_persona_context(agent)
 
     def _get_flip_context(self, agent: Agent) -> str:
         """Get flip/consistency context for agent self-awareness.
 
-        This helps agents be aware of their position history and avoid
-        unnecessary flip-flopping while still allowing genuine position changes.
+        Delegates to PromptContextBuilder.get_flip_context().
         """
-        if not self.flip_detector:
-            return ""
-
-        try:
-            consistency = self.flip_detector.get_agent_consistency(agent.name)
-
-            # Skip if no position history yet
-            if consistency.total_positions == 0:
-                return ""
-
-            # Only inject context if there are notable flips
-            if consistency.total_flips == 0:
-                return ""
-
-            # Build context based on flip patterns
-            lines = ["## Position Consistency Note"]
-
-            # Warn about contradictions specifically
-            if consistency.contradictions > 0:
-                lines.append(
-                    f"You have {consistency.contradictions} prior position contradiction(s) on record. "
-                    "Consider your stance carefully before arguing against positions you previously held."
-                )
-
-            # Note retractions
-            if consistency.retractions > 0:
-                lines.append(
-                    f"You have retracted {consistency.retractions} previous position(s). "
-                    "If changing positions again, clearly explain your reasoning."
-                )
-
-            # Add overall consistency score
-            score = consistency.consistency_score
-            if score < 0.7:
-                lines.append(
-                    f"Your consistency score is {score:.0%}. Prioritize coherent positions."
-                )
-
-            # Note domains with instability
-            if consistency.domains_with_flips:
-                domains = ", ".join(consistency.domains_with_flips[:3])
-                lines.append(f"Domains with position changes: {domains}")
-
-            return "\n".join(lines) if len(lines) > 1 else ""
-
-        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
-            logger.warning(f"Flip context error for {agent.name}: {e}")
-            return ""
+        return self._prompt_context.get_flip_context(agent)
 
     def _prepare_audience_context(self, emit_event: bool = False) -> str:
         """Prepare audience context for prompt building.
@@ -1966,41 +1733,27 @@ class Arena:
         Returns:
             Formatted audience section string (empty if no suggestions)
         """
-        # Drain pending audience events
-        self._drain_user_events()
-
-        # Sync state to PromptBuilder
+        # Sync state to PromptBuilder first (audience_manager.drain_events is called by _prompt_context)
         self._sync_prompt_builder_state()
 
-        # Compute audience section if enabled and suggestions exist
-        if not (
-            self.protocol.audience_injection in ("summary", "inject") and self.user_suggestions
-        ):
-            return ""
-
-        clusters = cluster_suggestions(list(self.user_suggestions))
-        audience_section = format_for_prompt(clusters)
-
-        # Emit stream event for dashboard if requested
-        if emit_event and self.spectator and clusters:
-            self._notify_spectator(
-                "audience_summary",
-                details=f"{sum(c.count for c in clusters)} suggestions in {len(clusters)} clusters",
-                metric=len(clusters),
-            )
-
-        return audience_section
+        return self._prompt_context.prepare_audience_context(emit_event=emit_event)
 
     def _build_proposal_prompt(self, agent: Agent) -> str:
-        """Build the initial proposal prompt."""
-        audience_section = self._prepare_audience_context(emit_event=True)
-        return self.prompt_builder.build_proposal_prompt(agent, audience_section)
+        """Build the initial proposal prompt.
+
+        Delegates to PromptContextBuilder.build_proposal_prompt().
+        """
+        self._sync_prompt_builder_state()
+        return self._prompt_context.build_proposal_prompt(agent)
 
     def _build_revision_prompt(
         self, agent: Agent, original: str, critiques: list[Critique], round_number: int = 0
     ) -> str:
-        """Build the revision prompt including critiques and round-specific phase context."""
-        audience_section = self._prepare_audience_context(emit_event=False)
-        return self.prompt_builder.build_revision_prompt(
-            agent, original, critiques, audience_section, round_number=round_number
+        """Build the revision prompt including critiques and round-specific phase context.
+
+        Delegates to PromptContextBuilder.build_revision_prompt().
+        """
+        self._sync_prompt_builder_state()
+        return self._prompt_context.build_revision_prompt(
+            agent, original, critiques, round_number=round_number
         )

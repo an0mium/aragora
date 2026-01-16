@@ -197,5 +197,67 @@ class ArenaConfig:
         if self.broadcast_platforms is None:
             self.broadcast_platforms = ["rss"]
 
+    def to_arena_kwargs(self) -> Dict[str, Any]:
+        """Convert config to kwargs dict for Arena.__init__.
+
+        Returns:
+            Dictionary of keyword arguments for Arena initialization.
+        """
+        return {
+            "memory": self.memory,
+            "event_hooks": self.event_hooks,
+            "event_emitter": self.event_emitter,
+            "spectator": self.spectator,
+            "debate_embeddings": self.debate_embeddings,
+            "insight_store": self.insight_store,
+            "recorder": self.recorder,
+            "agent_weights": self.agent_weights,
+            "position_tracker": self.position_tracker,
+            "position_ledger": self.position_ledger,
+            "enable_position_ledger": self.enable_position_ledger,
+            "elo_system": self.elo_system,
+            "persona_manager": self.persona_manager,
+            "dissent_retriever": self.dissent_retriever,
+            "consensus_memory": self.consensus_memory,
+            "flip_detector": self.flip_detector,
+            "calibration_tracker": self.calibration_tracker,
+            "continuum_memory": self.continuum_memory,
+            "relationship_tracker": self.relationship_tracker,
+            "moment_detector": self.moment_detector,
+            "tier_analytics_tracker": self.tier_analytics_tracker,
+            "loop_id": self.loop_id,
+            "strict_loop_scoping": self.strict_loop_scoping,
+            "circuit_breaker": self.circuit_breaker,
+            "initial_messages": self.initial_messages,
+            "trending_topic": self.trending_topic,
+            "pulse_manager": self.pulse_manager,
+            "auto_fetch_trending": self.auto_fetch_trending,
+            "population_manager": self.population_manager,
+            "auto_evolve": self.auto_evolve,
+            "breeding_threshold": self.breeding_threshold,
+            "evidence_collector": self.evidence_collector,
+            "breakpoint_manager": self.breakpoint_manager,
+            "performance_monitor": self.performance_monitor,
+            "enable_performance_monitor": self.enable_performance_monitor,
+            "enable_telemetry": self.enable_telemetry,
+            "use_airlock": self.use_airlock,
+            "airlock_config": self.airlock_config,
+            "agent_selector": self.agent_selector,
+            "use_performance_selection": self.use_performance_selection,
+            "prompt_evolver": self.prompt_evolver,
+            "enable_prompt_evolution": self.enable_prompt_evolution,
+            "checkpoint_manager": self.checkpoint_manager,
+            "enable_checkpointing": self.enable_checkpointing,
+            "org_id": self.org_id,
+            "user_id": self.user_id,
+            "usage_tracker": self.usage_tracker,
+            "broadcast_pipeline": self.broadcast_pipeline,
+            "auto_broadcast": self.auto_broadcast,
+            "broadcast_min_confidence": self.broadcast_min_confidence,
+            "training_exporter": self.training_exporter,
+            "auto_export_training": self.auto_export_training,
+            "training_export_min_confidence": self.training_export_min_confidence,
+        }
+
 
 __all__ = ["ArenaConfig"]
