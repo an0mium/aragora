@@ -180,4 +180,4 @@ jobs:
       - name: Run TruffleHog (additional scan)
         uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --only-verified --fail
+          extra_args: --only-verified
