@@ -10,7 +10,7 @@ import logging
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Callable
+from typing import Any, Callable, Generator, Optional
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
@@ -26,7 +26,7 @@ _current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 
 @contextmanager
-def streaming_task_context(task_id: str):
+def streaming_task_context(task_id: str) -> Generator[None, None, None]:
     """Context manager to set the current task_id for streaming events.
 
     Use this when calling agent methods that may stream, to ensure their
@@ -48,7 +48,7 @@ def get_current_task_id() -> str:
     return _current_task_id.get()
 
 
-def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
+def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
 
     If the agent has a generate_stream() method, we override its generate()
@@ -69,7 +69,7 @@ def wrap_agent_for_streaming(agent, emitter: SyncEventEmitter, debate_id: str):
     # Store original generate method
     original_generate = agent.generate
 
-    async def streaming_generate(prompt: str, context=None):
+    async def streaming_generate(prompt: str, context: Optional[Any] = None) -> str:
         """Streaming wrapper that emits TOKEN_* events."""
         # Get current task_id from context variable (set by streaming_task_context)
         task_id = get_current_task_id()

@@ -175,7 +175,7 @@ class StreamEvent:
     trace_id: str = ""  # OpenTelemetry-style trace identifier
     span_id: str = ""  # Current operation span
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Auto-populate tracing fields from current context if not provided."""
         if not self.correlation_id and not self.trace_id:
             try:

@@ -23,7 +23,7 @@ import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config import (
     MAX_ACTIVE_DEBATES,
@@ -44,7 +44,7 @@ class BoundedDebateDict(OrderedDict):
         super().__init__()
         self.maxsize = maxsize
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         # If key already exists, just update it
         if key in self:
             super().__setitem__(key, value)
@@ -146,7 +146,7 @@ class DebateStateManager:
     and cartographer instances with automatic cleanup.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Multi-loop tracking with TTL cleanup
         self.active_loops: dict[str, LoopInstance] = {}
         self._active_loops_lock = threading.Lock()
@@ -173,7 +173,7 @@ class DebateStateManager:
             if len(self.active_loops) >= self._MAX_ACTIVE_LOOPS:
                 oldest = min(
                     self._active_loops_last_access,
-                    key=self._active_loops_last_access.get,
+                    key=lambda k: self._active_loops_last_access.get(k, 0.0),
                     default=None,
                 )
                 if oldest:

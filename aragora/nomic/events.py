@@ -90,7 +90,7 @@ class Event:
     trace_id: Optional[str] = None  # OpenTelemetry-style trace identifier
     span_id: Optional[str] = None  # Current operation span
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Auto-populate tracing fields from current context if not provided."""
         if self.correlation_id is None and self.trace_id is None:
             try:

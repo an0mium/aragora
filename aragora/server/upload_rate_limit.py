@@ -158,7 +158,7 @@ def get_upload_limiter() -> UploadRateLimiter:
     if _upload_limiter is None:
         import os
 
-        trusted_proxies = frozenset(
+        trusted_proxies = set(
             p.strip()
             for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
         )
