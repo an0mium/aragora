@@ -222,6 +222,22 @@ AGENT_TIMEOUT_SECONDS = _env_int("ARAGORA_AGENT_TIMEOUT", 240)  # 4 minutes per 
 # Concurrency limits to prevent API rate limit exhaustion
 MAX_CONCURRENT_CRITIQUES = _env_int("ARAGORA_MAX_CONCURRENT_CRITIQUES", 10)
 MAX_CONCURRENT_REVISIONS = _env_int("ARAGORA_MAX_CONCURRENT_REVISIONS", 5)
+MAX_CONCURRENT_STREAMING = _env_int("ARAGORA_MAX_CONCURRENT_STREAMING", 3)
+
+# Heartbeat and timeout configuration
+HEARTBEAT_INTERVAL_SECONDS = _env_int("ARAGORA_HEARTBEAT_INTERVAL", 15)
+
+# Language enforcement for multilingual models (DeepSeek, Kimi, Qwen)
+DEFAULT_DEBATE_LANGUAGE = _env_str("ARAGORA_DEBATE_LANGUAGE", "English")
+ENFORCE_RESPONSE_LANGUAGE = _env_bool("ARAGORA_ENFORCE_LANGUAGE", True)
+
+# Inter-request stagger delays to prevent API rate limiting from burst requests
+INTER_REQUEST_DELAY_SECONDS = _env_float("ARAGORA_INTER_REQUEST_DELAY", 1.5)
+OPENROUTER_INTER_REQUEST_DELAY = _env_float("ARAGORA_OPENROUTER_INTER_REQUEST_DELAY", 2.0)
+
+# Streaming configuration for real-time token display
+STREAM_BATCH_SIZE = _env_int("ARAGORA_STREAM_BATCH_SIZE", 50)
+STREAM_DRAIN_INTERVAL_MS = _env_int("ARAGORA_STREAM_DRAIN_INTERVAL_MS", 10)
 
 # === Agents ===
 DEFAULT_AGENTS = _env_str(

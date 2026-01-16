@@ -18,27 +18,28 @@ interface CritiqueData {
   timestamp: number;
 }
 
+// Severity is now 0-10 scale (0=trivial, 10=critical)
 function getSeverityLabel(severity: number): string {
-  if (severity >= 0.8) return 'CRITICAL';
-  if (severity >= 0.6) return 'MAJOR';
-  if (severity >= 0.4) return 'MODERATE';
-  if (severity >= 0.2) return 'MINOR';
+  if (severity >= 8) return 'CRITICAL';
+  if (severity >= 6) return 'MAJOR';
+  if (severity >= 4) return 'MODERATE';
+  if (severity >= 2) return 'MINOR';
   return 'TRIVIAL';
 }
 
 function getSeverityColor(severity: number): string {
-  if (severity >= 0.8) return 'text-crimson';
-  if (severity >= 0.6) return 'text-orange-400';
-  if (severity >= 0.4) return 'text-yellow-400';
-  if (severity >= 0.2) return 'text-acid-cyan';
+  if (severity >= 8) return 'text-crimson';
+  if (severity >= 6) return 'text-orange-400';
+  if (severity >= 4) return 'text-yellow-400';
+  if (severity >= 2) return 'text-acid-cyan';
   return 'text-text-muted';
 }
 
 function getSeverityBg(severity: number): string {
-  if (severity >= 0.8) return 'bg-crimson';
-  if (severity >= 0.6) return 'bg-orange-400';
-  if (severity >= 0.4) return 'bg-yellow-400';
-  if (severity >= 0.2) return 'bg-acid-cyan';
+  if (severity >= 8) return 'bg-crimson';
+  if (severity >= 6) return 'bg-orange-400';
+  if (severity >= 4) return 'bg-yellow-400';
+  if (severity >= 2) return 'bg-acid-cyan';
   return 'bg-text-muted';
 }
 
@@ -52,7 +53,7 @@ export function CritiqueSeverityMeter({ events, agents }: CritiqueSeverityMeterP
         critiqueList.push({
           agent: data.agent,
           target: data.target,
-          severity: data.severity ?? 0.5,
+          severity: data.severity ?? 5,  // Default to middle of 0-10 scale
           issues: data.issues || [],
           round: event.round || 0,
           timestamp: event.timestamp,
@@ -113,13 +114,13 @@ export function CritiqueSeverityMeter({ events, agents }: CritiqueSeverityMeterP
         <div className="space-y-2">
           <div className="flex justify-between text-xs font-mono text-text-muted">
             <span>Average Severity</span>
-            <span>{(avgSeverity * 100).toFixed(0)}%</span>
+            <span>{avgSeverity.toFixed(1)}/10</span>
           </div>
           <div className="h-2 bg-bg border border-accent/20 overflow-hidden flex">
-            {/* Gradient bar showing severity distribution */}
+            {/* Gradient bar showing severity distribution (0-10 scale) */}
             <div
               className={`h-full transition-all duration-300 ${getSeverityBg(avgSeverity)}`}
-              style={{ width: `${avgSeverity * 100}%`, opacity: 0.7 }}
+              style={{ width: `${(avgSeverity / 10) * 100}%`, opacity: 0.7 }}
             />
           </div>
         </div>
@@ -146,7 +147,7 @@ export function CritiqueSeverityMeter({ events, agents }: CritiqueSeverityMeterP
                 <div className="flex-1 h-1.5 bg-bg border border-accent/10 overflow-hidden">
                   <div
                     className={`h-full ${getSeverityBg(agentAvg)}`}
-                    style={{ width: `${agentAvg * 100}%`, opacity: 0.7 }}
+                    style={{ width: `${(agentAvg / 10) * 100}%`, opacity: 0.7 }}
                   />
                 </div>
                 <span className={`text-xs font-mono ${getSeverityColor(agentAvg)} w-12 text-right`}>

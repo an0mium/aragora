@@ -238,7 +238,7 @@ Proposal:
 Provide structured feedback:
 - ISSUES: Specific problems (bullet points)
 - SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
+- SEVERITY: 0-10 rating (0=trivial, 10=critical)
 - REASONING: Brief explanation"""
 
         response = await self.generate(critique_prompt, context)

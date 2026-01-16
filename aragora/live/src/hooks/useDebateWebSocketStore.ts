@@ -177,7 +177,10 @@ export function useDebateWebSocketStore({
 
       // Debate lifecycle events
       if (data.type === 'debate_start') {
-        setTask(data.data.task || 'Debate in progress...');
+        // Only update task if provided and non-empty (don't overwrite with fallback)
+        if (data.data.task && data.data.task.trim()) {
+          setTask(data.data.task);
+        }
         setAgents(data.data.agents || []);
       } else if (data.type === 'debate_end') {
         setConnectionStatus('complete');

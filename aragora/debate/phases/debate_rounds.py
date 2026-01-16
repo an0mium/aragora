@@ -468,6 +468,38 @@ class DebateRoundsPhase:
                 )
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(critic.name)
+            elif crit_result is None:
+                # Handle timeout/error case where autonomic_executor returned None
+                logger.warning(
+                    f"critique_returned_none critic={critic.name} target={proposal_agent}"
+                )
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_failure(critic.name)
+
+                # Create placeholder critique so the debate can continue
+                from aragora.core import Critique
+
+                placeholder_critique = Critique(
+                    agent=critic.name,
+                    target_agent=proposal_agent,
+                    issues=["[Critique unavailable - agent timed out or encountered an error]"],
+                    suggestions=[],
+                    severity=0.0,
+                    reasoning="Critique generation failed due to timeout or agent error.",
+                )
+                result.critiques.append(placeholder_critique)
+                self._partial_critiques.append(placeholder_critique)
+
+                # Emit placeholder critique event
+                if "on_critique" in self.hooks:
+                    self.hooks["on_critique"](
+                        agent=critic.name,
+                        target=proposal_agent,
+                        issues=placeholder_critique.issues,
+                        severity=placeholder_critique.severity,
+                        round_num=round_num,
+                        full_content=placeholder_critique.to_prompt(),
+                    )
             else:
                 if self.circuit_breaker:
                     self.circuit_breaker.record_success(critic.name)
@@ -587,15 +619,18 @@ class DebateRoundsPhase:
 
         # Periodic heartbeat task during long-running revisions
         async def heartbeat_during_revisions():
-            """Emit heartbeat every 30s while revisions are in progress."""
+            """Emit heartbeat during revisions to keep connection alive."""
+            from aragora.config import HEARTBEAT_INTERVAL_SECONDS
+
             heartbeat_count = 0
+            interval = HEARTBEAT_INTERVAL_SECONDS
             try:
                 while True:
-                    await asyncio.sleep(30.0)
+                    await asyncio.sleep(interval)
                     heartbeat_count += 1
                     self._emit_heartbeat(
                         f"revision_round_{round_num}",
-                        f"in_progress_{heartbeat_count * 30}s",
+                        f"in_progress_{heartbeat_count * interval}s",
                     )
             except asyncio.CancelledError:
                 pass

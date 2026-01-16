@@ -284,7 +284,7 @@ SUGGESTIONS:
 - suggestion 1
 - suggestion 2
 
-SEVERITY: X.X (0.0 minor to 1.0 critical)
+SEVERITY: X (0=trivial, 10=critical)
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)

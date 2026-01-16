@@ -52,7 +52,7 @@ class Critique:
     target_content: str
     issues: list[str]
     suggestions: list[str]
-    severity: float  # 0-1, how serious are the issues
+    severity: float  # 0-10 scale (0=trivial, 10=critical)
     reasoning: str
 
     @property

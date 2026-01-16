@@ -77,16 +77,20 @@ export function LiveDebateView({
       {/* Live Debate Header */}
       <div className="bg-surface border border-acid-green/30 p-6">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="flex-1">
+            {/* Status indicator - small, inline with label */}
             <div className="flex items-center gap-2 text-xs font-mono mb-2">
-              <span className={`w-2 h-2 rounded-full ${statusConfig.color}`} />
-              <span className="text-text-muted uppercase">{statusConfig.label}</span>
+              <span className={`w-2 h-2 rounded-full animate-pulse ${statusConfig.color}`} />
+              <span className="text-text-muted uppercase tracking-wider">{statusConfig.label}</span>
+              {status === 'streaming' && (
+                <span className="text-acid-cyan text-xs animate-pulse ml-2">
+                  In progress...
+                </span>
+              )}
             </div>
+            {/* Task/Question - always visible and prominent */}
             <h1 className="text-lg font-mono text-acid-green mb-4">
-              {task || (status === 'connecting' ? 'Connecting to debate...' :
-                        status === 'complete' ? 'Debate concluded' :
-                        status === 'error' ? 'Debate error' :
-                        'Waiting for debate to start...')}
+              {task || 'Waiting for debate topic...'}
             </h1>
             <div className="flex flex-wrap gap-2">
               {agents.map((agent) => {

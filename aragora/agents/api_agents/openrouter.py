@@ -98,6 +98,16 @@ class OpenRouterAgent(APIAgent):
         self.agent_type = "openrouter"
         if system_prompt:
             self.system_prompt = system_prompt
+        else:
+            # Default system prompt with language enforcement for multilingual models
+            from aragora.config import DEFAULT_DEBATE_LANGUAGE, ENFORCE_RESPONSE_LANGUAGE
+
+            if ENFORCE_RESPONSE_LANGUAGE:
+                self.system_prompt = (
+                    f"You are a helpful AI assistant participating in a structured debate. "
+                    f"You MUST respond entirely in {DEFAULT_DEBATE_LANGUAGE}. "
+                    f"Do not use any other language in your responses."
+                )
 
     def _build_context_prompt(
         self,

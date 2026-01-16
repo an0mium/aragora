@@ -100,7 +100,7 @@ class CritiqueMixin:
         """
         issues = []
         suggestions = []
-        severity = 0.5
+        severity = 5.0  # Default to middle of 0-10 scale
         reasoning = ""
 
         lines = response.split("\n")
@@ -121,10 +121,11 @@ class CritiqueMixin:
                 if match:
                     try:
                         raw_severity = float(match.group(1))
-                        # Scale BEFORE clamping to handle 0-10 scale
-                        if raw_severity > 1.0:
-                            raw_severity = raw_severity / 10.0
-                        severity = min(1.0, max(0.0, raw_severity))
+                        # Normalize to 0-10 scale
+                        if raw_severity <= 1.0:
+                            # Given as 0-1 scale, convert to 0-10
+                            raw_severity = raw_severity * 10.0
+                        severity = min(10.0, max(0.0, raw_severity))
                     except (ValueError, TypeError):
                         pass
             elif line.startswith(("-", "*", "•")):

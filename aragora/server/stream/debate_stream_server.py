@@ -548,20 +548,22 @@ class DebateStreamServer(ServerBase):
     async def _drain_loop(self) -> None:
         """Background task that drains the emitter queue and broadcasts.
 
-        Uses batching to send multiple events in a single WebSocket message,
-        reducing overhead and context switches by 5-10x for high-frequency
-        event streams. Events are grouped by agent to prevent visual
-        interleaving during parallel generation.
+        Uses smaller batch sizes and faster drain rates for more responsive token streaming.
+        Events are still grouped by agent to prevent visual interleaving during parallel
+        generation, but the shorter drain interval (~10ms vs 30ms) provides ~3x faster updates.
         """
+        from aragora.config import STREAM_BATCH_SIZE, STREAM_DRAIN_INTERVAL_MS
+
         while self._running:
-            # Collect all pending events into a batch
-            # Use large batch size to prevent queue buildup with many concurrent agents
-            events = list(self._emitter.drain(max_batch_size=1000))
+            # Smaller batch size for more granular streaming (default 50 vs 1000)
+            events = list(self._emitter.drain(max_batch_size=STREAM_BATCH_SIZE))
             if events:
                 # Group token events by agent for smoother streaming display
                 grouped = self._group_events_by_agent(events)
                 await self.broadcast_batch(grouped)
-            await asyncio.sleep(0.03)  # Faster drain rate for high-volume debates
+
+            # Faster drain rate for responsive streaming (default 10ms vs 30ms)
+            await asyncio.sleep(STREAM_DRAIN_INTERVAL_MS / 1000.0)
 
     def register_loop(self, loop_id: str, name: str, path: str = "") -> None:
         """Register a new nomic loop instance."""

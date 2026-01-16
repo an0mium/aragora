@@ -564,6 +564,28 @@ and building on others' ideas."""
         """Get cached continuum memory context."""
         return self._continuum_context_cache
 
+    def get_language_constraint(self) -> str:
+        """Get language enforcement instruction for agent prompts.
+
+        Returns instruction requiring agents to respond in the configured
+        debate language. This prevents multilingual models (DeepSeek, Kimi, Qwen)
+        from code-switching mid-response.
+
+        Returns:
+            Language constraint instruction, or empty string if disabled.
+        """
+        from aragora.config import DEFAULT_DEBATE_LANGUAGE, ENFORCE_RESPONSE_LANGUAGE
+
+        if not ENFORCE_RESPONSE_LANGUAGE:
+            return ""
+
+        lang = getattr(self.protocol, "language", None) or DEFAULT_DEBATE_LANGUAGE
+        return (
+            f"\n\n**LANGUAGE REQUIREMENT**: You MUST respond entirely in {lang}. "
+            f"Do not use any other language. If you need to reference foreign terms, "
+            f"provide a {lang} translation in parentheses."
+        )
+
     def _inject_belief_context(self, limit: int = 3) -> str:
         """Retrieve and format historical belief cruxes for prompt injection.
 
@@ -916,7 +938,7 @@ IMPORTANT: If this task mentions a specific website, company, product, or curren
 3. Do NOT make up facts or speculate about specific entities you don't have verified information about.
 
 Please provide your best proposal to address this task. Be thorough and specific.
-Your proposal will be critiqued by other agents, so anticipate potential objections."""
+Your proposal will be critiqued by other agents, so anticipate potential objections.{self.get_language_constraint()}"""
 
     def build_revision_prompt(
         self,
@@ -1015,7 +1037,7 @@ Critiques Received:
 
 Please provide a revised proposal that addresses the valid critiques.
 Use evidence citations [EVID-N] to support strengthened claims.
-Explain what you changed and why. If you disagree with a critique, explain your reasoning."""
+Explain what you changed and why. If you disagree with a critique, explain your reasoning.{self.get_language_constraint()}"""
 
     def build_judge_prompt(
         self,

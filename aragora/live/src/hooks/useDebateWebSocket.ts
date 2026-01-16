@@ -8,8 +8,11 @@ import { API_BASE_URL } from '@/config';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
-// Timeout for waiting for debate_start event
-const DEBATE_START_TIMEOUT_MS = 15000; // 15 seconds
+// Timeout for waiting for debate_start event (increased for slow models like DeepSeek)
+const DEBATE_START_TIMEOUT_MS = 60000; // 60 seconds
+
+// Activity timeout - how long to wait without any events before considering connection dead
+const DEBATE_ACTIVITY_TIMEOUT_MS = 120000; // 2 minutes
 
 export interface TranscriptMessage {
   agent: string;
@@ -368,7 +371,16 @@ export function useDebateWebSocket({
       const isTokenEvent = data.type === 'token_delta';
       if (lastSeqRef.current > 0 && data.seq > lastSeqRef.current + 1 && !isTokenEvent) {
         const gap = data.seq - lastSeqRef.current - 1;
-        console.warn(`[WebSocket] Sequence gap detected: expected ${lastSeqRef.current + 1}, got ${data.seq} (${gap} events missed)`);
+        // Small gaps (1-2) are typically due to concurrent task completion reordering
+        // Large gaps may indicate actual message loss
+        if (gap <= 2) {
+          // Minor reordering - log at debug level only
+          logger.debug(`Sequence reorder: expected ${lastSeqRef.current + 1}, got ${data.seq}`);
+        } else if (gap <= 5) {
+          console.warn(`[WebSocket] Sequence gap: ${gap} events (minor, likely reordering)`);
+        } else {
+          console.error(`[WebSocket] Large sequence gap: ${gap} events missed - may have lost data`);
+        }
       }
       lastSeqRef.current = data.seq;
     }
@@ -429,7 +441,11 @@ export function useDebateWebSocket({
 
     // Debate lifecycle events
     else if (data.type === 'debate_start') {
-      setTask((eventData?.task as string) || 'Debate in progress...');
+      // Only update task if provided and non-empty (don't overwrite with fallback)
+      const taskFromStart = eventData?.task as string;
+      if (taskFromStart && taskFromStart.trim()) {
+        setTask(taskFromStart);
+      }
       setAgents((eventData?.agents as string[]) || []);
       setHasReceivedDebateStart(true);
       clearDebateStartTimeout();

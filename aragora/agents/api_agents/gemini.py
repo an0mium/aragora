@@ -343,7 +343,7 @@ Proposal to critique:
 Provide a structured critique with:
 1. ISSUES: List specific problems, errors, or weaknesses (use bullet points)
 2. SUGGESTIONS: List concrete improvements (use bullet points)
-3. SEVERITY: Rate 0.0 (minor) to 1.0 (critical)
+3. SEVERITY: Rate 0-10 (0=trivial, 10=critical)
 4. REASONING: Brief explanation of your assessment
 
 Be constructive but thorough."""

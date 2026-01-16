@@ -397,7 +397,7 @@ Proposal:
 Provide structured feedback:
 - ISSUES: Specific problems (bullet points)
 - SUGGESTIONS: Improvements (bullet points)
-- SEVERITY: 0.0-1.0 rating
+- SEVERITY: 0-10 rating (0=trivial, 10=critical)
 - REASONING: Brief explanation"""
 
     async def critique(
@@ -486,7 +486,7 @@ Proposal to critique:
 Provide a structured critique with:
 1. ISSUES: List specific problems, errors, or weaknesses (use bullet points)
 2. SUGGESTIONS: List concrete improvements (use bullet points)
-3. SEVERITY: Rate 0.0 (minor) to 1.0 (critical)
+3. SEVERITY: Rate 0-10 (0=trivial, 10=critical)
 4. REASONING: Brief explanation of your assessment
 
 Be constructive but thorough. Identify both technical and conceptual issues."""
