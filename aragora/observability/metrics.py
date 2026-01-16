@@ -29,7 +29,7 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, Callable, Generator, Optional, TypeVar, cast
 
 from aragora.observability.config import get_metrics_config
 
@@ -375,7 +375,7 @@ def measure_latency(metric_name: str = "request") -> Callable[[F], F]:
                 latency = time.perf_counter() - start
                 REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -401,7 +401,7 @@ def measure_async_latency(metric_name: str = "request") -> Callable[[F], F]:
                 latency = time.perf_counter() - start
                 REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

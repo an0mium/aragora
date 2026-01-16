@@ -26,13 +26,22 @@ import threading
 import time
 from collections import OrderedDict
 from functools import wraps
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, Protocol, TypeVar, cast
 
 from aragora.config import CACHE_TTL_METHOD, CACHE_TTL_QUERY
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+class CachedCallable(Protocol[T]):
+    """Protocol for callable with cache attributes attached."""
+
+    cache: TTLCache[Any]
+    cache_key_prefix: str
+
+    def __call__(self, *args: Any, **kwargs: Any) -> T: ...
 
 
 class TTLCache(Generic[T]):
@@ -228,10 +237,10 @@ def lru_cache_with_ttl(
             return result
 
         # Attach cache reference for manual invalidation
-        wrapper.cache = cache  # type: ignore
-        wrapper.cache_key_prefix = key_prefix or func.__name__  # type: ignore
+        wrapper.cache = cache  # type: ignore[attr-defined]  # Dynamic attribute attachment
+        wrapper.cache_key_prefix = key_prefix or func.__name__  # type: ignore[attr-defined]
 
-        return wrapper
+        return cast(Callable[..., T], wrapper)
 
     return decorator
 
@@ -383,7 +392,7 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
             logger.debug(f"Cache miss, stored {cache_key}")
             return result
 
-        return wrapper  # type: ignore
+        return cast(Callable[..., Awaitable[T]], wrapper)
 
     return decorator
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Dict, Iterator, Optional, TypeVar
+from typing import Any, Callable, Dict, Iterator, Optional, TypeVar, cast
 
 from aragora.observability.config import get_tracing_config
 
@@ -213,7 +213,7 @@ def trace_handler(name: str) -> Callable[[F], F]:
                     _set_error_status(span)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -248,7 +248,7 @@ def trace_async_handler(name: str) -> Callable[[F], F]:
                     _set_error_status(span)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -295,7 +295,7 @@ def trace_agent_call(agent_name: str) -> Callable[[F], F]:
                     _set_error_status(span)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -407,7 +407,7 @@ def trace_debate(debate_id: str) -> Callable[[F], F]:
                     _set_error_status(span)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -484,6 +484,6 @@ def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
                     _set_error_status(span)
                     raise
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
