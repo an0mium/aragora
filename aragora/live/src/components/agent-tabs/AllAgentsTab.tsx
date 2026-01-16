@@ -51,7 +51,7 @@ export function AllAgentsTab({
 
       {/* Unified Timeline */}
       <div
-        ref={scrollRef}
+        ref={scrollRef as React.RefObject<HTMLDivElement>}
         onScroll={onScroll}
         className="flex-1 overflow-y-auto p-4 space-y-3"
       >

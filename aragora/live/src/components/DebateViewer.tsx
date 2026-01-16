@@ -74,49 +74,89 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [fallbackDebate, setFallbackDebate] = useState<{
     task: string;
     agents: string[];
+    messages: TranscriptMessage[];
     finalAnswer: string;
   } | null>(null);
 
+  // Fetch debate data from API (used as fallback when WebSocket misses events)
+  const fetchDebateFromAPI = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/debates/${debateId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Extract messages from API response (stored in SQLite)
+        const apiMessages: TranscriptMessage[] = (data.messages || []).map((msg: {
+          agent?: string;
+          role?: string;
+          content?: string;
+          round?: number;
+          timestamp?: string | number;
+        }) => ({
+          agent: msg.agent || 'unknown',
+          role: msg.role || 'proposal',
+          content: msg.content || '',
+          round: msg.round || 0,
+          timestamp: typeof msg.timestamp === 'string'
+            ? new Date(msg.timestamp).getTime() / 1000
+            : (msg.timestamp || Date.now() / 1000),
+        }));
+
+        setFallbackDebate({
+          task: data.task || 'Debate completed',
+          agents: data.agents || [],
+          messages: apiMessages,
+          finalAnswer: data.final_answer || data.conclusion || '',
+        });
+      }
+    } catch (err) {
+      logger.debug('Failed to fetch completed debate:', err);
+    }
+  }, [debateId]);
+
   // Fetch complete debate data as fallback when WebSocket misses events
-  // This happens when the debate completes before the WebSocket connects
+  // This happens when the debate completes before the WebSocket connects,
+  // or when WebSocket connection fails/errors out
   useEffect(() => {
     if (!isLiveDebate) return;
-    if (liveStatus !== 'complete') return;
-    if (liveMessages.length > 0) return; // Already have messages
+    // Fetch fallback when: complete with no messages, or error state
+    const shouldFetchFallback = (liveStatus === 'complete' || liveStatus === 'error')
+      && liveMessages.length === 0;
+    if (!shouldFetchFallback) return;
     if (fallbackDebate) return; // Already fetched
 
-    const fetchCompletedDebate = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/debates/${debateId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.final_answer || data.conclusion) {
-            setFallbackDebate({
-              task: data.task || 'Debate completed',
-              agents: data.agents || [],
-              finalAnswer: data.final_answer || data.conclusion || '',
-            });
-          }
-        }
-      } catch (err) {
-        logger.debug('Failed to fetch completed debate:', err);
-      }
-    };
+    fetchDebateFromAPI();
+  }, [isLiveDebate, liveStatus, liveMessages.length, fallbackDebate, fetchDebateFromAPI]);
 
-    fetchCompletedDebate();
-  }, [isLiveDebate, liveStatus, liveMessages.length, debateId, fallbackDebate]);
+  // Timeout fallback: if WebSocket stays in 'connecting' for too long, try API
+  useEffect(() => {
+    if (!isLiveDebate) return;
+    if (liveStatus !== 'connecting') return;
+    if (fallbackDebate) return;
+
+    // After 5 seconds of connecting, try to fetch from API
+    const timer = setTimeout(() => {
+      if (liveMessages.length === 0) {
+        logger.debug('WebSocket connection timeout, fetching from API');
+        fetchDebateFromAPI();
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [isLiveDebate, liveStatus, liveMessages.length, fallbackDebate, fetchDebateFromAPI]);
 
   // Use fallback data when available and no live messages
   const effectiveTask = liveTask || fallbackDebate?.task || '';
   const effectiveAgents = liveAgents.length > 0 ? liveAgents : (fallbackDebate?.agents || []);
   const effectiveMessages: TranscriptMessage[] = liveMessages.length > 0
     ? liveMessages
-    : (fallbackDebate?.finalAnswer ? [{
-        agent: 'consensus',
-        role: 'synthesis',  // Mark as synthesis for special styling
-        content: fallbackDebate.finalAnswer,
-        timestamp: Date.now() / 1000,
-      }] : []);
+    : (fallbackDebate?.messages && fallbackDebate.messages.length > 0
+        ? fallbackDebate.messages
+        : (fallbackDebate?.finalAnswer ? [{
+            agent: 'consensus',
+            role: 'synthesis',  // Mark as synthesis for special styling
+            content: fallbackDebate.finalAnswer,
+            timestamp: Date.now() / 1000,
+          }] : []));
 
   // Auto-show citations when they arrive
   useEffect(() => {
@@ -684,7 +724,7 @@ function LiveDebateView({
             </div>
           </div>
           <div
-            ref={scrollContainerRef}
+            ref={scrollContainerRef as React.RefObject<HTMLDivElement>}
             onScroll={onScroll}
             className="p-4 space-y-4 min-h-[400px]"
           >
