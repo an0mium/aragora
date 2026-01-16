@@ -6,6 +6,11 @@ Provides schema management and thread-safe database access for ELO operations.
 
 from __future__ import annotations
 
+__all__ = [
+    "EloDatabase",
+    "ELO_SCHEMA_VERSION",
+]
+
 import sqlite3
 
 from aragora.config import resolve_db_path

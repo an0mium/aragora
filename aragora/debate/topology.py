@@ -16,6 +16,17 @@ Usage:
     critics = selector.select_critics("claude", all_critics)
 """
 
+__all__ = [
+    "TopologyConfig",
+    "TopologySelector",
+    "AllToAllSelector",
+    "RoundRobinSelector",
+    "RingSelector",
+    "StarSelector",
+    "SparseSelector",
+    "select_critics_for_proposal",
+]
+
 import hashlib
 import random
 from abc import ABC, abstractmethod

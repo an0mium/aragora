@@ -5,6 +5,10 @@ Extracted from Arena orchestrator to improve code organization and testability.
 Handles judge-based termination and early stopping via agent consensus.
 """
 
+__all__ = [
+    "TerminationChecker",
+]
+
 import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional

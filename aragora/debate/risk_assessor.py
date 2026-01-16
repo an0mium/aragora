@@ -8,6 +8,15 @@ Identifies potential risks in debate domains and topics:
 - Areas with potential for harmful misinformation
 """
 
+__all__ = [
+    "RiskLevel",
+    "RiskAssessment",
+    "RiskAssessor",
+    "RISK_PATTERNS",
+    "get_risk_assessor",
+    "assess_debate_risk",
+]
+
 import logging
 from dataclasses import dataclass, field
 from enum import Enum

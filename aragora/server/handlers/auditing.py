@@ -9,13 +9,23 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "AuditRequestParser",
+    "AuditAgentFactory",
+    "AuditResultRecorder",
+    "AuditingHandler",
+]
+
 import asyncio
 import json
 import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
@@ -52,7 +62,7 @@ class AuditRequestParser:
     """Parse and validate audit request JSON bodies."""
 
     @staticmethod
-    def _read_json(handler, read_json_fn) -> tuple[Optional[dict], Optional[HandlerResult]]:
+    def _read_json(handler: Any, read_json_fn: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Read and validate JSON body."""
         data = read_json_fn(handler)
         if data is None:
@@ -61,7 +71,7 @@ class AuditRequestParser:
 
     @staticmethod
     def _require_field(
-        data: dict, field: str, validator=None
+        data: dict[str, Any], field: str, validator: Any = None
     ) -> tuple[Optional[str], Optional[HandlerResult]]:
         """Extract and validate a required string field."""
         value = data.get(field, "").strip()
@@ -75,7 +85,7 @@ class AuditRequestParser:
 
     @staticmethod
     def _parse_int(
-        data: dict, field: str, default: int, max_val: int
+        data: dict[str, Any], field: str, default: int, max_val: int
     ) -> tuple[int, Optional[HandlerResult]]:
         """Parse and clamp an integer field."""
         try:
@@ -85,8 +95,8 @@ class AuditRequestParser:
 
     @staticmethod
     def parse_capability_probe(
-        handler, read_json_fn
-    ) -> tuple[Optional[dict], Optional[HandlerResult]]:
+        handler: Any, read_json_fn: Any
+    ) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Parse capability probe request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:
@@ -110,7 +120,7 @@ class AuditRequestParser:
         }, None
 
     @staticmethod
-    def parse_deep_audit(handler, read_json_fn) -> tuple[Optional[dict], Optional[HandlerResult]]:
+    def parse_deep_audit(handler: Any, read_json_fn: Any) -> tuple[Optional[dict[str, Any]], Optional[HandlerResult]]:
         """Parse deep audit request."""
         data, err = AuditRequestParser._read_json(handler, read_json_fn)
         if err:

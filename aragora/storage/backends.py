@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Empty, Full, Queue
-from typing import Any, ContextManager, Optional, Union
+from typing import Any, ContextManager, Generator, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class DatabaseBackend(ABC):
     @abstractmethod
     def connection(self) -> ContextManager[Any]:
         """Context manager for database operations with automatic commit/rollback."""
-        pass
+        ...
 
     @abstractmethod
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
@@ -219,8 +219,8 @@ class SQLiteBackend(DatabaseBackend):
             except sqlite3.Error:
                 pass  # Best-effort close
 
-    @contextmanager  # type: ignore[override]
-    def connection(self):  # type: ignore[override]
+    @contextmanager
+    def connection(self) -> Generator[sqlite3.Connection, None, None]:
         """Context manager for database operations with connection pooling."""
         conn = self._get_connection()
         try:
@@ -341,8 +341,8 @@ class PostgreSQLBackend(DatabaseBackend):
         )
         logger.info(f"PostgreSQL connection pool created (size={pool_size})")
 
-    @contextmanager  # type: ignore[override]
-    def connection(self):  # type: ignore[override]
+    @contextmanager
+    def connection(self) -> Generator[Any, None, None]:
         """Context manager for database operations."""
         conn = self._pool.getconn()
         try:

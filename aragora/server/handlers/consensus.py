@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import (
     CACHE_TTL_CONSENSUS_SETTLED,
@@ -78,7 +81,7 @@ class ConsensusHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

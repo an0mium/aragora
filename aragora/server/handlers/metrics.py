@@ -19,7 +19,10 @@ import sqlite3
 import threading
 import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,7 @@ def track_verification(
         _verification_stats["total_verification_time_ms"] += verification_time_ms
 
 
-def get_verification_stats() -> dict:
+def get_verification_stats() -> dict[str, Any]:
     """Get verification statistics (thread-safe snapshot)."""
     with _verification_lock:
         stats = dict(_verification_stats)
@@ -92,7 +95,7 @@ def get_verification_stats() -> dict:
     return stats
 
 
-def track_request(endpoint: str, is_error: bool = False):
+def track_request(endpoint: str, is_error: bool = False) -> None:
     """Track a request for metrics (thread-safe)."""
     with _metrics_lock:
         # Enforce max size - remove oldest entries if at capacity
@@ -125,7 +128,7 @@ class MetricsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route metrics requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

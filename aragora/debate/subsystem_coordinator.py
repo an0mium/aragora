@@ -36,8 +36,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
-    from aragora.agents.grounded import MomentDetector  # type: ignore[attr-defined]
-    from aragora.agents.positions import FlipDetector, PositionLedger, PositionTracker  # type: ignore[attr-defined]
+    from aragora.agents.grounded import MomentDetector
+    from aragora.agents.positions import FlipDetector, PositionLedger, PositionTracker
     from aragora.core import DebateResult
     from aragora.debate.context import DebateContext
     from aragora.debate.protocol import DebateProtocol

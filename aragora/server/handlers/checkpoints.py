@@ -13,6 +13,10 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "CheckpointHandler",
+]
+
 import logging
 from typing import Any, Dict, Optional
 

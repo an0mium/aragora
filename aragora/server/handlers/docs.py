@@ -14,8 +14,16 @@ Extracted from system.py for better modularity.
 
 from __future__ import annotations
 
+__all__ = [
+    "DocsHandler",
+    "CACHE_TTL_OPENAPI",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from .base import (
     BaseHandler,
@@ -50,7 +58,7 @@ class DocsHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route documentation endpoint requests."""
         if path in ("/api/openapi", "/api/openapi.json"):
             return self._get_openapi_spec("json")

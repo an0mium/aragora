@@ -4,6 +4,13 @@ SQLite-based critique pattern store for self-improvement.
 Stores successful critique patterns so future debates can learn from past successes.
 """
 
+__all__ = [
+    "Pattern",
+    "AgentReputation",
+    "CritiqueStore",
+    "CRITIQUE_STORE_SCHEMA_VERSION",
+]
+
 import hashlib
 import json
 import logging

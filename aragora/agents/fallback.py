@@ -8,6 +8,18 @@ Also provides AgentFallbackChain for multi-provider sequencing with
 CircuitBreaker integration.
 """
 
+__all__ = [
+    "QUOTA_ERROR_KEYWORDS",
+    "QuotaFallbackMixin",
+    "FallbackMetrics",
+    "AllProvidersExhaustedError",
+    "FallbackTimeoutError",
+    "AgentFallbackChain",
+    "get_local_fallback_providers",
+    "build_fallback_chain_with_local",
+    "is_local_llm_available",
+]
+
 import logging
 import os
 import time

@@ -10,6 +10,10 @@ Arena._run_inner() method, handling:
 - Citation need extraction
 """
 
+__all__ = [
+    "ProposalPhase",
+]
+
 import asyncio
 import logging
 from typing import Any, Callable, Optional

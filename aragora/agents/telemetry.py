@@ -12,6 +12,17 @@ Inspired by nomic loop debate consensus on observability.
 
 from __future__ import annotations
 
+__all__ = [
+    "AgentTelemetry",
+    "TelemetryContext",
+    "register_telemetry_collector",
+    "unregister_telemetry_collector",
+    "setup_default_collectors",
+    "with_telemetry",
+    "get_telemetry_stats",
+    "reset_telemetry",
+]
+
 import asyncio
 import functools
 import logging

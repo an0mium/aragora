@@ -8,8 +8,15 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "LaboratoryHandler",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.utils.optional_imports import try_import
 
@@ -46,7 +53,7 @@ class LaboratoryHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -62,7 +69,7 @@ class LaboratoryHandler(BaseHandler):
             return self._get_emergent_traits(min_confidence, limit)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -128,7 +135,7 @@ class LaboratoryHandler(BaseHandler):
         )
 
     @handle_errors("cross pollinations")
-    def _suggest_cross_pollinations(self, handler) -> HandlerResult:
+    def _suggest_cross_pollinations(self, handler: Any) -> HandlerResult:
         """Suggest beneficial trait transfers for a target agent.
 
         POST body:

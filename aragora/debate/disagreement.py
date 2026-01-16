@@ -6,6 +6,10 @@ votes and critiques, surfacing unanimous critiques (high confidence issues)
 and split opinions (risk areas requiring attention).
 """
 
+__all__ = [
+    "DisagreementReporter",
+]
+
 from collections import Counter
 from typing import Optional
 

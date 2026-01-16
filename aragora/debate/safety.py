@@ -4,6 +4,11 @@ Safety gates for self-modifying debate features.
 
 from __future__ import annotations
 
+__all__ = [
+    "resolve_auto_evolve",
+    "resolve_prompt_evolution",
+]
+
 import logging
 import os
 

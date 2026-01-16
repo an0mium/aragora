@@ -12,6 +12,14 @@ Inspired by the nomic loop debate proposal for resilience.
 
 from __future__ import annotations
 
+__all__ = [
+    "AirlockMetrics",
+    "AirlockConfig",
+    "AirlockProxy",
+    "wrap_agent",
+    "wrap_agents",
+]
+
 import asyncio
 import json
 import logging

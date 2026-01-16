@@ -6,6 +6,11 @@ Endpoints:
 - GET /api/reviews - List recent reviews
 """
 
+__all__ = [
+    "ReviewsHandler",
+    "REVIEWS_DIR",
+]
+
 import json
 import logging
 from pathlib import Path

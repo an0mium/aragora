@@ -10,8 +10,16 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "MomentsHandler",
+    "VALID_MOMENT_TYPES",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.utils.optional_imports import try_import
 
@@ -68,7 +76,7 @@ class MomentsHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -107,7 +115,7 @@ class MomentsHandler(BaseHandler):
         """Get moment detector from context or return None."""
         return self.ctx.get("moment_detector")
 
-    def _get_all_moments(self) -> list:
+    def _get_all_moments(self) -> list[Any]:
         """Get all moments from all agents."""
         detector = self._get_moment_detector()
         if not detector:
@@ -121,7 +129,7 @@ class MomentsHandler(BaseHandler):
 
         return all_moments
 
-    def _moment_to_dict(self, moment) -> dict:
+    def _moment_to_dict(self, moment: Any) -> dict[str, Any]:
         """Convert a SignificantMoment to a dict for JSON response."""
         return {
             "id": moment.id,

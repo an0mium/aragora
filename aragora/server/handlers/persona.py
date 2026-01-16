@@ -13,8 +13,15 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "PersonaHandler",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.utils.optional_imports import try_import_class
 
@@ -74,7 +81,7 @@ class PersonaHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route persona requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -110,11 +117,11 @@ class PersonaHandler(BaseHandler):
 
         return None
 
-    def get_persona_manager(self):
+    def get_persona_manager(self) -> Any:
         """Get persona manager instance."""
         return self.ctx.get("persona_manager")
 
-    def get_position_ledger(self):
+    def get_position_ledger(self) -> Any:
         """Get position ledger instance."""
         return self.ctx.get("position_ledger")
 

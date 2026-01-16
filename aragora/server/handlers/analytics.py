@@ -11,8 +11,15 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "AnalyticsHandler",
+]
+
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import (
     CACHE_TTL_ANALYTICS,
@@ -54,7 +61,7 @@ class AnalyticsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route analytics requests to appropriate methods."""
         logger.debug(f"Analytics request: {path}")
 
@@ -333,7 +340,7 @@ class AnalyticsHandler(BaseHandler):
     @ttl_cache(
         ttl_seconds=CACHE_TTL_ANALYTICS_DEBATES, key_prefix="analytics_debates", skip_first=True
     )
-    def _get_cached_debates(self, limit: int = 100) -> list:
+    def _get_cached_debates(self, limit: int = 100) -> list[Any]:
         """Cached helper for retrieving debates."""
         storage = self.get_storage()
         if not storage:

@@ -9,6 +9,15 @@ Inspired by Project Sid's emergent specialization, this module provides:
 
 from __future__ import annotations
 
+__all__ = [
+    "EXPERTISE_DOMAINS",
+    "PERSONALITY_TRAITS",
+    "Persona",
+    "PersonaManager",
+    "DEFAULT_PERSONAS",
+    "get_or_create_persona",
+]
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime

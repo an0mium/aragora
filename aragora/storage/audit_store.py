@@ -23,6 +23,10 @@ Provides audit trail functionality for:
 
 from __future__ import annotations
 
+__all__ = [
+    "AuditStore",
+]
+
 import json
 import logging
 import sqlite3

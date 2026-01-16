@@ -5,6 +5,11 @@ Computes relationship metrics from existing debate data including
 rivalry scores, alliance scores, and influence networks.
 """
 
+__all__ = [
+    "AgentRelationship",
+    "RelationshipTracker",
+]
+
 import logging
 import sqlite3
 from contextlib import contextmanager

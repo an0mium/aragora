@@ -9,6 +9,13 @@ Provides utilities for:
 - Consensus strength calculation
 """
 
+__all__ = [
+    "WeightSource",
+    "WeightedVoteResult",
+    "VoteWeightCalculator",
+    "VotingPhase",
+]
+
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field

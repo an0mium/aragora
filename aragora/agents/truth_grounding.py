@@ -9,6 +9,13 @@ Tracks agent positions across debates and links them to outcomes:
 This enables persona synthesis from verifiable data rather than self-reported traits.
 """
 
+__all__ = [
+    "Position",
+    "PositionTracker",
+    "TruthGroundedPersona",
+    "TruthGroundedLaboratory",
+]
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path

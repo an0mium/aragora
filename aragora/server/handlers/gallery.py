@@ -17,7 +17,10 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from .base import (
     BaseHandler,
@@ -92,7 +95,7 @@ class GalleryHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route gallery requests to appropriate methods."""
         logger.debug(f"Gallery request: {path} params={query_params}")
 
@@ -318,6 +321,6 @@ class GalleryHandler(BaseHandler):
 
 
 # Convenience function to register with handler registry
-def get_handler_class():
+def get_handler_class() -> type[GalleryHandler]:
     """Return the handler class for registration."""
     return GalleryHandler

@@ -11,10 +11,17 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "BeliefHandler",
+]
+
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.server.validation import validate_debate_id, validate_id
 from aragora.utils.optional_imports import try_import
@@ -76,7 +83,7 @@ class BeliefHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route belief network requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

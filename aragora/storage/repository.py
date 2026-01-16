@@ -9,6 +9,10 @@ Provides:
 - Cache invalidation hooks
 """
 
+__all__ = [
+    "DatabaseRepository",
+]
+
 import logging
 import re
 import sqlite3

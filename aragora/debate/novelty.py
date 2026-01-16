@@ -16,6 +16,12 @@ Novelty score = 1 - max(similarity to any prior proposal)
 - Low novelty (<0.15): Too similar, may need intervention
 """
 
+__all__ = [
+    "NoveltyScore",
+    "NoveltyResult",
+    "NoveltyTracker",
+]
+
 import logging
 from dataclasses import dataclass, field
 from typing import Optional

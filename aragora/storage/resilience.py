@@ -5,6 +5,15 @@ Provides ResilientConnection for automatic retry on transient SQLite errors
 like "database is locked" and "database is busy".
 """
 
+__all__ = [
+    "TRANSIENT_ERRORS",
+    "is_transient_error",
+    "ResilientConnection",
+    "with_retry",
+    "atomic_transaction",
+    "ConnectionPool",
+]
+
 import logging
 import sqlite3
 import threading

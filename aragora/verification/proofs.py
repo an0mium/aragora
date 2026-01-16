@@ -20,6 +20,23 @@ what functions are available to executed code. Do not expose proof execution
 to untrusted users without additional sandboxing (subprocess, containers).
 """
 
+__all__ = [
+    "EXEC_TIMEOUT_SECONDS",
+    "DANGEROUS_PATTERNS",
+    "SAFE_BUILTINS",
+    "ProofType",
+    "ProofStatus",
+    "VerificationProof",
+    "VerificationResult",
+    "ProofExecutor",
+    "ClaimVerifier",
+    "VerificationReport",
+    "ProofBuilder",
+    "create_simple_assertion",
+    "create_computation_proof",
+    "verify_claim_set",
+]
+
 import ast
 import asyncio
 import hashlib

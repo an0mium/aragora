@@ -6,6 +6,10 @@ which delegates to DatabaseManager with per-operation connections
 for concurrent access patterns.
 """
 
+__all__ = [
+    "MemoryDatabase",
+]
+
 from aragora.storage import BaseDatabase
 
 

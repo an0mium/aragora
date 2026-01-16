@@ -16,6 +16,20 @@ Usage:
     manager.ensure_schema()  # Runs any pending migrations
 """
 
+__all__ = [
+    "VALID_COLUMN_TYPES",
+    "DB_TIMEOUT",
+    "get_wal_connection",
+    "Migration",
+    "SchemaManager",
+    "safe_add_column",
+    "DatabaseManager",
+    "PERFORMANCE_INDEXES",
+    "create_performance_indexes",
+    "analyze_tables",
+    "ConnectionPool",
+]
+
 import logging
 import re
 import sqlite3

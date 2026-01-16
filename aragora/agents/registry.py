@@ -14,6 +14,12 @@ agents should implement a reset() method to clear state between uses.
 
 from __future__ import annotations
 
+__all__ = [
+    "AgentSpec",
+    "AgentRegistry",
+    "register_all_agents",
+]
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Union
 

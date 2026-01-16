@@ -5,6 +5,12 @@ Provides helper functions to prevent common database access errors
 like NoneType subscripting when queries return empty results.
 """
 
+__all__ = [
+    "fetch_scalar",
+    "fetch_scalar_or_none",
+    "fetch_row_or_default",
+]
+
 from typing import Any, Optional
 
 

@@ -11,8 +11,15 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "RoutingHandler",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.utils.optional_imports import try_import
 
@@ -60,7 +67,7 @@ class RoutingHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -80,7 +87,7 @@ class RoutingHandler(BaseHandler):
             return self._get_domain_leaderboard(domain, limit)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         if path == "/api/routing/recommendations":
             return self._get_recommendations(handler)

@@ -67,7 +67,7 @@ class TrainingHandler(BaseHandler):
             return cast(Optional[HandlerResult], result)
         return None
 
-    def _get_sft_exporter(self):
+    def _get_sft_exporter(self) -> Any:
         """Get or create SFT exporter."""
         if "sft" not in self._exporters:
             try:
@@ -78,7 +78,7 @@ class TrainingHandler(BaseHandler):
                 return None
         return self._exporters["sft"]
 
-    def _get_dpo_exporter(self):
+    def _get_dpo_exporter(self) -> Any:
         """Get or create DPO exporter."""
         if "dpo" not in self._exporters:
             try:
@@ -89,7 +89,7 @@ class TrainingHandler(BaseHandler):
                 return None
         return self._exporters["dpo"]
 
-    def _get_gauntlet_exporter(self):
+    def _get_gauntlet_exporter(self) -> Any:
         """Get or create Gauntlet exporter."""
         if "gauntlet" not in self._exporters:
             try:

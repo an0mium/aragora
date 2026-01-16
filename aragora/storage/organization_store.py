@@ -9,6 +9,10 @@ Provides CRUD operations for:
 
 from __future__ import annotations
 
+__all__ = [
+    "OrganizationStore",
+]
+
 import json
 import logging
 import secrets

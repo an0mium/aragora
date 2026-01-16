@@ -17,7 +17,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from .base import (
     BaseHandler,
@@ -47,7 +50,7 @@ class NomicHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route nomic endpoint requests."""
         handlers = {
             "/api/nomic/state": self._get_nomic_state,

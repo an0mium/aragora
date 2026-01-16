@@ -6,6 +6,18 @@ concrete implementations, breaking circular import chains. Concrete
 implementations are injected at runtime via ArenaFactory.
 """
 
+__all__ = [
+    "PositionTrackerProtocol",
+    "CalibrationTrackerProtocol",
+    "BeliefNetworkProtocol",
+    "BeliefPropagationAnalyzerProtocol",
+    "CitationExtractorProtocol",
+    "InsightExtractorProtocol",
+    "InsightStoreProtocol",
+    "CritiqueStoreProtocol",
+    "ArgumentCartographerProtocol",
+]
+
 from typing import Any, Optional, Protocol, runtime_checkable
 
 

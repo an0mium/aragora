@@ -9,9 +9,16 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "BreakpointsHandler",
+]
+
 import logging
 import re
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +53,7 @@ class BreakpointsHandler(BaseHandler):
         self._breakpoint_manager = None
 
     @property
-    def breakpoint_manager(self):
+    def breakpoint_manager(self) -> Any:
         """Lazy-load breakpoint manager."""
         if self._breakpoint_manager is None:
             try:
@@ -63,7 +70,7 @@ class BreakpointsHandler(BaseHandler):
             return True
         return bool(self.BREAKPOINT_PATTERN.match(path))
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route breakpoint requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -95,7 +102,7 @@ class BreakpointsHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, body: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for breakpoint resolution."""
         match = self.BREAKPOINT_PATTERN.match(path)
         if not match:
@@ -202,7 +209,7 @@ class BreakpointsHandler(BaseHandler):
             logger.exception("Failed to get breakpoint status: %s", e)
             return error_response(safe_error_message(e, "get breakpoint status"), 500)
 
-    def _resolve_breakpoint(self, breakpoint_id: str, body: dict) -> HandlerResult:
+    def _resolve_breakpoint(self, breakpoint_id: str, body: dict[str, Any]) -> HandlerResult:
         """Resolve a pending breakpoint with human guidance.
 
         Args:

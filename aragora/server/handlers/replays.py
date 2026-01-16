@@ -14,7 +14,10 @@ import json
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import (
     CACHE_TTL_LEARNING_EVOLUTION,
@@ -59,7 +62,7 @@ class ReplaysHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route replay requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)

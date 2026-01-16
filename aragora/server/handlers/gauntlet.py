@@ -57,7 +57,7 @@ _GAUNTLET_MAX_AGE_SECONDS = 7200  # Max 2 hours for any entry regardless of stat
 _quota_lock = threading.Lock()
 
 
-def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
+def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
         logger.debug(f"Task {task_name} was cancelled")
@@ -66,7 +66,7 @@ def _handle_task_exception(task: asyncio.Task, task_name: str) -> None:
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
 
-def create_tracked_task(coro, name: str) -> asyncio.Task:
+def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging.
 
     Use this instead of raw asyncio.create_task() for fire-and-forget tasks

@@ -10,6 +10,11 @@ Controls observation levels for agent thought streaming:
 Now integrated with ServiceRegistry for centralized dependency management.
 """
 
+__all__ = [
+    "TelemetryLevel",
+    "TelemetryConfig",
+]
+
 import logging
 import os
 from enum import Enum, auto

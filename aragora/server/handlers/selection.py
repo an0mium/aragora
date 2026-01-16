@@ -19,9 +19,16 @@ Routes:
 
 from __future__ import annotations
 
+__all__ = [
+    "SelectionHandler",
+]
+
 import json
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.plugins.selection import (
     SelectionContext,
@@ -49,7 +56,7 @@ logger = logging.getLogger(__name__)
 _selection_limiter = RateLimiter(requests_per_minute=100)
 
 
-def _create_agent_pool() -> dict[str, AgentProfile]:
+def _create_agent_pool() -> dict[str, "AgentProfile"]:
     """Create a pool of agents with default expertise profiles."""
     pool = {}
     for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
@@ -85,7 +92,7 @@ class SelectionHandler(BaseHandler):
             return True
         return any(path.startswith(prefix) for prefix in self.PREFIX_ROUTES)
 
-    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -108,7 +115,7 @@ class SelectionHandler(BaseHandler):
             return self._get_role_assigner(name)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         if path == "/api/selection/score":
             return self._score_agents(handler)
@@ -357,7 +364,7 @@ class SelectionHandler(BaseHandler):
             }
         )
 
-    def _get_json_body(self, handler) -> dict:
+    def _get_json_body(self, handler: Any) -> dict[str, Any]:
         """Extract JSON body from request handler."""
         if hasattr(handler, "request_body"):
             import json

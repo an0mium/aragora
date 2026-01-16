@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from .base import (
     BaseHandler,
@@ -93,7 +96,7 @@ class TournamentHandler(BaseHandler):
 
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route tournament requests to appropriate handler methods."""
         logger.debug(f"Tournament request: {path}")
 
@@ -140,7 +143,7 @@ class TournamentHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, body: dict, handler) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for tournament creation and updates."""
         logger.debug(f"Tournament POST request: {path}")
 

@@ -12,8 +12,15 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "IntrospectionHandler",
+]
+
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import DB_PERSONAS_PATH
 from aragora.utils.optional_imports import try_import_class
@@ -68,7 +75,7 @@ class IntrospectionHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route introspection requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -114,7 +121,7 @@ class IntrospectionHandler(BaseHandler):
             return None
         return PersonaManager(str(persona_db))
 
-    def _get_known_agents(self, store) -> list:
+    def _get_known_agents(self, store: Any) -> list[str]:
         """Get list of known agents from critique store or defaults."""
         if store:
             try:

@@ -7,6 +7,10 @@ Provides utilities for:
 - Cross-agent critique routing
 """
 
+__all__ = [
+    "CritiquePhase",
+]
+
 import hashlib
 import logging
 import random

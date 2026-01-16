@@ -5,6 +5,20 @@ Provides similarity-based pattern retrieval for the CritiqueStore.
 Uses OpenAI, Gemini, or local embeddings depending on availability.
 """
 
+__all__ = [
+    "EmbeddingCache",
+    "EmbeddingProvider",
+    "OpenAIEmbedding",
+    "GeminiEmbedding",
+    "OllamaEmbedding",
+    "SemanticRetriever",
+    "get_embedding_cache",
+    "get_embedding_cache_stats",
+    "cosine_similarity",
+    "pack_embedding",
+    "unpack_embedding",
+]
+
 import asyncio
 import hashlib
 import json

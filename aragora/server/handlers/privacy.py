@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -49,7 +52,7 @@ class PrivacyHandler(BaseHandler):
         return path in self.ROUTES
 
     def handle(
-        self, path: str, query_params: dict, handler, method: str = "GET"
+        self, path: str, query_params: dict, handler: Any, method: str = "GET"
     ) -> Optional[HandlerResult]:
         """Route privacy requests to appropriate methods."""
         if hasattr(handler, "command"):
@@ -78,7 +81,7 @@ class PrivacyHandler(BaseHandler):
 
         return error_response("Method not allowed", 405)
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
@@ -129,7 +132,7 @@ class PrivacyHandler(BaseHandler):
 
         return json_response(export_data)
 
-    def _collect_user_data(self, user_store, user) -> dict:
+    def _collect_user_data(self, user_store: Any, user: Any) -> dict[str, Any]:
         """Collect all data associated with a user."""
         data = {}
 

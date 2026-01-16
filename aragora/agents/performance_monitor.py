@@ -8,6 +8,12 @@ Generated from nomic loop proposal by codex-engineer with critique fixes
 from gemini-visionary.
 """
 
+__all__ = [
+    "AgentMetric",
+    "AgentStats",
+    "AgentPerformanceMonitor",
+]
+
 import json
 import logging
 import time

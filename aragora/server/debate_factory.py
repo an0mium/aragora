@@ -21,18 +21,17 @@ except ImportError:
     create_agent = None  # type: ignore
 
 if TYPE_CHECKING:
-    from aragora.agents.grounded import MomentDetector, PositionLedger  # type: ignore[attr-defined]
+    from aragora.agents.grounded import MomentDetector
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
-    from aragora.debate.embeddings import (
-        DebateEmbeddingsDatabase as DebateEmbeddings,  # type: ignore[attr-defined]
-    )
+    from aragora.agents.positions import PositionLedger
+    from aragora.agents.truth_grounding import PositionTracker
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase as DebateEmbeddings
     from aragora.debate.orchestrator import Arena
     from aragora.insights.flip_detector import FlipDetector
-    from aragora.memory.consensus import DissentRetriever  # type: ignore[attr-defined]
+    from aragora.memory.consensus import DissentRetriever
     from aragora.pulse.ingestor import TrendingTopic
     from aragora.ranking.elo import EloSystem
-    from aragora.server.stream import SyncEventEmitter  # type: ignore[attr-defined]
+    from aragora.server.stream.emitter import SyncEventEmitter
 
 
 @dataclass

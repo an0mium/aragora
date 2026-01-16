@@ -32,6 +32,18 @@ Rationale (from aragora self-debate):
 - Can connect with ProvenanceManager for "verified provenance"
 """
 
+__all__ = [
+    "FormalProofStatus",
+    "FormalLanguage",
+    "FormalProofResult",
+    "FormalVerificationBackend",
+    "TranslationModel",
+    "LeanBackend",
+    "Z3Backend",
+    "FormalVerificationManager",
+    "get_formal_verification_manager",
+]
+
 import asyncio
 import hashlib
 import json
