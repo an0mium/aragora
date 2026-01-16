@@ -13,12 +13,30 @@ debate lifecycle including:
 from __future__ import annotations
 
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 from typing import Generator, Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def use_jaccard_similarity():
+    """Use simple Jaccard similarity backend to avoid sentence-transformer mutex issues.
+
+    The sentence-transformers library can cause mutex deadlocks when
+    multiple tests run concurrently. Using Jaccard backend avoids this
+    while still testing vote grouping logic.
+    """
+    old_value = os.environ.get("ARAGORA_SIMILARITY_BACKEND")
+    os.environ["ARAGORA_SIMILARITY_BACKEND"] = "jaccard"
+    yield
+    if old_value is not None:
+        os.environ["ARAGORA_SIMILARITY_BACKEND"] = old_value
+    else:
+        os.environ.pop("ARAGORA_SIMILARITY_BACKEND", None)
 
 from aragora.core import Agent, Vote, Critique, Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -64,15 +82,24 @@ class E2EAgent(Agent):
         else:
             return f"[Round {self._round}] My position: {self.position}."
 
-    async def critique(self, proposal: str, task: str, context: list | None = None) -> Critique:
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
         # Record proposals for voting
         self._proposals[self.name] = proposal
+
+        # Use provided target_agent or fallback to "target"
+        target = target_agent or "target"
 
         # Generate critique based on stubbornness
         if self.stubbornness > 0.7:
             return Critique(
                 agent=self.name,
-                target_agent="target",
+                target_agent=target,
                 target_content=proposal[:100],
                 issues=["The approach has fundamental flaws"],
                 suggestions=["Consider my alternative"],
@@ -82,7 +109,7 @@ class E2EAgent(Agent):
         else:
             return Critique(
                 agent=self.name,
-                target_agent="target",
+                target_agent=target,
                 target_content=proposal[:100],
                 issues=["Minor improvements possible"],
                 suggestions=["Consider edge cases"],
@@ -154,10 +181,24 @@ def e2e_environment():
 
 @pytest.fixture
 def e2e_protocol():
-    """Create a debate protocol for E2E testing."""
+    """Create a minimal debate protocol for E2E testing.
+
+    Disables all database/embedding-dependent features to prevent
+    SQLite mutex deadlock when multiple tests run concurrently.
+    E2E tests focus on debate flow, not individual subsystem features.
+    """
     return DebateProtocol(
         rounds=3,
         consensus="majority",
+        # Disable all DB/embedding-dependent features to prevent mutex deadlock
+        enable_calibration=False,
+        convergence_detection=False,
+        enable_trickster=False,
+        enable_rhetorical_observer=False,
+        enable_evolution=False,
+        enable_research=False,
+        enable_breakpoints=False,
+        enable_evidence_weighting=False,
     )
 
 

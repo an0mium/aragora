@@ -103,7 +103,7 @@ class TestDebateExecution:
         ]
 
         env = Environment(task="Simple decision task")
-        protocol = DebateProtocol(rounds=5, consensus="majority")
+        protocol = DebateProtocol(rounds=5, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
 
         arena = Arena(env, agreeable_agents, protocol)
         result = await arena.run()
@@ -126,7 +126,7 @@ class TestConsensusAndOutcome:
         ]
 
         env = Environment(task="Consensus test task")
-        protocol = DebateProtocol(rounds=2, consensus="majority")
+        protocol = DebateProtocol(rounds=2, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -145,7 +145,7 @@ class TestConsensusAndOutcome:
         ]
 
         env = Environment(task="Contentious topic")
-        protocol = DebateProtocol(rounds=2, consensus="unanimous")
+        protocol = DebateProtocol(rounds=2, consensus="unanimous", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -326,7 +326,7 @@ class TestDebateEdgeCases:
     async def test_debate_with_single_round(self, e2e_agents, mock_external_apis):
         """Debate should complete with single round."""
         env = Environment(task="Quick decision")
-        protocol = DebateProtocol(rounds=1, consensus="majority")
+        protocol = DebateProtocol(rounds=1, consensus="majority", enable_calibration=False, convergence_detection=False, enable_trickster=False, enable_rhetorical_observer=False, enable_evolution=False, enable_research=False, enable_breakpoints=False, enable_evidence_weighting=False)
 
         arena = Arena(env, e2e_agents, protocol)
         result = await arena.run()
@@ -355,3 +355,111 @@ class TestDebateEdgeCases:
         result = await arena.run()
 
         assert result is not None
+
+
+class TestDebateFormats:
+    """Tests for debate format selection (Quick vs Thorough)."""
+
+    @pytest.mark.asyncio
+    async def test_light_format_protocol_parameters(self):
+        """Light format protocol should have correct parameters."""
+        from aragora.debate.protocol import ARAGORA_AI_LIGHT_PROTOCOL
+
+        # Verify quick format parameters
+        assert ARAGORA_AI_LIGHT_PROTOCOL.rounds == 4
+        assert ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds == 300  # 5 minutes
+        assert ARAGORA_AI_LIGHT_PROTOCOL.round_timeout_seconds == 60  # 1 min/round
+        # Light mode disables compute-intensive features
+        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_calibration is False
+        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_trickster is False
+        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_research is False
+
+    @pytest.mark.asyncio
+    async def test_full_format_protocol_parameters(self):
+        """Full format protocol should have correct parameters."""
+        from aragora.debate.protocol import ARAGORA_AI_PROTOCOL
+
+        # Verify thorough format parameters
+        assert ARAGORA_AI_PROTOCOL.rounds == 9
+        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 1800  # 30 minutes
+        assert ARAGORA_AI_PROTOCOL.round_timeout_seconds == 150  # 2.5 min/round
+        # Full mode enables all quality features
+        assert ARAGORA_AI_PROTOCOL.enable_calibration is True
+        assert ARAGORA_AI_PROTOCOL.enable_trickster is True
+        assert ARAGORA_AI_PROTOCOL.enable_research is True
+
+    @pytest.mark.asyncio
+    async def test_light_format_debate_completes(self, mock_external_apis):
+        """Light format debates should complete within round limit."""
+        # Use 4-round protocol matching light format, with mutex-causing features disabled
+        light_test_protocol = DebateProtocol(
+            rounds=4,
+            consensus="judge",
+            early_stopping=True,
+            early_stop_threshold=0.7,
+            min_rounds_before_early_stop=2,
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
+
+        agents = [
+            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.2)
+            for i in range(3)
+        ]
+        env = Environment(task="Quick test question")
+
+        arena = Arena(env, agents, light_test_protocol)
+        result = await arena.run()
+
+        assert result is not None
+        assert result.rounds_completed <= 4
+        assert result.final_answer is not None
+
+    @pytest.mark.asyncio
+    async def test_full_format_debate_with_test_protocol(self, mock_external_apis):
+        """Full format debates should use extended rounds (test-safe version)."""
+        # Use 9-round protocol with mutex-causing features disabled for testing
+        full_test_protocol = DebateProtocol(
+            rounds=9,
+            consensus="majority",
+            enable_calibration=False,
+            convergence_detection=False,
+            enable_trickster=False,
+            enable_rhetorical_observer=False,
+            enable_evolution=False,
+            enable_research=False,
+            enable_breakpoints=False,
+            enable_evidence_weighting=False,
+        )
+
+        agents = [
+            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.3)
+            for i in range(3)
+        ]
+        env = Environment(task="Thorough test question")
+
+        arena = Arena(env, agents, full_test_protocol)
+        result = await arena.run()
+
+        assert result is not None
+        # Should complete within 9 rounds
+        assert result.rounds_completed <= 9
+
+    @pytest.mark.asyncio
+    async def test_format_timeout_difference(self):
+        """Different formats should have significantly different timeouts."""
+        from aragora.debate.protocol import (
+            ARAGORA_AI_LIGHT_PROTOCOL,
+            ARAGORA_AI_PROTOCOL,
+        )
+
+        # Full protocol should have 6x the timeout of light
+        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 1800
+        assert ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds == 300
+        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 6 * ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds

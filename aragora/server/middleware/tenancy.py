@@ -124,12 +124,16 @@ class WorkspaceManager:
         """Create a default personal workspace for a user."""
         import uuid
 
+        # Map plan limits to Workspace fields (PLAN_LIMITS uses different key names)
+        limits = get_plan_limits(user.plan)
         workspace = Workspace(
             id=str(uuid.uuid4()),
             name=f"{user.email}'s Workspace",
             owner_id=user.id,
             plan=user.plan,
-            **get_plan_limits(user.plan),
+            max_debates=limits.get("max_debates_per_month", 50),
+            max_agents=limits.get("max_agents", 2),
+            max_members=limits.get("max_members", 1),
         )
 
         if self._storage:
@@ -324,8 +328,7 @@ def tenant_scoped(func: Callable) -> Callable:
     """
     Decorator that ensures database queries are scoped to workspace.
 
-    Adds workspace_id to the function's first positional argument
-    (typically the query).
+    Validates workspace_id is provided and passes it to the wrapped function.
 
     Usage:
         @tenant_scoped
@@ -338,9 +341,7 @@ def tenant_scoped(func: Callable) -> Callable:
         if not workspace_id:
             raise ValueError("workspace_id is required for tenant-scoped queries")
 
-        # Add workspace_id to kwargs if not already present
-        kwargs["workspace_id"] = workspace_id
-
+        # Pass workspace_id as first positional argument only (not duplicated in kwargs)
         result = func(workspace_id, *args, **kwargs)
         if hasattr(result, "__await__"):
             result = await result
