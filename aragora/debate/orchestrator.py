@@ -22,6 +22,7 @@ from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.autonomic_executor import AutonomicExecutor
 from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
+from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
@@ -33,6 +34,8 @@ from aragora.debate.convergence import (
     cleanup_embedding_cache,
 )
 from aragora.debate.event_bridge import EventEmitterBridge
+from aragora.debate.event_emission import EventEmitter
+from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
 from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
@@ -54,7 +57,6 @@ from aragora.observability.logging import get_logger as get_structured_logger
 from aragora.observability.tracing import add_span_attributes, get_tracer
 from aragora.server.metrics import (
     ACTIVE_DEBATES,
-    track_circuit_breaker_state,
     track_debate_outcome,
 )
 from aragora.spectate.stream import SpectatorStream
@@ -66,7 +68,7 @@ try:
 
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver = None  # type: ignore[misc, assignment]
+    PromptEvolver = None  # type: ignore[assignment]
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -213,45 +215,8 @@ class Arena:
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
-        Args:
-            environment: Task definition including topic and constraints
-            agents: List of Agent instances to participate in debate
-            protocol: Debate rules (rounds, consensus type, critique format)
-
-        Optional subsystems (all default to None):
-            memory: CritiqueStore for persisting critiques
-            event_hooks: Dict of callbacks for debate events
-            event_emitter: EventEmitter for user event subscriptions
-            spectator: SpectatorStream for real-time event broadcasting
-            debate_embeddings: Historical debate vector database
-            insight_store: InsightStore for extracting debate learnings
-            recorder: ReplayRecorder for debate playback
-            agent_weights: Reliability scores from capability probing
-            position_tracker/position_ledger: Truth-grounded position tracking
-            elo_system: ELO skill ratings for agents
-            persona_manager: Agent specialization management
-            dissent_retriever: Historical minority opinion retrieval
-            flip_detector: Position reversal detection
-            calibration_tracker: Prediction accuracy tracking
-            continuum_memory: Cross-debate learning memory
-            relationship_tracker: Agent interaction tracking
-            moment_detector: Significant moment detection
-            loop_id: ID for multi-loop scoping
-            circuit_breaker: Failure handling for agent errors
-            initial_messages: Pre-existing conversation (for forked debates)
-            trending_topic: Topic context from trending analysis
-            evidence_collector: Automatic evidence gathering
-            breakpoint_manager: Human-in-the-loop breakpoint handling
-            consensus_memory: Historical debate outcomes storage
-
-        Initialization flow:
-            1. _init_core() - Core config, protocol, agents, event system
-            2. _init_trackers() - All tracking subsystems
-            3. _init_user_participation() - Vote/suggestion handling
-            4. _init_roles_and_stances() - Agent role assignment
-            5. _init_convergence() - Semantic similarity detection
-            6. _init_caches() - Cache initialization
-            7. _init_phases() - Phase manager setup
+        See inline parameter comments for subsystem descriptions.
+        Initialization delegates to _init_core(), _init_trackers(), etc.
         """
         # Initialize core configuration
         self._init_core(
@@ -326,6 +291,11 @@ class Arena:
         self._init_convergence()
         self._init_caches()
 
+        # Initialize extracted helper classes for lifecycle, events, and checkpoints
+        self._init_lifecycle_manager()
+        self._init_event_emitter()
+        self._init_checkpoint_ops()
+
         # Initialize grounded operations helper (uses position_ledger, elo_system)
         self._init_grounded_operations()
 
@@ -349,28 +319,7 @@ class Arena:
         protocol: DebateProtocol = None,
         config: ArenaConfig = None,
     ) -> "Arena":
-        """Create an Arena from an ArenaConfig.
-
-        This factory method provides a cleaner way to create Arena instances
-        when using dependency injection or configuration objects.
-
-        Args:
-            environment: The debate environment with task description
-            agents: List of agents participating in the debate
-            protocol: Optional debate protocol (defaults to DebateProtocol())
-            config: Optional ArenaConfig with dependencies and settings
-
-        Returns:
-            Configured Arena instance
-
-        Example:
-            config = ArenaConfig(
-                loop_id="debate-123",
-                elo_system=elo,
-                memory=critique_store,
-            )
-            arena = Arena.from_config(env, agents, protocol, config)
-        """
+        """Create an Arena from an ArenaConfig for cleaner dependency injection."""
         config = config or ArenaConfig()
         return cls(
             environment=environment,
@@ -553,34 +502,9 @@ class Arena:
         # Connect immune system to event bridge for WebSocket broadcasting
         self.immune_system.set_broadcast_callback(self._broadcast_health_event)
 
-    def _extract_health_event_data(self, event: dict) -> dict:
-        """Extract and filter health event data for broadcasting.
-
-        Removes event_type and debate_id keys to avoid duplicate kwargs.
-        """
-        data = event.get("data", event)
-        if isinstance(data, dict):
-            return {k: v for k, v in data.items() if k not in ("event_type", "debate_id")}
-        return data if isinstance(data, dict) else {}
-
-    def _emit_health_event(self, data: dict) -> None:
-        """Emit health event via EventBus or fallback to event_bridge."""
-        if self.event_bus:
-            self.event_bus.emit_sync(
-                event_type="health_event",
-                debate_id=getattr(self, "_current_debate_id", ""),
-                **data,
-            )
-        else:
-            self.event_bridge.notify(event_type="health_event", **data)
-
     def _broadcast_health_event(self, event: dict) -> None:
-        """Broadcast health events to WebSocket clients via EventBus."""
-        try:
-            data = self._extract_health_event_data(event)
-            self._emit_health_event(data)
-        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
-            logger.debug(f"health_broadcast_failed error={e}")
+        """Broadcast health events. Delegates to EventEmitter."""
+        self._event_emitter.broadcast_health_event(event)
 
     def _init_trackers(
         self,
@@ -777,12 +701,7 @@ class Arena:
         self.roles_manager.apply_agreement_intensity()
 
     def _init_convergence(self, debate_id: Optional[str] = None) -> None:
-        """Initialize convergence detection if enabled.
-
-        Args:
-            debate_id: Debate ID for scoped caching (prevents cross-debate contamination).
-                       If not provided, will be set later via _reinit_convergence_for_debate.
-        """
+        """Initialize convergence detection if enabled."""
         self.convergence_detector = None
         self._convergence_debate_id = debate_id
         if self.protocol.convergence_detection:
@@ -792,22 +711,12 @@ class Arena:
                 min_rounds_before_check=1,
                 debate_id=debate_id,
             )
-
-        # Track responses for convergence detection
         self._previous_round_responses: dict[str, str] = {}
 
     def _reinit_convergence_for_debate(self, debate_id: str) -> None:
-        """Reinitialize convergence detector with debate-specific cache.
-
-        Called at the start of run() to ensure embedding cache is isolated
-        per debate, preventing cross-debate topic contamination.
-
-        Args:
-            debate_id: Unique ID for this debate run
-        """
+        """Reinitialize convergence detector with debate-specific cache."""
         if self._convergence_debate_id == debate_id:
-            return  # Already initialized for this debate
-
+            return
         self._convergence_debate_id = debate_id
         if self.protocol.convergence_detection:
             self.convergence_detector = ConvergenceDetector(
@@ -819,10 +728,7 @@ class Arena:
             logger.debug(f"Reinitialized convergence detector for debate {debate_id}")
 
     def _cleanup_convergence_cache(self) -> None:
-        """Cleanup embedding cache for the current debate.
-
-        Called at the end of run() to free memory and prevent leaks.
-        """
+        """Cleanup embedding cache for the current debate."""
         if self._convergence_debate_id:
             cleanup_embedding_cache(self._convergence_debate_id)
             logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
@@ -833,6 +739,31 @@ class Arena:
         Uses DebateStateCache to centralize all per-debate cached values.
         """
         self._cache = DebateStateCache()
+
+    def _init_lifecycle_manager(self) -> None:
+        """Initialize LifecycleManager for cleanup and task cancellation."""
+        self._lifecycle = LifecycleManager(
+            cache=self._cache,
+            circuit_breaker=self.circuit_breaker,
+            checkpoint_manager=self.checkpoint_manager,
+        )
+
+    def _init_event_emitter(self) -> None:
+        """Initialize EventEmitter for spectator/websocket events."""
+        self._event_emitter = EventEmitter(
+            event_bus=self.event_bus,
+            event_bridge=self.event_bridge,
+            hooks=self.hooks,
+            persona_manager=self.persona_manager,
+        )
+
+    def _init_checkpoint_ops(self) -> None:
+        """Initialize CheckpointOperations for checkpoint and memory operations."""
+        self._checkpoint_ops = CheckpointOperations(
+            checkpoint_manager=self.checkpoint_manager,
+            memory_manager=None,  # Set after _init_phases when memory_manager exists
+            cache=self._cache,
+        )
 
     def _init_grounded_operations(self) -> None:
         """Initialize GroundedOperations helper for verdict and relationship management."""
@@ -878,6 +809,10 @@ class Arena:
         if hasattr(self, "_grounded_ops") and self._grounded_ops:
             self._grounded_ops.evidence_grounder = self.evidence_grounder
 
+        # Set memory_manager on _checkpoint_ops now that it exists
+        if hasattr(self, "_checkpoint_ops") and self._checkpoint_ops:
+            self._checkpoint_ops.memory_manager = self.memory_manager
+
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""
 
@@ -897,24 +832,13 @@ class Arena:
         )
 
     def _require_agents(self) -> list[Agent]:
-        """Return agents list, raising error if empty.
-
-        Use this helper before accessing self.agents[0], self.agents[-1],
-        or random.choice(self.agents) to prevent IndexError on empty lists.
-        """
+        """Return agents list, raising error if empty."""
         if not self.agents:
             raise ValueError("No agents available - Arena requires at least one agent")
         return self.agents
 
     def _sync_prompt_builder_state(self) -> None:
-        """Sync Arena state to PromptBuilder before building prompts.
-
-        This ensures PromptBuilder has access to dynamic state computed by Arena:
-        - Role assignments (updated per round)
-        - Historical context cache (computed once per debate)
-        - Continuum memory context (computed once per debate)
-        - User suggestions (accumulated from audience)
-        """
+        """Sync Arena state to PromptBuilder before building prompts."""
         self.prompt_builder.current_role_assignments = self.current_role_assignments
         self.prompt_builder._historical_context_cache = self._cache.historical_context
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
@@ -925,27 +849,19 @@ class Arena:
         return self._context_delegator.get_continuum_context()
 
     def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
-        """Store debate outcome in ContinuumMemory for future retrieval."""
-        # Extract belief cruxes from result if set by AnalyticsPhase
+        """Store debate outcome. Delegates to CheckpointOperations."""
         belief_cruxes = getattr(result, "belief_cruxes", None)
         if belief_cruxes:
             belief_cruxes = [str(c) for c in belief_cruxes[:10]]
-        self.memory_manager.store_debate_outcome(result, self.env.task, belief_cruxes=belief_cruxes)
+        self._checkpoint_ops.store_debate_outcome(result, self.env.task, belief_cruxes=belief_cruxes)
 
     def _store_evidence_in_memory(self, evidence_snippets: list, task: str) -> None:
-        """Store collected evidence snippets in ContinuumMemory for future retrieval."""
-        self.memory_manager.store_evidence(evidence_snippets, task)
+        """Store evidence. Delegates to CheckpointOperations."""
+        self._checkpoint_ops.store_evidence(evidence_snippets, task)
 
     def _update_continuum_memory_outcomes(self, result: "DebateResult") -> None:
-        """Update retrieved memories based on debate outcome."""
-        # Sync tracked IDs and tier info to memory manager
-        self.memory_manager.track_retrieved_ids(
-            self._cache.continuum_retrieved_ids,
-            tiers=self._cache.continuum_retrieved_tiers,
-        )
-        self.memory_manager.update_memory_outcomes(result)
-        # Clear local tracking
-        self._cache.clear_continuum_tracking()
+        """Update memory outcomes. Delegates to CheckpointOperations."""
+        self._checkpoint_ops.update_memory_outcomes(result)
 
     def _has_high_priority_needs(self, needs: list[dict]) -> list[dict]:
         """Filter citation needs to high-priority items only."""
@@ -995,50 +911,25 @@ class Arena:
         return domain
 
     def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
-        """Select debate team using performance metrics if enabled.
-
-        Delegates to AgentPool for scoring based on ELO, calibration,
-        and circuit breaker filtering.
-
-        Args:
-            requested_agents: Original list of agents requested for the debate
-
-        Returns:
-            Sorted list of agents, prioritized by performance if enabled,
-            otherwise the original list unchanged.
-        """
+        """Select debate team. Delegates to AgentPool if performance selection enabled."""
         if not self.use_performance_selection:
             return requested_agents
-
-        # Delegate to AgentPool for centralized team selection
-        domain = self._extract_debate_domain()
         return self.agent_pool.select_team(
-            domain=domain,
-            team_size=len(requested_agents),
+            domain=self._extract_debate_domain(), team_size=len(requested_agents),
         )
 
     def _get_calibration_weight(self, agent_name: str) -> float:
-        """Get agent weight based on calibration score (0.5-1.5 range).
-
-        Delegates to AgentPool for centralized scoring.
-        """
+        """Get calibration weight. Delegates to AgentPool."""
         return self.agent_pool._get_calibration_weight(agent_name)
 
     def _compute_composite_judge_score(self, agent_name: str) -> float:
-        """Compute composite judge score (ELO + calibration).
-
-        Delegates to AgentPool for centralized scoring.
-        """
-        domain = self._extract_debate_domain()
-        return self.agent_pool._compute_composite_score(agent_name, domain)
+        """Compute composite judge score. Delegates to AgentPool."""
+        return self.agent_pool._compute_composite_score(agent_name, self._extract_debate_domain())
 
     def _select_critics_for_proposal(
         self, proposal_agent: str, all_critics: list[Agent]
     ) -> list[Agent]:
-        """Select which critics should critique the given proposal based on topology.
-
-        Delegates to AgentPool for centralized critic selection.
-        """
+        """Select critics for proposal. Delegates to AgentPool."""
         # Find the proposer agent object
         proposer = None
         for agent in all_critics:
@@ -1055,132 +946,47 @@ class Arena:
         )
 
     def _handle_user_event(self, event) -> None:
-        """Handle incoming user participation events (thread-safe).
-
-        Delegates to AudienceManager for thread-safe event queuing.
-        """
+        """Handle user participation events. Delegates to AudienceManager."""
         self.audience_manager.handle_event(event)
 
     def _drain_user_events(self) -> None:
-        """Drain pending user events from queue into working lists.
-
-        Delegates to AudienceManager for the 'digest' phase of the
-        Stadium Mailbox pattern.
-        """
+        """Drain pending user events. Delegates to AudienceManager."""
         self.audience_manager.drain_events()
 
     def _notify_spectator(self, event_type: str, **kwargs) -> None:
-        """Delegate to EventBus for spectator/websocket emission."""
-        if self.event_bus:
-            debate_id = kwargs.pop("debate_id", getattr(self, "_current_debate_id", ""))
-            self.event_bus.emit_sync(event_type, debate_id=debate_id, **kwargs)
-        else:
-            # Fallback to event_bridge if event_bus not initialized yet
-            self.event_bridge.notify(event_type, **kwargs)
+        """Notify spectator. Delegates to EventEmitter."""
+        self._event_emitter.notify_spectator(event_type, **kwargs)
 
     def _emit_moment_event(self, moment) -> None:
-        """Delegate to EventBus for moment emission."""
-        if self.event_bus and hasattr(moment, "to_dict"):
-            # Use EventBus for unified event handling with tracing
-            moment_data = moment.to_dict()
-            self.event_bus.emit_sync(
-                event_type="moment",
-                debate_id=getattr(self, "_current_debate_id", ""),
-                moment_type=getattr(moment, "moment_type", "unknown"),
-                agent=getattr(moment, "agent_name", None),
-                **moment_data,
-            )
-        else:
-            # Fallback to event_bridge for backward compatibility
-            self.event_bridge.emit_moment(moment)
-
-    def _should_emit_preview(self) -> bool:
-        """Check if agent preview hook is registered."""
-        return "on_agent_preview" in self.hooks
-
-    def _get_agent_role(self, agent: Agent) -> str:
-        """Get the role string for an agent from current assignments."""
-        role_data = self.current_role_assignments.get(agent.name, {})
-        return str(role_data.get("role", "proposer"))
-
-    def _get_agent_stance(self, agent: Agent) -> str:
-        """Get the stance string for an agent from current assignments."""
-        role_data = self.current_role_assignments.get(agent.name, {})
-        return role_data.get("stance", "neutral")
-
-    def _get_agent_description(self, agent: Agent) -> str:
-        """Get the persona description for an agent."""
-        if not self.persona_manager:
-            return ""
-        persona = self.persona_manager.get_persona(agent.name)
-        return getattr(persona, "brief_description", "")
-
-    def _build_agent_preview(self, agent: Agent) -> dict:
-        """Build preview data for a single agent."""
-        return {
-            "name": agent.name,
-            "role": self._get_agent_role(agent),
-            "stance": self._get_agent_stance(agent),
-            "description": self._get_agent_description(agent),
-            "strengths": [],
-        }
+        """Emit moment event. Delegates to EventEmitter."""
+        self._event_emitter.emit_moment(moment)
 
     def _emit_agent_preview(self) -> None:
-        """Emit agent preview for quick UI feedback.
-
-        Shows agent roles and stances while proposals are being generated.
-        """
-        if not self._should_emit_preview():
-            return
-        try:
-            previews = [self._build_agent_preview(a) for a in self.agents]
-            self.hooks["on_agent_preview"](previews)
-        except Exception as e:
-            logger.debug(f"Agent preview emission failed: {e}")
+        """Emit agent preview. Delegates to EventEmitter."""
+        self._event_emitter.emit_agent_preview(self.agents, self.current_role_assignments)
 
     def _record_grounded_position(
-        self,
-        agent_name: str,
-        content: str,
-        debate_id: str,
-        round_num: int,
-        confidence: float = 0.7,
-        domain: Optional[str] = None,
+        self, agent_name: str, content: str, debate_id: str,
+        round_num: int, confidence: float = 0.7, domain: Optional[str] = None,
     ):
-        """Record a position to the grounded persona ledger.
-
-        Delegates to GroundedOperations.record_position().
-        """
+        """Record position. Delegates to GroundedOperations."""
         self._grounded_ops.record_position(
-            agent_name=agent_name,
-            content=content,
-            debate_id=debate_id,
-            round_num=round_num,
-            confidence=confidence,
-            domain=domain,
+            agent_name=agent_name, content=content, debate_id=debate_id,
+            round_num=round_num, confidence=confidence, domain=domain,
         )
 
     def _update_agent_relationships(
         self, debate_id: str, participants: list[str], winner: Optional[str], votes: list
     ):
-        """Update agent relationships after debate completion.
-
-        Delegates to GroundedOperations.update_relationships().
-        """
+        """Update relationships. Delegates to GroundedOperations."""
         self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
 
     def _create_grounded_verdict(self, result: "DebateResult") -> Any:
-        """Create a GroundedVerdict for the final answer.
-
-        Delegates to GroundedOperations.create_grounded_verdict().
-        """
+        """Create verdict. Delegates to GroundedOperations."""
         return self._grounded_ops.create_grounded_verdict(result)
 
     async def _verify_claims_formally(self, result: "DebateResult") -> None:
-        """Verify decidable claims using Z3 SMT solver.
-
-        Delegates to GroundedOperations.verify_claims_formally().
-        """
+        """Verify claims with Z3. Delegates to GroundedOperations."""
         await self._grounded_ops.verify_claims_formally(result)
 
     async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
@@ -1224,12 +1030,8 @@ class Arena:
         )
 
     def _format_conclusion(self, result: "DebateResult") -> str:
-        """Format a clear, readable debate conclusion with full context.
-
-        Delegates to ResultFormatter for the actual formatting.
-        """
-        formatter = ResultFormatter()
-        return formatter.format_conclusion(result)
+        """Format debate conclusion. Delegates to ResultFormatter."""
+        return ResultFormatter().format_conclusion(result)
 
     def _assign_roles(self) -> None:
         """Assign roles to agents based on protocol. Delegates to RolesManager."""
@@ -1248,37 +1050,10 @@ class Arena:
         return self.roles_manager.get_stance_guidance(agent)
 
     async def _create_checkpoint(self, ctx, round_num: int) -> None:
-        """Create a checkpoint after a debate round.
-
-        Called by DebateRoundsPhase after each round completes.
-        Only checkpoints if should_checkpoint returns True.
-
-        Args:
-            ctx: DebateContext with current debate state
-            round_num: The round number that just completed
-        """
-        if not self.checkpoint_manager:
-            return
-
-        if not self.checkpoint_manager.should_checkpoint(ctx.debate_id, round_num):
-            return
-
-        try:
-            await self.checkpoint_manager.create_checkpoint(
-                debate_id=ctx.debate_id,
-                task=self.env.task,
-                current_round=round_num,
-                total_rounds=self.protocol.rounds,
-                phase="revision",
-                messages=ctx.result.messages,
-                critiques=ctx.result.critiques,
-                votes=ctx.result.votes,
-                agents=self.agents,
-                current_consensus=getattr(ctx.result, "final_answer", None),
-            )
-            logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
-        except (IOError, OSError, TypeError, ValueError, RuntimeError) as e:
-            logger.warning(f"[checkpoint] Failed to create checkpoint: {e}")
+        """Create checkpoint. Delegates to CheckpointOperations."""
+        await self._checkpoint_ops.create_checkpoint(
+            ctx, round_num, self.env, self.agents, self.protocol
+        )
 
     # =========================================================================
     # Async Context Manager Protocol
@@ -1306,67 +1081,17 @@ class Arena:
         """
         await self._cleanup()
 
-    def _is_arena_task(self, task: asyncio.Task) -> bool:
-        """Check if an asyncio task is arena-related and should be cancelled."""
-        task_name = task.get_name() if hasattr(task, "get_name") else ""
-        return bool(task_name and task_name.startswith(("arena_", "debate_")))
-
-    async def _cancel_arena_task(self, task: asyncio.Task) -> None:
-        """Cancel and await a single arena-related task with timeout."""
-        task.cancel()
-        try:
-            await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            pass
-
-    async def _cancel_arena_tasks(self) -> None:
-        """Cancel all pending arena-related asyncio tasks."""
-        try:
-            for task in asyncio.all_tasks():
-                if self._is_arena_task(task):
-                    await self._cancel_arena_task(task)
-        except Exception as e:
-            logger.debug(f"Error cancelling tasks during cleanup: {e}")
-
-    async def _close_checkpoint_manager(self) -> None:
-        """Close the checkpoint manager if it exists and has a close method."""
-        if not self.checkpoint_manager or not hasattr(self.checkpoint_manager, "close"):
-            return
-        try:
-            close_result = self.checkpoint_manager.close()
-            if asyncio.iscoroutine(close_result):
-                await close_result
-        except Exception as e:
-            logger.debug(f"Error closing checkpoint manager: {e}")
-
-    def _count_open_circuit_breakers(self) -> int:
-        """Count the number of open circuit breakers across all agents."""
-        if not self.circuit_breaker:
-            return 0
-        agent_states = getattr(self.circuit_breaker, "_agent_states", {})
-        return sum(1 for state in agent_states.values() if getattr(state, "is_open", False))
-
     def _track_circuit_breaker_metrics(self) -> None:
-        """Track circuit breaker state in metrics if circuit breaker is enabled."""
-        if self.circuit_breaker:
-            track_circuit_breaker_state(self._count_open_circuit_breakers())
+        """Track circuit breaker state in metrics. Delegates to LifecycleManager."""
+        self._lifecycle.track_circuit_breaker_metrics()
 
     def _log_phase_failures(self, execution_result) -> None:
-        """Log any failed phases from the execution result."""
-        if execution_result.success:
-            return
-        error_phases = [p.phase_name for p in execution_result.phases if p.status.value == "failed"]
-        if error_phases:
-            logger.warning(f"Phase failures: {error_phases}")
+        """Log any failed phases. Delegates to LifecycleManager."""
+        self._lifecycle.log_phase_failures(execution_result)
 
     async def _cleanup(self) -> None:
-        """Internal cleanup implementation.
-
-        Can be called directly if not using context manager.
-        """
-        await self._cancel_arena_tasks()
-        self._cache.clear()
-        await self._close_checkpoint_manager()
+        """Internal cleanup. Delegates to LifecycleManager."""
+        await self._lifecycle.cleanup()
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.
