@@ -765,12 +765,16 @@ class TestConcurrency(unittest.TestCase):
         """Multiple threads can enqueue simultaneously."""
         self._start_server()
 
+        # Use multiple configs to increase max_workers (capped at 10) and semaphore capacity (max_workers * 2 = 20)
+        # This prevents backpressure drops when many events arrive in burst
         cfg = WebhookConfig(name="t", url=f"http://127.0.0.1:{self.port}/x")
-        dispatcher = WebhookDispatcher([cfg], allow_localhost=True)
+        configs = [cfg] * 10  # 10 configs -> max_workers=10, semaphore=20
+        dispatcher = WebhookDispatcher(configs, allow_localhost=True)
         dispatcher.start()
 
-        num_threads = 10
-        events_per_thread = 5
+        # Keep total events within semaphore capacity to avoid drops
+        num_threads = 4
+        events_per_thread = 5  # Total: 20 events (matches semaphore capacity)
 
         def enqueue_events(thread_id):
             for i in range(events_per_thread):

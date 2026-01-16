@@ -138,6 +138,7 @@ class TestWriteThroughput:
             await tier.set(f"key-{i}", f"value-{i}")
 
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
         writes_per_second = num_writes / elapsed
 
         assert tier.size() == num_writes
@@ -156,6 +157,7 @@ class TestWriteThroughput:
         start = time.time()
         await asyncio.gather(*[write(i) for i in range(num_writes)])
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
 
         writes_per_second = num_writes / elapsed
 
@@ -210,6 +212,7 @@ class TestReadThroughput:
             await tier.get(f"key-{i % 1000}")
 
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
         reads_per_second = num_reads / elapsed
 
         assert reads_per_second > 5000
@@ -230,6 +233,7 @@ class TestReadThroughput:
         start = time.time()
         results = await asyncio.gather(*[read(i) for i in range(num_reads)])
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
 
         reads_per_second = num_reads / elapsed
 
@@ -293,6 +297,7 @@ class TestMixedOperations:
         start = time.time()
         await asyncio.gather(*[operation(i) for i in range(num_ops)])
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
 
         ops_per_second = num_ops / elapsed
 
@@ -315,6 +320,7 @@ class TestMixedOperations:
         start = time.time()
         await asyncio.gather(*[operation(i) for i in range(num_ops)])
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
 
         ops_per_second = num_ops / elapsed
 
@@ -345,6 +351,7 @@ class TestMultiTierPerformance:
             await memory.get(f"key-{i}")
 
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
         reads_per_second = 100 / elapsed
 
         # Reading from slow tier is slower due to tier checks
@@ -401,6 +408,7 @@ class TestEvictionPerformance:
             await tier.set(f"key-{i}", f"value-{i}")
 
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
         writes_per_second = num_writes / elapsed
 
         # Should maintain max capacity
@@ -525,6 +533,7 @@ class TestMemoryStress:
             total_ops += ops_per_batch
 
         elapsed = time.time() - start
+        elapsed = max(elapsed, 0.001)  # Prevent division by zero on fast systems
         ops_per_second = total_ops / elapsed
 
         assert ops_per_second > 500
