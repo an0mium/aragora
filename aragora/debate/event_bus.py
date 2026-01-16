@@ -412,7 +412,7 @@ class EventBus:
         Returns:
             List of processed events
         """
-        events = []
+        events: List[Dict[str, Any]] = []
         acquired = self._user_event_lock.acquire(timeout=self.LOCK_TIMEOUT)
         if not acquired:
             logger.warning("[event_bus] Lock timeout in drain_user_events, returning empty")
