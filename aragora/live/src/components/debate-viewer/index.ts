@@ -7,6 +7,7 @@ export { ConsensusMeter } from './ConsensusMeter';
 export { CritiqueSeverityMeter } from './CritiqueSeverityMeter';
 export { RhetoricalObservationsPanel } from './RhetoricalObservationsPanel';
 export { AudioDownloadSection } from './AudioDownloadSection';
+export { InlineDownloadPanel } from './InlineDownloadPanel';
 
 export type {
   DebateViewerProps,

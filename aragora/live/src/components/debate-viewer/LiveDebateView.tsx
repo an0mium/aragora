@@ -16,6 +16,7 @@ import { MoodTrackerPanel } from '@/components/MoodTrackerPanel';
 import { TokenStreamViewer } from '@/components/TokenStreamViewer';
 import { DebateInitializationProgress } from './DebateInitializationProgress';
 import { AudioDownloadSection } from './AudioDownloadSection';
+import { InlineDownloadPanel } from './InlineDownloadPanel';
 import { PhaseIndicator } from './PhaseIndicator';
 import { API_BASE_URL } from '@/config';
 import type { LiveDebateViewProps } from './types';
@@ -218,6 +219,10 @@ export function LiveDebateView({
                 message={streamMsg}
               />
             ))}
+            {/* Download panel - appears at bottom of transcript when debate is complete */}
+            {status === 'complete' && (
+              <InlineDownloadPanel debateId={debateId} />
+            )}
           </div>
         </div>
 
