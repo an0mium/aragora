@@ -27,7 +27,7 @@ class TestMistralAgentInitialization:
         assert agent.name == "mistral-api"
         assert agent.role == "proposer"
         assert agent.agent_type == "mistral"
-        assert agent.timeout == 120
+        assert agent.timeout == 180  # Increased default for complex responses
         assert agent.enable_fallback is True
 
     def test_custom_initialization(self):

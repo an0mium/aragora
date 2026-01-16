@@ -370,20 +370,21 @@ class TestMultiTierPerformance:
         for i in range(100):
             await memory.set(f"cold-{i}", f"value-{i}", tier="glacial")
 
-        # Read hot data (fast tier)
-        hot_start = time.time()
+        # Read hot data (fast tier) - use perf_counter for higher resolution
+        hot_start = time.perf_counter()
         for i in range(100):
             await memory.get(f"hot-{i}")
-        hot_elapsed = time.time() - hot_start
+        hot_elapsed = time.perf_counter() - hot_start
 
         # Read cold data (glacial tier)
-        cold_start = time.time()
+        cold_start = time.perf_counter()
         for i in range(100):
             await memory.get(f"cold-{i}")
-        cold_elapsed = time.time() - cold_start
+        cold_elapsed = time.perf_counter() - cold_start
 
         # Hot data should be faster (found in first tier)
-        assert hot_elapsed < cold_elapsed
+        # On very fast systems, allow equal times (both can be near-zero)
+        assert hot_elapsed <= cold_elapsed
 
 
 # =============================================================================
