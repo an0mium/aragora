@@ -25,7 +25,7 @@ Usage:
 import logging
 import os
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -370,8 +370,8 @@ def monitor_errors(func: F) -> F:
     import asyncio
 
     if asyncio.iscoroutinefunction(func):
-        return async_wrapper  # type: ignore
-    return sync_wrapper  # type: ignore
+        return cast(F, async_wrapper)
+    return cast(F, sync_wrapper)
 
 
 def track_error_recovery(

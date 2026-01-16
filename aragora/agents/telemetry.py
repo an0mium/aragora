@@ -29,7 +29,7 @@ import logging
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Awaitable, Callable, Optional, ParamSpec, TypeVar
+from typing import Any, Awaitable, Callable, Optional, ParamSpec, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -356,8 +356,8 @@ def with_telemetry(
 
         # Check if function is async
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
 
     return decorator
 

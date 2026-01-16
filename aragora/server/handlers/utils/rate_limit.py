@@ -18,7 +18,7 @@ import threading
 import time
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, cast
 
 from aragora.server.middleware.rate_limit import (
     RateLimitResult,
@@ -283,7 +283,7 @@ def rate_limit(
 
             return func(self, handler, *args, **kwargs)
 
-        return wrapper  # type: ignore
+        return cast(F, wrapper)
 
     return decorator
 

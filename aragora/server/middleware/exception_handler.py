@@ -38,7 +38,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Optional, TypeVar
+from typing import Any, AsyncGenerator, Callable, Optional, TypeVar, cast
 
 from aragora.server.error_utils import safe_error_message
 
@@ -440,7 +440,7 @@ def handle_exceptions(
                 error_resp = build_error_response(exc, context, trace_id, default_status)
                 return error_resp.to_dict(), error_resp.status, {"X-Trace-Id": trace_id}
 
-        return wrapper  # type: ignore
+        return cast(F, wrapper)
 
     return decorator
 
@@ -491,7 +491,7 @@ def async_handle_exceptions(
                 error_resp = build_error_response(exc, context, trace_id, default_status)
                 return error_resp.to_dict(), error_resp.status, {"X-Trace-Id": trace_id}
 
-        return wrapper  # type: ignore
+        return cast(F, wrapper)
 
     return decorator
 

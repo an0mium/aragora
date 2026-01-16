@@ -12,7 +12,7 @@ import asyncio
 import functools
 import logging
 import random
-from typing import Any, Callable, Type
+from typing import Any, Callable, Type, cast
 
 import aiohttp
 
@@ -394,7 +394,7 @@ def handle_agent_errors(
                 raise action.error
 
         # Decorator wrapper preserves original function signature at runtime
-        return wrapper  # type: ignore[return-value]
+        return cast(Callable[..., T], wrapper)
 
     return decorator
 
@@ -465,7 +465,7 @@ def with_error_handling(
 
         # Return appropriate wrapper based on function type
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
+            return cast(Callable[..., T], async_wrapper)
         return sync_wrapper
 
     return decorator

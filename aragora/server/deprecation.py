@@ -24,7 +24,7 @@ import logging
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -205,13 +205,13 @@ def deprecated(
 
             return func(*args, **kwargs)
 
-        # Store deprecation info on the wrapper
-        wrapper._deprecated = True  # type: ignore[attr-defined]
-        wrapper._deprecation_info = info  # type: ignore[attr-defined]
-        wrapper._sunset = sunset  # type: ignore[attr-defined]
-        wrapper._replacement = replacement  # type: ignore[attr-defined]
+        # Store deprecation info on the wrapper (dynamic attributes for introspection)
+        wrapper._deprecated = True  # type: ignore[attr-defined]  # Dynamic attribute
+        wrapper._deprecation_info = info  # type: ignore[attr-defined]  # Dynamic attribute
+        wrapper._sunset = sunset  # type: ignore[attr-defined]  # Dynamic attribute
+        wrapper._replacement = replacement  # type: ignore[attr-defined]  # Dynamic attribute
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

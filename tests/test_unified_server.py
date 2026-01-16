@@ -402,10 +402,9 @@ class TestSecurityHeaders:
         mock_handler.send_header = Mock()
         method = handler_class._add_cors_headers.__get__(mock_handler, type(mock_handler))
 
-        with patch("aragora.server.unified_server.cors_config") as mock_cors:
-            mock_cors.allowed_origins = ["https://example.com"]
-            mock_cors.allowed_methods = ["GET", "POST"]
-            mock_cors.allowed_headers = ["Content-Type"]
+        # cors_config is imported inside the method from aragora.server.cors_config
+        with patch("aragora.server.cors_config.cors_config") as mock_cors:
+            mock_cors.is_origin_allowed.return_value = True
             mock_handler.headers = {"Origin": "https://example.com"}
 
             method()
