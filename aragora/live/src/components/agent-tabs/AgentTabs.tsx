@@ -250,7 +250,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
           unifiedTimeline={unifiedTimeline}
           agentData={agentData}
           autoScroll={autoScroll}
-          scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
+          scrollRef={scrollRef}
           onScroll={handleScroll}
           onJumpToLatest={handleJumpToLatest}
         />

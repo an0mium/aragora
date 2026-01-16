@@ -10,7 +10,7 @@ interface AllAgentsTabProps {
   unifiedTimeline: TimelineMessage[];
   agentData: AgentData[];
   autoScroll: boolean;
-  scrollRef: RefObject<HTMLDivElement>;
+  scrollRef: RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   onJumpToLatest: () => void;
 }
