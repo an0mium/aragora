@@ -175,9 +175,7 @@ class TestSettledTopicsEndpoint:
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_db_conn.return_value = mock_conn
 
-        result = consensus_handler.handle(
-            "/api/consensus/settled", {}, mock_http_handler
-        )
+        result = consensus_handler.handle("/api/consensus/settled", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -214,9 +212,7 @@ class TestConsensusStatsEndpoint:
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_db_conn.return_value = mock_conn
 
-        result = consensus_handler.handle(
-            "/api/consensus/stats", {}, mock_http_handler
-        )
+        result = consensus_handler.handle("/api/consensus/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
