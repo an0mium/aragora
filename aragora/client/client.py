@@ -36,12 +36,20 @@ from __future__ import annotations
 
 import json
 import logging
-import random
 import time as time_module
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List, NoReturn, Optional
 from urllib.parse import urljoin
 
+# Import from refactored modules
+from .errors import (
+    AragoraAPIError,
+    AuthenticationError,
+    NotFoundError,
+    QuotaExceededError,
+    RateLimitError,
+    ValidationError,
+)
+from .transport import RateLimiter, RetryConfig
 from .models import (
     AgentProfile,
     ConsensusType,
@@ -80,185 +88,7 @@ from .models import (
 if TYPE_CHECKING:
     import aiohttp
 
-from aragora.exceptions import AragoraError
-
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class RetryConfig:
-    """Configuration for request retry behavior.
-
-    Uses exponential backoff with jitter for resilient API calls.
-
-    Args:
-        max_retries: Maximum number of retry attempts (default: 3)
-        backoff_factor: Base delay multiplier in seconds (default: 0.5)
-        max_backoff: Maximum delay between retries in seconds (default: 30)
-        retry_statuses: HTTP status codes that trigger retry (default: 429, 500, 502, 503, 504)
-        jitter: Add random jitter to backoff (default: True)
-    """
-
-    max_retries: int = 3
-    backoff_factor: float = 0.5
-    max_backoff: float = 30.0
-    retry_statuses: tuple[int, ...] = (429, 500, 502, 503, 504)
-    jitter: bool = True
-
-    def get_delay(self, attempt: int) -> float:
-        """Calculate delay for a retry attempt with exponential backoff."""
-        delay = min(self.backoff_factor * (2**attempt), self.max_backoff)
-        if self.jitter:
-            delay = delay * (0.5 + random.random())
-        return delay
-
-
-class RateLimiter:
-    """Simple token bucket rate limiter for client-side request throttling.
-
-    Implements a sliding window rate limiter that tracks request timestamps
-    and enforces a maximum requests-per-second limit.
-    """
-
-    def __init__(self, rps: float):
-        """Initialize rate limiter.
-
-        Args:
-            rps: Maximum requests per second allowed.
-        """
-        self.rps = rps
-        self.min_interval = 1.0 / rps if rps > 0 else 0
-        self._last_request: float = 0
-        self._lock: Optional[Any] = None
-
-    def wait(self) -> None:
-        """Block until a request is allowed (synchronous)."""
-        if self.rps <= 0:
-            return
-
-        now = time_module.time()
-        elapsed = now - self._last_request
-        if elapsed < self.min_interval:
-            time_module.sleep(self.min_interval - elapsed)
-        self._last_request = time_module.time()
-
-    async def wait_async(self) -> None:
-        """Block until a request is allowed (asynchronous)."""
-        import asyncio
-
-        if self.rps <= 0:
-            return
-
-        now = asyncio.get_event_loop().time()
-        elapsed = now - self._last_request
-        if elapsed < self.min_interval:
-            await asyncio.sleep(self.min_interval - elapsed)
-        self._last_request = asyncio.get_event_loop().time()
-
-
-class AragoraAPIError(AragoraError):
-    """Base exception for API errors in the SDK client.
-
-    Inherits from AragoraError to unify the error hierarchy, allowing
-    all Aragora exceptions to be caught with `except AragoraError`.
-
-    Attributes:
-        message: Human-readable error message
-        code: Machine-readable error code (e.g., "NOT_FOUND", "RATE_LIMITED")
-        status_code: HTTP status code
-        suggestion: Optional suggestion for resolution
-    """
-
-    def __init__(
-        self,
-        message: str,
-        code: str = "UNKNOWN",
-        status_code: int = 500,
-        suggestion: str | None = None,
-    ):
-        self.code = code
-        self.status_code = status_code
-        self.suggestion = suggestion
-        self._base_message = message
-        full_message = message
-        if suggestion:
-            full_message = f"{message}. Suggestion: {suggestion}"
-        self._full_message = full_message
-        # Initialize AragoraError with message
-        super().__init__(full_message, {"code": code, "status_code": status_code})
-
-    def __str__(self) -> str:
-        """Return simple message format for SDK backward compatibility."""
-        return self._full_message
-
-
-class RateLimitError(AragoraAPIError):
-    """Raised when rate limit is exceeded (HTTP 429).
-
-    The server may return Retry-After header indicating when to retry.
-    """
-
-    def __init__(self, message: str = "Rate limit exceeded", retry_after: float | None = None):
-        super().__init__(
-            message,
-            code="RATE_LIMITED",
-            status_code=429,
-            suggestion="Wait before retrying. Consider using RetryConfig with exponential backoff.",
-        )
-        self.retry_after = retry_after
-
-
-class AuthenticationError(AragoraAPIError):
-    """Raised when authentication fails (HTTP 401).
-
-    Usually indicates missing or invalid API token.
-    """
-
-    def __init__(self, message: str = "Authentication failed"):
-        super().__init__(
-            message,
-            code="UNAUTHORIZED",
-            status_code=401,
-            suggestion="Check that ARAGORA_API_TOKEN is set correctly.",
-        )
-
-
-class NotFoundError(AragoraAPIError):
-    """Raised when a resource is not found (HTTP 404)."""
-
-    def __init__(self, message: str = "Resource not found", resource_type: str = "resource"):
-        super().__init__(
-            message,
-            code="NOT_FOUND",
-            status_code=404,
-            suggestion=f"Verify the {resource_type} ID is correct.",
-        )
-        self.resource_type = resource_type
-
-
-class QuotaExceededError(AragoraAPIError):
-    """Raised when usage quota is exceeded (HTTP 402)."""
-
-    def __init__(self, message: str = "Quota exceeded"):
-        super().__init__(
-            message,
-            code="QUOTA_EXCEEDED",
-            status_code=402,
-            suggestion="Upgrade your plan or wait for quota reset.",
-        )
-
-
-class ValidationError(AragoraAPIError):
-    """Raised when request validation fails (HTTP 400)."""
-
-    def __init__(self, message: str = "Validation error", field: str | None = None):
-        super().__init__(
-            message,
-            code="VALIDATION_ERROR",
-            status_code=400,
-            suggestion=f"Check the '{field}' parameter." if field else "Check request parameters.",
-        )
-        self.field = field
 
 
 class DebatesAPI:

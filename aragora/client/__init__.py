@@ -51,24 +51,25 @@ Gauntlet Usage:
 
 from .client import (
     AgentsAPI,
-    AragoraAPIError,
     AragoraClient,
-    AuthenticationError,
     DebatesAPI,
     GauntletAPI,
     GraphDebatesAPI,
     LeaderboardAPI,
     MatrixDebatesAPI,
     MemoryAPI,
-    NotFoundError,
-    QuotaExceededError,
-    RateLimiter,
-    RateLimitError,
     ReplayAPI,
-    RetryConfig,
-    ValidationError,
     VerificationAPI,
 )
+from .errors import (
+    AragoraAPIError,
+    AuthenticationError,
+    NotFoundError,
+    QuotaExceededError,
+    RateLimitError,
+    ValidationError,
+)
+from .transport import RateLimiter, RetryConfig
 from .models import (
     AgentMessage,
     # Agent models
