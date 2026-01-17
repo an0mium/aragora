@@ -317,6 +317,20 @@ export default function AuditSessionDetail() {
     );
   }
 
+  // If no session ID provided (direct access to /audit), show error
+  if (!sessionId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-muted font-mono mb-4">No session ID provided</div>
+          <Link href="/audit" className="btn btn-primary">
+            Go to Audit Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (error && !session) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
