@@ -93,6 +93,23 @@ from aragora.observability.siem import (
     emit_privacy_event,
     shutdown_siem,
 )
+from aragora.observability.immutable_log import (
+    ImmutableAuditLog,
+    AuditEntry,
+    AuditBackend,
+    DailyAnchor,
+    VerificationResult,
+    LocalFileBackend,
+    S3ObjectLockBackend,
+    get_audit_log,
+    init_audit_log,
+    audit_finding_created,
+    audit_finding_updated,
+    audit_document_uploaded,
+    audit_document_accessed,
+    audit_session_started,
+    audit_data_exported,
+)
 
 __all__ = [
     # Logging
@@ -151,4 +168,20 @@ __all__ = [
     "emit_data_access_event",
     "emit_privacy_event",
     "shutdown_siem",
+    # Immutable Audit Log
+    "ImmutableAuditLog",
+    "AuditEntry",
+    "AuditBackend",
+    "DailyAnchor",
+    "VerificationResult",
+    "LocalFileBackend",
+    "S3ObjectLockBackend",
+    "get_audit_log",
+    "init_audit_log",
+    "audit_finding_created",
+    "audit_finding_updated",
+    "audit_document_uploaded",
+    "audit_document_accessed",
+    "audit_session_started",
+    "audit_data_exported",
 ]

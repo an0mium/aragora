@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -48,6 +48,15 @@ if TYPE_CHECKING:
     from aragora.memory.tier_analytics import TierAnalyticsTracker
     from aragora.ranking.elo import EloSystem
     from aragora.relationships.tracker import RelationshipTracker
+
+
+@runtime_checkable
+class Resettable(Protocol):
+    """Protocol for objects that can be reset."""
+
+    def reset(self) -> None:
+        """Reset internal state."""
+        ...
 
 logger = logging.getLogger(__name__)
 
@@ -265,10 +274,10 @@ class SubsystemCoordinator:
         Args:
             ctx: The debate context being initialized
         """
-        # Reset moment detector for new debate
-        if self.moment_detector:
+        # Reset moment detector for new debate if it supports reset
+        if self.moment_detector and isinstance(self.moment_detector, Resettable):
             try:
-                self.moment_detector.reset()  # type: ignore[attr-defined]
+                self.moment_detector.reset()
             except Exception as e:
                 logger.debug("MomentDetector reset failed: %s", e)
 
@@ -289,11 +298,12 @@ class SubsystemCoordinator:
         if self.position_ledger:
             for agent_name, position in positions.items():
                 try:
-                    self.position_ledger.record_position(  # type: ignore[call-arg]
+                    self.position_ledger.record_position(
                         agent_name=agent_name,
+                        claim=position,
+                        confidence=0.5,  # Default confidence when not specified
                         debate_id=ctx.debate_id,
                         round_num=round_num,
-                        position=position,
                     )
                 except Exception as e:
                     logger.debug("Position recording failed: %s", e)
@@ -314,13 +324,35 @@ class SubsystemCoordinator:
         # Update consensus memory
         if self.consensus_memory and result:
             try:
-                self.consensus_memory.store_outcome(  # type: ignore[attr-defined, call-arg]
-                    debate_id=ctx.debate_id,
-                    question=ctx.task,  # type: ignore[attr-defined]
-                    consensus=getattr(result, "consensus", None),
-                    confidence=getattr(result, "consensus_confidence", 0.0),
-                    votes=getattr(result, "votes", []),
-                    dissenting_views=getattr(result, "dissenting_views", []),
+                # Get task from environment
+                task = ctx.env.task if ctx.env else ""
+                consensus_text = getattr(result, "consensus", "") or ""
+                confidence = getattr(result, "consensus_confidence", 0.0)
+                participants = [a.name for a in ctx.agents] if ctx.agents else []
+
+                # Import ConsensusStrength for the call
+                from aragora.memory.consensus import ConsensusStrength
+
+                # Determine strength based on confidence
+                if confidence >= 0.9:
+                    strength = ConsensusStrength.UNANIMOUS
+                elif confidence >= 0.8:
+                    strength = ConsensusStrength.STRONG
+                elif confidence >= 0.6:
+                    strength = ConsensusStrength.MODERATE
+                elif confidence >= 0.5:
+                    strength = ConsensusStrength.WEAK
+                else:
+                    strength = ConsensusStrength.SPLIT
+
+                self.consensus_memory.store_consensus(
+                    topic=task,
+                    conclusion=consensus_text,
+                    strength=strength,
+                    confidence=confidence,
+                    participating_agents=participants,
+                    agreeing_agents=participants,  # Simplified: assume all agree at consensus
+                    metadata={"debate_id": ctx.debate_id},
                 )
             except Exception as e:
                 logger.warning("Consensus memory update failed: %s", e)
@@ -329,14 +361,20 @@ class SubsystemCoordinator:
         if self.calibration_tracker and result:
             try:
                 # Record prediction outcomes for calibration
-                predictions = getattr(result, "predictions", {})
+                predictions: dict[str, Any] = getattr(result, "predictions", {})
                 actual_outcome = getattr(result, "consensus", "")
                 for agent_name, prediction in predictions.items():
-                    self.calibration_tracker.record_prediction(  # type: ignore[call-arg]
-                        agent_name=agent_name,
-                        predicted=prediction.get("prediction", ""),
-                        confidence=prediction.get("confidence", 0.5),
-                        actual=actual_outcome,
+                    # CalibrationTracker.record_prediction expects:
+                    # (agent, confidence, correct, domain, debate_id, position_id)
+                    predicted_value = prediction.get("prediction", "") if isinstance(prediction, dict) else str(prediction)
+                    pred_confidence = prediction.get("confidence", 0.5) if isinstance(prediction, dict) else 0.5
+                    is_correct = predicted_value == actual_outcome
+                    self.calibration_tracker.record_prediction(
+                        agent=agent_name,
+                        confidence=pred_confidence,
+                        correct=is_correct,
+                        domain=ctx.domain,
+                        debate_id=ctx.debate_id,
                     )
             except Exception as e:
                 logger.debug("Calibration update failed: %s", e)
@@ -344,11 +382,25 @@ class SubsystemCoordinator:
         # Update continuum memory with debate outcome
         if self.continuum_memory and result:
             try:
-                self.continuum_memory.store_debate_outcome(  # type: ignore[attr-defined]
-                    debate_id=ctx.debate_id,
-                    task=ctx.task,  # type: ignore[attr-defined]
-                    consensus=getattr(result, "consensus", ""),
-                    confidence=getattr(result, "consensus_confidence", 0.0),
+                # ContinuumMemory uses add() method
+                # Store the debate outcome as a memory entry
+                task = ctx.env.task if ctx.env else ""
+                consensus_text = getattr(result, "consensus", "") or ""
+                confidence = getattr(result, "consensus_confidence", 0.0)
+
+                from aragora.memory.continuum import MemoryTier
+
+                self.continuum_memory.add(
+                    id=f"debate:{ctx.debate_id}",
+                    content=f"Debate outcome: {consensus_text[:200]}",
+                    tier=MemoryTier.MEDIUM,
+                    importance=confidence,
+                    metadata={
+                        "debate_id": ctx.debate_id,
+                        "task": task,
+                        "consensus": consensus_text,
+                        "confidence": confidence,
+                    },
                 )
             except Exception as e:
                 logger.debug("Continuum memory update failed: %s", e)
@@ -375,7 +427,11 @@ class SubsystemCoordinator:
             return []
 
         try:
-            return self.dissent_retriever.retrieve(task, limit=limit)  # type: ignore[attr-defined]
+            # DissentRetriever uses retrieve_for_new_debate() method
+            result = self.dissent_retriever.retrieve_for_new_debate(task)
+            # Extract relevant dissents from the result dict
+            dissents = result.get("relevant_dissents", [])
+            return dissents[:limit]
         except Exception as e:
             logger.debug("Dissent retrieval failed: %s", e)
             return []
@@ -395,13 +451,15 @@ class SubsystemCoordinator:
             return 1.0
 
         try:
-            stats = self.calibration_tracker.get_agent_stats(agent_name)  # type: ignore[attr-defined]
-            if stats and "calibration_score" in stats:
+            # CalibrationTracker uses get_calibration_summary() method
+            summary = self.calibration_tracker.get_calibration_summary(agent_name)
+            if summary and summary.total_predictions > 0:
                 # Convert calibration score to weight
-                # Perfect calibration (1.0) -> weight 1.5
-                # Poor calibration (0.5) -> weight 0.8
-                score = stats["calibration_score"]
-                return 0.5 + score  # Range: 0.5 to 2.0
+                # CalibrationSummary has brier_score (lower is better)
+                # Convert: perfect (0.0) -> weight 1.5, poor (0.25) -> weight 0.8
+                # Using 1 - brier_score as calibration quality
+                calibration_quality = 1.0 - min(summary.brier_score, 0.5)
+                return 0.5 + calibration_quality  # Range: 0.5 to 1.5
             return 1.0
         except (KeyError, AttributeError, TypeError) as e:
             logger.debug(f"Could not get calibration weight for {agent_name}: {e}")
@@ -421,14 +479,18 @@ class SubsystemCoordinator:
             return ""
 
         try:
-            memories = self.continuum_memory.retrieve(task, limit=limit)
+            memories = self.continuum_memory.retrieve(query=task, limit=limit)
             if not memories:
                 return ""
 
             # Format memories for prompt injection
+            # ContinuumMemory.retrieve() returns List[ContinuumMemoryEntry]
             lines = ["Relevant learnings from past debates:"]
             for mem in memories:
-                lines.append(f"- {mem.get('summary', mem.get('content', ''))}")  # type: ignore[attr-defined]
+                # ContinuumMemoryEntry has content attribute and metadata dict
+                summary = mem.metadata.get("summary", "") if mem.metadata else ""
+                content = summary or mem.content
+                lines.append(f"- {content}")
             return "\n".join(lines)
         except Exception as e:
             logger.debug("Continuum context retrieval failed: %s", e)

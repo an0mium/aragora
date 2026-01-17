@@ -31,6 +31,7 @@ from .admin import AdminHandler
 from .agents import AgentConfigHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
+from .analytics_dashboard import AnalyticsDashboardHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
@@ -48,9 +49,12 @@ from .debates import DebatesHandler
 from .docs import DocsHandler
 from .features import DocumentHandler  # Moved to features/
 from .features import DocumentBatchHandler  # Batch document upload
+from .features import DocumentQueryHandler  # NL document querying
 from .features import EvidenceHandler  # Moved to features/
+from .features import EvidenceEnrichmentHandler  # Evidence enrichment for findings
 from .features import FolderUploadHandler  # Folder upload support
 from .features import FindingWorkflowHandler  # Finding workflow management
+from .features import SchedulerHandler  # Audit scheduling
 from .evolution import EvolutionABTestingHandler  # Moved to evolution/
 from .evolution import EvolutionHandler  # Moved to evolution/
 from .features import FeaturesHandler  # Moved to features/
@@ -106,6 +110,7 @@ ALL_HANDLERS = [
     SystemHandler,
     PulseHandler,
     AnalyticsHandler,
+    AnalyticsDashboardHandler,  # Enterprise analytics dashboard
     MetricsHandler,
     ConsensusHandler,
     BeliefHandler,
@@ -117,10 +122,13 @@ ALL_HANDLERS = [
     LeaderboardViewHandler,
     RelationshipHandler,
     MomentsHandler,
+    DocumentQueryHandler,  # NL document querying (more specific paths)
     DocumentHandler,
     DocumentBatchHandler,  # Batch document upload
     FolderUploadHandler,  # Folder upload support
     FindingWorkflowHandler,  # Finding workflow management
+    EvidenceEnrichmentHandler,  # Evidence enrichment for findings
+    SchedulerHandler,  # Audit scheduling
     VerificationHandler,
     AuditingHandler,
     DashboardHandler,
@@ -174,6 +182,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "NomicHandler": Stability.STABLE,  # Extracted from SystemHandler
     "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
     "AnalyticsHandler": Stability.STABLE,
+    "AnalyticsDashboardHandler": Stability.EXPERIMENTAL,  # Enterprise analytics dashboard
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
     "MemoryHandler": Stability.STABLE,
@@ -223,8 +232,11 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GenesisHandler": Stability.STABLE,  # 26 tests, evolution visibility
     "DocumentHandler": Stability.STABLE,  # 36 tests, document management
     "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
+    "DocumentQueryHandler": Stability.EXPERIMENTAL,  # NL document querying - new
     "FolderUploadHandler": Stability.EXPERIMENTAL,  # Folder upload support - new
     "FindingWorkflowHandler": Stability.EXPERIMENTAL,  # Finding workflow - new
+    "EvidenceEnrichmentHandler": Stability.EXPERIMENTAL,  # Evidence enrichment - new
+    "SchedulerHandler": Stability.EXPERIMENTAL,  # Audit scheduling - new
     "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
     "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
@@ -269,6 +281,7 @@ __all__ = [
     "DocsHandler",
     "PulseHandler",
     "AnalyticsHandler",
+    "AnalyticsDashboardHandler",
     "MetricsHandler",
     "ConsensusHandler",
     "BeliefHandler",
@@ -282,8 +295,11 @@ __all__ = [
     "MomentsHandler",
     "DocumentHandler",
     "DocumentBatchHandler",
+    "DocumentQueryHandler",
     "FolderUploadHandler",
     "FindingWorkflowHandler",
+    "EvidenceEnrichmentHandler",
+    "SchedulerHandler",
     "VerificationHandler",
     "AuditingHandler",
     "DashboardHandler",

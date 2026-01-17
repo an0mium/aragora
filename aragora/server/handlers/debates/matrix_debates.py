@@ -13,9 +13,54 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from aragora.server.error_utils import safe_error_message
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    # Type alias for agent instances (from base.py)
+    AgentInstance: TypeAlias = Any  # Could be APIAgent | CLIAgent
+
+
+@runtime_checkable
+class ScenarioConfigProtocol(Protocol):
+    """Protocol for scenario configuration objects."""
+
+    name: str
+    parameters: dict[str, Any]
+    constraints: list[str]
+    is_baseline: bool
+
+
+@runtime_checkable
+class MatrixResultProtocol(Protocol):
+    """Protocol for matrix debate result objects."""
+
+    @property
+    def scenario_results(self) -> list[Any]: ...
+
+    @property
+    def universal_conclusions(self) -> list[str]: ...
+
+    @property
+    def conditional_conclusions(self) -> dict[str, list[str]]: ...
+
+    @property
+    def comparison_matrix(self) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class MatrixRunnerProtocol(Protocol):
+    """Protocol for matrix debate runner objects."""
+
+    @property
+    def scenarios(self) -> list[Any]: ...
+
+    def add_scenario(self, config: Any) -> None: ...
+
+    async def run_all(self, max_rounds: int = 3) -> MatrixResultProtocol: ...
 
 from ..base import (
     BaseHandler,
@@ -163,48 +208,64 @@ class MatrixDebatesHandler(BaseHandler):
             return error_response("max_rounds must be at most 10", 400)
 
         try:
-            from aragora.debate.scenarios import (  # type: ignore[attr-defined]
-                MatrixDebateRunner,
-                ScenarioConfig,
+            # Dynamic import of scenario module classes
+            # These classes may have a different API than our Protocol definitions,
+            # so we use cast() and handle ImportError gracefully with fallback
+            from typing import cast
+
+            scenarios_module = __import__(
+                "aragora.debate.scenarios", fromlist=["MatrixDebateRunner", "ScenarioConfig"]
             )
+
+            # Check if the expected API exists - if not, fall back to our implementation
+            if not hasattr(scenarios_module, "ScenarioConfig") or not hasattr(
+                scenarios_module, "MatrixDebateRunner"
+            ):
+                raise ImportError("Required scenario classes not found")
+
+            ScenarioConfig = scenarios_module.ScenarioConfig
+            MatrixDebateRunner = scenarios_module.MatrixDebateRunner
 
             # Load agents
             agents = await self._load_agents(agent_names)
             if not agents:
                 return error_response("No valid agents found", 400)
 
-            # Create matrix runner
-            runner = MatrixDebateRunner(  # type: ignore[call-arg]
-                base_task=task,
-                agents=agents,
+            # Create matrix runner - cast to our Protocol for type checking
+            runner = cast(
+                MatrixRunnerProtocol,
+                MatrixDebateRunner(
+                    base_task=task,
+                    agents=agents,
+                ),
             )
 
             # Add scenarios
             for scenario_data in scenarios:
                 config = ScenarioConfig(
-                    name=scenario_data.get("name", f"Scenario {len(runner.scenarios) + 1}"),  # type: ignore[attr-defined]
+                    name=scenario_data.get("name", f"Scenario {len(runner.scenarios) + 1}"),
                     parameters=scenario_data.get("parameters", {}),
                     constraints=scenario_data.get("constraints", []),
                     is_baseline=scenario_data.get("is_baseline", False),
                 )
-                runner.add_scenario(config)  # type: ignore[attr-defined]
+                runner.add_scenario(config)
 
             # Generate matrix ID
             matrix_id = str(uuid.uuid4())
 
             # Run all scenarios in parallel
-            results = await runner.run_all(max_rounds=max_rounds)  # type: ignore[attr-defined]
+            results = cast(MatrixResultProtocol, await runner.run_all(max_rounds=max_rounds))
 
             # Build response
             return json_response(
                 {
                     "matrix_id": matrix_id,
                     "task": task,
-                    "scenario_count": len(results.scenario_results),  # type: ignore[attr-defined]
-                    "results": [r.to_dict() for r in results.scenario_results],  # type: ignore[attr-defined]
-                    "universal_conclusions": results.universal_conclusions,  # type: ignore[attr-defined]
-                    "conditional_conclusions": results.conditional_conclusions,  # type: ignore[attr-defined]
-                    "comparison_matrix": results.comparison_matrix,  # type: ignore[attr-defined]
+                    "scenario_count": len(results.scenario_results),
+                    "results": [r.to_dict() for r in results.scenario_results],
+                    "universal_conclusions": results.universal_conclusions,
+                    "conditional_conclusions": results.conditional_conclusions,
+                    "comparison_matrix": results.comparison_matrix,
                 }
             )
 
@@ -354,13 +415,17 @@ class MatrixDebatesHandler(BaseHandler):
     async def _load_agents(self, agent_names: list[str]) -> list[Any]:
         """Load agents by name."""
         try:
-            from aragora.agents.base import create_agent
+            from typing import cast
+
+            from aragora.agents.base import AgentType, create_agent
 
             names = agent_names or ["claude", "openai"]
-            agents = []
+            agents: list[Any] = []
             for name in names:
                 try:
-                    agent = create_agent(name)  # type: ignore[arg-type]
+                    # Cast string to AgentType - create_agent will raise ValueError
+                    # if the name is not a valid agent type
+                    agent = create_agent(cast(AgentType, name))
                     agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Failed to create agent {name}: {e}")

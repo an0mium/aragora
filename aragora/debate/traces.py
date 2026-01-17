@@ -12,7 +12,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
+
+if TYPE_CHECKING:
+    from aragora.core import DebateResult
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.debate.traces_database import TracesDatabase
@@ -156,6 +159,95 @@ class DebateTrace:
             return cls.from_json(path.read_text())
         except OSError as e:
             raise OSError(f"Failed to read debate trace {path}: {e}") from e
+
+    def to_debate_result(self) -> "DebateResult":
+        """Convert trace to a DebateResult for analysis.
+
+        Reconstructs messages and critiques from trace events.
+        """
+        from aragora.core import Critique, DebateResult, Message
+
+        messages: list[Message] = []
+        critiques: list[Critique] = []
+        consensus_reached = False
+        confidence = 0.0
+        final_answer = ""
+
+        for event in self.events:
+            if event.event_type == EventType.AGENT_PROPOSAL:
+                messages.append(
+                    Message(
+                        role="proposer",
+                        agent=event.agent or "unknown",
+                        content=event.content.get("content", ""),
+                        timestamp=datetime.fromisoformat(event.timestamp),
+                        round=event.round_num,
+                    )
+                )
+            elif event.event_type == EventType.AGENT_CRITIQUE:
+                critiques.append(
+                    Critique(
+                        agent=event.agent or "unknown",
+                        target_agent=event.content.get("target_agent", ""),
+                        target_content="",  # Not stored in trace events
+                        issues=event.content.get("issues", []),
+                        suggestions=event.content.get("suggestions", []),
+                        severity=event.content.get("severity", 0.0),
+                        reasoning="",  # Not stored in trace events
+                    )
+                )
+            elif event.event_type == EventType.AGENT_SYNTHESIS:
+                messages.append(
+                    Message(
+                        role="synthesizer",
+                        agent=event.agent or "unknown",
+                        content=event.content.get("content", ""),
+                        timestamp=datetime.fromisoformat(event.timestamp),
+                        round=event.round_num,
+                    )
+                )
+            elif event.event_type == EventType.CONSENSUS_CHECK:
+                if event.content.get("reached", False):
+                    consensus_reached = True
+                    confidence = event.content.get("confidence", 0.0)
+            elif event.event_type == EventType.MESSAGE:
+                # Generic message event
+                messages.append(
+                    Message(
+                        role=event.content.get("role", "proposer"),
+                        agent=event.agent or "unknown",
+                        content=event.content.get("content", ""),
+                        timestamp=datetime.fromisoformat(event.timestamp),
+                        round=event.round_num,
+                    )
+                )
+
+        # Get final answer from final_result or last synthesis
+        if self.final_result:
+            final_answer = self.final_result.get("final_answer", "")
+        elif messages:
+            # Use last synthesizer message as final answer
+            for msg in reversed(messages):
+                if msg.role == "synthesizer":
+                    final_answer = msg.content
+                    break
+
+        # Calculate rounds used
+        rounds_used = max((e.round_num for e in self.events), default=0)
+
+        return DebateResult(
+            debate_id=self.debate_id,
+            task=self.task,
+            final_answer=final_answer,
+            confidence=confidence,
+            consensus_reached=consensus_reached,
+            rounds_used=rounds_used,
+            rounds_completed=rounds_used,
+            participants=self.agents,
+            messages=messages,
+            critiques=critiques,
+            duration_seconds=(self.duration_ms or 0) / 1000.0,
+        )
 
 
 class DebateTracer(SQLiteStore):

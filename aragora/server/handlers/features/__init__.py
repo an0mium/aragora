@@ -1,14 +1,17 @@
-"""Feature handlers - audio, broadcast, documents, evidence, pulse, plugins, features, audit, control plane, folder upload, finding workflow."""
+"""Feature handlers - audio, broadcast, documents, evidence, pulse, plugins, features, audit, control plane, folder upload, finding workflow, NL query, scheduler."""
 
 from .audio import AudioHandler, PODCAST_AVAILABLE
 from .audit_sessions import AuditSessionsHandler
 from .broadcast import BroadcastHandler
+from .document_query import DocumentQueryHandler
+from .evidence_enrichment import EvidenceEnrichmentHandler
 from .finding_workflow import FindingWorkflowHandler
 from .control_plane import ControlPlaneHandler
 from .documents import DocumentHandler
 from .documents_batch import DocumentBatchHandler
 from .evidence import EvidenceHandler
 from .folder_upload import FolderUploadHandler
+from .scheduler import SchedulerHandler
 from .features import (
     FEATURE_REGISTRY,
     FeatureInfo,
@@ -45,12 +48,15 @@ __all__ = [
     "AudioHandler",
     "AuditSessionsHandler",
     "BroadcastHandler",
+    "DocumentQueryHandler",
+    "EvidenceEnrichmentHandler",
     "FindingWorkflowHandler",
     "ControlPlaneHandler",
     "DocumentHandler",
     "DocumentBatchHandler",
     "EvidenceHandler",
     "FolderUploadHandler",
+    "SchedulerHandler",
     "FEATURE_REGISTRY",
     "FeatureInfo",
     "FeaturesHandler",

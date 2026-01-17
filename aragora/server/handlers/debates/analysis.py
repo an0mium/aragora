@@ -68,7 +68,7 @@ class AnalysisOperationsMixin:
                 return error_response("Debate trace not found", 404)
 
             trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()  # type: ignore[attr-defined]
+            result = trace.to_debate_result()
 
             analyzer = MetaCritiqueAnalyzer()
             critique = analyzer.analyze(result)
@@ -141,7 +141,7 @@ class AnalysisOperationsMixin:
 
             # Load from trace file
             trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()  # type: ignore[attr-defined]
+            result = trace.to_debate_result()
 
             # Build cartographer from debate result
             cartographer = ArgumentCartographer()

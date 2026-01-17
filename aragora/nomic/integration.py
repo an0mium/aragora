@@ -13,10 +13,11 @@ all aragora features in a coordinated way.
 """
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,7 @@ class NomicIntegration:
     async def probe_agents(
         self,
         agents: list[Agent],
+        run_agent_fn: Optional[Callable] = None,
         probe_count: int = 3,
         min_weight: float = 0.5,
     ) -> dict[str, float]:
@@ -366,6 +368,8 @@ class NomicIntegration:
 
         Args:
             agents: List of agents to probe
+            run_agent_fn: Async function to run agent with prompt (required for probing).
+                          If not provided, returns uniform weights.
             probe_count: Number of probes per agent
             min_weight: Minimum weight even for unreliable agents
 
@@ -376,14 +380,20 @@ class NomicIntegration:
             # Return uniform weights if disabled
             return {agent.name: 1.0 for agent in agents}
 
+        if run_agent_fn is None:
+            # Cannot probe without a run function
+            logger.debug("No run_agent_fn provided, returning uniform weights")
+            return {agent.name: 1.0 for agent in agents}
+
         weights = {}
 
         for agent in agents:
             try:
                 # Run probes
-                report = await self.prober.probe_agent(  # type: ignore[call-arg]
-                    agent,
-                    probe_count=probe_count,
+                report = await self.prober.probe_agent(
+                    target_agent=agent,
+                    run_agent_fn=run_agent_fn,
+                    probes_per_type=probe_count,
                 )
 
                 # Calculate weight based on vulnerability rate
@@ -434,9 +444,10 @@ class NomicIntegration:
                 revalidation_triggers=[],
             )
 
-        stale_claims = []
-        staleness_checks = {}
-        triggers = []
+        stale_claims: list[TypedClaim] = []
+        staleness_checks: dict[str, StalenessCheck] = {}
+        triggers: list[RevalidationTrigger] = []
+        trigger_counter = 0
 
         for claim in claims:
             # Check if claim references any changed files
@@ -444,26 +455,38 @@ class NomicIntegration:
             affected_files = set(claim_files) & set(changed_files)
 
             if affected_files:
-                # Run staleness check
-                check = await self.provenance.check_staleness(  # type: ignore[attr-defined]
-                    claim.claim_id,
-                    list(affected_files),
-                    repo_path=repo_path,
-                )
+                # Use the provenance manager's check_claim_evidence_staleness method
+                # which returns a list of StalenessCheck objects
+                claim_checks = self.provenance.check_claim_evidence_staleness(claim.claim_id)
+
+                # If there are staleness checks, use the first one; otherwise create a synthetic one
+                if claim_checks:
+                    check = claim_checks[0]
+                else:
+                    # Create a synthetic staleness check for affected files
+                    check = StalenessCheck(
+                        evidence_id=f"synthetic-{claim.claim_id}",
+                        status=StalenessStatus.STALE,
+                        checked_at=datetime.now().isoformat(),
+                        reason=f"Referenced files changed: {', '.join(affected_files)}",
+                    )
 
                 staleness_checks[claim.claim_id] = check
 
                 if check.status == StalenessStatus.STALE:
                     stale_claims.append(claim)
 
-                    # Create revalidation trigger
+                    # Create revalidation trigger with proper constructor args
                     # ASSERTION is used for factual claims (ClaimType.FACTUAL doesn't exist)
                     severity = "high" if claim.claim_type == ClaimType.ASSERTION else "medium"
-                    trigger = RevalidationTrigger(  # type: ignore[call-arg]
+                    trigger_counter += 1
+                    trigger = RevalidationTrigger(
+                        trigger_id=f"trigger-{trigger_counter:04d}",
                         claim_id=claim.claim_id,
-                        reason=f"Referenced files changed: {', '.join(affected_files)}",
+                        evidence_ids=[check.evidence_id],
+                        staleness_checks=[check],
                         severity=severity,
-                        changed_files=list(affected_files),
+                        recommendation=f"Referenced files changed: {', '.join(affected_files)}",
                     )
                     triggers.append(trigger)
 
@@ -505,6 +528,7 @@ class NomicIntegration:
         self,
         contested_claims: list[BeliefNode],
         arena=None,  # Optional Arena for running branches
+        run_branch_fn: Optional[Callable] = None,
     ) -> Optional[ConditionalConsensus]:
         """
         Resolve debate deadlock by forking on contested claims.
@@ -516,6 +540,8 @@ class NomicIntegration:
         Args:
             contested_claims: List of contested BeliefNodes (crux claims)
             arena: Optional Arena instance for running branch debates
+            run_branch_fn: Optional async function to run a branch debate.
+                          Signature: async (task, context, branch_id) -> DebateResult
 
         Returns:
             ConditionalConsensus if deadlock was resolved, None otherwise
@@ -531,7 +557,7 @@ class NomicIntegration:
             centralities = self._belief_network._compute_centralities()
             pivot_node = max(contested_claims, key=lambda n: centralities.get(n.claim_id, 0))
         else:
-            centralities = {}
+            centralities: dict[str, float] = {}
             pivot_node = contested_claims[0]
 
         # Create pivot claim with correct PivotClaim fields
@@ -544,31 +570,46 @@ class NomicIntegration:
             blocking_agents=[],  # Could be extracted from contested claims
         )
 
-        # Create and run branches
-        branches = await self.counterfactual.create_branches(  # type: ignore[attr-defined]
+        # Need a run_branch_fn to execute branches
+        if run_branch_fn is None:
+            # Create a default no-op branch runner if none provided
+            async def default_run_branch(
+                task: str, context: list, branch_id: str
+            ) -> DebateResult:
+                from aragora.core import Vote
+
+                return DebateResult(
+                    id=branch_id,
+                    task=task,
+                    messages=[],
+                    votes=[],
+                    final_answer=f"Branch {branch_id} not executed (no run_branch_fn)",
+                    confidence=0.0,
+                    consensus_reached=False,
+                )
+
+            run_branch_fn = default_run_branch
+
+        # Get debate ID from current context
+        debate_id = self._current_debate_id or f"debate-{uuid.uuid4().hex[:8]}"
+
+        # Create and run both branches using the actual API
+        branches = await self.counterfactual.create_and_run_branches(
+            debate_id=debate_id,
             pivot=pivot,
-            branch_values=[True, False],  # Explore both assuming true and false
+            context_messages=[],  # Could be populated from arena if available
+            run_branch_fn=run_branch_fn,
         )
 
-        # If arena provided, run debates in each branch
-        if arena and branches:
-            for branch in branches:
-                try:
-                    # Clone arena with modified context for this branch
-                    branch_result = await self.counterfactual.run_branch(  # type: ignore[attr-defined]
-                        branch,
-                        arena=arena,
-                    )
-                    branch.result = branch_result
-                except Exception as e:
-                    branch.status = CounterfactualStatus.FAILED
-                    branch.error = str(e)
+        # Find true and false branches
+        true_branch = next((b for b in branches if b.assumption), None)
+        false_branch = next((b for b in branches if not b.assumption), None)
 
-        # Synthesize conditional consensus
-        if branches:
-            return await self.counterfactual.synthesize_branches(  # type: ignore[call-arg, misc]
-                branches,
-                pivot=pivot,
+        # Synthesize conditional consensus if both branches completed
+        if true_branch and false_branch:
+            return self.counterfactual.synthesize_branches(
+                branch_true=true_branch,
+                branch_false=false_branch,
             )
 
         return None
@@ -576,9 +617,9 @@ class NomicIntegration:
     async def full_post_debate_analysis(
         self,
         result: DebateResult,
-        arena=None,
-        claims_kernel=None,
-        changed_files: list[str] | None = None,
+        arena: Optional[Any] = None,
+        claims_kernel: Optional[ClaimsKernel] = None,
+        changed_files: Optional[list[str]] = None,
     ) -> dict[str, Any]:
         """
         Run all post-debate analyses in one unified call.
@@ -626,11 +667,9 @@ class NomicIntegration:
 
         # 3. Staleness check (if files changed and claims available)
         if changed_files and claims_kernel:
-            claims_list = (
-                list(claims_kernel.claims.values()) if hasattr(claims_kernel, "claims") else []
-            )
+            claims_list: list[TypedClaim] = list(claims_kernel.claims.values())
             if claims_list:
-                staleness_result = await self.check_staleness(claims_list, changed_files)  # type: ignore[arg-type]
+                staleness_result = await self.check_staleness(claims_list, changed_files)
                 analysis["staleness"] = staleness_result
                 if isinstance(summary, dict):
                     summary["stale_count"] = len(staleness_result.stale_claims)

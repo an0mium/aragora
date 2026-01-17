@@ -12,11 +12,22 @@ Key components:
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 if TYPE_CHECKING:
+    from typing import Literal
+
+    from aragora.agents.base import AgentType
     from aragora.core import Agent
+    from aragora.debate.orchestrator import Arena as ArenaClass
+    from aragora.debate.protocol import DebateProtocol as DebateProtocolClass
+    from aragora.core import Environment as EnvironmentClass
     from aragora.server.stream.emitter import SyncEventEmitter
+
+    # Consensus type from DebateProtocol
+    ConsensusType = Literal[
+        "majority", "unanimous", "judge", "none", "weighted", "supermajority", "any", "byzantine"
+    ]
 
 from aragora.config import (
     ALLOWED_AGENT_TYPES,
@@ -41,18 +52,28 @@ _active_debates = get_active_debates()
 _active_debates_lock = get_active_debates_lock()
 
 # Check if debate orchestrator is available
+# Type aliases for optional debate components
+_ArenaType = Union[type["ArenaClass"], None]
+_DebateProtocolType = Union[type["DebateProtocolClass"], None]
+_EnvironmentType = Union[type["EnvironmentClass"], None]
+_CreateAgentType = Union[Any, None]  # Callable type is complex, use Any
+
 try:
-    from aragora.agents.base import create_agent
-    from aragora.core import Environment
-    from aragora.debate.orchestrator import Arena, DebateProtocol
+    from aragora.agents.base import create_agent as _create_agent
+    from aragora.core import Environment as _Environment
+    from aragora.debate.orchestrator import Arena as _Arena, DebateProtocol as _DebateProtocol
 
     DEBATE_AVAILABLE = True
+    Arena: _ArenaType = _Arena
+    DebateProtocol: _DebateProtocolType = _DebateProtocol
+    create_agent: _CreateAgentType = _create_agent
+    Environment: _EnvironmentType = _Environment
 except ImportError:
     DEBATE_AVAILABLE = False
-    Arena = None  # type: ignore[assignment]
-    DebateProtocol = None  # type: ignore[assignment]
-    create_agent = None  # type: ignore[assignment]
-    Environment = None  # type: ignore[assignment]
+    Arena = None
+    DebateProtocol = None
+    create_agent = None
+    Environment = None
 
 
 def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
@@ -197,7 +218,7 @@ def execute_debate_thread(
             if role is None:
                 role = "proposer"  # All agents propose and participate fully
             agent = create_agent(
-                model_type=agent_type,  # type: ignore[arg-type]
+                model_type=cast("AgentType", agent_type),
                 name=f"{agent_type}_{role}",
                 role=role,
             )
@@ -209,7 +230,7 @@ def execute_debate_thread(
         env = Environment(task=question, context="", max_rounds=rounds)
         protocol = DebateProtocol(
             rounds=rounds,
-            consensus=consensus,  # type: ignore[arg-type]
+            consensus=cast("ConsensusType", consensus),
             proposer_count=len(agents),  # All agents propose initially
             topology="all-to-all",  # Everyone critiques everyone
             # Disable early termination to ensure full rounds with all phases
@@ -235,7 +256,7 @@ def execute_debate_thread(
         arena = Arena(
             env,
             agents,
-            protocol,  # type: ignore[arg-type]
+            cast("DebateProtocolClass", protocol),
             event_hooks=hooks,
             event_emitter=emitter,
             loop_id=debate_id,

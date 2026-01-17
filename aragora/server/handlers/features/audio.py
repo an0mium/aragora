@@ -10,7 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 
@@ -34,16 +34,24 @@ _audio_limiter = RateLimiter(requests_per_minute=10)
 # Podcast feed limits
 MAX_PODCAST_EPISODES = 200  # Prevent unbounded feed generation
 
+# Type-only imports for type checking
+if TYPE_CHECKING:
+    from aragora.broadcast.rss_gen import (
+        PodcastConfig as PodcastConfigType,
+        PodcastEpisode as PodcastEpisodeType,
+        PodcastFeedGenerator as PodcastFeedGeneratorType,
+    )
+
 # Optional imports for broadcast functionality
 try:
     from aragora.broadcast.rss_gen import PodcastConfig, PodcastEpisode, PodcastFeedGenerator
 
-    PODCAST_AVAILABLE = True
+    PODCAST_AVAILABLE: bool = True
 except ImportError:
     PODCAST_AVAILABLE = False
-    PodcastFeedGenerator = None  # type: ignore[misc,assignment]
-    PodcastConfig = None  # type: ignore[misc,assignment]
-    PodcastEpisode = None  # type: ignore[misc,assignment]
+    PodcastFeedGenerator: type[PodcastFeedGeneratorType] | None = None
+    PodcastConfig: type[PodcastConfigType] | None = None
+    PodcastEpisode: type[PodcastEpisodeType] | None = None
 
 
 class AudioHandler(BaseHandler):
@@ -173,6 +181,10 @@ class AudioHandler(BaseHandler):
                 episode_count += 1
 
             # Generate RSS feed
+            # Assertions for type narrowing - we already checked PODCAST_AVAILABLE above
+            assert PodcastConfig is not None
+            assert PodcastFeedGenerator is not None
+            assert PodcastEpisode is not None
             config = PodcastConfig()
             generator = PodcastFeedGenerator(config)
 
@@ -188,7 +200,7 @@ class AudioHandler(BaseHandler):
             for i, debate in enumerate(debates_with_audio):
                 audio_url = f"{scheme}://{host}/audio/{debate['debate_id']}.mp3"
 
-                episode = PodcastEpisode(  # type: ignore[call-arg]
+                episode = PodcastEpisode(
                     guid=debate["debate_id"],
                     title=debate["task"],
                     description=f"AI debate: {debate['task']}",
@@ -201,7 +213,7 @@ class AudioHandler(BaseHandler):
                 )
                 episodes.append(episode)
 
-            feed_xml = generator.generate_feed(episodes)  # type: ignore[attr-defined]
+            feed_xml = generator.generate_feed(episodes)
 
             return HandlerResult(
                 status_code=200,

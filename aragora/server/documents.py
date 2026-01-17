@@ -12,9 +12,14 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# Type aliases for optional imports
+_PdfReaderClass: Optional[type[Any]] = None
+_DocxDocumentClass: Optional[type[Any]] = None
 
 
 # =============================================================================
@@ -77,22 +82,24 @@ def _safe_path(storage_dir: Path, doc_id: str) -> Optional[Path]:
 
 
 # Optional PDF support
+PDF_AVAILABLE = False
 try:
     from pypdf import PdfReader
 
+    _PdfReaderClass = PdfReader
     PDF_AVAILABLE = True
 except ImportError:
-    PDF_AVAILABLE = False
-    PdfReader = None
+    pass
 
 # Optional DOCX support
+DOCX_AVAILABLE = False
 try:
     from docx import Document as DocxDocument
 
+    _DocxDocumentClass = DocxDocument
     DOCX_AVAILABLE = True
 except ImportError:
-    DOCX_AVAILABLE = False
-    DocxDocument = None
+    pass
 
 
 @dataclass
@@ -143,12 +150,12 @@ def generate_doc_id(content: bytes, filename: str) -> str:
 
 def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
     """Parse a PDF file and extract text."""
-    if not PDF_AVAILABLE:
+    if not PDF_AVAILABLE or _PdfReaderClass is None:
         raise ImportError("pypdf is required for PDF parsing. Install with: pip install pypdf")
 
     import io
 
-    reader = PdfReader(io.BytesIO(content))
+    reader = _PdfReaderClass(io.BytesIO(content))
 
     text_parts = []
     for page in reader.pages:
@@ -169,14 +176,14 @@ def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
 
 def parse_docx(content: bytes, filename: str) -> ParsedDocument:
     """Parse a Word document and extract text."""
-    if not DOCX_AVAILABLE:
+    if not DOCX_AVAILABLE or _DocxDocumentClass is None:
         raise ImportError(
             "python-docx is required for DOCX parsing. Install with: pip install python-docx"
         )
 
     import io
 
-    doc = DocxDocument(io.BytesIO(content))
+    doc = _DocxDocumentClass(io.BytesIO(content))
 
     text_parts = []
     for para in doc.paragraphs:

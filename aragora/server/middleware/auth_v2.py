@@ -16,46 +16,89 @@ import base64
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
-
-# JWT validation (using PyJWT if available, fallback to manual)
-try:
-    import jwt
-    from jwt.exceptions import (
-        DecodeError,
-        ExpiredSignatureError,
-        InvalidAudienceError,
-        InvalidSignatureError,
-        InvalidTokenError,
-    )
-
-    HAS_JWT = True
-except ImportError:
-    jwt = None  # type: ignore[assignment]
-    HAS_JWT = False
-
-    # Stub exception classes when PyJWT not installed
-    # These will never be raised but allow the except clauses to be valid
-    class ExpiredSignatureError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class InvalidSignatureError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class DecodeError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class InvalidTokenError(Exception):  # type: ignore[no-redef]
-        pass
-
-    class InvalidAudienceError(Exception):  # type: ignore[no-redef]
-        pass
-
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol
 
 if TYPE_CHECKING:
+    import jwt as jwt_module
+
+
+# Stub exception classes for when PyJWT is not installed
+# Defined unconditionally so type checker sees them
+class _ExpiredSignatureError(Exception):
+    """Stub for jwt.exceptions.ExpiredSignatureError."""
+
+    pass
+
+
+class _InvalidSignatureError(Exception):
+    """Stub for jwt.exceptions.InvalidSignatureError."""
+
+    pass
+
+
+class _DecodeError(Exception):
+    """Stub for jwt.exceptions.DecodeError."""
+
+    pass
+
+
+class _InvalidTokenError(Exception):
+    """Stub for jwt.exceptions.InvalidTokenError."""
+
+    pass
+
+
+class _InvalidAudienceError(Exception):
+    """Stub for jwt.exceptions.InvalidAudienceError."""
+
+    pass
+
+
+class _JWTModuleProtocol(Protocol):
+    """Protocol for the jwt module to satisfy type checker."""
+
+    def decode(
+        self,
+        jwt: str,
+        key: str,
+        algorithms: List[str],
+        audience: str,
+    ) -> Dict[str, Any]: ...
+
+
+# JWT validation (using PyJWT if available, fallback to manual)
+_jwt_module: Optional[_JWTModuleProtocol] = None
+HAS_JWT = False
+
+# Exception types - will be real jwt exceptions or our stubs
+ExpiredSignatureError: type[Exception] = _ExpiredSignatureError
+InvalidSignatureError: type[Exception] = _InvalidSignatureError
+DecodeError: type[Exception] = _DecodeError
+InvalidTokenError: type[Exception] = _InvalidTokenError
+InvalidAudienceError: type[Exception] = _InvalidAudienceError
+
+try:
+    import jwt
+
+    _jwt_module = jwt
+    HAS_JWT = True
+    # Use real exception classes from jwt
+    from jwt.exceptions import DecodeError as _RealDecodeError
+    from jwt.exceptions import ExpiredSignatureError as _RealExpiredSignatureError
+    from jwt.exceptions import InvalidAudienceError as _RealInvalidAudienceError
+    from jwt.exceptions import InvalidSignatureError as _RealInvalidSignatureError
+    from jwt.exceptions import InvalidTokenError as _RealInvalidTokenError
+
+    ExpiredSignatureError = _RealExpiredSignatureError
+    InvalidSignatureError = _RealInvalidSignatureError
+    DecodeError = _RealDecodeError
+    InvalidTokenError = _RealInvalidTokenError
+    InvalidAudienceError = _RealInvalidAudienceError
+except ImportError:
     pass
 
 logger = logging.getLogger(__name__)
@@ -218,9 +261,9 @@ class SupabaseAuthValidator:
                     return None  # Don't re-validate expired tokens
 
         try:
-            if HAS_JWT and self.jwt_secret:
+            if HAS_JWT and self.jwt_secret and _jwt_module is not None:
                 # Use PyJWT for proper validation
-                payload = jwt.decode(
+                payload = _jwt_module.decode(
                     token,
                     self.jwt_secret,
                     algorithms=["HS256"],
