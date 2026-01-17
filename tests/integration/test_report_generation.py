@@ -34,8 +34,8 @@ def sample_audit_session():
     """Create a sample audit session for testing."""
     from aragora.audit.document_auditor import (
         AuditSession,
+        AuditStatus,
         AuditType,
-        SessionStatus,
     )
 
     session = AuditSession(
@@ -44,7 +44,7 @@ def sample_audit_session():
         audit_types=[AuditType.SECURITY, AuditType.COMPLIANCE],
         name="Test Security Audit",
         model="test-model",
-        status=SessionStatus.COMPLETED,
+        status=AuditStatus.COMPLETED,
     )
     session.started_at = datetime.utcnow() - timedelta(hours=1)
     session.completed_at = datetime.utcnow()
