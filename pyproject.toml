@@ -385,6 +385,22 @@ module = [
     "aragora.nomic.state_machine",
     "aragora.nomic.events",
     "aragora.nomic.states",
+    # Added strict - Phase 15 refactored modules (Jan 2026)
+    "aragora.debate.lifecycle_manager",
+    "aragora.debate.event_emission",
+    "aragora.debate.checkpoint_ops",
+    "aragora.debate.grounded_operations",
+    "aragora.debate.prompt_context",
+    "aragora.debate.context_delegation",
+    "aragora.memory.continuum_stats",
+    "aragora.memory.continuum_consolidation",
+    "aragora.server.response_utils",
+    "aragora.server.startup",
+    "aragora.ranking.match_recorder",
+    "aragora.ranking.verification",
+    "aragora.ranking.snapshot",
+    "aragora.client.errors",
+    "aragora.client.transport",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

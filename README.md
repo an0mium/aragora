@@ -33,8 +33,18 @@ We gratefully acknowledge these projects whose patterns we adapted:
 | **[CAMEL-AI](https://github.com/camel-ai/camel)** | Multi-agent orchestration patterns, critic agent design | Apache 2.0 |
 | **[CrewAI](https://github.com/joaomdmoura/crewAI)** | Agent role and task patterns | MIT |
 | **[AIDO](https://github.com/aido-research/aido)** | Consensus variance tracking (strong/medium/weak classification), reputation-weighted voting concepts | MIT |
+| **[claude-flow](https://github.com/ruvnet/claude-flow)** | Adaptive topology switching (diverging→parallel, refining→ring, converged→minimal), YAML agent configuration patterns, hooks system design | MIT |
+| **[ccswarm](https://github.com/nwiizo/ccswarm)** | Delegation strategy patterns (content-based, load-balanced, hybrid), channel-based orchestration concepts | MIT |
+| **[claude-code-by-agents](https://github.com/baryhuang/claude-code-by-agents)** | Cooperative cancellation tokens with linked parent-child hierarchy, abort control patterns | MIT |
+| **[claude-squad](https://github.com/smtg-ai/claude-squad)** | Session lifecycle state machine concepts (pending→running→paused→completed), pause/resume patterns (implemented from scratch due to AGPL-3.0) | AGPL-3.0 (patterns only) |
+| **[claude-agent-sdk-demos](https://github.com/anthropics/claude-agent-sdk-demos)** | Official Anthropic subagent patterns, parallel execution idioms | MIT |
 
-See `aragora/debate/convergence.py` and `aragora/debate/orchestrator.py` for implementations.
+See implementations in:
+- `aragora/debate/convergence.py` - Semantic convergence detection
+- `aragora/debate/orchestrator.py` - Orchestration patterns
+- `aragora/debate/topology.py` - Adaptive topology (claude-flow)
+- `aragora/debate/session.py` - Session lifecycle (claude-squad patterns)
+- `aragora/debate/cancellation.py` - Cancellation tokens (claude-code-by-agents)
 
 ## Debate Engine (Dialectic Roots)
 
