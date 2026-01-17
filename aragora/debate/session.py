@@ -1,13 +1,21 @@
 """
 Debate Session Lifecycle Management.
 
+Patterns inspired by claude-squad (AGPL-3.0 License)
+Note: Implemented from scratch based on concepts, not copied code (due to AGPL-3.0)
+Original concepts: https://github.com/smtg-ai/claude-squad
+
 Provides high-level session management for debates with support for:
 - Session states (pending, running, paused, completed, failed, cancelled)
 - Pause/resume functionality with checkpoint integration
 - Session timeout handling
 - Session persistence and recovery
 
-Inspired by claude-squad's session lifecycle patterns.
+Aragora-specific additions:
+- Integration with existing CheckpointManager
+- CancellationToken integration for cooperative cancellation
+- SessionManager for concurrent session tracking
+- Event emission for session lifecycle changes
 
 Usage:
     # Create and run a session

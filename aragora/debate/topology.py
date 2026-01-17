@@ -249,7 +249,9 @@ class AdaptiveSelector(TopologySelector):
     """
     Adaptive topology that switches based on debate state.
 
-    Inspired by claude-flow's adaptive orchestration patterns.
+    Adapted from claude-flow (MIT License)
+    Pattern: Adaptive orchestration that switches topology based on task dependencies
+    Original: https://github.com/ruvnet/claude-flow
 
     Behavior:
     - Diverging phase: Uses AllToAll for maximum parallel critique

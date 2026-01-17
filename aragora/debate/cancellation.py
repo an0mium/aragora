@@ -1,8 +1,15 @@
 """
 Cancellation tokens for cooperative task cancellation.
 
-Provides a mechanism for graceful cancellation of long-running debate operations.
-Inspired by claude-code-by-agents patterns for abort control.
+Adapted from claude-code-by-agents (MIT License)
+Pattern: Cooperative cancellation with linked parent-child token hierarchy
+Original: https://github.com/baryhuang/claude-code-by-agents
+
+Aragora adaptations:
+- CancellationScope context manager with timeout support
+- Integration with DebateContext for phase-level cancellation checks
+- CancellationReason enum for structured reason tracking
+- Async wait_for_cancellation() for event-driven cancellation
 
 Usage:
     token = CancellationToken()
