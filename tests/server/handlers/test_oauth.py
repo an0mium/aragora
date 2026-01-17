@@ -135,7 +135,7 @@ class TestCanHandle:
     def test_rejects_unknown_routes(self):
         """Should reject unknown routes."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/github") is False
+        assert handler.can_handle("/api/auth/oauth/facebook") is False
         assert handler.can_handle("/api/auth/login") is False
         assert handler.can_handle("/api/oauth") is False
 

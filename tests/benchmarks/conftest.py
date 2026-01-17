@@ -121,8 +121,18 @@ def benchmark_agents() -> list[BenchmarkAgent]:
 @pytest.fixture
 def temp_benchmark_db() -> Generator[Path, None, None]:
     """Temporary database for benchmark tests."""
+    import gc
+    import sys
+
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir) / "benchmark.db"
+        # Force garbage collection to release SQLite connections
+        gc.collect()
+        # On Windows, give a brief moment for file handles to release
+        if sys.platform == "win32":
+            import time
+
+            time.sleep(0.1)
 
 
 @pytest.fixture
