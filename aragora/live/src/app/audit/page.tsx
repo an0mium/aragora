@@ -77,7 +77,7 @@ function formatDate(dateStr?: string): string {
 
 export default function AuditDashboardPage() {
   const { config: backendConfig } = useBackend();
-  const { user } = useAuth();
+  const { user, tokens } = useAuth();
   const [sessions, setSessions] = useState<AuditSession[]>([]);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function AuditDashboardPage() {
   const fetchSessions = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/audit/sessions`, {
-        headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+        headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -99,7 +99,7 @@ export default function AuditDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, user?.token]);
+  }, [backendConfig.api, tokens?.access_token]);
 
   useEffect(() => {
     fetchSessions();
@@ -110,7 +110,7 @@ export default function AuditDashboardPage() {
   const handlePause = async (sessionId: string) => {
     await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}/pause`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+      headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
     });
     fetchSessions();
   };
@@ -118,7 +118,7 @@ export default function AuditDashboardPage() {
   const handleResume = async (sessionId: string) => {
     await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}/resume`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+      headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
     });
     fetchSessions();
   };
@@ -126,7 +126,7 @@ export default function AuditDashboardPage() {
   const handleCancel = async (sessionId: string) => {
     await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+      headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
     });
     fetchSessions();
   };

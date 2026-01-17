@@ -54,7 +54,7 @@ function formatDate(dateStr: string): string {
 
 export default function DocumentsPage() {
   const { config: backendConfig } = useBackend();
-  const { user, isAuthenticated } = useAuth();
+  const { user, tokens, isAuthenticated } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function DocumentsPage() {
   const fetchDocuments = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/documents`, {
-        headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+        headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -78,7 +78,7 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, user?.token]);
+  }, [backendConfig.api, tokens?.access_token]);
 
   useEffect(() => {
     fetchDocuments();
@@ -100,7 +100,7 @@ export default function DocumentsPage() {
       files.forEach((file) => formData.append('files', file));
       await fetch(`${backendConfig.api}/api/documents/batch`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+        headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
         body: formData,
       });
       await fetchDocuments();
@@ -180,7 +180,7 @@ export default function DocumentsPage() {
             fetchDocuments();
           }}
           apiBase={backendConfig.api}
-          authToken={user?.token}
+          authToken={tokens?.access_token}
         />
 
         <div className="flex items-center justify-between mb-4">

@@ -33,7 +33,7 @@ function NewAuditContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { config: backendConfig } = useBackend();
-  const { user } = useAuth();
+  const { user, tokens } = useAuth();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
@@ -54,7 +54,7 @@ function NewAuditContent() {
   const fetchDocuments = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/documents`, {
-        headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+        headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -65,7 +65,7 @@ function NewAuditContent() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, user?.token]);
+  }, [backendConfig.api, tokens?.access_token]);
 
   useEffect(() => {
     fetchDocuments();
@@ -85,7 +85,7 @@ function NewAuditContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token || ''}`,
+          'Authorization': `Bearer ${tokens?.access_token || ''}`,
         },
         body: JSON.stringify({
           name: sessionName || undefined,
@@ -104,7 +104,7 @@ function NewAuditContent() {
       // Start the audit
       await fetch(`${backendConfig.api}/api/audit/sessions/${data.id}/start`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${user?.token || ''}` },
+        headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
       });
 
       router.push(`/audit/${data.id}`);
