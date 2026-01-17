@@ -370,7 +370,7 @@ export default function AuditSessionDetail() {
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-xl font-mono">{session?.name || sessionId.slice(0, 8)}</h1>
+                <h1 className="text-xl font-mono">{session?.name || sessionId?.slice(0, 8) || 'New Session'}</h1>
                 {session && <StatusBadge status={session.status} />}
               </div>
               <div className="text-sm text-muted font-mono">
