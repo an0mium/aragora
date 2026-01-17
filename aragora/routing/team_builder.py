@@ -53,7 +53,7 @@ class TeamBuilder:
     and team composition scoring.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the team builder."""
         self._selection_history: list[dict] = []
 
