@@ -52,7 +52,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding, AuditSession
     from aragora.core import Agent
-    from aragora.debate.byzantine import ByzantineConsensusResult
     from aragora.debate.delegation import DelegationStrategy
     from aragora.debate.hooks import HookManager
 
@@ -193,7 +192,9 @@ class QueenOrchestrator:
         Uses the queen agent to analyze chunks and create targeted tasks.
         """
         tasks = []
-        audit_types = session.audit_types if hasattr(session, "audit_types") else ["security", "quality"]
+        audit_types = (
+            session.audit_types if hasattr(session, "audit_types") else ["security", "quality"]
+        )
 
         # Create tasks for each chunk
         for i, chunk in enumerate(chunks):
@@ -221,7 +222,9 @@ class QueenOrchestrator:
         content_lower = content.lower()
 
         # Critical keywords
-        if any(kw in content_lower for kw in ["password", "secret", "credential", "api_key", "token"]):
+        if any(
+            kw in content_lower for kw in ["password", "secret", "credential", "api_key", "token"]
+        ):
             return TaskPriority.CRITICAL
 
         # High priority keywords
@@ -551,8 +554,7 @@ class AuditHiveMind:
 
         # Phase 3: Run workers in parallel
         worker_coros = [
-            self._orchestrator.run_worker_loop(worker, session.id)
-            for worker in self.workers
+            self._orchestrator.run_worker_loop(worker, session.id) for worker in self.workers
         ]
 
         # Add monitoring task

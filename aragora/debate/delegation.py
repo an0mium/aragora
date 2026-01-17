@@ -45,7 +45,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 if TYPE_CHECKING:
     from aragora.agents.config_loader import AgentConfig
@@ -274,20 +274,50 @@ class ExpertiseDelegation(DelegationStrategy):
         if not self.domain_keywords:
             self.domain_keywords = {
                 "security": [
-                    "security", "vulnerability", "injection", "xss", "credential",
-                    "authentication", "authorization", "crypto", "secret", "password",
+                    "security",
+                    "vulnerability",
+                    "injection",
+                    "xss",
+                    "credential",
+                    "authentication",
+                    "authorization",
+                    "crypto",
+                    "secret",
+                    "password",
                 ],
                 "compliance": [
-                    "compliance", "regulatory", "gdpr", "hipaa", "soc2", "pci",
-                    "policy", "audit", "governance", "risk",
+                    "compliance",
+                    "regulatory",
+                    "gdpr",
+                    "hipaa",
+                    "soc2",
+                    "pci",
+                    "policy",
+                    "audit",
+                    "governance",
+                    "risk",
                 ],
                 "code-quality": [
-                    "quality", "maintainability", "readability", "refactor",
-                    "test", "coverage", "documentation", "style", "lint",
+                    "quality",
+                    "maintainability",
+                    "readability",
+                    "refactor",
+                    "test",
+                    "coverage",
+                    "documentation",
+                    "style",
+                    "lint",
                 ],
                 "performance": [
-                    "performance", "optimization", "speed", "latency", "memory",
-                    "cpu", "scale", "bottleneck", "profiling",
+                    "performance",
+                    "optimization",
+                    "speed",
+                    "latency",
+                    "memory",
+                    "cpu",
+                    "scale",
+                    "bottleneck",
+                    "profiling",
                 ],
             }
 

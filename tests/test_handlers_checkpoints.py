@@ -214,11 +214,15 @@ class TestListCheckpoints:
     """Tests for GET /api/checkpoints endpoint."""
 
     @pytest.mark.asyncio
-    async def test_list_checkpoints_empty(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_list_checkpoints_empty(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns empty list when no checkpoints exist."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = []
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints", {}, mock_handler)
 
         assert result is not None
@@ -234,7 +238,9 @@ class TestListCheckpoints:
         """Returns checkpoints with pagination."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = sample_checkpoint_list
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints", {}, mock_handler)
 
         assert result is not None
@@ -252,7 +258,9 @@ class TestListCheckpoints:
         """Filters checkpoints by debate_id."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = sample_checkpoint_list[:2]
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints", {"debate_id": "debate-123"}, mock_handler
             )
@@ -268,7 +276,9 @@ class TestListCheckpoints:
         """Filters checkpoints by status."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = sample_checkpoint_list
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints", {"status": "complete"}, mock_handler
             )
@@ -287,7 +297,9 @@ class TestListCheckpoints:
         """Handles pagination parameters."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = sample_checkpoint_list
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints", {"limit": "2", "offset": "1"}, mock_handler
             )
@@ -310,11 +322,15 @@ class TestListResumableDebates:
     """Tests for GET /api/checkpoints/resumable endpoint."""
 
     @pytest.mark.asyncio
-    async def test_list_resumable_empty(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_list_resumable_empty(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns empty list when no resumable debates exist."""
         mock_checkpoint_manager.list_debates_with_checkpoints.return_value = []
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints/resumable", {}, mock_handler)
 
         assert result is not None
@@ -324,7 +340,9 @@ class TestListResumableDebates:
         assert data["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_list_resumable_with_data(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_list_resumable_with_data(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns debates with checkpoints."""
         debates = [
             {
@@ -344,7 +362,9 @@ class TestListResumableDebates:
         ]
         mock_checkpoint_manager.list_debates_with_checkpoints.return_value = debates
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints/resumable", {}, mock_handler)
 
         assert result is not None
@@ -364,12 +384,18 @@ class TestGetCheckpoint:
     """Tests for GET /api/checkpoints/{id} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_checkpoint_not_found(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_get_checkpoint_not_found(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns 404 when checkpoint doesn't exist."""
         mock_checkpoint_manager.store.load.return_value = None
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
-            result = await checkpoint_handler.handle("/api/checkpoints/nonexistent", {}, mock_handler)
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/nonexistent", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 404
@@ -383,8 +409,12 @@ class TestGetCheckpoint:
         """Returns checkpoint details with integrity status."""
         mock_checkpoint_manager.store.load.return_value = sample_checkpoint
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
-            result = await checkpoint_handler.handle("/api/checkpoints/cp-test-001", {}, mock_handler)
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/cp-test-001", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -403,12 +433,16 @@ class TestResumeCheckpoint:
     """Tests for POST /api/checkpoints/{id}/resume endpoint."""
 
     @pytest.mark.asyncio
-    async def test_resume_checkpoint_not_found(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_resume_checkpoint_not_found(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns 404 when checkpoint doesn't exist."""
         mock_handler.command = "POST"
         mock_checkpoint_manager.resume_from_checkpoint.return_value = None
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/nonexistent/resume", {}, mock_handler, body=None
             )
@@ -450,7 +484,9 @@ class TestResumeCheckpoint:
         )
         mock_checkpoint_manager.resume_from_checkpoint.return_value = resumed
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/resume", {}, mock_handler, body=None
             )
@@ -479,7 +515,9 @@ class TestResumeCheckpoint:
         )
         mock_checkpoint_manager.resume_from_checkpoint.return_value = resumed
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/resume", {}, mock_handler, body=body
             )
@@ -501,13 +539,19 @@ class TestDeleteCheckpoint:
     """Tests for DELETE /api/checkpoints/{id} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_delete_checkpoint_not_found(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_delete_checkpoint_not_found(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns 404 when checkpoint doesn't exist."""
         mock_handler.command = "DELETE"
         mock_checkpoint_manager.store.load.return_value = None
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
-            result = await checkpoint_handler.handle("/api/checkpoints/nonexistent", {}, mock_handler)
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/nonexistent", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 404
@@ -521,8 +565,12 @@ class TestDeleteCheckpoint:
         mock_checkpoint_manager.store.load.return_value = sample_checkpoint
         mock_checkpoint_manager.store.delete.return_value = True
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
-            result = await checkpoint_handler.handle("/api/checkpoints/cp-test-001", {}, mock_handler)
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/cp-test-001", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -538,8 +586,12 @@ class TestDeleteCheckpoint:
         mock_checkpoint_manager.store.load.return_value = sample_checkpoint
         mock_checkpoint_manager.store.delete.return_value = False
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
-            result = await checkpoint_handler.handle("/api/checkpoints/cp-test-001", {}, mock_handler)
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
+            result = await checkpoint_handler.handle(
+                "/api/checkpoints/cp-test-001", {}, mock_handler
+            )
 
         assert result is not None
         assert result.status_code == 500
@@ -556,12 +608,16 @@ class TestAddIntervention:
     """Tests for POST /api/checkpoints/{id}/intervention endpoint."""
 
     @pytest.mark.asyncio
-    async def test_add_intervention_missing_note(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_add_intervention_missing_note(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns 400 when note is missing."""
         mock_handler.command = "POST"
         body = json.dumps({}).encode()
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/intervention", {}, mock_handler, body=body
             )
@@ -580,7 +636,9 @@ class TestAddIntervention:
         body = json.dumps({"note": "Human review needed"}).encode()
         mock_checkpoint_manager.add_intervention.return_value = False
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/nonexistent/intervention", {}, mock_handler, body=body
             )
@@ -589,13 +647,17 @@ class TestAddIntervention:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_add_intervention_success(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_add_intervention_success(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Successfully adds intervention note."""
         mock_handler.command = "POST"
         body = json.dumps({"note": "Human review: Agents stuck in loop", "by": "admin"}).encode()
         mock_checkpoint_manager.add_intervention.return_value = True
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/intervention", {}, mock_handler, body=body
             )
@@ -620,11 +682,15 @@ class TestListDebateCheckpoints:
     """Tests for GET /api/debates/{id}/checkpoints endpoint."""
 
     @pytest.mark.asyncio
-    async def test_list_debate_checkpoints_empty(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_list_debate_checkpoints_empty(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Returns empty list when no checkpoints exist for debate."""
         mock_checkpoint_manager.store.list_checkpoints.return_value = []
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/debates/debate-123/checkpoints", {}, mock_handler
             )
@@ -642,10 +708,14 @@ class TestListDebateCheckpoints:
     ):
         """Returns checkpoints for specific debate sorted by creation time."""
         # Only checkpoints for debate-123
-        debate_checkpoints = [cp for cp in sample_checkpoint_list if cp["debate_id"] == "debate-123"]
+        debate_checkpoints = [
+            cp for cp in sample_checkpoint_list if cp["debate_id"] == "debate-123"
+        ]
         mock_checkpoint_manager.store.list_checkpoints.return_value = debate_checkpoints
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/debates/debate-123/checkpoints", {}, mock_handler
             )
@@ -716,24 +786,32 @@ class TestRequestRouting:
     """Tests for request routing to correct handlers."""
 
     @pytest.mark.asyncio
-    async def test_route_get_checkpoints(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_route_get_checkpoints(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """GET /api/checkpoints routes to list_checkpoints."""
         mock_handler.command = "GET"
         mock_checkpoint_manager.store.list_checkpoints.return_value = []
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_route_get_resumable(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_route_get_resumable(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """GET /api/checkpoints/resumable routes to list_resumable_debates."""
         mock_handler.command = "GET"
         mock_checkpoint_manager.list_debates_with_checkpoints.return_value = []
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle("/api/checkpoints/resumable", {}, mock_handler)
 
         assert result is not None
@@ -747,7 +825,9 @@ class TestRequestRouting:
         mock_handler.command = "GET"
 
         # The handle method should return 404 for unhandled paths
-        result = await checkpoint_handler.handle("/api/checkpoints/unknown/path/here", {}, mock_handler)
+        result = await checkpoint_handler.handle(
+            "/api/checkpoints/unknown/path/here", {}, mock_handler
+        )
 
         # Since the path has 5+ segments and doesn't match known patterns
         assert result is not None
@@ -789,12 +869,16 @@ class TestCheckpointErrorHandling:
     """Tests for error handling scenarios."""
 
     @pytest.mark.asyncio
-    async def test_handles_invalid_json_body(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_handles_invalid_json_body(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Handles invalid JSON in request body gracefully."""
         mock_handler.command = "POST"
         body = b"not valid json"
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/intervention", {}, mock_handler, body=body
             )
@@ -804,12 +888,16 @@ class TestCheckpointErrorHandling:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_handles_empty_body(self, checkpoint_handler, mock_handler, mock_checkpoint_manager):
+    async def test_handles_empty_body(
+        self, checkpoint_handler, mock_handler, mock_checkpoint_manager
+    ):
         """Handles empty request body gracefully."""
         mock_handler.command = "POST"
         mock_checkpoint_manager.resume_from_checkpoint.return_value = None
 
-        with patch.object(checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager):
+        with patch.object(
+            checkpoint_handler, "_get_checkpoint_manager", return_value=mock_checkpoint_manager
+        ):
             result = await checkpoint_handler.handle(
                 "/api/checkpoints/cp-test-001/resume", {}, mock_handler, body=None
             )

@@ -162,9 +162,7 @@ class DebateHooks(Protocol):
 class AuditHooks(Protocol):
     """Protocol for audit-specific hooks."""
 
-    def on_finding(
-        self, finding: "AuditFinding"
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+    def on_finding(self, finding: "AuditFinding") -> Optional[Coroutine[Any, Any, None]]: ...
 
     def on_contradiction(
         self, agent_a: str, agent_b: str, claim: str, round_num: int
@@ -196,9 +194,7 @@ class HookManager:
     - Error isolation (one failed hook doesn't stop others)
     """
 
-    _hooks: dict[str, list[RegisteredHook]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
+    _hooks: dict[str, list[RegisteredHook]] = field(default_factory=lambda: defaultdict(list))
     _enabled: bool = True
     _error_handler: Optional[Callable[[str, Exception], None]] = None
 
@@ -407,9 +403,7 @@ class HookManager:
         """Disable hook triggering (hooks are still registered)."""
         self._enabled = False
 
-    def set_error_handler(
-        self, handler: Optional[Callable[[str, Exception], None]]
-    ) -> None:
+    def set_error_handler(self, handler: Optional[Callable[[str, Exception], None]]) -> None:
         """Set a custom error handler for hook failures."""
         self._error_handler = handler
 
@@ -465,6 +459,7 @@ def create_logging_hooks(
     hook_logger = logging.getLogger("aragora.hooks")
 
     for hook_type in HookType:
+
         def make_logger(ht: HookType):
             def log_hook(**kwargs: Any) -> None:
                 hook_logger.log(
@@ -472,6 +467,7 @@ def create_logging_hooks(
                     f"Hook triggered: {ht.value}",
                     extra={"hook_type": ht.value, "kwargs": list(kwargs.keys())},
                 )
+
             return log_hook
 
         manager.register(

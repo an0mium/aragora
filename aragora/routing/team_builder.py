@@ -337,9 +337,11 @@ class TeamBuilder:
 
         return "\n".join(lines)
 
-    def record_selection(self, task_id: str, selected: list[str], result: Optional[str] = None, confidence: float = 0):
+    def record_selection(
+        self, task_id: str, selected: list[str], result: Optional[str] = None, confidence: float = 0
+    ) -> None:
         """Record a selection to history."""
-        entry = {
+        entry: dict[str, Any] = {
             "task_id": task_id,
             "selected": selected,
             "timestamp": datetime.now().isoformat(),

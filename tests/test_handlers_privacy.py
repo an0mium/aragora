@@ -191,17 +191,13 @@ class TestDataExport:
         data = json.loads(result.body)
         assert "error" in data
 
-    def test_export_no_user_store(
-        self, privacy_handler_no_store, mock_handler, mock_auth_context
-    ):
+    def test_export_no_user_store(self, privacy_handler_no_store, mock_handler, mock_auth_context):
         """Returns 503 when user store is unavailable."""
         with patch(
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler_no_store.handle(
-                "/api/privacy/export", {}, mock_handler
-            )
+            result = privacy_handler_no_store.handle("/api/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -262,9 +258,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle(
-                "/api/privacy/export", {"format": "csv"}, mock_handler
-            )
+            result = privacy_handler.handle("/api/privacy/export", {"format": "csv"}, mock_handler)
 
         assert result is not None
         # CSV export returns a tuple (body, status, headers) instead of HandlerResult
@@ -293,17 +287,13 @@ class TestDataExport:
 class TestDataInventory:
     """Tests for GET /api/privacy/data-inventory endpoint."""
 
-    def test_inventory_unauthenticated(
-        self, privacy_handler, mock_handler, mock_unauth_context
-    ):
+    def test_inventory_unauthenticated(self, privacy_handler, mock_handler, mock_unauth_context):
         """Returns 401 when not authenticated."""
         with patch(
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_unauth_context,
         ):
-            result = privacy_handler.handle(
-                "/api/privacy/data-inventory", {}, mock_handler
-            )
+            result = privacy_handler.handle("/api/privacy/data-inventory", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -314,9 +304,7 @@ class TestDataInventory:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle(
-                "/api/privacy/data-inventory", {}, mock_handler
-            )
+            result = privacy_handler.handle("/api/privacy/data-inventory", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -355,9 +343,7 @@ class TestAccountDeletion:
         with patch.object(RateLimiter, "is_allowed", return_value=True):
             yield
 
-    def test_delete_unauthenticated(
-        self, privacy_handler, mock_handler, mock_unauth_context
-    ):
+    def test_delete_unauthenticated(self, privacy_handler, mock_handler, mock_unauth_context):
         """Returns 401 when not authenticated."""
         mock_handler.command = "DELETE"
 
@@ -377,11 +363,12 @@ class TestAccountDeletion:
         mock_handler.command = "DELETE"
         mock_user_store.get_user_by_id.return_value = mock_user
 
-        with patch(
-            "aragora.server.handlers.privacy.extract_user_from_request",
-            return_value=mock_auth_context,
-        ), patch.object(
-            privacy_handler, "read_json_body", return_value={"password": "test123"}
+        with (
+            patch(
+                "aragora.server.handlers.privacy.extract_user_from_request",
+                return_value=mock_auth_context,
+            ),
+            patch.object(privacy_handler, "read_json_body", return_value={"password": "test123"}),
         ):
             result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
 
@@ -398,13 +385,16 @@ class TestAccountDeletion:
         mock_user_store.get_user_by_id.return_value = mock_user
         mock_user.verify_password.return_value = False
 
-        with patch(
-            "aragora.server.handlers.privacy.extract_user_from_request",
-            return_value=mock_auth_context,
-        ), patch.object(
-            privacy_handler,
-            "read_json_body",
-            return_value={"password": "wrong", "confirm": True},
+        with (
+            patch(
+                "aragora.server.handlers.privacy.extract_user_from_request",
+                return_value=mock_auth_context,
+            ),
+            patch.object(
+                privacy_handler,
+                "read_json_body",
+                return_value={"password": "wrong", "confirm": True},
+            ),
         ):
             result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
 
@@ -421,13 +411,16 @@ class TestAccountDeletion:
         mock_user_store.get_user_by_id.return_value = mock_user
         mock_user.verify_password.return_value = True
 
-        with patch(
-            "aragora.server.handlers.privacy.extract_user_from_request",
-            return_value=mock_auth_context,
-        ), patch.object(
-            privacy_handler,
-            "read_json_body",
-            return_value={"password": "correct", "confirm": True, "reason": "leaving"},
+        with (
+            patch(
+                "aragora.server.handlers.privacy.extract_user_from_request",
+                return_value=mock_auth_context,
+            ),
+            patch.object(
+                privacy_handler,
+                "read_json_body",
+                return_value={"password": "correct", "confirm": True, "reason": "leaving"},
+            ),
         ):
             result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
 
@@ -499,13 +492,16 @@ class TestPrivacyPreferences:
         mock_handler.command = "POST"
         mock_user_store.get_user_preferences.return_value = {}
 
-        with patch(
-            "aragora.server.handlers.privacy.extract_user_from_request",
-            return_value=mock_auth_context,
-        ), patch.object(
-            privacy_handler,
-            "read_json_body",
-            return_value={"do_not_sell": True, "analytics_opt_out": True},
+        with (
+            patch(
+                "aragora.server.handlers.privacy.extract_user_from_request",
+                return_value=mock_auth_context,
+            ),
+            patch.object(
+                privacy_handler,
+                "read_json_body",
+                return_value={"do_not_sell": True, "analytics_opt_out": True},
+            ),
         ):
             result = privacy_handler.handle(
                 "/api/privacy/preferences", {}, mock_handler, method="POST"
@@ -529,10 +525,13 @@ class TestPrivacyPreferences:
         """Returns 400 for invalid JSON body."""
         mock_handler.command = "POST"
 
-        with patch(
-            "aragora.server.handlers.privacy.extract_user_from_request",
-            return_value=mock_auth_context,
-        ), patch.object(privacy_handler, "read_json_body", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.privacy.extract_user_from_request",
+                return_value=mock_auth_context,
+            ),
+            patch.object(privacy_handler, "read_json_body", return_value=None),
+        ):
             result = privacy_handler.handle(
                 "/api/privacy/preferences", {}, mock_handler, method="POST"
             )

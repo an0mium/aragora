@@ -252,6 +252,7 @@ class DebateRoundsPhase:
             # Check for cancellation before each round
             if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
                 from aragora.debate.cancellation import DebateCancelled
+
                 raise DebateCancelled(ctx.cancellation_token.reason)
 
             logger.info(f"round_start round={round_num}")

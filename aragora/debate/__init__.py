@@ -183,7 +183,10 @@ _EXPORT_MAP = {
     "ByzantineConsensusConfig": ("aragora.debate.byzantine", "ByzantineConsensusConfig"),
     "ByzantineConsensusResult": ("aragora.debate.byzantine", "ByzantineConsensusResult"),
     "ByzantinePhase": ("aragora.debate.byzantine", "ByzantinePhase"),
-    "verify_with_byzantine_consensus": ("aragora.debate.byzantine", "verify_with_byzantine_consensus"),
+    "verify_with_byzantine_consensus": (
+        "aragora.debate.byzantine",
+        "verify_with_byzantine_consensus",
+    ),
     # Stream Chaining
     "StreamChain": ("aragora.debate.stream_chain", "StreamChain"),
     "StreamBuffer": ("aragora.debate.stream_chain", "StreamBuffer"),

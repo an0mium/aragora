@@ -1,0 +1,98 @@
+# Financial Audit Preset
+# For accounting firms detecting irregularities and ensuring compliance
+
+name: Financial Audit
+description: |
+  Financial document analysis for detecting accounting irregularities,
+  SOX compliance verification, and transaction reconciliation.
+
+audit_types:
+  - security        # Detect exposed financial credentials/accounts
+  - compliance      # SOX, GAAP, IFRS compliance
+  - consistency     # Cross-document number verification
+  - quality         # Documentation completeness
+
+custom_rules:
+  # Number pattern anomalies (round numbers often indicate estimates)
+  - pattern: "\\$\\s*[1-9](?:,?\\d{3})*(?:,000){2,}(?:\\.00)?\\b"
+    severity: low
+    category: round_number_flag
+    title: "Large Round Number"
+    description: "Suspiciously round amount - may indicate estimate or placeholder"
+
+  # Duplicate invoice patterns
+  - pattern: "(?i)invoice\\s*#?\\s*:?\\s*(\\w{2,}-?\\d{4,})"
+    severity: info
+    category: invoice_tracking
+    title: "Invoice Reference"
+    description: "Invoice number for cross-reference tracking"
+
+  # Journal entry red flags
+  - pattern: "(?i)(?:adjust(?:ment|ing)?\\s+(?:entry|entries)|post(?:ing)?\\s+(?:to|adjustment))"
+    severity: medium
+    category: journal_entry
+    title: "Adjusting Entry"
+    description: "Manual adjustment detected - review authorization"
+
+  - pattern: "(?i)(?:reverse|revers(?:al|ing)|back\\s*out)"
+    severity: high
+    category: reversal
+    title: "Reversal Entry"
+    description: "Reversal detected - verify legitimacy and approval"
+
+  # Revenue recognition concerns
+  - pattern: "(?i)(?:unbilled|deferred|accrued)\\s+(?:revenue|income)"
+    severity: medium
+    category: revenue_recognition
+    title: "Revenue Recognition Item"
+    description: "Complex revenue item - verify recognition timing"
+
+  - pattern: "(?i)(?:bill(?:ed)?\\s+(?:but\\s+)?not\\s+(?:yet\\s+)?(?:shipped|delivered)|ship(?:ped)?\\s+(?:but\\s+)?not\\s+(?:yet\\s+)?bill(?:ed)?)"
+    severity: high
+    category: revenue_recognition
+    title: "Revenue/Shipping Mismatch"
+    description: "Timing difference between billing and delivery"
+
+  # Related party indicators
+  - pattern: "(?i)(?:related\\s+part(?:y|ies)|affiliate|intercompany|subsidiary)"
+    severity: medium
+    category: related_party
+    title: "Related Party Transaction"
+    description: "Related party indicator - ensure arm's length pricing"
+
+  # Off-balance sheet items
+  - pattern: "(?i)(?:off[- ]?balance[- ]?sheet|special\\s+purpose\\s+(?:entity|vehicle)|SPE|SPV)"
+    severity: high
+    category: off_balance_sheet
+    title: "Off-Balance Sheet Item"
+    description: "Off-balance sheet arrangement - review disclosure"
+
+  # Estimate and judgment areas
+  - pattern: "(?i)(?:estimate(?:d|s)?|provision|allowance|reserve|impairment|write[- ]?(?:off|down))"
+    severity: medium
+    category: estimates
+    title: "Accounting Estimate"
+    description: "Subjective estimate - verify methodology and reasonableness"
+
+  # Bank reconciliation items
+  - pattern: "(?i)(?:outstanding\\s+(?:check|deposit)|reconcil(?:e|ing|iation)\\s+(?:item|difference))"
+    severity: medium
+    category: bank_reconciliation
+    title: "Reconciliation Item"
+    description: "Outstanding reconciliation item - verify resolution"
+
+consensus_threshold: 0.85
+
+agents:
+  primary: claude-3.5-sonnet
+  verification:
+    - gpt-4
+    - gemini-pro
+
+parameters:
+  confidence_threshold: 0.7
+  include_low_severity: true
+  max_findings_per_document: 200
+  cross_reference_enabled: true
+  number_verification: true
+  duplicate_detection: true

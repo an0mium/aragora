@@ -183,9 +183,7 @@ class StreamChain:
     """
 
     # Agent name -> set of subscriber agent names
-    _subscriptions: dict[str, set[str]] = field(
-        default_factory=lambda: {}
-    )
+    _subscriptions: dict[str, set[str]] = field(default_factory=lambda: {})
     # Agent name -> StreamBuffer for their output
     _buffers: dict[str, StreamBuffer] = field(default_factory=dict)
     # Agent name -> StreamState
@@ -352,9 +350,7 @@ class StreamChain:
         """Get chain statistics."""
         return {
             "agents": list(self._buffers.keys()),
-            "subscriptions": {
-                k: list(v) for k, v in self._subscriptions.items() if v
-            },
+            "subscriptions": {k: list(v) for k, v in self._subscriptions.items() if v},
             "states": {k: v.value for k, v in self._states.items()},
             "buffers": {k: v.stats for k, v in self._buffers.items()},
         }
@@ -408,9 +404,7 @@ class ChainedDebate:
                     # Hub subscribes to spoke agents
                     self.chain.subscribe(hub.name, agent.name)
 
-        logger.info(
-            f"ChainedDebate: {self.topology} topology with {len(self.agents)} agents"
-        )
+        logger.info(f"ChainedDebate: {self.topology} topology with {len(self.agents)} agents")
 
     async def run_round(
         self,

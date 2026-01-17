@@ -186,9 +186,7 @@ class TestAdminAuth:
         assert "unavailable" in data["error"].lower()
 
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
-    def test_returns_401_when_not_authenticated(
-        self, mock_extract, admin_handler, mock_handler
-    ):
+    def test_returns_401_when_not_authenticated(self, mock_extract, admin_handler, mock_handler):
         """Returns 401 when user is not authenticated."""
         mock_auth = MagicMock()
         mock_auth.is_authenticated = False
@@ -288,7 +286,13 @@ class TestListUsers:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_list_users_success(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context, mock_user_store
+        self,
+        mock_extract,
+        mock_mfa,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
+        mock_user_store,
     ):
         """Successfully returns paginated user list."""
         mock_extract.return_value = mock_auth_context
@@ -317,7 +321,13 @@ class TestListUsers:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_list_users_with_pagination(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context, mock_user_store
+        self,
+        mock_extract,
+        mock_mfa,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
+        mock_user_store,
     ):
         """Respects pagination parameters."""
         mock_extract.return_value = mock_auth_context
@@ -325,9 +335,7 @@ class TestListUsers:
         mock_user_store.list_all_users.return_value = ([], 0)
 
         result = admin_handler.handle(
-            "/api/admin/users",
-            {"limit": "25", "offset": "10", "role": "admin"},
-            mock_handler
+            "/api/admin/users", {"limit": "25", "offset": "10", "role": "admin"}, mock_handler
         )
 
         assert result is not None
@@ -349,7 +357,13 @@ class TestDeactivateUser:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_deactivate_user_success(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context, mock_user_store
+        self,
+        mock_extract,
+        mock_mfa,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
+        mock_user_store,
     ):
         """Successfully deactivates a user."""
         mock_extract.return_value = mock_auth_context
@@ -357,10 +371,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/target-user-456/deactivate",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/users/target-user-456/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -382,10 +393,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/admin-user-123/deactivate",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/users/admin-user-123/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -404,10 +412,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/nonexistent-user/deactivate",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/users/nonexistent-user/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -427,7 +432,13 @@ class TestActivateUser:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_activate_user_success(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context, mock_user_store
+        self,
+        mock_extract,
+        mock_mfa,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
+        mock_user_store,
     ):
         """Successfully activates a user."""
         mock_extract.return_value = mock_auth_context
@@ -435,10 +446,7 @@ class TestActivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/target-user-456/activate",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/users/target-user-456/activate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -463,10 +471,7 @@ class TestInputValidation:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/impersonate/invalid<script>id",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/impersonate/invalid<script>id", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -486,10 +491,7 @@ class TestInputValidation:
 
         # Use a user ID with special characters that violate SAFE_ID_PATTERN
         result = admin_handler.handle(
-            "/api/admin/users/invalid!user@id/deactivate",
-            {},
-            mock_handler,
-            method="POST"
+            "/api/admin/users/invalid!user@id/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -518,12 +520,7 @@ class TestMethodNotAllowed:
         mock_handler.command = "POST"
 
         # /api/admin/stats is GET only
-        result = admin_handler.handle(
-            "/api/admin/stats",
-            {},
-            mock_handler,
-            method="POST"
-        )
+        result = admin_handler.handle("/api/admin/stats", {}, mock_handler, method="POST")
 
         assert result is not None
         assert result.status_code == 405

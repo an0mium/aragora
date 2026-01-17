@@ -428,7 +428,9 @@ class TestModes:
         import sys
 
         # Temporarily remove the module if it exists and make it raise ImportError
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def mock_import(name, *args, **kwargs):
             if name == "aragora.modes.custom":

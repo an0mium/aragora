@@ -352,22 +352,26 @@ class TestHandleAuditExport:
     async def test_exports_json_format(self, mock_audit_log):
         """Exports audit log in JSON format."""
         with patch.object(audit_export, "get_audit_log", return_value=mock_audit_log):
-            body = json.dumps({
-                "format": "json",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            body = json.dumps(
+                {
+                    "format": "json",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
             request = make_mocked_request(
                 "POST",
                 "/api/audit/export",
                 app=web.Application(),
             )
             request._payload = AsyncMock()
-            request.json = AsyncMock(return_value={
-                "format": "json",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "format": "json",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -385,11 +389,13 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "format": "csv",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "format": "csv",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -406,11 +412,13 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "format": "soc2",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "format": "soc2",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -427,10 +435,12 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -464,9 +474,11 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -483,9 +495,11 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "start_date": "2026-01-01T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "2026-01-01T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -502,10 +516,12 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "start_date": "not-a-date",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "not-a-date",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -523,11 +539,13 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "format": "invalid_format",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "format": "invalid_format",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -545,12 +563,14 @@ class TestHandleAuditExport:
                 "/api/audit/export",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "format": "json",
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-                "org_id": "org-123",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "format": "json",
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                    "org_id": "org-123",
+                }
+            )
 
             response = await audit_export.handle_audit_export(request)
 
@@ -598,10 +618,12 @@ class TestHandleAuditVerify:
                 "/api/audit/verify",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "start_date": "2026-01-01T00:00:00",
-                "end_date": "2026-01-15T00:00:00",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "2026-01-01T00:00:00",
+                    "end_date": "2026-01-15T00:00:00",
+                }
+            )
 
             response = await audit_export.handle_audit_verify(request)
 
@@ -636,9 +658,11 @@ class TestHandleAuditVerify:
                 "/api/audit/verify",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "start_date": "not-a-date",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "start_date": "not-a-date",
+                }
+            )
 
             response = await audit_export.handle_audit_verify(request)
 
@@ -655,9 +679,11 @@ class TestHandleAuditVerify:
                 "/api/audit/verify",
                 app=web.Application(),
             )
-            request.json = AsyncMock(return_value={
-                "end_date": "invalid",
-            })
+            request.json = AsyncMock(
+                return_value={
+                    "end_date": "invalid",
+                }
+            )
 
             response = await audit_export.handle_audit_verify(request)
 

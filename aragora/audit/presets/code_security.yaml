@@ -1,0 +1,119 @@
+# Code Security Preset
+# For software companies performing security audits and code review
+
+name: Code Security
+description: |
+  Comprehensive code security analysis for detecting vulnerabilities,
+  secrets leakage, license compliance, and security best practices.
+
+audit_types:
+  - security        # Primary: secrets, vulnerabilities, injection
+  - compliance      # License compliance, security policies
+  - quality         # Code quality and documentation
+
+custom_rules:
+  # Enhanced secrets detection
+  - pattern: "(?i)(?:api[_-]?key|apikey|secret[_-]?key|auth[_-]?token|access[_-]?token)\\s*[=:]\\s*['\"][^'\"]{16,}['\"]"
+    severity: critical
+    category: hardcoded_secret
+    title: "Hardcoded API Key/Token"
+    description: "API key or token appears to be hardcoded"
+
+  - pattern: "(?i)(?:password|passwd|pwd)\\s*[=:]\\s*['\"][^'\"]{6,}['\"]"
+    severity: critical
+    category: hardcoded_secret
+    title: "Hardcoded Password"
+    description: "Password appears to be hardcoded in source"
+
+  # Common vulnerability patterns
+  - pattern: "(?i)(?:eval|exec)\\s*\\([^)]*(?:\\$|request|input|user|query)"
+    severity: critical
+    category: code_injection
+    title: "Potential Code Injection"
+    description: "Dynamic code execution with user input"
+
+  - pattern: "(?i)(?:shell_exec|system|popen|subprocess\\.(?:call|run|Popen))\\s*\\([^)]*(?:\\+|%|format|f['\"])"
+    severity: critical
+    category: command_injection
+    title: "Potential Command Injection"
+    description: "Shell command with string interpolation"
+
+  - pattern: "(?i)(?:innerHTML|outerHTML|document\\.write)\\s*[=+]"
+    severity: high
+    category: xss
+    title: "Potential XSS Vector"
+    description: "DOM manipulation may allow script injection"
+
+  - pattern: "(?i)(?:SELECT|INSERT|UPDATE|DELETE)\\s+.*\\s+(?:FROM|INTO|SET)\\s+.*(?:\\+|%|format|f['\"]|\\$)"
+    severity: critical
+    category: sql_injection
+    title: "Potential SQL Injection"
+    description: "SQL query with string interpolation"
+
+  # Insecure cryptography
+  - pattern: "(?i)(?:MD5|SHA1|DES|RC4)\\s*\\("
+    severity: high
+    category: weak_crypto
+    title: "Weak Cryptographic Algorithm"
+    description: "Deprecated cryptographic algorithm detected"
+
+  - pattern: "(?i)(?:random\\.|Math\\.random|rand\\()"
+    severity: medium
+    category: weak_random
+    title: "Insecure Random Generation"
+    description: "Non-cryptographic random may be used for security"
+
+  # Insecure configurations
+  - pattern: "(?i)(?:verify\\s*[=:]\\s*false|ssl[_-]?verify\\s*[=:]\\s*false|CURLOPT_SSL_VERIFYPEER\\s*=>?\\s*false)"
+    severity: high
+    category: insecure_config
+    title: "SSL Verification Disabled"
+    description: "SSL certificate verification is disabled"
+
+  - pattern: "(?i)(?:cors.*origin.*\\*|Access-Control-Allow-Origin.*\\*)"
+    severity: medium
+    category: insecure_config
+    title: "Wildcard CORS"
+    description: "CORS allows any origin"
+
+  - pattern: "(?i)(?:debug\\s*[=:]\\s*true|DEBUG\\s*[=:]\\s*True)"
+    severity: medium
+    category: insecure_config
+    title: "Debug Mode Enabled"
+    description: "Debug mode may expose sensitive information"
+
+  # Dependency/license concerns
+  - pattern: "(?i)(?:GPL|AGPL|LGPL|Copyleft)"
+    severity: medium
+    category: license_compliance
+    title: "Copyleft License"
+    description: "Copyleft license may have redistribution requirements"
+
+  # Authentication/authorization issues
+  - pattern: "(?i)(?:admin|root|superuser)\\s*[=:]\\s*['\"]?true"
+    severity: high
+    category: auth_bypass
+    title: "Hardcoded Admin Flag"
+    description: "Hardcoded admin privilege flag"
+
+  - pattern: "(?i)(?:@.*public|public\\s+(?:void|async|function)|export\\s+(?:async\\s+)?function).*(?:delete|remove|drop|admin)"
+    severity: medium
+    category: access_control
+    title: "Public Destructive Method"
+    description: "Potentially destructive method with public access"
+
+consensus_threshold: 0.75
+
+agents:
+  primary: claude-3.5-sonnet
+  verification:
+    - codex-mini
+    - gpt-4
+
+parameters:
+  confidence_threshold: 0.6
+  include_low_severity: false
+  max_findings_per_document: 500
+  cross_reference_enabled: true
+  static_analysis: true
+  dependency_check: true

@@ -124,7 +124,9 @@ class AgentConfig:
 
         valid_memory = {"none", "read", "write", "full"}
         if self.memory_access not in valid_memory:
-            errors.append(f"memory_access must be one of {valid_memory}, got '{self.memory_access}'")
+            errors.append(
+                f"memory_access must be one of {valid_memory}, got '{self.memory_access}'"
+            )
 
         if self.temperature < 0.0 or self.temperature > 2.0:
             errors.append(f"temperature must be 0.0-2.0, got {self.temperature}")
@@ -222,7 +224,9 @@ class AgentConfigLoader:
             ImportError: If PyYAML is not installed
         """
         if yaml is None:
-            raise ImportError("PyYAML is required for YAML config loading. Install with: pip install pyyaml")
+            raise ImportError(
+                "PyYAML is required for YAML config loading. Install with: pip install pyyaml"
+            )
 
         path = Path(path)
         if not path.exists():

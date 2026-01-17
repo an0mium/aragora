@@ -67,6 +67,7 @@ def clear_caches():
 def reset_rate_limiter():
     """Reset rate limiter between tests."""
     from aragora.server.handlers.selection import _selection_limiter
+
     _selection_limiter.clear()
     yield
     _selection_limiter.clear()
@@ -196,7 +197,9 @@ class TestGetScorer:
 
     def test_get_scorer_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown scorer."""
-        result = selection_handler.handle("/api/selection/scorers/nonexistent-scorer", {}, mock_handler)
+        result = selection_handler.handle(
+            "/api/selection/scorers/nonexistent-scorer", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -220,7 +223,9 @@ class TestGetTeamSelector:
         defaults = json.loads(defaults_result.body)
         selector_name = defaults["team_selector"]
 
-        result = selection_handler.handle(f"/api/selection/team-selectors/{selector_name}", {}, mock_handler)
+        result = selection_handler.handle(
+            f"/api/selection/team-selectors/{selector_name}", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -229,7 +234,9 @@ class TestGetTeamSelector:
 
     def test_get_team_selector_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown team selector."""
-        result = selection_handler.handle("/api/selection/team-selectors/nonexistent", {}, mock_handler)
+        result = selection_handler.handle(
+            "/api/selection/team-selectors/nonexistent", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -252,7 +259,9 @@ class TestGetRoleAssigner:
         defaults = json.loads(defaults_result.body)
         assigner_name = defaults["role_assigner"]
 
-        result = selection_handler.handle(f"/api/selection/role-assigners/{assigner_name}", {}, mock_handler)
+        result = selection_handler.handle(
+            f"/api/selection/role-assigners/{assigner_name}", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -261,7 +270,9 @@ class TestGetRoleAssigner:
 
     def test_get_role_assigner_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown role assigner."""
-        result = selection_handler.handle("/api/selection/role-assigners/nonexistent", {}, mock_handler)
+        result = selection_handler.handle(
+            "/api/selection/role-assigners/nonexistent", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 404
@@ -279,9 +290,9 @@ class TestScoreAgents:
 
     def test_score_agents_success(self, selection_handler, mock_handler_with_body):
         """Successfully scores agents for a task."""
-        handler = mock_handler_with_body({
-            "task_description": "Build a REST API with authentication"
-        })
+        handler = mock_handler_with_body(
+            {"task_description": "Build a REST API with authentication"}
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -303,12 +314,14 @@ class TestScoreAgents:
 
     def test_score_agents_with_domains(self, selection_handler, mock_handler_with_body):
         """Scores agents with explicit domain specification."""
-        handler = mock_handler_with_body({
-            "task_description": "Create machine learning pipeline",
-            "primary_domain": "ml",
-            "secondary_domains": ["python", "data"],
-            "required_traits": ["research"]
-        })
+        handler = mock_handler_with_body(
+            {
+                "task_description": "Create machine learning pipeline",
+                "primary_domain": "ml",
+                "secondary_domains": ["python", "data"],
+                "required_traits": ["research"],
+            }
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -342,10 +355,9 @@ class TestScoreAgents:
 
     def test_score_agents_invalid_scorer(self, selection_handler, mock_handler_with_body):
         """Returns 400 for unknown scorer."""
-        handler = mock_handler_with_body({
-            "task_description": "Test task",
-            "scorer": "nonexistent-scorer"
-        })
+        handler = mock_handler_with_body(
+            {"task_description": "Test task", "scorer": "nonexistent-scorer"}
+        )
 
         result = selection_handler.handle_post("/api/selection/score", {}, handler)
 
@@ -365,9 +377,9 @@ class TestSelectTeam:
 
     def test_select_team_success(self, selection_handler, mock_handler_with_body):
         """Successfully selects a team for a task."""
-        handler = mock_handler_with_body({
-            "task_description": "Design a distributed system for real-time analytics"
-        })
+        handler = mock_handler_with_body(
+            {"task_description": "Design a distributed system for real-time analytics"}
+        )
 
         result = selection_handler.handle_post("/api/selection/team", {}, handler)
 
@@ -396,14 +408,16 @@ class TestSelectTeam:
 
     def test_select_team_with_constraints(self, selection_handler, mock_handler_with_body):
         """Selects team with constraints."""
-        handler = mock_handler_with_body({
-            "task_description": "Optimize database queries",
-            "min_agents": 2,
-            "max_agents": 4,
-            "quality_priority": 0.8,
-            "diversity_preference": 0.3,
-            "exclude_agents": ["gpt4"]
-        })
+        handler = mock_handler_with_body(
+            {
+                "task_description": "Optimize database queries",
+                "min_agents": 2,
+                "max_agents": 4,
+                "quality_priority": 0.8,
+                "diversity_preference": 0.3,
+                "exclude_agents": ["gpt4"],
+            }
+        )
 
         result = selection_handler.handle_post("/api/selection/team", {}, handler)
 
@@ -421,9 +435,7 @@ class TestSelectTeam:
 
     def test_select_team_missing_task(self, selection_handler, mock_handler_with_body):
         """Returns 400 when task_description is missing."""
-        handler = mock_handler_with_body({
-            "min_agents": 3
-        })
+        handler = mock_handler_with_body({"min_agents": 3})
 
         result = selection_handler.handle_post("/api/selection/team", {}, handler)
 
@@ -446,10 +458,9 @@ class TestSelectTeam:
 
     def test_select_team_invalid_plugin(self, selection_handler, mock_handler_with_body):
         """Returns 400 for unknown plugin."""
-        handler = mock_handler_with_body({
-            "task_description": "Test task",
-            "team_selector": "nonexistent-selector"
-        })
+        handler = mock_handler_with_body(
+            {"task_description": "Test task", "team_selector": "nonexistent-selector"}
+        )
 
         result = selection_handler.handle_post("/api/selection/team", {}, handler)
 

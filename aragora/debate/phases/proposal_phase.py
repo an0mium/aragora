@@ -102,6 +102,7 @@ class ProposalPhase:
         if hasattr(ctx, "cancellation_token") and ctx.cancellation_token:
             if ctx.cancellation_token.is_cancelled:
                 from aragora.debate.cancellation import DebateCancelled
+
                 raise DebateCancelled(ctx.cancellation_token.reason)
 
         # Trigger PRE_DEBATE hook if hook_manager is available

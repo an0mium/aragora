@@ -118,6 +118,7 @@ class AnalyticsPhase:
         # Check for cancellation before analytics
         if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
             from aragora.debate.cancellation import DebateCancelled
+
             raise DebateCancelled(ctx.cancellation_token.reason)
 
         if not ctx.result:

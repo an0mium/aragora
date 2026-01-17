@@ -469,9 +469,7 @@ class DocumentAuditor:
 
         # Use Hive-Mind for multi-document audits when enabled
         use_hive_mind = (
-            len(session.document_ids) > 1
-            and self.config.use_hive_mind
-            and len(chunks) > 1
+            len(session.document_ids) > 1 and self.config.use_hive_mind and len(chunks) > 1
         )
 
         if use_hive_mind:

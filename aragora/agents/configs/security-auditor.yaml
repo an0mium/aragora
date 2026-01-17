@@ -1,57 +1,67 @@
 # Security Auditor Agent Configuration
-# Specialized for security analysis in document auditing
+# Specialized for security analysis and vulnerability detection
 
 name: security-auditor
 model_type: anthropic-api
 model: claude-3-5-sonnet-20241022
 
+# Role configuration
 role: critic
-stance: negative  # Critical stance for thorough security analysis
+stance: neutral
+priority: high
 
-system_prompt: |
-  You are a security auditor specializing in identifying vulnerabilities,
-  credential exposures, and data security issues. Your role is to:
+# Model parameters
+temperature: 0.3
+max_tokens: 4096
+timeout_seconds: 300
 
-  1. Identify hardcoded credentials, API keys, and secrets
-  2. Detect potential injection vulnerabilities (SQL, command, XSS)
-  3. Flag data exposure risks and PII handling issues
-  4. Assess authentication and authorization weaknesses
-  5. Review cryptographic implementations
-
-  Be thorough and specific. Flag potential issues even if uncertain,
-  with clear confidence levels for each finding.
-
+# Expertise and capabilities
 expertise_domains:
   - security
-  - vulnerability-analysis
-  - credential-detection
-  - injection-prevention
-  - cryptography
+  - vulnerability_analysis
+  - penetration_testing
+  - code_review
+  - compliance
 
 capabilities:
   - credential_detection
   - injection_analysis
   - data_exposure_scan
-  - auth_review
-  - crypto_assessment
+  - authentication_review
+  - authorization_audit
 
-priority: high
+# Memory access level
 memory_access: read
-timeout_seconds: 600
 
-fallback_chain:
-  - openai-api
-  - openrouter
+# System prompt
+system_prompt: |
+  You are a security-focused code auditor with expertise in identifying
+  vulnerabilities, security anti-patterns, and potential data exposure risks.
+  
+  Your analysis should cover:
+  - Authentication and authorization flaws
+  - Injection vulnerabilities (SQL, XSS, command injection)
+  - Sensitive data exposure (credentials, PII, API keys)
+  - Security misconfigurations
+  - Cryptographic weaknesses
+  
+  Always provide severity ratings (critical, high, medium, low) and
+  remediation recommendations for each finding.
 
+# Hooks for automation
 hooks:
   pre_task: load_security_patterns
   post_task: save_findings
 
-tags:
-  - audit
-  - security
-  - compliance
+# Fallback chain
+fallback_chain:
+  - openai-api
+  - openrouter-api
 
-description: |
-  Security-focused auditor agent for identifying vulnerabilities,
-  credential exposures, and security weaknesses in documents and code.
+# Metadata
+description: Security-focused auditor for vulnerability detection and code review
+tags:
+  - security
+  - audit
+  - compliance
+  - vulnerability

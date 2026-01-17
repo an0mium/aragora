@@ -42,7 +42,6 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.core import Vote
-    from aragora.debate.byzantine import ByzantineConsensus, ByzantineConsensusConfig
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -284,6 +283,7 @@ class ConsensusPhase:
         # Check for cancellation before starting
         if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
             from aragora.debate.cancellation import DebateCancelled
+
             raise DebateCancelled(ctx.cancellation_token.reason)
 
         # Trigger PRE_CONSENSUS hook if hook_manager is available
@@ -357,6 +357,7 @@ class ConsensusPhase:
             try:
                 # Use asyncio.create_task for async hook in sync method
                 import asyncio
+
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     asyncio.create_task(
@@ -820,9 +821,7 @@ class ConsensusPhase:
                         metric=byz_result.confidence,
                     )
             else:
-                logger.warning(
-                    f"byzantine_consensus_failed reason={byz_result.failure_reason}"
-                )
+                logger.warning(f"byzantine_consensus_failed reason={byz_result.failure_reason}")
                 # Fall back to majority voting
                 await self._handle_majority_consensus(ctx)
 

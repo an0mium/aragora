@@ -24,30 +24,22 @@ def create_audit_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
     # Create command
-    create_parser = audit_subparsers.add_parser(
-        "create", help="Create a new audit session"
-    )
-    create_parser.add_argument(
-        "documents", help="Comma-separated list of document IDs to audit"
-    )
+    create_parser = audit_subparsers.add_parser("create", help="Create a new audit session")
+    create_parser.add_argument("documents", help="Comma-separated list of document IDs to audit")
     create_parser.add_argument(
         "--types",
         default="all",
         help="Comma-separated audit types (security,quality,consistency,compliance) or 'all'",
     )
     create_parser.add_argument("--name", default=None, help="Session name")
-    create_parser.add_argument(
-        "--model", default="gemini-1.5-flash", help="Model for analysis"
-    )
+    create_parser.add_argument("--model", default="gemini-1.5-flash", help="Model for analysis")
 
     # Start command
     start_parser = audit_subparsers.add_parser("start", help="Start an audit session")
     start_parser.add_argument("session_id", help="Session ID to start")
 
     # Status command
-    status_parser = audit_subparsers.add_parser(
-        "status", help="Get audit session status"
-    )
+    status_parser = audit_subparsers.add_parser("status", help="Get audit session status")
     status_parser.add_argument("session_id", help="Session ID")
 
     # Findings command

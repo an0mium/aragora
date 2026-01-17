@@ -401,6 +401,18 @@ module = [
     "aragora.ranking.snapshot",
     "aragora.client.errors",
     "aragora.client.transport",
+    # Added strict - Phase 16 type safety expansion (Jan 2026)
+    "aragora.debate.judge_selector",
+    "aragora.server.handlers.sso",
+    "aragora.server.handlers.oauth",
+    "aragora.cli.gauntlet",
+    "aragora.storage.token_blacklist_store",
+    # Added strict - Phase 16 refactored modules (Jan 2026)
+    "aragora.routing.domain_matcher",
+    "aragora.routing.team_builder",
+    "aragora.server.handlers.debates.export",
+    "aragora.server.handlers.debates.analysis",
+    "aragora.server.handlers.debates.search",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

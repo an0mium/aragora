@@ -1,0 +1,89 @@
+# Legal Due Diligence Preset
+# For law firms conducting contract analysis and compliance review
+
+name: Legal Due Diligence
+description: |
+  Comprehensive legal document analysis for M&A due diligence,
+  contract review, and compliance verification.
+
+audit_types:
+  - security        # Check for exposed confidential information
+  - compliance      # Regulatory and contractual compliance
+  - consistency     # Cross-document contradiction detection
+
+custom_rules:
+  # Contractual risk patterns
+  - pattern: "(?i)indemnif(?:y|ication)"
+    severity: medium
+    category: contractual_risk
+    title: "Indemnification Clause"
+    description: "Indemnification language detected - review liability exposure"
+
+  - pattern: "(?i)warrant(?:y|ies)\\s+(?:are|is)?\\s*(?:expressly)?\\s*disclaim"
+    severity: high
+    category: contractual_risk
+    title: "Warranty Disclaimer"
+    description: "Warranty disclaimer detected - may limit recourse"
+
+  - pattern: "(?i)limitation\\s+(?:of|on)\\s+liabilit"
+    severity: high
+    category: contractual_risk
+    title: "Liability Limitation"
+    description: "Liability cap or limitation detected"
+
+  - pattern: "(?i)terminat(?:e|ion)\\s+(?:for|without)\\s+(?:cause|convenience)"
+    severity: medium
+    category: termination
+    title: "Termination Clause"
+    description: "Termination rights detected - review exit conditions"
+
+  - pattern: "(?i)(?:non-?compete|non-?competition|restrictive\\s+covenant)"
+    severity: high
+    category: restrictive_covenants
+    title: "Non-Compete/Restrictive Covenant"
+    description: "Restrictive covenant detected - review scope and enforceability"
+
+  - pattern: "(?i)exclusiv(?:e|ity)"
+    severity: medium
+    category: exclusivity
+    title: "Exclusivity Provision"
+    description: "Exclusivity language detected - verify business impact"
+
+  - pattern: "(?i)change\\s+(?:of|in)\\s+control"
+    severity: high
+    category: change_of_control
+    title: "Change of Control Provision"
+    description: "Change of control clause may affect transaction"
+
+  - pattern: "(?i)material\\s+adverse\\s+(?:change|effect|event)"
+    severity: critical
+    category: mac_clause
+    title: "MAC/MAE Clause"
+    description: "Material Adverse Change clause - critical for deal protection"
+
+  # Jurisdiction and governing law
+  - pattern: "(?i)govern(?:ed|ing)\\s+(?:by\\s+)?(?:the\\s+)?law(?:s)?\\s+of"
+    severity: low
+    category: jurisdiction
+    title: "Governing Law"
+    description: "Governing law provision - verify jurisdiction"
+
+  - pattern: "(?i)arbitrat(?:e|ion)"
+    severity: medium
+    category: dispute_resolution
+    title: "Arbitration Clause"
+    description: "Arbitration provision - review dispute resolution mechanism"
+
+consensus_threshold: 0.8
+
+agents:
+  primary: claude-3.5-sonnet
+  verification:
+    - gpt-4
+    - gemini-pro
+
+parameters:
+  confidence_threshold: 0.6
+  include_low_severity: true
+  max_findings_per_document: 100
+  cross_reference_enabled: true

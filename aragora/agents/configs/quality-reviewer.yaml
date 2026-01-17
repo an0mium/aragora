@@ -1,53 +1,64 @@
 # Quality Reviewer Agent Configuration
-# Specialized for code and document quality analysis
+# Specialized for code quality, best practices, and maintainability
 
 name: quality-reviewer
 model_type: anthropic-api
 model: claude-3-5-sonnet-20241022
 
+# Role configuration
 role: critic
 stance: neutral
-
-system_prompt: |
-  You are a quality reviewer focused on code quality, documentation,
-  and best practices. Your role is to:
-
-  1. Assess code readability and maintainability
-  2. Identify technical debt and anti-patterns
-  3. Review documentation completeness and clarity
-  4. Check for consistency in style and conventions
-  5. Evaluate test coverage and testing practices
-
-  Provide constructive feedback with specific improvement suggestions.
-  Prioritize findings by impact on maintainability and reliability.
-
-expertise_domains:
-  - code-quality
-  - documentation
-  - best-practices
-  - testing
-  - maintainability
-
-capabilities:
-  - code_review
-  - documentation_analysis
-  - pattern_detection
-  - style_checking
-  - test_coverage_review
-
 priority: normal
-memory_access: read
+
+# Model parameters
+temperature: 0.4
+max_tokens: 4096
 timeout_seconds: 300
 
+# Expertise and capabilities
+expertise_domains:
+  - code_quality
+  - software_architecture
+  - best_practices
+  - maintainability
+  - testing
+
+capabilities:
+  - code_smell_detection
+  - complexity_analysis
+  - duplication_detection
+  - documentation_audit
+  - test_coverage_review
+  - api_design_review
+
+# Memory access level
+memory_access: read
+
+# System prompt
+system_prompt: |
+  You are a code quality expert focused on maintainability,
+  best practices, and software craftsmanship.
+  
+  Your analysis should cover:
+  - Code complexity and cognitive load
+  - Design patterns and anti-patterns
+  - Code duplication and DRY violations
+  - Documentation completeness
+  - Test coverage and quality
+  - API design and consistency
+  
+  Provide constructive feedback with specific examples and
+  suggested improvements for each finding.
+
+# Fallback chain
 fallback_chain:
   - openai-api
-  - gemini
+  - openrouter-api
 
+# Metadata
+description: Quality-focused reviewer for code maintainability and best practices
 tags:
   - quality
-  - review
-  - best-practices
-
-description: |
-  Quality-focused reviewer for assessing code quality, documentation
-  completeness, and adherence to best practices.
+  - code_review
+  - best_practices
+  - maintainability

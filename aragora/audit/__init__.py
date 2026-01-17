@@ -21,6 +21,17 @@ Usage:
     auditor = DocumentAuditor()
     session = await auditor.create_session(document_ids=["doc1"])
     await auditor.run_audit(session.id)
+
+    # Custom audit types
+    from aragora.audit import BaseAuditor, AuditContext, audit_registry
+
+    class MyAuditor(BaseAuditor):
+        @property
+        def audit_type_id(self) -> str:
+            return "my_custom"
+        ...
+
+    audit_registry.register(MyAuditor())
 """
 
 from .log import (
@@ -52,6 +63,22 @@ from .hive_mind import (
     WorkerResult,
     QueenOrchestrator,
 )
+from .base_auditor import (
+    BaseAuditor,
+    AuditContext,
+    ChunkData,
+    AuditorCapabilities,
+)
+from .registry import (
+    AuditRegistry,
+    AuditTypeInfo,
+    PresetConfig,
+    audit_registry,
+    get_registry,
+    register_auditor,
+    get_auditor,
+    list_audit_types,
+)
 
 __all__ = [
     # Compliance logging
@@ -80,4 +107,18 @@ __all__ = [
     "WorkerTask",
     "WorkerResult",
     "QueenOrchestrator",
+    # Pluggable Audit Types
+    "BaseAuditor",
+    "AuditContext",
+    "ChunkData",
+    "AuditorCapabilities",
+    # Audit Registry
+    "AuditRegistry",
+    "AuditTypeInfo",
+    "PresetConfig",
+    "audit_registry",
+    "get_registry",
+    "register_auditor",
+    "get_auditor",
+    "list_audit_types",
 ]

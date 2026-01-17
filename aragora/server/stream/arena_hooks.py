@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Callable, Generator, Optional, cast
 
+from aragora.debate.hooks import HookManager
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.stream.events import StreamEvent, StreamEventType
@@ -544,15 +545,37 @@ def create_hook_manager_from_emitter(
         )
 
     # Register all bridges
-    manager.register(HookType.PRE_DEBATE, on_pre_debate, priority=HookPriority.LOW, name="ws_pre_debate")
-    manager.register(HookType.POST_DEBATE, on_post_debate, priority=HookPriority.LOW, name="ws_post_debate")
-    manager.register(HookType.PRE_ROUND, on_pre_round, priority=HookPriority.LOW, name="ws_pre_round")
-    manager.register(HookType.POST_ROUND, on_post_round, priority=HookPriority.LOW, name="ws_post_round")
-    manager.register(HookType.POST_CONSENSUS, on_post_consensus, priority=HookPriority.LOW, name="ws_post_consensus")
-    manager.register(HookType.ON_FINDING, on_finding, priority=HookPriority.LOW, name="ws_on_finding")
-    manager.register(HookType.ON_PROGRESS, on_progress, priority=HookPriority.LOW, name="ws_on_progress")
+    manager.register(
+        HookType.PRE_DEBATE, on_pre_debate, priority=HookPriority.LOW, name="ws_pre_debate"
+    )
+    manager.register(
+        HookType.POST_DEBATE, on_post_debate, priority=HookPriority.LOW, name="ws_post_debate"
+    )
+    manager.register(
+        HookType.PRE_ROUND, on_pre_round, priority=HookPriority.LOW, name="ws_pre_round"
+    )
+    manager.register(
+        HookType.POST_ROUND, on_post_round, priority=HookPriority.LOW, name="ws_post_round"
+    )
+    manager.register(
+        HookType.POST_CONSENSUS,
+        on_post_consensus,
+        priority=HookPriority.LOW,
+        name="ws_post_consensus",
+    )
+    manager.register(
+        HookType.ON_FINDING, on_finding, priority=HookPriority.LOW, name="ws_on_finding"
+    )
+    manager.register(
+        HookType.ON_PROGRESS, on_progress, priority=HookPriority.LOW, name="ws_on_progress"
+    )
     manager.register(HookType.ON_ERROR, on_error, priority=HookPriority.LOW, name="ws_on_error")
-    manager.register(HookType.ON_CANCELLATION, on_cancellation, priority=HookPriority.LOW, name="ws_on_cancellation")
+    manager.register(
+        HookType.ON_CANCELLATION,
+        on_cancellation,
+        priority=HookPriority.LOW,
+        name="ws_on_cancellation",
+    )
 
     logger.debug(f"Created HookManager with {len(manager.stats)} hook types bridged to WebSocket")
     return manager

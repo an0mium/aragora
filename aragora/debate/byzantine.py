@@ -46,7 +46,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 if TYPE_CHECKING:
     from aragora.core import Agent
@@ -227,17 +227,13 @@ class ByzantineConsensus:
                 # Phase 2: PREPARE
                 prepare_votes = await self._collect_prepare_votes(pre_prepare, task)
                 if len(prepare_votes) < self.quorum_size:
-                    logger.warning(
-                        f"Prepare phase failed: {len(prepare_votes)}/{self.quorum_size}"
-                    )
+                    logger.warning(f"Prepare phase failed: {len(prepare_votes)}/{self.quorum_size}")
                     raise ConsensusFailure("Prepare phase did not reach quorum")
 
                 # Phase 3: COMMIT
                 commit_votes = await self._collect_commit_votes(pre_prepare, prepare_votes, task)
                 if len(commit_votes) < self.quorum_size:
-                    logger.warning(
-                        f"Commit phase failed: {len(commit_votes)}/{self.quorum_size}"
-                    )
+                    logger.warning(f"Commit phase failed: {len(commit_votes)}/{self.quorum_size}")
                     raise ConsensusFailure("Commit phase did not reach quorum")
 
                 # Success!

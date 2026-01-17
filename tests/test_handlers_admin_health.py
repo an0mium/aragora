@@ -269,7 +269,9 @@ class TestComprehensiveHealth:
         """Health returns degraded status when critical service fails."""
         # Patch filesystem check to fail
         with patch.object(
-            health_handler, "_check_filesystem_health", return_value={"healthy": False, "error": "Write failed"}
+            health_handler,
+            "_check_filesystem_health",
+            return_value={"healthy": False, "error": "Write failed"},
         ):
             result = health_handler.handle("/api/health", {}, None)
 

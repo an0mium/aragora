@@ -1,58 +1,64 @@
 # Compliance Auditor Agent Configuration
-# Specialized for regulatory and policy compliance
+# Specialized for regulatory compliance and policy verification
 
 name: compliance-auditor
 model_type: anthropic-api
 model: claude-3-5-sonnet-20241022
 
+# Role configuration
 role: critic
-stance: neutral  # Balanced assessment of compliance
+stance: neutral
+priority: high
 
-system_prompt: |
-  You are a compliance auditor specializing in regulatory and policy adherence.
-  Your role is to:
+# Model parameters
+temperature: 0.2
+max_tokens: 4096
+timeout_seconds: 300
 
-  1. Check adherence to stated policies and guidelines
-  2. Identify regulatory compliance gaps (GDPR, HIPAA, SOC2, etc.)
-  3. Verify documentation completeness and accuracy
-  4. Assess risk management practices
-  5. Flag procedural violations
-
-  Provide specific citations to relevant regulations or policies when
-  identifying compliance issues. Include remediation recommendations.
-
+# Expertise and capabilities
 expertise_domains:
   - compliance
-  - regulatory
-  - gdpr
-  - hipaa
-  - soc2
-  - policy-review
+  - regulations
+  - privacy
+  - data_governance
+  - risk_management
 
 capabilities:
-  - regulatory_analysis
+  - gdpr_compliance
+  - hipaa_compliance
+  - sox_compliance
+  - pii_detection
   - policy_verification
-  - documentation_review
-  - risk_assessment
-  - gap_analysis
+  - data_retention_audit
 
-priority: high
+# Memory access level
 memory_access: read
-timeout_seconds: 600
 
+# System prompt
+system_prompt: |
+  You are a compliance-focused auditor with expertise in regulatory
+  requirements and data governance policies.
+  
+  Your analysis should cover:
+  - GDPR compliance (data subject rights, lawful basis, retention)
+  - HIPAA compliance (PHI handling, security safeguards)
+  - SOX compliance (financial controls, audit trails)
+  - PII detection and classification
+  - Data retention and deletion policies
+  
+  Cite specific regulatory requirements and provide actionable
+  remediation steps for each compliance gap identified.
+
+# Fallback chain
 fallback_chain:
   - openai-api
-  - openrouter
+  - openrouter-api
 
-hooks:
-  pre_task: load_compliance_rules
-  post_task: generate_compliance_report
-
+# Metadata
+description: Compliance-focused auditor for regulatory verification
 tags:
-  - audit
   - compliance
-  - regulatory
-
-description: |
-  Compliance-focused auditor for regulatory adherence, policy verification,
-  and gap analysis across various frameworks (GDPR, HIPAA, SOC2).
+  - audit
+  - gdpr
+  - hipaa
+  - regulations

@@ -28,6 +28,7 @@ from __future__ import annotations
 from aragora.config.stability import Stability
 
 from .admin import AdminHandler
+from .agents import AgentConfigHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
 from .auditing import AuditingHandler
@@ -95,6 +96,7 @@ ALL_HANDLERS = [
     GraphDebatesHandler,  # More specific path: /api/debates/graph
     MatrixDebatesHandler,  # More specific path: /api/debates/matrix
     DebatesHandler,
+    AgentConfigHandler,  # More specific: /api/agents/configs/*
     AgentsHandler,
     HealthHandler,  # More specific: /healthz, /readyz, /api/health/*
     NomicHandler,  # More specific: /api/nomic/*
@@ -161,6 +163,7 @@ ALL_HANDLERS = [
 HANDLER_STABILITY: dict[str, Stability] = {
     # Core - Stable
     "DebatesHandler": Stability.STABLE,
+    "AgentConfigHandler": Stability.STABLE,  # YAML agent config endpoints
     "AgentsHandler": Stability.STABLE,
     "SystemHandler": Stability.STABLE,
     "HealthHandler": Stability.STABLE,  # Extracted from SystemHandler
@@ -252,6 +255,7 @@ __all__ = [
     "ALL_HANDLERS",
     # Individual handlers
     "DebatesHandler",
+    "AgentConfigHandler",
     "AgentsHandler",
     "SystemHandler",
     "HealthHandler",
