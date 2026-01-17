@@ -10,10 +10,15 @@ export const metadata: Metadata = {
   description: 'Real-time AI red team system - Watch decision stress-tests unfold in public.',
   keywords: ['AI', 'red team', 'stress-test', 'gauntlet', 'decision receipts', 'LLM', 'aragora'],
   authors: [{ name: 'Aragora Team' }],
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title: 'ARAGORA // LIVE',
     description: 'Real-time AI red team system',
     type: 'website',
+    images: ['/aragora-logo.png'],
   },
 };
 

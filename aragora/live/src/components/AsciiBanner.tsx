@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Logo } from './Logo';
 
 interface AsciiBannerProps {
   subtitle?: string;
@@ -102,14 +103,21 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
 export function AsciiBannerCompact({
   connected = false,
   showAsciiArt = false,
-  showStatus = true
+  showStatus = true,
+  showLogo = true,
+  onLogoClick,
 }: {
   connected?: boolean;
   showAsciiArt?: boolean;
   showStatus?: boolean;
+  showLogo?: boolean;
+  onLogoClick?: () => void;
 }) {
   return (
     <div className="flex items-center gap-3">
+      {showLogo && (
+        <Logo size="sm" onClick={onLogoClick} />
+      )}
       {showAsciiArt && (
         <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
 {`    _    ____
