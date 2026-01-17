@@ -195,7 +195,9 @@ class CodexHarness(CodeAnalysisHarness):
         try:
             # Gather code files
             file_patterns = options.get("file_patterns", ["**/*.py", "**/*.js", "**/*.ts"])
-            exclude_patterns = options.get("exclude_patterns", ["**/node_modules/**", "**/__pycache__/**", "**/venv/**"])
+            exclude_patterns = options.get(
+                "exclude_patterns", ["**/node_modules/**", "**/__pycache__/**", "**/venv/**"]
+            )
             max_files = options.get("max_files", 50)
 
             files_content = await self._gather_files(
@@ -324,7 +326,9 @@ class CodexHarness(CodeAnalysisHarness):
         try:
             # Gather files
             file_patterns = options.get("file_patterns", ["**/*.py", "**/*.js", "**/*.ts"])
-            exclude_patterns = options.get("exclude_patterns", ["**/node_modules/**", "**/__pycache__/**"])
+            exclude_patterns = options.get(
+                "exclude_patterns", ["**/node_modules/**", "**/__pycache__/**"]
+            )
             max_files = options.get("max_files", 50)
 
             files_content = await self._gather_files(
@@ -376,23 +380,29 @@ class CodexHarness(CodeAnalysisHarness):
 
             # Build messages
             messages = [
-                {"role": "system", "content": "You are a code analysis expert. Help the user understand and improve their code."},
+                {
+                    "role": "system",
+                    "content": "You are a code analysis expert. Help the user understand and improve their code.",
+                },
             ]
 
             # Add context
             if files_content:
                 context_text = "\n\n".join(
-                    f"=== {path} ===\n{content}"
-                    for path, content in files_content.items()
+                    f"=== {path} ===\n{content}" for path, content in files_content.items()
                 )
-                messages.append({
-                    "role": "user",
-                    "content": f"Here is the code context:\n\n{context_text}",
-                })
-                messages.append({
-                    "role": "assistant",
-                    "content": "I've reviewed the code. What would you like me to help you with?",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"Here is the code context:\n\n{context_text}",
+                    }
+                )
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": "I've reviewed the code. What would you like me to help you with?",
+                    }
+                )
 
             # Add user prompt
             messages.append({"role": "user", "content": prompt})
@@ -410,7 +420,7 @@ class CodexHarness(CodeAnalysisHarness):
 
             return SessionResult(
                 session_id=context.session_id,
-                response=response_text,
+                response=response_text if response_text is not None else "",
             )
 
         except Exception as e:
@@ -463,16 +473,20 @@ class CodexHarness(CodeAnalysisHarness):
         self,
         files_content: dict[str, str],
         analysis_type: AnalysisType,
+        custom_prompt: str | None = None,
     ) -> str:
         """Build the analysis prompt."""
-        base_prompt = self.config.analysis_prompts.get(
-            analysis_type.value,
-            self.config.analysis_prompts[AnalysisType.GENERAL.value],
-        )
+        # Use custom prompt if provided, otherwise use default based on analysis type
+        if custom_prompt:
+            base_prompt = custom_prompt
+        else:
+            base_prompt = self.config.analysis_prompts.get(
+                analysis_type.value,
+                self.config.analysis_prompts[AnalysisType.GENERAL.value],
+            )
 
         code_section = "\n\n".join(
-            f"=== {path} ===\n```\n{content}\n```"
-            for path, content in files_content.items()
+            f"=== {path} ===\n```\n{content}\n```" for path, content in files_content.items()
         )
 
         return f"""{base_prompt}
@@ -491,14 +505,18 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
         response = await client.chat.completions.create(
             model=self.config.model,
             messages=[
-                {"role": "system", "content": "You are a code analysis expert. Always respond with valid JSON."},
+                {
+                    "role": "system",
+                    "content": "You are a code analysis expert. Always respond with valid JSON.",
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        return content if content is not None else ""
 
     def _parse_findings(
         self,
@@ -511,7 +529,7 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
 
         try:
             # Try to extract JSON from response
-            json_match = re.search(r'\[[\s\S]*\]', raw_output)
+            json_match = re.search(r"\[[\s\S]*\]", raw_output)
             if json_match:
                 findings_data = json.loads(json_match.group())
             else:
@@ -565,7 +583,7 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
         }
 
         # Split by common delimiters
-        sections = re.split(r'\n\d+\.|###|---|\*\*\*', text)
+        sections = re.split(r"\n\d+\.|###|---|\*\*\*", text)
 
         for idx, section in enumerate(sections):
             if len(section.strip()) < 20:
@@ -579,11 +597,11 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
                     break
 
             # Extract title (first line or first sentence)
-            lines = section.strip().split('\n')
+            lines = section.strip().split("\n")
             title = lines[0].strip()[:100] if lines else "Finding"
 
             # Clean title
-            title = re.sub(r'^[\*#\-\s]+', '', title)
+            title = re.sub(r"^[\*#\-\s]+", "", title)
             if not title:
                 continue
 

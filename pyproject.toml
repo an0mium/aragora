@@ -555,6 +555,10 @@ module = [
     "aragora.auth.oidc",
     "aragora.connectors.base",
     "aragora.server.research_phase",
+    "aragora.connectors.youtube_uploader",
+    "aragora.connectors.twitter_poster",
+    "aragora.training.tinker_client",
+    "aragora.pulse.ingestor",
 ]
 ignore_errors = true
 

@@ -235,7 +235,7 @@ class AuditReportGenerator:
         findings: list["AuditFinding"],
     ) -> ReportSection:
         """Build executive summary section."""
-        severity_counts = {}
+        severity_counts: dict[str, int] = {}
         for f in findings:
             sev = f.severity.value
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
@@ -274,8 +274,8 @@ class AuditReportGenerator:
         findings: list["AuditFinding"],
     ) -> ReportSection:
         """Build summary statistics section."""
-        by_type = {}
-        by_doc = {}
+        by_type: dict[str, int] = {}
+        by_doc: dict[str, int] = {}
 
         for f in findings:
             t = f.audit_type.value
@@ -304,7 +304,7 @@ class AuditReportGenerator:
     ) -> ReportSection:
         """Build detailed findings section grouped by severity."""
         severity_order = ["critical", "high", "medium", "low", "info"]
-        grouped = {s: [] for s in severity_order}
+        grouped: dict[str, list["AuditFinding"]] = {s: [] for s in severity_order}
 
         for f in findings:
             grouped[f.severity.value].append(f)
@@ -349,7 +349,7 @@ class AuditReportGenerator:
     ) -> ReportSection:
         """Build recommendations section."""
         # Group recommendations by category
-        by_category = {}
+        by_category: dict[str, list[str]] = {}
         for f in findings:
             if f.recommendation:
                 cat = f.category or "General"
