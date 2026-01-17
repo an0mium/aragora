@@ -30,9 +30,11 @@ from aragora.audit.exploration.memory import ExplorationMemory, MemoryTier
 from aragora.audit.exploration.agents import ExplorationAgent, VerifierAgent
 from aragora.documents.chunking.strategies import (
     ChunkingStrategy,
+    ChunkingStrategyType,
     ChunkingConfig,
     get_chunking_strategy,
 )
+from aragora.documents.models import DocumentChunk
 
 logger = logging.getLogger(__name__)
 

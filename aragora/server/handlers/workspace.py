@@ -150,21 +150,15 @@ class WorkspaceHandler(BaseHandler):
 
         return None
 
-    def handle_post(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests."""
         return self.handle(path, query_params, handler, method="POST")
 
-    def handle_delete(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle_delete(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route DELETE requests."""
         return self.handle(path, query_params, handler, method="DELETE")
 
-    def handle_put(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route PUT requests."""
         return self.handle(path, query_params, handler, method="PUT")
 
@@ -364,9 +358,7 @@ class WorkspaceHandler(BaseHandler):
                 audit_log.log(
                     action=AuditAction.CREATE_WORKSPACE,
                     actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(
-                        id=workspace.id, type="workspace", workspace_id=workspace.id
-                    ),
+                    resource=Resource(id=workspace.id, type="workspace", workspace_id=workspace.id),
                     outcome=AuditOutcome.SUCCESS,
                     details={"name": name, "org_id": org_id},
                 )
@@ -475,9 +467,7 @@ class WorkspaceHandler(BaseHandler):
                 audit_log.log(
                     action=AuditAction.DELETE_WORKSPACE,
                     actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(
-                        id=workspace_id, type="workspace", workspace_id=workspace_id
-                    ),
+                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
                     outcome=AuditOutcome.SUCCESS,
                 )
             )
@@ -532,9 +522,7 @@ class WorkspaceHandler(BaseHandler):
                 audit_log.log(
                     action=AuditAction.ADD_MEMBER,
                     actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(
-                        id=workspace_id, type="workspace", workspace_id=workspace_id
-                    ),
+                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
                     outcome=AuditOutcome.SUCCESS,
                     details={"added_user_id": user_id, "permissions": permissions_raw},
                 )
@@ -542,16 +530,12 @@ class WorkspaceHandler(BaseHandler):
         finally:
             loop.close()
 
-        return json_response(
-            {"message": f"Member {user_id} added to workspace"}, status=201
-        )
+        return json_response({"message": f"Member {user_id} added to workspace"}, status=201)
 
     @rate_limit(rpm=30, limiter_name="workspace_member")
     @handle_errors("remove workspace member")
     @log_request("remove workspace member")
-    def _handle_remove_member(
-        self, handler, workspace_id: str, user_id: str
-    ) -> HandlerResult:
+    def _handle_remove_member(self, handler, workspace_id: str, user_id: str) -> HandlerResult:
         """Remove a member from a workspace."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -582,9 +566,7 @@ class WorkspaceHandler(BaseHandler):
                 audit_log.log(
                     action=AuditAction.REMOVE_MEMBER,
                     actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(
-                        id=workspace_id, type="workspace", workspace_id=workspace_id
-                    ),
+                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
                     outcome=AuditOutcome.SUCCESS,
                     details={"removed_user_id": user_id},
                 )
@@ -826,9 +808,7 @@ class WorkspaceHandler(BaseHandler):
     @rate_limit(rpm=5, limiter_name="retention_execute")
     @handle_errors("execute retention policy")
     @log_request("execute retention policy")
-    def _handle_execute_policy(
-        self, handler, policy_id: str, query_params: dict
-    ) -> HandlerResult:
+    def _handle_execute_policy(self, handler, policy_id: str, query_params: dict) -> HandlerResult:
         """Execute a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -840,9 +820,7 @@ class WorkspaceHandler(BaseHandler):
 
         loop = asyncio.new_event_loop()
         try:
-            report = loop.run_until_complete(
-                manager.execute_policy(policy_id, dry_run=dry_run)
-            )
+            report = loop.run_until_complete(manager.execute_policy(policy_id, dry_run=dry_run))
         except ValueError as e:
             return error_response(str(e), 404)
         finally:
@@ -891,9 +869,7 @@ class WorkspaceHandler(BaseHandler):
         finally:
             loop.close()
 
-        return json_response(
-            {"expiring": expiring, "total": len(expiring), "days_ahead": days}
-        )
+        return json_response({"expiring": expiring, "total": len(expiring), "days_ahead": days})
 
     # =========================================================================
     # Classification Handlers
@@ -968,9 +944,7 @@ class WorkspaceHandler(BaseHandler):
             sensitivity_level = SensitivityLevel(level)
         except ValueError:
             valid_levels = [lvl.value for lvl in SensitivityLevel]
-            return error_response(
-                f"Invalid level: {level}. Valid: {', '.join(valid_levels)}", 400
-            )
+            return error_response(f"Invalid level: {level}. Valid: {', '.join(valid_levels)}", 400)
 
         classifier = self._get_classifier()
         policy = classifier.get_level_policy(sensitivity_level)
@@ -1115,9 +1089,7 @@ class WorkspaceHandler(BaseHandler):
         )
 
     @handle_errors("get actor history")
-    def _handle_actor_history(
-        self, handler, actor_id: str, query_params: dict
-    ) -> HandlerResult:
+    def _handle_actor_history(self, handler, actor_id: str, query_params: dict) -> HandlerResult:
         """Get all actions by a specific actor."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1187,9 +1159,7 @@ class WorkspaceHandler(BaseHandler):
 
         loop = asyncio.new_event_loop()
         try:
-            entries = loop.run_until_complete(
-                audit_log.get_denied_access_attempts(days=days)
-            )
+            entries = loop.run_until_complete(audit_log.get_denied_access_attempts(days=days))
         finally:
             loop.close()
 

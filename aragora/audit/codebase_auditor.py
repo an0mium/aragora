@@ -27,6 +27,7 @@ from aragora.audit.audit_types.consistency import ConsistencyAuditor
 from aragora.documents.chunking.token_counter import TokenCounter
 from aragora.documents.chunking.strategies import (
     ChunkingConfig,
+    ChunkingStrategy,
     SemanticChunking,
     get_chunking_strategy,
 )

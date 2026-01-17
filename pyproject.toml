@@ -574,6 +574,10 @@ module = [
     "aragora.audit.evidence_adapter",
     "aragora.debate.context_gatherer",
     "aragora.modes.probes.strategies",
+    "aragora.privacy.classifier",
+    "aragora.privacy.audit_log",
+    "aragora.security.encryption",
+    "aragora.privacy.isolation",
 ]
 ignore_errors = true
 
