@@ -575,30 +575,45 @@ class DocumentAuditor:
 
             # Configure Hive-Mind
             hive_config = HiveMindConfig(
-                max_workers=min(8, len(chunks)),
+                max_concurrent_workers=min(8, len(chunks)),
                 task_timeout_seconds=self.config.chunk_timeout_seconds,
-                consensus_verification=self.config.consensus_verification,
+                verify_critical_findings=self.config.consensus_verification,
             )
+
+            # Create default agents for Hive-Mind orchestration
+            from aragora.agents.api_agents.gemini import GeminiAgent
+
+            queen_agent = GeminiAgent(
+                name="audit_queen",
+                model=session.model,
+            )
+            # Create worker agents - use multiple for parallelism
+            worker_agents = [
+                GeminiAgent(name=f"audit_worker_{i}", model=session.model)
+                for i in range(min(4, len(chunks)))
+            ]
 
             # Create Hive-Mind orchestrator
             hive_mind = AuditHiveMind(
+                queen=queen_agent,
+                workers=worker_agents,
                 config=hive_config,
-                audit_types=self._get_effective_audit_types(session),
             )
 
-            # Wire progress callbacks
+            # Progress callback is configured via hive_config.progress_callback
+            # Wire progress callback via config
             if self.on_progress:
-                hive_mind.on_progress = lambda p: self._notify_progress(
-                    session,
-                    0.1 + (p * 0.8),  # Map 0-1 to 0.1-0.9
-                )
 
-            if self.on_finding:
-                hive_mind.on_finding = self.on_finding
+                def progress_cb(phase: str, completed: int, total: int) -> None:
+                    if total > 0:
+                        progress = 0.1 + ((completed / total) * 0.8)
+                        self._notify_progress(session, progress)
+
+                hive_config.progress_callback = progress_cb
 
             # Execute with Hive-Mind
             session.current_phase = "hive_mind_execution"
-            result = await hive_mind.execute(session, chunks)
+            result = await hive_mind.audit_documents(session, chunks)
 
             return result.findings
 
@@ -745,14 +760,14 @@ Format as JSON array of findings."""
         verified = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
-            from aragora.agents.api_agents.openai import OpenAIAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+            from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-            verifier = AnthropicAgent(
+            verifier = AnthropicAPIAgent(
                 name="verifier",
                 model=self.config.verification_model,
             )
-            adversary = OpenAIAgent(
+            adversary = OpenAIAPIAgent(
                 name="adversary",
                 model=self.config.adversarial_model,
             )

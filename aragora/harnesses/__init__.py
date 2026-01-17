@@ -31,6 +31,11 @@ from aragora.harnesses.adapter import (
     HarnessResultAdapter,
     adapt_to_audit_findings,
 )
+from aragora.harnesses.codex import (
+    CodexHarness,
+    CodexConfig,
+    create_codex_harness,
+)
 
 __all__ = [
     # Base
@@ -42,6 +47,10 @@ __all__ = [
     # Claude Code
     "ClaudeCodeHarness",
     "ClaudeCodeConfig",
+    # Codex/OpenAI
+    "CodexHarness",
+    "CodexConfig",
+    "create_codex_harness",
     # Adapter
     "HarnessResultAdapter",
     "adapt_to_audit_findings",

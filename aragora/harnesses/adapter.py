@@ -158,12 +158,7 @@ class HarnessResultAdapter:
                     evidence_location=evidence_location,
                     recommendation=finding.recommendation,
                     status=FindingStatus.OPEN,
-                    metadata={
-                        "harness": result.harness,
-                        "analysis_type": result.analysis_type.value,
-                        "original_finding_id": finding.id,
-                        "references": finding.references,
-                    },
+                    found_by=result.harness,
                 )
 
                 audit_findings.append(audit_finding)

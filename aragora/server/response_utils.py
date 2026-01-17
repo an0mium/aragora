@@ -7,12 +7,25 @@ proper headers (CORS, security, rate limiting, tracing).
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, BinaryIO, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.server.middleware.rate_limit import RateLimitResult
 
 logger = logging.getLogger(__name__)
+
+
+class _HTTPHandlerProtocol(Protocol):
+    """Protocol defining the interface expected from HTTP handler classes."""
+
+    _rate_limit_result: Optional["RateLimitResult"]
+    _response_status: int
+    headers: Any
+    wfile: BinaryIO
+
+    def send_response(self, code: int) -> None: ...
+    def send_header(self, keyword: str, value: str) -> None: ...
+    def end_headers(self) -> None: ...
 
 
 class ResponseHelpersMixin:
@@ -30,11 +43,16 @@ class ResponseHelpersMixin:
     - _response_status: int
     """
 
-    # Type stubs for expected attributes
+    # Type stubs for expected attributes from the Protocol
     _rate_limit_result: Optional["RateLimitResult"]
     _response_status: int
     headers: Any
-    wfile: Any
+    wfile: BinaryIO
+
+    # Declare methods expected from the parent class
+    def send_response(self, code: int) -> None: ...
+    def send_header(self, keyword: str, value: str) -> None: ...
+    def end_headers(self) -> None: ...
 
     def _send_json(self, data: Any, status: int = 200) -> None:
         """Send JSON response with all standard headers."""
