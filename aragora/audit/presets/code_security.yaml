@@ -7,6 +7,7 @@ description: |
   secrets leakage, license compliance, and security best practices.
 
 audit_types:
+  - software        # Domain-specific: SAST, secrets, licenses, dependencies
   - security        # Primary: secrets, vulnerabilities, injection
   - compliance      # License compliance, security policies
   - quality         # Code quality and documentation

@@ -48,6 +48,17 @@ from aragora.mcp.tools_module.evidence import (
     verify_citation_tool,
 )
 from aragora.mcp.tools_module.trending import list_trending_topics_tool
+from aragora.mcp.tools_module.audit import (
+    list_audit_presets_tool,
+    list_audit_types_tool,
+    get_audit_preset_tool,
+    create_audit_session_tool,
+    run_audit_tool,
+    get_audit_status_tool,
+    get_audit_findings_tool,
+    update_finding_status_tool,
+    run_quick_audit_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -82,4 +93,14 @@ __all__ = [
     "verify_citation_tool",
     # Trending tools
     "list_trending_topics_tool",
+    # Audit tools
+    "list_audit_presets_tool",
+    "list_audit_types_tool",
+    "get_audit_preset_tool",
+    "create_audit_session_tool",
+    "run_audit_tool",
+    "get_audit_status_tool",
+    "get_audit_findings_tool",
+    "update_finding_status_tool",
+    "run_quick_audit_tool",
 ]

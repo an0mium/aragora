@@ -79,6 +79,19 @@ from .registry import (
     get_auditor,
     list_audit_types,
 )
+from .consensus_adapter import (
+    FindingVerifier,
+    VerificationConfig,
+    VerificationResult,
+    verify_finding,
+)
+from .evidence_adapter import (
+    FindingEvidenceCollector,
+    EvidenceConfig,
+    EvidenceEnrichment,
+    EvidenceSource,
+    enrich_finding_with_evidence,
+)
 
 __all__ = [
     # Compliance logging
@@ -121,4 +134,15 @@ __all__ = [
     "register_auditor",
     "get_auditor",
     "list_audit_types",
+    # Consensus Verification
+    "FindingVerifier",
+    "VerificationConfig",
+    "VerificationResult",
+    "verify_finding",
+    # Evidence Collection
+    "FindingEvidenceCollector",
+    "EvidenceConfig",
+    "EvidenceEnrichment",
+    "EvidenceSource",
+    "enrich_finding_with_evidence",
 ]

@@ -7,6 +7,7 @@ description: |
   SOX compliance verification, and transaction reconciliation.
 
 audit_types:
+  - accounting      # Domain-specific: irregularities, Benford's Law, SOX
   - security        # Detect exposed financial credentials/accounts
   - compliance      # SOX, GAAP, IFRS compliance
   - consistency     # Cross-document number verification

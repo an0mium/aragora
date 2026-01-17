@@ -43,6 +43,16 @@ from aragora.mcp.tools_module import (
     verify_citation_tool,
     # Trending tools
     list_trending_topics_tool,
+    # Audit tools
+    list_audit_presets_tool,
+    list_audit_types_tool,
+    get_audit_preset_tool,
+    create_audit_session_tool,
+    run_audit_tool,
+    get_audit_status_tool,
+    get_audit_findings_tool,
+    update_finding_status_tool,
+    run_quick_audit_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -285,6 +295,84 @@ TOOLS_METADATA = [
             "url": {"type": "string", "required": True},
         },
     },
+    # Audit tools
+    {
+        "name": "list_audit_presets",
+        "description": "List available audit presets (Legal Due Diligence, Financial Audit, Code Security)",
+        "function": list_audit_presets_tool,
+        "parameters": {},
+    },
+    {
+        "name": "list_audit_types",
+        "description": "List registered audit types (security, compliance, consistency, quality)",
+        "function": list_audit_types_tool,
+        "parameters": {},
+    },
+    {
+        "name": "get_audit_preset",
+        "description": "Get details of a specific audit preset including custom rules",
+        "function": get_audit_preset_tool,
+        "parameters": {
+            "preset_name": {"type": "string", "required": True, "description": "Name of preset (e.g., 'Legal Due Diligence')"},
+        },
+    },
+    {
+        "name": "create_audit_session",
+        "description": "Create a new document audit session",
+        "function": create_audit_session_tool,
+        "parameters": {
+            "document_ids": {"type": "string", "required": True, "description": "Comma-separated document IDs"},
+            "audit_types": {"type": "string", "default": "security,compliance,consistency,quality"},
+            "preset": {"type": "string", "description": "Optional preset name to use"},
+            "name": {"type": "string", "description": "Optional session name"},
+        },
+    },
+    {
+        "name": "run_audit",
+        "description": "Start running an audit session",
+        "function": run_audit_tool,
+        "parameters": {
+            "session_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "get_audit_status",
+        "description": "Get status and progress of an audit session",
+        "function": get_audit_status_tool,
+        "parameters": {
+            "session_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "get_audit_findings",
+        "description": "Get findings from an audit session with optional filtering",
+        "function": get_audit_findings_tool,
+        "parameters": {
+            "session_id": {"type": "string", "required": True},
+            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+            "status": {"type": "string"},
+            "limit": {"type": "integer", "default": 50},
+        },
+    },
+    {
+        "name": "update_finding_status",
+        "description": "Update the workflow status of a finding",
+        "function": update_finding_status_tool,
+        "parameters": {
+            "finding_id": {"type": "string", "required": True},
+            "status": {"type": "string", "required": True, "enum": ["open", "triaging", "investigating", "remediating", "resolved", "false_positive", "accepted_risk"]},
+            "comment": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "run_quick_audit",
+        "description": "Run a quick audit using a preset and return findings summary",
+        "function": run_quick_audit_tool,
+        "parameters": {
+            "document_ids": {"type": "string", "required": True, "description": "Comma-separated document IDs"},
+            "preset": {"type": "string", "default": "Code Security", "description": "Preset to use"},
+        },
+    },
 ]
 
 
@@ -319,5 +407,15 @@ __all__ = [
     "search_evidence_tool",
     "cite_evidence_tool",
     "verify_citation_tool",
+    # Audit tools
+    "list_audit_presets_tool",
+    "list_audit_types_tool",
+    "get_audit_preset_tool",
+    "create_audit_session_tool",
+    "run_audit_tool",
+    "get_audit_status_tool",
+    "get_audit_findings_tool",
+    "update_finding_status_tool",
+    "run_quick_audit_tool",
     "TOOLS_METADATA",
 ]

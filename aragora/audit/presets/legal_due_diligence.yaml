@@ -7,6 +7,7 @@ description: |
   contract review, and compliance verification.
 
 audit_types:
+  - legal           # Domain-specific: contracts, obligations, risk clauses
   - security        # Check for exposed confidential information
   - compliance      # Regulatory and contractual compliance
   - consistency     # Cross-document contradiction detection

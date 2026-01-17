@@ -788,3 +788,100 @@ class AuditReport(BaseModel):
     format: AuditReportFormat = AuditReportFormat.JSON
     content: str
     generated_at: datetime
+
+
+# =============================================================================
+# Enterprise Audit Models
+# =============================================================================
+
+
+class FindingWorkflowStatus(str, Enum):
+    """Workflow status for audit findings."""
+
+    OPEN = "open"
+    TRIAGING = "triaging"
+    INVESTIGATING = "investigating"
+    REMEDIATING = "remediating"
+    RESOLVED = "resolved"
+    FALSE_POSITIVE = "false_positive"
+    ACCEPTED_RISK = "accepted_risk"
+    DUPLICATE = "duplicate"
+
+
+class AuditPreset(BaseModel):
+    """Audit preset configuration for specific industries/use cases."""
+
+    name: str
+    description: str
+    audit_types: list[str] = Field(default_factory=list)
+    custom_rules_count: int = 0
+    consensus_threshold: float = 0.8
+    agents: list[str] = Field(default_factory=list)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditPresetDetail(BaseModel):
+    """Detailed audit preset with custom rules."""
+
+    name: str
+    description: str
+    audit_types: list[str] = Field(default_factory=list)
+    custom_rules: list[dict[str, Any]] = Field(default_factory=list)
+    consensus_threshold: float = 0.8
+    agents: list[str] = Field(default_factory=list)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditTypeCapabilities(BaseModel):
+    """Capabilities of an audit type."""
+
+    supports_chunk_analysis: bool = True
+    supports_cross_document: bool = False
+    requires_llm: bool = True
+
+
+class AuditTypeInfo(BaseModel):
+    """Information about a registered audit type."""
+
+    id: str
+    display_name: str
+    description: str
+    version: str = "1.0.0"
+    capabilities: AuditTypeCapabilities = Field(default_factory=AuditTypeCapabilities)
+
+
+class FindingWorkflowEvent(BaseModel):
+    """An event in a finding's workflow history."""
+
+    id: str
+    event_type: str  # "state_change", "comment", "assignment", "priority_change"
+    timestamp: datetime
+    user_id: str
+    user_name: str = ""
+    comment: Optional[str] = None
+    from_state: Optional[str] = None
+    to_state: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FindingWorkflowData(BaseModel):
+    """Full workflow data for a finding."""
+
+    finding_id: str
+    current_state: FindingWorkflowStatus = FindingWorkflowStatus.OPEN
+    assigned_to: Optional[str] = None
+    priority: int = 3  # 1=Critical, 2=High, 3=Medium, 4=Low, 5=Lowest
+    due_date: Optional[datetime] = None
+    history: list[FindingWorkflowEvent] = Field(default_factory=list)
+
+
+class QuickAuditResult(BaseModel):
+    """Result from a quick audit run."""
+
+    session_id: str
+    preset_used: str
+    document_count: int
+    total_findings: int
+    findings_by_severity: dict[str, int] = Field(default_factory=dict)
+    critical_findings: list[AuditFinding] = Field(default_factory=list)
+    high_findings: list[AuditFinding] = Field(default_factory=list)
