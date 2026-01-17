@@ -1,11 +1,11 @@
 import AuditSessionDetail from './AuditSessionDetail';
 
-// For static export with dynamic routes - allow client-side routing
-export const dynamicParams = true;
+// For static export with optional catch-all
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  // No static paths - all handled via client-side routing
-  return [];
+  // Only generate the base route - client handles the rest
+  return [{ id: undefined }];
 }
 
 export default function AuditSessionPage() {
