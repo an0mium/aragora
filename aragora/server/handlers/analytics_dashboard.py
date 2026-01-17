@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from .base import (
     BaseHandler,
@@ -105,7 +105,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             return json_response(summary.to_dict())
 
-        except ValueError as e:
+        except ValueError:
             return error_response(f"Invalid time_range: {time_range_str}", 400)
         except Exception as e:
             logger.error(f"Failed to get analytics summary: {e}")

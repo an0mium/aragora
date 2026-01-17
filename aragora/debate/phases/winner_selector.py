@@ -62,7 +62,7 @@ class WinnerSelector:
     def determine_majority_winner(
         self,
         ctx: "DebateContext",
-        vote_counts: Counter[str],
+        vote_counts: dict[str, float],
         total_votes: float,
         choice_mapping: dict[str, str],
         normalize_choice: Callable[[str, list["Agent"], dict[str, str]], str],
@@ -81,14 +81,15 @@ class WinnerSelector:
         result = ctx.result
         proposals = ctx.proposals
 
-        most_common = vote_counts.most_common(1) if vote_counts else []
-        if not most_common:
+        if not vote_counts:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
             result.confidence = 0.5
             return
 
-        winner_choice, count = most_common[0]
+        # Find winner (highest vote count)
+        winner_choice = max(vote_counts.keys(), key=lambda k: vote_counts[k])
+        count = vote_counts[winner_choice]
         if threshold_override is not None:
             threshold = threshold_override
         else:

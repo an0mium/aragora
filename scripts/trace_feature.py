@@ -132,7 +132,7 @@ def main():
     print(
         f"  Found {consensus_trace['total_matches']} matches in {consensus_trace['files_count']} files"
     )
-    print(f"  Key files:")
+    print("  Key files:")
     for f in consensus_trace["files"][:10]:
         print(f"    - {f}")
 

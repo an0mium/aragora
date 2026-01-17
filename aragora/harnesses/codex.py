@@ -374,7 +374,7 @@ class CodexHarness(CodeAnalysisHarness):
         prompt: str,
     ) -> SessionResult:
         """Run an interactive analysis session."""
-        started_at = datetime.utcnow()
+        _started_at = datetime.utcnow()  # noqa: F841
 
         try:
             # Build context from files

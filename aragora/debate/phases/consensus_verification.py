@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import Counter
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
@@ -63,10 +62,10 @@ class ConsensusVerifier:
     async def apply_verification_bonuses(
         self,
         ctx: "DebateContext",
-        vote_counts: Counter,
+        vote_counts: dict[str, float],
         proposals: dict[str, str],
         choice_mapping: dict[str, str],
-    ) -> Counter:
+    ) -> dict[str, float]:
         """Apply verification bonuses to vote counts for verified proposals.
 
         When verify_claims_during_consensus is enabled in the protocol,

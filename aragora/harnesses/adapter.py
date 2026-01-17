@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from typing import TYPE_CHECKING
 
 from aragora.harnesses.base import (
-    AnalysisFinding,
     AnalysisType,
     HarnessResult,
 )

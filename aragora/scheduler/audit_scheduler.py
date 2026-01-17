@@ -554,7 +554,7 @@ class AuditScheduler:
 
         try:
             # Get document auditor
-            from aragora.audit import get_document_auditor, AuditConfig
+            from aragora.audit import get_document_auditor
 
             auditor = get_document_auditor()
 

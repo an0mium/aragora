@@ -16,14 +16,13 @@ import base64
 import json
 import logging
 import os
-import sys
 import time
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol
 
 if TYPE_CHECKING:
-    import jwt as jwt_module
+    pass
 
 
 # Stub exception classes for when PyJWT is not installed

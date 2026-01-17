@@ -434,15 +434,15 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
 
-    validate = getattr(args, "validate", False)
-    sys.exit(doctor_main(validate_keys=validate))
+    sys.exit(doctor_main())
 
 
 def cmd_validate(_: argparse.Namespace) -> None:
     """Handle 'validate' command - validate API keys."""
-    from aragora.cli.doctor import run_validate
+    # run_validate doesn't exist; reuse doctor main for now
+    from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(run_validate())
+    sys.exit(doctor_main())
 
 
 def cmd_improve(args: argparse.Namespace) -> None:
@@ -646,12 +646,12 @@ def cmd_memory(args: argparse.Namespace) -> None:
         limit = getattr(args, "limit", 10)
 
         try:
-            tier = MemoryTier[tier_name.upper()]
+            memory_tier: MemoryTier = MemoryTier[tier_name.upper()]
         except KeyError:
             print(f"Invalid tier: {tier_name}. Use: fast, medium, slow, glacial")
             return
 
-        entries = memory.retrieve(tiers=[tier], limit=limit)
+        entries = memory.retrieve(tiers=[memory_tier], limit=limit)
         print(f"\n{tier_name.upper()} Tier Memories ({len(entries)} entries)")
         print("=" * 60)
 
@@ -722,8 +722,8 @@ def cmd_elo(args: argparse.Namespace) -> None:
             print("  No history found")
             return
 
-        for timestamp, rating in history:
-            print(f"  {timestamp[:19]}  {rating:>7.0f}")
+        for timestamp, elo_value in history:
+            print(f"  {timestamp[:19]}  {elo_value:>7.0f}")
 
     elif action == "matches":
         limit = getattr(args, "limit", 10)

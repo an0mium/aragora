@@ -13,14 +13,13 @@ import mimetypes
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import AsyncIterator, Callable, Optional
 
-from watchfiles import Change, awatch, watch
+from watchfiles import Change, awatch
 
 from aragora.sync.models import (
     FileChange,
     FileChangeType,
-    SyncConfig,
     SyncState,
     SyncStatus,
 )
@@ -332,9 +331,7 @@ class DirectoryWatcher:
 
                 if change_type == Change.added:
                     if file_path.is_file():
-                        change = self._create_file_change(
-                            file_path, root, FileChangeType.ADDED
-                        )
+                        change = self._create_file_change(file_path, root, FileChangeType.ADDED)
                         self._update_state(state, change)
                         yield change
 

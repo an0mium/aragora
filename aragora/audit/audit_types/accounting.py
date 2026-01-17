@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Any, Optional
+from typing import Optional
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, AuditType, FindingSeverity

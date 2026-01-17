@@ -1101,8 +1101,8 @@ class SoftwareAuditor(BaseAuditor):
                 AuditFinding(
                     title="License: Incompatibility Risk",
                     description=(
-                        f"Both copyleft ({', '.join(l.spdx_id for l in categories['copyleft'])}) "
-                        f"and proprietary ({', '.join(l.spdx_id for l in categories['proprietary'])}) "
+                        f"Both copyleft ({', '.join(lic.spdx_id for lic in categories['copyleft'])}) "
+                        f"and proprietary ({', '.join(lic.spdx_id for lic in categories['proprietary'])}) "
                         "licenses detected. This combination may have legal implications."
                     ),
                     severity=FindingSeverity.HIGH,
@@ -1118,7 +1118,7 @@ class SoftwareAuditor(BaseAuditor):
             )
 
         # Check for AGPL (network copyleft) with proprietary
-        agpl_licenses = [l for l in licenses if "AGPL" in l.spdx_id]
+        agpl_licenses = [lic for lic in licenses if "AGPL" in lic.spdx_id]
         if agpl_licenses and "proprietary" in categories:
             findings.append(
                 AuditFinding(
@@ -1132,7 +1132,7 @@ class SoftwareAuditor(BaseAuditor):
                     audit_type=AuditType.COMPLIANCE,
                     document_id=agpl_licenses[0].location,
                     confidence=0.85,
-                    evidence_text=f"AGPL in: {', '.join(l.location for l in agpl_licenses)}",
+                    evidence_text=f"AGPL in: {', '.join(lic.location for lic in agpl_licenses)}",
                     evidence_location="Cross-file analysis",
                     recommendation="Review AGPL obligations; consider removing AGPL dependencies or open-sourcing affected code",
                     found_by="software_auditor",

@@ -425,7 +425,7 @@ class FactStore(SQLiteStore):
                 params.append(filters.created_before.isoformat())
 
             sql += " ORDER BY fts_rank"
-            sql += f" LIMIT ? OFFSET ?"
+            sql += " LIMIT ? OFFSET ?"
             params.extend([filters.limit, filters.offset])
 
             cursor.execute(sql, params)
@@ -483,7 +483,7 @@ class FactStore(SQLiteStore):
                 params.append(filters.created_before.isoformat())
 
             sql += " ORDER BY confidence DESC, created_at DESC"
-            sql += f" LIMIT ? OFFSET ?"
+            sql += " LIMIT ? OFFSET ?"
             params.extend([filters.limit, filters.offset])
 
             cursor.execute(sql, params)

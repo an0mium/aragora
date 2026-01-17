@@ -26,9 +26,7 @@ from aragora.audit.document_auditor import (
 from aragora.audit.audit_types.consistency import ConsistencyAuditor
 from aragora.documents.chunking.token_counter import TokenCounter
 from aragora.documents.chunking.strategies import (
-    ChunkingConfig,
     ChunkingStrategy,
-    SemanticChunking,
     get_chunking_strategy,
 )
 
@@ -119,7 +117,7 @@ class CodebaseAuditResult:
 
     @property
     def findings_by_severity(self) -> dict[str, int]:
-        counts = {}
+        counts: dict[str, int] = {}
         for finding in self.findings:
             sev = finding.severity.value
             counts[sev] = counts.get(sev, 0) + 1
@@ -186,16 +184,16 @@ class CodebaseAuditor:
         self.consistency_auditor = ConsistencyAuditor()
 
         # Chunking strategy
-        self._chunker = None
+        self._chunker: Optional[ChunkingStrategy] = None
 
-    def _get_chunker(self) -> SemanticChunking:
+    def _get_chunker(self) -> ChunkingStrategy:
         """Get or create chunking strategy."""
         if self._chunker is None:
-            chunk_config = ChunkingConfig(
+            self._chunker = get_chunking_strategy(
+                "semantic",
                 chunk_size=self.config.chunk_size,
                 overlap=self.config.chunk_overlap,
             )
-            self._chunker = get_chunking_strategy("semantic", chunk_config)
         return self._chunker
 
     def _should_include_file(self, file_path: Path) -> bool:
@@ -485,7 +483,7 @@ class CodebaseAuditor:
         Groups related findings and creates actionable proposals.
         """
         max_proposals = max_proposals or self.config.max_findings_per_cycle
-        proposals = []
+        proposals: list[ImprovementProposal] = []
 
         # Group findings by category and location
         grouped: dict[str, list[AuditFinding]] = {}
@@ -549,7 +547,7 @@ class CodebaseAuditor:
         self, findings: list[AuditFinding], proposals: list[ImprovementProposal]
     ) -> str:
         """Build a human-readable summary of audit results."""
-        severity_counts = {}
+        severity_counts: dict[str, int] = {}
         for f in findings:
             sev = f.severity.value
             severity_counts[sev] = severity_counts.get(sev, 0) + 1

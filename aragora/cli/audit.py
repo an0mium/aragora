@@ -493,7 +493,7 @@ async def generate_report(args: Any) -> int:
         # Save report
         report.save(output_path)
 
-        print(f"Report generated successfully!")
+        print("Report generated successfully!")
         print(f"  File: {output_path}")
         print(f"  Format: {report.format.value}")
         print(f"  Size: {report.size_bytes:,} bytes")

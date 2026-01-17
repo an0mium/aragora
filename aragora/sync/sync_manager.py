@@ -10,7 +10,7 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from aragora.sync.models import (
     FileChange,
@@ -96,9 +96,7 @@ class SyncManager:
         # Get or create sync state
         state = self._watcher.get_state(path)
         if state is None:
-            state = await self._watcher.start_watching(
-                path, workspace_id, initial_scan=True
-            )
+            state = await self._watcher.start_watching(path, workspace_id, initial_scan=True)
 
         # Track in our own states dict
         self._sync_states[path_str] = state
@@ -236,9 +234,7 @@ class SyncManager:
                         await self._process_changes(pending, state, result)
 
                         if result.errors:
-                            logger.warning(
-                                f"Auto-sync errors for {path_str}: {result.errors}"
-                            )
+                            logger.warning(f"Auto-sync errors for {path_str}: {result.errors}")
 
             except asyncio.CancelledError:
                 break

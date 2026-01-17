@@ -252,7 +252,7 @@ def main():
 
     total_tokens = sum(m["tokens"] for m in analysis["modules"].values())
     total_lines = sum(m["lines"] for m in analysis["modules"].values())
-    print(f"\n4. CODEBASE SIZE:")
+    print("\n4. CODEBASE SIZE:")
     print(f"   - {len(analysis['modules'])} Python modules")
     print(f"   - {total_lines:,} lines of code")
     print(f"   - {total_tokens:,} tokens")

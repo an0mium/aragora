@@ -16,7 +16,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Optional, Protocol, Union, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, Protocol, cast
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async

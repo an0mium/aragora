@@ -16,9 +16,8 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from argparse import Namespace, _SubParsersAction
@@ -472,7 +471,7 @@ def cmd_jobs(args: "Namespace") -> int:
 
             if job.get("result"):
                 result = job["result"]
-                print(f"\nResults:")
+                print("\nResults:")
                 print(f"  Chunks: {result.get('chunk_count', 0)}")
                 print(f"  Facts: {result.get('fact_count', 0)}")
                 print(f"  Embedded: {result.get('embedded_count', 0)}")
@@ -559,7 +558,7 @@ def cmd_stats(args: "Namespace") -> int:
         return 1
 
     fact_store = InMemoryFactStore()
-    embedding_service = InMemoryEmbeddingService()
+    _embedding_service = InMemoryEmbeddingService()  # noqa: F841
 
     # Get stats
     stats_filters = FactFilters(workspace_id=args.workspace, limit=10000)

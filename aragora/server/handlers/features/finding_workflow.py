@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
@@ -266,7 +266,7 @@ class FindingWorkflowHandler(BaseHandler):
         if not assignee_id:
             return self._error_response(400, "user_id is required")
 
-        assignee_name = body.get("user_name", "")
+        _assignee_name = body.get("user_name", "")  # noqa: F841
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 

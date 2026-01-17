@@ -6,15 +6,13 @@ Ensures strict data isolation between workspaces/tenants.
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import os
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

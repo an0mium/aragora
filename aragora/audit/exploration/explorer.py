@@ -31,7 +31,6 @@ from aragora.audit.exploration.agents import ExplorationAgent, VerifierAgent
 from aragora.documents.chunking.strategies import (
     ChunkingStrategy,
     ChunkingStrategyType,
-    ChunkingConfig,
     get_chunking_strategy,
 )
 from aragora.documents.models import DocumentChunk
@@ -64,7 +63,7 @@ class ExplorerConfig:
     # Chunking
     chunk_size: int = 500
     chunk_overlap: int = 50
-    chunking_strategy: str = "semantic"
+    chunking_strategy: ChunkingStrategyType = "semantic"
 
     # Verification
     enable_verification: bool = True
@@ -134,18 +133,18 @@ class DocumentExplorer:
             self.verifier = VerifierAgent()
 
         # Chunking strategy
-        self._chunker = None
+        self._chunker: Optional[ChunkingStrategy] = None
+
+        # Chunk storage (populated during document loading)
+        self._session_chunks: dict[str, dict[str, DocumentChunk]] = {}
 
     def _get_chunker(self) -> ChunkingStrategy:
         """Get or create the chunking strategy."""
         if self._chunker is None:
-            config = ChunkingConfig(
-                chunk_size=self.config.chunk_size,
-                overlap=self.config.chunk_overlap,
-            )
             self._chunker = get_chunking_strategy(
                 self.config.chunking_strategy,
-                config,
+                chunk_size=self.config.chunk_size,
+                overlap=self.config.chunk_overlap,
             )
         return self._chunker
 
@@ -267,10 +266,9 @@ class DocumentExplorer:
                     session.chunks_pending.append(chunk_id)
 
                     # Store chunk for later retrieval
-                    # (In a real implementation, this would use a chunk store)
-                    if not hasattr(session, "_chunks"):
-                        session._chunks = {}
-                    session._chunks[chunk_id] = chunk
+                    if session.id not in self._session_chunks:
+                        self._session_chunks[session.id] = {}
+                    self._session_chunks[session.id][chunk_id] = chunk
 
                 logger.info(f"Loaded {len(chunks)} chunks from {doc_id}")
 
@@ -334,8 +332,9 @@ class DocumentExplorer:
         """Read pending chunks and extract understanding."""
         chunks_to_read = session.chunks_pending[: self.config.max_chunks_per_iteration]
 
+        session_chunks = self._session_chunks.get(session.id, {})
         for chunk_id in chunks_to_read:
-            chunk = session._chunks.get(chunk_id) if hasattr(session, "_chunks") else None
+            chunk = session_chunks.get(chunk_id)
             if not chunk:
                 continue
 

@@ -555,8 +555,6 @@ class AuditSessionsHandler(BaseHandler):
             )
 
             # Create a mock session object for the generator
-            from dataclasses import dataclass, field
-            from typing import Optional
             from aragora.audit.document_auditor import (
                 AuditSession as RealSession,
                 AuditFinding,

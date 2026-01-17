@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.knowledge import (
     DatasetQueryEngine,
-    Fact,
     FactFilters,
     FactRelationType,
     FactStore,
@@ -51,7 +50,7 @@ from .base import (
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 if TYPE_CHECKING:
-    from aragora.protocols import HTTPRequestHandler
+    pass
 
 logger = logging.getLogger(__name__)
 

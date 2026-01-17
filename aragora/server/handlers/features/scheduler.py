@@ -18,11 +18,8 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import hmac
-import hashlib
-import json
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from ..base import (
     BaseHandler,
@@ -191,7 +188,7 @@ class SchedulerHandler(BaseHandler):
         """
         from aragora.scheduler import ScheduleConfig, TriggerType
 
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -370,7 +367,7 @@ class SchedulerHandler(BaseHandler):
         Headers:
         - X-Webhook-Signature: HMAC signature for verification
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -411,7 +408,7 @@ class SchedulerHandler(BaseHandler):
             "commits": [{"modified": [...], "added": [...]}]
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -464,7 +461,7 @@ class SchedulerHandler(BaseHandler):
             "document_ids": ["doc1", "doc2"]
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 

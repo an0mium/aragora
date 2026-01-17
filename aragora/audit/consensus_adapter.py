@@ -18,10 +18,8 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Optional, Sequence
 from uuid import uuid4
 
@@ -31,7 +29,6 @@ from aragora.debate.consensus import (
     ConsensusVote,
     DissentRecord,
     Evidence,
-    UnresolvedTension,
     VoteType,
 )
 

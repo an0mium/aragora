@@ -84,7 +84,7 @@ class DocumentQueryHandler(BaseHandler):
             "processing_time_ms": 1234
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -162,7 +162,7 @@ class DocumentQueryHandler(BaseHandler):
             "citations": [...]
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -227,7 +227,7 @@ class DocumentQueryHandler(BaseHandler):
             "citations": [...]
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -299,7 +299,7 @@ class DocumentQueryHandler(BaseHandler):
             }
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 

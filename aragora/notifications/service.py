@@ -38,7 +38,6 @@ import hmac
 import json
 import logging
 import os
-import re
 import smtplib
 import threading
 from abc import ABC, abstractmethod
@@ -48,7 +47,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import Enum
 from typing import Any, Optional
-from urllib.parse import urljoin
 import uuid
 
 logger = logging.getLogger(__name__)

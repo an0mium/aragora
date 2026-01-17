@@ -14,7 +14,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, Union
+from typing import TYPE_CHECKING, Callable, Optional, Protocol, Union
 
 from aragora.knowledge.embeddings import (
     ChunkMatch,
@@ -30,7 +30,7 @@ from aragora.knowledge.types import (
 )
 
 if TYPE_CHECKING:
-    from aragora.core import Agent
+    pass
 
 logger = logging.getLogger(__name__)
 

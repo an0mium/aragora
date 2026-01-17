@@ -450,9 +450,9 @@ class ConsensusPhase:
 
         if not winner_agent and ctx.vote_tally:
             winner_agent = max(ctx.vote_tally.items(), key=lambda x: x[1])[0]
-            total_votes = sum(ctx.vote_tally.values())
+            tally_total = sum(ctx.vote_tally.values())
             winner_confidence = (
-                ctx.vote_tally[winner_agent] / total_votes if total_votes > 0 else 0.5
+                ctx.vote_tally[winner_agent] / tally_total if tally_total > 0 else 0.5
             )
             logger.info(
                 f"consensus_fallback_winner_from_tally winner={winner_agent} "
@@ -796,10 +796,11 @@ class ConsensusPhase:
                 result.confidence = byz_result.confidence
                 result.consensus_strength = "byzantine"
 
-                # Store Byzantine-specific metadata
-                if not hasattr(result, "metadata") or result.metadata is None:
-                    result.metadata = {}
-                result.metadata["byzantine_consensus"] = {
+                # Store Byzantine-specific metadata in formal_verification field
+                # (reusing this Optional[dict[str, Any]] field for consensus metadata)
+                if result.formal_verification is None:
+                    result.formal_verification = {}
+                result.formal_verification["byzantine_consensus"] = {
                     "view": byz_result.view,
                     "sequence": byz_result.sequence,
                     "commit_count": byz_result.commit_count,
@@ -910,26 +911,26 @@ class ConsensusPhase:
         votes: list["Vote"],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
-    ) -> tuple[Counter[str], float]:
+    ) -> tuple[dict[str, float], float]:
         """Count weighted votes."""
-        vote_counts: Counter[str] = Counter()
+        vote_counts: dict[str, float] = {}
         total_weighted = 0.0
 
         for v in votes:
             if not isinstance(v, Exception):
                 canonical = choice_mapping.get(v.choice, v.choice)
                 weight = vote_weight_cache.get(v.agent, 1.0)
-                vote_counts[canonical] += weight
+                vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight
                 total_weighted += weight
 
         return vote_counts, total_weighted
 
     def _add_user_votes(
         self,
-        vote_counts: Counter,
+        vote_counts: dict[str, float],
         total_weighted: float,
         choice_mapping: dict[str, str],
-    ) -> tuple[Counter, float]:
+    ) -> tuple[dict[str, float], float]:
         """Add user votes to counts."""
         if self._drain_user_events:
             self._drain_user_events()
@@ -948,7 +949,7 @@ class ConsensusPhase:
                     intensity_multiplier = 1.0
 
                 final_weight = base_user_weight * intensity_multiplier
-                vote_counts[canonical] += final_weight
+                vote_counts[canonical] = vote_counts.get(canonical, 0.0) + final_weight
                 total_weighted += final_weight
 
                 logger.debug(
@@ -962,9 +963,9 @@ class ConsensusPhase:
         self,
         ctx: "DebateContext",
         votes: list["Vote"],
-        vote_counts: Counter,
+        vote_counts: dict[str, float],
         choice_mapping: dict[str, str],
-    ) -> Counter:
+    ) -> dict[str, float]:
         """Apply evidence citation bonuses to vote counts."""
         if not self.protocol or not getattr(self.protocol, "enable_evidence_weighting", False):
             return vote_counts
@@ -1001,10 +1002,13 @@ class ConsensusPhase:
                     )
 
         result = ctx.result
-        if evidence_citations and hasattr(result, "metadata"):
-            if result.metadata is None:
-                result.metadata = {}
-            result.metadata["evidence_citations"] = evidence_citations
+        if result is not None and evidence_citations:
+            # Store evidence citations in verification_results as a workaround
+            # since DebateResult doesn't have a metadata field
+            if not result.verification_results:
+                result.verification_results = {}
+            for agent, count in evidence_citations.items():
+                result.verification_results[f"evidence_{agent}"] = count
 
         if evidence_citations:
             logger.info(

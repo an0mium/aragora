@@ -251,7 +251,6 @@ class BatchOperationsMixin:
 
     def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[["BatchItem"], Any]:
         """Create a debate executor function for the batch queue."""
-        from aragora.server.debate_queue import BatchItem
 
         async def execute_debate(item: BatchItem):
             """Execute a single debate from batch."""

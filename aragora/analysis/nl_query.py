@@ -21,12 +21,11 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Optional, Sequence
+from typing import Any, AsyncIterator, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -348,7 +347,7 @@ class DocumentQueryEngine:
         Returns:
             QueryResult with summary
         """
-        question = f"Provide a comprehensive summary of these documents"
+        question = "Provide a comprehensive summary of these documents"
         if focus:
             question += f", focusing on {focus}"
 

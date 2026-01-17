@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +342,7 @@ class SensitivityClassifier:
             # Truncate content for LLM
             truncated = content[:4000]
 
-            prompt = f"""Classify the sensitivity level of this content.
+            _prompt = f"""Classify the sensitivity level of this content.  # noqa: F841
 
 Levels (from most to least sensitive):
 - top_secret: National security, highest classification

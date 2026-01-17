@@ -19,11 +19,10 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator
 from uuid import uuid4
 
 from aragora.harnesses.base import (
@@ -252,7 +251,7 @@ Respond with a JSON array of findings. Each finding should have:
             findings = self._parse_findings(raw_output, analysis_type)
             success = True
 
-        except HarnessTimeoutError as e:
+        except HarnessTimeoutError:
             error_message = f"Analysis timed out after {self.config.timeout_seconds}s"
             logger.error(error_message)
         except HarnessError as e:
