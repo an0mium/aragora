@@ -143,7 +143,7 @@ class TestScheduledJob:
 
         assert "job_id" in data
         assert "schedule_id" in data
-        assert "config" in data
+        assert "name" in data  # name instead of config
         assert "status" in data
 
 
@@ -347,8 +347,8 @@ class TestSchedulerLifecycle:
     @pytest.mark.asyncio
     async def test_start_scheduler(self, scheduler):
         """Test starting the scheduler."""
-        # Start in background
-        task = scheduler.start()
+        # Start the scheduler (async method)
+        await scheduler.start()
 
         # Give it a moment to start
         import asyncio
@@ -362,7 +362,7 @@ class TestSchedulerLifecycle:
     @pytest.mark.asyncio
     async def test_stop_scheduler(self, scheduler):
         """Test stopping the scheduler."""
-        scheduler.start()
+        await scheduler.start()
         import asyncio
         await asyncio.sleep(0.1)
 

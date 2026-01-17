@@ -52,9 +52,7 @@ class RetentionPolicy:
     action: RetentionAction = RetentionAction.DELETE
 
     # Scope
-    applies_to: list[str] = field(
-        default_factory=lambda: ["documents", "findings", "sessions"]
-    )
+    applies_to: list[str] = field(default_factory=lambda: ["documents", "findings", "sessions"])
     workspace_ids: list[str] | None = None  # None = all workspaces
 
     # Grace period before action
@@ -225,9 +223,7 @@ class RetentionPolicyManager:
 
         if workspace_id:
             policies = [
-                p
-                for p in policies
-                if p.workspace_ids is None or workspace_id in p.workspace_ids
+                p for p in policies if p.workspace_ids is None or workspace_id in p.workspace_ids
             ]
 
         return policies
@@ -322,9 +318,7 @@ class RetentionPolicyManager:
 
             # Send notifications
             if policy.notification_recipients:
-                report.notifications_sent = await self._send_notifications(
-                    policy, report, dry_run
-                )
+                report.notifications_sent = await self._send_notifications(policy, report, dry_run)
 
             # Update policy
             policy.last_run = datetime.utcnow()

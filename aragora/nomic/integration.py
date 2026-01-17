@@ -573,9 +573,7 @@ class NomicIntegration:
         # Need a run_branch_fn to execute branches
         if run_branch_fn is None:
             # Create a default no-op branch runner if none provided
-            async def default_run_branch(
-                task: str, context: list, branch_id: str
-            ) -> DebateResult:
+            async def default_run_branch(task: str, context: list, branch_id: str) -> DebateResult:
                 from aragora.core import Vote
 
                 return DebateResult(

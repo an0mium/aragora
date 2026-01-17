@@ -259,7 +259,10 @@ class PrivacyAuditLog:
         # Skip read/query if not logging
         if action == AuditAction.READ and not self.config.log_read_operations:
             return None
-        if action in (AuditAction.QUERY, AuditAction.SEARCH) and not self.config.log_query_operations:
+        if (
+            action in (AuditAction.QUERY, AuditAction.SEARCH)
+            and not self.config.log_query_operations
+        ):
             return None
 
         entry = AuditEntry(
@@ -370,9 +373,7 @@ class PrivacyAuditLog:
         for i, entry in enumerate(entries):
             # Verify previous checksum reference
             if entry.previous_checksum != previous_checksum:
-                errors.append(
-                    f"Entry {entry.id}: previous_checksum mismatch at position {i}"
-                )
+                errors.append(f"Entry {entry.id}: previous_checksum mismatch at position {i}")
 
             # Verify checksum computation
             expected_checksum = self._compute_checksum(entry)
@@ -426,9 +427,7 @@ class PrivacyAuditLog:
             by_action[entry.action.value] = by_action.get(entry.action.value, 0) + 1
             by_outcome[entry.outcome.value] = by_outcome.get(entry.outcome.value, 0) + 1
             by_actor[entry.actor.id] = by_actor.get(entry.actor.id, 0) + 1
-            by_resource_type[entry.resource.type] = (
-                by_resource_type.get(entry.resource.type, 0) + 1
-            )
+            by_resource_type[entry.resource.type] = by_resource_type.get(entry.resource.type, 0) + 1
 
             if entry.outcome == AuditOutcome.DENIED:
                 denied_count += 1
@@ -455,9 +454,7 @@ class PrivacyAuditLog:
             "by_action": by_action,
             "by_outcome": by_outcome,
             "by_resource_type": by_resource_type,
-            "top_actors": sorted(
-                by_actor.items(), key=lambda x: x[1], reverse=True
-            )[:10],
+            "top_actors": sorted(by_actor.items(), key=lambda x: x[1], reverse=True)[:10],
             "integrity": {
                 "verified": is_valid,
                 "errors": integrity_errors[:10] if integrity_errors else [],

@@ -114,10 +114,7 @@ class Workspace:
         if not member:
             return False
 
-        return (
-            permission in member.permissions
-            or WorkspacePermission.ADMIN in member.permissions
-        )
+        return permission in member.permissions or WorkspacePermission.ADMIN in member.permissions
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

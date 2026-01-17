@@ -29,9 +29,9 @@ from ..base import (
 )
 
 # Knowledge processing enabled by default
-KNOWLEDGE_PROCESSING_DEFAULT = os.environ.get(
-    "ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true"
-).lower() == "true"
+KNOWLEDGE_PROCESSING_DEFAULT = (
+    os.environ.get("ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true").lower() == "true"
+)
 
 logger = logging.getLogger(__name__)
 

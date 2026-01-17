@@ -62,6 +62,7 @@ class MatrixRunnerProtocol(Protocol):
 
     async def run_all(self, max_rounds: int = 3) -> MatrixResultProtocol: ...
 
+
 from ..base import (
     BaseHandler,
     HandlerResult,

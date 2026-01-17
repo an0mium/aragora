@@ -313,7 +313,11 @@ TOOLS_METADATA = [
         "description": "Get details of a specific audit preset including custom rules",
         "function": get_audit_preset_tool,
         "parameters": {
-            "preset_name": {"type": "string", "required": True, "description": "Name of preset (e.g., 'Legal Due Diligence')"},
+            "preset_name": {
+                "type": "string",
+                "required": True,
+                "description": "Name of preset (e.g., 'Legal Due Diligence')",
+            },
         },
     },
     {
@@ -321,7 +325,11 @@ TOOLS_METADATA = [
         "description": "Create a new document audit session",
         "function": create_audit_session_tool,
         "parameters": {
-            "document_ids": {"type": "string", "required": True, "description": "Comma-separated document IDs"},
+            "document_ids": {
+                "type": "string",
+                "required": True,
+                "description": "Comma-separated document IDs",
+            },
             "audit_types": {"type": "string", "default": "security,compliance,consistency,quality"},
             "preset": {"type": "string", "description": "Optional preset name to use"},
             "name": {"type": "string", "description": "Optional session name"},
@@ -360,7 +368,19 @@ TOOLS_METADATA = [
         "function": update_finding_status_tool,
         "parameters": {
             "finding_id": {"type": "string", "required": True},
-            "status": {"type": "string", "required": True, "enum": ["open", "triaging", "investigating", "remediating", "resolved", "false_positive", "accepted_risk"]},
+            "status": {
+                "type": "string",
+                "required": True,
+                "enum": [
+                    "open",
+                    "triaging",
+                    "investigating",
+                    "remediating",
+                    "resolved",
+                    "false_positive",
+                    "accepted_risk",
+                ],
+            },
             "comment": {"type": "string", "default": ""},
         },
     },
@@ -369,8 +389,16 @@ TOOLS_METADATA = [
         "description": "Run a quick audit using a preset and return findings summary",
         "function": run_quick_audit_tool,
         "parameters": {
-            "document_ids": {"type": "string", "required": True, "description": "Comma-separated document IDs"},
-            "preset": {"type": "string", "default": "Code Security", "description": "Preset to use"},
+            "document_ids": {
+                "type": "string",
+                "required": True,
+                "description": "Comma-separated document IDs",
+            },
+            "preset": {
+                "type": "string",
+                "default": "Code Security",
+                "description": "Preset to use",
+            },
         },
     },
 ]

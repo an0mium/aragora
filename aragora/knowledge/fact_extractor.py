@@ -199,11 +199,7 @@ class FactExtractor:
                 result.agent_used = self.agents[0].name if self.agents else "none"
 
                 # Verify with second agent if configured
-                if (
-                    self.config.require_agreement
-                    and len(self.agents) >= 2
-                    and extracted
-                ):
+                if self.config.require_agreement and len(self.agents) >= 2 and extracted:
                     result.facts = await self._verify_with_agent(
                         content=content,
                         facts=extracted,
@@ -429,9 +425,7 @@ class FactExtractor:
                         statement=f"Date mentioned: {match.group()}",
                         confidence=0.6,
                         topics=["date", "timeline"],
-                        evidence_quote=content[
-                            max(0, match.start() - 50) : match.end() + 50
-                        ],
+                        evidence_quote=content[max(0, match.start() - 50) : match.end() + 50],
                         source_chunk_id=chunk_id,
                         source_document=document_id,
                     )
@@ -445,9 +439,7 @@ class FactExtractor:
                     statement=f"Monetary value: {match.group()}",
                     confidence=0.7,
                     topics=["financial", "amount"],
-                    evidence_quote=content[
-                        max(0, match.start() - 50) : match.end() + 50
-                    ],
+                    evidence_quote=content[max(0, match.start() - 50) : match.end() + 50],
                     source_chunk_id=chunk_id,
                     source_document=document_id,
                 )
@@ -461,9 +453,7 @@ class FactExtractor:
                     statement=f"Percentage: {match.group()}",
                     confidence=0.7,
                     topics=["percentage", "metric"],
-                    evidence_quote=content[
-                        max(0, match.start() - 50) : match.end() + 50
-                    ],
+                    evidence_quote=content[max(0, match.start() - 50) : match.end() + 50],
                     source_chunk_id=chunk_id,
                     source_document=document_id,
                 )

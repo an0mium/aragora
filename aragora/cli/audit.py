@@ -34,26 +34,20 @@ def create_audit_parser(subparsers: argparse._SubParsersAction) -> None:
     )
 
     # Presets command
-    presets_parser = audit_subparsers.add_parser(
-        "presets", help="List available audit presets"
-    )
+    presets_parser = audit_subparsers.add_parser("presets", help="List available audit presets")
     presets_parser.add_argument(
         "--format", choices=["text", "json"], default="text", help="Output format"
     )
 
     # Preset detail command
-    preset_parser = audit_subparsers.add_parser(
-        "preset", help="Show details of a specific preset"
-    )
+    preset_parser = audit_subparsers.add_parser("preset", help="Show details of a specific preset")
     preset_parser.add_argument("name", help="Preset name (e.g., 'Legal Due Diligence')")
     preset_parser.add_argument(
         "--format", choices=["text", "json"], default="text", help="Output format"
     )
 
     # Types command
-    types_parser = audit_subparsers.add_parser(
-        "types", help="List registered audit types"
-    )
+    types_parser = audit_subparsers.add_parser("types", help="List registered audit types")
     types_parser.add_argument(
         "--format", choices=["text", "json"], default="text", help="Output format"
     )
@@ -100,45 +94,41 @@ def create_audit_parser(subparsers: argparse._SubParsersAction) -> None:
     export_parser.add_argument("--output", "-o", required=True, help="Output file path")
 
     # Report command (new formatted report generation)
-    report_parser = audit_subparsers.add_parser(
-        "report", help="Generate formatted audit report"
-    )
+    report_parser = audit_subparsers.add_parser("report", help="Generate formatted audit report")
     report_parser.add_argument("session_id", help="Session ID")
     report_parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["pdf", "markdown", "html", "json"],
         default="markdown",
-        help="Report format (default: markdown)"
+        help="Report format (default: markdown)",
     )
     report_parser.add_argument(
-        "--template", "-t",
-        choices=["executive_summary", "detailed_findings", "compliance_attestation", "security_assessment"],
+        "--template",
+        "-t",
+        choices=[
+            "executive_summary",
+            "detailed_findings",
+            "compliance_attestation",
+            "security_assessment",
+        ],
         default="detailed_findings",
-        help="Report template (default: detailed_findings)"
+        help="Report template (default: detailed_findings)",
     )
     report_parser.add_argument(
-        "--output", "-o",
-        help="Output file path (auto-generated if not specified)"
+        "--output", "-o", help="Output file path (auto-generated if not specified)"
     )
     report_parser.add_argument(
         "--min-severity",
         choices=["critical", "high", "medium", "low", "info"],
         default="low",
-        help="Minimum severity to include (default: low)"
+        help="Minimum severity to include (default: low)",
     )
     report_parser.add_argument(
-        "--include-resolved",
-        action="store_true",
-        help="Include resolved findings"
+        "--include-resolved", action="store_true", help="Include resolved findings"
     )
-    report_parser.add_argument(
-        "--author",
-        help="Report author name"
-    )
-    report_parser.add_argument(
-        "--company",
-        help="Company name for branding"
-    )
+    report_parser.add_argument("--author", help="Report author name")
+    report_parser.add_argument("--company", help="Company name for branding")
 
     audit_parser.set_defaults(func=audit_cli)
 
@@ -164,7 +154,9 @@ def audit_cli(args: Any) -> int:
     elif args.audit_command == "report":
         return asyncio.run(generate_report(args))
     else:
-        print("Unknown audit command. Use: presets, preset, types, create, start, status, findings, export, report")
+        print(
+            "Unknown audit command. Use: presets, preset, types, create, start, status, findings, export, report"
+        )
         return 1
 
 
@@ -199,7 +191,9 @@ async def list_presets(args: Any) -> int:
                 print(f"  {p.name}")
                 print(f"    {p.description}")
                 print(f"    Types: {', '.join(p.audit_types)}")
-                print(f"    Rules: {len(p.custom_rules)}, Threshold: {p.consensus_threshold*100:.0f}%")
+                print(
+                    f"    Rules: {len(p.custom_rules)}, Threshold: {p.consensus_threshold*100:.0f}%"
+                )
                 print()
         return 0
     except Exception as e:

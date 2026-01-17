@@ -190,6 +190,19 @@ class AuditorCapabilities:
     # Supported document types (empty = all)
     supported_document_types: list[str] = field(default_factory=list)
 
+    # Alias for supported_document_types (backwards compatibility)
+    supported_doc_types: list[str] = field(default_factory=list)
+
+    # Custom capabilities map for domain-specific features
+    custom_capabilities: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        # Sync supported_doc_types with supported_document_types
+        if self.supported_doc_types and not self.supported_document_types:
+            self.supported_document_types = self.supported_doc_types
+        elif self.supported_document_types and not self.supported_doc_types:
+            self.supported_doc_types = self.supported_document_types
+
 
 class BaseAuditor(ABC):
     """

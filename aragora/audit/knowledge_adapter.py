@@ -164,7 +164,9 @@ class AuditKnowledgeAdapter:
                     sequence=chunk.get("sequence", 0),
                     related_facts=relevant_facts,
                     fact_count=len(relevant_facts),
-                    relevance_score=max((r.score for r in related), default=0.0) if related else 0.0,
+                    relevance_score=(
+                        max((r.score for r in related), default=0.0) if related else 0.0
+                    ),
                 )
                 enriched.append(enriched_chunk)
 

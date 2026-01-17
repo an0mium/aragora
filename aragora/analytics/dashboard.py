@@ -117,9 +117,7 @@ class RemediationMetrics:
             "total_resolved": self.total_resolved,
             "total_open": self.total_open,
             "mttr_hours": round(self.mttr_hours, 2),
-            "mttr_by_severity": {
-                k: round(v, 2) for k, v in self.mttr_by_severity.items()
-            },
+            "mttr_by_severity": {k: round(v, 2) for k, v in self.mttr_by_severity.items()},
             "false_positive_rate": round(self.false_positive_rate, 4),
             "accepted_risk_rate": round(self.accepted_risk_rate, 4),
         }
@@ -331,8 +329,7 @@ class AnalyticsDashboard:
 
         # Resolved in period
         resolved = sum(
-            1 for f in findings
-            if f.get("status") == "resolved" and f.get("resolved_at")
+            1 for f in findings if f.get("status") == "resolved" and f.get("resolved_at")
         )
 
         # Top categories
@@ -340,9 +337,7 @@ class AnalyticsDashboard:
         for f in findings:
             cat = f.get("category", "unknown")
             category_counts[cat] = category_counts.get(cat, 0) + 1
-        top_categories = sorted(
-            category_counts.items(), key=lambda x: x[1], reverse=True
-        )[:5]
+        top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
         # Recent critical
         recent_critical = [
@@ -421,13 +416,15 @@ class AnalyticsDashboard:
                 by_category[cat] = by_category.get(cat, 0) + 1
                 by_status[status] = by_status.get(status, 0) + 1
 
-            trends.append(FindingTrend(
-                timestamp=self._parse_bucket_key(bucket_key, granularity),
-                total=len(bucket_findings),
-                by_severity=by_severity,
-                by_category=by_category,
-                by_status=by_status,
-            ))
+            trends.append(
+                FindingTrend(
+                    timestamp=self._parse_bucket_key(bucket_key, granularity),
+                    total=len(bucket_findings),
+                    by_severity=by_severity,
+                    by_category=by_category,
+                    by_status=by_status,
+                )
+            )
 
         return trends
 
@@ -476,8 +473,7 @@ class AnalyticsDashboard:
 
         mttr = sum(resolution_times) / len(resolution_times) if resolution_times else 0
         mttr_by_sev = {
-            sev: sum(times) / len(times)
-            for sev, times in resolution_by_severity.items()
+            sev: sum(times) / len(times) for sev, times in resolution_by_severity.items()
         }
 
         total = len(findings)
@@ -541,28 +537,18 @@ class AnalyticsDashboard:
 
                 # Track response time
                 if "response_time_ms" in agent_result:
-                    agent_data[agent_id]["response_times"].append(
-                        agent_result["response_time_ms"]
-                    )
+                    agent_data[agent_id]["response_times"].append(agent_result["response_time_ms"])
 
         # Build metrics
         metrics = []
         for agent_id, data in agent_data.items():
             total_decisions = data["agreements"] + data["disagreements"]
-            agreement_rate = (
-                data["agreements"] / total_decisions if total_decisions > 0 else 0
-            )
+            agreement_rate = data["agreements"] / total_decisions if total_decisions > 0 else 0
 
             # Calculate precision (using false positive status from findings)
             total_findings = len(data["findings"])
-            fp_count = sum(
-                1 for f in data["findings"]
-                if f.get("status") == "false_positive"
-            )
-            precision = (
-                (total_findings - fp_count) / total_findings
-                if total_findings > 0 else 0
-            )
+            fp_count = sum(1 for f in data["findings"] if f.get("status") == "false_positive")
+            precision = (total_findings - fp_count) / total_findings if total_findings > 0 else 0
 
             # Finding distribution by severity
             dist: dict[str, int] = {}
@@ -572,18 +558,21 @@ class AnalyticsDashboard:
 
             avg_response = (
                 sum(data["response_times"]) / len(data["response_times"])
-                if data["response_times"] else 0
+                if data["response_times"]
+                else 0
             )
 
-            metrics.append(AgentMetrics(
-                agent_id=agent_id,
-                agent_name=data["name"],
-                total_findings=total_findings,
-                agreement_rate=agreement_rate,
-                precision=precision,
-                finding_distribution=dist,
-                avg_response_time_ms=avg_response,
-            ))
+            metrics.append(
+                AgentMetrics(
+                    agent_id=agent_id,
+                    agent_name=data["name"],
+                    total_findings=total_findings,
+                    agreement_rate=agreement_rate,
+                    precision=precision,
+                    finding_distribution=dist,
+                    avg_response_time_ms=avg_response,
+                )
+            )
 
         return sorted(metrics, key=lambda m: m.total_findings, reverse=True)
 
@@ -675,8 +664,7 @@ class AnalyticsDashboard:
         # Previous period for trend
         delta = time_range.to_timedelta()
         prev_findings = (
-            await self._get_findings(workspace_id, time_range, offset=delta)
-            if delta else []
+            await self._get_findings(workspace_id, time_range, offset=delta) if delta else []
         )
 
         # Count by category/severity
@@ -706,12 +694,14 @@ class AnalyticsDashboard:
             else:
                 trend = "stable"
 
-            cells.append(RiskHeatmapCell(
-                category=cat,
-                severity=sev,
-                count=curr_count,
-                trend=trend,
-            ))
+            cells.append(
+                RiskHeatmapCell(
+                    category=cat,
+                    severity=sev,
+                    count=curr_count,
+                    trend=trend,
+                )
+            )
 
         return cells
 
@@ -756,16 +746,18 @@ class AnalyticsDashboard:
                     if created > end_time:
                         continue
 
-                    findings.append({
-                        "id": finding.id,
-                        "title": getattr(finding, "title", None),
-                        "message": finding.message,
-                        "severity": finding.severity,
-                        "category": finding.category,
-                        "status": getattr(finding, "status", "open"),
-                        "created_at": finding.created_at,
-                        "resolved_at": getattr(finding, "resolved_at", None),
-                    })
+                    findings.append(
+                        {
+                            "id": finding.id,
+                            "title": getattr(finding, "title", None),
+                            "message": finding.message,
+                            "severity": finding.severity,
+                            "category": finding.category,
+                            "status": getattr(finding, "status", "open"),
+                            "created_at": finding.created_at,
+                            "resolved_at": getattr(finding, "resolved_at", None),
+                        }
+                    )
 
             return findings
 
@@ -800,14 +792,16 @@ class AnalyticsDashboard:
                 if start_time and created < start_time:
                     continue
 
-                sessions.append({
-                    "id": session.id,
-                    "audit_type": getattr(session, "audit_type", "unknown"),
-                    "created_at": session.created_at,
-                    "cost_usd": getattr(session, "cost_usd", 0),
-                    "token_usage": getattr(session, "token_usage", {}),
-                    "agent_results": getattr(session, "agent_results", []),
-                })
+                sessions.append(
+                    {
+                        "id": session.id,
+                        "audit_type": getattr(session, "audit_type", "unknown"),
+                        "created_at": session.created_at,
+                        "cost_usd": getattr(session, "cost_usd", 0),
+                        "token_usage": getattr(session, "token_usage", {}),
+                        "agent_results": getattr(session, "agent_results", []),
+                    }
+                )
 
             return sessions
 
@@ -869,12 +863,12 @@ class AnalyticsDashboard:
         for control_name, keywords in controls.items():
             # Check if any findings match this control
             control_findings = [
-                f for f in findings
-                if any(kw in f.get("category", "").lower() for kw in keywords)
+                f for f in findings if any(kw in f.get("category", "").lower() for kw in keywords)
             ]
 
             open_critical = [
-                f for f in control_findings
+                f
+                for f in control_findings
                 if f.get("status") == "open" and f.get("severity") == "critical"
             ]
 

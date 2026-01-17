@@ -115,9 +115,7 @@ class KnowledgeHandler(BaseHandler):
             return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route knowledge requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -195,9 +193,7 @@ class KnowledgeHandler(BaseHandler):
         return error_response("Unknown endpoint", 404)
 
     @handle_errors("knowledge query")
-    def _handle_query(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_query(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/query - Natural language query."""
         import asyncio
 
@@ -233,9 +229,7 @@ class KnowledgeHandler(BaseHandler):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(
-                engine.query(question, workspace_id, options)
-            )
+            result = loop.run_until_complete(engine.query(question, workspace_id, options))
             loop.close()
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
@@ -247,9 +241,7 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("list facts")
     def _handle_list_facts(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/facts - List facts."""
-        workspace_id = get_bounded_string_param(
-            query_params, "workspace_id", None, max_length=100
-        )
+        workspace_id = get_bounded_string_param(query_params, "workspace_id", None, max_length=100)
         topic = get_bounded_string_param(query_params, "topic", None, max_length=200)
         min_confidence = get_bounded_float_param(
             query_params, "min_confidence", 0.0, min_val=0.0, max_val=1.0
@@ -272,12 +264,14 @@ class KnowledgeHandler(BaseHandler):
         store = self._get_fact_store()
         facts = store.list_facts(filters)
 
-        return json_response({
-            "facts": [f.to_dict() for f in facts],
-            "total": len(facts),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "facts": [f.to_dict() for f in facts],
+                "total": len(facts),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("get fact")
     def _handle_get_fact(self, fact_id: str) -> HandlerResult:
@@ -409,16 +403,16 @@ class KnowledgeHandler(BaseHandler):
 
         contradictions = store.get_contradictions(fact_id)
 
-        return json_response({
-            "fact_id": fact_id,
-            "contradictions": [c.to_dict() for c in contradictions],
-            "count": len(contradictions),
-        })
+        return json_response(
+            {
+                "fact_id": fact_id,
+                "contradictions": [c.to_dict() for c in contradictions],
+                "count": len(contradictions),
+            }
+        )
 
     @handle_errors("get relations")
-    def _handle_get_relations(
-        self, fact_id: str, query_params: dict
-    ) -> HandlerResult:
+    def _handle_get_relations(self, fact_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/facts/:id/relations."""
         store = self._get_fact_store()
 
@@ -426,12 +420,8 @@ class KnowledgeHandler(BaseHandler):
         if not fact:
             return error_response(f"Fact not found: {fact_id}", 404)
 
-        relation_type_str = get_bounded_string_param(
-            query_params, "type", None, max_length=50
-        )
-        relation_type = (
-            FactRelationType(relation_type_str) if relation_type_str else None
-        )
+        relation_type_str = get_bounded_string_param(query_params, "type", None, max_length=50)
+        relation_type = FactRelationType(relation_type_str) if relation_type_str else None
 
         as_source = get_bool_param(query_params, "as_source", True)
         as_target = get_bool_param(query_params, "as_target", True)
@@ -443,11 +433,13 @@ class KnowledgeHandler(BaseHandler):
             as_target=as_target,
         )
 
-        return json_response({
-            "fact_id": fact_id,
-            "relations": [r.to_dict() for r in relations],
-            "count": len(relations),
-        })
+        return json_response(
+            {
+                "fact_id": fact_id,
+                "relations": [r.to_dict() for r in relations],
+                "count": len(relations),
+            }
+        )
 
     @handle_errors("add relation")
     def _handle_add_relation(self, fact_id: str, handler: Any) -> HandlerResult:
@@ -555,20 +547,20 @@ class KnowledgeHandler(BaseHandler):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(
-                engine.search(query, workspace_id, limit)
-            )
+            results = loop.run_until_complete(engine.search(query, workspace_id, limit))
             loop.close()
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return error_response(f"Search failed: {e}", 500)
 
-        return json_response({
-            "query": query,
-            "workspace_id": workspace_id,
-            "results": [r.to_dict() for r in results],
-            "count": len(results),
-        })
+        return json_response(
+            {
+                "query": query,
+                "workspace_id": workspace_id,
+                "results": [r.to_dict() for r in results],
+                "count": len(results),
+            }
+        )
 
     @ttl_cache(ttl_seconds=CACHE_TTL_STATS, key_prefix="knowledge_stats", skip_first=True)
     @handle_errors("get stats")
@@ -577,7 +569,9 @@ class KnowledgeHandler(BaseHandler):
         store = self._get_fact_store()
         stats = store.get_statistics(workspace_id)
 
-        return json_response({
-            "workspace_id": workspace_id,
-            **stats,
-        })
+        return json_response(
+            {
+                "workspace_id": workspace_id,
+                **stats,
+            }
+        )

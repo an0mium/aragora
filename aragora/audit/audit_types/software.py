@@ -415,22 +415,74 @@ class SoftwareAuditor(BaseAuditor):
     # License patterns (SPDX identifiers)
     LICENSE_PATTERNS: dict[str, dict[str, Any]] = {
         # Permissive
-        "MIT": {"category": "permissive", "osi_approved": True, "patterns": [r"\bMIT\s+License\b", r"SPDX.*MIT"]},
-        "Apache-2.0": {"category": "permissive", "osi_approved": True, "patterns": [r"Apache\s+License.*2\.0", r"SPDX.*Apache-2\.0"]},
-        "BSD-2-Clause": {"category": "permissive", "osi_approved": True, "patterns": [r"BSD\s+2-Clause", r"Simplified\s+BSD"]},
-        "BSD-3-Clause": {"category": "permissive", "osi_approved": True, "patterns": [r"BSD\s+3-Clause", r"New\s+BSD"]},
+        "MIT": {
+            "category": "permissive",
+            "osi_approved": True,
+            "patterns": [r"\bMIT\s+License\b", r"SPDX.*MIT"],
+        },
+        "Apache-2.0": {
+            "category": "permissive",
+            "osi_approved": True,
+            "patterns": [r"Apache\s+License.*2\.0", r"SPDX.*Apache-2\.0"],
+        },
+        "BSD-2-Clause": {
+            "category": "permissive",
+            "osi_approved": True,
+            "patterns": [r"BSD\s+2-Clause", r"Simplified\s+BSD"],
+        },
+        "BSD-3-Clause": {
+            "category": "permissive",
+            "osi_approved": True,
+            "patterns": [r"BSD\s+3-Clause", r"New\s+BSD"],
+        },
         "ISC": {"category": "permissive", "osi_approved": True, "patterns": [r"\bISC\s+License\b"]},
         # Copyleft
-        "GPL-2.0": {"category": "copyleft", "osi_approved": True, "patterns": [r"GNU\s+General\s+Public\s+License.*[Vv]ersion\s*2", r"GPL-?2"]},
-        "GPL-3.0": {"category": "copyleft", "osi_approved": True, "patterns": [r"GNU\s+General\s+Public\s+License.*[Vv]ersion\s*3", r"GPL-?3"]},
-        "LGPL-2.1": {"category": "copyleft", "osi_approved": True, "patterns": [r"GNU\s+Lesser.*2\.1", r"LGPL-?2\.1"]},
-        "LGPL-3.0": {"category": "copyleft", "osi_approved": True, "patterns": [r"GNU\s+Lesser.*3\.0", r"LGPL-?3"]},
-        "AGPL-3.0": {"category": "copyleft", "osi_approved": True, "patterns": [r"GNU\s+Affero.*3\.0", r"AGPL-?3"]},
-        "MPL-2.0": {"category": "copyleft", "osi_approved": True, "patterns": [r"Mozilla\s+Public\s+License.*2\.0"]},
+        "GPL-2.0": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"GNU\s+General\s+Public\s+License.*[Vv]ersion\s*2", r"GPL-?2"],
+        },
+        "GPL-3.0": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"GNU\s+General\s+Public\s+License.*[Vv]ersion\s*3", r"GPL-?3"],
+        },
+        "LGPL-2.1": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"GNU\s+Lesser.*2\.1", r"LGPL-?2\.1"],
+        },
+        "LGPL-3.0": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"GNU\s+Lesser.*3\.0", r"LGPL-?3"],
+        },
+        "AGPL-3.0": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"GNU\s+Affero.*3\.0", r"AGPL-?3"],
+        },
+        "MPL-2.0": {
+            "category": "copyleft",
+            "osi_approved": True,
+            "patterns": [r"Mozilla\s+Public\s+License.*2\.0"],
+        },
         # Proprietary/Restrictive
-        "BUSL-1.1": {"category": "proprietary", "osi_approved": False, "patterns": [r"Business\s+Source\s+License"]},
-        "SSPL": {"category": "proprietary", "osi_approved": False, "patterns": [r"Server\s+Side\s+Public\s+License"]},
-        "CC-BY-NC": {"category": "restrictive", "osi_approved": False, "patterns": [r"Creative\s+Commons.*NonCommercial"]},
+        "BUSL-1.1": {
+            "category": "proprietary",
+            "osi_approved": False,
+            "patterns": [r"Business\s+Source\s+License"],
+        },
+        "SSPL": {
+            "category": "proprietary",
+            "osi_approved": False,
+            "patterns": [r"Server\s+Side\s+Public\s+License"],
+        },
+        "CC-BY-NC": {
+            "category": "restrictive",
+            "osi_approved": False,
+            "patterns": [r"Creative\s+Commons.*NonCommercial"],
+        },
     }
 
     @property
@@ -460,10 +512,37 @@ class SoftwareAuditor(BaseAuditor):
             supports_streaming=False,
             requires_llm=True,
             supported_doc_types=[
-                "py", "js", "ts", "tsx", "jsx", "java", "go", "rb", "php",
-                "c", "cpp", "h", "hpp", "cs", "swift", "kt", "rs", "scala",
-                "yaml", "yml", "json", "xml", "toml", "ini", "env",
-                "dockerfile", "tf", "hcl", "sh", "bash", "ps1",
+                "py",
+                "js",
+                "ts",
+                "tsx",
+                "jsx",
+                "java",
+                "go",
+                "rb",
+                "php",
+                "c",
+                "cpp",
+                "h",
+                "hpp",
+                "cs",
+                "swift",
+                "kt",
+                "rs",
+                "scala",
+                "yaml",
+                "yml",
+                "json",
+                "xml",
+                "toml",
+                "ini",
+                "env",
+                "dockerfile",
+                "tf",
+                "hcl",
+                "sh",
+                "bash",
+                "ps1",
             ],
             max_chunk_size=10000,
             custom_capabilities={
@@ -554,7 +633,7 @@ class SoftwareAuditor(BaseAuditor):
                     evidence = text[start:end]
 
                     # Calculate line number
-                    line_num = text[:match.start()].count("\n") + 1
+                    line_num = text[: match.start()].count("\n") + 1
 
                     cwe_str = f" ({vuln.cwe.value})" if vuln.cwe else ""
 
@@ -568,7 +647,7 @@ class SoftwareAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.80,
                             evidence_text=f"Line {line_num}: ...{evidence}...",
-                            evidence_location=f"Chunk {chunk.chunk_index}, line {line_num}",
+                            evidence_location=f"Chunk {chunk.id}, line {line_num}",
                             recommendation=vuln.recommendation,
                             found_by="software_auditor",
                         )
@@ -609,10 +688,14 @@ class SoftwareAuditor(BaseAuditor):
 
                     # Mask the secret in evidence
                     secret_value = match.group(0)
-                    masked = secret_value[:8] + "..." + secret_value[-4:] if len(secret_value) > 12 else "***REDACTED***"
+                    masked = (
+                        secret_value[:8] + "..." + secret_value[-4:]
+                        if len(secret_value) > 12
+                        else "***REDACTED***"
+                    )
                     masked_context = context.replace(secret_value, masked)
 
-                    line_num = text[:match.start()].count("\n") + 1
+                    line_num = text[: match.start()].count("\n") + 1
 
                     findings.append(
                         AuditFinding(
@@ -624,7 +707,7 @@ class SoftwareAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.90,
                             evidence_text=f"Line {line_num}: {masked_context}",
-                            evidence_location=f"Chunk {chunk.chunk_index}, line {line_num}",
+                            evidence_location=f"Chunk {chunk.id}, line {line_num}",
                             recommendation="Remove hardcoded secrets; use environment variables or secret management (Vault, AWS Secrets Manager)",
                             found_by="software_auditor",
                         )
@@ -637,12 +720,22 @@ class SoftwareAuditor(BaseAuditor):
     def _is_likely_example(self, text: str, match: re.Match) -> bool:
         """Check if a match is likely an example/placeholder rather than a real secret."""
         context_start = max(0, match.start() - 100)
-        context = text[context_start:match.start()].lower()
+        context = text[context_start : match.start()].lower()
 
         # Check for common example indicators
         example_indicators = [
-            "example", "sample", "test", "placeholder", "dummy", "fake",
-            "todo", "fixme", "xxx", "your_", "replace_", "<your",
+            "example",
+            "sample",
+            "test",
+            "placeholder",
+            "dummy",
+            "fake",
+            "todo",
+            "fixme",
+            "xxx",
+            "your_",
+            "replace_",
+            "<your",
         ]
 
         return any(indicator in context for indicator in example_indicators)
@@ -658,10 +751,7 @@ class SoftwareAuditor(BaseAuditor):
         # Calculate Shannon entropy
         counter = Counter(text)
         length = len(text)
-        entropy = -sum(
-            (count / length) * math.log2(count / length)
-            for count in counter.values()
-        )
+        entropy = -sum((count / length) * math.log2(count / length) for count in counter.values())
 
         # High entropy threshold (random strings typically > 4.0)
         return entropy > 3.5
@@ -752,18 +842,38 @@ class SoftwareAuditor(BaseAuditor):
         findings = []
 
         dangerous_patterns = [
-            (r"TODO.*(?:security|vuln|hack|fix)", FindingSeverity.LOW, "Security-related TODO comment"),
-            (r"FIXME.*(?:security|auth|password)", FindingSeverity.MEDIUM, "Security-related FIXME comment"),
-            (r"(?:console\.log|print|printf|System\.out).*(?:password|secret|key|token)", FindingSeverity.MEDIUM, "Sensitive data in logging"),
-            (r"(?://|#)\s*(?:disable|ignore).*(?:security|auth|ssl)", FindingSeverity.HIGH, "Security check disabled"),
-            (r"(?:chmod|permissions?).*777|0777", FindingSeverity.HIGH, "World-writable permissions"),
+            (
+                r"TODO.*(?:security|vuln|hack|fix)",
+                FindingSeverity.LOW,
+                "Security-related TODO comment",
+            ),
+            (
+                r"FIXME.*(?:security|auth|password)",
+                FindingSeverity.MEDIUM,
+                "Security-related FIXME comment",
+            ),
+            (
+                r"(?:console\.log|print|printf|System\.out).*(?:password|secret|key|token)",
+                FindingSeverity.MEDIUM,
+                "Sensitive data in logging",
+            ),
+            (
+                r"(?://|#)\s*(?:disable|ignore).*(?:security|auth|ssl)",
+                FindingSeverity.HIGH,
+                "Security check disabled",
+            ),
+            (
+                r"(?:chmod|permissions?).*777|0777",
+                FindingSeverity.HIGH,
+                "World-writable permissions",
+            ),
         ]
 
         for pattern, severity, description in dangerous_patterns:
             try:
                 matches = re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE)
                 for match in matches:
-                    line_num = text[:match.start()].count("\n") + 1
+                    line_num = text[: match.start()].count("\n") + 1
                     findings.append(
                         AuditFinding(
                             title=f"Code Quality: {description}",
@@ -774,7 +884,7 @@ class SoftwareAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.70,
                             evidence_text=f"Line {line_num}: {match.group(0)[:100]}",
-                            evidence_location=f"Chunk {chunk.chunk_index}, line {line_num}",
+                            evidence_location=f"Chunk {chunk.id}, line {line_num}",
                             recommendation="Address the flagged issue before deployment",
                             found_by="software_auditor",
                         )

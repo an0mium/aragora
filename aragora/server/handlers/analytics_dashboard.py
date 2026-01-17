@@ -153,16 +153,18 @@ class AnalyticsDashboardHandler(BaseHandler):
             time_range = TimeRange(time_range_str)
             granularity = Granularity(granularity_str)
 
-            trends = asyncio.run(dashboard.get_finding_trends(
-                workspace_id, time_range, granularity
-            ))
+            trends = asyncio.run(
+                dashboard.get_finding_trends(workspace_id, time_range, granularity)
+            )
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "time_range": time_range_str,
-                "granularity": granularity_str,
-                "trends": [t.to_dict() for t in trends],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range_str,
+                    "granularity": granularity_str,
+                    "trends": [t.to_dict() for t in trends],
+                }
+            )
 
         except ValueError as e:
             return error_response(f"Invalid parameter: {e}", 400)
@@ -202,15 +204,15 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_remediation_metrics(
-                workspace_id, time_range
-            ))
+            metrics = asyncio.run(dashboard.get_remediation_metrics(workspace_id, time_range))
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "time_range": time_range_str,
-                **metrics.to_dict(),
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range_str,
+                    **metrics.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get remediation metrics: {e}")
@@ -253,15 +255,15 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_agent_metrics(
-                workspace_id, time_range
-            ))
+            metrics = asyncio.run(dashboard.get_agent_metrics(workspace_id, time_range))
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "time_range": time_range_str,
-                "agents": [m.to_dict() for m in metrics],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range_str,
+                    "agents": [m.to_dict() for m in metrics],
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get agent metrics: {e}")
@@ -298,15 +300,15 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_cost_metrics(
-                workspace_id, time_range
-            ))
+            metrics = asyncio.run(dashboard.get_cost_metrics(workspace_id, time_range))
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "time_range": time_range_str,
-                **metrics.to_dict(),
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range_str,
+                    **metrics.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get cost metrics: {e}")
@@ -348,14 +350,14 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             dashboard = get_analytics_dashboard()
 
-            scores = asyncio.run(dashboard.get_compliance_scorecard(
-                workspace_id, frameworks
-            ))
+            scores = asyncio.run(dashboard.get_compliance_scorecard(workspace_id, frameworks))
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "scores": [s.to_dict() for s in scores],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "scores": [s.to_dict() for s in scores],
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get compliance scorecard: {e}")
@@ -396,15 +398,15 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            cells = asyncio.run(dashboard.get_risk_heatmap(
-                workspace_id, time_range
-            ))
+            cells = asyncio.run(dashboard.get_risk_heatmap(workspace_id, time_range))
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "time_range": time_range_str,
-                "cells": [c.to_dict() for c in cells],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range_str,
+                    "cells": [c.to_dict() for c in cells],
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get risk heatmap: {e}")

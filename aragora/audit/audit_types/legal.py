@@ -202,8 +202,7 @@ class LegalAuditor:
         LegalPattern(
             name="Audit Rights",
             pattern=re.compile(
-                r"(?i)(audit|inspect|examine).{0,50}"
-                r"(books|records|facilities|premises|systems)"
+                r"(?i)(audit|inspect|examine).{0,50}" r"(books|records|facilities|premises|systems)"
             ),
             severity=FindingSeverity.LOW,
             category="audit_rights",
@@ -290,7 +289,9 @@ class LegalAuditor:
         ),
         LegalPattern(
             name="Promptly Undefined",
-            pattern=re.compile(r"(?i)(promptly|immediately|without\s+delay)\s+(notify|inform|provide)"),
+            pattern=re.compile(
+                r"(?i)(promptly|immediately|without\s+delay)\s+(notify|inform|provide)"
+            ),
             severity=FindingSeverity.LOW,
             category="ambiguity",
             description="Timing terms are ambiguous without specific timeframes",

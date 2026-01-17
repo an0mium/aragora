@@ -173,15 +173,11 @@ class KnowledgePipeline:
         # Callbacks
         self._on_progress: Optional[Callable[[str, float, str], None]] = None
 
-    def set_progress_callback(
-        self, callback: Callable[[str, float, str], None]
-    ) -> None:
+    def set_progress_callback(self, callback: Callable[[str, float, str], None]) -> None:
         """Set progress callback: callback(document_id, progress, message)."""
         self._on_progress = callback
 
-    def _report_progress(
-        self, document_id: str, progress: float, message: str
-    ) -> None:
+    def _report_progress(self, document_id: str, progress: float, message: str) -> None:
         """Report progress if callback is set."""
         if self._on_progress:
             self._on_progress(document_id, progress, message)
@@ -294,7 +290,9 @@ class KnowledgePipeline:
 
             # Step 4: Extract facts (90%)
             facts = []
-            should_extract = extract_facts if extract_facts is not None else self.config.extract_facts
+            should_extract = (
+                extract_facts if extract_facts is not None else self.config.extract_facts
+            )
             if should_extract and self._agents:
                 self._report_progress(document_id, 0.7, "Extracting facts...")
                 facts = await self._extract_facts(document, chunks)
@@ -461,9 +459,7 @@ class KnowledgePipeline:
 
         for i in range(0, len(chunk_data), batch_size):
             batch = chunk_data[i : i + batch_size]
-            count = await self._embedding_service.embed_chunks(
-                batch, self.config.workspace_id
-            )
+            count = await self._embedding_service.embed_chunks(batch, self.config.workspace_id)
             total_embedded += count
 
         return total_embedded
@@ -486,8 +482,7 @@ class KnowledgePipeline:
         # Take first N chunks for context
         context_chunks = chunks[:5]
         chunk_texts = "\n\n".join(
-            f"[Chunk {c.chunk_index}]: {c.text[:500]}..."
-            for c in context_chunks
+            f"[Chunk {c.chunk_index}]: {c.text[:500]}..." for c in context_chunks
         )
 
         prompt = f"""Analyze the following document excerpts and extract specific factual statements.
@@ -546,9 +541,7 @@ Include dates, numbers, names, and specific claims where possible."""
         if not self._query_engine:
             raise RuntimeError("Query engine not initialized")
 
-        result = await self._query_engine.query(
-            question, self.config.workspace_id, options
-        )
+        result = await self._query_engine.query(question, self.config.workspace_id, options)
 
         self._stats["queries_answered"] += 1
         return result
@@ -574,9 +567,7 @@ Include dates, numbers, names, and specific claims where possible."""
         if not self._embedding_service:
             return []
 
-        return await self._embedding_service.hybrid_search(
-            query, self.config.workspace_id, limit
-        )
+        return await self._embedding_service.hybrid_search(query, self.config.workspace_id, limit)
 
     async def get_facts(
         self,
@@ -618,9 +609,7 @@ Include dates, numbers, names, and specific claims where possible."""
         """Get pipeline statistics."""
         embedding_stats = {}
         if self._embedding_service:
-            embedding_stats = self._embedding_service.get_statistics(
-                self.config.workspace_id
-            )
+            embedding_stats = self._embedding_service.get_statistics(self.config.workspace_id)
 
         fact_stats = {}
         if self._fact_store:

@@ -523,7 +523,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
         findings = []
 
         # Try to extract JSON array from output
-        json_match = re.search(r'\[[\s\S]*?\]', output)
+        json_match = re.search(r"\[[\s\S]*?\]", output)
         if json_match:
             try:
                 json_data = json.loads(json_match.group())
@@ -563,11 +563,11 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
 
         # Pattern for common finding formats
         finding_pattern = re.compile(
-            r'(?:Finding|Issue|Vulnerability|Problem)\s*(?:\d+)?[:\s]*'
-            r'(?P<title>[^\n]+)\n'
-            r'(?:.*?Severity[:\s]*(?P<severity>critical|high|medium|low|info))?'
-            r'(?:.*?File[:\s]*(?P<file>[^\n]+))?'
-            r'(?:.*?Line[:\s]*(?P<line>\d+))?',
+            r"(?:Finding|Issue|Vulnerability|Problem)\s*(?:\d+)?[:\s]*"
+            r"(?P<title>[^\n]+)\n"
+            r"(?:.*?Severity[:\s]*(?P<severity>critical|high|medium|low|info))?"
+            r"(?:.*?File[:\s]*(?P<file>[^\n]+))?"
+            r"(?:.*?Line[:\s]*(?P<line>\d+))?",
             re.IGNORECASE | re.DOTALL,
         )
 

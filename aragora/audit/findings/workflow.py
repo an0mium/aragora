@@ -170,16 +170,8 @@ class WorkflowEvent:
             ),
             user_id=data.get("user_id", ""),
             user_name=data.get("user_name", ""),
-            from_state=(
-                WorkflowState(data["from_state"])
-                if data.get("from_state")
-                else None
-            ),
-            to_state=(
-                WorkflowState(data["to_state"])
-                if data.get("to_state")
-                else None
-            ),
+            from_state=(WorkflowState(data["from_state"]) if data.get("from_state") else None),
+            to_state=(WorkflowState(data["to_state"]) if data.get("to_state") else None),
             field_name=data.get("field_name", ""),
             old_value=data.get("old_value"),
             new_value=data.get("new_value"),
@@ -211,9 +203,7 @@ class InvalidTransitionError(WorkflowError):
     def __init__(self, from_state: WorkflowState, to_state: WorkflowState):
         self.from_state = from_state
         self.to_state = to_state
-        super().__init__(
-            f"Cannot transition from {from_state.value} to {to_state.value}"
-        )
+        super().__init__(f"Cannot transition from {from_state.value} to {to_state.value}")
 
 
 @dataclass
@@ -269,6 +259,7 @@ class FindingWorkflowData:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FindingWorkflowData":
         """Create from dictionary."""
+
         def parse_dt(val: Any) -> Optional[datetime]:
             if isinstance(val, str):
                 return datetime.fromisoformat(val)
@@ -490,9 +481,7 @@ class FindingWorkflow:
 
         self.data.history.append(event)
 
-        logger.info(
-            f"Finding {self.data.finding_id} assigned to {user_id} by {assigned_by}"
-        )
+        logger.info(f"Finding {self.data.finding_id} assigned to {user_id} by {assigned_by}")
 
         return event
 
@@ -710,9 +699,7 @@ class FindingWorkflow:
         self.data.updated_at = now
         return event
 
-    def add_transition_hook(
-        self, hook: Callable[[WorkflowTransition], None]
-    ) -> None:
+    def add_transition_hook(self, hook: Callable[[WorkflowTransition], None]) -> None:
         """Add a callback for state transitions."""
         self._transition_hooks.append(hook)
 
@@ -724,17 +711,11 @@ class FindingWorkflow:
 
     def get_comments(self) -> list[WorkflowEvent]:
         """Get all comments on this finding."""
-        return [
-            e for e in self.data.history
-            if e.event_type == WorkflowEventType.COMMENT
-        ]
+        return [e for e in self.data.history if e.event_type == WorkflowEventType.COMMENT]
 
     def get_state_changes(self) -> list[WorkflowEvent]:
         """Get all state change events."""
-        return [
-            e for e in self.data.history
-            if e.event_type == WorkflowEventType.STATE_CHANGE
-        ]
+        return [e for e in self.data.history if e.event_type == WorkflowEventType.STATE_CHANGE]
 
 
 # State machine visualization helpers

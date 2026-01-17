@@ -102,17 +102,19 @@ class Fact:
             consensus_proof_id=data.get("consensus_proof_id"),
             source_documents=data.get("source_documents", []),
             workspace_id=data.get("workspace_id", ""),
-            validation_status=ValidationStatus(
-                data.get("validation_status", "unverified")
-            ),
+            validation_status=ValidationStatus(data.get("validation_status", "unverified")),
             topics=data.get("topics", []),
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if isinstance(data.get("created_at"), str)
-            else data.get("created_at", datetime.now()),
-            updated_at=datetime.fromisoformat(data["updated_at"])
-            if isinstance(data.get("updated_at"), str)
-            else data.get("updated_at", datetime.now()),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if isinstance(data.get("created_at"), str)
+                else data.get("created_at", datetime.now())
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if isinstance(data.get("updated_at"), str)
+                else data.get("updated_at", datetime.now())
+            ),
             superseded_by=data.get("superseded_by"),
         )
 
@@ -172,9 +174,11 @@ class FactRelation:
             confidence=data.get("confidence", 0.5),
             created_by=data.get("created_by", ""),
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if isinstance(data.get("created_at"), str)
-            else data.get("created_at", datetime.now()),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if isinstance(data.get("created_at"), str)
+                else data.get("created_at", datetime.now())
+            ),
         )
 
 

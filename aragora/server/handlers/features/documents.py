@@ -33,9 +33,9 @@ from ..base import (
 logger = logging.getLogger(__name__)
 
 # Knowledge processing enabled by default (can be disabled via env var)
-KNOWLEDGE_PROCESSING_DEFAULT = os.environ.get(
-    "ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true"
-).lower() == "true"
+KNOWLEDGE_PROCESSING_DEFAULT = (
+    os.environ.get("ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true").lower() == "true"
+)
 
 # DoS protection
 MAX_MULTIPART_PARTS = 10

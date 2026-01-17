@@ -443,12 +443,10 @@ async def run_quick_audit_tool(
             "document_count": len(document_ids.split(",")),
             "total_findings": len(findings),
             "findings_by_severity": severity_counts,
-            "critical_findings": [
-                f for f in findings if f.get("severity") == "critical"
-            ][:5],  # Top 5 critical
-            "high_findings": [
-                f for f in findings if f.get("severity") == "high"
-            ][:5],  # Top 5 high
+            "critical_findings": [f for f in findings if f.get("severity") == "critical"][
+                :5
+            ],  # Top 5 critical
+            "high_findings": [f for f in findings if f.get("severity") == "high"][:5],  # Top 5 high
         }
     except Exception as e:
         logger.error(f"Failed to run quick audit: {e}")

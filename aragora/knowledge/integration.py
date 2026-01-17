@@ -92,6 +92,7 @@ async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
 def _should_use_weaviate() -> bool:
     """Check if Weaviate should be used based on environment."""
     import os
+
     return os.environ.get("ARAGORA_WEAVIATE_ENABLED", "false").lower() == "true"
 
 
@@ -263,12 +264,16 @@ def get_job_status(job_id: str) -> Optional[dict[str, Any]]:
         "error": job.error,
         "created_at": job.created_at.isoformat(),
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-        "result": {
-            "chunk_count": job.result.chunk_count,
-            "fact_count": job.result.fact_count,
-            "embedded_count": job.result.embedded_count,
-            "duration_ms": job.result.duration_ms,
-        } if job.result else None,
+        "result": (
+            {
+                "chunk_count": job.result.chunk_count,
+                "fact_count": job.result.fact_count,
+                "embedded_count": job.result.embedded_count,
+                "duration_ms": job.result.duration_ms,
+            }
+            if job.result
+            else None
+        ),
     }
 
 

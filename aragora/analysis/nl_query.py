@@ -221,7 +221,9 @@ class DocumentQueryEngine:
         query_id = f"query_{uuid4().hex[:12]}"
 
         # Detect query mode/intent
-        query_mode = self._detect_query_mode(question) if self.config.detect_intent else QueryMode.FACTUAL
+        query_mode = (
+            self._detect_query_mode(question) if self.config.detect_intent else QueryMode.FACTUAL
+        )
 
         # Expand query for better retrieval
         expanded_queries = self._expand_query(question) if self.config.expand_query else [question]
@@ -237,7 +239,9 @@ class DocumentQueryEngine:
 
         # Deduplicate and rank
         unique_results = self._deduplicate_results(all_results)
-        relevant_results = [r for r in unique_results if r.combined_score >= self.config.min_relevance]
+        relevant_results = [
+            r for r in unique_results if r.combined_score >= self.config.min_relevance
+        ]
 
         # Get conversation context if enabled
         context_messages = []
@@ -248,12 +252,14 @@ class DocumentQueryEngine:
         if relevant_results:
             answer, citations, confidence, model_used = await self._generate_answer(
                 question=question,
-                results=relevant_results[:self.config.max_chunks],
+                results=relevant_results[: self.config.max_chunks],
                 query_mode=query_mode,
                 context_messages=context_messages,
             )
         else:
-            answer = "I couldn't find relevant information in the documents to answer this question."
+            answer = (
+                "I couldn't find relevant information in the documents to answer this question."
+            )
             citations = []
             confidence = AnswerConfidence.NONE
             model_used = "none"
@@ -315,12 +321,12 @@ class DocumentQueryEngine:
             return
 
         # Build citations
-        citations = self._build_citations(relevant_results[:self.config.max_chunks])
+        citations = self._build_citations(relevant_results[: self.config.max_chunks])
 
         # Stream the answer
         async for text_chunk in self._stream_answer(
             question=question,
-            results=relevant_results[:self.config.max_chunks],
+            results=relevant_results[: self.config.max_chunks],
         ):
             yield StreamingChunk(text=text_chunk, is_final=False)
 
@@ -408,15 +414,22 @@ class DocumentQueryEngine:
         question_lower = question.lower()
 
         # Summary indicators
-        if any(word in question_lower for word in ["summarize", "summary", "overview", "main points"]):
+        if any(
+            word in question_lower for word in ["summarize", "summary", "overview", "main points"]
+        ):
             return QueryMode.SUMMARY
 
         # Comparison indicators
-        if any(word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]):
+        if any(
+            word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]
+        ):
             return QueryMode.COMPARATIVE
 
         # Analysis indicators
-        if any(word in question_lower for word in ["why", "analyze", "explain", "implications", "impact"]):
+        if any(
+            word in question_lower
+            for word in ["why", "analyze", "explain", "implications", "impact"]
+        ):
             return QueryMode.ANALYTICAL
 
         # Extraction indicators
@@ -433,14 +446,27 @@ class DocumentQueryEngine:
         # Add a more keyword-focused version
         # Remove question words and punctuation
         keyword_query = question.lower()
-        for word in ["what", "where", "when", "why", "how", "which", "who", "is", "are", "does", "do", "?"]:
+        for word in [
+            "what",
+            "where",
+            "when",
+            "why",
+            "how",
+            "which",
+            "who",
+            "is",
+            "are",
+            "does",
+            "do",
+            "?",
+        ]:
             keyword_query = keyword_query.replace(word, " ")
         keyword_query = " ".join(keyword_query.split())
 
         if keyword_query and keyword_query != question.lower():
             queries.append(keyword_query)
 
-        return queries[:self.config.max_context_turns + 1]  # Limit expansions
+        return queries[: self.config.max_context_turns + 1]  # Limit expansions
 
     async def _search_chunks(
         self,
@@ -688,15 +714,19 @@ ANSWER:"""
         if conversation_id not in self._conversation_history:
             self._conversation_history[conversation_id] = []
 
-        self._conversation_history[conversation_id].extend([
-            {"role": "user", "content": question},
-            {"role": "assistant", "content": answer},
-        ])
+        self._conversation_history[conversation_id].extend(
+            [
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": answer},
+            ]
+        )
 
         # Trim to max history
         max_entries = self.config.max_context_turns * 2
         if len(self._conversation_history[conversation_id]) > max_entries:
-            self._conversation_history[conversation_id] = self._conversation_history[conversation_id][-max_entries:]
+            self._conversation_history[conversation_id] = self._conversation_history[
+                conversation_id
+            ][-max_entries:]
 
     def clear_conversation(self, conversation_id: str) -> None:
         """Clear conversation history for a given ID."""
@@ -705,6 +735,7 @@ ANSWER:"""
 
 
 # Convenience functions
+
 
 async def query_documents(
     question: str,

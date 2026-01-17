@@ -176,9 +176,7 @@ class AuditReportGenerator:
 
         severity_order = ["critical", "high", "medium", "low", "info"]
         min_idx = severity_order.index(self.config.min_severity)
-        allowed_severities = {
-            FindingSeverity(s) for s in severity_order[: min_idx + 1]
-        }
+        allowed_severities = {FindingSeverity(s) for s in severity_order[: min_idx + 1]}
 
         filtered = []
         for f in findings:
@@ -287,7 +285,9 @@ class AuditReportGenerator:
             by_doc[d] = by_doc.get(d, 0) + 1
 
         type_lines = [f"- {t}: {c}" for t, c in sorted(by_type.items())]
-        doc_lines = [f"- {d[:20]}...: {c}" for d, c in sorted(by_doc.items(), key=lambda x: -x[1])[:5]]
+        doc_lines = [
+            f"- {d[:20]}...: {c}" for d, c in sorted(by_doc.items(), key=lambda x: -x[1])[:5]
+        ]
 
         content = f"""**Findings by Type:**
 {chr(10).join(type_lines)}
@@ -316,7 +316,8 @@ class AuditReportGenerator:
 
             finding_texts = []
             for i, f in enumerate(grouped[sev], 1):
-                finding_texts.append(f"""
+                finding_texts.append(
+                    f"""
 **{sev.upper()}-{i}: {f.title}**
 - Document: `{f.document_id}`
 - Category: {f.category}
@@ -324,7 +325,8 @@ class AuditReportGenerator:
 - Description: {f.description}
 - Evidence: {f.evidence_text[:200]}{'...' if len(f.evidence_text) > 200 else ''}
 - Recommendation: {f.recommendation or 'N/A'}
-""")
+"""
+                )
 
             subsections.append(
                 ReportSection(
@@ -451,7 +453,8 @@ Total Security Findings: {len(sec_findings)}
 
         details = []
         for i, f in enumerate(sec_findings, 1):
-            details.append(f"""
+            details.append(
+                f"""
 ### {i}. {f.title}
 - **Severity:** {f.severity.value.upper()}
 - **Category:** {f.category}
@@ -459,7 +462,8 @@ Total Security Findings: {len(sec_findings)}
 - **Description:** {f.description}
 - **Impact:** {f.affected_scope or 'Unknown'}
 - **Remediation:** {f.recommendation or 'Review and address accordingly.'}
-""")
+"""
+            )
 
         content = "\n".join(details) if details else "No vulnerabilities to report."
 
@@ -580,13 +584,15 @@ Total Security Findings: {len(sec_findings)}
                 </div>
                 """
 
-            section_html.append(f"""
+            section_html.append(
+                f"""
             <section class="report-section">
                 <h2>{section.title}</h2>
                 <div class="content">{self._md_to_html(section.content)}</div>
                 {sub_html}
             </section>
-            """)
+            """
+            )
 
         html = f"""<!DOCTYPE html>
 <html lang="en">

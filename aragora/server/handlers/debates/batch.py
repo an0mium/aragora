@@ -41,6 +41,7 @@ class _DebatesHandlerProtocol(Protocol):
         """Create a debate executor function for the batch queue."""
         ...
 
+
 logger = logging.getLogger(__name__)
 
 

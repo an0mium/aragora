@@ -445,7 +445,7 @@ class AccountingAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.75,
                             evidence_text=f"...{evidence}...",
-                            evidence_location=f"Chunk {chunk.chunk_index}",
+                            evidence_location=f"Chunk {chunk.id}",
                             recommendation=pattern_def.recommendation,
                             found_by="accounting_auditor",
                         )
@@ -471,7 +471,9 @@ class AccountingAuditor(BaseAuditor):
 
                     # Determine currency
                     currency = match.group("currency") or match.group("suffix") or "USD"
-                    currency = currency.upper().replace("$", "USD").replace("€", "EUR").replace("£", "GBP")
+                    currency = (
+                        currency.upper().replace("$", "USD").replace("€", "EUR").replace("£", "GBP")
+                    )
 
                     # Get context
                     start = max(0, match.start() - 30)
@@ -524,7 +526,7 @@ class AccountingAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.65,
                             evidence_text=amt.context,
-                            evidence_location=f"Chunk {chunk.chunk_index}, {amt.location}",
+                            evidence_location=f"Chunk {chunk.id}, {amt.location}",
                             recommendation="Review transaction for potential threshold circumvention",
                             found_by="accounting_auditor",
                         )
@@ -570,7 +572,7 @@ class AccountingAuditor(BaseAuditor):
                             document_id=chunk.document_id,
                             confidence=0.50,
                             evidence_text=amt.context,
-                            evidence_location=f"Chunk {chunk.chunk_index}, {amt.location}",
+                            evidence_location=f"Chunk {chunk.id}, {amt.location}",
                             recommendation="Verify supporting documentation for round-number amounts",
                             found_by="accounting_auditor",
                         )
@@ -628,9 +630,7 @@ class AccountingAuditor(BaseAuditor):
         # Critical value for df=8 at 0.05 significance is 15.51
         if chi_square > 15.51:
             # Build distribution summary
-            dist_summary = ", ".join(
-                f"{d}:{observed_dist[d]:.1%}" for d in range(1, 10)
-            )
+            dist_summary = ", ".join(f"{d}:{observed_dist[d]:.1%}" for d in range(1, 10))
 
             return AuditFinding(
                 title="Financial: Benford's Law Anomaly",
@@ -645,7 +645,7 @@ class AccountingAuditor(BaseAuditor):
                 document_id=chunk.document_id,
                 confidence=0.70,
                 evidence_text=f"Analyzed {total} amounts in document",
-                evidence_location=f"Chunk {chunk.chunk_index}",
+                evidence_location=f"Chunk {chunk.id}",
                 recommendation="Perform detailed analysis of data source and entry patterns",
                 found_by="accounting_auditor",
             )
@@ -673,8 +673,7 @@ class AccountingAuditor(BaseAuditor):
                 doc_ids = set(chunk.document_id for _, chunk in occurrences)
                 if len(doc_ids) >= 2:
                     locations = [
-                        f"{chunk.document_id}:{amt.location}"
-                        for amt, chunk in occurrences[:3]
+                        f"{chunk.document_id}:{amt.location}" for amt, chunk in occurrences[:3]
                     ]
 
                     findings.append(
@@ -685,7 +684,11 @@ class AccountingAuditor(BaseAuditor):
                                 f"different documents ({len(doc_ids)} unique). "
                                 "May indicate duplicate payment or invoice."
                             ),
-                            severity=FindingSeverity.HIGH if float(value) >= 10000 else FindingSeverity.MEDIUM,
+                            severity=(
+                                FindingSeverity.HIGH
+                                if float(value) >= 10000
+                                else FindingSeverity.MEDIUM
+                            ),
                             category=FinancialCategory.DUPLICATE.value,
                             audit_type=AuditType.COMPLIANCE,
                             document_id=occurrences[0][1].document_id,

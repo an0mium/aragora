@@ -301,28 +301,34 @@ class SlackProvider(NotificationProvider):
         # Add fields
         fields = []
         if notification.severity:
-            fields.append({
-                "title": "Severity",
-                "value": notification.severity.upper(),
-                "short": True,
-            })
+            fields.append(
+                {
+                    "title": "Severity",
+                    "value": notification.severity.upper(),
+                    "short": True,
+                }
+            )
         if notification.resource_type:
-            fields.append({
-                "title": "Resource",
-                "value": f"{notification.resource_type}/{notification.resource_id}",
-                "short": True,
-            })
+            fields.append(
+                {
+                    "title": "Resource",
+                    "value": f"{notification.resource_type}/{notification.resource_id}",
+                    "short": True,
+                }
+            )
 
         if fields:
             attachment["fields"] = fields
 
         # Add action button
         if notification.action_url:
-            attachment["actions"] = [{
-                "type": "button",
-                "text": notification.action_label or "View Details",
-                "url": notification.action_url,
-            }]
+            attachment["actions"] = [
+                {
+                    "type": "button",
+                    "text": notification.action_label or "View Details",
+                    "url": notification.action_url,
+                }
+            ]
 
         return {
             "username": self.config.username,
@@ -457,7 +463,7 @@ class EmailProvider(NotificationProvider):
 
         action_html = ""
         if notification.action_url:
-            action_html = f'''
+            action_html = f"""
             <p style="margin-top: 20px;">
                 <a href="{notification.action_url}"
                    style="background-color: {color}; color: white; padding: 10px 20px;
@@ -465,9 +471,9 @@ class EmailProvider(NotificationProvider):
                     {notification.action_label or "View Details"}
                 </a>
             </p>
-            '''
+            """
 
-        return f'''
+        return f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -496,7 +502,7 @@ class EmailProvider(NotificationProvider):
             </div>
         </body>
         </html>
-        '''
+        """
 
 
 class WebhookProvider(NotificationProvider):
@@ -640,9 +646,7 @@ class NotificationService:
         self._history: list[tuple[Notification, list[NotificationResult]]] = []
         self._history_limit = 1000
 
-    def get_provider(
-        self, channel: NotificationChannel
-    ) -> Optional[NotificationProvider]:
+    def get_provider(self, channel: NotificationChannel) -> Optional[NotificationProvider]:
         """Get a provider by channel."""
         return self.providers.get(channel)
 
@@ -653,11 +657,7 @@ class NotificationService:
 
     def get_configured_channels(self) -> list[NotificationChannel]:
         """Get list of configured channels."""
-        return [
-            channel
-            for channel, provider in self.providers.items()
-            if provider.is_configured()
-        ]
+        return [channel for channel, provider in self.providers.items() if provider.is_configured()]
 
     async def notify(
         self,
@@ -726,10 +726,7 @@ class NotificationService:
         if channel == NotificationChannel.WEBHOOK:
             # Return all enabled webhook endpoint IDs
             webhook_provider = self.webhook_provider
-            return [
-                ep.id for ep in webhook_provider.endpoints.values()
-                if ep.enabled
-            ]
+            return [ep.id for ep in webhook_provider.endpoints.values() if ep.enabled]
 
         return []
 
@@ -741,7 +738,7 @@ class NotificationService:
         """Add notification to history."""
         self._history.append((notification, results))
         if len(self._history) > self._history_limit:
-            self._history = self._history[-self._history_limit:]
+            self._history = self._history[-self._history_limit :]
 
     def get_history(
         self,
@@ -756,10 +753,12 @@ class NotificationService:
                 if not results:
                     continue
 
-            history.append({
-                "notification": notification.to_dict(),
-                "results": [r.to_dict() for r in results],
-            })
+            history.append(
+                {
+                    "notification": notification.to_dict(),
+                    "results": [r.to_dict() for r in results],
+                }
+            )
 
             if len(history) >= limit:
                 break

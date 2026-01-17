@@ -520,9 +520,7 @@ class AuditScheduler:
                             job.config.trigger_type == TriggerType.INTERVAL
                             and job.config.interval_minutes
                         ):
-                            job.next_run = now + timedelta(
-                                minutes=job.config.interval_minutes
-                            )
+                            job.next_run = now + timedelta(minutes=job.config.interval_minutes)
 
                 # Sleep until next check (every minute)
                 await asyncio.sleep(60)
@@ -584,9 +582,7 @@ class AuditScheduler:
             run.findings_count = len(result.findings)
             run.status = "completed"
             run.completed_at = datetime.utcnow()
-            run.duration_ms = int(
-                (run.completed_at - run.started_at).total_seconds() * 1000
-            )
+            run.duration_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
 
             job.status = ScheduleStatus.ACTIVE
             job.last_result = {
@@ -618,7 +614,11 @@ class AuditScheduler:
             run.status = "error"
             run.error_message = str(e)
             run.completed_at = datetime.utcnow()
-            job.status = ScheduleStatus.ERROR if job.error_count >= job.config.max_retries else ScheduleStatus.ACTIVE
+            job.status = (
+                ScheduleStatus.ERROR
+                if job.error_count >= job.config.max_retries
+                else ScheduleStatus.ACTIVE
+            )
             job.error_count += 1
             await self._emit("job_failed", job, run)
             logger.error(f"Job {job.job_id} failed: {e}")

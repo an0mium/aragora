@@ -181,7 +181,8 @@ class FindingWorkflowHandler(BaseHandler):
                 target_state = WorkflowState(new_status)
             except ValueError:
                 return self._error_response(
-                    400, f"Invalid status: {new_status}. Valid values: {[s.value for s in WorkflowState]}"
+                    400,
+                    f"Invalid status: {new_status}. Valid values: {[s.value for s in WorkflowState]}",
                 )
 
             if not workflow.can_transition_to(target_state):
@@ -189,7 +190,7 @@ class FindingWorkflowHandler(BaseHandler):
                 return self._error_response(
                     400,
                     f"Cannot transition from {workflow.state.value} to {new_status}. "
-                    f"Valid transitions: {[s.value for s in valid]}"
+                    f"Valid transitions: {[s.value for s in valid]}",
                 )
 
             event = workflow.transition_to(
@@ -204,13 +205,16 @@ class FindingWorkflowHandler(BaseHandler):
 
             logger.info(f"Finding {finding_id} transitioned to {new_status} by {user_id}")
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "previous_state": event.from_state.value if event.from_state else None,
-                "current_state": workflow.state.value,
-                "event": event.to_dict(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "previous_state": event.from_state.value if event.from_state else None,
+                    "current_state": workflow.state.value,
+                    "event": event.to_dict(),
+                },
+            )
 
         except InvalidTransitionError as e:
             return self._error_response(400, str(e))
@@ -220,22 +224,27 @@ class FindingWorkflowHandler(BaseHandler):
             old_status = workflow_dict["current_state"]
             workflow_dict["current_state"] = new_status
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-            workflow_dict["history"].append({
-                "id": str(uuid4()),
-                "event_type": "state_change",
-                "from_state": old_status,
-                "to_state": new_status,
-                "user_id": user_id,
-                "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            workflow_dict["history"].append(
+                {
+                    "id": str(uuid4()),
+                    "event_type": "state_change",
+                    "from_state": old_status,
+                    "to_state": new_status,
+                    "user_id": user_id,
+                    "comment": comment,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "previous_state": old_status,
-                "current_state": new_status,
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "previous_state": old_status,
+                    "current_state": new_status,
+                },
+            )
 
     async def _assign(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -279,13 +288,16 @@ class FindingWorkflowHandler(BaseHandler):
 
             logger.info(f"Finding {finding_id} assigned to {assignee_id} by {user_id}")
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "assigned_to": assignee_id,
-                "assigned_by": user_id,
-                "event": event.to_dict(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "assigned_to": assignee_id,
+                    "assigned_by": user_id,
+                    "event": event.to_dict(),
+                },
+            )
 
         except ImportError:
             workflow_dict = self._get_or_create_workflow(finding_id)
@@ -293,20 +305,25 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict["assigned_by"] = user_id
             workflow_dict["assigned_at"] = datetime.utcnow().isoformat()
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-            workflow_dict["history"].append({
-                "id": str(uuid4()),
-                "event_type": "assignment",
-                "new_value": assignee_id,
-                "user_id": user_id,
-                "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            workflow_dict["history"].append(
+                {
+                    "id": str(uuid4()),
+                    "event_type": "assignment",
+                    "new_value": assignee_id,
+                    "user_id": user_id,
+                    "comment": comment,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "assigned_to": assignee_id,
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "assigned_to": assignee_id,
+                },
+            )
 
     async def _unassign(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Remove assignment from finding."""
@@ -334,11 +351,14 @@ class FindingWorkflowHandler(BaseHandler):
 
             _workflow_data[finding_id] = workflow.data.to_dict()
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "event": event.to_dict(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "event": event.to_dict(),
+                },
+            )
 
         except ImportError:
             workflow_dict = self._get_or_create_workflow(finding_id)
@@ -347,10 +367,13 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict["assigned_at"] = None
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                },
+            )
 
     async def _add_comment(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -387,11 +410,14 @@ class FindingWorkflowHandler(BaseHandler):
 
             _workflow_data[finding_id] = workflow.data.to_dict()
 
-            return self._json_response(201, {
-                "success": True,
-                "finding_id": finding_id,
-                "comment": event.to_dict(),
-            })
+            return self._json_response(
+                201,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "comment": event.to_dict(),
+                },
+            )
 
         except ImportError:
             workflow_dict = self._get_or_create_workflow(finding_id)
@@ -406,38 +432,44 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict["history"].append(comment_event)
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
 
-            return self._json_response(201, {
-                "success": True,
-                "finding_id": finding_id,
-                "comment": comment_event,
-            })
+            return self._json_response(
+                201,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "comment": comment_event,
+                },
+            )
 
     async def _get_comments(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get all comments for a finding."""
         workflow_dict = self._get_or_create_workflow(finding_id)
-        comments = [
-            e for e in workflow_dict.get("history", [])
-            if e.get("event_type") == "comment"
-        ]
+        comments = [e for e in workflow_dict.get("history", []) if e.get("event_type") == "comment"]
 
-        return self._json_response(200, {
-            "finding_id": finding_id,
-            "comments": comments,
-            "total": len(comments),
-        })
+        return self._json_response(
+            200,
+            {
+                "finding_id": finding_id,
+                "comments": comments,
+                "total": len(comments),
+            },
+        )
 
     async def _get_history(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get full workflow history for a finding."""
         workflow_dict = self._get_or_create_workflow(finding_id)
 
-        return self._json_response(200, {
-            "finding_id": finding_id,
-            "current_state": workflow_dict.get("current_state"),
-            "assigned_to": workflow_dict.get("assigned_to"),
-            "priority": workflow_dict.get("priority"),
-            "due_date": workflow_dict.get("due_date"),
-            "history": workflow_dict.get("history", []),
-        })
+        return self._json_response(
+            200,
+            {
+                "finding_id": finding_id,
+                "current_state": workflow_dict.get("current_state"),
+                "assigned_to": workflow_dict.get("assigned_to"),
+                "priority": workflow_dict.get("priority"),
+                "due_date": workflow_dict.get("due_date"),
+                "history": workflow_dict.get("history", []),
+            },
+        )
 
     async def _set_priority(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -484,33 +516,41 @@ class FindingWorkflowHandler(BaseHandler):
 
             _workflow_data[finding_id] = workflow.data.to_dict()
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "priority": priority,
-                "event": event.to_dict(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "priority": priority,
+                    "event": event.to_dict(),
+                },
+            )
 
         except ImportError:
             workflow_dict = self._get_or_create_workflow(finding_id)
             old_priority = workflow_dict.get("priority")
             workflow_dict["priority"] = priority
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-            workflow_dict["history"].append({
-                "id": str(uuid4()),
-                "event_type": "priority_change",
-                "old_value": old_priority,
-                "new_value": priority,
-                "user_id": user_id,
-                "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            workflow_dict["history"].append(
+                {
+                    "id": str(uuid4()),
+                    "event_type": "priority_change",
+                    "old_value": old_priority,
+                    "new_value": priority,
+                    "user_id": user_id,
+                    "comment": comment,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
-            return self._json_response(200, {
-                "success": True,
-                "finding_id": finding_id,
-                "priority": priority,
-            })
+            return self._json_response(
+                200,
+                {
+                    "success": True,
+                    "finding_id": finding_id,
+                    "priority": priority,
+                },
+            )
 
     async def _set_due_date(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -542,21 +582,26 @@ class FindingWorkflowHandler(BaseHandler):
         old_due = workflow_dict.get("due_date")
         workflow_dict["due_date"] = due_date.isoformat() if due_date else None
         workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-        workflow_dict["history"].append({
-            "id": str(uuid4()),
-            "event_type": "due_date_change",
-            "old_value": old_due,
-            "new_value": due_date.isoformat() if due_date else None,
-            "user_id": user_id,
-            "comment": comment,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        workflow_dict["history"].append(
+            {
+                "id": str(uuid4()),
+                "event_type": "due_date_change",
+                "old_value": old_due,
+                "new_value": due_date.isoformat() if due_date else None,
+                "user_id": user_id,
+                "comment": comment,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
-        return self._json_response(200, {
-            "success": True,
-            "finding_id": finding_id,
-            "due_date": workflow_dict["due_date"],
-        })
+        return self._json_response(
+            200,
+            {
+                "success": True,
+                "finding_id": finding_id,
+                "due_date": workflow_dict["due_date"],
+            },
+        )
 
     async def _link_finding(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -586,20 +631,25 @@ class FindingWorkflowHandler(BaseHandler):
             linked.append(linked_id)
 
         workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-        workflow_dict["history"].append({
-            "id": str(uuid4()),
-            "event_type": "linked",
-            "new_value": linked_id,
-            "user_id": user_id,
-            "comment": comment,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        workflow_dict["history"].append(
+            {
+                "id": str(uuid4()),
+                "event_type": "linked",
+                "new_value": linked_id,
+                "user_id": user_id,
+                "comment": comment,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
-        return self._json_response(200, {
-            "success": True,
-            "finding_id": finding_id,
-            "linked_findings": linked,
-        })
+        return self._json_response(
+            200,
+            {
+                "success": True,
+                "finding_id": finding_id,
+                "linked_findings": linked,
+            },
+        )
 
     async def _mark_duplicate(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -632,22 +682,27 @@ class FindingWorkflowHandler(BaseHandler):
         if parent_id not in linked:
             linked.append(parent_id)
 
-        workflow_dict["history"].append({
-            "id": str(uuid4()),
-            "event_type": "state_change",
-            "from_state": workflow_dict.get("current_state", "open"),
-            "to_state": "duplicate",
-            "user_id": user_id,
-            "comment": comment,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        workflow_dict["history"].append(
+            {
+                "id": str(uuid4()),
+                "event_type": "state_change",
+                "from_state": workflow_dict.get("current_state", "open"),
+                "to_state": "duplicate",
+                "user_id": user_id,
+                "comment": comment,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
-        return self._json_response(200, {
-            "success": True,
-            "finding_id": finding_id,
-            "parent_finding_id": parent_id,
-            "current_state": "duplicate",
-        })
+        return self._json_response(
+            200,
+            {
+                "success": True,
+                "finding_id": finding_id,
+                "parent_finding_id": parent_id,
+                "current_state": "duplicate",
+            },
+        )
 
     async def _bulk_action(self, request: Any) -> dict[str, Any]:
         """
@@ -711,68 +766,80 @@ class FindingWorkflowHandler(BaseHandler):
                     workflow_dict["assigned_at"] = None
 
                 workflow_dict["updated_at"] = datetime.utcnow().isoformat()
-                workflow_dict["history"].append({
-                    "id": str(uuid4()),
-                    "event_type": f"bulk_{action}",
-                    "user_id": user_id,
-                    "comment": comment,
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
+                workflow_dict["history"].append(
+                    {
+                        "id": str(uuid4()),
+                        "event_type": f"bulk_{action}",
+                        "user_id": user_id,
+                        "comment": comment,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
 
                 results["success"].append(fid)
 
             except Exception as e:
                 results["failed"].append({"finding_id": fid, "error": str(e)})
 
-        return self._json_response(200, {
-            "action": action,
-            "total": len(finding_ids),
-            "success_count": len(results["success"]),
-            "failed_count": len(results["failed"]),
-            "results": results,
-        })
+        return self._json_response(
+            200,
+            {
+                "action": action,
+                "total": len(finding_ids),
+                "success_count": len(results["success"]),
+                "failed_count": len(results["failed"]),
+                "results": results,
+            },
+        )
 
     async def _get_my_assignments(self, request: Any) -> dict[str, Any]:
         """Get findings assigned to the current user."""
         user_id, _ = self._get_user_from_request(request)
 
-        assignments = [
-            wf for wf in _workflow_data.values()
-            if wf.get("assigned_to") == user_id
-        ]
+        assignments = [wf for wf in _workflow_data.values() if wf.get("assigned_to") == user_id]
 
         # Sort by priority (1=highest first), then by due date
-        assignments.sort(key=lambda w: (
-            w.get("priority", 3),
-            w.get("due_date") or "9999",
-        ))
+        assignments.sort(
+            key=lambda w: (
+                w.get("priority", 3),
+                w.get("due_date") or "9999",
+            )
+        )
 
-        return self._json_response(200, {
-            "user_id": user_id,
-            "findings": assignments,
-            "total": len(assignments),
-        })
+        return self._json_response(
+            200,
+            {
+                "user_id": user_id,
+                "findings": assignments,
+                "total": len(assignments),
+            },
+        )
 
     async def _get_overdue(self, request: Any) -> dict[str, Any]:
         """Get all overdue findings."""
         now = datetime.utcnow().isoformat()
 
         overdue = [
-            wf for wf in _workflow_data.values()
+            wf
+            for wf in _workflow_data.values()
             if (
                 wf.get("due_date")
                 and wf.get("due_date") < now
-                and wf.get("current_state") not in ("resolved", "false_positive", "duplicate", "accepted_risk")
+                and wf.get("current_state")
+                not in ("resolved", "false_positive", "duplicate", "accepted_risk")
             )
         ]
 
         # Sort by due date (oldest first)
         overdue.sort(key=lambda w: w.get("due_date", ""))
 
-        return self._json_response(200, {
-            "findings": overdue,
-            "total": len(overdue),
-        })
+        return self._json_response(
+            200,
+            {
+                "findings": overdue,
+                "total": len(overdue),
+            },
+        )
 
     async def _get_workflow_states(self, request: Any) -> dict[str, Any]:
         """Get valid workflow states and transitions."""
@@ -786,31 +853,57 @@ class FindingWorkflowHandler(BaseHandler):
             states = []
             for state in WorkflowState:
                 transitions = VALID_TRANSITIONS.get(state, set())
-                states.append({
-                    "id": state.value,
-                    "valid_transitions": [t.value for t in transitions],
-                    "is_terminal": state.value in ("resolved", "false_positive", "accepted_risk", "duplicate"),
-                })
+                states.append(
+                    {
+                        "id": state.value,
+                        "valid_transitions": [t.value for t in transitions],
+                        "is_terminal": state.value
+                        in ("resolved", "false_positive", "accepted_risk", "duplicate"),
+                    }
+                )
 
-            return self._json_response(200, {
-                "states": states,
-                "diagram": get_workflow_diagram(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "states": states,
+                    "diagram": get_workflow_diagram(),
+                },
+            )
 
         except ImportError:
             # Fallback
-            return self._json_response(200, {
-                "states": [
-                    {"id": "open", "valid_transitions": ["triaging", "investigating", "false_positive"]},
-                    {"id": "triaging", "valid_transitions": ["investigating", "false_positive", "accepted_risk"]},
-                    {"id": "investigating", "valid_transitions": ["remediating", "false_positive", "accepted_risk"]},
-                    {"id": "remediating", "valid_transitions": ["resolved", "investigating"]},
-                    {"id": "resolved", "valid_transitions": ["open"], "is_terminal": True},
-                    {"id": "false_positive", "valid_transitions": ["open"], "is_terminal": True},
-                    {"id": "accepted_risk", "valid_transitions": ["open"], "is_terminal": True},
-                    {"id": "duplicate", "valid_transitions": ["open"], "is_terminal": True},
-                ],
-            })
+            return self._json_response(
+                200,
+                {
+                    "states": [
+                        {
+                            "id": "open",
+                            "valid_transitions": ["triaging", "investigating", "false_positive"],
+                        },
+                        {
+                            "id": "triaging",
+                            "valid_transitions": [
+                                "investigating",
+                                "false_positive",
+                                "accepted_risk",
+                            ],
+                        },
+                        {
+                            "id": "investigating",
+                            "valid_transitions": ["remediating", "false_positive", "accepted_risk"],
+                        },
+                        {"id": "remediating", "valid_transitions": ["resolved", "investigating"]},
+                        {"id": "resolved", "valid_transitions": ["open"], "is_terminal": True},
+                        {
+                            "id": "false_positive",
+                            "valid_transitions": ["open"],
+                            "is_terminal": True,
+                        },
+                        {"id": "accepted_risk", "valid_transitions": ["open"], "is_terminal": True},
+                        {"id": "duplicate", "valid_transitions": ["open"], "is_terminal": True},
+                    ],
+                },
+            )
 
     async def _get_presets(self, request: Any) -> dict[str, Any]:
         """Get available audit presets."""
@@ -820,19 +913,22 @@ class FindingWorkflowHandler(BaseHandler):
             audit_registry.auto_discover()
             presets = audit_registry.list_presets()
 
-            return self._json_response(200, {
-                "presets": [
-                    {
-                        "name": p.name,
-                        "description": p.description,
-                        "audit_types": p.audit_types,
-                        "consensus_threshold": p.consensus_threshold,
-                        "custom_rules_count": len(p.custom_rules),
-                    }
-                    for p in presets
-                ],
-                "total": len(presets),
-            })
+            return self._json_response(
+                200,
+                {
+                    "presets": [
+                        {
+                            "name": p.name,
+                            "description": p.description,
+                            "audit_types": p.audit_types,
+                            "consensus_threshold": p.consensus_threshold,
+                            "custom_rules_count": len(p.custom_rules),
+                        }
+                        for p in presets
+                    ],
+                    "total": len(presets),
+                },
+            )
 
         except ImportError:
             return self._json_response(200, {"presets": [], "total": 0})
@@ -845,30 +941,36 @@ class FindingWorkflowHandler(BaseHandler):
             audit_registry.auto_discover()
             types = audit_registry.list_audit_types()
 
-            return self._json_response(200, {
-                "audit_types": [
-                    {
-                        "id": t.id,
-                        "display_name": t.display_name,
-                        "description": t.description,
-                        "version": t.version,
-                        "capabilities": t.capabilities,
-                    }
-                    for t in types
-                ],
-                "total": len(types),
-            })
+            return self._json_response(
+                200,
+                {
+                    "audit_types": [
+                        {
+                            "id": t.id,
+                            "display_name": t.display_name,
+                            "description": t.description,
+                            "version": t.version,
+                            "capabilities": t.capabilities,
+                        }
+                        for t in types
+                    ],
+                    "total": len(types),
+                },
+            )
 
         except ImportError:
-            return self._json_response(200, {
-                "audit_types": [
-                    {"id": "security", "display_name": "Security Analysis"},
-                    {"id": "compliance", "display_name": "Compliance Check"},
-                    {"id": "consistency", "display_name": "Consistency Analysis"},
-                    {"id": "quality", "display_name": "Quality Assessment"},
-                ],
-                "total": 4,
-            })
+            return self._json_response(
+                200,
+                {
+                    "audit_types": [
+                        {"id": "security", "display_name": "Security Analysis"},
+                        {"id": "compliance", "display_name": "Compliance Check"},
+                        {"id": "consistency", "display_name": "Consistency Analysis"},
+                        {"id": "quality", "display_name": "Quality Assessment"},
+                    ],
+                    "total": 4,
+                },
+            )
 
     async def _parse_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""

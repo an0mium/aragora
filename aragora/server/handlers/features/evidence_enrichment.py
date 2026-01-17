@@ -103,16 +103,20 @@ class EvidenceEnrichmentHandler(BaseHandler):
 
             # Check if evidence is already attached
             if hasattr(finding, "_evidence_enrichment"):
-                return json_response({
-                    "finding_id": finding_id,
-                    "evidence": finding._evidence_enrichment.to_dict(),
-                })
+                return json_response(
+                    {
+                        "finding_id": finding_id,
+                        "evidence": finding._evidence_enrichment.to_dict(),
+                    }
+                )
 
-            return json_response({
-                "finding_id": finding_id,
-                "evidence": None,
-                "message": "No evidence collected yet. POST to enrich.",
-            })
+            return json_response(
+                {
+                    "finding_id": finding_id,
+                    "evidence": None,
+                    "message": "No evidence collected yet. POST to enrich.",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get evidence for {finding_id}: {e}")
@@ -153,12 +157,14 @@ class EvidenceEnrichmentHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(self._run_enrichment(
-                finding_id=finding_id,
-                document_content=document_content,
-                related_documents=related_documents,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_enrichment(
+                    finding_id=finding_id,
+                    document_content=document_content,
+                    related_documents=related_documents,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except ValueError as e:
             return error_response(str(e), 404)
@@ -257,10 +263,12 @@ class EvidenceEnrichmentHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(self._run_batch_enrichment(
-                finding_ids=finding_ids,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_batch_enrichment(
+                    finding_ids=finding_ids,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.error(f"Batch enrichment failed: {e}")
@@ -317,10 +325,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 finding._evidence_enrichment = enrichments[finding.id]
 
         return {
-            "enrichments": {
-                fid: enrichment.to_dict()
-                for fid, enrichment in enrichments.items()
-            },
+            "enrichments": {fid: enrichment.to_dict() for fid, enrichment in enrichments.items()},
             "errors": errors,
             "processed": len(enrichments),
             "failed": len(errors),

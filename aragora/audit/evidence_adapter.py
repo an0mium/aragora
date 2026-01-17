@@ -179,7 +179,9 @@ class FindingEvidenceCollector:
         start_time = time.time()
 
         sources: list[EvidenceSource] = []
-        finding_id = getattr(finding, "id", f"finding_{hashlib.sha256(finding.title.encode()).hexdigest()[:8]}")
+        finding_id = getattr(
+            finding, "id", f"finding_{hashlib.sha256(finding.title.encode()).hexdigest()[:8]}"
+        )
 
         # 1. Collect evidence from the source document
         if document_content:
@@ -254,9 +256,7 @@ class FindingEvidenceCollector:
                 doc_content = documents.get(finding.document_id)
 
                 # Get related documents (excluding the source)
-                related = {
-                    k: v for k, v in documents.items() if k != finding.document_id
-                }
+                related = {k: v for k, v in documents.items() if k != finding.document_id}
 
                 enrichment = await self.enrich_finding(
                     finding=finding,
@@ -433,11 +433,7 @@ class FindingEvidenceCollector:
             }
             type_weight = type_weights.get(source.source_type, 0.5)
 
-            return (
-                source.relevance_score * 0.5
-                + source.reliability_score * 0.3
-                + type_weight * 0.2
-            )
+            return source.relevance_score * 0.5 + source.reliability_score * 0.3 + type_weight * 0.2
 
         return sorted(sources, key=score, reverse=True)
 
@@ -502,8 +498,12 @@ class FindingEvidenceCollector:
         # Add top source snippet
         if sources:
             top_source = sources[0]
-            snippet_preview = top_source.snippet[:100] + "..." if len(top_source.snippet) > 100 else top_source.snippet
-            summary += f" Top evidence: \"{snippet_preview}\""
+            snippet_preview = (
+                top_source.snippet[:100] + "..."
+                if len(top_source.snippet) > 100
+                else top_source.snippet
+            )
+            summary += f' Top evidence: "{snippet_preview}"'
 
         return summary
 
@@ -515,11 +515,50 @@ class FindingEvidenceCollector:
 
         # Remove stop words
         stop_words = {
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-            "of", "with", "by", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "can", "shall", "this", "that",
-            "these", "those", "it", "its", "from", "about",
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "shall",
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "its",
+            "from",
+            "about",
         }
 
         keywords = [w for w in words if len(w) > 3 and w not in stop_words]
@@ -546,11 +585,13 @@ class FindingEvidenceCollector:
             end = min(len(content), pos + len(keyword) + self.config.search_window // 2)
             context = content[start:end]
 
-            occurrences.append({
-                "pos": pos,
-                "text": context,
-                "keyword": keyword,
-            })
+            occurrences.append(
+                {
+                    "pos": pos,
+                    "text": context,
+                    "keyword": keyword,
+                }
+            )
 
             if len(occurrences) >= max_occurrences:
                 break

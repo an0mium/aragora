@@ -99,13 +99,15 @@ class DocumentQueryHandler(BaseHandler):
 
         # Run async query
         try:
-            result = asyncio.run(self._run_query(
-                question=question,
-                document_ids=document_ids,
-                workspace_id=workspace_id,
-                conversation_id=conversation_id,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_query(
+                    question=question,
+                    document_ids=document_ids,
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -172,11 +174,13 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(self._run_summarize(
-                document_ids=document_ids,
-                focus=focus,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_summarize(
+                    document_ids=document_ids,
+                    focus=focus,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.error(f"Summarize failed: {e}")
@@ -191,7 +195,9 @@ class DocumentQueryHandler(BaseHandler):
         """Run document summarization asynchronously."""
         from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
 
-        config = QueryConfig(**{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__})
+        config = QueryConfig(
+            **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
+        )
         engine = await DocumentQueryEngine.create(config=config)
         result = await engine.summarize_documents(
             document_ids=document_ids,
@@ -233,11 +239,13 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(self._run_compare(
-                document_ids=document_ids,
-                aspects=aspects,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_compare(
+                    document_ids=document_ids,
+                    aspects=aspects,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.error(f"Compare failed: {e}")
@@ -252,7 +260,9 @@ class DocumentQueryHandler(BaseHandler):
         """Run document comparison asynchronously."""
         from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
 
-        config = QueryConfig(**{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__})
+        config = QueryConfig(
+            **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
+        )
         engine = await DocumentQueryEngine.create(config=config)
         result = await engine.compare_documents(
             document_ids=document_ids,
@@ -304,11 +314,13 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(self._run_extract(
-                document_ids=document_ids,
-                fields=fields,
-                config_dict=config_dict,
-            ))
+            result = asyncio.run(
+                self._run_extract(
+                    document_ids=document_ids,
+                    fields=fields,
+                    config_dict=config_dict,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.error(f"Extract failed: {e}")
@@ -323,7 +335,9 @@ class DocumentQueryHandler(BaseHandler):
         """Run structured extraction asynchronously."""
         from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
 
-        config = QueryConfig(**{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__})
+        config = QueryConfig(
+            **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
+        )
         engine = await DocumentQueryEngine.create(config=config)
         results = await engine.extract_information(
             document_ids=document_ids,
@@ -332,8 +346,5 @@ class DocumentQueryHandler(BaseHandler):
 
         return {
             "document_ids": document_ids,
-            "extractions": {
-                field: result.to_dict()
-                for field, result in results.items()
-            },
+            "extractions": {field: result.to_dict() for field, result in results.items()},
         }

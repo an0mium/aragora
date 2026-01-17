@@ -123,8 +123,14 @@ class WeaviateEmbeddingService:
             else:
                 # Connect to local Weaviate
                 self._client = weaviate.connect_to_local(
-                    host=self.config.weaviate_url.replace("http://", "").replace("https://", "").split(":")[0],
-                    port=int(self.config.weaviate_url.split(":")[-1]) if ":" in self.config.weaviate_url else 8080,
+                    host=self.config.weaviate_url.replace("http://", "")
+                    .replace("https://", "")
+                    .split(":")[0],
+                    port=(
+                        int(self.config.weaviate_url.split(":")[-1])
+                        if ":" in self.config.weaviate_url
+                        else 8080
+                    ),
                 )
 
             self._connected = True

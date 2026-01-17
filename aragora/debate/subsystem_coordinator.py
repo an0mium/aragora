@@ -58,6 +58,7 @@ class Resettable(Protocol):
         """Reset internal state."""
         ...
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -366,8 +367,14 @@ class SubsystemCoordinator:
                 for agent_name, prediction in predictions.items():
                     # CalibrationTracker.record_prediction expects:
                     # (agent, confidence, correct, domain, debate_id, position_id)
-                    predicted_value = prediction.get("prediction", "") if isinstance(prediction, dict) else str(prediction)
-                    pred_confidence = prediction.get("confidence", 0.5) if isinstance(prediction, dict) else 0.5
+                    predicted_value = (
+                        prediction.get("prediction", "")
+                        if isinstance(prediction, dict)
+                        else str(prediction)
+                    )
+                    pred_confidence = (
+                        prediction.get("confidence", 0.5) if isinstance(prediction, dict) else 0.5
+                    )
                     is_correct = predicted_value == actual_outcome
                     self.calibration_tracker.record_prediction(
                         agent=agent_name,

@@ -134,9 +134,7 @@ class DatasetQueryEngine:
         # Progress callback
         self._progress_callback: Optional[Callable[[str, float], None]] = None
 
-    def set_progress_callback(
-        self, callback: Callable[[str, float], None]
-    ) -> None:
+    def set_progress_callback(self, callback: Callable[[str, float], None]) -> None:
         """Set a callback for progress updates.
 
         Args:
@@ -407,9 +405,7 @@ Provide a single, definitive answer that:
         # Fallback to first response if synthesis fails
         return list(responses.values())[0]
 
-    async def _safe_generate(
-        self, agent: AgentProtocol, prompt: str
-    ) -> Optional[str]:
+    async def _safe_generate(self, agent: AgentProtocol, prompt: str) -> Optional[str]:
         """Safely generate a response, returning None on failure."""
         try:
             return await agent.generate(prompt, [])
@@ -483,9 +479,7 @@ Only include facts that are directly supported by the source material."""
                             statement=statement,
                             workspace_id=ctx.workspace_id,
                             evidence_ids=[c.chunk_id for c in ctx.chunks[:3]],
-                            source_documents=[
-                                c.document_id for c in ctx.chunks[:3]
-                            ],
+                            source_documents=[c.document_id for c in ctx.chunks[:3]],
                             confidence=0.6,  # Initial confidence
                             validation_status=ValidationStatus.UNVERIFIED,
                         )
@@ -496,9 +490,7 @@ Only include facts that are directly supported by the source material."""
 
         return facts
 
-    def _calculate_confidence(
-        self, ctx: QueryContext, existing_facts: list[Fact]
-    ) -> float:
+    def _calculate_confidence(self, ctx: QueryContext, existing_facts: list[Fact]) -> float:
         """Calculate confidence score for the answer."""
         factors = []
 

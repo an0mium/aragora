@@ -103,9 +103,7 @@ class FindingVerifier:
         if config:
             self.config = config
         else:
-            self.config = VerificationConfig(
-                agents=agents or ["anthropic-api", "openai-api"]
-            )
+            self.config = VerificationConfig(agents=agents or ["anthropic-api", "openai-api"])
 
     def _finding_to_claim(
         self,
@@ -114,10 +112,7 @@ class FindingVerifier:
     ) -> Claim:
         """Convert an audit finding to a claim for verification."""
         # Build claim statement
-        statement = (
-            f"[{finding.severity.value.upper()}] {finding.title}: "
-            f"{finding.description}"
-        )
+        statement = f"[{finding.severity.value.upper()}] {finding.title}: " f"{finding.description}"
 
         # Create supporting evidence from finding
         evidence = []
@@ -169,7 +164,9 @@ class FindingVerifier:
 
         # Generate IDs
         verification_id = f"verify_{uuid4().hex[:8]}"
-        claim_id = f"claim_{finding.id[:8] if hasattr(finding, 'id') and finding.id else uuid4().hex[:8]}"
+        claim_id = (
+            f"claim_{finding.id[:8] if hasattr(finding, 'id') and finding.id else uuid4().hex[:8]}"
+        )
 
         # Convert finding to claim
         claim = self._finding_to_claim(finding, claim_id)
@@ -190,9 +187,7 @@ class FindingVerifier:
         avg_confidence = sum(v.confidence for v in votes) / len(votes) if votes else 0
 
         consensus_reached = (
-            len(supporting) / len(votes) >= self.config.consensus_threshold
-            if votes
-            else False
+            len(supporting) / len(votes) >= self.config.consensus_threshold if votes else False
         )
 
         # Check for severity changes
@@ -208,9 +203,7 @@ class FindingVerifier:
                     for sev in ["critical", "high", "medium", "low", "info"]:
                         if sev in dissent.alternative_view.lower():
                             verified_severity = sev
-                            notes.append(
-                                f"Agent {dissent.agent} suggests severity: {sev}"
-                            )
+                            notes.append(f"Agent {dissent.agent} suggests severity: {sev}")
                             break
 
         # Build consensus proof
@@ -234,7 +227,8 @@ class FindingVerifier:
                 "finding_id": getattr(finding, "id", "unknown"),
                 "original_severity": finding.severity.value,
                 "audit_type": finding.audit_type.value,
-                "verified": consensus_reached and avg_confidence >= self.config.confidence_threshold,
+                "verified": consensus_reached
+                and avg_confidence >= self.config.confidence_threshold,
             },
         )
 
@@ -307,38 +301,46 @@ class FindingVerifier:
         ]
 
         if finding.evidence_text:
-            prompt_parts.extend([
-                "**Evidence:**",
-                "```",
-                finding.evidence_text[:2000],
-                "```",
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "**Evidence:**",
+                    "```",
+                    finding.evidence_text[:2000],
+                    "```",
+                    "",
+                ]
+            )
 
         if finding.recommendation:
-            prompt_parts.extend([
-                "**Recommendation:**",
-                finding.recommendation,
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "**Recommendation:**",
+                    finding.recommendation,
+                    "",
+                ]
+            )
 
         if document_context and self.config.include_document_context:
-            prompt_parts.extend([
-                "## Document Context",
-                document_context[:self.config.max_context_tokens],
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## Document Context",
+                    document_context[: self.config.max_context_tokens],
+                    "",
+                ]
+            )
 
-        prompt_parts.extend([
-            "## Your Task",
-            "Respond with:",
-            "1. VALID or INVALID (is this a real issue?)",
-            "2. AGREE or DISAGREE with the severity",
-            "3. Your confidence (0-100%)",
-            "4. Brief reasoning",
-            "",
-            "If you disagree with severity, suggest the appropriate level.",
-        ])
+        prompt_parts.extend(
+            [
+                "## Your Task",
+                "Respond with:",
+                "1. VALID or INVALID (is this a real issue?)",
+                "2. AGREE or DISAGREE with the severity",
+                "3. Your confidence (0-100%)",
+                "4. Brief reasoning",
+                "",
+                "If you disagree with severity, suggest the appropriate level.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 
@@ -506,9 +508,7 @@ class FindingVerifier:
         # Summarize votes
         agree_count = sum(1 for v in votes if v.vote == VoteType.AGREE)
         disagree_count = sum(1 for v in votes if v.vote == VoteType.DISAGREE)
-        parts.append(
-            f"Verification: {agree_count} agents agreed, {disagree_count} disagreed."
-        )
+        parts.append(f"Verification: {agree_count} agents agreed, {disagree_count} disagreed.")
 
         # Add key reasoning
         for vote in votes:

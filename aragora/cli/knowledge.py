@@ -75,7 +75,13 @@ def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentPars
     facts_parser.add_argument(
         "--status",
         "-s",
-        choices=["unverified", "contested", "majority_agreed", "byzantine_agreed", "formally_proven"],
+        choices=[
+            "unverified",
+            "contested",
+            "majority_agreed",
+            "byzantine_agreed",
+            "formally_proven",
+        ],
         help="Filter by validation status",
     )
     facts_parser.add_argument(
@@ -120,9 +126,7 @@ def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentPars
         help="Action: list (default), show <job_id>",
     )
     jobs_parser.add_argument("job_id", nargs="?", help="Job ID (for show)")
-    jobs_parser.add_argument(
-        "--workspace", "-w", help="Filter by workspace ID"
-    )
+    jobs_parser.add_argument("--workspace", "-w", help="Filter by workspace ID")
     jobs_parser.add_argument(
         "--status",
         "-s",
@@ -146,9 +150,7 @@ def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentPars
     process_parser.add_argument(
         "--sync", action="store_true", help="Wait for processing to complete"
     )
-    process_parser.add_argument(
-        "--no-facts", action="store_true", help="Skip fact extraction"
-    )
+    process_parser.add_argument("--no-facts", action="store_true", help="Skip fact extraction")
     process_parser.add_argument("--json", action="store_true", help="Output as JSON")
     process_parser.set_defaults(func=cmd_process)
 
@@ -158,9 +160,7 @@ def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentPars
         help="Show knowledge base statistics",
         description="Display statistics about the knowledge base.",
     )
-    stats_parser.add_argument(
-        "--workspace", "-w", help="Filter by workspace ID"
-    )
+    stats_parser.add_argument("--workspace", "-w", help="Filter by workspace ID")
     stats_parser.add_argument("--json", action="store_true", help="Output as JSON")
     stats_parser.set_defaults(func=cmd_stats)
 
@@ -287,7 +287,9 @@ def cmd_facts(args: "Namespace") -> int:
                 }.get(fact.validation_status.value, "?")
 
                 conf = f"{fact.confidence:.0%}"
-                statement = fact.statement[:60] + "..." if len(fact.statement) > 60 else fact.statement
+                statement = (
+                    fact.statement[:60] + "..." if len(fact.statement) > 60 else fact.statement
+                )
                 print(f"  [{status_icon}] [{conf:>4}] {fact.id}: {statement}")
 
             print(f"\nTotal: {len(facts)} facts")
@@ -576,7 +578,9 @@ def cmd_stats(args: "Namespace") -> int:
         print("=" * 40)
         print(f"Workspace: {stats['workspace']}")
         print(f"Total Facts: {stats['facts']}")
-        print(f"Weaviate: {'enabled' if stats['weaviate_enabled'] else 'disabled (using in-memory)'}")
+        print(
+            f"Weaviate: {'enabled' if stats['weaviate_enabled'] else 'disabled (using in-memory)'}"
+        )
 
     return 0
 

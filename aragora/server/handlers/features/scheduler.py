@@ -124,6 +124,7 @@ class SchedulerHandler(BaseHandler):
     def _get_scheduler(self):
         """Get the scheduler instance."""
         from aragora.scheduler import get_scheduler
+
         return get_scheduler()
 
     @require_user_auth
@@ -139,6 +140,7 @@ class SchedulerHandler(BaseHandler):
         status = None
         if status_filter:
             from aragora.scheduler import ScheduleStatus
+
             try:
                 status = ScheduleStatus(status_filter)
             except ValueError:
@@ -146,10 +148,12 @@ class SchedulerHandler(BaseHandler):
 
         jobs = scheduler.list_jobs(status=status, workspace_id=workspace_id)
 
-        return json_response({
-            "jobs": [job.to_dict() for job in jobs],
-            "count": len(jobs),
-        })
+        return json_response(
+            {
+                "jobs": [job.to_dict() for job in jobs],
+                "count": len(jobs),
+            }
+        )
 
     @require_user_auth
     @handle_errors("get job")
@@ -239,10 +243,13 @@ class SchedulerHandler(BaseHandler):
 
         logger.info(f"Created scheduled job: {job.job_id} ({name})")
 
-        return json_response({
-            "success": True,
-            "job": job.to_dict(),
-        }, status=201)
+        return json_response(
+            {
+                "success": True,
+                "job": job.to_dict(),
+            },
+            status=201,
+        )
 
     @require_user_auth
     @handle_errors("delete job")
@@ -275,10 +282,12 @@ class SchedulerHandler(BaseHandler):
         try:
             run = asyncio.run(scheduler.trigger_job(job_id))
             if run:
-                return json_response({
-                    "success": True,
-                    "run": run.to_dict(),
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "run": run.to_dict(),
+                    }
+                )
             else:
                 return error_response("Failed to trigger job", 500)
         except Exception as e:
@@ -328,11 +337,13 @@ class SchedulerHandler(BaseHandler):
 
         history = scheduler.get_job_history(job_id, limit=limit)
 
-        return json_response({
-            "job_id": job_id,
-            "runs": [run.to_dict() for run in history],
-            "count": len(history),
-        })
+        return json_response(
+            {
+                "job_id": job_id,
+                "runs": [run.to_dict() for run in history],
+                "count": len(history),
+            }
+        )
 
     def _get_scheduler_status(self) -> HandlerResult:
         """Get scheduler status."""
@@ -342,12 +353,14 @@ class SchedulerHandler(BaseHandler):
         active_count = sum(1 for j in jobs if j.status.value == "active")
         running_count = sum(1 for j in jobs if j.status.value == "running")
 
-        return json_response({
-            "running": scheduler._running,
-            "total_jobs": len(jobs),
-            "active_jobs": active_count,
-            "running_jobs": running_count,
-        })
+        return json_response(
+            {
+                "running": scheduler._running,
+                "total_jobs": len(jobs),
+                "active_jobs": active_count,
+                "running_jobs": running_count,
+            }
+        )
 
     @handle_errors("webhook")
     def _handle_webhook(self, handler, webhook_id: str) -> HandlerResult:
@@ -366,17 +379,21 @@ class SchedulerHandler(BaseHandler):
         scheduler = self._get_scheduler()
 
         try:
-            runs = asyncio.run(scheduler.handle_webhook(
-                webhook_id=webhook_id,
-                payload=body,
-                signature=signature,
-            ))
+            runs = asyncio.run(
+                scheduler.handle_webhook(
+                    webhook_id=webhook_id,
+                    payload=body,
+                    signature=signature,
+                )
+            )
 
-            return json_response({
-                "success": True,
-                "triggered_jobs": len(runs),
-                "runs": [run.to_dict() for run in runs],
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "triggered_jobs": len(runs),
+                    "runs": [run.to_dict() for run in runs],
+                }
+            )
         except Exception as e:
             logger.error(f"Webhook handling failed: {e}")
             return error_response(f"Webhook handling failed: {str(e)}", 500)
@@ -413,20 +430,24 @@ class SchedulerHandler(BaseHandler):
         scheduler = self._get_scheduler()
 
         try:
-            runs = asyncio.run(scheduler.handle_git_push(
-                repository=repo,
-                branch=branch,
-                commit_sha=commit_sha,
-                changed_files=list(set(changed_files)),
-            ))
+            runs = asyncio.run(
+                scheduler.handle_git_push(
+                    repository=repo,
+                    branch=branch,
+                    commit_sha=commit_sha,
+                    changed_files=list(set(changed_files)),
+                )
+            )
 
-            return json_response({
-                "success": True,
-                "repository": repo,
-                "branch": branch,
-                "triggered_jobs": len(runs),
-                "runs": [run.to_dict() for run in runs],
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "repository": repo,
+                    "branch": branch,
+                    "triggered_jobs": len(runs),
+                    "runs": [run.to_dict() for run in runs],
+                }
+            )
         except Exception as e:
             logger.error(f"Git push handling failed: {e}")
             return error_response(f"Git push handling failed: {str(e)}", 500)
@@ -458,18 +479,22 @@ class SchedulerHandler(BaseHandler):
         scheduler = self._get_scheduler()
 
         try:
-            runs = asyncio.run(scheduler.handle_file_upload(
-                workspace_id=workspace_id,
-                document_ids=document_ids,
-            ))
+            runs = asyncio.run(
+                scheduler.handle_file_upload(
+                    workspace_id=workspace_id,
+                    document_ids=document_ids,
+                )
+            )
 
-            return json_response({
-                "success": True,
-                "workspace_id": workspace_id,
-                "document_ids": document_ids,
-                "triggered_jobs": len(runs),
-                "runs": [run.to_dict() for run in runs],
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "workspace_id": workspace_id,
+                    "document_ids": document_ids,
+                    "triggered_jobs": len(runs),
+                    "runs": [run.to_dict() for run in runs],
+                }
+            )
         except Exception as e:
             logger.error(f"File upload handling failed: {e}")
             return error_response(f"File upload handling failed: {str(e)}", 500)

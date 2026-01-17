@@ -106,6 +106,7 @@ class FindingAssignment:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FindingAssignment":
         """Create from dictionary."""
+
         def parse_dt(val: Any) -> Optional[datetime]:
             if isinstance(val, str):
                 return datetime.fromisoformat(val)
@@ -252,6 +253,7 @@ class AssignmentManager:
 
         if due_date is None and sla_hours is not None:
             from datetime import timedelta
+
             due_date = datetime.utcnow() + timedelta(hours=sla_hours)
 
         assignment = FindingAssignment(
@@ -278,8 +280,7 @@ class AssignmentManager:
                 logger.warning(f"Assignment hook error: {e}")
 
         logger.info(
-            f"Assigned finding {finding_id} to user {user_id} "
-            f"(priority: {priority.value})"
+            f"Assigned finding {finding_id} to user {user_id} " f"(priority: {priority.value})"
         )
 
         return assignment
@@ -380,7 +381,8 @@ class AssignmentManager:
     ) -> list[FindingAssignment]:
         """Get all assignments for a user."""
         return [
-            a for a in self._assignments.values()
+            a
+            for a in self._assignments.values()
             if a.user_id == user_id and (not active_only or a.is_active)
         ]
 
@@ -392,7 +394,8 @@ class AssignmentManager:
     ) -> list[FindingAssignment]:
         """Get all assignments for a team."""
         return [
-            a for a in self._assignments.values()
+            a
+            for a in self._assignments.values()
             if a.team_id == team_id and (not active_only or a.is_active)
         ]
 
@@ -400,8 +403,7 @@ class AssignmentManager:
         """Get all overdue active assignments."""
         now = datetime.utcnow()
         return [
-            a for a in self._assignments.values()
-            if a.is_active and a.due_date and a.due_date < now
+            a for a in self._assignments.values() if a.is_active and a.due_date and a.due_date < now
         ]
 
     def get_user_workload(self, user_id: str) -> dict[str, int]:
@@ -440,10 +442,7 @@ class AssignmentManager:
         """Get all auto-assignment rules, optionally filtered by workspace."""
         if workspace_id is None:
             return list(self._rules)
-        return [
-            r for r in self._rules
-            if r.workspace_id is None or r.workspace_id == workspace_id
-        ]
+        return [r for r in self._rules if r.workspace_id is None or r.workspace_id == workspace_id]
 
     def auto_assign(
         self,
@@ -506,9 +505,8 @@ class AssignmentManager:
             # Calculate due date
             if assignment.sla_hours:
                 from datetime import timedelta
-                assignment.due_date = datetime.utcnow() + timedelta(
-                    hours=assignment.sla_hours
-                )
+
+                assignment.due_date = datetime.utcnow() + timedelta(hours=assignment.sla_hours)
 
             self._assignments[finding_id] = assignment
 
@@ -534,9 +532,7 @@ class AssignmentManager:
 
     # Hooks
 
-    def add_assignment_hook(
-        self, hook: Callable[[FindingAssignment], None]
-    ) -> None:
+    def add_assignment_hook(self, hook: Callable[[FindingAssignment], None]) -> None:
         """Add a callback for new assignments."""
         self._assignment_hooks.append(hook)
 

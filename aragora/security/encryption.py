@@ -124,15 +124,17 @@ class EncryptedData:
         #         nonce_len (1) + nonce + ciphertext
         key_id_bytes = self.key_id.encode("utf-8")
 
-        return b"".join([
-            struct.pack("B", 1),  # Format version
-            struct.pack("B", len(key_id_bytes)),
-            key_id_bytes,
-            struct.pack(">I", self.key_version),
-            struct.pack("B", len(self.nonce)),
-            self.nonce,
-            self.ciphertext,
-        ])
+        return b"".join(
+            [
+                struct.pack("B", 1),  # Format version
+                struct.pack("B", len(key_id_bytes)),
+                key_id_bytes,
+                struct.pack(">I", self.key_version),
+                struct.pack("B", len(self.nonce)),
+                self.nonce,
+                self.ciphertext,
+            ]
+        )
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "EncryptedData":
@@ -407,8 +409,7 @@ class EncryptionService:
         if key.version != encrypted.key_version:
             # Try to find the specific version
             logger.warning(
-                f"Key version mismatch: expected {encrypted.key_version}, "
-                f"have {key.version}"
+                f"Key version mismatch: expected {encrypted.key_version}, " f"have {key.version}"
             )
 
         if isinstance(associated_data, str):

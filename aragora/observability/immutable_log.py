@@ -317,9 +317,7 @@ class LocalFileBackend(AuditLogBackend):
             try:
                 data = json.loads(self.index_file.read_text())
                 self._index = data.get("entries", {})
-                self._sequence_index = {
-                    int(k): v for k, v in data.get("sequences", {}).items()
-                }
+                self._sequence_index = {int(k): v for k, v in data.get("sequences", {}).items()}
             except Exception as e:
                 logger.warning(f"Failed to load audit index: {e}")
                 self._rebuild_index()
@@ -1054,9 +1052,7 @@ class ImmutableAuditLog:
             if prev_entry:
                 expected_prev_hash = prev_entry.entry_hash
             else:
-                warnings.append(
-                    f"Could not find entry {start_sequence - 1} for chain verification"
-                )
+                warnings.append(f"Could not find entry {start_sequence - 1} for chain verification")
 
         # Verify each entry
         for entry in entries:
