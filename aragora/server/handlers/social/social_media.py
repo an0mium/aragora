@@ -142,6 +142,7 @@ class VideoGeneratorProtocol(Protocol):
         """Generate video with static thumbnail and audio track."""
         ...
 
+
 logger = logging.getLogger(__name__)
 
 # Check if we're in production mode

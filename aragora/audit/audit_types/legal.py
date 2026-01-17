@@ -15,11 +15,11 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
-from aragora.audit.document_auditor import (
+from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
+from ..document_auditor import (
     AuditFinding,
-    AuditSession,
     AuditType,
     FindingSeverity,
 )
@@ -63,7 +63,7 @@ class ExtractedObligation:
     location: str
 
 
-class LegalAuditor:
+class LegalAuditor(BaseAuditor):
     """
     Audits legal documents for risks, obligations, and compliance issues.
 
@@ -323,32 +323,78 @@ class LegalAuditor:
         ),
     ]
 
-    def __init__(self, session: Optional[AuditSession] = None):
+    def __init__(self) -> None:
         """Initialize the legal auditor."""
-        self.session = session
-        self.findings: list[AuditFinding] = []
         self.obligations: list[ExtractedObligation] = []
 
-    def analyze_chunk(
+    @property
+    def audit_type_id(self) -> str:
+        return "legal"
+
+    @property
+    def display_name(self) -> str:
+        return "Legal Contract Analysis"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Analyzes legal contracts for risks, obligations, and compliance issues. "
+            "Detects liability risks, indemnification clauses, termination terms, "
+            "missing standard clauses, and ambiguous language."
+        )
+
+    @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    @property
+    def capabilities(self) -> AuditorCapabilities:
+        return AuditorCapabilities(
+            supports_chunk_analysis=True,
+            supports_cross_document=True,
+            supports_streaming=False,
+            requires_llm=True,
+            supported_doc_types=["pdf", "docx", "doc", "txt", "md", "rtf"],
+            max_chunk_size=8000,
+            finding_categories=[
+                "liability_risk",
+                "indemnification_risk",
+                "termination_risk",
+                "renewal_risk",
+                "assignment_risk",
+                "damages_risk",
+                "restrictive_covenant",
+                "exclusivity_risk",
+                "ip_risk",
+                "audit_rights",
+                "missing_clause",
+                "ambiguity",
+            ],
+            custom_capabilities={
+                "obligation_extraction": True,
+                "clause_detection": True,
+                "missing_clause_analysis": True,
+                "ambiguity_detection": True,
+            },
+        )
+
+    async def analyze_chunk(
         self,
-        content: str,
-        document_id: str,
-        chunk_id: str,
-        session_id: str,
+        chunk: ChunkData,
+        context: AuditContext,
     ) -> list[AuditFinding]:
         """
         Analyze a document chunk for legal issues.
 
         Args:
-            content: The text content to analyze
-            document_id: ID of the source document
-            chunk_id: ID of the chunk
-            session_id: Audit session ID
+            chunk: The chunk to analyze
+            context: Audit context with session info and utilities
 
         Returns:
             List of findings from this chunk
         """
-        findings = []
+        findings: list[AuditFinding] = []
+        content = chunk.content
 
         # Check risk patterns
         for pattern in self.RISK_PATTERNS:
@@ -356,9 +402,9 @@ class LegalAuditor:
             for match in matches:
                 findings.append(
                     AuditFinding(
-                        session_id=session_id,
-                        document_id=document_id,
-                        chunk_id=chunk_id,
+                        session_id=context.session.id,
+                        document_id=chunk.document_id,
+                        chunk_id=chunk.id,
                         audit_type=AuditType.COMPLIANCE,
                         category=pattern.category,
                         severity=pattern.severity,
@@ -366,10 +412,10 @@ class LegalAuditor:
                         title=pattern.name,
                         description=pattern.description,
                         evidence_text=self._get_context(content, match.start(), match.end()),
-                        evidence_location=f"chars {match.start()}-{match.end()}",
+                        evidence_location=f"Chunk {chunk.id}, chars {match.start()}-{match.end()}",
                         recommendation=pattern.recommendation,
                         affected_scope="clause",
-                        found_by="LegalAuditor",
+                        found_by="legal_auditor",
                         tags=[pattern.clause_type, "contract_risk"],
                     )
                 )
@@ -380,9 +426,9 @@ class LegalAuditor:
             for match in matches:
                 findings.append(
                     AuditFinding(
-                        session_id=session_id,
-                        document_id=document_id,
-                        chunk_id=chunk_id,
+                        session_id=context.session.id,
+                        document_id=chunk.document_id,
+                        chunk_id=chunk.id,
                         audit_type=AuditType.QUALITY,
                         category=pattern.category,
                         severity=pattern.severity,
@@ -390,47 +436,52 @@ class LegalAuditor:
                         title=pattern.name,
                         description=pattern.description,
                         evidence_text=self._get_context(content, match.start(), match.end()),
-                        evidence_location=f"chars {match.start()}-{match.end()}",
+                        evidence_location=f"Chunk {chunk.id}, chars {match.start()}-{match.end()}",
                         recommendation=pattern.recommendation,
                         affected_scope="clause",
-                        found_by="LegalAuditor",
+                        found_by="legal_auditor",
                         tags=["ambiguity", "drafting"],
                     )
                 )
 
         # Extract obligations
-        self._extract_obligations(content, document_id, chunk_id)
+        self._extract_obligations(content, chunk.document_id, chunk.id)
 
         return findings
 
-    def check_missing_clauses(
+    async def cross_document_analysis(
         self,
-        full_content: str,
-        document_id: str,
-        session_id: str,
+        chunks: Sequence[ChunkData],
+        context: AuditContext,
     ) -> list[AuditFinding]:
         """
-        Check for missing standard clauses in the full document.
+        Analyze across documents for missing clauses and cross-references.
 
         Args:
-            full_content: Complete document text
-            document_id: Document ID
-            session_id: Session ID
+            chunks: All chunks in the audit scope
+            context: Audit context
 
         Returns:
-            Findings for missing clauses
+            List of cross-document findings
         """
-        findings = []
-        content_lower = full_content.lower()
+        findings: list[AuditFinding] = []
 
+        # Combine all content for missing clause analysis
+        all_content = " ".join(chunk.content for chunk in chunks)
+        content_lower = all_content.lower()
+
+        # Get the first document_id for findings (or use a placeholder)
+        primary_doc_id = chunks[0].document_id if chunks else "unknown"
+
+        # Check for missing standard clauses
         for clause in self.REQUIRED_CLAUSES:
             found = any(kw in content_lower for kw in clause["keywords"])
             if not found:
                 findings.append(
                     AuditFinding(
-                        session_id=session_id,
-                        document_id=document_id,
-                        chunk_id="",
+                        session_id=context.session.id,
+                        document_id=primary_doc_id,
+                        chunk_id=None,
                         audit_type=AuditType.COMPLIANCE,
                         category="missing_clause",
                         severity=clause["severity"],
@@ -438,11 +489,43 @@ class LegalAuditor:
                         title=f"Missing {clause['name']} Clause",
                         description=clause["description"],
                         evidence_text="",
-                        evidence_location="document-wide",
+                        evidence_location="document-wide analysis",
                         recommendation=clause["recommendation"],
                         affected_scope="document",
-                        found_by="LegalAuditor",
+                        found_by="legal_auditor",
                         tags=["missing_clause", "contract_review"],
+                    )
+                )
+
+        # Add obligation summary as informational finding if obligations were found
+        if self.obligations:
+            mandatory = [o for o in self.obligations if o.obligation_type == "mandatory"]
+            with_deadlines = [o for o in mandatory if o.deadline]
+
+            if mandatory:
+                findings.append(
+                    AuditFinding(
+                        session_id=context.session.id,
+                        document_id=primary_doc_id,
+                        chunk_id=None,
+                        audit_type=AuditType.QUALITY,
+                        category="obligation_summary",
+                        severity=FindingSeverity.INFO,
+                        confidence=0.95,
+                        title="Contract Obligations Summary",
+                        description=(
+                            f"Found {len(mandatory)} mandatory obligations, "
+                            f"{len(with_deadlines)} with explicit deadlines. "
+                            "Review to ensure all obligations are tracked."
+                        ),
+                        evidence_text="\n".join(
+                            f"- {o.text[:100]}..." for o in mandatory[:5]
+                        ),
+                        evidence_location="cross-document analysis",
+                        recommendation="Create obligation tracking for all mandatory requirements",
+                        affected_scope="document",
+                        found_by="legal_auditor",
+                        tags=["obligations", "tracking"],
                     )
                 )
 
@@ -519,30 +602,20 @@ class LegalAuditor:
         suffix = "..." if ctx_end < len(content) else ""
         return f"{prefix}{content[ctx_start:ctx_end]}{suffix}"
 
+    async def pre_audit_hook(self, context: AuditContext) -> None:
+        """Reset state before audit."""
+        self.obligations = []
 
-# Register with the audit registry if available
-def register_legal_auditor():
-    """Register the legal auditor with the audit registry."""
+
+# Register with the audit registry on import
+def register_legal_auditor() -> None:
+    """Register the legal auditor with the global registry."""
     try:
-        from aragora.audit.registry import audit_registry
-        from aragora.audit.base_auditor import AuditorCapabilities
+        from ..registry import audit_registry
 
-        audit_registry.register_auditor_class(
-            auditor_id="legal",
-            display_name="Legal Contract Analysis",
-            description="Analyzes legal contracts for risks, obligations, and compliance issues",
-            auditor_class=LegalAuditor,
-            capabilities=AuditorCapabilities(
-                supports_chunk_analysis=True,
-                supports_cross_document=True,
-                supports_llm_enhancement=True,
-                supported_formats=["pdf", "docx", "doc", "txt", "md"],
-            ),
-            version="1.0.0",
-        )
-        logger.info("Registered LegalAuditor with audit registry")
-    except Exception as e:
-        logger.debug(f"Could not register LegalAuditor: {e}")
+        audit_registry.register(LegalAuditor())
+    except ImportError:
+        pass  # Registry not available
 
 
 __all__ = [

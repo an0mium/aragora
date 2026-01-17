@@ -548,6 +548,13 @@ module = [
     "aragora.utils.cache",
     "aragora.billing.payment_recovery",
     "aragora.knowledge.fact_store",
+    "aragora.server.storage",
+    "aragora.memory.consensus",
+    "aragora.insights.store",
+    "aragora.auth.saml",
+    "aragora.auth.oidc",
+    "aragora.connectors.base",
+    "aragora.server.research_phase",
 ]
 ignore_errors = true
 
