@@ -148,3 +148,5 @@ typings/
 
 # Investor documents (sensitive business documents)
 docs/investor/
+:memory:-shm
+:memory:-wal
