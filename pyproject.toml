@@ -559,6 +559,11 @@ module = [
     "aragora.connectors.twitter_poster",
     "aragora.training.tinker_client",
     "aragora.pulse.ingestor",
+    "aragora.knowledge.fact_extractor",
+    "aragora.fixtures",
+    "aragora.server.question_classifier",
+    "aragora.debate.role_matcher",
+    "aragora.connectors.wikipedia",
 ]
 ignore_errors = true
 

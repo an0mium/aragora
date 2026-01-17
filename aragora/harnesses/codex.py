@@ -134,9 +134,11 @@ class CodexHarness(CodeAnalysisHarness):
     Supports streaming responses and batch analysis.
     """
 
+    config: CodexConfig  # Type override for subclass-specific config
+
     def __init__(self, config: CodexConfig | None = None):
         self.config = config or CodexConfig()
-        self._client = None
+        self._client: Any = None
 
     @property
     def name(self) -> str:
@@ -148,7 +150,7 @@ class CodexHarness(CodeAnalysisHarness):
         """Return list of supported analysis types."""
         return list(AnalysisType)
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get or create OpenAI client."""
         if self._client is None:
             try:
@@ -176,6 +178,7 @@ class CodexHarness(CodeAnalysisHarness):
         self,
         repo_path: Path,
         analysis_type: AnalysisType = AnalysisType.GENERAL,
+        prompt: str | None = None,
         options: dict[str, Any] | None = None,
     ) -> HarnessResult:
         """
@@ -184,6 +187,7 @@ class CodexHarness(CodeAnalysisHarness):
         Args:
             repo_path: Path to the repository
             analysis_type: Type of analysis to perform
+            prompt: Optional custom prompt for the analysis
             options: Additional options (file_patterns, exclude_patterns, max_files)
 
         Returns:
@@ -215,10 +219,10 @@ class CodexHarness(CodeAnalysisHarness):
                 )
 
             # Build analysis prompt
-            prompt = self._build_analysis_prompt(files_content, analysis_type)
+            analysis_prompt = self._build_analysis_prompt(files_content, analysis_type, prompt)
 
             # Call OpenAI API
-            raw_output = await self._call_openai(prompt)
+            raw_output = await self._call_openai(analysis_prompt)
 
             # Parse findings
             findings = self._parse_findings(raw_output, repo_path, analysis_type)
@@ -255,6 +259,7 @@ class CodexHarness(CodeAnalysisHarness):
         self,
         files: list[Path],
         analysis_type: AnalysisType = AnalysisType.GENERAL,
+        prompt: str | None = None,
         options: dict[str, Any] | None = None,
     ) -> HarnessResult:
         """Analyze specific files."""
@@ -263,7 +268,7 @@ class CodexHarness(CodeAnalysisHarness):
 
         try:
             # Read file contents
-            files_content = {}
+            files_content: dict[str, str] = {}
             for file_path in files:
                 if file_path.exists() and file_path.is_file():
                     try:
@@ -283,8 +288,8 @@ class CodexHarness(CodeAnalysisHarness):
                 )
 
             # Build and send prompt
-            prompt = self._build_analysis_prompt(files_content, analysis_type)
-            raw_output = await self._call_openai(prompt)
+            analysis_prompt = self._build_analysis_prompt(files_content, analysis_type, prompt)
+            raw_output = await self._call_openai(analysis_prompt)
             findings = self._parse_findings(raw_output, files[0].parent, analysis_type)
 
             duration = (datetime.utcnow() - started_at).total_seconds()
@@ -318,6 +323,7 @@ class CodexHarness(CodeAnalysisHarness):
         self,
         repo_path: Path,
         analysis_type: AnalysisType = AnalysisType.GENERAL,
+        prompt: str | None = None,
         options: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
         """Stream analysis results."""
@@ -339,7 +345,7 @@ class CodexHarness(CodeAnalysisHarness):
                 yield "No matching files found for analysis."
                 return
 
-            prompt = self._build_analysis_prompt(files_content, analysis_type)
+            analysis_prompt = self._build_analysis_prompt(files_content, analysis_type, prompt)
 
             # Stream from OpenAI
             client = self._get_client()
@@ -347,7 +353,7 @@ class CodexHarness(CodeAnalysisHarness):
                 model=self.config.model,
                 messages=[
                     {"role": "system", "content": "You are a code analysis expert."},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": analysis_prompt},
                 ],
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,
@@ -372,14 +378,14 @@ class CodexHarness(CodeAnalysisHarness):
 
         try:
             # Build context from files
-            files_content = {}
+            files_content: dict[str, str] = {}
             for file_path in context.files_in_context:
                 path = Path(file_path)
                 if path.exists():
                     files_content[file_path] = path.read_text(encoding="utf-8", errors="ignore")
 
             # Build messages
-            messages = [
+            messages: list[dict[str, str]] = [
                 {
                     "role": "system",
                     "content": "You are a code analysis expert. Help the user understand and improve their code.",
@@ -440,7 +446,7 @@ class CodexHarness(CodeAnalysisHarness):
         """Gather file contents matching patterns."""
         import fnmatch
 
-        files_content = {}
+        files_content: dict[str, str] = {}
         files_found = 0
 
         for pattern in patterns:
@@ -525,7 +531,7 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
         analysis_type: AnalysisType,
     ) -> list[AnalysisFinding]:
         """Parse findings from OpenAI response."""
-        findings = []
+        findings: list[AnalysisFinding] = []
 
         try:
             # Try to extract JSON from response
@@ -572,7 +578,7 @@ Each finding should have: id, title, severity, file_path, line_start, line_end, 
         analysis_type: AnalysisType,
     ) -> list[AnalysisFinding]:
         """Extract findings from non-JSON text response."""
-        findings = []
+        findings: list[AnalysisFinding] = []
 
         # Simple heuristic: look for severity indicators
         severity_patterns = {

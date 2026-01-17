@@ -235,7 +235,8 @@ def cmd_query(args: "Namespace") -> int:
 def cmd_facts(args: "Namespace") -> int:
     """Handle 'knowledge facts' command."""
     try:
-        from aragora.knowledge import FactStore, InMemoryFactStore, ValidationStatus
+        from aragora.knowledge import InMemoryFactStore, ValidationStatus
+        from aragora.knowledge.types import FactFilters
     except ImportError as e:
         print(f"Error: Knowledge module not available: {e}")
         return 1
@@ -244,21 +245,18 @@ def cmd_facts(args: "Namespace") -> int:
 
     if args.action == "list":
         # Build filters
-        filters = {}
-        if args.topic:
-            filters["topic"] = args.topic
-        if args.status:
-            filters["status"] = ValidationStatus(args.status)
-
-        facts = store.list_facts(
+        fact_filters = FactFilters(
             workspace_id=args.workspace,
             limit=args.limit,
             min_confidence=args.min_confidence,
-            **filters,
         )
+        if args.status:
+            fact_filters.validation_status = ValidationStatus(args.status)
+
+        facts = store.list_facts(filters=fact_filters)
 
         if args.json:
-            output = [
+            list_output = [
                 {
                     "id": f.id,
                     "statement": f.statement,
@@ -268,7 +266,7 @@ def cmd_facts(args: "Namespace") -> int:
                 }
                 for f in facts
             ]
-            print(json.dumps(output, indent=2))
+            print(json.dumps(list_output, indent=2))
         else:
             print(f"\nFacts in workspace '{args.workspace}'")
             print("=" * 70)
@@ -305,7 +303,7 @@ def cmd_facts(args: "Namespace") -> int:
             return 1
 
         if args.json:
-            output = {
+            show_output = {
                 "id": fact.id,
                 "statement": fact.statement,
                 "confidence": fact.confidence,
@@ -315,7 +313,7 @@ def cmd_facts(args: "Namespace") -> int:
                 "source_documents": fact.source_documents,
                 "created_at": fact.created_at.isoformat() if fact.created_at else None,
             }
-            print(json.dumps(output, indent=2))
+            print(json.dumps(show_output, indent=2))
         else:
             print(f"\nFact: {fact.id}")
             print("=" * 60)
@@ -555,6 +553,7 @@ def cmd_stats(args: "Namespace") -> int:
     """Handle 'knowledge stats' command."""
     try:
         from aragora.knowledge import InMemoryFactStore, InMemoryEmbeddingService
+        from aragora.knowledge.types import FactFilters
     except ImportError as e:
         print(f"Error: Knowledge module not available: {e}")
         return 1
@@ -563,7 +562,8 @@ def cmd_stats(args: "Namespace") -> int:
     embedding_service = InMemoryEmbeddingService()
 
     # Get stats
-    fact_count = len(fact_store.list_facts(workspace_id=args.workspace, limit=10000))
+    stats_filters = FactFilters(workspace_id=args.workspace, limit=10000)
+    fact_count = len(fact_store.list_facts(filters=stats_filters))
 
     stats = {
         "workspace": args.workspace or "all",

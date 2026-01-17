@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from ..base import (
     BaseHandler,
@@ -22,7 +22,21 @@ from ..base import (
     require_user_auth,
 )
 
+if TYPE_CHECKING:
+    from aragora.audit.document_auditor import AuditFinding
+    from aragora.storage.documents import DocumentStore
+
 logger = logging.getLogger(__name__)
+
+
+def _get_evidence_enrichment(finding: "AuditFinding") -> Any:
+    """Get evidence enrichment from finding using getattr to avoid type errors."""
+    return getattr(finding, "_evidence_enrichment", None)
+
+
+def _set_evidence_enrichment(finding: "AuditFinding", enrichment: Any) -> None:
+    """Set evidence enrichment on finding using setattr to avoid type errors."""
+    setattr(finding, "_evidence_enrichment", enrichment)
 
 
 class EvidenceEnrichmentHandler(BaseHandler):
@@ -65,6 +79,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
 
         return None
 
+    def _get_document_store(self) -> Optional["DocumentStore"]:
+        """Get document store from handler context."""
+        return self.ctx.get("document_store")
+
     @require_user_auth
     @handle_errors("get finding evidence")
     def _get_finding_evidence(self, finding_id: str, user=None) -> HandlerResult:
@@ -102,11 +120,12 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 return error_response(f"Finding not found: {finding_id}", 404)
 
             # Check if evidence is already attached
-            if hasattr(finding, "_evidence_enrichment"):
+            evidence_enrichment = _get_evidence_enrichment(finding)
+            if evidence_enrichment is not None:
                 return json_response(
                     {
                         "finding_id": finding_id,
-                        "evidence": finding._evidence_enrichment.to_dict(),
+                        "evidence": evidence_enrichment.to_dict(),
                     }
                 )
 
@@ -150,19 +169,22 @@ class EvidenceEnrichmentHandler(BaseHandler):
             }
         }
         """
-        body = self.get_json_body(handler) or {}
+        body = self.read_json_body(handler) or {}
 
         document_content = body.get("document_content")
         related_documents = body.get("related_documents", {})
         config_dict = body.get("config", {})
 
         try:
+            # Get document store from handler context
+            document_store = self._get_document_store()
             result = asyncio.run(
                 self._run_enrichment(
                     finding_id=finding_id,
                     document_content=document_content,
                     related_documents=related_documents,
                     config_dict=config_dict,
+                    document_store=document_store,
                 )
             )
             return json_response(result)
@@ -177,7 +199,8 @@ class EvidenceEnrichmentHandler(BaseHandler):
         finding_id: str,
         document_content: Optional[str],
         related_documents: dict[str, str],
-        config_dict: dict,
+        config_dict: dict[str, Any],
+        document_store: Optional["DocumentStore"],
     ) -> dict[str, Any]:
         """Run evidence enrichment for a finding."""
         from aragora.audit import get_document_auditor
@@ -193,12 +216,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 if f.id == finding_id:
                     finding = f
                     # Try to get document content from store if not provided
-                    if not doc_content:
-                        store = auditor._document_store
-                        if store:
-                            doc = store.get(f.document_id)
-                            if doc:
-                                doc_content = doc.content
+                    if not doc_content and document_store is not None:
+                        doc = document_store.get(f.document_id)
+                        if doc:
+                            doc_content = doc.content
                     break
             if finding:
                 break
@@ -222,7 +243,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         )
 
         # Store enrichment on finding
-        finding._evidence_enrichment = enrichment
+        _set_evidence_enrichment(finding, enrichment)
 
         return {
             "finding_id": finding_id,
@@ -252,7 +273,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             }
         }
         """
-        body = self.get_json_body(handler)
+        body = self.read_json_body(handler)
         if not body:
             return error_response("Request body required", 400)
 
@@ -263,10 +284,13 @@ class EvidenceEnrichmentHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
+            # Get document store from handler context
+            document_store = self._get_document_store()
             result = asyncio.run(
                 self._run_batch_enrichment(
                     finding_ids=finding_ids,
                     config_dict=config_dict,
+                    document_store=document_store,
                 )
             )
             return json_response(result)
@@ -277,14 +301,14 @@ class EvidenceEnrichmentHandler(BaseHandler):
     async def _run_batch_enrichment(
         self,
         finding_ids: list[str],
-        config_dict: dict,
+        config_dict: dict[str, Any],
+        document_store: Optional["DocumentStore"],
     ) -> dict[str, Any]:
         """Run batch evidence enrichment."""
         from aragora.audit import get_document_auditor
         from aragora.audit.evidence_adapter import FindingEvidenceCollector, EvidenceConfig
 
         auditor = get_document_auditor()
-        store = auditor._document_store
 
         # Find all findings and their documents
         findings = []
@@ -295,8 +319,8 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 if f.id in finding_ids:
                     findings.append(f)
                     # Get document content
-                    if store and f.document_id not in documents:
-                        doc = store.get(f.document_id)
+                    if document_store is not None and f.document_id not in documents:
+                        doc = document_store.get(f.document_id)
                         if doc:
                             documents[f.document_id] = doc.content
 
@@ -322,7 +346,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         # Store enrichments on findings
         for finding in findings:
             if finding.id in enrichments:
-                finding._evidence_enrichment = enrichments[finding.id]
+                _set_evidence_enrichment(finding, enrichments[finding.id])
 
         return {
             "enrichments": {fid: enrichment.to_dict() for fid, enrichment in enrichments.items()},

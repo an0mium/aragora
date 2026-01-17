@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding, AuditSession
+    from aragora.knowledge import InMemoryEmbeddingService, InMemoryFactStore
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class EnrichedChunk:
     sequence: int
 
     # Knowledge enrichment
-    related_facts: list[dict] = field(default_factory=list)
+    related_facts: list[dict[str, Any]] = field(default_factory=list)
     fact_count: int = 0
     relevance_score: float = 0.0
 
@@ -68,6 +69,8 @@ class AuditKnowledgeAdapter:
     def __init__(self, config: Optional[KnowledgeAuditConfig] = None):
         self.config = config or KnowledgeAuditConfig()
         self._initialized = False
+        self._fact_store: Optional[InMemoryFactStore] = None
+        self._embedding_service: Optional[InMemoryEmbeddingService] = None
 
     async def initialize(self) -> bool:
         """Initialize knowledge pipeline connection."""
@@ -128,6 +131,7 @@ class AuditKnowledgeAdapter:
 
             # Search for related facts
             try:
+                assert self._embedding_service is not None
                 related = await self._embedding_service.hybrid_search(
                     query=chunk_content[:500],  # First 500 chars for query
                     workspace_id=workspace,
@@ -135,13 +139,15 @@ class AuditKnowledgeAdapter:
                 )
 
                 # Also get facts with matching topics
+                from aragora.knowledge.types import FactFilters
+
+                assert self._fact_store is not None
                 facts = self._fact_store.list_facts(
-                    workspace_id=workspace,
-                    limit=10,
+                    FactFilters(workspace_id=workspace, limit=10)
                 )
 
                 # Filter for relevance (simple keyword matching)
-                relevant_facts = []
+                relevant_facts: list[dict[str, Any]] = []
                 chunk_lower = chunk_content.lower()
                 for fact in facts:
                     # Check if any topic appears in chunk
@@ -238,7 +244,8 @@ class AuditKnowledgeAdapter:
             )
 
             # Store in fact store
-            await self._fact_store.add_fact(
+            assert self._fact_store is not None
+            self._fact_store.add_fact(
                 statement=fact.statement,
                 evidence_ids=fact.evidence_ids,
                 source_documents=fact.source_documents,
@@ -299,11 +306,12 @@ class AuditKnowledgeAdapter:
             return []
 
         workspace = workspace_id or self.config.workspace_id
-        references = []
+        references: list[dict[str, Any]] = []
 
         try:
             # Search for similar content
             query = f"{finding.title} {finding.description}"
+            assert self._embedding_service is not None
             results = await self._embedding_service.hybrid_search(
                 query=query,
                 workspace_id=workspace,
@@ -323,10 +331,12 @@ class AuditKnowledgeAdapter:
                     )
 
             # Also search facts
-            facts = self._fact_store.search_facts(
+            from aragora.knowledge.types import FactFilters
+
+            assert self._fact_store is not None
+            facts = self._fact_store.query_facts(
                 query=finding.title,
-                workspace_id=workspace,
-                limit=5,
+                filters=FactFilters(workspace_id=workspace, limit=5),
             )
 
             for fact in facts:
@@ -373,14 +383,16 @@ class AuditKnowledgeAdapter:
 
         try:
             # Search for related facts
-            facts = self._fact_store.search_facts(
+            from aragora.knowledge.types import FactFilters
+
+            assert self._fact_store is not None
+            facts = self._fact_store.query_facts(
                 query=f"{finding.title} {finding.description}",
-                workspace_id=workspace,
-                limit=10,
+                filters=FactFilters(workspace_id=workspace, limit=10),
             )
 
-            supporting = []
-            contradicting = []
+            supporting: list[dict[str, Any]] = []
+            contradicting: list[dict[str, Any]] = []
 
             for fact in facts:
                 # Simple heuristic: high confidence facts from different docs might support

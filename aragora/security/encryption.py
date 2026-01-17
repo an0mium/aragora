@@ -404,12 +404,13 @@ class EncryptionService:
         elif isinstance(encrypted, bytes):
             encrypted = EncryptedData.from_bytes(encrypted)
 
-        key = self._get_key(encrypted.key_id)
+        # Get the key with the correct version for decryption
+        key = self._get_key(encrypted.key_id, version=encrypted.key_version)
 
         if key.version != encrypted.key_version:
-            # Try to find the specific version
+            # This should not happen after the fix, but log if it does
             logger.warning(
-                f"Key version mismatch: expected {encrypted.key_version}, " f"have {key.version}"
+                f"Key version mismatch: expected {encrypted.key_version}, have {key.version}"
             )
 
         if isinstance(associated_data, str):

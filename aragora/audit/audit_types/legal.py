@@ -518,9 +518,7 @@ class LegalAuditor(BaseAuditor):
                             f"{len(with_deadlines)} with explicit deadlines. "
                             "Review to ensure all obligations are tracked."
                         ),
-                        evidence_text="\n".join(
-                            f"- {o.text[:100]}..." for o in mandatory[:5]
-                        ),
+                        evidence_text="\n".join(f"- {o.text[:100]}..." for o in mandatory[:5]),
                         evidence_location="cross-document analysis",
                         recommendation="Create obligation tracking for all mandatory requirements",
                         affected_scope="document",

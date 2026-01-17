@@ -27,6 +27,7 @@ from aragora.privacy.isolation import (
 from aragora.privacy.retention import (
     RetentionPolicyManager,
     RetentionPolicy,
+    RetentionAction,
     DeletionReport,
     RetentionViolation,
 )
@@ -53,6 +54,7 @@ __all__ = [
     # Retention
     "RetentionPolicyManager",
     "RetentionPolicy",
+    "RetentionAction",
     "DeletionReport",
     "RetentionViolation",
     # Classification

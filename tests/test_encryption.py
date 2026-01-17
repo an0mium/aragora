@@ -261,7 +261,6 @@ class TestKeyRotation:
         assert new_key.key_id == old_key_id  # Same key_id, new version
         assert new_key.version > 1
 
-    @pytest.mark.skip(reason="Key rotation doesn't preserve old keys in current implementation")
     def test_decrypt_with_old_key_after_rotation(self, encryption_service):
         """Test that data encrypted before rotation can still be decrypted."""
         plaintext = "Encrypted before rotation"
@@ -271,12 +270,11 @@ class TestKeyRotation:
         # Rotate the key
         encryption_service.rotate_key()
 
-        # Should still be able to decrypt
+        # Should still be able to decrypt with old key version
         decrypted = encryption_service.decrypt_string(encrypted)
 
         assert decrypted == plaintext
 
-    @pytest.mark.skip(reason="Key rotation doesn't preserve old keys in current implementation")
     def test_re_encrypt_with_new_key(self, encryption_service):
         """Test re-encrypting data with new key."""
         plaintext = "Original data"

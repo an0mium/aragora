@@ -80,6 +80,7 @@ from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
 from .privacy import PrivacyHandler
+from .workspace import WorkspaceHandler
 from .features import PluginsHandler  # Moved to features/
 from .agents import ProbesHandler  # Moved to agents/
 from .features import PulseHandler  # Moved to features/
@@ -165,6 +166,7 @@ ALL_HANDLERS = [
     WebhookHandler,
     AdminHandler,
     PrivacyHandler,
+    WorkspaceHandler,  # Enterprise workspace/privacy management
 ]
 
 # Handler stability classifications
@@ -243,6 +245,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
+    "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
 }
 
 
@@ -336,6 +339,7 @@ __all__ = [
     "WebhookHandler",
     "AdminHandler",
     "PrivacyHandler",
+    "WorkspaceHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",
