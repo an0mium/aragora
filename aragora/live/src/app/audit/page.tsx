@@ -191,7 +191,7 @@ export default function AuditDashboardPage() {
         </div>
 
         {/* Sessions List */}
-        <PanelErrorBoundary title="Audit Sessions">
+        <PanelErrorBoundary panelName="Audit Sessions">
           <div className="space-y-4">
             {loading ? (
               <div className="card p-8 text-center animate-pulse text-muted font-mono">LOADING...</div>

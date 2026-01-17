@@ -190,7 +190,7 @@ export default function DocumentsPage() {
           )}
         </div>
 
-        <PanelErrorBoundary title="Documents">
+        <PanelErrorBoundary panelName="Documents">
           <div className="card overflow-hidden">
             {loading ? (
               <div className="p-8 text-center animate-pulse text-muted font-mono">LOADING...</div>
