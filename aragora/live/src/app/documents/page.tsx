@@ -66,7 +66,7 @@ export default function DocumentsPage() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.url}/api/documents`, {
+      const response = await fetch(`${backendConfig.api}/api/documents`, {
         headers: { 'Authorization': `Bearer ${user?.token || ''}` },
       });
       if (response.ok) {
@@ -78,7 +78,7 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.url, user?.token]);
+  }, [backendConfig.api, user?.token]);
 
   useEffect(() => {
     fetchDocuments();
@@ -98,7 +98,7 @@ export default function DocumentsPage() {
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append('files', file));
-      await fetch(`${backendConfig.url}/api/documents/batch`, {
+      await fetch(`${backendConfig.api}/api/documents/batch`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user?.token || ''}` },
         body: formData,
@@ -179,7 +179,7 @@ export default function DocumentsPage() {
             setFolderDialogOpen(false);
             fetchDocuments();
           }}
-          apiBase={backendConfig.url}
+          apiBase={backendConfig.api}
           authToken={user?.token}
         />
 

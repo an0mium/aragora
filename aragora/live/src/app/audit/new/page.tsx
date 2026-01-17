@@ -53,7 +53,7 @@ function NewAuditContent() {
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.url}/api/documents`, {
+      const response = await fetch(`${backendConfig.api}/api/documents`, {
         headers: { 'Authorization': `Bearer ${user?.token || ''}` },
       });
       if (response.ok) {
@@ -65,7 +65,7 @@ function NewAuditContent() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.url, user?.token]);
+  }, [backendConfig.api, user?.token]);
 
   useEffect(() => {
     fetchDocuments();
@@ -81,7 +81,7 @@ function NewAuditContent() {
     setError(null);
 
     try {
-      const response = await fetch(`${backendConfig.url}/api/audit/sessions`, {
+      const response = await fetch(`${backendConfig.api}/api/audit/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ function NewAuditContent() {
       const data = await response.json();
 
       // Start the audit
-      await fetch(`${backendConfig.url}/api/audit/sessions/${data.id}/start`, {
+      await fetch(`${backendConfig.api}/api/audit/sessions/${data.id}/start`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user?.token || ''}` },
       });

@@ -86,7 +86,7 @@ export default function AuditDashboardPage() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.url}/api/audit/sessions`, {
+      const response = await fetch(`${backendConfig.api}/api/audit/sessions`, {
         headers: { 'Authorization': `Bearer ${user?.token || ''}` },
       });
       if (response.ok) {
@@ -99,7 +99,7 @@ export default function AuditDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.url, user?.token]);
+  }, [backendConfig.api, user?.token]);
 
   useEffect(() => {
     fetchSessions();
@@ -108,7 +108,7 @@ export default function AuditDashboardPage() {
   }, [fetchSessions]);
 
   const handlePause = async (sessionId: string) => {
-    await fetch(`${backendConfig.url}/api/audit/sessions/${sessionId}/pause`, {
+    await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}/pause`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${user?.token || ''}` },
     });
@@ -116,7 +116,7 @@ export default function AuditDashboardPage() {
   };
 
   const handleResume = async (sessionId: string) => {
-    await fetch(`${backendConfig.url}/api/audit/sessions/${sessionId}/resume`, {
+    await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}/resume`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${user?.token || ''}` },
     });
@@ -124,7 +124,7 @@ export default function AuditDashboardPage() {
   };
 
   const handleCancel = async (sessionId: string) => {
-    await fetch(`${backendConfig.url}/api/audit/sessions/${sessionId}`, {
+    await fetch(`${backendConfig.api}/api/audit/sessions/${sessionId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${user?.token || ''}` },
     });
