@@ -564,6 +564,16 @@ module = [
     "aragora.server.question_classifier",
     "aragora.debate.role_matcher",
     "aragora.connectors.wikipedia",
+    "aragora.connectors.sec",
+    "aragora.connectors.newsapi",
+    "aragora.connectors.web",
+    "aragora.pulse.scheduler",
+    "aragora.genesis.ledger",
+    "aragora.genesis.breeding",
+    "aragora.mcp.tools_module.evidence",
+    "aragora.audit.evidence_adapter",
+    "aragora.debate.context_gatherer",
+    "aragora.modes.probes.strategies",
 ]
 ignore_errors = true
 

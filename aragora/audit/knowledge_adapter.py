@@ -142,9 +142,7 @@ class AuditKnowledgeAdapter:
                 from aragora.knowledge.types import FactFilters
 
                 assert self._fact_store is not None
-                facts = self._fact_store.list_facts(
-                    FactFilters(workspace_id=workspace, limit=10)
-                )
+                facts = self._fact_store.list_facts(FactFilters(workspace_id=workspace, limit=10))
 
                 # Filter for relevance (simple keyword matching)
                 relevant_facts: list[dict[str, Any]] = []
