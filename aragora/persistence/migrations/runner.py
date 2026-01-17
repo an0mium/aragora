@@ -402,8 +402,7 @@ class MigrationRunner:
                 line for line in lines if not line.startswith('"') and not line.startswith("'")
             ]
             return len(non_doc_lines) == 0 or all(line == "pass" for line in non_doc_lines)
-        except Exception:
-            # If we can't inspect, assume it's not empty
+        except Exception:  # noqa: BLE001 - Inspection failures mean non-empty
             return False
 
     def migrate_all(self, dry_run: bool = False) -> dict[str, dict]:

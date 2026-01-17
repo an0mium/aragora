@@ -393,8 +393,174 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
     }
 
 
+def create_hook_manager_from_emitter(
+    emitter: SyncEventEmitter,
+    loop_id: str = "",
+) -> "HookManager":
+    """
+    Create a HookManager that bridges to WebSocket events.
+
+    This function creates a HookManager and registers all standard hook types
+    to emit events via the SyncEventEmitter, enabling real-time WebSocket
+    broadcasts of debate lifecycle events.
+
+    Args:
+        emitter: The SyncEventEmitter to emit events to
+        loop_id: Debate ID to attach to all events
+
+    Returns:
+        Configured HookManager with WebSocket bridges
+    """
+    from aragora.debate.hooks import HookManager, HookPriority, HookType
+
+    manager = HookManager()
+
+    # Bridge debate lifecycle hooks
+    def on_pre_debate(**kwargs: Any) -> None:
+        """Bridge PRE_DEBATE to DEBATE_START event."""
+        task = kwargs.get("task", "")
+        agents = [a.name if hasattr(a, "name") else str(a) for a in kwargs.get("agents", [])]
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": task, "agents": agents},
+                loop_id=loop_id,
+            )
+        )
+
+    def on_post_debate(**kwargs: Any) -> None:
+        """Bridge POST_DEBATE to DEBATE_END event."""
+        result = kwargs.get("result")
+        duration = getattr(result, "duration", 0.0) if result else 0.0
+        rounds = getattr(result, "rounds_completed", 0) if result else 0
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_END,
+                data={"duration": duration, "rounds": rounds},
+                loop_id=loop_id,
+            )
+        )
+
+    def on_pre_round(**kwargs: Any) -> None:
+        """Bridge PRE_ROUND to ROUND_START event."""
+        round_num = kwargs.get("round_num", 0)
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.ROUND_START,
+                data={"round": round_num},
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_post_round(**kwargs: Any) -> None:
+        """Bridge POST_ROUND - no direct event, but useful for logging."""
+        round_num = kwargs.get("round_num", 0)
+        proposals = kwargs.get("proposals", {})
+        logger.debug(f"Round {round_num} complete with {len(proposals)} proposals")
+
+    def on_post_consensus(**kwargs: Any) -> None:
+        """Bridge POST_CONSENSUS to CONSENSUS event."""
+        result = kwargs.get("result")
+        if result:
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.CONSENSUS,
+                    data={
+                        "reached": getattr(result, "reached", False),
+                        "confidence": getattr(result, "confidence", 0.0),
+                        "answer": getattr(result, "answer", ""),
+                    },
+                    loop_id=loop_id,
+                )
+            )
+
+    def on_finding(**kwargs: Any) -> None:
+        """Bridge ON_FINDING to audit finding event."""
+        finding = kwargs.get("finding")
+        if finding:
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.PHASE_PROGRESS,  # Use PHASE_PROGRESS for audit
+                    data={
+                        "phase": "audit",
+                        "event": "finding",
+                        "finding_id": getattr(finding, "id", ""),
+                        "title": getattr(finding, "title", ""),
+                        "severity": getattr(finding, "severity", "info"),
+                    },
+                    loop_id=loop_id,
+                )
+            )
+
+    def on_progress(**kwargs: Any) -> None:
+        """Bridge ON_PROGRESS to PHASE_PROGRESS event."""
+        phase = kwargs.get("phase", "")
+        completed = kwargs.get("completed", 0)
+        total = kwargs.get("total", 0)
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.PHASE_PROGRESS,
+                data={
+                    "phase": phase,
+                    "completed": completed,
+                    "total": total,
+                    "progress_pct": (completed / total * 100) if total > 0 else 0,
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_error(**kwargs: Any) -> None:
+        """Bridge ON_ERROR to AGENT_ERROR event."""
+        agent = kwargs.get("agent", "unknown")
+        error = kwargs.get("error")
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_ERROR,
+                data={
+                    "error_type": type(error).__name__ if error else "unknown",
+                    "message": str(error) if error else "Unknown error",
+                    "recoverable": kwargs.get("recoverable", True),
+                    "phase": kwargs.get("phase", ""),
+                },
+                agent=agent if isinstance(agent, str) else getattr(agent, "name", "unknown"),
+                loop_id=loop_id,
+            )
+        )
+
+    def on_cancellation(**kwargs: Any) -> None:
+        """Bridge ON_CANCELLATION event."""
+        reason = kwargs.get("reason", "User requested")
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_END,
+                data={
+                    "cancelled": True,
+                    "reason": reason,
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    # Register all bridges
+    manager.register(HookType.PRE_DEBATE, on_pre_debate, priority=HookPriority.LOW, name="ws_pre_debate")
+    manager.register(HookType.POST_DEBATE, on_post_debate, priority=HookPriority.LOW, name="ws_post_debate")
+    manager.register(HookType.PRE_ROUND, on_pre_round, priority=HookPriority.LOW, name="ws_pre_round")
+    manager.register(HookType.POST_ROUND, on_post_round, priority=HookPriority.LOW, name="ws_post_round")
+    manager.register(HookType.POST_CONSENSUS, on_post_consensus, priority=HookPriority.LOW, name="ws_post_consensus")
+    manager.register(HookType.ON_FINDING, on_finding, priority=HookPriority.LOW, name="ws_on_finding")
+    manager.register(HookType.ON_PROGRESS, on_progress, priority=HookPriority.LOW, name="ws_on_progress")
+    manager.register(HookType.ON_ERROR, on_error, priority=HookPriority.LOW, name="ws_on_error")
+    manager.register(HookType.ON_CANCELLATION, on_cancellation, priority=HookPriority.LOW, name="ws_on_cancellation")
+
+    logger.debug(f"Created HookManager with {len(manager.stats)} hook types bridged to WebSocket")
+    return manager
+
+
 __all__ = [
     "create_arena_hooks",
+    "create_hook_manager_from_emitter",
     "wrap_agent_for_streaming",
     "streaming_task_context",
     "get_current_task_id",

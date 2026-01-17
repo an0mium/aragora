@@ -115,6 +115,11 @@ class AnalyticsPhase:
         Args:
             ctx: The DebateContext with completed debate
         """
+        # Check for cancellation before analytics
+        if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
+            from aragora.debate.cancellation import DebateCancelled
+            raise DebateCancelled(ctx.cancellation_token.reason)
+
         if not ctx.result:
             logger.warning("AnalyticsPhase called without result")
             return
@@ -166,6 +171,13 @@ class AnalyticsPhase:
 
         # 14. Finalize recording
         self._finalize_recording(ctx)
+
+        # 15. Trigger POST_DEBATE hook if hook_manager is available
+        if ctx.hook_manager:
+            try:
+                await ctx.hook_manager.trigger("post_debate", ctx=ctx, result=result)
+            except Exception as e:
+                logger.debug(f"POST_DEBATE hook failed: {e}")
 
     def _track_failed_patterns(self, result: "DebateResult") -> None:
         """Track failed patterns for balanced learning."""

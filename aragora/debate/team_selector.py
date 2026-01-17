@@ -2,6 +2,8 @@
 
 Extracted from orchestrator.py to reduce complexity and improve testability.
 Handles agent scoring based on ELO, calibration, and circuit breaker filtering.
+
+Enhanced with DelegationStrategy integration for intelligent task routing.
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ from typing import TYPE_CHECKING, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.core import Agent
+    from aragora.debate.context import DebateContext
+    from aragora.debate.delegation import DelegationStrategy
     from aragora.debate.protocol import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -44,6 +48,7 @@ class TeamSelectionConfig:
 
     elo_weight: float = 0.3
     calibration_weight: float = 0.2
+    delegation_weight: float = 0.2  # Weight for delegation strategy scoring
     base_score: float = 1.0
     elo_baseline: int = 1000
 
@@ -51,40 +56,47 @@ class TeamSelectionConfig:
 class TeamSelector:
     """Selects and scores agents for debate participation.
 
-    Uses ELO ratings, calibration scores, and circuit breaker status
-    to prioritize high-performing, reliable agents.
+    Uses ELO ratings, calibration scores, delegation strategies, and
+    circuit breaker status to prioritize high-performing, reliable agents.
 
     Example:
         selector = TeamSelector(
             elo_system=elo,
             calibration_tracker=tracker,
             circuit_breaker=breaker,
+            delegation_strategy=ContentBasedDelegation(),
         )
-        team = selector.select(agents, domain="technical")
+        team = selector.select(agents, domain="technical", task="Review security")
     """
 
     def __init__(
         self,
         elo_system: Optional[AgentScorer] = None,
         calibration_tracker: Optional[CalibrationScorer] = None,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        circuit_breaker: Optional["CircuitBreaker"] = None,
+        delegation_strategy: Optional["DelegationStrategy"] = None,
         config: Optional[TeamSelectionConfig] = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
         self.circuit_breaker = circuit_breaker
+        self.delegation_strategy = delegation_strategy
         self.config = config or TeamSelectionConfig()
 
     def select(
         self,
-        agents: list[Agent],
+        agents: list["Agent"],
         domain: str = "general",
-    ) -> list[Agent]:
+        task: str = "",
+        context: Optional["DebateContext"] = None,
+    ) -> list["Agent"]:
         """Select and rank agents for debate participation.
 
         Args:
             agents: List of candidate agents
             domain: Task domain for context-aware selection
+            task: Task description for delegation-based routing
+            context: Optional debate context for state-aware selection
 
         Returns:
             Agents sorted by performance score (highest first)
@@ -92,14 +104,14 @@ class TeamSelector:
         # Filter unavailable agents via circuit breaker
         available_names = self._filter_available(agents)
 
-        # Score remaining agents (using domain-specific calibration)
-        scored: list[tuple[Agent, float]] = []
+        # Score remaining agents (using domain-specific calibration and delegation)
+        scored: list[tuple["Agent", float]] = []
         for agent in agents:
             if agent.name not in available_names:
                 logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
                 continue
 
-            score = self._compute_score(agent, domain=domain)
+            score = self._compute_score(agent, domain=domain, task=task, context=context)
             scored.append((agent, score))
 
         if not scored:
@@ -132,12 +144,20 @@ class TeamSelector:
 
         return available_names
 
-    def _compute_score(self, agent: Agent, domain: Optional[str] = None) -> float:
+    def _compute_score(
+        self,
+        agent: "Agent",
+        domain: Optional[str] = None,
+        task: str = "",
+        context: Optional["DebateContext"] = None,
+    ) -> float:
         """Compute composite score for an agent.
 
         Args:
             agent: Agent to score
             domain: Optional domain for domain-specific calibration lookup
+            task: Task description for delegation-based scoring
+            context: Optional debate context for state-aware scoring
         """
         score = self.config.base_score
 
@@ -160,13 +180,39 @@ class TeamSelector:
             except (KeyError, AttributeError, TypeError) as e:
                 logger.debug(f"Calibration score not found for {agent.name}: {e}")
 
+        # Delegation strategy contribution
+        if self.delegation_strategy and task:
+            try:
+                delegation_score = self.delegation_strategy.score_agent(agent, task, context)
+                # Normalize delegation score (assuming 0-5 range typical)
+                normalized = min(delegation_score / 5.0, 1.0)
+                score += normalized * self.config.delegation_weight
+            except (AttributeError, TypeError) as e:
+                logger.debug(f"Delegation score failed for {agent.name}: {e}")
+
         return score
 
-    def score_agent(self, agent: Agent, domain: Optional[str] = None) -> float:
+    def score_agent(
+        self,
+        agent: "Agent",
+        domain: Optional[str] = None,
+        task: str = "",
+        context: Optional["DebateContext"] = None,
+    ) -> float:
         """Get score for a single agent (for external use).
 
         Args:
             agent: Agent to score
             domain: Optional domain for domain-specific calibration
+            task: Optional task for delegation-based scoring
+            context: Optional debate context for state-aware scoring
         """
-        return self._compute_score(agent, domain=domain)
+        return self._compute_score(agent, domain=domain, task=task, context=context)
+
+    def set_delegation_strategy(self, strategy: "DelegationStrategy") -> None:
+        """Set or update the delegation strategy.
+
+        Args:
+            strategy: New delegation strategy to use
+        """
+        self.delegation_strategy = strategy

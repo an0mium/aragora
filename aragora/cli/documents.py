@@ -171,8 +171,8 @@ async def _upload_async(args: argparse.Namespace) -> int:
     if hasattr(args, "config") and args.config:
         config_path = Path(args.config)
         if config_path.exists():
-            with open(config_path) as f:
-                config_dict = yaml.safe_load(f) or {}
+            with open(config_path) as cfg_file:
+                config_dict = yaml.safe_load(cfg_file) or {}
             print(f"Loaded config from: {args.config}")
         else:
             print(f"Warning: Config file not found: {args.config}")
@@ -332,29 +332,29 @@ async def _upload_async(args: argparse.Namespace) -> int:
     try:
         from aragora.documents.ingestion import get_batch_processor
 
-        processor = get_batch_processor()
+        processor = await get_batch_processor()
         results = []
         failed = 0
 
         for i, file_path in enumerate(all_files):
             try:
-                with open(file_path, "rb") as f:
-                    content = f.read()
+                with open(file_path, "rb") as fh:
+                    content = fh.read()
 
-                job = await processor.submit(content=content, filename=file_path.name)
-                result = await processor.wait_for_job(job.id)
+                job_id = await processor.submit(content=content, filename=file_path.name)
+                job_result = await processor.wait_for_job(job_id)
 
-                if result.document_id:
+                if job_result and job_result.document:
                     results.append(
                         {
                             "file": str(file_path),
-                            "doc_id": result.document_id,
+                            "doc_id": job_result.document.id,
                             "status": "success",
                         }
                     )
                     if not json_output:
                         print(
-                            f"  [{i+1}/{len(all_files)}] {file_path.name} -> {result.document_id}"
+                            f"  [{i+1}/{len(all_files)}] {file_path.name} -> {job_result.document.id}"
                         )
                 else:
                     results.append(

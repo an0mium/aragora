@@ -229,7 +229,7 @@ class DocumentBatchHandler(BaseHandler):
                     text = content.decode("utf-8", errors="ignore")
                     tokens = counter.count(text)
                     estimated_chunks += max(1, tokens // chunk_size)
-                except Exception:
+                except Exception:  # noqa: BLE001 - Token counting fallback
                     estimated_chunks += 1
 
             return json_response(

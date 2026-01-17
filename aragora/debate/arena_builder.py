@@ -254,6 +254,14 @@ class ArenaBuilder:
         self._multilingual_manager: Any = None
         self._default_language: str = "en"
 
+        # New orchestration features (Phase 4 integration)
+        self._hook_manager: Any = None  # HookManager for extended lifecycle hooks
+        self._delegation_strategy: Any = None  # DelegationStrategy for task routing
+        self._cancellation_token: Any = None  # CancellationToken for cooperative abort
+        self._enable_stream_chaining: bool = False  # Enable agent-to-agent streaming
+        self._byzantine_config: Any = None  # ByzantineConsensusConfig for fault tolerance
+        self._session_id: str = ""  # Session ID for session lifecycle tracking
+
     # =========================================================================
     # Protocol Configuration
     # =========================================================================
@@ -833,6 +841,99 @@ class ArenaBuilder:
         return self
 
     # =========================================================================
+    # New Orchestration Features (Phase 4 Integration)
+    # =========================================================================
+
+    def with_hook_manager(self, hook_manager: Any) -> "ArenaBuilder":
+        """Set the HookManager for extended lifecycle hooks.
+
+        The HookManager provides PRE_DEBATE, POST_ROUND, ON_FINDING, etc.
+        hooks for automation and WebSocket event bridging.
+
+        Args:
+            hook_manager: HookManager instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._hook_manager = hook_manager
+        return self
+
+    def with_delegation(self, strategy: Any) -> "ArenaBuilder":
+        """Set the delegation strategy for task routing.
+
+        Delegation strategies (ContentBased, LoadBalanced, Hybrid) route
+        tasks to appropriate agents based on keywords, workload, or expertise.
+
+        Args:
+            strategy: DelegationStrategy instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._delegation_strategy = strategy
+        return self
+
+    def with_cancellation(self, token: Any) -> "ArenaBuilder":
+        """Set the cancellation token for cooperative abort.
+
+        CancellationToken enables user-initiated cancellation of long-running
+        debates without leaving orphan processes.
+
+        Args:
+            token: CancellationToken instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._cancellation_token = token
+        return self
+
+    def with_stream_chaining(self, enabled: bool = True) -> "ArenaBuilder":
+        """Enable agent-to-agent stream chaining.
+
+        Stream chaining allows agents to receive streaming output from
+        other agents without file I/O intermediary, reducing latency.
+
+        Args:
+            enabled: Whether to enable stream chaining
+
+        Returns:
+            Self for method chaining
+        """
+        self._enable_stream_chaining = enabled
+        return self
+
+    def with_byzantine_consensus(self, config: Any) -> "ArenaBuilder":
+        """Set Byzantine consensus configuration.
+
+        Byzantine consensus (PBFT-style) tolerates faulty or adversarial
+        agents where n >= 3f + 1. Use for critical decisions.
+
+        Args:
+            config: ByzantineConsensusConfig instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._byzantine_config = config
+        return self
+
+    def with_session(self, session_id: str) -> "ArenaBuilder":
+        """Set session ID for session lifecycle tracking.
+
+        Session ID enables pause/resume and session management endpoints.
+
+        Args:
+            session_id: Unique session identifier
+
+        Returns:
+            Self for method chaining
+        """
+        self._session_id = session_id
+        return self
+
+    # =========================================================================
     # Composite Configuration
     # =========================================================================
 
@@ -903,6 +1004,7 @@ class ArenaBuilder:
             protocol=self._protocol,
             memory=self._memory,
             event_hooks=self._event_hooks,
+            hook_manager=self._hook_manager,
             event_emitter=self._event_emitter,
             spectator=self._spectator,
             debate_embeddings=self._debate_embeddings,

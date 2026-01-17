@@ -359,7 +359,7 @@ Focus on facts and cite your sources.""",
 
             parsed = urlparse(url)
             return parsed.netloc or url[:50]
-        except Exception:
+        except ValueError:
             return url[:50]
 
     def _extract_search_query(self, question: str) -> str:

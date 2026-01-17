@@ -284,7 +284,7 @@ def dict_to_dataclass(cls: Type[T], data: Dict[str, Any]) -> T:
 
     try:
         hints = get_type_hints(cls)
-    except Exception:
+    except Exception:  # noqa: BLE001 - Type hints may fail on complex generics
         hints = {}
 
     kwargs: Dict[str, Any] = {}

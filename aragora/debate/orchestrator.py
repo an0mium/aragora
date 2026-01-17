@@ -154,6 +154,7 @@ class Arena:
         protocol: DebateProtocol = None,
         memory=None,  # CritiqueStore instance
         event_hooks: dict = None,  # Optional hooks for streaming events
+        hook_manager=None,  # Optional HookManager for extended lifecycle hooks
         event_emitter: Optional[
             "EventEmitterProtocol"
         ] = None,  # Optional event emitter for subscribing to user events
@@ -225,6 +226,7 @@ class Arena:
             protocol=protocol,
             memory=memory,
             event_hooks=event_hooks,
+            hook_manager=hook_manager,
             event_emitter=event_emitter,
             spectator=spectator,
             debate_embeddings=debate_embeddings,
@@ -335,6 +337,7 @@ class Arena:
         protocol: DebateProtocol | None,
         memory,
         event_hooks: dict | None,
+        hook_manager,  # Optional HookManager for extended lifecycle hooks
         event_emitter: Optional["EventEmitterProtocol"],
         spectator: SpectatorStream | None,
         debate_embeddings,
@@ -390,6 +393,7 @@ class Arena:
             logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
         self.memory = memory
         self.hooks = event_hooks or {}
+        self.hook_manager = hook_manager  # Extended lifecycle hooks (HookManager)
         self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
         self.spectator = spectator or SpectatorStream(enabled=False)
         self.debate_embeddings = debate_embeddings
@@ -1171,6 +1175,7 @@ class Arena:
             debate_id=debate_id,
             correlation_id=correlation_id,
             domain=domain,
+            hook_manager=self.hook_manager,
         )
 
         # Classify task complexity and configure adaptive timeouts

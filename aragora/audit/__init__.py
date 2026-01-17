@@ -44,6 +44,14 @@ from .document_auditor import (
     FindingStatus,
     get_document_auditor,
 )
+from .hive_mind import (
+    AuditHiveMind,
+    HiveMindConfig,
+    HiveMindResult,
+    WorkerTask,
+    WorkerResult,
+    QueenOrchestrator,
+)
 
 __all__ = [
     # Compliance logging
@@ -65,4 +73,11 @@ __all__ = [
     "FindingSeverity",
     "FindingStatus",
     "get_document_auditor",
+    # Hive-Mind Architecture
+    "AuditHiveMind",
+    "HiveMindConfig",
+    "HiveMindResult",
+    "WorkerTask",
+    "WorkerResult",
+    "QueenOrchestrator",
 ]

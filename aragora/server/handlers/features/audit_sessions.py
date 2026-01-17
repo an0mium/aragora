@@ -41,6 +41,9 @@ _sessions: dict[str, dict[str, Any]] = {}
 _findings: dict[str, list[dict[str, Any]]] = {}
 _event_queues: dict[str, list[asyncio.Queue]] = {}
 
+# CancellationToken storage for active sessions
+_cancellation_tokens: dict[str, Any] = {}
+
 
 class AuditSessionsHandler(BaseHandler):
     """
@@ -121,7 +124,7 @@ class AuditSessionsHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         document_ids = body.get("document_ids", [])
@@ -299,7 +302,7 @@ class AuditSessionsHandler(BaseHandler):
         return self._json_response(200, session)
 
     async def _cancel_audit(self, request: Any, session_id: str) -> dict[str, Any]:
-        """Cancel an audit session."""
+        """Cancel an audit session using CancellationToken for cooperative abort."""
         session = _sessions.get(session_id)
         if not session:
             return self._error_response(404, f"Session {session_id} not found")
@@ -307,7 +310,25 @@ class AuditSessionsHandler(BaseHandler):
         if session["status"] in ["completed", "cancelled"]:
             return self._error_response(400, f"Session already in {session['status']} status")
 
+        # Parse reason from request body
+        reason = "User requested cancellation"
+        try:
+            body = await self._parse_json_body(request)
+            reason = body.get("reason", reason)
+        except Exception:
+            pass
+
+        # Trigger CancellationToken if available
+        token = _cancellation_tokens.get(session_id)
+        if token:
+            try:
+                token.cancel(reason)
+                logger.debug(f"Triggered CancellationToken for session {session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to trigger CancellationToken: {e}")
+
         session["status"] = "cancelled"
+        session["cancel_reason"] = reason
         session["completed_at"] = datetime.utcnow().isoformat()
         session["updated_at"] = datetime.utcnow().isoformat()
 
@@ -316,11 +337,12 @@ class AuditSessionsHandler(BaseHandler):
             {
                 "type": "audit_cancelled",
                 "session_id": session_id,
+                "reason": reason,
                 "timestamp": datetime.utcnow().isoformat(),
             },
         )
 
-        logger.info(f"Cancelled audit session {session_id}")
+        logger.info(f"Cancelled audit session {session_id}: {reason}")
 
         return self._json_response(200, session)
 
@@ -420,7 +442,7 @@ class AuditSessionsHandler(BaseHandler):
 
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         action = body.get("action")
@@ -543,39 +565,125 @@ class AuditSessionsHandler(BaseHandler):
 
     async def _run_audit_background(self, session_id: str):
         """
-        Background task to run the actual audit.
+        Background task to run the actual audit using DocumentAuditor.
 
-        This is a placeholder that would integrate with the DocumentAuditor.
+        Integrates with the DocumentAuditor and uses CancellationToken for
+        cooperative cancellation support.
         """
         try:
             session = _sessions.get(session_id)
             if not session:
                 return
 
-            # Simulate audit progress (would be replaced with actual audit logic)
             document_ids = session["document_ids"]
 
-            for i, doc_id in enumerate(document_ids):
-                if session["status"] != "running":
-                    break  # Paused or cancelled
+            # Create CancellationToken for this session
+            try:
+                from aragora.debate.cancellation import CancellationToken
 
-                # Update progress
-                session["progress"]["processed_documents"] = i + 1
-                session["updated_at"] = datetime.utcnow().isoformat()
+                cancellation_token = CancellationToken()
+                _cancellation_tokens[session_id] = cancellation_token
+            except ImportError:
+                cancellation_token = None
+                logger.debug("CancellationToken not available, using status-based cancellation")
 
+            # Create on_finding callback to emit events
+            async def on_finding(finding):
+                finding_dict = finding.to_dict() if hasattr(finding, "to_dict") else finding
+                finding_dict["session_id"] = session_id
+
+                # Store finding
+                if session_id not in _findings:
+                    _findings[session_id] = []
+                _findings[session_id].append(finding_dict)
+
+                # Emit event
                 await self._emit_event(
                     session_id,
                     {
-                        "type": "progress_update",
+                        "type": "finding_discovered",
                         "session_id": session_id,
-                        "document_id": doc_id,
-                        "progress": session["progress"],
+                        "finding": finding_dict,
                         "timestamp": datetime.utcnow().isoformat(),
                     },
                 )
 
-                # Simulate some findings (would come from actual auditors)
-                await asyncio.sleep(0.5)  # Simulate processing time
+            # Create on_progress callback
+            def on_progress(sess_id: str, progress: float, phase: str):
+                if session_id in _sessions:
+                    _sessions[session_id]["progress"]["current_phase"] = phase
+                    _sessions[session_id]["progress"]["percentage"] = progress
+                    _sessions[session_id]["updated_at"] = datetime.utcnow().isoformat()
+
+                # Emit progress event (fire and forget)
+                asyncio.create_task(
+                    self._emit_event(
+                        session_id,
+                        {
+                            "type": "progress_update",
+                            "session_id": session_id,
+                            "phase": phase,
+                            "progress": progress,
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+                )
+
+            # Try to use DocumentAuditor
+            try:
+                from aragora.audit.document_auditor import DocumentAuditor, AuditConfig
+
+                config = AuditConfig(
+                    use_hive_mind=len(document_ids) > 1,  # Enable Hive-Mind for multi-doc
+                    consensus_verification=True,
+                )
+
+                auditor = DocumentAuditor(
+                    config=config,
+                    on_finding=lambda f: asyncio.create_task(on_finding(f)),
+                    on_progress=on_progress,
+                )
+
+                # Create session in auditor
+                audit_session = await auditor.create_session(
+                    document_ids=document_ids,
+                    audit_types=session.get("audit_types", ["all"]),
+                    name=session.get("name", ""),
+                )
+
+                # Run audit
+                result = await auditor.run_audit(audit_session.id)
+
+                # Store findings
+                _findings[session_id] = [f.to_dict() for f in result.findings]
+
+            except ImportError:
+                logger.warning("DocumentAuditor not available, using fallback simulation")
+                # Fallback to simulation
+                for i, doc_id in enumerate(document_ids):
+                    if cancellation_token and cancellation_token.is_cancelled:
+                        break
+                    if session["status"] != "running":
+                        break
+
+                    session["progress"]["processed_documents"] = i + 1
+                    session["updated_at"] = datetime.utcnow().isoformat()
+
+                    await self._emit_event(
+                        session_id,
+                        {
+                            "type": "progress_update",
+                            "session_id": session_id,
+                            "document_id": doc_id,
+                            "progress": session["progress"],
+                            "timestamp": datetime.utcnow().isoformat(),
+                        },
+                    )
+
+                    await asyncio.sleep(0.5)
+
+            # Clean up CancellationToken
+            _cancellation_tokens.pop(session_id, None)
 
             # Mark completed if not cancelled
             if session["status"] == "running":
@@ -597,6 +705,7 @@ class AuditSessionsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Error in audit session {session_id}: {e}")
+            _cancellation_tokens.pop(session_id, None)
             if session_id in _sessions:
                 _sessions[session_id]["status"] = "failed"
                 _sessions[session_id]["error"] = str(e)

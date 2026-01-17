@@ -151,6 +151,45 @@ _EXPORT_MAP = {
     "MultilingualDebateManager": ("aragora.debate.translation", "MultilingualDebateManager"),
     "get_translation_service": ("aragora.debate.translation", "get_translation_service"),
     "get_multilingual_manager": ("aragora.debate.translation", "get_multilingual_manager"),
+    # Extended Hooks System
+    "HookManager": ("aragora.debate.hooks", "HookManager"),
+    "HookPriority": ("aragora.debate.hooks", "HookPriority"),
+    "HookType": ("aragora.debate.hooks", "HookType"),
+    "create_hook_manager": ("aragora.debate.hooks", "create_hook_manager"),
+    # Cancellation
+    "CancellationToken": ("aragora.debate.cancellation", "CancellationToken"),
+    "CancellationScope": ("aragora.debate.cancellation", "CancellationScope"),
+    "CancellationReason": ("aragora.debate.cancellation", "CancellationReason"),
+    "DebateCancelled": ("aragora.debate.cancellation", "DebateCancelled"),
+    "create_linked_token": ("aragora.debate.cancellation", "create_linked_token"),
+    # Session Management
+    "DebateSession": ("aragora.debate.session", "DebateSession"),
+    "DebateSessionState": ("aragora.debate.session", "DebateSessionState"),
+    "SessionManager": ("aragora.debate.session", "SessionManager"),
+    # Topology
+    "TopologySelector": ("aragora.debate.topology", "TopologySelector"),
+    "AdaptiveSelector": ("aragora.debate.topology", "AdaptiveSelector"),
+    "TopologyConfig": ("aragora.debate.topology", "TopologyConfig"),
+    # Delegation Strategies
+    "DelegationStrategy": ("aragora.debate.delegation", "DelegationStrategy"),
+    "ContentBasedDelegation": ("aragora.debate.delegation", "ContentBasedDelegation"),
+    "LoadBalancedDelegation": ("aragora.debate.delegation", "LoadBalancedDelegation"),
+    "ExpertiseDelegation": ("aragora.debate.delegation", "ExpertiseDelegation"),
+    "HybridDelegation": ("aragora.debate.delegation", "HybridDelegation"),
+    "RoundRobinDelegation": ("aragora.debate.delegation", "RoundRobinDelegation"),
+    "create_default_delegation": ("aragora.debate.delegation", "create_default_delegation"),
+    # Byzantine Consensus
+    "ByzantineConsensus": ("aragora.debate.byzantine", "ByzantineConsensus"),
+    "ByzantineConsensusConfig": ("aragora.debate.byzantine", "ByzantineConsensusConfig"),
+    "ByzantineConsensusResult": ("aragora.debate.byzantine", "ByzantineConsensusResult"),
+    "ByzantinePhase": ("aragora.debate.byzantine", "ByzantinePhase"),
+    "verify_with_byzantine_consensus": ("aragora.debate.byzantine", "verify_with_byzantine_consensus"),
+    # Stream Chaining
+    "StreamChain": ("aragora.debate.stream_chain", "StreamChain"),
+    "StreamBuffer": ("aragora.debate.stream_chain", "StreamBuffer"),
+    "StreamMessage": ("aragora.debate.stream_chain", "StreamMessage"),
+    "ChainedDebate": ("aragora.debate.stream_chain", "ChainedDebate"),
+    "create_chain_from_topology": ("aragora.debate.stream_chain", "create_chain_from_topology"),
 }
 
 
@@ -316,4 +355,43 @@ __all__ = [
     "MultilingualDebateManager",
     "get_translation_service",
     "get_multilingual_manager",
+    # Extended Hooks System
+    "HookManager",
+    "HookPriority",
+    "HookType",
+    "create_hook_manager",
+    # Cancellation
+    "CancellationToken",
+    "CancellationScope",
+    "CancellationReason",
+    "DebateCancelled",
+    "create_linked_token",
+    # Session Management
+    "DebateSession",
+    "DebateSessionState",
+    "SessionManager",
+    # Topology
+    "TopologySelector",
+    "AdaptiveSelector",
+    "TopologyConfig",
+    # Delegation Strategies
+    "DelegationStrategy",
+    "ContentBasedDelegation",
+    "LoadBalancedDelegation",
+    "ExpertiseDelegation",
+    "HybridDelegation",
+    "RoundRobinDelegation",
+    "create_default_delegation",
+    # Byzantine Consensus
+    "ByzantineConsensus",
+    "ByzantineConsensusConfig",
+    "ByzantineConsensusResult",
+    "ByzantinePhase",
+    "verify_with_byzantine_consensus",
+    # Stream Chaining
+    "StreamChain",
+    "StreamBuffer",
+    "StreamMessage",
+    "ChainedDebate",
+    "create_chain_from_topology",
 ]

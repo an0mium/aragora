@@ -98,6 +98,20 @@ class ProposalPhase:
         Args:
             ctx: The DebateContextType to update with proposals
         """
+        # Check for cancellation before starting
+        if hasattr(ctx, "cancellation_token") and ctx.cancellation_token:
+            if ctx.cancellation_token.is_cancelled:
+                from aragora.debate.cancellation import DebateCancelled
+                raise DebateCancelled(ctx.cancellation_token.reason)
+
+        # Trigger PRE_DEBATE hook if hook_manager is available
+        if hasattr(ctx, "hook_manager") and ctx.hook_manager:
+            try:
+                await ctx.hook_manager.trigger(
+                    "pre_debate", ctx=ctx, agents=ctx.agents, task=ctx.env.task
+                )
+            except Exception as e:
+                logger.debug(f"PRE_DEBATE hook failed: {e}")
 
         # 1. Update role assignments for round 0
         if self._update_role_assignments:

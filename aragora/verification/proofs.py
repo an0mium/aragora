@@ -282,8 +282,8 @@ try:
         if not key.startswith('_'):
             try:
                 serializable_ns[key] = repr(value)
-            except Exception:
-                pass  # Skip non-serializable values
+            except Exception:  # noqa: BLE001
+                pass  # Skip non-repr values
     # Prefer __result__ (assertion result) over result (user variable)
     print(json.dumps({{
         "success": True,

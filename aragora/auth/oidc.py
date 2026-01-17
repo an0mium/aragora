@@ -225,7 +225,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
+                assert httpx is not None
+                async with httpx.AsyncClient() as client:
                     response = await client.get(discovery_url, timeout=10.0)
                     response.raise_for_status()
                     self._discovery_cache = response.json()
@@ -406,7 +407,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
+                assert httpx is not None
+                async with httpx.AsyncClient() as client:
                     response = await client.post(
                         token_endpoint, data=data, headers=headers, timeout=30.0
                     )
@@ -492,7 +494,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
+                assert httpx is not None
+                async with httpx.AsyncClient() as client:
                     response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
                     response.raise_for_status()
                     return response.json()
@@ -595,7 +598,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
+                assert httpx is not None
+                async with httpx.AsyncClient() as client:
                     response = await client.post(token_endpoint, data=data, timeout=30.0)
                     response.raise_for_status()
                     tokens = response.json()

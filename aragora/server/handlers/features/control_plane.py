@@ -256,7 +256,7 @@ class ControlPlaneHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         task_id = body.get("task_id")

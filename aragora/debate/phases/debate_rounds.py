@@ -249,7 +249,19 @@ class DebateRoundsPhase:
             self._track_novelty(ctx, round_num=0)
 
         for round_num in range(1, rounds + 1):
+            # Check for cancellation before each round
+            if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
+                from aragora.debate.cancellation import DebateCancelled
+                raise DebateCancelled(ctx.cancellation_token.reason)
+
             logger.info(f"round_start round={round_num}")
+
+            # Trigger PRE_ROUND hook if hook_manager is available
+            if ctx.hook_manager:
+                try:
+                    await ctx.hook_manager.trigger("pre_round", ctx=ctx, round_num=round_num)
+                except Exception as e:
+                    logger.debug(f"PRE_ROUND hook failed: {e}")
 
             # Emit heartbeat at round start
             self._emit_heartbeat(f"round_{round_num}", "starting")
@@ -324,6 +336,18 @@ class DebateRoundsPhase:
                     await self._checkpoint_callback(ctx, round_num)
                 except Exception as e:
                     logger.debug(f"Checkpoint failed for round {round_num}: {e}")
+
+            # Trigger POST_ROUND hook if hook_manager is available
+            if ctx.hook_manager:
+                try:
+                    await ctx.hook_manager.trigger(
+                        "post_round",
+                        ctx=ctx,
+                        round_num=round_num,
+                        proposals=ctx.proposals,
+                    )
+                except Exception as e:
+                    logger.debug(f"POST_ROUND hook failed: {e}")
 
             # Emit heartbeat before convergence check
             self._emit_heartbeat(f"round_{round_num}", "checking_convergence")

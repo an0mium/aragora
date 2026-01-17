@@ -781,20 +781,20 @@ def cmd_elo(args: argparse.Namespace) -> None:
                     losses = rival.get("total_losses", 0)
                     print(f"    {name}: {losses} losses")
 
-        except Exception:
+        except Exception:  # noqa: BLE001 - Agent lookup may fail in various ways
             print(f"Agent not found: {agent}")
 
 
 def get_version() -> str:
     """Get package version from pyproject.toml or fallback."""
     try:
-        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError, version
 
         return version("aragora")
     except ImportError:
         # importlib.metadata not available (Python < 3.8)
         return "0.8.0-dev"
-    except Exception:
+    except PackageNotFoundError:
         # Package not installed in editable mode - use dev version
         return "0.8.0-dev"
 

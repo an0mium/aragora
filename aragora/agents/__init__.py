@@ -15,6 +15,12 @@ from aragora.agents.airlock import (
     wrap_agent,
     wrap_agents,
 )
+from aragora.agents.config_loader import (
+    AgentConfig,
+    AgentConfigLoader,
+    ConfigValidationError,
+    load_agent_configs,
+)
 from aragora.agents.api_agents import (
     AnthropicAPIAgent,
     DeepSeekAgent,
@@ -194,4 +200,9 @@ __all__ = [
     "LocalLLMStatus",
     "detect_local_llms",
     "detect_local_llms_sync",
+    # YAML Configuration
+    "AgentConfig",
+    "AgentConfigLoader",
+    "ConfigValidationError",
+    "load_agent_configs",
 ]

@@ -280,6 +280,10 @@ class AuditConfig:
     document_timeout_seconds: int = 300
     chunk_timeout_seconds: int = 60
 
+    # Hive-Mind orchestration (for multi-document audits)
+    use_hive_mind: bool = True  # Enable Hive-Mind for multi-document audits
+    consensus_verification: bool = True  # Use Byzantine consensus for critical findings
+
 
 class DocumentAuditor:
     """
@@ -451,7 +455,11 @@ class DocumentAuditor:
         return session
 
     async def _execute_audit(self, session: AuditSession) -> None:
-        """Execute the audit pipeline."""
+        """Execute the audit pipeline.
+
+        For multi-document audits (>1 document), uses Hive-Mind architecture
+        for parallel processing with Queen-Worker orchestration.
+        """
         # Phase 1: Load and prepare documents
         session.current_phase = "loading_documents"
         self._notify_progress(session, 0.05)
@@ -459,6 +467,34 @@ class DocumentAuditor:
         chunks = await self._load_document_chunks(session)
         session.total_chunks = len(chunks)
 
+        # Use Hive-Mind for multi-document audits when enabled
+        use_hive_mind = (
+            len(session.document_ids) > 1
+            and self.config.use_hive_mind
+            and len(chunks) > 1
+        )
+
+        if use_hive_mind:
+            # Use Hive-Mind parallel orchestration
+            verified_findings = await self._execute_with_hive_mind(session, chunks)
+        else:
+            # Use standard sequential pipeline
+            verified_findings = await self._execute_standard_pipeline(session, chunks)
+
+        # Phase 5: Finalize
+        session.current_phase = "finalizing"
+        session.findings = verified_findings
+        session.progress = 1.0
+        self._notify_progress(session, 1.0)
+
+        logger.info(f"Audit session {session.id} completed: {len(verified_findings)} findings")
+
+    async def _execute_standard_pipeline(
+        self,
+        session: AuditSession,
+        chunks: list[dict[str, Any]],
+    ) -> list[AuditFinding]:
+        """Execute standard sequential audit pipeline."""
         # Phase 2: Initial scan with large context model
         session.current_phase = "initial_scan"
         self._notify_progress(session, 0.1)
@@ -477,15 +513,66 @@ class DocumentAuditor:
         session.current_phase = "verification"
         self._notify_progress(session, 0.7)
 
-        verified_findings = await self._verify_findings(session, initial_findings)
+        return await self._verify_findings(session, initial_findings)
 
-        # Phase 5: Finalize
-        session.current_phase = "finalizing"
-        session.findings = verified_findings
-        session.progress = 1.0
-        self._notify_progress(session, 1.0)
+    async def _execute_with_hive_mind(
+        self,
+        session: AuditSession,
+        chunks: list[dict[str, Any]],
+    ) -> list[AuditFinding]:
+        """Execute audit using Hive-Mind parallel orchestration.
 
-        logger.info(f"Audit session {session.id} completed: {len(verified_findings)} findings")
+        Uses Queen-Worker model for parallel document processing:
+        - Queen decomposes audit into tasks
+        - Workers process documents in parallel by specialty
+        - Findings aggregated and verified via Byzantine consensus
+        """
+        try:
+            from aragora.audit.hive_mind import (
+                AuditHiveMind,
+                HiveMindConfig,
+            )
+
+            session.current_phase = "hive_mind_init"
+            self._notify_progress(session, 0.1)
+
+            # Configure Hive-Mind
+            hive_config = HiveMindConfig(
+                max_workers=min(8, len(chunks)),
+                task_timeout_seconds=self.config.chunk_timeout_seconds,
+                consensus_verification=self.config.consensus_verification,
+            )
+
+            # Create Hive-Mind orchestrator
+            hive_mind = AuditHiveMind(
+                config=hive_config,
+                audit_types=self._get_effective_audit_types(session),
+            )
+
+            # Wire progress callbacks
+            if self.on_progress:
+                hive_mind.on_progress = lambda p: self._notify_progress(
+                    session,
+                    0.1 + (p * 0.8),  # Map 0-1 to 0.1-0.9
+                )
+
+            if self.on_finding:
+                hive_mind.on_finding = self.on_finding
+
+            # Execute with Hive-Mind
+            session.current_phase = "hive_mind_execution"
+            result = await hive_mind.execute(session, chunks)
+
+            return result.findings
+
+        except ImportError:
+            logger.warning("Hive-Mind not available, falling back to standard pipeline")
+            return await self._execute_standard_pipeline(session, chunks)
+
+        except Exception as e:
+            logger.error(f"Hive-Mind execution failed: {e}, falling back to standard")
+            session.errors.append(f"Hive-Mind error: {e}")
+            return await self._execute_standard_pipeline(session, chunks)
 
     async def _load_document_chunks(
         self,

@@ -11,286 +11,15 @@ Routes tasks to best-fit agents by:
 """
 
 import logging
-import random
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
+# Re-export from domain_matcher for backwards compatibility
+from aragora.routing.domain_matcher import DOMAIN_KEYWORDS, DomainDetector
+from aragora.routing.team_builder import PHASE_ROLES, TeamBuilder
+
 logger = logging.getLogger(__name__)
-
-
-# Domain detection keywords
-DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "security": [
-        "security",
-        "auth",
-        "authentication",
-        "authorization",
-        "encrypt",
-        "vulnerability",
-        "attack",
-        "xss",
-        "sql injection",
-        "csrf",
-        "token",
-        "password",
-        "credential",
-        "permission",
-        "access control",
-        "firewall",
-        "sanitize",
-        "validate input",
-        "owasp",
-        "rate limit",
-        "brute force",
-    ],
-    "performance": [
-        "performance",
-        "optimize",
-        "speed",
-        "latency",
-        "cache",
-        "caching",
-        "memory",
-        "cpu",
-        "throughput",
-        "bottleneck",
-        "profil",
-        "benchmark",
-        "slow",
-        "fast",
-        "efficient",
-        "scale",
-        "scaling",
-        "load",
-        "concurrent",
-    ],
-    "architecture": [
-        "architecture",
-        "design",
-        "pattern",
-        "refactor",
-        "structure",
-        "modular",
-        "decouple",
-        "interface",
-        "abstract",
-        "dependency",
-        "solid",
-        "dry",
-        "single responsibility",
-        "microservice",
-        "monolith",
-    ],
-    "testing": [
-        "test",
-        "testing",
-        "unittest",
-        "pytest",
-        "mock",
-        "coverage",
-        "integration test",
-        "e2e",
-        "end-to-end",
-        "tdd",
-        "bdd",
-        "fixture",
-        "assertion",
-        "spec",
-        "verify",
-        "validate",
-    ],
-    "api": [
-        "api",
-        "endpoint",
-        "rest",
-        "graphql",
-        "grpc",
-        "http",
-        "request",
-        "response",
-        "route",
-        "handler",
-        "middleware",
-        "cors",
-        "versioning",
-        "openapi",
-        "swagger",
-        "webhook",
-    ],
-    "database": [
-        "database",
-        "db",
-        "sql",
-        "query",
-        "schema",
-        "migration",
-        "index",
-        "transaction",
-        "orm",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "mongodb",
-        "redis",
-        "cache",
-        "nosql",
-        "join",
-        "foreign key",
-    ],
-    "frontend": [
-        "frontend",
-        "ui",
-        "ux",
-        "react",
-        "vue",
-        "angular",
-        "css",
-        "html",
-        "component",
-        "render",
-        "state",
-        "redux",
-        "hook",
-        "responsive",
-        "accessibility",
-        "a11y",
-        "animation",
-    ],
-    "devops": [
-        "deploy",
-        "deployment",
-        "ci",
-        "cd",
-        "docker",
-        "kubernetes",
-        "k8s",
-        "pipeline",
-        "github actions",
-        "terraform",
-        "aws",
-        "cloud",
-        "infra",
-        "monitoring",
-        "logging",
-        "observability",
-    ],
-    "debugging": [
-        "debug",
-        "bug",
-        "fix",
-        "error",
-        "exception",
-        "traceback",
-        "crash",
-        "issue",
-        "problem",
-        "broken",
-        "fail",
-        "not working",
-        "investigate",
-    ],
-    "documentation": [
-        "document",
-        "readme",
-        "docstring",
-        "comment",
-        "explain",
-        "tutorial",
-        "guide",
-        "specification",
-        "api doc",
-    ],
-    "ethics": [
-        "ethics",
-        "ethical",
-        "fairness",
-        "bias",
-        "privacy",
-        "consent",
-        "responsible",
-        "governance",
-        "compliance",
-        "gdpr",
-        "moral",
-        "transparency",
-        "accountability",
-        "harm",
-        "safety",
-        "alignment",
-    ],
-    "philosophy": [
-        "philosophy",
-        "philosophical",
-        "epistemology",
-        "epistemological",
-        "ontology",
-        "ontological",
-        "logic",
-        "logical",
-        "reasoning",
-        "argument",
-        "premise",
-        "conclusion",
-        "fallacy",
-        "dialectic",
-        "metaphysics",
-        "metaphysical",
-        "theory of",
-        "concept",
-        "definition",
-        "truth claim",
-        "knowledge",
-        "belief",
-        "justify",
-        "justification",
-        "foundational",
-        "first principles",
-    ],
-    "data_analysis": [
-        "data",
-        "analysis",
-        "dataset",
-        "statistics",
-        "statistical",
-        "pandas",
-        "numpy",
-        "visualization",
-        "chart",
-        "plot",
-        "correlation",
-        "regression",
-        "machine learning",
-        "ml",
-        "prediction",
-        "model",
-        "feature",
-        "training",
-        "jupyter",
-        "notebook",
-        "csv",
-        "json",
-        "etl",
-        "pipeline",
-    ],
-    "general": [
-        "implement",
-        "create",
-        "build",
-        "add",
-        "update",
-        "change",
-        "modify",
-        "code",
-        "function",
-        "class",
-        "method",
-        "module",
-        "library",
-        "package",
-    ],
-}
 
 
 # Default agent expertise profiles
@@ -352,112 +81,6 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "general": 0.85,
     },
 }
-
-
-class DomainDetector:
-    """
-    Detects task domain from natural language description.
-
-    Uses keyword matching with weighted scoring to identify
-    the primary and secondary domains for a task.
-    """
-
-    def __init__(self, custom_keywords: Optional[dict[str, list[str]]] = None):
-        """Initialize with optional custom domain keywords."""
-        self.keywords = DOMAIN_KEYWORDS.copy()
-        if custom_keywords:
-            for domain, words in custom_keywords.items():
-                if domain in self.keywords:
-                    self.keywords[domain].extend(words)
-                else:
-                    self.keywords[domain] = words
-
-    def detect(self, task_text: str, top_n: int = 3) -> list[tuple[str, float]]:
-        """
-        Detect domains from task text.
-
-        Args:
-            task_text: The task description
-            top_n: Number of top domains to return
-
-        Returns:
-            List of (domain, confidence) tuples, sorted by confidence
-        """
-        text_lower = task_text.lower()
-        scores: dict[str, float] = {}
-
-        for domain, keywords in self.keywords.items():
-            score = 0.0
-            for keyword in keywords:
-                # Count occurrences with word boundaries
-                pattern = r"\b" + re.escape(keyword) + r"\b"
-                matches = len(re.findall(pattern, text_lower))
-                if matches > 0:
-                    # Longer keywords are more specific, weight them higher
-                    weight = 1.0 + len(keyword.split()) * 0.5
-                    score += matches * weight
-
-            if score > 0:
-                scores[domain] = score
-
-        # Normalize scores
-        if scores:
-            max_score = max(scores.values())
-            scores = {d: s / max_score for d, s in scores.items()}
-
-        # Sort by score descending
-        sorted_domains = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
-        # Default to "general" if no domains detected
-        if not sorted_domains:
-            return [("general", 0.5)]
-
-        return sorted_domains[:top_n]
-
-    def get_primary_domain(self, task_text: str) -> str:
-        """Get the primary domain for a task."""
-        domains = self.detect(task_text, top_n=1)
-        return domains[0][0] if domains else "general"
-
-    def get_task_requirements(
-        self,
-        task_text: str,
-        task_id: Optional[str] = None,
-    ) -> "TaskRequirements":
-        """
-        Create TaskRequirements from task text with auto-detected domains.
-
-        Args:
-            task_text: The task description
-            task_id: Optional task identifier
-
-        Returns:
-            TaskRequirements with detected domains
-        """
-        domains = self.detect(task_text, top_n=3)
-
-        primary = domains[0][0] if domains else "general"
-        secondary = [d for d, _ in domains[1:] if _ > 0.3]  # Only include confident secondary
-
-        # Detect required traits from keywords
-        traits = []
-        text_lower = task_text.lower()
-        if any(w in text_lower for w in ["critical", "important", "careful"]):
-            traits.append("thorough")
-        if any(w in text_lower for w in ["fast", "quick", "asap"]):
-            traits.append("fast")
-        if any(w in text_lower for w in ["security", "secure", "safe"]):
-            traits.append("security")
-        if any(w in text_lower for w in ["creative", "novel", "innovative"]):
-            traits.append("creative")
-
-        return TaskRequirements(
-            task_id=task_id or f"task-{hash(task_text) % 10000:04d}",
-            description=task_text[:500],
-            primary_domain=primary,
-            secondary_domains=secondary,
-            required_traits=traits,
-        )
 
 
 if TYPE_CHECKING:
@@ -995,120 +618,18 @@ class AgentSelector:
         max_size: int,
         diversity_pref: float,
     ) -> list[AgentProfile]:
-        """Select a diverse team from scored candidates."""
-        if len(scored) <= min_size:
-            return [a for a, _ in scored]
-
-        team: list[AgentProfile] = []
-        remaining = list(scored)
-
-        while len(team) < max_size and remaining:
-            if len(team) < min_size or random.random() > diversity_pref:
-                # Greedy: pick highest scored
-                agent, score = remaining[0]
-                team.append(agent)
-                remaining = remaining[1:]
-            else:
-                # Diversity: pick someone different
-                team_types = set(a.agent_type for a in team)
-                team_traits = set()
-                for a in team:
-                    team_traits.update(a.traits)
-
-                # Find most different agent
-                best_diff: AgentProfile | None = None
-                best_diff_score: float = -1.0
-
-                for agent, score in remaining:
-                    diff_score: float = 0.0
-                    if agent.agent_type not in team_types:
-                        diff_score += 0.5
-                    new_traits = set(agent.traits) - team_traits
-                    diff_score += len(new_traits) * 0.1
-                    diff_score += score * 0.4  # Still consider quality
-
-                    if diff_score > best_diff_score:
-                        best_diff = agent
-                        best_diff_score = diff_score
-
-                if best_diff:
-                    team.append(best_diff)
-                    remaining = [(a, s) for a, s in remaining if a.name != best_diff.name]
-                else:
-                    break
-
-        return team
+        """Select a diverse team from scored candidates. Delegates to TeamBuilder."""
+        builder = TeamBuilder()
+        return builder.select_diverse_team(scored, min_size, max_size, diversity_pref)
 
     def _assign_roles(
         self,
         team: list[AgentProfile],
         requirements: TaskRequirements,
     ) -> dict[str, str]:
-        """Assign debate roles to team members."""
-        roles: dict[str, str] = {}
-
-        if not team:
-            return roles
-
-        # Sort by domain expertise for proposer selection
-        by_expertise = sorted(
-            team,
-            key=lambda a: a.expertise.get(requirements.primary_domain, 0),
-            reverse=True,
-        )
-
-        # Assign proposer to highest domain expert
-        roles[by_expertise[0].name] = "proposer"
-
-        # Assign synthesizer to most balanced agent
-        if len(team) > 1:
-            remaining = by_expertise[1:]
-            balanced = min(
-                remaining,
-                key=lambda a: abs(a.overall_score - 0.5),
-            )
-            roles[balanced.name] = "synthesizer"
-
-        # Assign critics to rest
-        for agent in team:
-            if agent.name not in roles:
-                # Try to match critic type to traits
-                if "thorough" in agent.traits or "security" in agent.traits:
-                    roles[agent.name] = "security_critic"
-                elif "pragmatic" in agent.traits or "performance" in agent.traits:
-                    roles[agent.name] = "performance_critic"
-                else:
-                    roles[agent.name] = "critic"
-
-        return roles
-
-    # Phase role configuration: phase -> (agent_role_map, fallback_role)
-    # agent_role_map: {agent_type: role}
-    _PHASE_ROLES: dict[str, tuple[dict[str, str], str]] = {
-        "debate": ({}, "proposer"),  # All agents are proposers
-        "design": (
-            {
-                "gemini": "design_lead",
-                "claude": "architecture_critic",
-                "codex": "implementation_critic",
-                "grok": "devil_advocate",
-                "deepseek": "logic_validator",
-            },
-            "critic",
-        ),
-        "implement": ({"claude": "implementer"}, "advisor"),
-        "verify": (
-            {
-                "codex": "verification_lead",
-                "grok": "quality_auditor",
-                "gemini": "design_validator",
-                "claude": "implementation_reviewer",
-                "deepseek": "formal_verifier",
-            },
-            "reviewer",
-        ),
-        "commit": ({}, "reviewer"),
-    }
+        """Assign debate roles to team members. Delegates to TeamBuilder."""
+        builder = TeamBuilder()
+        return builder.assign_roles(team, requirements)
 
     def assign_hybrid_roles(
         self,
@@ -1117,6 +638,7 @@ class AgentSelector:
     ) -> dict[str, str]:
         """
         Assign phase-specific roles for Hybrid Model Architecture.
+        Delegates to TeamBuilder.
 
         Architecture:
         - Gemini: Primary planner/designer (leads Phase 2)
@@ -1125,45 +647,13 @@ class AgentSelector:
         - Grok: Lateral thinker/devil's advocate (critiques all phases)
         - DeepSeek: Rigorous analyst/formal reasoner (validates logic all phases)
         """
-        roles: dict[str, str] = {}
-
-        # Get phase configuration or default fallback
-        role_map, fallback = self._PHASE_ROLES.get(phase, ({}, "participant"))
-
-        # Assign roles from the role map
-        for agent in team:
-            assigned = False
-            for agent_type, role in role_map.items():
-                if agent_type in agent.name.lower() or agent.agent_type == agent_type:
-                    roles[agent.name] = role
-                    assigned = True
-                    break
-            if not assigned:
-                roles[agent.name] = fallback
-
-        return roles
+        builder = TeamBuilder()
+        return builder.assign_hybrid_roles(team, phase)
 
     def _calculate_diversity(self, team: list[AgentProfile]) -> float:
-        """Calculate team diversity score."""
-        if len(team) <= 1:
-            return 0.0
-
-        # Type diversity
-        types = set(a.agent_type for a in team)
-        type_div = len(types) / len(team)
-
-        # Trait diversity
-        all_traits = set()
-        for a in team:
-            all_traits.update(a.traits)
-        trait_div = len(all_traits) / (len(team) * 3)  # Assume avg 3 traits
-
-        # ELO diversity (mix of skill levels)
-        elos = [a.elo_rating for a in team]
-        elo_range = max(elos) - min(elos) if len(elos) > 1 else 0
-        elo_div = min(elo_range / 500, 1.0)  # Normalize to 500 range
-
-        return type_div * 0.4 + trait_div * 0.3 + elo_div * 0.3
+        """Calculate team diversity score. Delegates to TeamBuilder."""
+        builder = TeamBuilder()
+        return builder.calculate_diversity(team)
 
     def _generate_rationale(
         self,
@@ -1171,29 +661,9 @@ class AgentSelector:
         requirements: TaskRequirements,
         all_scored: list[tuple[AgentProfile, float]],
     ) -> str:
-        """Generate human-readable selection rationale."""
-        lines = [
-            f"Selected {len(team)} agents for task '{requirements.task_id}':",
-            f"Primary domain: {requirements.primary_domain}",
-            "",
-            "Team composition:",
-        ]
-
-        for agent in team:
-            expertise = agent.expertise.get(requirements.primary_domain, 0)
-            domain_elo = agent.domain_ratings.get(requirements.primary_domain, agent.elo_rating)
-            lines.append(
-                f"- {agent.name} ({agent.agent_type}): "
-                f"ELO {agent.elo_rating:.0f}, "
-                f"Domain ELO {domain_elo:.0f}, "
-                f"Expertise {expertise:.0%}"
-            )
-
-        if len(all_scored) > len(team):
-            lines.append("")
-            lines.append(f"Considered {len(all_scored)} candidates, selected top {len(team)}")
-
-        return "\n".join(lines)
+        """Generate human-readable selection rationale. Delegates to TeamBuilder."""
+        builder = TeamBuilder()
+        return builder._generate_rationale(team, requirements, all_scored)
 
     def update_from_result(
         self,
@@ -1464,3 +934,20 @@ class AgentSelector:
             selector.refresh_from_elo_system()
 
         return selector
+
+
+__all__ = [
+    # Core classes
+    "AgentProfile",
+    "AgentSelector",
+    "TaskRequirements",
+    "TeamComposition",
+    # Re-exports from domain_matcher
+    "DomainDetector",
+    "DOMAIN_KEYWORDS",
+    # Re-exports from team_builder
+    "TeamBuilder",
+    "PHASE_ROLES",
+    # Constants
+    "DEFAULT_AGENT_EXPERTISE",
+]

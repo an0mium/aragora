@@ -42,6 +42,7 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.core import Vote
+    from aragora.debate.byzantine import ByzantineConsensus, ByzantineConsensusConfig
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -280,6 +281,18 @@ class ConsensusPhase:
         Args:
             ctx: The DebateContext with proposals and result
         """
+        # Check for cancellation before starting
+        if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
+            from aragora.debate.cancellation import DebateCancelled
+            raise DebateCancelled(ctx.cancellation_token.reason)
+
+        # Trigger PRE_CONSENSUS hook if hook_manager is available
+        if ctx.hook_manager:
+            try:
+                await ctx.hook_manager.trigger("pre_consensus", ctx=ctx, proposals=ctx.proposals)
+            except Exception as e:
+                logger.debug(f"PRE_CONSENSUS hook failed: {e}")
+
         consensus_mode = self.protocol.consensus if self.protocol else "none"
         logger.info(f"consensus_phase_start mode={consensus_mode}")
 
@@ -339,6 +352,24 @@ class ConsensusPhase:
         if not ctx.result:
             return
 
+        # Trigger POST_CONSENSUS hook if hook_manager is available
+        if ctx.hook_manager:
+            try:
+                # Use asyncio.create_task for async hook in sync method
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(
+                        ctx.hook_manager.trigger(
+                            "post_consensus",
+                            ctx=ctx,
+                            result=ctx.result,
+                            consensus_reached=ctx.result.consensus_reached,
+                        )
+                    )
+            except Exception as e:
+                logger.debug(f"POST_CONSENSUS hook failed: {e}")
+
         if self.hooks and "on_consensus" in self.hooks:
             try:
                 self.hooks["on_consensus"](
@@ -384,6 +415,8 @@ class ConsensusPhase:
             await self._handle_unanimous_consensus(ctx)
         elif normalized == "judge":
             await self._handle_judge_consensus(ctx)
+        elif normalized == "byzantine":
+            await self._handle_byzantine_consensus(ctx)
         else:
             logger.warning(f"Unknown consensus mode: {consensus_mode}, using none")
             await self._handle_none_consensus(ctx)
@@ -688,6 +721,115 @@ class ConsensusPhase:
             logger.warning(f"judge_fallback_majority_failed error={e}")
 
         await self._handle_fallback_consensus(ctx, reason="judge_and_majority_failed")
+
+    async def _handle_byzantine_consensus(self, ctx: "DebateContext") -> None:
+        """Handle 'byzantine' consensus mode - PBFT-style fault-tolerant consensus.
+
+        Uses Byzantine Fault-Tolerant consensus protocol adapted from claude-flow.
+        Tolerates up to f faulty (adversarial/hallucinating) agents where n >= 3f+1.
+
+        PBFT Phases:
+        1. PRE_PREPARE: Leader proposes a synthesis
+        2. PREPARE: Agents validate and signal readiness
+        3. COMMIT: Agents commit if 2f+1 prepare messages received
+        """
+        from aragora.debate.byzantine import (
+            ByzantineConsensus,
+            ByzantineConsensusConfig,
+        )
+
+        result = ctx.result
+        proposals = ctx.proposals
+        agents = ctx.agents
+
+        if len(agents) < 4:
+            logger.warning(
+                f"Byzantine consensus requires at least 4 agents, got {len(agents)}. "
+                "Falling back to majority voting."
+            )
+            await self._handle_majority_consensus(ctx)
+            return
+
+        # Build configuration from protocol settings
+        config = ByzantineConsensusConfig(
+            max_faulty_fraction=getattr(self.protocol, "byzantine_fault_tolerance", 0.33),
+            phase_timeout_seconds=getattr(self.protocol, "byzantine_phase_timeout", 30.0),
+            max_view_changes=getattr(self.protocol, "byzantine_max_view_changes", 3),
+            min_agents=4,
+        )
+
+        # Create Byzantine consensus protocol
+        protocol = ByzantineConsensus(agents=agents, config=config)
+
+        # Build proposal from best proposal or synthesis
+        if proposals:
+            # Use the first proposal as the base for consensus
+            # In a full implementation, we might synthesize or select the best
+            proposal_agent = list(proposals.keys())[0]
+            proposal_text = proposals[proposal_agent]
+        else:
+            logger.warning("No proposals available for Byzantine consensus")
+            await self._handle_fallback_consensus(ctx, reason="no_proposals")
+            return
+
+        task = ctx.env.task if ctx.env else ""
+
+        logger.info(
+            f"byzantine_consensus_start agents={len(agents)} "
+            f"quorum={protocol.quorum_size} f={protocol.f}"
+        )
+
+        if self._notify_spectator:
+            self._notify_spectator(
+                "byzantine_consensus",
+                details=f"Starting PBFT with {len(agents)} agents (f={protocol.f})",
+            )
+
+        try:
+            # Run Byzantine consensus
+            byz_result = await protocol.propose(proposal_text, task=task)
+
+            if byz_result.success:
+                result.final_answer = byz_result.value or proposal_text
+                result.consensus_reached = True
+                result.confidence = byz_result.confidence
+                result.consensus_strength = "byzantine"
+
+                # Store Byzantine-specific metadata
+                if not hasattr(result, "metadata") or result.metadata is None:
+                    result.metadata = {}
+                result.metadata["byzantine_consensus"] = {
+                    "view": byz_result.view,
+                    "sequence": byz_result.sequence,
+                    "commit_count": byz_result.commit_count,
+                    "total_agents": byz_result.total_agents,
+                    "agreement_ratio": byz_result.agreement_ratio,
+                    "duration_seconds": byz_result.duration_seconds,
+                }
+
+                logger.info(
+                    f"byzantine_consensus_success view={byz_result.view} "
+                    f"commits={byz_result.commit_count}/{byz_result.total_agents} "
+                    f"confidence={byz_result.confidence:.2f}"
+                )
+
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "consensus",
+                        details=f"Byzantine consensus reached ({byz_result.commit_count}/{byz_result.total_agents} commits)",
+                        metric=byz_result.confidence,
+                    )
+            else:
+                logger.warning(
+                    f"byzantine_consensus_failed reason={byz_result.failure_reason}"
+                )
+                # Fall back to majority voting
+                await self._handle_majority_consensus(ctx)
+
+        except Exception as e:
+            logger.error(f"byzantine_consensus_error: {e}", exc_info=True)
+            # Fall back to majority voting
+            await self._handle_majority_consensus(ctx)
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection."""

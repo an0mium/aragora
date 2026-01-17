@@ -34,11 +34,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 from uuid import uuid4
 
 from aragora.documents.chunking.strategies import (
     ChunkingConfig,
+    ChunkingStrategyType,
     auto_select_strategy,
     get_chunking_strategy,
 )
@@ -471,7 +472,7 @@ class BatchProcessor:
                     if job.on_error:
                         try:
                             job.on_error(job, e)
-                        except Exception:
+                        except Exception:  # noqa: BLE001 - Callback errors should not propagate
                             pass
                 finally:
                     self._active_workers -= 1
@@ -519,7 +520,12 @@ class BatchProcessor:
                 chunk_size=job.chunk_size,
                 overlap=job.chunk_overlap,
             )
-            strategy = get_chunking_strategy(strategy_name, **config.__dict__)
+            # Ensure strategy_name is a valid type (default to semantic)
+            if strategy_name not in ("semantic", "sliding", "recursive", "fixed"):
+                strategy_name = "semantic"
+            strategy = get_chunking_strategy(
+                cast(ChunkingStrategyType, strategy_name), **config.__dict__
+            )
 
             chunks = strategy.chunk(
                 text=document.text,

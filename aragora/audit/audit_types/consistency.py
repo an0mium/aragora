@@ -360,7 +360,7 @@ class ConsistencyAuditor:
                     return dt1 != dt2
                 except ValueError:
                     continue
-        except Exception:
+        except Exception:  # noqa: BLE001 - Date comparison fallback
             pass
         return d1 != d2
 
@@ -491,7 +491,7 @@ class ConsistencyAuditor:
                             break
                         except ValueError:
                             continue
-                except Exception:
+                except Exception:  # noqa: BLE001 - Date extraction fallback
                     pass
 
         return findings

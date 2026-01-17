@@ -143,8 +143,8 @@ class ProofSandbox:
         try:
             if not self._closed and self.config.cleanup_on_exit:
                 self._cleanup_temp_dirs()
-        except Exception:
-            pass  # Suppress all errors during garbage collection (standard Python pattern)
+        except Exception:  # noqa: BLE001 - GC cleanup must not raise
+            pass
 
     def _create_temp_dir(self) -> Path:
         """Create a temporary directory for sandboxed execution."""

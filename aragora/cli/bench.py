@@ -107,7 +107,7 @@ async def benchmark_agent(
 
         except asyncio.TimeoutError:
             result.errors += 1
-        except Exception:
+        except Exception:  # noqa: BLE001 - Any error counts as benchmark failure
             result.errors += 1
 
     result.success_rate = (iterations - result.errors) / iterations

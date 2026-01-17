@@ -121,8 +121,8 @@ function formatDate(dateStr?: string): string {
 export default function AuditSessionDetail() {
   const params = useParams();
   const router = useRouter();
-  // Handle optional catch-all params: id is string[] or undefined
-  const sessionId = (params.id as string[] | undefined)?.[0];
+  // id is a required string parameter
+  const sessionId = params.id as string;
   const { config: backendConfig } = useBackend();
   const { tokens } = useAuth();
 

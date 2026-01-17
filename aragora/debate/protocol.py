@@ -147,6 +147,7 @@ class DebateProtocol:
         "weighted",
         "supermajority",
         "any",
+        "byzantine",
     ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
@@ -295,6 +296,13 @@ class DebateProtocol:
         default_factory=lambda: ["z3_smt"]
     )  # Languages to try: z3_smt, lean4
     formal_verification_timeout: float = 30.0  # Timeout for proof search (seconds)
+
+    # Byzantine consensus configuration (for consensus="byzantine")
+    # PBFT-style fault-tolerant consensus tolerating f faulty nodes where n >= 3f+1
+    # Adapted from claude-flow (MIT License)
+    byzantine_fault_tolerance: float = 0.33  # Max fraction of faulty agents (default 1/3)
+    byzantine_phase_timeout: float = 30.0  # Timeout per PBFT phase (seconds)
+    byzantine_max_view_changes: int = 3  # Max leader changes before failure
 
     def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
         """Get the phase configuration for a specific round.

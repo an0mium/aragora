@@ -114,6 +114,7 @@ class ArenaConfig:
     # Core subsystems (typically injected)
     memory: Optional[Any] = None  # CritiqueStore
     event_hooks: Optional[Dict[str, Any]] = None
+    hook_manager: Optional[Any] = None  # HookManager for extended lifecycle hooks
     event_emitter: Optional[EventEmitterProtocol] = None
     spectator: Optional[SpectatorStream] = None
     debate_embeddings: Optional[DebateEmbeddingsProtocol] = None
@@ -206,6 +207,7 @@ class ArenaConfig:
         return {
             "memory": self.memory,
             "event_hooks": self.event_hooks,
+            "hook_manager": self.hook_manager,
             "event_emitter": self.event_emitter,
             "spectator": self.spectator,
             "debate_embeddings": self.debate_embeddings,

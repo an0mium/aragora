@@ -65,6 +65,9 @@ class DebateContext:
     cancellation_token: Optional["CancellationToken"] = None
     """Cancellation token for cooperative cancellation of long-running operations."""
 
+    hook_manager: Optional[Any] = None
+    """HookManager for extended lifecycle hooks (PRE_ROUND, POST_ROUND, etc)."""
+
     # =========================================================================
     # Agent Subsets (computed at phase boundaries)
     # =========================================================================

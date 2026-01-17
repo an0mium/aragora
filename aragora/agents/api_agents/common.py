@@ -105,8 +105,8 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                     # Note: close() returns a coroutine, but we schedule it
                     # for execution rather than awaiting in this sync context
                     _shared_connector.close()
-                except Exception:
-                    pass  # Ignore errors during cleanup
+                except Exception:  # noqa: BLE001 - Cleanup errors should not propagate
+                    pass
 
             per_host, total = _get_connection_limits()
             _shared_connector = aiohttp.TCPConnector(

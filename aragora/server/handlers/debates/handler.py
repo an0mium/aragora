@@ -48,23 +48,32 @@ from ..base import (
     safe_json_parse,
     ttl_cache,
 )
+from .analysis import AnalysisOperationsMixin
 from .batch import BatchOperationsMixin
+from .export import ExportOperationsMixin
 from .fork import ForkOperationsMixin
 from .response_formatting import (
     CACHE_TTL_CONVERGENCE,
     CACHE_TTL_DEBATES_LIST,
     CACHE_TTL_IMPASSE,
-    CACHE_TTL_SEARCH,
     denormalize_status,
     normalize_debate_response,
     normalize_status,
 )
+from .search import SearchOperationsMixin
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
 
-class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
+class DebatesHandler(
+    AnalysisOperationsMixin,
+    ExportOperationsMixin,
+    ForkOperationsMixin,
+    SearchOperationsMixin,
+    BatchOperationsMixin,
+    BaseHandler,
+):
     """Handler for debate-related endpoints."""
 
     # Route patterns this handler manages
@@ -394,70 +403,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
-    @rate_limit(rpm=30, limiter_name="debates_search")
-    @require_storage
-    @ttl_cache(ttl_seconds=CACHE_TTL_SEARCH, key_prefix="debates_search", skip_first=True)
-    def _search_debates(
-        self, query: str, limit: int, offset: int, org_id: Optional[str] = None
-    ) -> HandlerResult:
-        """Search debates by query string, optionally filtered by organization.
-
-        Uses efficient SQL LIKE queries instead of loading all debates into memory.
-        This is optimized for large debate databases.
-
-        Args:
-            query: Search query string
-            limit: Maximum results to return
-            offset: Offset for pagination
-            org_id: If provided, only search within this organization's debates
-
-        Returns:
-            HandlerResult with matching debates and pagination metadata
-        """
-        storage = self.get_storage()
-        try:
-            # Use efficient SQL search if query provided
-            if query:
-                matching, total = storage.search(
-                    query=query,
-                    limit=limit,
-                    offset=offset,
-                    org_id=org_id,
-                )
-            else:
-                # No query - just list recent debates
-                matching = storage.list_recent(limit=limit, org_id=org_id)
-                total = len(matching)  # Approximate for no-query case
-
-            # Convert to dicts and normalize for SDK compatibility
-            results = []
-            for d in matching:
-                if hasattr(d, "__dict__"):
-                    results.append(normalize_debate_response(d.__dict__))
-                elif isinstance(d, dict):
-                    results.append(normalize_debate_response(d))
-                else:
-                    results.append({"data": str(d)})
-
-            return json_response(
-                {
-                    "results": results,
-                    "query": query,
-                    "total": total,
-                    "offset": offset,
-                    "limit": limit,
-                    "has_more": offset + len(results) < total,
-                }
-            )
-        except (StorageError, DatabaseError) as e:
-            logger.error(
-                "Search failed for query '%s': %s: %s", query, type(e).__name__, e, exc_info=True
-            )
-            return error_response("Database error during search", 500)
-        except ValueError as e:
-            logger.warning("Invalid search query '%s': %s", query, e)
-            return error_response(f"Invalid search query: {e}", 400)
-
     @require_storage
     @handle_errors("get debate by slug")
     def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
@@ -616,109 +561,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 "consensus_reached": debate.get("consensus_reached", False),
                 "confidence": debate.get("confidence", 0.0),
             }
-        )
-
-    @require_storage
-    def _export_debate(self, handler, debate_id: str, format: str, table: str) -> HandlerResult:
-        """Export debate in specified format."""
-        valid_formats = {"json", "csv", "html", "txt", "md"}
-        if format not in valid_formats:
-            return error_response(f"Invalid format: {format}. Valid: {valid_formats}", 400)
-
-        storage = self.get_storage()
-        try:
-            debate = storage.get_debate(debate_id)
-            if not debate:
-                return error_response(f"Debate not found: {debate_id}", 404)
-
-            if format == "json":
-                return json_response(debate)
-            elif format == "csv":
-                return self._format_csv(debate, table)
-            elif format == "txt":
-                return self._format_txt(debate)
-            elif format == "md":
-                return self._format_md(debate)
-            elif format in ("latex", "tex"):
-                return self._format_latex(debate)
-            else:  # format == "html"
-                return self._format_html(debate)
-
-        except RecordNotFoundError:
-            logger.info("Export failed - debate not found: %s", debate_id)
-            return error_response(f"Debate not found: {debate_id}", 404)
-        except (StorageError, DatabaseError) as e:
-            logger.error(
-                "Export failed for %s (format=%s): %s: %s",
-                debate_id,
-                format,
-                type(e).__name__,
-                e,
-                exc_info=True,
-            )
-            return error_response("Database error during export", 500)
-        except ValueError as e:
-            logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
-            return error_response(f"Invalid export format: {e}", 400)
-
-    def _format_csv(self, debate: dict, table: str) -> HandlerResult:
-        """Format debate as CSV for the specified table type."""
-        from aragora.server.debate_export import format_debate_csv
-
-        result = format_debate_csv(debate, table)
-        return HandlerResult(
-            status_code=200,
-            content_type=result.content_type,
-            body=result.content,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-        )
-
-    def _format_html(self, debate: dict) -> HandlerResult:
-        """Format debate as standalone HTML page."""
-        from aragora.server.debate_export import format_debate_html
-
-        result = format_debate_html(debate)
-        return HandlerResult(
-            status_code=200,
-            content_type=result.content_type,
-            body=result.content,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-        )
-
-    def _format_txt(self, debate: dict) -> HandlerResult:
-        """Format debate as plain text transcript."""
-        from aragora.server.debate_export import format_debate_txt
-
-        result = format_debate_txt(debate)
-        return HandlerResult(
-            status_code=200,
-            content_type=result.content_type,
-            body=result.content,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-        )
-
-    def _format_md(self, debate: dict) -> HandlerResult:
-        """Format debate as Markdown transcript."""
-        from aragora.server.debate_export import format_debate_md
-
-        result = format_debate_md(debate)
-        return HandlerResult(
-            status_code=200,
-            content_type=result.content_type,
-            body=result.content,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-        )
-
-    def _format_latex(self, debate: dict) -> HandlerResult:
-        """Format debate as LaTeX document."""
-        from aragora.server.debate_export import format_debate_latex
-
-        result = format_debate_latex(debate)
-        return HandlerResult(
-            status_code=200,
-            content_type=result.content_type,
-            body=result.content,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
         )
 
     @require_storage
@@ -951,191 +793,6 @@ class DebatesHandler(ForkOperationsMixin, BatchOperationsMixin, BaseHandler):
                 exc_info=True,
             )
             return error_response("Database error retrieving messages", 500)
-
-    def _get_meta_critique(self, debate_id: str) -> HandlerResult:
-        """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
-        try:
-            from aragora.debate.meta import MetaCritiqueAnalyzer
-            from aragora.debate.traces import DebateTrace
-        except ImportError:
-            return error_response("Meta critique module not available", 503)
-
-        nomic_dir = self.get_nomic_dir()
-        if not nomic_dir:
-            return error_response("Nomic directory not configured", 503)
-
-        try:
-            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
-            if not trace_path.exists():
-                return error_response("Debate trace not found", 404)
-
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()  # type: ignore[attr-defined]
-
-            analyzer = MetaCritiqueAnalyzer()
-            critique = analyzer.analyze(result)
-
-            return json_response(
-                {
-                    "debate_id": debate_id,
-                    "overall_quality": critique.overall_quality,
-                    "productive_rounds": critique.productive_rounds,
-                    "unproductive_rounds": critique.unproductive_rounds,
-                    "observations": [
-                        {
-                            "type": o.observation_type,
-                            "severity": o.severity,
-                            "agent": getattr(o, "agent", None),
-                            "round": getattr(o, "round_num", None),
-                            "description": o.description,
-                        }
-                        for o in critique.observations
-                    ],
-                    "recommendations": critique.recommendations,
-                }
-            )
-        except RecordNotFoundError:
-            logger.info("Meta critique failed - debate not found: %s", debate_id)
-            return error_response(f"Debate not found: {debate_id}", 404)
-        except (StorageError, DatabaseError) as e:
-            logger.error(
-                "Failed to get meta critique for %s: %s: %s",
-                debate_id,
-                type(e).__name__,
-                e,
-                exc_info=True,
-            )
-            return error_response("Database error retrieving meta critique", 500)
-        except ValueError as e:
-            logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
-            return error_response(f"Invalid request: {e}", 400)
-
-    def _get_graph_stats(self, debate_id: str) -> HandlerResult:
-        """Get argument graph statistics for a debate.
-
-        Returns node counts, edge counts, depth, branching factor, and complexity.
-        """
-        try:
-            from aragora.debate.traces import DebateTrace
-            from aragora.visualization.mapper import ArgumentCartographer
-        except ImportError:
-            return error_response("Graph analysis module not available", 503)
-
-        nomic_dir = self.get_nomic_dir()
-        if not nomic_dir:
-            return error_response("Nomic directory not configured", 503)
-
-        try:
-            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
-
-            if not trace_path.exists():
-                # Try replays directory as fallback
-                replay_path = nomic_dir / "replays" / debate_id / "events.jsonl"
-                if replay_path.exists():
-                    return self._build_graph_from_replay(debate_id, replay_path)
-                return error_response("Debate not found", 404)
-
-            # Load from trace file
-            trace = DebateTrace.load(trace_path)
-            result = trace.to_debate_result()  # type: ignore[attr-defined]
-
-            # Build cartographer from debate result
-            cartographer = ArgumentCartographer()
-            cartographer.set_debate_context(debate_id, result.task or "")
-
-            # Process messages from the debate
-            for msg in result.messages:
-                cartographer.update_from_message(
-                    agent=msg.agent,
-                    content=msg.content,
-                    role=msg.role,
-                    round_num=msg.round,
-                )
-
-            # Process critiques
-            for critique in result.critiques:
-                cartographer.update_from_critique(
-                    critic_agent=critique.agent,
-                    target_agent=critique.target or "",
-                    severity=critique.severity,
-                    round_num=getattr(critique, "round", 1),
-                    critique_text=critique.reasoning,
-                )
-
-            stats = cartographer.get_statistics()
-            return json_response(stats)
-
-        except RecordNotFoundError:
-            logger.info("Graph stats failed - debate not found: %s", debate_id)
-            return error_response(f"Debate not found: {debate_id}", 404)
-        except (StorageError, DatabaseError) as e:
-            logger.error(
-                "Failed to get graph stats for %s: %s: %s",
-                debate_id,
-                type(e).__name__,
-                e,
-                exc_info=True,
-            )
-            return error_response("Database error retrieving graph stats", 500)
-        except ValueError as e:
-            logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
-            return error_response(f"Invalid request: {e}", 400)
-
-    def _build_graph_from_replay(self, debate_id: str, replay_path) -> HandlerResult:
-        """Build graph stats from replay events file."""
-        import json as json_mod
-
-        try:
-            from aragora.visualization.mapper import ArgumentCartographer
-        except ImportError:
-            return error_response("Graph analysis module not available", 503)
-
-        try:
-            cartographer = ArgumentCartographer()
-            cartographer.set_debate_context(debate_id, "")
-
-            with replay_path.open() as f:
-                for line_num, line in enumerate(f, 1):
-                    if line.strip():
-                        try:
-                            event = json_mod.loads(line)
-                        except json_mod.JSONDecodeError:
-                            logger.warning(f"Skipping malformed JSONL line {line_num}")
-                            continue
-
-                        if event.get("type") == "agent_message":
-                            cartographer.update_from_message(
-                                agent=event.get("agent", "unknown"),
-                                content=event.get("data", {}).get("content", ""),
-                                role=event.get("data", {}).get("role", "proposer"),
-                                round_num=event.get("round", 1),
-                            )
-                        elif event.get("type") == "critique":
-                            cartographer.update_from_critique(
-                                critic_agent=event.get("agent", "unknown"),
-                                target_agent=event.get("data", {}).get("target", "unknown"),
-                                severity=event.get("data", {}).get("severity", 0.5),
-                                round_num=event.get("round", 1),
-                                critique_text=event.get("data", {}).get("content", ""),
-                            )
-
-            stats = cartographer.get_statistics()
-            return json_response(stats)
-        except FileNotFoundError:
-            logger.info("Build graph failed - replay file not found: %s", replay_path)
-            return error_response(f"Replay file not found: {debate_id}", 404)
-        except (StorageError, DatabaseError) as e:
-            logger.error(
-                "Failed to build graph from replay %s: %s: %s",
-                debate_id,
-                type(e).__name__,
-                e,
-                exc_info=True,
-            )
-            return error_response("Database error building graph", 500)
-        except ValueError as e:
-            logger.warning("Invalid replay data for %s: %s", debate_id, e)
-            return error_response(f"Invalid replay data: {e}", 400)
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
