@@ -224,7 +224,7 @@ def capture_message(
             if context:
                 for key, value in context.items():
                     scope.set_extra(key, value)
-            event_id: str | None = sentry_sdk.capture_message(message, level=level)  # type: ignore[arg-type]
+            event_id: str | None = sentry_sdk.capture_message(message, level=level)  # type: ignore[no-any-return]
             return event_id
     except Exception as e:
         logger.error(f"Failed to capture message: {e}")

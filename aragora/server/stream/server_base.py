@@ -156,7 +156,7 @@ class ServerBase:
             self._rate_limiter_last_access[client_id] = now
             if client_id not in self._rate_limiters:
                 self._rate_limiters[client_id] = TokenBucket(
-                    rate_per_minute=rate, burst_size=capacity
+                    rate_per_minute=rate, burst_size=int(capacity)
                 )
 
             return self._rate_limiters[client_id]
