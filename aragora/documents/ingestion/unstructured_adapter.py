@@ -94,7 +94,7 @@ except ImportError:
 
 
 # Supported formats and their configurations
-SUPPORTED_FORMATS = {
+SUPPORTED_FORMATS: dict[str, dict[str, Any]] = {
     # Documents
     ".pdf": {"mime": "application/pdf", "parser": "pdf", "ocr": True},
     ".docx": {

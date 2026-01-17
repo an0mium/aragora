@@ -1047,15 +1047,19 @@ class AragoraClient:
             self._handle_http_error(last_error)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
-    def _post(self, path: str, data: dict) -> dict:
+    def _post(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous POST request with retry and rate limiting."""
         import urllib.error
         import urllib.request
 
         url = urljoin(self.base_url, path)
+        request_headers = self._get_headers()
+        if headers:
+            request_headers.update(headers)
+
         req = urllib.request.Request(
             url,
-            headers=self._get_headers(),
+            headers=request_headers,
             method="POST",
             data=json.dumps(data).encode(),
         )
@@ -1378,7 +1382,7 @@ class AragoraClient:
             str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
         )
 
-    async def _post_async(self, path: str, data: dict) -> dict:
+    async def _post_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make an asynchronous POST request with retry and rate limiting."""
         import asyncio
 
@@ -1388,6 +1392,10 @@ class AragoraClient:
             self._session = aiohttp.ClientSession()
 
         url = urljoin(self.base_url, path)
+        request_headers = self._get_headers()
+        if headers:
+            request_headers.update(headers)
+
         last_error: Optional[Exception] = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -1399,7 +1407,7 @@ class AragoraClient:
             try:
                 async with self._session.post(
                     url,
-                    headers=self._get_headers(),
+                    headers=request_headers,
                     json=data,
                     timeout=aiohttp.ClientTimeout(total=self.timeout),
                 ) as resp:
