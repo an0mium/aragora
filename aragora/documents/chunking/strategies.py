@@ -301,9 +301,7 @@ class SlidingWindowChunking(ChunkingStrategy):
 
         return sentences
 
-    def _get_overlap_sentences(
-        self, sentences: list[str], target_overlap_tokens: int
-    ) -> list[str]:
+    def _get_overlap_sentences(self, sentences: list[str], target_overlap_tokens: int) -> list[str]:
         """Get sentences from end to achieve target overlap."""
         overlap: list[str] = []
         tokens = 0
@@ -371,9 +369,7 @@ class SemanticChunking(ChunkingStrategy):
                     sequence += len(chunks) - sequence
 
                 # Split large paragraph using sliding window
-                sub_chunks = SlidingWindowChunking(self.config).chunk(
-                    para, document_id, metadata
-                )
+                sub_chunks = SlidingWindowChunking(self.config).chunk(para, document_id, metadata)
                 for i, sub_chunk in enumerate(sub_chunks):
                     sub_chunk.sequence = sequence + i
                     sub_chunk.start_char += para_start
@@ -536,9 +532,7 @@ class RecursiveChunking(ChunkingStrategy):
 
         return chunks
 
-    def _recursive_split(
-        self, text: str, separator_index: int
-    ) -> list[str]:
+    def _recursive_split(self, text: str, separator_index: int) -> list[str]:
         """Recursively split text using increasingly fine separators."""
         if not text.strip():
             return []
@@ -569,9 +563,7 @@ class RecursiveChunking(ChunkingStrategy):
             if not part:
                 continue
 
-            potential = (
-                current_chunk + separator + part if current_chunk else part
-            )
+            potential = current_chunk + separator + part if current_chunk else part
             potential_tokens = self._count_tokens(potential)
 
             if potential_tokens <= self.config.chunk_size:
@@ -688,9 +680,7 @@ class FixedSizeChunking(ChunkingStrategy):
 
                 # Handle overlap
                 if self.config.overlap > 0:
-                    overlap_words = self._get_overlap_words(
-                        current_words, self.config.overlap
-                    )
+                    overlap_words = self._get_overlap_words(current_words, self.config.overlap)
                     current_words = overlap_words
                     current_tokens = sum(self._count_tokens(w) for w in overlap_words)
                 else:
@@ -725,9 +715,7 @@ class FixedSizeChunking(ChunkingStrategy):
 
         return chunks
 
-    def _get_overlap_words(
-        self, words: list[str], target_overlap_tokens: int
-    ) -> list[str]:
+    def _get_overlap_words(self, words: list[str], target_overlap_tokens: int) -> list[str]:
         """Get words from end to achieve target overlap."""
         overlap: list[str] = []
         tokens = 0

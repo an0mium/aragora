@@ -326,7 +326,9 @@ class ContextManager:
         )
 
         # Build context from search results
-        max_tokens = (config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)) - config.output_reserve_tokens
+        max_tokens = (
+            config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)
+        ) - config.output_reserve_tokens
 
         content_parts = []
         chunk_ids = []
@@ -394,7 +396,9 @@ class ContextManager:
         )
 
         # Calculate remaining token budget
-        max_tokens = (config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)) - config.output_reserve_tokens
+        max_tokens = (
+            config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)
+        ) - config.output_reserve_tokens
         remaining_tokens = max_tokens - full_context.token_count
 
         # Add high-relevance chunks that aren't already included
@@ -427,7 +431,9 @@ class ContextManager:
 
         # Combine full context with augmented chunks
         if augmented_parts:
-            augmented_section = "\n\n--- ADDITIONAL RELEVANT CONTEXT ---\n\n" + "\n\n".join(augmented_parts)
+            augmented_section = "\n\n--- ADDITIONAL RELEVANT CONTEXT ---\n\n" + "\n\n".join(
+                augmented_parts
+            )
             content = full_context.content + augmented_section
         else:
             content = full_context.content
@@ -466,7 +472,9 @@ class ContextManager:
         if config.preserve_document_order:
             chunks = sorted(chunks, key=lambda c: (c.document_id, c.sequence))
 
-        max_tokens = (config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)) - config.output_reserve_tokens
+        max_tokens = (
+            config.max_tokens or MODEL_TOKEN_LIMITS.get(config.model, 128000)
+        ) - config.output_reserve_tokens
         max_tokens = int(max_tokens * (1 - reserve_ratio))
 
         content_parts = []

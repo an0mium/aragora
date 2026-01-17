@@ -183,21 +183,19 @@ class DefectReport:
             severity_order = ["critical", "high", "medium", "low", "info"]
             min_idx = severity_order.index(self.config.min_severity.lower())
             filtered = [
-                f for f in filtered
+                f
+                for f in filtered
                 if severity_order.index(self._get_severity(f).lower()) <= min_idx
             ]
 
         # Filter by audit type
         if self.config.audit_types:
             type_set = set(t.lower() for t in self.config.audit_types)
-            filtered = [
-                f for f in filtered
-                if self._get_audit_type(f).lower() in type_set
-            ]
+            filtered = [f for f in filtered if self._get_audit_type(f).lower() in type_set]
 
         # Limit count
         if self.config.max_findings > 0:
-            filtered = filtered[:self.config.max_findings]
+            filtered = filtered[: self.config.max_findings]
 
         return filtered
 
@@ -292,9 +290,7 @@ class DefectReport:
                     for doc_id, count in self.document_stats.findings_per_doc.items()
                 },
             },
-            "findings": [
-                self._finding_to_dict(f) for f in self.findings
-            ],
+            "findings": [self._finding_to_dict(f) for f in self.findings],
         }
 
     def _finding_to_dict(self, finding: Any) -> dict[str, Any]:
@@ -491,17 +487,23 @@ class DefectReport:
         # Bold
         html_content = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", html_content)
         # Severity badges
-        html_content = html_content.replace("[CRITICAL]", '<span class="critical">[CRITICAL]</span>')
+        html_content = html_content.replace(
+            "[CRITICAL]", '<span class="critical">[CRITICAL]</span>'
+        )
         html_content = html_content.replace("[HIGH]", '<span class="high">[HIGH]</span>')
         html_content = html_content.replace("[MEDIUM]", '<span class="medium">[MEDIUM]</span>')
         html_content = html_content.replace("[LOW]", '<span class="low">[LOW]</span>')
         html_content = html_content.replace("[INFO]", '<span class="info">[INFO]</span>')
         # Blockquotes
-        html_content = re.sub(r"^> (.*)$", r"<blockquote>\1</blockquote>", html_content, flags=re.MULTILINE)
+        html_content = re.sub(
+            r"^> (.*)$", r"<blockquote>\1</blockquote>", html_content, flags=re.MULTILINE
+        )
         # Horizontal rules
         html_content = html_content.replace("---", "<hr>")
         # Tables (basic)
-        html_content = re.sub(r"\|([^|]+)\|([^|]+)\|", r"<tr><td>\1</td><td>\2</td></tr>", html_content)
+        html_content = re.sub(
+            r"\|([^|]+)\|([^|]+)\|", r"<tr><td>\1</td><td>\2</td></tr>", html_content
+        )
         html_content = re.sub(r"\|-+\|-+\|", "", html_content)  # Remove separator rows
         # Paragraphs - convert double newlines to paragraph breaks
         html_content = re.sub(r"\n\n+", r"</p>\n<p>", html_content)
@@ -523,36 +525,40 @@ class DefectReport:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            "ID",
-            "Title",
-            "Severity",
-            "Category",
-            "Audit Type",
-            "Document ID",
-            "Confidence",
-            "Description",
-            "Evidence",
-            "Location",
-            "Remediation",
-        ])
+        writer.writerow(
+            [
+                "ID",
+                "Title",
+                "Severity",
+                "Category",
+                "Audit Type",
+                "Document ID",
+                "Confidence",
+                "Description",
+                "Evidence",
+                "Location",
+                "Remediation",
+            ]
+        )
 
         # Data rows
         for finding in self.findings:
             f_dict = self._finding_to_dict(finding)
-            writer.writerow([
-                f_dict.get("id", ""),
-                f_dict.get("title", ""),
-                f_dict.get("severity", ""),
-                f_dict.get("category", ""),
-                f_dict.get("audit_type", ""),
-                f_dict.get("document_id", ""),
-                f_dict.get("confidence", ""),
-                f_dict.get("description", ""),
-                f_dict.get("evidence_text", "")[:200],  # Truncate for CSV
-                f_dict.get("evidence_location", ""),
-                f_dict.get("remediation", ""),
-            ])
+            writer.writerow(
+                [
+                    f_dict.get("id", ""),
+                    f_dict.get("title", ""),
+                    f_dict.get("severity", ""),
+                    f_dict.get("category", ""),
+                    f_dict.get("audit_type", ""),
+                    f_dict.get("document_id", ""),
+                    f_dict.get("confidence", ""),
+                    f_dict.get("description", ""),
+                    f_dict.get("evidence_text", "")[:200],  # Truncate for CSV
+                    f_dict.get("evidence_location", ""),
+                    f_dict.get("remediation", ""),
+                ]
+            )
 
         return output.getvalue()
 
