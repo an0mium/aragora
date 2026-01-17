@@ -83,7 +83,7 @@ try:
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-    PdfReader = None  # type: ignore[misc,assignment]
+    PdfReader = None
 
 # Optional DOCX support
 try:

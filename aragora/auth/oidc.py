@@ -225,7 +225,7 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
                     response = await client.get(discovery_url, timeout=10.0)
                     response.raise_for_status()
                     self._discovery_cache = response.json()
@@ -253,7 +253,8 @@ class OIDCProvider(SSOProvider):
 
         # Try discovery
         discovery = await self._discover_endpoints()
-        return discovery.get(name, "")
+        result: str = discovery.get(name, "")
+        return result
 
     def _generate_pkce(self) -> tuple[str, str]:
         """Generate PKCE code verifier and challenge."""
@@ -405,12 +406,13 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
                     response = await client.post(
                         token_endpoint, data=data, headers=headers, timeout=30.0
                     )
                     response.raise_for_status()
-                    return response.json()
+                    result: Dict[str, Any] = response.json()
+                    return result
             else:
                 # Fallback to sync
                 import urllib.parse
@@ -490,7 +492,7 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
                     response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
                     response.raise_for_status()
                     return response.json()
@@ -593,7 +595,7 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient() as client:  # type: ignore[union-attr]
                     response = await client.post(token_endpoint, data=data, timeout=30.0)
                     response.raise_for_status()
                     tokens = response.json()
