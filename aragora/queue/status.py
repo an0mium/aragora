@@ -182,7 +182,7 @@ class JobStatusTracker:
             True if deleted, False if not found
         """
         key = self._job_key(job_id)
-        result = await self._redis.delete(key)
+        result: int = await self._redis.delete(key)
         return result > 0
 
     async def list_jobs(
