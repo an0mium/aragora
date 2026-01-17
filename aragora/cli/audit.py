@@ -2,10 +2,72 @@
 Audit CLI commands for Aragora.
 """
 
+import argparse
 import asyncio
 import json
 from datetime import datetime
 from typing import Any
+
+
+def create_audit_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Create the audit subparser."""
+    audit_parser = subparsers.add_parser(
+        "audit",
+        help="Document compliance and audit commands",
+        description="Create and manage document audit sessions for compliance checking.",
+    )
+
+    audit_subparsers = audit_parser.add_subparsers(
+        dest="audit_command",
+        title="audit commands",
+        description="Available audit commands",
+    )
+
+    # Create command
+    create_parser = audit_subparsers.add_parser(
+        "create", help="Create a new audit session"
+    )
+    create_parser.add_argument(
+        "documents", help="Comma-separated list of document IDs to audit"
+    )
+    create_parser.add_argument(
+        "--types",
+        default="all",
+        help="Comma-separated audit types (security,quality,consistency,compliance) or 'all'",
+    )
+    create_parser.add_argument("--name", default=None, help="Session name")
+    create_parser.add_argument(
+        "--model", default="gemini-1.5-flash", help="Model for analysis"
+    )
+
+    # Start command
+    start_parser = audit_subparsers.add_parser("start", help="Start an audit session")
+    start_parser.add_argument("session_id", help="Session ID to start")
+
+    # Status command
+    status_parser = audit_subparsers.add_parser(
+        "status", help="Get audit session status"
+    )
+    status_parser.add_argument("session_id", help="Session ID")
+
+    # Findings command
+    findings_parser = audit_subparsers.add_parser("findings", help="Get audit findings")
+    findings_parser.add_argument("session_id", help="Session ID")
+    findings_parser.add_argument(
+        "--severity",
+        choices=["critical", "high", "medium", "low"],
+        help="Filter by severity",
+    )
+    findings_parser.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format"
+    )
+
+    # Export command
+    export_parser = audit_subparsers.add_parser("export", help="Export audit report")
+    export_parser.add_argument("session_id", help="Session ID")
+    export_parser.add_argument("--output", "-o", required=True, help="Output file path")
+
+    audit_parser.set_defaults(func=audit_cli)
 
 
 def audit_cli(args: Any) -> int:
