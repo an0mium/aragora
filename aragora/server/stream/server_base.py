@@ -214,7 +214,10 @@ class ServerBase:
         if not self._debate_states_last_access:
             return None
 
-        oldest = min(self._debate_states_last_access, key=lambda k: self._debate_states_last_access.get(k, 0.0))
+        oldest = min(
+            self._debate_states_last_access,
+            key=lambda k: self._debate_states_last_access.get(k, 0.0),
+        )
         self.debate_states.pop(oldest, None)
         self._debate_states_last_access.pop(oldest, None)
         return oldest
@@ -354,7 +357,9 @@ class ServerBase:
         if not self._active_loops_last_access:
             return None
 
-        oldest = min(self._active_loops_last_access, key=lambda k: self._active_loops_last_access.get(k, 0.0))
+        oldest = min(
+            self._active_loops_last_access, key=lambda k: self._active_loops_last_access.get(k, 0.0)
+        )
         self.active_loops.pop(oldest, None)
         self._active_loops_last_access.pop(oldest, None)
         logger.warning(f"Evicted stale loop: {oldest}")

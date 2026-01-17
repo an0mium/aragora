@@ -853,7 +853,9 @@ class Arena:
         belief_cruxes = getattr(result, "belief_cruxes", None)
         if belief_cruxes:
             belief_cruxes = [str(c) for c in belief_cruxes[:10]]
-        self._checkpoint_ops.store_debate_outcome(result, self.env.task, belief_cruxes=belief_cruxes)
+        self._checkpoint_ops.store_debate_outcome(
+            result, self.env.task, belief_cruxes=belief_cruxes
+        )
 
     def _store_evidence_in_memory(self, evidence_snippets: list, task: str) -> None:
         """Store evidence. Delegates to CheckpointOperations."""
@@ -915,7 +917,8 @@ class Arena:
         if not self.use_performance_selection:
             return requested_agents
         return self.agent_pool.select_team(
-            domain=self._extract_debate_domain(), team_size=len(requested_agents),
+            domain=self._extract_debate_domain(),
+            team_size=len(requested_agents),
         )
 
     def _get_calibration_weight(self, agent_name: str) -> float:
@@ -966,13 +969,22 @@ class Arena:
         self._event_emitter.emit_agent_preview(self.agents, self.current_role_assignments)
 
     def _record_grounded_position(
-        self, agent_name: str, content: str, debate_id: str,
-        round_num: int, confidence: float = 0.7, domain: Optional[str] = None,
+        self,
+        agent_name: str,
+        content: str,
+        debate_id: str,
+        round_num: int,
+        confidence: float = 0.7,
+        domain: Optional[str] = None,
     ):
         """Record position. Delegates to GroundedOperations."""
         self._grounded_ops.record_position(
-            agent_name=agent_name, content=content, debate_id=debate_id,
-            round_num=round_num, confidence=confidence, domain=domain,
+            agent_name=agent_name,
+            content=content,
+            debate_id=debate_id,
+            round_num=round_num,
+            confidence=confidence,
+            domain=domain,
         )
 
     def _update_agent_relationships(
