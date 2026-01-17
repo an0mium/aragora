@@ -50,6 +50,7 @@ from .features import DocumentHandler  # Moved to features/
 from .features import DocumentBatchHandler  # Batch document upload
 from .features import EvidenceHandler  # Moved to features/
 from .features import FolderUploadHandler  # Folder upload support
+from .features import FindingWorkflowHandler  # Finding workflow management
 from .evolution import EvolutionABTestingHandler  # Moved to evolution/
 from .evolution import EvolutionHandler  # Moved to evolution/
 from .features import FeaturesHandler  # Moved to features/
@@ -61,6 +62,7 @@ from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
+from .knowledge import KnowledgeHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
 from .memory import LearningHandler  # Moved to memory/
@@ -118,6 +120,7 @@ ALL_HANDLERS = [
     DocumentHandler,
     DocumentBatchHandler,  # Batch document upload
     FolderUploadHandler,  # Folder upload support
+    FindingWorkflowHandler,  # Finding workflow management
     VerificationHandler,
     AuditingHandler,
     DashboardHandler,
@@ -136,6 +139,7 @@ ALL_HANDLERS = [
     LaboratoryHandler,
     ProbesHandler,
     InsightsHandler,
+    KnowledgeHandler,
     GalleryHandler,
     BreakpointsHandler,
     LearningHandler,
@@ -206,6 +210,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "MemoryAnalyticsHandler": Stability.STABLE,  # Handler tests, 23+ tests
     "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
+    "KnowledgeHandler": Stability.EXPERIMENTAL,  # Knowledge base API - new
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
     # Promoted to Stable (Jan 2026) - from Preview
@@ -219,6 +224,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DocumentHandler": Stability.STABLE,  # 36 tests, document management
     "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
     "FolderUploadHandler": Stability.EXPERIMENTAL,  # Folder upload support - new
+    "FindingWorkflowHandler": Stability.EXPERIMENTAL,  # Finding workflow - new
     "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
     "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
@@ -277,6 +283,7 @@ __all__ = [
     "DocumentHandler",
     "DocumentBatchHandler",
     "FolderUploadHandler",
+    "FindingWorkflowHandler",
     "VerificationHandler",
     "AuditingHandler",
     "DashboardHandler",
@@ -293,6 +300,7 @@ __all__ = [
     "LaboratoryHandler",
     "ProbesHandler",
     "InsightsHandler",
+    "KnowledgeHandler",
     "GalleryHandler",
     "BreakpointsHandler",
     "LearningHandler",

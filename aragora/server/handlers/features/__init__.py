@@ -1,8 +1,9 @@
-"""Feature handlers - audio, broadcast, documents, evidence, pulse, plugins, features, audit, control plane, folder upload."""
+"""Feature handlers - audio, broadcast, documents, evidence, pulse, plugins, features, audit, control plane, folder upload, finding workflow."""
 
 from .audio import AudioHandler, PODCAST_AVAILABLE
 from .audit_sessions import AuditSessionsHandler
 from .broadcast import BroadcastHandler
+from .finding_workflow import FindingWorkflowHandler
 from .control_plane import ControlPlaneHandler
 from .documents import DocumentHandler
 from .documents_batch import DocumentBatchHandler
@@ -44,6 +45,7 @@ __all__ = [
     "AudioHandler",
     "AuditSessionsHandler",
     "BroadcastHandler",
+    "FindingWorkflowHandler",
     "ControlPlaneHandler",
     "DocumentHandler",
     "DocumentBatchHandler",
