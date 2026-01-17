@@ -26,7 +26,7 @@ def analyze_module_dependencies() -> dict[str, Any]:
 
     modules = {}
     imports_from = defaultdict(list)  # module -> [modules it imports]
-    imported_by = defaultdict(list)   # module -> [modules that import it]
+    imported_by = defaultdict(list)  # module -> [modules that import it]
 
     for py_file in aragora_dir.rglob("*.py"):
         if "__pycache__" in str(py_file) or ".venv" in str(py_file):
@@ -75,11 +75,13 @@ def find_most_central_modules(analysis: dict) -> list[dict]:
 
     centrality = []
     for module, importers in imported_by.items():
-        centrality.append({
-            "module": module,
-            "imported_by_count": len(importers),
-            "importers": importers[:5],
-        })
+        centrality.append(
+            {
+                "module": module,
+                "imported_by_count": len(importers),
+                "importers": importers[:5],
+            }
+        )
 
     # Sort by import count
     centrality.sort(key=lambda x: x["imported_by_count"], reverse=True)
@@ -95,8 +97,10 @@ def find_circular_dependencies(analysis: dict) -> list[tuple]:
         for imported in imports_a:
             # Check if the imported module imports back
             if imported in imports_from:
-                if any(module_a.startswith(imp) or imp.startswith(module_a)
-                       for imp in imports_from[imported]):
+                if any(
+                    module_a.startswith(imp) or imp.startswith(module_a)
+                    for imp in imports_from[imported]
+                ):
                     circular.append((module_a, imported))
 
     return list(set(circular))[:10]
@@ -155,6 +159,7 @@ def analyze_code_patterns(analysis: dict) -> dict[str, int]:
 def summarize_directory_structure() -> dict[str, Any]:
     """Summarize the directory structure with file counts and sizes."""
     from aragora.documents.chunking.token_counter import TokenCounter
+
     counter = TokenCounter()
 
     aragora_dir = PROJECT_ROOT / "aragora"

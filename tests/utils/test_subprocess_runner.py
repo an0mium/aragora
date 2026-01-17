@@ -83,9 +83,7 @@ class TestSandboxedResult:
     def test_stores_command_correctly(self):
         """Command is stored and accessible."""
         cmd = ["git", "log", "--oneline"]
-        result = SandboxedResult(
-            returncode=0, stdout="", stderr="", command=cmd
-        )
+        result = SandboxedResult(returncode=0, stdout="", stderr="", command=cmd)
         assert result.command == cmd
 
 
@@ -158,9 +156,7 @@ class TestSandboxedCommandValidation:
         allowed, reason = SandboxedCommand.validate(["pytest", "-v", "tests/"])
         assert allowed is True
 
-        allowed, reason = SandboxedCommand.validate(
-            ["pytest", "--random-flag", "test.py"]
-        )
+        allowed, reason = SandboxedCommand.validate(["pytest", "--random-flag", "test.py"])
         assert allowed is True
 
     def test_python_allowed_flags(self):
@@ -181,9 +177,7 @@ class TestSandboxedCommandValidation:
     def test_flags_starting_with_dash_skip_subcommand_check(self):
         """Flags starting with - should skip subcommand validation."""
         # Even if the flag isn't explicitly allowed, -flags should pass
-        allowed, reason = SandboxedCommand.validate(
-            ["git", "-C", "/path", "status"]
-        )
+        allowed, reason = SandboxedCommand.validate(["git", "-C", "/path", "status"])
         assert allowed is True
 
     def test_shell_metacharacter_rejected_general(self):
@@ -391,9 +385,7 @@ class TestRunSandboxedAsync:
     async def test_captures_stderr(self):
         """stderr should be captured (tested via mock to avoid metachar issues)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="", stderr="error output"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="error output")
             result = await run_sandboxed(
                 ["python", "--version"],  # Command passes validation
                 capture_output=True,
@@ -404,9 +396,7 @@ class TestRunSandboxedAsync:
     async def test_returns_nonzero_returncode(self):
         """Non-zero return codes should be captured (tested via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=42, stdout="", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=42, stdout="", stderr="")
             result = await run_sandboxed(
                 ["python", "--version"],
                 check=False,
@@ -418,9 +408,7 @@ class TestRunSandboxedAsync:
     async def test_check_raises_on_failure(self):
         """check=True should raise CalledProcessError on failure (via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1, stdout="", stderr="error"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
             with pytest.raises(subprocess.CalledProcessError) as exc_info:
                 await run_sandboxed(
                     ["python", "--version"],
@@ -438,9 +426,7 @@ class TestRunSandboxedAsync:
     async def test_custom_env_merged(self):
         """Custom env should be merged with sanitized env (tested via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="custom_value", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="custom_value", stderr="")
             result = await run_sandboxed(
                 ["python", "--version"],
                 env={"CUSTOM_VAR": "custom_value"},
@@ -454,9 +440,7 @@ class TestRunSandboxedAsync:
     async def test_input_data_passed_to_stdin(self):
         """input_data should be passed to process stdin (tested via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="test input", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="test input", stderr="")
             result = await run_sandboxed(
                 ["python", "--version"],
                 input_data="test input",
@@ -469,9 +453,7 @@ class TestRunSandboxedAsync:
     async def test_timeout_clamped_to_max(self):
         """Timeout should be clamped to MAX_TIMEOUT."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="output", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="output", stderr="")
             await run_sandboxed(
                 ["python", "--version"],
                 timeout=999999,  # Way over MAX_TIMEOUT
@@ -540,9 +522,7 @@ class TestRunSandboxedSync:
     def test_captures_stderr(self):
         """stderr should be captured (tested via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="", stderr="sync error"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="sync error")
             result = run_sandboxed_sync(
                 ["python", "--version"],
             )
@@ -551,9 +531,7 @@ class TestRunSandboxedSync:
     def test_check_raises_on_failure(self):
         """check=True should raise CalledProcessError on failure (via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=5, stdout="", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=5, stdout="", stderr="")
             with pytest.raises(subprocess.CalledProcessError):
                 run_sandboxed_sync(
                     ["python", "--version"],
@@ -568,9 +546,7 @@ class TestRunSandboxedSync:
     def test_custom_env_merged(self):
         """Custom env should be merged with sanitized env (via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="sync_value", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="sync_value", stderr="")
             run_sandboxed_sync(
                 ["python", "--version"],
                 env={"SYNC_VAR": "sync_value"},
@@ -583,9 +559,7 @@ class TestRunSandboxedSync:
     def test_input_data_passed_to_stdin(self):
         """input_data should be passed to process stdin (via mock)."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="sync input", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="sync input", stderr="")
             run_sandboxed_sync(
                 ["python", "--version"],
                 input_data="sync input",
@@ -619,9 +593,7 @@ class TestSecurityFeatures:
     def test_shell_false_always(self):
         """subprocess.run should never be called with shell=True."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             run_sandboxed_sync(["python", "--version"])
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args.kwargs
@@ -654,9 +626,7 @@ class TestSecurityFeatures:
     def test_path_traversal_in_command_name_handled(self):
         """Commands with path traversal should be validated by base name."""
         # ../../../bin/rm should still be blocked because base name is 'rm'
-        allowed, reason = SandboxedCommand.validate(
-            ["../../../bin/rm", "-rf", "/"]
-        )
+        allowed, reason = SandboxedCommand.validate(["../../../bin/rm", "-rf", "/"])
         assert allowed is False
 
     def test_symbolic_command_path_blocked(self):
@@ -682,9 +652,7 @@ class TestEdgeCases:
     async def test_command_with_nonzero_exit_via_mock(self):
         """Running a command that fails should be handled gracefully."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1, stdout="", stderr="Error occurred"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error occurred")
             result = await run_sandboxed(
                 ["python", "--version"],
                 check=False,
@@ -774,9 +742,7 @@ class TestMockedSubprocess:
     def test_sync_subprocess_called_correctly(self):
         """Verify subprocess.run is called with correct parameters."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0, stdout="output", stderr=""
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="output", stderr="")
             result = run_sandboxed_sync(
                 ["git", "status"],
                 cwd="/test/path",
@@ -847,5 +813,6 @@ class TestMockedSubprocess:
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for tests."""
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)

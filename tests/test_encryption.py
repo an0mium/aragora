@@ -27,9 +27,7 @@ except ImportError:
     CRYPTO_AVAILABLE = False
 
 # Skip all tests if cryptography is not available
-pytestmark = pytest.mark.skipif(
-    not CRYPTO_AVAILABLE, reason="cryptography package not installed"
-)
+pytestmark = pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 
 from aragora.security.encryption import (
     EncryptionService,
@@ -132,7 +130,7 @@ class TestBasicEncryption:
 
     def test_encrypt_unicode(self, encryption_service):
         """Test encrypting unicode strings."""
-        plaintext = "Hello, \U0001F600 World! \u4e2d\u6587"
+        plaintext = "Hello, \U0001f600 World! \u4e2d\u6587"
 
         encrypted = encryption_service.encrypt(plaintext)
         decrypted = encryption_service.decrypt_string(encrypted)
@@ -399,9 +397,7 @@ class TestFieldLevelEncryption:
             "email": "john@example.com",
         }
 
-        encrypted_record = encryption_service.encrypt_fields(
-            record, ["ssn", "credit_card"]
-        )
+        encrypted_record = encryption_service.encrypt_fields(record, ["ssn", "credit_card"])
 
         assert encrypted_record["name"] == "John Doe"
         assert encrypted_record["ssn"]["_encrypted"] is True

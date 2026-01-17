@@ -43,15 +43,15 @@ class MockAgent:
 
         # Return different responses based on prompt content
         if "extract" in prompt.lower() or "fact" in prompt.lower():
-            return '''{"facts": [
+            return """{"facts": [
                 {"statement": "The contract expires on December 31, 2025", "confidence": 0.9, "topics": ["contract", "expiration"], "evidence_quote": "expires on 12/31/2025"},
                 {"statement": "Payment is due within 30 days", "confidence": 0.85, "topics": ["payment", "terms"], "evidence_quote": "NET-30 payment terms"}
-            ]}'''
+            ]}"""
         elif "verify" in prompt.lower():
-            return '''{"verified_facts": [
+            return """{"verified_facts": [
                 {"original_statement": "The contract expires on December 31, 2025", "verified": true, "adjusted_confidence": 0.92, "reason": "Clearly stated in document"},
                 {"original_statement": "Payment is due within 30 days", "verified": true, "adjusted_confidence": 0.88, "reason": "Standard NET-30 terms confirmed"}
-            ]}'''
+            ]}"""
         elif "answer" in prompt.lower() or "question" in prompt.lower():
             return "Based on the document excerpts [1], the contract includes NET-30 payment terms and expires on December 31, 2025 [2]. The agreement covers standard commercial services with annual renewal."
         else:
@@ -212,9 +212,7 @@ class TestKnowledgePipelineIntegration:
             await pipeline.stop()
 
     @pytest.mark.asyncio
-    async def test_query_with_debate(
-        self, sample_contract_text: str, mock_agents: list[MockAgent]
-    ):
+    async def test_query_with_debate(self, sample_contract_text: str, mock_agents: list[MockAgent]):
         """Test query with multi-agent debate enabled."""
         fact_store = InMemoryFactStore()
         embedding_service = InMemoryEmbeddingService()

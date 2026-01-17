@@ -38,12 +38,14 @@ def collect_documents() -> list[dict[str, Any]]:
     for file_path in files_to_analyze:
         if file_path.exists():
             content = file_path.read_text()
-            documents.append({
-                "id": file_path.name,
-                "path": str(file_path.relative_to(PROJECT_ROOT)),
-                "content": content,
-                "size": len(content),
-            })
+            documents.append(
+                {
+                    "id": file_path.name,
+                    "path": str(file_path.relative_to(PROJECT_ROOT)),
+                    "content": content,
+                    "size": len(content),
+                }
+            )
             print(f"  Loaded: {file_path.relative_to(PROJECT_ROOT)} ({len(content):,} chars)")
         else:
             print(f"  Skipped (not found): {file_path.relative_to(PROJECT_ROOT)}")
@@ -87,12 +89,14 @@ def analyze_with_chunking(documents: list[dict]) -> dict[str, Any]:
 
         # Store chunks for consistency analysis
         for i, chunk in enumerate(chunks):
-            results["all_chunks"].append({
-                "id": f"{doc['id']}_chunk_{i}",
-                "document_id": doc["id"],
-                "content": chunk.content,
-                "sequence": chunk.sequence,
-            })
+            results["all_chunks"].append(
+                {
+                    "id": f"{doc['id']}_chunk_{i}",
+                    "document_id": doc["id"],
+                    "content": chunk.content,
+                    "sequence": chunk.sequence,
+                }
+            )
 
     return results
 
@@ -113,41 +117,47 @@ def run_consistency_audit(chunks: list[dict]) -> list[dict]:
         # Extract dates
         for pattern, category in auditor.DATE_PATTERNS:
             for match in pattern.finditer(content):
-                findings.append({
-                    "type": "date_reference",
-                    "category": category,
-                    "document": doc_id,
-                    "chunk": chunk_id,
-                    "key": match.group(1) if match.lastindex >= 1 else "date",
-                    "value": match.group(2) if match.lastindex >= 2 else match.group(0),
-                    "text": match.group(0),
-                })
+                findings.append(
+                    {
+                        "type": "date_reference",
+                        "category": category,
+                        "document": doc_id,
+                        "chunk": chunk_id,
+                        "key": match.group(1) if match.lastindex >= 1 else "date",
+                        "value": match.group(2) if match.lastindex >= 2 else match.group(0),
+                        "text": match.group(0),
+                    }
+                )
 
         # Extract numbers/metrics
         for pattern, category in auditor.NUMBER_PATTERNS:
             for match in pattern.finditer(content):
-                findings.append({
-                    "type": "number_reference",
-                    "category": category,
-                    "document": doc_id,
-                    "chunk": chunk_id,
-                    "key": match.group(1) if match.lastindex >= 1 else "number",
-                    "value": match.group(2) if match.lastindex >= 2 else match.group(0),
-                    "text": match.group(0),
-                })
+                findings.append(
+                    {
+                        "type": "number_reference",
+                        "category": category,
+                        "document": doc_id,
+                        "chunk": chunk_id,
+                        "key": match.group(1) if match.lastindex >= 1 else "number",
+                        "value": match.group(2) if match.lastindex >= 2 else match.group(0),
+                        "text": match.group(0),
+                    }
+                )
 
         # Extract definitions
         for pattern, category in auditor.DEFINITION_PATTERNS:
             for match in pattern.finditer(content):
-                findings.append({
-                    "type": "definition",
-                    "category": category,
-                    "document": doc_id,
-                    "chunk": chunk_id,
-                    "key": match.group(1) if match.lastindex >= 1 else "term",
-                    "value": match.group(2) if match.lastindex >= 2 else match.group(0),
-                    "text": match.group(0)[:100],
-                })
+                findings.append(
+                    {
+                        "type": "definition",
+                        "category": category,
+                        "document": doc_id,
+                        "chunk": chunk_id,
+                        "key": match.group(1) if match.lastindex >= 1 else "term",
+                        "value": match.group(2) if match.lastindex >= 2 else match.group(0),
+                        "text": match.group(0)[:100],
+                    }
+                )
 
     return findings
 
@@ -182,18 +192,20 @@ def find_contradictions(findings: list[dict]) -> list[dict]:
 
         # If multiple different values exist, it's a potential contradiction
         if len(values) > 1:
-            contradictions.append({
-                "key": key,
-                "type": items[0].get("type", "unknown"),
-                "values": [
-                    {
-                        "value": val,
-                        "documents": [i["document"] for i in docs],
-                        "count": len(docs),
-                    }
-                    for val, docs in values.items()
-                ],
-            })
+            contradictions.append(
+                {
+                    "key": key,
+                    "type": items[0].get("type", "unknown"),
+                    "values": [
+                        {
+                            "value": val,
+                            "documents": [i["document"] for i in docs],
+                            "count": len(docs),
+                        }
+                        for val, docs in values.items()
+                    ],
+                }
+            )
 
     return contradictions
 
@@ -285,7 +297,9 @@ def main():
     findings = run_consistency_audit(analysis["all_chunks"])
     print(f"  Extracted {len(findings)} statements")
     print(f"    - Date references: {len([f for f in findings if f['type'] == 'date_reference'])}")
-    print(f"    - Number references: {len([f for f in findings if f['type'] == 'number_reference'])}")
+    print(
+        f"    - Number references: {len([f for f in findings if f['type'] == 'number_reference'])}"
+    )
     print(f"    - Definitions: {len([f for f in findings if f['type'] == 'definition'])}")
 
     # Step 4: Find contradictions
@@ -326,7 +340,9 @@ def main():
     print("AUDIT SUMMARY")
     print("=" * 70)
     print(f"Documents analyzed: {len(documents)}")
-    print(f"Total content: {analysis['total_tokens']:,} tokens across {analysis['total_chunks']} chunks")
+    print(
+        f"Total content: {analysis['total_tokens']:,} tokens across {analysis['total_chunks']} chunks"
+    )
     print(f"Statements extracted: {len(findings)}")
     print(f"Potential contradictions: {len(contradictions)}")
     print(f"Missing documented files: {len(feature_check['missing_files'])}")

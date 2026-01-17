@@ -593,6 +593,7 @@ class TestTracedDecorator:
 
     def test_sync_function(self):
         """Should trace synchronous function."""
+
         @traced("test.operation")
         def my_function():
             return "result"
@@ -628,6 +629,7 @@ class TestTracedDecorator:
 
     def test_sync_function_handles_exception(self):
         """Should mark span as error on sync function exception."""
+
         @traced("test.operation")
         def failing_function():
             raise ValueError("Test error")
@@ -637,6 +639,7 @@ class TestTracedDecorator:
 
     def test_sync_function_preserves_return_value(self):
         """Should preserve function return value."""
+
         @traced("test.operation")
         def compute():
             return {"value": 42, "status": "ok"}
@@ -647,6 +650,7 @@ class TestTracedDecorator:
 
     def test_sync_function_preserves_args(self):
         """Should preserve function arguments."""
+
         @traced("test.operation")
         def add(a, b):
             return a + b
@@ -657,6 +661,7 @@ class TestTracedDecorator:
 
     def test_sync_function_preserves_kwargs(self):
         """Should preserve function keyword arguments."""
+
         @traced("test.operation")
         def greet(name, greeting="Hello"):
             return f"{greeting}, {name}!"
@@ -668,6 +673,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_async_function(self):
         """Should trace asynchronous function."""
+
         @traced("test.async_operation")
         async def my_async_function():
             await asyncio.sleep(0.001)
@@ -695,6 +701,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_async_function_handles_exception(self):
         """Should mark span as error on async function exception."""
+
         @traced("test.async_operation")
         async def failing_async_function():
             raise RuntimeError("Async error")
@@ -705,6 +712,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_async_function_preserves_args(self):
         """Should preserve async function arguments."""
+
         @traced("test.async_operation")
         async def async_add(a, b):
             return a + b
@@ -715,6 +723,7 @@ class TestTracedDecorator:
 
     def test_decorator_preserves_function_metadata(self):
         """Should preserve function name and docstring."""
+
         @traced("test.operation")
         def documented_function():
             """This is the docstring."""

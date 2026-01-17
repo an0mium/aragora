@@ -273,9 +273,7 @@ class TestFactStore:
 
         # Query by term - use list_facts with topic filter as FTS may not match
         # FTS5 tokenization can vary by SQLite version
-        contract_facts = store.list_facts(
-            FactFilters(workspace_id="ws_legal", topics=["contract"])
-        )
+        contract_facts = store.list_facts(FactFilters(workspace_id="ws_legal", topics=["contract"]))
         assert len(contract_facts) >= 1
 
     def test_relations(self, store):
@@ -314,9 +312,7 @@ class TestFactStore:
         assert facts[0].id == new_fact.id
 
         # Include superseded
-        all_facts = store.list_facts(
-            FactFilters(workspace_id="ws_test", include_superseded=True)
-        )
+        all_facts = store.list_facts(FactFilters(workspace_id="ws_test", include_superseded=True))
         assert len(all_facts) == 2
 
 

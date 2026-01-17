@@ -184,9 +184,7 @@ class TestKnowledgePipelineIntegration:
         assert status.get("status") in ("completed", "pending", "processing")
 
     @pytest.mark.asyncio
-    async def test_fact_extraction(
-        self, sample_document_content: bytes, temp_workspace: str
-    ):
+    async def test_fact_extraction(self, sample_document_content: bytes, temp_workspace: str):
         """Test fact extraction from documents."""
         from aragora.knowledge import KnowledgePipeline, KnowledgePipelineConfig
         from aragora.knowledge.fact_extractor import FactExtractor
@@ -572,9 +570,7 @@ class TestFullPipelineIntegration:
     """Test the complete pipeline from upload to query."""
 
     @pytest.mark.asyncio
-    async def test_upload_to_query_flow(
-        self, sample_document_content: bytes, temp_workspace: str
-    ):
+    async def test_upload_to_query_flow(self, sample_document_content: bytes, temp_workspace: str):
         """Test the complete flow: upload → process → query."""
         from aragora.knowledge.integration import process_document_sync
         from aragora.knowledge import (

@@ -305,7 +305,10 @@ class TestSupabaseAuthValidator:
 
     def test_init_defaults(self):
         """Should initialize with environment variables."""
-        with patch.dict("os.environ", {"SUPABASE_JWT_SECRET": "test-secret", "SUPABASE_URL": "https://test.supabase.co"}):
+        with patch.dict(
+            "os.environ",
+            {"SUPABASE_JWT_SECRET": "test-secret", "SUPABASE_URL": "https://test.supabase.co"},
+        ):
             validator = SupabaseAuthValidator()
 
             assert validator.jwt_secret == "test-secret"
@@ -801,7 +804,9 @@ class TestAuthenticateRequest:
         mock_user = User(id="user-123", email="test@example.com")
 
         with patch.object(SupabaseAuthValidator, "validate_jwt", return_value=None):
-            with patch.object(APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=mock_user):
+            with patch.object(
+                APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=mock_user
+            ):
                 result = await authenticate_request(mock_handler_with_api_key)
 
                 assert result is mock_user
@@ -813,7 +818,9 @@ class TestAuthenticateRequest:
         mock_user = User(id="user-123", email="test@example.com")
 
         with patch.object(SupabaseAuthValidator, "validate_jwt", return_value=None):
-            with patch.object(APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=mock_user):
+            with patch.object(
+                APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=mock_user
+            ):
                 result = await authenticate_request(handler)
 
                 assert result is mock_user
@@ -822,7 +829,9 @@ class TestAuthenticateRequest:
     async def test_both_fail(self, mock_handler_with_bearer):
         """Should return None when both auth methods fail."""
         with patch.object(SupabaseAuthValidator, "validate_jwt", return_value=None):
-            with patch.object(APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=None):
+            with patch.object(
+                APIKeyValidator, "validate_key", new_callable=AsyncMock, return_value=None
+            ):
                 result = await authenticate_request(mock_handler_with_bearer)
 
                 assert result is None
@@ -1041,7 +1050,9 @@ class TestRequirePlanDecorator:
         """Should allow access when plan exceeds requirement."""
         enterprise_user = User(id="user-123", email="test@example.com", plan="enterprise")
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=enterprise_user):
+        with patch(
+            "aragora.server.middleware.auth_v2.get_current_user", return_value=enterprise_user
+        ):
 
             @require_plan("pro")
             def endpoint(handler, user):
@@ -1085,9 +1096,13 @@ class TestRequirePlanDecorator:
                 result = endpoint(handler=mock_handler_with_bearer)
 
                 if should_succeed:
-                    assert result.get("success") is True, f"{user_plan} should access {required_plan}"
+                    assert (
+                        result.get("success") is True
+                    ), f"{user_plan} should access {required_plan}"
                 else:
-                    assert get_status(result) == 403, f"{user_plan} should not access {required_plan}"
+                    assert (
+                        get_status(result) == 403
+                    ), f"{user_plan} should not access {required_plan}"
 
 
 # ===========================================================================

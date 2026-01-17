@@ -252,9 +252,7 @@ class TestDataIsolationManager:
         assert len(workspaces) == 2
 
         # Filter by organization
-        workspaces = await isolation_manager.list_workspaces(
-            "user_1", organization_id="org_1"
-        )
+        workspaces = await isolation_manager.list_workspaces("user_1", organization_id="org_1")
         assert len(workspaces) == 2
 
     @pytest.mark.asyncio
@@ -477,9 +475,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_ssn(self, classifier):
         """Test SSN detection."""
-        result = await classifier.classify(
-            "Customer SSN: 123-45-6789"
-        )
+        result = await classifier.classify("Customer SSN: 123-45-6789")
 
         assert result.level == SensitivityLevel.CONFIDENTIAL
         assert result.pii_detected is True
@@ -488,9 +484,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_credit_card(self, classifier):
         """Test credit card detection."""
-        result = await classifier.classify(
-            "Payment card: 4111-1111-1111-1111"
-        )
+        result = await classifier.classify("Payment card: 4111-1111-1111-1111")
 
         assert result.level == SensitivityLevel.CONFIDENTIAL
         assert result.pii_detected is True
@@ -498,9 +492,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_api_key(self, classifier):
         """Test API key detection."""
-        result = await classifier.classify(
-            'api_key = "sk_example_abcdefghijklmnopqrstuvwxyz"'
-        )
+        result = await classifier.classify('api_key = "sk_example_abcdefghijklmnopqrstuvwxyz"')
 
         assert result.level == SensitivityLevel.RESTRICTED
         assert result.secrets_detected is True
@@ -508,9 +500,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_private_key(self, classifier):
         """Test private key detection."""
-        result = await classifier.classify(
-            "-----BEGIN RSA PRIVATE KEY-----\nMIIE..."
-        )
+        result = await classifier.classify("-----BEGIN RSA PRIVATE KEY-----\nMIIE...")
 
         assert result.level == SensitivityLevel.RESTRICTED
         assert result.secrets_detected is True
@@ -518,9 +508,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_password(self, classifier):
         """Test password detection."""
-        result = await classifier.classify(
-            'password = "super_secret_password_123"'
-        )
+        result = await classifier.classify('password = "super_secret_password_123"')
 
         assert result.level == SensitivityLevel.RESTRICTED
         assert result.secrets_detected is True
@@ -528,9 +516,7 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_email(self, classifier):
         """Test email detection."""
-        result = await classifier.classify(
-            "Contact: john.doe@example.com"
-        )
+        result = await classifier.classify("Contact: john.doe@example.com")
 
         assert result.level == SensitivityLevel.INTERNAL
         assert len(result.indicators_found) > 0
@@ -538,36 +524,28 @@ class TestSensitivityClassifier:
     @pytest.mark.asyncio
     async def test_detect_phone_number(self, classifier):
         """Test phone number detection."""
-        result = await classifier.classify(
-            "Call us at (555) 123-4567"
-        )
+        result = await classifier.classify("Call us at (555) 123-4567")
 
         assert result.pii_detected is True
 
     @pytest.mark.asyncio
     async def test_detect_national_security(self, classifier):
         """Test national security marker detection."""
-        result = await classifier.classify(
-            "TOP SECRET // NOFORN"
-        )
+        result = await classifier.classify("TOP SECRET // NOFORN")
 
         assert result.level == SensitivityLevel.TOP_SECRET
 
     @pytest.mark.asyncio
     async def test_detect_medical_info(self, classifier):
         """Test medical information detection."""
-        result = await classifier.classify(
-            "Patient diagnosis: Type 2 Diabetes. HIPAA protected."
-        )
+        result = await classifier.classify("Patient diagnosis: Type 2 Diabetes. HIPAA protected.")
 
         assert result.level == SensitivityLevel.CONFIDENTIAL
 
     @pytest.mark.asyncio
     async def test_detect_financial_data(self, classifier):
         """Test financial data detection."""
-        result = await classifier.classify(
-            "Bank account routing number: 123456789"
-        )
+        result = await classifier.classify("Bank account routing number: 123456789")
 
         assert result.level == SensitivityLevel.CONFIDENTIAL
 

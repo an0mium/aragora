@@ -25,8 +25,7 @@ def trace_feature(feature_keywords: list[str], context_lines: int = 3) -> dict[s
 
     # Build regex pattern from keywords
     pattern = re.compile(
-        r"(" + "|".join(re.escape(kw) for kw in feature_keywords) + r")",
-        re.IGNORECASE
+        r"(" + "|".join(re.escape(kw) for kw in feature_keywords) + r")", re.IGNORECASE
     )
 
     for py_file in aragora_dir.rglob("*.py"):
@@ -47,18 +46,20 @@ def trace_feature(feature_keywords: list[str], context_lines: int = 3) -> dict[s
             # Find line numbers and context
             for match in matches:
                 # Calculate line number
-                line_num = content[:match.start()].count("\n") + 1
+                line_num = content[: match.start()].count("\n") + 1
                 start_line = max(0, line_num - context_lines - 1)
                 end_line = min(len(lines), line_num + context_lines)
 
                 context = lines[start_line:end_line]
 
-                findings.append({
-                    "file": rel_path,
-                    "line": line_num,
-                    "match": match.group(0),
-                    "context": "\n".join(context),
-                })
+                findings.append(
+                    {
+                        "file": rel_path,
+                        "line": line_num,
+                        "match": match.group(0),
+                        "context": "\n".join(context),
+                    }
+                )
 
         except Exception as e:
             continue
@@ -128,7 +129,9 @@ def main():
     # Trace consensus-related code
     print("\n[1/3] Finding consensus-related code...")
     consensus_trace = trace_feature(["consensus", "converge", "agreement", "unanimous"])
-    print(f"  Found {consensus_trace['total_matches']} matches in {consensus_trace['files_count']} files")
+    print(
+        f"  Found {consensus_trace['total_matches']} matches in {consensus_trace['files_count']} files"
+    )
     print(f"  Key files:")
     for f in consensus_trace["files"][:10]:
         print(f"    - {f}")
@@ -155,7 +158,9 @@ def main():
     for name, keywords in interesting_patterns:
         trace = trace_feature(keywords)
         if trace["findings"]:
-            print(f"\n  {name}: {trace['total_matches']} occurrences in {trace['files_count']} files")
+            print(
+                f"\n  {name}: {trace['total_matches']} occurrences in {trace['files_count']} files"
+            )
             # Show first code snippet
             finding = trace["findings"][0]
             print(f"    File: {finding['file']}:{finding['line']}")
@@ -169,7 +174,8 @@ def main():
     print("CONSENSUS DETECTION ARCHITECTURE")
     print("=" * 70)
 
-    print("""
+    print(
+        """
 Based on the trace:
 
 1. CORE FILES:
@@ -185,7 +191,8 @@ Based on the trace:
 3. FLOW:
    Agent responses → Embeddings → Similarity calculation →
    Threshold check → Consensus decision → DecisionReceipt
-""")
+"""
+    )
 
 
 if __name__ == "__main__":

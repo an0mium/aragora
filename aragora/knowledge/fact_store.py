@@ -297,8 +297,8 @@ class FactStore(SQLiteStore):
         Returns:
             Updated Fact or None if not found
         """
-        updates = []
-        params = []
+        updates: list[str] = []
+        params: list[Any] = []
 
         if confidence is not None:
             updates.append("confidence = ?")

@@ -34,16 +34,16 @@ def extract_feature_status_from_docs() -> dict[str, list[dict]]:
 
     # Pattern to find status indicators
     status_patterns = [
-        (r'\*\*(\w+)\*\*[:\s]+([^*\n]+)', 'bold_key'),
-        (r'- \[x\]\s+(.+)', 'completed'),
-        (r'- \[ \]\s+(.+)', 'incomplete'),
-        (r'✅\s*(.+)', 'done'),
-        (r'⚠️\s*(.+)', 'warning'),
-        (r'❌\s*(.+)', 'missing'),
+        (r"\*\*(\w+)\*\*[:\s]+([^*\n]+)", "bold_key"),
+        (r"- \[x\]\s+(.+)", "completed"),
+        (r"- \[ \]\s+(.+)", "incomplete"),
+        (r"✅\s*(.+)", "done"),
+        (r"⚠️\s*(.+)", "warning"),
+        (r"❌\s*(.+)", "missing"),
     ]
 
     # Find section headers and their content
-    sections = re.split(r'^##\s+(.+)$', content, flags=re.MULTILINE)
+    sections = re.split(r"^##\s+(.+)$", content, flags=re.MULTILINE)
 
     for i in range(1, len(sections), 2):
         section_name = sections[i].strip() if i < len(sections) else ""
@@ -63,19 +63,21 @@ def extract_feature_status_from_docs() -> dict[str, list[dict]]:
             status = "experimental"
 
         # Extract feature names from the section
-        lines = section_content.split('\n')
+        lines = section_content.split("\n")
         for line in lines:
             line = line.strip()
-            if line.startswith('- ') or line.startswith('* '):
+            if line.startswith("- ") or line.startswith("* "):
                 feature_text = line[2:].strip()
                 # Clean up formatting
-                feature_text = re.sub(r'\*\*|\*|`', '', feature_text)
-                feature_text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', feature_text)
+                feature_text = re.sub(r"\*\*|\*|`", "", feature_text)
+                feature_text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", feature_text)
                 if feature_text and len(feature_text) > 3:
-                    features.setdefault(status, []).append({
-                        "name": feature_text[:80],
-                        "section": section_name,
-                    })
+                    features.setdefault(status, []).append(
+                        {
+                            "name": feature_text[:80],
+                            "section": section_name,
+                        }
+                    )
 
     return features
 
@@ -100,13 +102,15 @@ def search_codebase_for_feature(feature_name: str) -> list[dict]:
             matches = sum(1 for kw in keywords if kw in content_lower)
             if matches >= len(keywords) // 2 + 1:  # At least half the keywords match
                 # Find the specific lines
-                for i, line in enumerate(content.split('\n'), 1):
+                for i, line in enumerate(content.split("\n"), 1):
                     if any(kw in line.lower() for kw in keywords):
-                        results.append({
-                            "file": str(py_file.relative_to(PROJECT_ROOT)),
-                            "line": i,
-                            "content": line.strip()[:100],
-                        })
+                        results.append(
+                            {
+                                "file": str(py_file.relative_to(PROJECT_ROOT)),
+                                "line": i,
+                                "content": line.strip()[:100],
+                            }
+                        )
                         if len(results) >= 5:  # Limit per feature
                             return results
         except Exception:
@@ -134,15 +138,15 @@ def analyze_import_graph() -> dict[str, Any]:
             }
 
             # Find imports
-            for match in re.finditer(r'^(?:from|import)\s+(\S+)', content, re.MULTILINE):
+            for match in re.finditer(r"^(?:from|import)\s+(\S+)", content, re.MULTILINE):
                 imports[file_key]["imports"].append(match.group(1))
 
             # Find class definitions
-            for match in re.finditer(r'^class\s+(\w+)', content, re.MULTILINE):
+            for match in re.finditer(r"^class\s+(\w+)", content, re.MULTILINE):
                 imports[file_key]["classes"].append(match.group(1))
 
             # Find top-level function definitions
-            for match in re.finditer(r'^def\s+(\w+)', content, re.MULTILINE):
+            for match in re.finditer(r"^def\s+(\w+)", content, re.MULTILINE):
                 imports[file_key]["functions"].append(match.group(1))
 
         except Exception:
@@ -190,12 +194,14 @@ def find_dead_code() -> list[dict]:
         # Count occurrences (should be at least 2 - definition + usage)
         occurrences = all_code.count(name)
         if occurrences <= 1:
-            potentially_dead.append({
-                "name": name,
-                "type": info["type"],
-                "file": info["file"],
-                "occurrences": occurrences,
-            })
+            potentially_dead.append(
+                {
+                    "name": name,
+                    "type": info["type"],
+                    "file": info["file"],
+                    "occurrences": occurrences,
+                }
+            )
 
     return potentially_dead[:20]  # Limit output
 
@@ -211,11 +217,15 @@ def check_endpoint_coverage() -> dict[str, Any]:
 
     # Extract route definitions
     routes = []
-    for match in re.finditer(r'@app\.(get|post|put|delete|patch|websocket)\s*\(\s*["\']([^"\']+)["\']', server_content):
-        routes.append({
-            "method": match.group(1).upper(),
-            "path": match.group(2),
-        })
+    for match in re.finditer(
+        r'@app\.(get|post|put|delete|patch|websocket)\s*\(\s*["\']([^"\']+)["\']', server_content
+    ):
+        routes.append(
+            {
+                "method": match.group(1).upper(),
+                "path": match.group(2),
+            }
+        )
 
     # Also check handler files
     handlers_dir = PROJECT_ROOT / "aragora" / "server" / "handlers"
@@ -223,12 +233,16 @@ def check_endpoint_coverage() -> dict[str, Any]:
         for handler_file in handlers_dir.glob("*.py"):
             try:
                 content = handler_file.read_text()
-                for match in re.finditer(r'@router\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']', content):
-                    routes.append({
-                        "method": match.group(1).upper(),
-                        "path": match.group(2),
-                        "handler": handler_file.name,
-                    })
+                for match in re.finditer(
+                    r'@router\.(get|post|put|delete|patch)\s*\(\s*["\']([^"\']+)["\']', content
+                ):
+                    routes.append(
+                        {
+                            "method": match.group(1).upper(),
+                            "path": match.group(2),
+                            "handler": handler_file.name,
+                        }
+                    )
             except Exception:
                 pass
 

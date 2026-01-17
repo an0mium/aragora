@@ -681,9 +681,7 @@ class TestRevokeToken:
             mock_store = MagicMock()
             mock_get_store.return_value = mock_store
 
-            with patch(
-                "aragora.server.middleware.audit_logger.audit_token_revoked"
-            ) as mock_audit:
+            with patch("aragora.server.middleware.audit_logger.audit_token_revoked") as mock_audit:
                 entry = revoke_token(token, reason="security", revoked_by="admin")
 
                 mock_audit.assert_called_once_with(

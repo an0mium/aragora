@@ -15,7 +15,8 @@ import logging
 import os
 import threading
 import time
-from typing import Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, Protocol, Union, cast
 
 from aragora.server.error_utils import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
@@ -28,6 +29,118 @@ from ..base import (
     get_host_header,
     json_response,
 )
+
+if TYPE_CHECKING:
+    from aragora.connectors.youtube_uploader import YouTubeVideoMetadata
+
+
+# =============================================================================
+# Protocol Types for External Dependencies
+# =============================================================================
+
+
+class YouTubeRateLimiterProtocol(Protocol):
+    """Protocol for YouTube rate limiter interface."""
+
+    @property
+    def remaining_quota(self) -> int:
+        """Get remaining quota units."""
+        ...
+
+    def can_upload(self) -> bool:
+        """Check if we have quota for an upload."""
+        ...
+
+
+class CircuitBreakerProtocol(Protocol):
+    """Protocol for circuit breaker interface."""
+
+    @property
+    def is_open(self) -> bool:
+        """Check if the circuit breaker is open."""
+        ...
+
+    def can_proceed(self) -> bool:
+        """Check if operation can proceed."""
+        ...
+
+
+class YouTubeConnectorProtocol(Protocol):
+    """Protocol for YouTube connector interface used by social media handler."""
+
+    client_id: str
+    client_secret: str
+    refresh_token: str
+    rate_limiter: YouTubeRateLimiterProtocol
+    circuit_breaker: CircuitBreakerProtocol
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if YouTube credentials are configured."""
+        ...
+
+    def get_auth_url(self, redirect_uri: str, state: str = "") -> str:
+        """Get OAuth authorization URL for user consent."""
+        ...
+
+    def exchange_code(self, code: str, redirect_uri: str) -> Awaitable[dict[str, Any]]:
+        """Exchange authorization code for tokens."""
+        ...
+
+    def upload(
+        self, video_path: Path, metadata: "YouTubeVideoMetadata"
+    ) -> Awaitable[dict[str, Any]]:
+        """Upload a video to YouTube."""
+        ...
+
+
+class TwitterConnectorProtocol(Protocol):
+    """Protocol for Twitter connector interface used by social media handler."""
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Twitter credentials are configured."""
+        ...
+
+    def post_tweet(self, text: str) -> Awaitable[dict[str, Any]]:
+        """Post a single tweet."""
+        ...
+
+    def post_thread(self, tweets: list[str]) -> Awaitable[dict[str, Any]]:
+        """Post a thread (multiple connected tweets)."""
+        ...
+
+
+class AudioStoreProtocol(Protocol):
+    """Protocol for audio store interface used by social media handler."""
+
+    def exists(self, debate_id: str) -> bool:
+        """Check if audio exists for a debate."""
+        ...
+
+    def get_path(self, debate_id: str) -> Optional[Path]:
+        """Get the path to an audio file."""
+        ...
+
+
+class VideoGeneratorProtocol(Protocol):
+    """Protocol for video generator interface used by social media handler."""
+
+    def generate_waveform_video(
+        self, audio_path: Path, output_path: Optional[Path] = None
+    ) -> Awaitable[Optional[Path]]:
+        """Generate video with animated audio waveform."""
+        ...
+
+    def generate_static_video(
+        self,
+        audio_path: Path,
+        title: str,
+        agents: list[str],
+        output_path: Optional[Path] = None,
+    ) -> Awaitable[Optional[Path]]:
+        """Generate video with static thumbnail and audio track."""
+        ...
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +216,36 @@ class SocialMediaHandler(BaseHandler):
         "/api/debates/*/publish/youtube",
     ]
 
+    # === Typed Accessor Methods ===
+
+    def _get_youtube_connector(self) -> Optional[YouTubeConnectorProtocol]:
+        """Get the YouTube connector with proper typing."""
+        connector = self.ctx.get("youtube_connector")
+        if connector is None:
+            return None
+        return cast(YouTubeConnectorProtocol, connector)
+
+    def _get_twitter_connector(self) -> Optional[TwitterConnectorProtocol]:
+        """Get the Twitter connector with proper typing."""
+        connector = self.ctx.get("twitter_connector")
+        if connector is None:
+            return None
+        return cast(TwitterConnectorProtocol, connector)
+
+    def _get_audio_store(self) -> Optional[AudioStoreProtocol]:
+        """Get the audio store with proper typing."""
+        store = self.ctx.get("audio_store")
+        if store is None:
+            return None
+        return cast(AudioStoreProtocol, store)
+
+    def _get_video_generator(self) -> Optional[VideoGeneratorProtocol]:
+        """Get the video generator with proper typing."""
+        generator = self.ctx.get("video_generator")
+        if generator is None:
+            return None
+        return cast(VideoGeneratorProtocol, generator)
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
         if path.startswith("/api/youtube/"):
@@ -145,9 +288,9 @@ class SocialMediaHandler(BaseHandler):
 
     # === YouTube OAuth Endpoints ===
 
-    def _get_youtube_auth_url(self, handler) -> HandlerResult:
+    def _get_youtube_auth_url(self, handler: Any) -> HandlerResult:
         """Get YouTube OAuth authorization URL."""
-        youtube = self.ctx.get("youtube_connector")
+        youtube = self._get_youtube_connector()
         if not youtube:
             return error_response("YouTube connector not initialized", status=500)
 
@@ -187,7 +330,7 @@ class SocialMediaHandler(BaseHandler):
         )
 
     def _handle_youtube_callback(
-        self, code: Optional[str], state: Optional[str], handler
+        self, code: Optional[str], state: Optional[str], handler: Any
     ) -> HandlerResult:
         """Handle YouTube OAuth callback."""
         if not code:
@@ -200,7 +343,7 @@ class SocialMediaHandler(BaseHandler):
             logger.warning("OAuth callback with invalid/expired state")
             return error_response("Invalid or expired state parameter", status=400)
 
-        youtube = self.ctx.get("youtube_connector")
+        youtube = self._get_youtube_connector()
         if not youtube:
             return error_response("YouTube connector not initialized", status=500)
 
@@ -240,7 +383,7 @@ class SocialMediaHandler(BaseHandler):
 
     def _get_youtube_status(self) -> HandlerResult:
         """Get YouTube connector status."""
-        youtube = self.ctx.get("youtube_connector")
+        youtube = self._get_youtube_connector()
         if not youtube:
             return json_response(
                 {
@@ -262,9 +405,9 @@ class SocialMediaHandler(BaseHandler):
 
     # === Social Publishing Endpoints ===
 
-    def _publish_to_twitter(self, debate_id: str, handler) -> HandlerResult:
+    def _publish_to_twitter(self, debate_id: str, handler: Any) -> HandlerResult:
         """Publish debate to Twitter/X."""
-        twitter = self.ctx.get("twitter_connector")
+        twitter = self._get_twitter_connector()
         if not twitter:
             return error_response("Twitter connector not initialized", status=500)
 
@@ -302,7 +445,7 @@ class SocialMediaHandler(BaseHandler):
         )
         debate_url = f"{scheme}://{host}/debates/{debate_id}"
 
-        audio_store = self.ctx.get("audio_store")
+        audio_store = self._get_audio_store()
         audio_url = None
         if include_audio and audio_store and audio_store.exists(debate_id):
             audio_url = f"{scheme}://{host}/audio/{debate_id}.mp3"
@@ -353,9 +496,9 @@ class SocialMediaHandler(BaseHandler):
             logger.error(f"Failed to publish to Twitter: {e}")
             return error_response(_safe_error_message(e, "twitter_publish"), status=500)
 
-    def _publish_to_youtube(self, debate_id: str, handler) -> HandlerResult:
+    def _publish_to_youtube(self, debate_id: str, handler: Any) -> HandlerResult:
         """Publish debate to YouTube."""
-        youtube = self.ctx.get("youtube_connector")
+        youtube = self._get_youtube_connector()
         if not youtube:
             return error_response("YouTube connector not initialized", status=500)
 
@@ -388,7 +531,7 @@ class SocialMediaHandler(BaseHandler):
                 status=429,
             )
 
-        audio_store = self.ctx.get("audio_store")
+        audio_store = self._get_audio_store()
         if not audio_store or not audio_store.exists(debate_id):
             return json_response(
                 {
@@ -417,13 +560,15 @@ class SocialMediaHandler(BaseHandler):
             return error_response("Audio file not found", status=404)
 
         try:
-            video_generator = self.ctx.get("video_generator")
+            video_generator = self._get_video_generator()
             if video_generator:
                 try:
-                    video_path = video_generator.generate_waveform_video(audio_path)
+                    video_path = _run_async(video_generator.generate_waveform_video(audio_path))
                 except Exception as e:
                     logger.debug(f"Waveform video generation failed, using static fallback: {e}")
-                    video_path = video_generator.generate_static_video(audio_path, task, agents)
+                    video_path = _run_async(
+                        video_generator.generate_static_video(audio_path, task, agents)
+                    )
             else:
                 return error_response("Video generator not available", status=503)
 
@@ -436,6 +581,9 @@ class SocialMediaHandler(BaseHandler):
                 tags=tags or ["AI", "debate", "agents", "artificial intelligence"],
                 privacy_status=privacy,
             )
+
+            if video_path is None:
+                return error_response("Video generation failed", status=500)
 
             logger.info(f"Uploading video to YouTube: {metadata.title}")
             result = _run_async(youtube.upload(video_path, metadata))

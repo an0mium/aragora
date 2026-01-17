@@ -364,9 +364,7 @@ class TestReportSaving:
     """Test report saving functionality."""
 
     @pytest.mark.asyncio
-    async def test_save_report_to_file(
-        self, session_with_findings, temp_output_dir: Path
-    ):
+    async def test_save_report_to_file(self, session_with_findings, temp_output_dir: Path):
         """Test saving a report to a file."""
         from aragora.reports import (
             AuditReportGenerator,
@@ -395,9 +393,7 @@ class TestReportSaving:
         assert "Audit Report" in content
 
     @pytest.mark.asyncio
-    async def test_save_report_auto_filename(
-        self, session_with_findings, temp_output_dir: Path
-    ):
+    async def test_save_report_auto_filename(self, session_with_findings, temp_output_dir: Path):
         """Test saving with auto-generated filename."""
         from aragora.reports import (
             AuditReportGenerator,

@@ -66,6 +66,7 @@ def audit_context(mock_session):
 @pytest.fixture
 def create_chunk():
     """Factory fixture to create ChunkData objects."""
+
     def _create_chunk(content: str, document_id: str = "doc-123", chunk_id: int = 0, **kwargs):
         return ChunkData(
             id=f"chunk-{chunk_id}",
@@ -73,6 +74,7 @@ def create_chunk():
             content=content,
             **kwargs,
         )
+
     return _create_chunk
 
 
@@ -103,8 +105,9 @@ class TestLegalAuditor:
         )
 
         assert len(findings) > 0
-        assert any("indemnif" in f.title.lower() or "indemnif" in f.description.lower()
-                   for f in findings)
+        assert any(
+            "indemnif" in f.title.lower() or "indemnif" in f.description.lower() for f in findings
+        )
 
     def test_detect_liability_limitation(self, legal_auditor):
         """Test detection of liability limitation clauses."""
@@ -265,9 +268,7 @@ class TestAccountingAuditor:
         assert "benford_analysis" in caps.custom_capabilities
 
     @pytest.mark.asyncio
-    async def test_detect_manual_adjustments(
-        self, accounting_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_manual_adjustments(self, accounting_auditor, create_chunk, audit_context):
         """Test detection of manual adjustment entries."""
         # Single line to avoid newline issues with regex
         content = "Manual adjustment entry: Override of automated control, Amount: $25,000"
@@ -277,13 +278,12 @@ class TestAccountingAuditor:
 
         # If findings found, check for manual keyword
         if len(findings) > 0:
-            assert any("manual" in f.title.lower() or "manual" in f.description.lower()
-                       for f in findings)
+            assert any(
+                "manual" in f.title.lower() or "manual" in f.description.lower() for f in findings
+            )
 
     @pytest.mark.asyncio
-    async def test_detect_year_end_entries(
-        self, accounting_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_year_end_entries(self, accounting_auditor, create_chunk, audit_context):
         """Test detection of year-end journal entries."""
         content = "Year-end adjustment dated December 31, 2024: Debit Accounts Receivable $50,000, Credit Revenue $50,000"
         chunk = create_chunk(content)
@@ -295,9 +295,7 @@ class TestAccountingAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_related_party(
-        self, accounting_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_related_party(self, accounting_auditor, create_chunk, audit_context):
         """Test detection of related party transactions."""
         content = "Related party transaction: Payment to subsidiary company $500,000, Intercompany loan transfer"
         chunk = create_chunk(content)
@@ -306,13 +304,12 @@ class TestAccountingAuditor:
 
         # If findings found, verify they're about related party
         if len(findings) > 0:
-            assert any("related" in f.title.lower() or "related" in f.description.lower()
-                       for f in findings)
+            assert any(
+                "related" in f.title.lower() or "related" in f.description.lower() for f in findings
+            )
 
     @pytest.mark.asyncio
-    async def test_detect_sox_override(
-        self, accounting_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_sox_override(self, accounting_auditor, create_chunk, audit_context):
         """Test detection of SOX control override."""
         content = "Management override of control: The CFO bypassed approval for this transaction. Amount: $1,000,000"
         chunk = create_chunk(content)
@@ -323,9 +320,7 @@ class TestAccountingAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_threshold_amounts(
-        self, accounting_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_threshold_amounts(self, accounting_auditor, create_chunk, audit_context):
         """Test detection of amounts just under thresholds."""
         content = "Expense Report: Travel $4,980.00, Equipment $9,950.00, Consulting $24,900.00"
         chunk = create_chunk(content)
@@ -376,9 +371,7 @@ class TestSoftwareAuditor:
         assert "secret_detection" in caps.custom_capabilities
 
     @pytest.mark.asyncio
-    async def test_detect_sql_injection(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_sql_injection(self, software_auditor, create_chunk, audit_context):
         """Test detection of SQL injection vulnerabilities."""
         content = 'def get_user(user_id): query = "SELECT * FROM users WHERE id = " + user_id; return db.execute(query)'
         chunk = create_chunk(content, document_id="app.py")
@@ -387,13 +380,12 @@ class TestSoftwareAuditor:
 
         # SQL injection detection depends on implementation
         if len(findings) > 0:
-            assert any("sql" in f.title.lower() or "injection" in f.description.lower()
-                       for f in findings)
+            assert any(
+                "sql" in f.title.lower() or "injection" in f.description.lower() for f in findings
+            )
 
     @pytest.mark.asyncio
-    async def test_detect_command_injection(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_command_injection(self, software_auditor, create_chunk, audit_context):
         """Test detection of command injection vulnerabilities."""
         content = 'import os; def run_command(user_input): os.system("ls " + user_input)'
         chunk = create_chunk(content, document_id="utils.py")
@@ -404,11 +396,9 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_xss_vulnerability(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_xss_vulnerability(self, software_auditor, create_chunk, audit_context):
         """Test detection of XSS vulnerabilities."""
-        content = 'function displayMessage(msg) { document.innerHTML = msg; }'
+        content = "function displayMessage(msg) { document.innerHTML = msg; }"
         chunk = create_chunk(content, document_id="app.js")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -417,9 +407,7 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_hardcoded_aws_key(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_hardcoded_aws_key(self, software_auditor, create_chunk, audit_context):
         """Test detection of hardcoded AWS credentials."""
         content = 'AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"; AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"'
         chunk = create_chunk(content, document_id="config.py")
@@ -428,13 +416,15 @@ class TestSoftwareAuditor:
 
         # AWS key detection depends on implementation
         if len(findings) > 0:
-            assert any("secret" in f.category.lower() or "credential" in f.category.lower() or "aws" in f.title.lower()
-                       for f in findings)
+            assert any(
+                "secret" in f.category.lower()
+                or "credential" in f.category.lower()
+                or "aws" in f.title.lower()
+                for f in findings
+            )
 
     @pytest.mark.asyncio
-    async def test_detect_github_token(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_github_token(self, software_auditor, create_chunk, audit_context):
         """Test detection of GitHub personal access tokens."""
         content = 'GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"'
         chunk = create_chunk(content, document_id="deploy.py")
@@ -445,26 +435,23 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_private_key(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_private_key(self, software_auditor, create_chunk, audit_context):
         """Test detection of embedded private keys."""
-        content = '-----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn... -----END RSA PRIVATE KEY-----'
+        content = "-----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn... -----END RSA PRIVATE KEY-----"
         chunk = create_chunk(content, document_id="keys.txt")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
 
         # Private key detection depends on implementation
         if len(findings) > 0:
-            assert any("private" in f.title.lower() or "key" in f.description.lower()
-                       for f in findings)
+            assert any(
+                "private" in f.title.lower() or "key" in f.description.lower() for f in findings
+            )
 
     @pytest.mark.asyncio
-    async def test_detect_gpl_license(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_gpl_license(self, software_auditor, create_chunk, audit_context):
         """Test detection of GPL license (copyleft)."""
-        content = '# This file is licensed under GPL-3.0, SPDX-License-Identifier: GPL-3.0-or-later'
+        content = "# This file is licensed under GPL-3.0, SPDX-License-Identifier: GPL-3.0-or-later"
         chunk = create_chunk(content, document_id="module.py")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -475,11 +462,9 @@ class TestSoftwareAuditor:
             assert len(license_findings) > 0
 
     @pytest.mark.asyncio
-    async def test_detect_eval_usage(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_eval_usage(self, software_auditor, create_chunk, audit_context):
         """Test detection of dangerous eval() usage with user input."""
-        content = 'def process_input(user_code): result = eval(user_input); return result'
+        content = "def process_input(user_code): result = eval(user_input); return result"
         chunk = create_chunk(content, document_id="processor.py")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -488,11 +473,9 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_pickle_usage(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_pickle_usage(self, software_auditor, create_chunk, audit_context):
         """Test detection of insecure pickle deserialization."""
-        content = 'import pickle; def load_data(data): return pickle.loads(data)'
+        content = "import pickle; def load_data(data): return pickle.loads(data)"
         chunk = create_chunk(content, document_id="loader.py")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -501,11 +484,9 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_detect_ssl_verify_disabled(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_detect_ssl_verify_disabled(self, software_auditor, create_chunk, audit_context):
         """Test detection of disabled SSL verification."""
-        content = 'response = requests.get(url, verify=False)'
+        content = "response = requests.get(url, verify=False)"
         chunk = create_chunk(content, document_id="api.py")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -514,11 +495,9 @@ class TestSoftwareAuditor:
         assert findings is not None
 
     @pytest.mark.asyncio
-    async def test_no_findings_on_safe_code(
-        self, software_auditor, create_chunk, audit_context
-    ):
+    async def test_no_findings_on_safe_code(self, software_auditor, create_chunk, audit_context):
         """Test that safe code doesn't produce false positives."""
-        content = 'def add_numbers(a: int, b: int) -> int: return a + b'
+        content = "def add_numbers(a: int, b: int) -> int: return a + b"
         chunk = create_chunk(content, document_id="math_utils.py")
 
         findings = await software_auditor.analyze_chunk(chunk, audit_context)
@@ -613,14 +592,8 @@ class TestCrossDocumentAnalysis:
     ):
         """Test software auditor license compatibility analysis."""
         chunks = [
-            create_chunk(
-                '# SPDX-License-Identifier: MIT',
-                document_id="lib/utils.py"
-            ),
-            create_chunk(
-                '# SPDX-License-Identifier: GPL-3.0',
-                document_id="lib/gpl_module.py"
-            ),
+            create_chunk("# SPDX-License-Identifier: MIT", document_id="lib/utils.py"),
+            create_chunk("# SPDX-License-Identifier: GPL-3.0", document_id="lib/gpl_module.py"),
         ]
 
         findings = await software_auditor.cross_document_analysis(chunks, audit_context)

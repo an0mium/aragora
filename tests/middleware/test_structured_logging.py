@@ -80,6 +80,7 @@ def error_log_record():
         raise ValueError("Test error")
     except ValueError:
         import sys
+
         exc_info = sys.exc_info()
 
     record = logging.LogRecord(
@@ -105,7 +106,9 @@ def log_stream():
 @pytest.fixture
 def json_formatter():
     """Create a JsonFormatter instance."""
-    return JsonFormatter(include_timestamp=True, include_hostname=False, service_name="test-service")
+    return JsonFormatter(
+        include_timestamp=True, include_hostname=False, service_name="test-service"
+    )
 
 
 @pytest.fixture
@@ -382,8 +385,16 @@ class TestRedactSensitive:
     def test_redact_fields_constant(self):
         """REDACT_FIELDS should contain expected sensitive field names."""
         expected = {
-            "password", "secret", "token", "api_key", "apikey",
-            "authorization", "cookie", "credit_card", "ssn", "private_key",
+            "password",
+            "secret",
+            "token",
+            "api_key",
+            "apikey",
+            "authorization",
+            "cookie",
+            "credit_card",
+            "ssn",
+            "private_key",
         }
 
         assert REDACT_FIELDS == expected
@@ -568,9 +579,21 @@ class TestJsonFormatter:
         # Should not have standard attributes in extra
         if "extra" in parsed:
             standard_attrs = {
-                "name", "msg", "args", "created", "filename", "funcName",
-                "levelname", "levelno", "lineno", "module", "msecs",
-                "pathname", "process", "processName", "relativeCreated",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
             }
             for attr in standard_attrs:
                 assert attr not in parsed["extra"]
@@ -684,12 +707,22 @@ class TestTextFormatter:
     def test_format_level_padding(self, text_formatter):
         """Level name should be padded for alignment."""
         info_record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="msg", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=(),
+            exc_info=None,
         )
         warning_record = logging.LogRecord(
-            name="test", level=logging.WARNING,
-            pathname="", lineno=0, msg="msg", args=(), exc_info=None,
+            name="test",
+            level=logging.WARNING,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=(),
+            exc_info=None,
         )
 
         info_output = text_formatter.format(info_record)
@@ -791,6 +824,7 @@ class TestConfigureStructuredLogging:
 
             # Force reload to pick up new env
             import importlib
+
             importlib.reload(structured_logging)
 
             structured_logging.configure_structured_logging(json_output=None)
@@ -1406,14 +1440,24 @@ class TestIntegration:
 
         with log_context(request_id="ctx-test", user_id="user-123"):
             record = logging.LogRecord(
-                name="test", level=logging.INFO,
-                pathname="", lineno=0, msg="Message 1", args=(), exc_info=None,
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg="Message 1",
+                args=(),
+                exc_info=None,
             )
             output1 = formatter.format(record)
 
             record2 = logging.LogRecord(
-                name="test", level=logging.INFO,
-                pathname="", lineno=0, msg="Message 2", args=(), exc_info=None,
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg="Message 2",
+                args=(),
+                exc_info=None,
             )
             output2 = formatter.format(record2)
 
@@ -1438,8 +1482,13 @@ class TestEdgeCases:
     def test_empty_message(self, json_formatter):
         """Should handle empty log message."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="",
+            args=(),
+            exc_info=None,
         )
 
         output = json_formatter.format(record)
@@ -1450,9 +1499,13 @@ class TestEdgeCases:
     def test_message_with_format_args(self, json_formatter):
         """Should format message with arguments."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="User %s created debate %d",
-            args=("john", 123), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="User %s created debate %d",
+            args=("john", 123),
+            exc_info=None,
         )
 
         output = json_formatter.format(record)
@@ -1463,8 +1516,13 @@ class TestEdgeCases:
     def test_unicode_in_message(self, json_formatter):
         """Should handle unicode in messages."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="User created: \u4e2d\u6587", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="User created: \u4e2d\u6587",
+            args=(),
+            exc_info=None,
         )
 
         output = json_formatter.format(record)
@@ -1476,8 +1534,13 @@ class TestEdgeCases:
         """Should handle very long messages."""
         long_msg = "x" * 10000
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg=long_msg, args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=long_msg,
+            args=(),
+            exc_info=None,
         )
 
         output = json_formatter.format(record)
@@ -1488,10 +1551,15 @@ class TestEdgeCases:
     def test_special_characters_in_extra(self, json_formatter):
         """Should handle special characters in extra fields."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="Test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Test",
+            args=(),
+            exc_info=None,
         )
-        record.data = {"key": "value\nwith\ttabs\rand\"quotes\""}
+        record.data = {"key": 'value\nwith\ttabs\rand"quotes"'}
 
         output = json_formatter.format(record)
         # Should not raise and produce valid JSON
@@ -1501,8 +1569,13 @@ class TestEdgeCases:
     def test_circular_reference_in_extra(self, json_formatter):
         """Should handle circular references - raises ValueError as expected from json.dumps."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="Test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Test",
+            args=(),
+            exc_info=None,
         )
         circular: Dict[str, Any] = {"key": "value"}
         circular["self"] = circular
@@ -1518,8 +1591,13 @@ class TestEdgeCases:
         set_log_context(request_id=None, user_id="user-123")
 
         record = logging.LogRecord(
-            name="test", level=logging.INFO,
-            pathname="", lineno=0, msg="Test", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Test",
+            args=(),
+            exc_info=None,
         )
 
         output = json_formatter.format(record)
@@ -1565,8 +1643,13 @@ class TestEdgeCases:
 
         for level, expected_name in levels:
             record = logging.LogRecord(
-                name="test", level=level,
-                pathname="", lineno=0, msg="Test", args=(), exc_info=None,
+                name="test",
+                level=level,
+                pathname="",
+                lineno=0,
+                msg="Test",
+                args=(),
+                exc_info=None,
             )
 
             output = json_formatter.format(record)

@@ -405,9 +405,7 @@ class TestRedisLazyInitialization:
     def test_get_redis_lazy_init(self):
         """_get_redis should lazily initialize on first call."""
         cache = RedisTTLCache(prefix="test")
-        with patch(
-            "aragora.utils.redis_cache.RedisTTLCache._get_redis"
-        ) as mock_get_redis:
+        with patch("aragora.utils.redis_cache.RedisTTLCache._get_redis") as mock_get_redis:
             mock_get_redis.return_value = None
             cache.get("key1")
             mock_get_redis.assert_called()

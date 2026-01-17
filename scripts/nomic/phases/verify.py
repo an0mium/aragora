@@ -111,7 +111,10 @@ class VerifyPhase:
             consistency_result = await self._check_consistency()
             checks.append(consistency_result)
             # Consistency failures are warnings, not blockers (unless critical)
-            if not consistency_result.get("passed") and consistency_result.get("severity") == "critical":
+            if (
+                not consistency_result.get("passed")
+                and consistency_result.get("severity") == "critical"
+            ):
                 all_passed = False
 
         # Save state
@@ -382,8 +385,7 @@ Be concise - this is a quality gate, not a full review."""
 
             # Filter to Python files and docs
             relevant_files = [
-                f for f in changed_files
-                if f.endswith(('.py', '.md', '.rst', '.txt'))
+                f for f in changed_files if f.endswith((".py", ".md", ".rst", ".txt"))
             ]
 
             if not relevant_files:
@@ -411,11 +413,13 @@ Be concise - this is a quality gate, not a full review."""
                 if full_path.exists():
                     try:
                         content = full_path.read_text()
-                        chunks.append({
-                            "id": file_path,
-                            "document_id": file_path,
-                            "content": content[:5000],  # Limit content size
-                        })
+                        chunks.append(
+                            {
+                                "id": file_path,
+                                "document_id": file_path,
+                                "content": content[:5000],  # Limit content size
+                            }
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to read {file_path}: {e}")
 
@@ -431,15 +435,18 @@ Be concise - this is a quality gate, not a full review."""
 
             # Categorize findings by severity
             critical_count = sum(
-                1 for f in findings
-                if hasattr(f, 'severity') and str(f.severity).lower() in ('critical', 'high')
+                1
+                for f in findings
+                if hasattr(f, "severity") and str(f.severity).lower() in ("critical", "high")
             )
 
             if critical_count > 0:
                 self._log(f"    [consistency] Found {critical_count} critical/high issues")
                 self._stream_emit(
-                    "on_verification_result", "consistency", False,
-                    f"{critical_count} critical issues found"
+                    "on_verification_result",
+                    "consistency",
+                    False,
+                    f"{critical_count} critical issues found",
                 )
                 return {
                     "check": "consistency",

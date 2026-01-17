@@ -310,13 +310,19 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             # Convert findings to summary format
             findings: List[AuditFindingSummary] = []
             for finding in result.findings[:10]:  # Limit to top 10
-                findings.append(AuditFindingSummary(
-                    title=finding.title,
-                    category=finding.category,
-                    severity=finding.severity.value if hasattr(finding.severity, 'value') else str(finding.severity),
-                    description=finding.description[:200],  # Truncate
-                    file_path=finding.file_path,
-                ))
+                findings.append(
+                    AuditFindingSummary(
+                        title=finding.title,
+                        category=finding.category,
+                        severity=(
+                            finding.severity.value
+                            if hasattr(finding.severity, "value")
+                            else str(finding.severity)
+                        ),
+                        description=finding.description[:200],  # Truncate
+                        file_path=finding.file_path,
+                    )
+                )
 
             # Convert findings to proposals
             proposals = self.codebase_auditor.findings_to_proposals(result.findings)

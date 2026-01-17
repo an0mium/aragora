@@ -408,7 +408,8 @@ class TestDocumentQueryEngine:
         """Test basic query functionality."""
         # Mock the LLM call
         with patch.object(
-            query_engine, "_call_llm",
+            query_engine,
+            "_call_llm",
             new_callable=AsyncMock,
             return_value=("The document discusses software practices.", "claude-3.5-sonnet"),
         ):
@@ -427,7 +428,8 @@ class TestDocumentQueryEngine:
     async def test_query_with_workspace(self, query_engine, mock_searcher):
         """Test query with workspace scope."""
         with patch.object(
-            query_engine, "_call_llm",
+            query_engine,
+            "_call_llm",
             new_callable=AsyncMock,
             return_value=("Answer text", "claude-3.5-sonnet"),
         ):
@@ -458,7 +460,8 @@ class TestDocumentQueryEngine:
     async def test_query_with_conversation_context(self, query_engine, mock_searcher):
         """Test query with conversation history."""
         with patch.object(
-            query_engine, "_call_llm",
+            query_engine,
+            "_call_llm",
             new_callable=AsyncMock,
             return_value=("Follow-up answer", "claude-3.5-sonnet"),
         ):
@@ -481,7 +484,8 @@ class TestDocumentQueryEngine:
     async def test_summarize_documents(self, query_engine, mock_searcher):
         """Test document summarization."""
         with patch.object(
-            query_engine, "query",
+            query_engine,
+            "query",
             new_callable=AsyncMock,
             return_value=QueryResult(
                 query_id="q1",
@@ -507,7 +511,8 @@ class TestDocumentQueryEngine:
     async def test_compare_documents(self, query_engine):
         """Test document comparison."""
         with patch.object(
-            query_engine, "query",
+            query_engine,
+            "query",
             new_callable=AsyncMock,
             return_value=QueryResult(
                 query_id="q1",
@@ -539,7 +544,8 @@ class TestDocumentQueryEngine:
     async def test_extract_information(self, query_engine):
         """Test structured information extraction."""
         with patch.object(
-            query_engine, "query",
+            query_engine,
+            "query",
             new_callable=AsyncMock,
             return_value=QueryResult(
                 query_id="q1",

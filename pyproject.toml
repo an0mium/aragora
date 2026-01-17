@@ -538,6 +538,16 @@ module = [
     "aragora.nomic.preflight",
     "aragora.auth.lockout",
     "aragora.storage.token_blacklist_store",
+    "aragora.billing.auth.blacklist",
+    "aragora.debate.similarity.backends",
+    "aragora.gauntlet.storage",
+    "aragora.server.debate_queue",
+    "aragora.debate.traces_database",
+    "aragora.storage.base_database",
+    "aragora.ranking.calibration_database",
+    "aragora.utils.cache",
+    "aragora.billing.payment_recovery",
+    "aragora.knowledge.fact_store",
 ]
 ignore_errors = true
 

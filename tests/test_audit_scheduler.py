@@ -37,16 +37,20 @@ def scheduler():
 def mock_auditor():
     """Create a mock document auditor."""
     auditor = Mock()
-    auditor.start_session = AsyncMock(return_value=Mock(
-        id="session-123",
-        status="completed",
-        findings=[],
-    ))
-    auditor.run_audit = AsyncMock(return_value=Mock(
-        id="session-123",
-        status="completed",
-        findings=[Mock(id="f-1", severity="high")],
-    ))
+    auditor.start_session = AsyncMock(
+        return_value=Mock(
+            id="session-123",
+            status="completed",
+            findings=[],
+        )
+    )
+    auditor.run_audit = AsyncMock(
+        return_value=Mock(
+            id="session-123",
+            status="completed",
+            findings=[Mock(id="f-1", severity="high")],
+        )
+    )
     return auditor
 
 
@@ -352,6 +356,7 @@ class TestSchedulerLifecycle:
 
         # Give it a moment to start
         import asyncio
+
         await asyncio.sleep(0.1)
 
         assert scheduler._running is True
@@ -364,6 +369,7 @@ class TestSchedulerLifecycle:
         """Test stopping the scheduler."""
         await scheduler.start()
         import asyncio
+
         await asyncio.sleep(0.1)
 
         await scheduler.stop()

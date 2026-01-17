@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from aragora.harnesses.base import (
@@ -17,6 +17,9 @@ from aragora.harnesses.base import (
     AnalysisType,
     HarnessResult,
 )
+
+if TYPE_CHECKING:
+    from aragora.audit.document_auditor import AuditFinding
 
 logger = logging.getLogger(__name__)
 
@@ -203,8 +206,10 @@ class HarnessResultAdapter:
         """
         from difflib import SequenceMatcher
 
-        merged = []
-        seen_keys = set()
+        from aragora.audit.document_auditor import AuditFinding as AuditFindingType
+
+        merged: list[AuditFindingType] = []
+        seen_keys: set[str] = set()
 
         for finding in findings:
             # Generate a key for deduplication
@@ -226,10 +231,8 @@ class HarnessResultAdapter:
                             if finding.confidence > existing.confidence:
                                 existing.confidence = finding.confidence
 
-                            # Add cross-reference
-                            if "merged_from" not in existing.metadata:
-                                existing.metadata["merged_from"] = []
-                            existing.metadata["merged_from"].append(finding.id)
+                            # Add cross-reference using confirmed_by field
+                            existing.confirmed_by.append(finding.id)
                             break
             else:
                 seen_keys.add(key)

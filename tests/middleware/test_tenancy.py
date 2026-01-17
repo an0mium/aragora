@@ -627,9 +627,7 @@ class TestRequireWorkspaceDecorator:
         async def endpoint(handler, user, workspace):
             return {"workspace_id": workspace.id}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_current_user", return_value=None
-        ):
+        with patch("aragora.server.middleware.tenancy.get_current_user", return_value=None):
             result = await endpoint(handler=mock_handler)
 
         assert result.status_code == 401
@@ -645,9 +643,7 @@ class TestRequireWorkspaceDecorator:
         async def endpoint(handler, user, workspace):
             return {"user_id": user.id, "workspace_id": workspace.id}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_current_user", return_value=free_user
-        ):
+        with patch("aragora.server.middleware.tenancy.get_current_user", return_value=free_user):
             with patch(
                 "aragora.server.middleware.tenancy.get_workspace_manager"
             ) as mock_get_manager:
@@ -661,18 +657,14 @@ class TestRequireWorkspaceDecorator:
         assert result["workspace_id"] == "ws-free-123"
 
     @pytest.mark.asyncio
-    async def test_require_workspace_workspace_not_found(
-        self, mock_handler, free_user
-    ):
+    async def test_require_workspace_workspace_not_found(self, mock_handler, free_user):
         """require_workspace returns 404 when workspace not found."""
 
         @require_workspace
         async def endpoint(handler, user, workspace):
             return {"ok": True}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_current_user", return_value=free_user
-        ):
+        with patch("aragora.server.middleware.tenancy.get_current_user", return_value=free_user):
             with patch(
                 "aragora.server.middleware.tenancy.get_workspace_manager"
             ) as mock_get_manager:
@@ -695,9 +687,7 @@ class TestRequireWorkspaceDecorator:
         def sync_endpoint(handler, user, workspace):
             return {"workspace_name": workspace.name}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_current_user", return_value=free_user
-        ):
+        with patch("aragora.server.middleware.tenancy.get_current_user", return_value=free_user):
             with patch(
                 "aragora.server.middleware.tenancy.get_workspace_manager"
             ) as mock_get_manager:
@@ -720,9 +710,7 @@ class TestRequireWorkspaceDecorator:
             # handler passed as positional arg, user/workspace injected by decorator
             return {"user_id": user.id}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_current_user", return_value=free_user
-        ):
+        with patch("aragora.server.middleware.tenancy.get_current_user", return_value=free_user):
             with patch(
                 "aragora.server.middleware.tenancy.get_workspace_manager"
             ) as mock_get_manager:
@@ -769,9 +757,7 @@ class TestCheckLimitDecorator:
         async def endpoint(workspace):
             return {"created": True}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_workspace_manager"
-        ) as mock_get_manager:
+        with patch("aragora.server.middleware.tenancy.get_workspace_manager") as mock_get_manager:
             mock_manager = WorkspaceManager(storage=mock_storage)
             mock_get_manager.return_value = mock_manager
 
@@ -791,9 +777,7 @@ class TestCheckLimitDecorator:
         async def endpoint(workspace):
             return {"created": True}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_workspace_manager"
-        ) as mock_get_manager:
+        with patch("aragora.server.middleware.tenancy.get_workspace_manager") as mock_get_manager:
             mock_manager = WorkspaceManager(storage=mock_storage)
             mock_get_manager.return_value = mock_manager
 
@@ -810,9 +794,7 @@ class TestCheckLimitDecorator:
         def sync_endpoint(workspace):
             return {"added": True}
 
-        with patch(
-            "aragora.server.middleware.tenancy.get_workspace_manager"
-        ) as mock_get_manager:
+        with patch("aragora.server.middleware.tenancy.get_workspace_manager") as mock_get_manager:
             mock_manager = AsyncMock()
             mock_manager.check_limits.return_value = (True, "")
             mock_get_manager.return_value = mock_manager
@@ -931,9 +913,7 @@ class TestEnsureWorkspaceAccess:
     @pytest.mark.asyncio
     async def test_ensure_workspace_access_grants_access(self, free_user, free_workspace):
         """ensure_workspace_access returns True for authorized access."""
-        with patch(
-            "aragora.server.middleware.tenancy.get_workspace_manager"
-        ) as mock_get_manager:
+        with patch("aragora.server.middleware.tenancy.get_workspace_manager") as mock_get_manager:
             mock_manager = AsyncMock()
             mock_manager.check_user_access.return_value = True
             mock_get_manager.return_value = mock_manager
@@ -946,9 +926,7 @@ class TestEnsureWorkspaceAccess:
     @pytest.mark.asyncio
     async def test_ensure_workspace_access_raises_on_denial(self, free_user):
         """ensure_workspace_access raises PermissionError for unauthorized access."""
-        with patch(
-            "aragora.server.middleware.tenancy.get_workspace_manager"
-        ) as mock_get_manager:
+        with patch("aragora.server.middleware.tenancy.get_workspace_manager") as mock_get_manager:
             mock_manager = AsyncMock()
             mock_manager.check_user_access.return_value = False
             mock_get_manager.return_value = mock_manager
