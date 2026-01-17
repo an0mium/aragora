@@ -219,21 +219,25 @@ class TestAuditTypesImport:
     def test_import_security_auditor(self):
         """Test SecurityAuditor can be imported."""
         from aragora.audit.audit_types import SecurityAuditor
+
         assert SecurityAuditor is not None
 
     def test_import_compliance_auditor(self):
         """Test ComplianceAuditor can be imported."""
         from aragora.audit.audit_types import ComplianceAuditor
+
         assert ComplianceAuditor is not None
 
     def test_import_consistency_auditor(self):
         """Test ConsistencyAuditor can be imported."""
         from aragora.audit.audit_types import ConsistencyAuditor
+
         assert ConsistencyAuditor is not None
 
     def test_import_quality_auditor(self):
         """Test QualityAuditor can be imported."""
         from aragora.audit.audit_types import QualityAuditor
+
         assert QualityAuditor is not None
 
 
@@ -243,21 +247,25 @@ class TestReportsImport:
     def test_import_defect_report(self):
         """Test DefectReport can be imported."""
         from aragora.audit.reports import DefectReport
+
         assert DefectReport is not None
 
     def test_import_report_config(self):
         """Test ReportConfig can be imported."""
         from aragora.audit.reports import ReportConfig
+
         assert ReportConfig is not None
 
     def test_import_report_format(self):
         """Test ReportFormat can be imported."""
         from aragora.audit.reports import ReportFormat
+
         assert ReportFormat is not None
 
     def test_import_generate_report(self):
         """Test generate_report function can be imported."""
         from aragora.audit.reports import generate_report
+
         assert callable(generate_report)
 
 

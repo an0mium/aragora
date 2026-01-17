@@ -48,11 +48,14 @@ class TestWeaviateConfig:
 
     def test_from_env(self):
         """Test configuration from environment."""
-        with patch.dict("os.environ", {
-            "WEAVIATE_URL": "http://test:8080",
-            "WEAVIATE_API_KEY": "env-key",
-            "WEAVIATE_COLLECTION": "EnvCollection",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "WEAVIATE_URL": "http://test:8080",
+                "WEAVIATE_API_KEY": "env-key",
+                "WEAVIATE_COLLECTION": "EnvCollection",
+            },
+        ):
             config = WeaviateConfig.from_env()
             assert config.url == "http://test:8080"
             assert config.api_key == "env-key"
@@ -108,9 +111,8 @@ class TestWeaviateStore:
         with pytest.raises(RuntimeError, match="Not connected"):
             # Sync wrapper to test async method
             import asyncio
-            asyncio.get_event_loop().run_until_complete(
-                store.search_keyword("test")
-            )
+
+            asyncio.get_event_loop().run_until_complete(store.search_keyword("test"))
 
     @pytest.mark.skipif(not WEAVIATE_AVAILABLE, reason="Weaviate client not installed")
     def test_weaviate_available(self):
