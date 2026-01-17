@@ -49,6 +49,7 @@ dependencies = [
     "urllib3>=2.6.3,<3.0",  # CVE fix
     "httpx>=0.27,<1.0",  # Required by training/tinker_client.py
     "numpy>=2.0,<3.0",  # Required by debate/cache/embeddings_lru.py
+    "watchfiles>=0.21,<1.0",  # Required by sync/watcher.py for directory watching
 ]
 
 [project.optional-dependencies]
