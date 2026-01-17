@@ -132,7 +132,7 @@ def init_monitoring() -> bool:
             # Attach stack trace to log messages
             attach_stacktrace=True,
             # Sanitize events before sending
-            before_send=_before_send,
+            before_send=_before_send,  # type: ignore[arg-type]
             # Filter out health check transactions
             before_send_transaction=_filter_health_checks,
             # Enable source context
@@ -189,7 +189,7 @@ def capture_exception(
                 for key, value in context.items():
                     scope.set_extra(key, value)
             scope.level = level
-            return cast(str | None, sentry_sdk.capture_exception(exception))
+            return sentry_sdk.capture_exception(exception)
     except Exception as e:
         logger.error(f"Failed to capture exception: {e}")
         return None
@@ -223,7 +223,7 @@ def capture_message(
             if context:
                 for key, value in context.items():
                     scope.set_extra(key, value)
-            return cast(str | None, sentry_sdk.capture_message(message, level=level))
+            return sentry_sdk.capture_message(message, level=level)  # type: ignore[arg-type]
     except Exception as e:
         logger.error(f"Failed to capture message: {e}")
         return None

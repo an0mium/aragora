@@ -41,9 +41,9 @@ try:
     PODCAST_AVAILABLE = True
 except ImportError:
     PODCAST_AVAILABLE = False
-    PodcastFeedGenerator = None  # type: ignore[misc, assignment]
-    PodcastConfig = None  # type: ignore[misc, assignment]
-    PodcastEpisode = None  # type: ignore[misc, assignment]
+    PodcastFeedGenerator = None  # type: ignore[misc,assignment]
+    PodcastConfig = None  # type: ignore[misc,assignment]
+    PodcastEpisode = None  # type: ignore[misc,assignment]
 
 
 class AudioHandler(BaseHandler):

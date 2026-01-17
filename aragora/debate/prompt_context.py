@@ -18,8 +18,8 @@ from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 
 if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.positions import FlipDetector
     from aragora.core import Agent, Critique
+    from aragora.insights.flip_detector import FlipDetector
     from aragora.debate.audience_manager import AudienceManager
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.debate.protocol import DebateProtocol

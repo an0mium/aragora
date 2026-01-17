@@ -47,8 +47,8 @@ try:
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None  # type: ignore[misc, assignment]
-    MemoryTier = None  # type: ignore[misc, assignment]
+    ContinuumMemory = None  # type: ignore[misc,assignment]
+    MemoryTier = None  # type: ignore[misc,assignment]
 
 # Optional import for critique store
 try:
@@ -57,7 +57,7 @@ try:
     CRITIQUE_STORE_AVAILABLE = True
 except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None  # type: ignore[misc, assignment]
+    CritiqueStore = None  # type: ignore[misc,assignment]
 
 
 class MemoryHandler(BaseHandler):

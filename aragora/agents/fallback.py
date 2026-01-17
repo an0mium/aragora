@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 try:
     from aragora.agents.registry import AgentRegistry
 except (ImportError, ModuleNotFoundError):
-    AgentRegistry = None  # type: ignore[assignment, misc]
+    AgentRegistry = None  # type: ignore[misc,assignment]
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker

@@ -76,8 +76,8 @@ try:
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
-    RegulatoryPersona = None  # type: ignore
-    PersonaAttack = None  # type: ignore
+    RegulatoryPersona = None  # type: ignore[misc,assignment]
+    PersonaAttack = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 

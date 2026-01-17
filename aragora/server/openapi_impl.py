@@ -98,9 +98,7 @@ def get_openapi_yaml() -> str:
     try:
         import yaml
 
-        return cast(
-            str, yaml.dump(generate_openapi_schema(), default_flow_style=False, sort_keys=False)
-        )
+        return yaml.dump(generate_openapi_schema(), default_flow_style=False, sort_keys=False)
     except ImportError:
         # Fallback to JSON if PyYAML not installed
         return get_openapi_json()

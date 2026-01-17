@@ -20,7 +20,7 @@ try:
     HAS_TRACE_SUPPORT = True
 except ImportError:
     HAS_TRACE_SUPPORT = False
-    DebateTrace = None  # type: ignore[misc, assignment]
+    DebateTrace = None  # type: ignore[misc,assignment]
 
 
 @dataclass

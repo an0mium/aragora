@@ -68,7 +68,7 @@ try:
 
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver = None  # type: ignore[assignment]
+    PromptEvolver = None  # type: ignore[misc,assignment]
     PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)

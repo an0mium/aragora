@@ -35,7 +35,7 @@ try:
 
     GENESIS_AVAILABLE = True
 except ImportError:
-    PopulationManager = None  # type: ignore[misc, assignment]
+    PopulationManager = None  # type: ignore[misc,assignment]
     GENESIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)

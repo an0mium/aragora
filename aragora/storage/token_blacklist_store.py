@@ -300,7 +300,7 @@ try:
     HAS_REDIS = True
 
 except ImportError:
-    RedisBlacklist = None  # type: ignore
+    RedisBlacklist = None  # type: ignore[misc,assignment]
     HAS_REDIS = False
 
 

@@ -33,7 +33,8 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from types import ModuleType
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlencode, urljoin
 
 from .sso import (
@@ -60,12 +61,13 @@ except ImportError:
     HAS_JWT = False
 
 # Optional: httpx for async HTTP
+httpx: Optional[ModuleType] = None
 try:
-    import httpx
+    import httpx as _httpx
 
+    httpx = _httpx
     HAS_HTTPX = True
 except ImportError:
-    httpx = None
     HAS_HTTPX = False
 
 

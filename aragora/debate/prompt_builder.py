@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Optional
 try:
     from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
 except ImportError:
-    QuestionClassifier = None  # type: ignore
-    QuestionClassification = None  # type: ignore
+    QuestionClassifier = None  # type: ignore[misc,assignment]
+    QuestionClassification = None  # type: ignore[misc,assignment]
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
