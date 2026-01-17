@@ -3725,3 +3725,463 @@ export interface PairDetailResponse {
     agreed: boolean;
   }>;
 }
+
+// =============================================================================
+// Document Audit Types
+// =============================================================================
+
+/**
+ * Audit session status values.
+ */
+export enum AuditStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  PAUSED = 'paused',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+}
+
+/**
+ * Types of audits that can be performed.
+ */
+export enum AuditType {
+  SECURITY = 'security',
+  COMPLIANCE = 'compliance',
+  CONSISTENCY = 'consistency',
+  QUALITY = 'quality',
+}
+
+/**
+ * Severity levels for audit findings.
+ */
+export enum FindingSeverity {
+  CRITICAL = 'critical',
+  HIGH = 'high',
+  MEDIUM = 'medium',
+  LOW = 'low',
+  INFO = 'info',
+}
+
+/**
+ * Status of an individual finding.
+ */
+export enum FindingStatus {
+  OPEN = 'open',
+  ACKNOWLEDGED = 'acknowledged',
+  RESOLVED = 'resolved',
+  FALSE_POSITIVE = 'false_positive',
+}
+
+/**
+ * A document chunk from semantic chunking.
+ */
+export interface DocumentChunk {
+  id: string;
+  document_id: string;
+  sequence: number;
+  content: string;
+  chunk_type: 'text' | 'table' | 'code' | 'heading' | 'list';
+  start_page?: number;
+  end_page?: number;
+  heading_context?: string;
+  token_count: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Result of batch document upload.
+ */
+export interface BatchUploadResult {
+  job_id: string;
+  total_files: number;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+}
+
+/**
+ * Status of a batch upload job.
+ */
+export interface BatchUploadStatus {
+  job_id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  total_files: number;
+  processed_files: number;
+  failed_files: number;
+  results: Array<{
+    filename: string;
+    doc_id?: string;
+    status: 'success' | 'failed';
+    error?: string;
+  }>;
+  created_at: string;
+  completed_at?: string;
+}
+
+/**
+ * Request to get document context for LLM processing.
+ */
+export interface DocumentContextRequest {
+  max_tokens?: number;
+  model?: string;
+  include_metadata?: boolean;
+}
+
+/**
+ * Document context optimized for LLM consumption.
+ */
+export interface DocumentContext {
+  document_id: string;
+  content: string;
+  token_count: number;
+  truncated: boolean;
+  chunks_included: number;
+  total_chunks: number;
+}
+
+/**
+ * An audit finding/defect.
+ */
+export interface AuditFinding {
+  id: string;
+  session_id: string;
+  document_id: string;
+  chunk_id?: string;
+
+  /** Classification */
+  category: AuditType;
+  severity: FindingSeverity;
+  confidence: number;
+
+  /** Content */
+  title: string;
+  description: string;
+  evidence_text: string;
+  evidence_location?: string;
+
+  /** Agent attribution */
+  found_by: string;
+  confirmed_by: string[];
+  disputed_by: string[];
+
+  /** Status tracking */
+  status: FindingStatus;
+  created_at: string;
+  updated_at?: string;
+
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Audit session configuration.
+ */
+export interface AuditSessionConfig {
+  document_ids: string[];
+  audit_types?: AuditType[];
+  name?: string;
+  model?: string;
+  confidence_threshold?: number;
+  max_findings_per_document?: number;
+}
+
+/**
+ * An audit session.
+ */
+export interface AuditSession {
+  id: string;
+  name?: string;
+  document_ids: string[];
+  audit_types: AuditType[];
+  model: string;
+
+  /** Status */
+  status: AuditStatus;
+  progress: number;
+  current_phase?: string;
+
+  /** Results */
+  findings: AuditFinding[];
+  findings_count: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+
+  /** Timestamps */
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+
+  /** Configuration */
+  config?: Record<string, unknown>;
+}
+
+/**
+ * Response when creating an audit session.
+ */
+export interface AuditSessionCreateResponse {
+  session: AuditSession;
+}
+
+/**
+ * Response when listing audit sessions.
+ */
+export interface AuditSessionListResponse {
+  sessions: AuditSession[];
+  total: number;
+}
+
+/**
+ * Response when getting findings.
+ */
+export interface AuditFindingsResponse {
+  findings: AuditFinding[];
+  total: number;
+}
+
+/**
+ * Audit report export formats.
+ */
+export type AuditReportFormat = 'json' | 'pdf' | 'html' | 'csv';
+
+/**
+ * Request to export an audit report.
+ */
+export interface AuditReportRequest {
+  format: AuditReportFormat;
+  include_evidence?: boolean;
+  severity_filter?: FindingSeverity[];
+}
+
+/**
+ * Audit report response.
+ */
+export interface AuditReport {
+  session_id: string;
+  format: AuditReportFormat;
+  content: string;
+  filename: string;
+  generated_at: string;
+}
+
+/**
+ * Audit event for real-time streaming.
+ */
+export interface AuditEvent {
+  type: 'progress' | 'finding' | 'phase_change' | 'error' | 'completed';
+  session_id: string;
+  timestamp: string;
+  data: {
+    progress?: number;
+    phase?: string;
+    finding?: AuditFinding;
+    error?: string;
+    summary?: {
+      total_findings: number;
+      by_severity: Record<string, number>;
+      duration_ms: number;
+    };
+  };
+}
+
+/**
+ * Human intervention request during audit.
+ */
+export interface AuditInterventionRequest {
+  action: 'approve' | 'reject' | 'modify' | 'skip';
+  finding_id?: string;
+  comment?: string;
+  modification?: string;
+}
+
+// =============================================================================
+// Folder Upload Types
+// =============================================================================
+
+/**
+ * Reason why a file was excluded from upload.
+ */
+export enum ExclusionReason {
+  PATTERN = 'pattern',
+  SIZE = 'size',
+  COUNT = 'count',
+  AGENT = 'agent',
+  PERMISSION = 'permission',
+  SYMLINK = 'symlink',
+  DEPTH = 'depth',
+}
+
+/**
+ * Configuration for folder upload with filtering.
+ */
+export interface FolderUploadConfig {
+  /** Maximum folder depth for recursive uploads (-1 for unlimited) */
+  maxDepth?: number;
+
+  /** Whether to follow symbolic links (default: false) */
+  followSymlinks?: boolean;
+
+  /** Gitignore-style patterns for files/folders to exclude */
+  excludePatterns?: string[];
+
+  /** If provided, only include files matching these patterns */
+  includePatterns?: string[];
+
+  /** Maximum size for a single file in MB */
+  maxFileSizeMb?: number;
+
+  /** Maximum total size for all files in MB */
+  maxTotalSizeMb?: number;
+
+  /** Maximum number of files to upload */
+  maxFileCount?: number;
+
+  /** Enable AI agent-based file filtering */
+  enableAgentFilter?: boolean;
+
+  /** Model to use for agent filtering */
+  agentFilterModel?: string;
+
+  /** Custom prompt for agent-based filtering */
+  agentFilterPrompt?: string;
+
+  /** Number of files per agent evaluation batch */
+  agentFilterBatchSize?: number;
+
+  /** Chunking strategy for uploaded documents */
+  chunkingStrategy?: 'auto' | 'semantic' | 'sliding' | 'recursive';
+
+  /** Preserve original folder structure in metadata */
+  preserveFolderStructure?: boolean;
+}
+
+/**
+ * Information about a file to be uploaded.
+ */
+export interface FolderFileInfo {
+  /** Relative path from folder root */
+  path: string;
+
+  /** Absolute file path */
+  absolutePath: string;
+
+  /** File size in bytes */
+  sizeBytes: number;
+
+  /** File extension (e.g., '.pdf') */
+  extension: string;
+
+  /** MIME type */
+  mimeType: string;
+}
+
+/**
+ * Information about an excluded file.
+ */
+export interface ExcludedFile {
+  /** Relative path from folder root */
+  path: string;
+
+  /** Reason for exclusion */
+  reason: ExclusionReason;
+
+  /** Detailed explanation */
+  details: string;
+}
+
+/**
+ * Result of scanning a folder for upload.
+ */
+export interface FolderScanResult {
+  /** Root folder path */
+  rootPath: string;
+
+  /** Absolute root path */
+  rootAbsolutePath: string;
+
+  /** Statistics */
+  totalFilesFound: number;
+  totalSizeBytes: number;
+  filesExcludedByPattern: number;
+  filesExcludedBySize: number;
+  filesExcludedByCount: number;
+  filesExcludedByAgent: number;
+  filesExcludedByPermission: number;
+  directoriesScanned: number;
+  maxDepthReached: number;
+
+  /** Files to be uploaded */
+  includedFiles: FolderFileInfo[];
+
+  /** Files that were excluded */
+  excludedFiles: ExcludedFile[];
+
+  /** Warnings encountered during scan */
+  warnings: string[];
+
+  /** Errors encountered during scan */
+  errors: string[];
+
+  /** Scan duration in milliseconds */
+  scanDurationMs: number;
+}
+
+/**
+ * Progress information during folder upload.
+ */
+export interface FolderUploadProgress {
+  /** Total files to upload */
+  totalFiles: number;
+
+  /** Files uploaded so far */
+  uploadedFiles: number;
+
+  /** Files that failed */
+  failedFiles: number;
+
+  /** Current file being uploaded */
+  currentFile?: string;
+
+  /** Bytes uploaded so far */
+  bytesUploaded: number;
+
+  /** Total bytes to upload */
+  totalBytes: number;
+
+  /** Progress as percentage (0-100) */
+  progressPercent: number;
+}
+
+/**
+ * Result of uploading a folder.
+ */
+export interface FolderUploadResult {
+  /** Unique ID for this folder upload */
+  folderId: string;
+
+  /** Scan result with statistics */
+  scanResult: FolderScanResult;
+
+  /** Number of files successfully uploaded */
+  filesUploaded: number;
+
+  /** Number of files that failed to upload */
+  filesFailed: number;
+
+  /** Document IDs for uploaded files */
+  documentIds: string[];
+
+  /** Errors encountered during upload */
+  uploadErrors: Array<{
+    file: string;
+    error: string;
+  }>;
+
+  /** Upload duration in milliseconds */
+  uploadDurationMs: number;
+
+  /** Whether all files were uploaded successfully */
+  success: boolean;
+}

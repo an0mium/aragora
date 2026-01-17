@@ -105,6 +105,32 @@ import {
   DocumentListResponse,
   DocumentUploadResponse,
   DocumentFormatsResponse,
+  DocumentChunk,
+  BatchUploadResult,
+  BatchUploadStatus,
+  DocumentContextRequest,
+  DocumentContext,
+  // Folder upload types
+  FolderUploadConfig,
+  FolderFileInfo,
+  FolderScanResult,
+  FolderUploadProgress,
+  FolderUploadResult,
+  // Audit types
+  AuditStatus,
+  AuditType,
+  FindingSeverity,
+  FindingStatus,
+  AuditFinding,
+  AuditSession,
+  AuditSessionConfig,
+  AuditSessionCreateResponse,
+  AuditSessionListResponse,
+  AuditFindingsResponse,
+  AuditReportRequest,
+  AuditReport,
+  AuditEvent,
+  AuditInterventionRequest,
   // Breakpoint types
   Breakpoint,
   BreakpointResolveRequest,
@@ -547,6 +573,10 @@ class HttpClient {
 
   async put<T>(path: string, data?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>('PUT', path, data, options);
+  }
+
+  async patch<T>(path: string, data?: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>('PATCH', path, data, options);
   }
 
   async delete<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -1743,6 +1773,538 @@ class DocumentsAPI {
     metadata?: Record<string, unknown>;
   }): Promise<DocumentUploadResponse> {
     return this.http.post<DocumentUploadResponse>('/api/documents/upload', options);
+  }
+
+  /**
+   * Upload multiple documents as a batch.
+   *
+   * @param files - Array of file objects with filename and base64 content
+   * @returns Job ID and status for tracking the batch
+   *
+   * @example
+   * ```typescript
+   * const result = await client.documents.uploadBatch([
+   *   { filename: 'contract.pdf', content: base64Content1 },
+   *   { filename: 'report.pdf', content: base64Content2 },
+   * ]);
+   * console.log('Batch job:', result.job_id);
+   * ```
+   */
+  async uploadBatch(
+    files: Array<{
+      filename: string;
+      content: string;
+      contentType?: string;
+      metadata?: Record<string, unknown>;
+    }>
+  ): Promise<BatchUploadResult> {
+    return this.http.post<BatchUploadResult>('/api/documents/batch', { files });
+  }
+
+  /**
+   * Get status of a batch upload job.
+   *
+   * @param jobId - The batch job ID returned from uploadBatch
+   */
+  async batchStatus(jobId: string): Promise<BatchUploadStatus> {
+    return this.http.get<BatchUploadStatus>(`/api/documents/batch/${jobId}`);
+  }
+
+  /**
+   * Wait for a batch upload to complete.
+   *
+   * @param jobId - The batch job ID
+   * @param options - Polling options
+   */
+  async waitForBatch(
+    jobId: string,
+    options?: { pollIntervalMs?: number; timeoutMs?: number }
+  ): Promise<BatchUploadStatus> {
+    const pollInterval = options?.pollIntervalMs ?? 1000;
+    const timeout = options?.timeoutMs ?? 300000; // 5 minutes default
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const status = await this.batchStatus(jobId);
+      if (status.status === 'completed' || status.status === 'failed') {
+        return status;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Batch upload timed out after ${timeout}ms`);
+  }
+
+  /**
+   * Get document chunks (semantic sections).
+   *
+   * @param docId - Document ID
+   */
+  async getChunks(docId: string): Promise<DocumentChunk[]> {
+    const response = await this.http.get<{ chunks: DocumentChunk[] }>(
+      `/api/documents/${docId}/chunks`
+    );
+    return response.chunks;
+  }
+
+  /**
+   * Get document content optimized for LLM context.
+   *
+   * @param docId - Document ID
+   * @param options - Context options (max tokens, model)
+   *
+   * @example
+   * ```typescript
+   * const context = await client.documents.getContext('doc-123', {
+   *   max_tokens: 100000,
+   *   model: 'gemini-3-pro',
+   * });
+   * console.log('Token count:', context.token_count);
+   * ```
+   */
+  async getContext(docId: string, options?: DocumentContextRequest): Promise<DocumentContext> {
+    const params = new URLSearchParams();
+    if (options?.max_tokens) params.set('max_tokens', String(options.max_tokens));
+    if (options?.model) params.set('model', options.model);
+    if (options?.include_metadata) params.set('include_metadata', 'true');
+
+    const query = params.toString();
+    return this.http.get<DocumentContext>(
+      `/api/documents/${docId}/context${query ? `?${query}` : ''}`
+    );
+  }
+
+  /**
+   * Scan a folder and return filtered file list (dry run).
+   *
+   * This method requires Node.js fs access and will not work in browser environments.
+   * For browser usage, use the server-side /api/documents/folder/scan endpoint.
+   *
+   * @param folderPath - Path to the folder to scan
+   * @param config - Folder upload configuration
+   *
+   * @example
+   * ```typescript
+   * const result = await client.documents.scanFolder('./contracts/', {
+   *   maxDepth: 5,
+   *   excludePatterns: ['**\/.git/**', '**\/node_modules/**'],
+   *   maxFileSizeMb: 50,
+   * });
+   * console.log('Files to upload:', result.includedFiles.length);
+   * console.log('Total size:', result.totalSizeBytes);
+   * ```
+   */
+  async scanFolder(folderPath: string, config?: FolderUploadConfig): Promise<FolderScanResult> {
+    return this.http.post<FolderScanResult>('/api/documents/folder/scan', {
+      path: folderPath,
+      config,
+    });
+  }
+
+  /**
+   * Upload an entire folder with filtering.
+   *
+   * For large folders, use the server-side endpoint which handles streaming.
+   * This client method sends the scan request and then uploads files in batches.
+   *
+   * @param folderPath - Path to the folder to upload
+   * @param config - Folder upload configuration
+   * @param options - Upload options including progress callbacks
+   *
+   * @example
+   * ```typescript
+   * const result = await client.documents.uploadFolder('./documents/', {
+   *   maxDepth: 3,
+   *   excludePatterns: ['*.log', '**\/cache/**'],
+   *   maxFileSizeMb: 100,
+   * }, {
+   *   onProgress: (progress) => {
+   *     console.log(`${progress.progressPercent}% complete`);
+   *   },
+   *   onFileComplete: (file, docId) => {
+   *     console.log(`Uploaded ${file.path} -> ${docId}`);
+   *   },
+   * });
+   *
+   * console.log('Uploaded', result.filesUploaded, 'files');
+   * ```
+   */
+  async uploadFolder(
+    folderPath: string,
+    config?: FolderUploadConfig,
+    options?: {
+      onProgress?: (progress: FolderUploadProgress) => void;
+      onFileComplete?: (file: FolderFileInfo, docId: string) => void;
+      onFileError?: (file: FolderFileInfo, error: Error) => void;
+    }
+  ): Promise<FolderUploadResult> {
+    // Start folder upload on server
+    const response = await this.http.post<{ folderId: string; scanResult: FolderScanResult }>(
+      '/api/documents/folder/upload/start',
+      { path: folderPath, config }
+    );
+
+    const { folderId } = response;
+
+    // If no progress callback, just wait for completion
+    if (!options?.onProgress && !options?.onFileComplete && !options?.onFileError) {
+      return this.waitForFolderUpload(folderId);
+    }
+
+    // Poll for progress updates
+    let lastProgress: FolderUploadProgress | null = null;
+
+    while (true) {
+      const status = await this.http.get<{
+        status: 'pending' | 'uploading' | 'completed' | 'failed';
+        progress: FolderUploadProgress;
+        result?: FolderUploadResult;
+        recentEvents?: Array<{
+          type: 'file_complete' | 'file_error';
+          file: FolderFileInfo;
+          docId?: string;
+          error?: string;
+        }>;
+      }>(`/api/documents/folder/upload/${folderId}/status`);
+
+      // Report progress
+      if (options.onProgress && status.progress) {
+        if (
+          !lastProgress ||
+          lastProgress.uploadedFiles !== status.progress.uploadedFiles
+        ) {
+          options.onProgress(status.progress);
+          lastProgress = status.progress;
+        }
+      }
+
+      // Report file events
+      if (status.recentEvents) {
+        for (const event of status.recentEvents) {
+          if (event.type === 'file_complete' && options.onFileComplete && event.docId) {
+            options.onFileComplete(event.file, event.docId);
+          } else if (event.type === 'file_error' && options.onFileError) {
+            options.onFileError(event.file, new Error(event.error || 'Unknown error'));
+          }
+        }
+      }
+
+      // Check for completion
+      if (status.status === 'completed' || status.status === 'failed') {
+        if (status.result) {
+          return status.result;
+        }
+        throw new Error('Folder upload completed but no result returned');
+      }
+
+      // Wait before polling again
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  /**
+   * Wait for a folder upload to complete.
+   *
+   * @param folderId - Folder upload ID
+   * @param options - Wait options
+   */
+  async waitForFolderUpload(
+    folderId: string,
+    options?: {
+      timeoutMs?: number;
+      pollIntervalMs?: number;
+    }
+  ): Promise<FolderUploadResult> {
+    const timeout = options?.timeoutMs ?? 600000; // 10 minutes
+    const pollInterval = options?.pollIntervalMs ?? 2000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const status = await this.http.get<{
+        status: 'pending' | 'uploading' | 'completed' | 'failed';
+        result?: FolderUploadResult;
+      }>(`/api/documents/folder/upload/${folderId}/status`);
+
+      if (status.status === 'completed' || status.status === 'failed') {
+        if (status.result) {
+          return status.result;
+        }
+        throw new Error('Folder upload completed but no result returned');
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Folder upload timed out after ${timeout}ms`);
+  }
+
+  /**
+   * List uploaded folder sets.
+   */
+  async listFolders(): Promise<
+    Array<{
+      folderId: string;
+      rootPath: string;
+      filesCount: number;
+      totalSizeBytes: number;
+      uploadedAt: string;
+    }>
+  > {
+    const response = await this.http.get<{
+      folders: Array<{
+        folderId: string;
+        rootPath: string;
+        filesCount: number;
+        totalSizeBytes: number;
+        uploadedAt: string;
+      }>;
+    }>('/api/documents/folders');
+    return response.folders;
+  }
+
+  /**
+   * Get details of an uploaded folder.
+   *
+   * @param folderId - Folder upload ID
+   */
+  async getFolder(folderId: string): Promise<FolderUploadResult> {
+    return this.http.get<FolderUploadResult>(`/api/documents/folders/${folderId}`);
+  }
+}
+
+/**
+ * Audit API for document auditing operations.
+ */
+class AuditAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Create a new audit session.
+   *
+   * @param config - Audit session configuration
+   *
+   * @example
+   * ```typescript
+   * const session = await client.audit.create({
+   *   document_ids: ['doc-1', 'doc-2'],
+   *   audit_types: [AuditType.SECURITY, AuditType.COMPLIANCE],
+   *   model: 'gemini-3-pro',
+   * });
+   * console.log('Session created:', session.id);
+   * ```
+   */
+  async create(config: AuditSessionConfig): Promise<AuditSession> {
+    const response = await this.http.post<AuditSessionCreateResponse>(
+      '/api/audit/sessions',
+      config
+    );
+    return response.session;
+  }
+
+  /**
+   * List all audit sessions.
+   *
+   * @param options - Filter options
+   */
+  async list(options?: {
+    status?: AuditStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<AuditSession[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const query = params.toString();
+    const response = await this.http.get<AuditSessionListResponse>(
+      `/api/audit/sessions${query ? `?${query}` : ''}`
+    );
+    return response.sessions;
+  }
+
+  /**
+   * Get an audit session by ID.
+   */
+  async get(sessionId: string): Promise<AuditSession> {
+    return this.http.get<AuditSession>(`/api/audit/sessions/${sessionId}`);
+  }
+
+  /**
+   * Start an audit session.
+   */
+  async start(sessionId: string): Promise<AuditSession> {
+    return this.http.post<AuditSession>(`/api/audit/sessions/${sessionId}/start`, {});
+  }
+
+  /**
+   * Pause a running audit session.
+   */
+  async pause(sessionId: string): Promise<AuditSession> {
+    return this.http.post<AuditSession>(`/api/audit/sessions/${sessionId}/pause`, {});
+  }
+
+  /**
+   * Resume a paused audit session.
+   */
+  async resume(sessionId: string): Promise<AuditSession> {
+    return this.http.post<AuditSession>(`/api/audit/sessions/${sessionId}/resume`, {});
+  }
+
+  /**
+   * Cancel an audit session.
+   */
+  async cancel(sessionId: string): Promise<boolean> {
+    await this.http.delete(`/api/audit/sessions/${sessionId}`);
+    return true;
+  }
+
+  /**
+   * Get findings from an audit session.
+   *
+   * @param sessionId - Session ID
+   * @param options - Filter options
+   */
+  async getFindings(
+    sessionId: string,
+    options?: {
+      severity?: FindingSeverity;
+      category?: AuditType;
+      status?: FindingStatus;
+    }
+  ): Promise<AuditFinding[]> {
+    const params = new URLSearchParams();
+    if (options?.severity) params.set('severity', options.severity);
+    if (options?.category) params.set('category', options.category);
+    if (options?.status) params.set('status', options.status);
+
+    const query = params.toString();
+    const response = await this.http.get<AuditFindingsResponse>(
+      `/api/audit/sessions/${sessionId}/findings${query ? `?${query}` : ''}`
+    );
+    return response.findings;
+  }
+
+  /**
+   * Update a finding's status.
+   *
+   * @param sessionId - Session ID
+   * @param findingId - Finding ID
+   * @param status - New status
+   */
+  async updateFinding(
+    sessionId: string,
+    findingId: string,
+    status: FindingStatus,
+    comment?: string
+  ): Promise<AuditFinding> {
+    return this.http.patch<AuditFinding>(
+      `/api/audit/sessions/${sessionId}/findings/${findingId}`,
+      { status, comment }
+    );
+  }
+
+  /**
+   * Export an audit report.
+   *
+   * @param sessionId - Session ID
+   * @param options - Export options
+   */
+  async exportReport(sessionId: string, options?: AuditReportRequest): Promise<AuditReport> {
+    return this.http.post<AuditReport>(`/api/audit/sessions/${sessionId}/report`, options ?? {});
+  }
+
+  /**
+   * Submit human intervention during an audit.
+   *
+   * @param sessionId - Session ID
+   * @param intervention - Intervention request
+   */
+  async intervene(sessionId: string, intervention: AuditInterventionRequest): Promise<void> {
+    await this.http.post(`/api/audit/sessions/${sessionId}/intervene`, intervention);
+  }
+
+  /**
+   * Subscribe to real-time audit events via SSE.
+   *
+   * @param sessionId - Session ID
+   * @param callback - Event callback
+   * @returns Cleanup function to close the connection
+   *
+   * @example
+   * ```typescript
+   * const cleanup = client.audit.subscribe(session.id, (event) => {
+   *   if (event.type === 'finding') {
+   *     console.log('New finding:', event.data.finding);
+   *   } else if (event.type === 'progress') {
+   *     console.log('Progress:', event.data.progress);
+   *   }
+   * });
+   *
+   * // Later, to stop listening:
+   * cleanup();
+   * ```
+   */
+  subscribe(sessionId: string, callback: (event: AuditEvent) => void): () => void {
+    const eventSource = new EventSource(
+      `${this.http['baseUrl']}/api/audit/sessions/${sessionId}/events`
+    );
+
+    eventSource.onmessage = (event) => {
+      try {
+        const auditEvent = JSON.parse(event.data) as AuditEvent;
+        callback(auditEvent);
+      } catch {
+        // Ignore parse errors
+      }
+    };
+
+    eventSource.onerror = () => {
+      // Connection error - could add retry logic here
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }
+
+  /**
+   * Wait for an audit session to complete.
+   *
+   * @param sessionId - Session ID
+   * @param options - Options including timeout and progress callback
+   */
+  async waitForCompletion(
+    sessionId: string,
+    options?: {
+      timeoutMs?: number;
+      onProgress?: (session: AuditSession) => void;
+      pollIntervalMs?: number;
+    }
+  ): Promise<AuditSession> {
+    const timeout = options?.timeoutMs ?? 600000; // 10 minutes default
+    const pollInterval = options?.pollIntervalMs ?? 2000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const session = await this.get(sessionId);
+
+      if (options?.onProgress) {
+        options.onProgress(session);
+      }
+
+      if (
+        session.status === AuditStatus.COMPLETED ||
+        session.status === AuditStatus.FAILED ||
+        session.status === AuditStatus.CANCELLED
+      ) {
+        return session;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Audit timed out after ${timeout}ms`);
   }
 }
 
@@ -3892,6 +4454,7 @@ export class AragoraClient {
   readonly replays: ReplayAPI;
   readonly pulse: PulseAPI;
   readonly documents: DocumentsAPI;
+  readonly audit: AuditAPI;
   readonly breakpoints: BreakpointsAPI;
   readonly tournaments: TournamentsAPI;
   readonly organizations: OrganizationsAPI;
@@ -3963,6 +4526,7 @@ export class AragoraClient {
     this.replays = new ReplayAPI(this.http);
     this.pulse = new PulseAPI(this.http);
     this.documents = new DocumentsAPI(this.http);
+    this.audit = new AuditAPI(this.http);
     this.breakpoints = new BreakpointsAPI(this.http);
     this.tournaments = new TournamentsAPI(this.http);
     this.organizations = new OrganizationsAPI(this.http);
