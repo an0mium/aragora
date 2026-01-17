@@ -158,48 +158,43 @@ class TestJobRun:
     def test_job_run_creation(self):
         """Test creating a job run record."""
         run = JobRun(
-            id="run-123",
+            run_id="run-123",
             job_id="job-456",
-            trigger_type=TriggerType.SCHEDULED,
             started_at=datetime.now(timezone.utc),
-            status=JobStatus.RUNNING,
+            status="running",
         )
 
-        assert run.id == "run-123"
-        assert run.status == JobStatus.RUNNING
-        assert run.trigger_type == TriggerType.SCHEDULED
+        assert run.run_id == "run-123"
+        assert run.status == "running"
 
     def test_job_run_completion(self):
         """Test completing a job run."""
         run = JobRun(
-            id="run-123",
+            run_id="run-123",
             job_id="job-456",
-            trigger_type=TriggerType.SCHEDULED,
             started_at=datetime.now(timezone.utc),
-            status=JobStatus.RUNNING,
+            status="running",
         )
 
-        run.status = JobStatus.COMPLETED
+        run.status = "completed"
         run.completed_at = datetime.now(timezone.utc)
         run.session_id = "session-789"
-        run.finding_count = 5
+        run.findings_count = 5
 
-        assert run.status == JobStatus.COMPLETED
-        assert run.finding_count == 5
+        assert run.status == "completed"
+        assert run.findings_count == 5
 
     def test_job_run_to_dict(self):
         """Test converting run to dictionary."""
         run = JobRun(
-            id="run-123",
+            run_id="run-123",
             job_id="job-456",
-            trigger_type=TriggerType.WEBHOOK,
             started_at=datetime.now(timezone.utc),
-            status=JobStatus.COMPLETED,
+            status="completed",
         )
 
         data = run.to_dict()
 
-        assert data["trigger_type"] == "webhook"
         assert data["status"] == "completed"
 
 
