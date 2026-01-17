@@ -24,6 +24,7 @@ __all__ = [
     "RingSelector",
     "StarSelector",
     "SparseSelector",
+    "AdaptiveSelector",
     "select_critics_for_proposal",
 ]
 
@@ -101,6 +102,8 @@ class TopologySelector(ABC):
             return StarSelector(agents, hub_agent)
         elif topology in ("sparse", "random-graph"):
             return SparseSelector(sparsity)
+        elif topology == "adaptive":
+            return AdaptiveSelector(agents)
         else:
             # Default to all-to-all
             return AllToAllSelector()
@@ -240,6 +243,97 @@ class SparseSelector(TopologySelector):
         random.seed()  # Reset seed
 
         return selected
+
+
+class AdaptiveSelector(TopologySelector):
+    """
+    Adaptive topology that switches based on debate state.
+
+    Inspired by claude-flow's adaptive orchestration patterns.
+
+    Behavior:
+    - Diverging phase: Uses AllToAll for maximum parallel critique
+    - Refining phase: Uses Ring for focused sequential refinement
+    - Converged phase: Uses RoundRobin for minimal overhead
+
+    The convergence state is passed via set_convergence_state() or
+    inferred from the previous round's responses.
+    """
+
+    def __init__(
+        self,
+        agents: Sequence[Agent],
+        parallel_threshold: float = 0.3,
+        sequential_threshold: float = 0.7,
+    ):
+        """
+        Initialize adaptive topology selector.
+
+        Args:
+            agents: All agents in the debate
+            parallel_threshold: Similarity below this -> parallel (diverging)
+            sequential_threshold: Similarity above this -> sequential (converged)
+        """
+        self._agents = list(agents)
+        self._parallel_threshold = parallel_threshold
+        self._sequential_threshold = sequential_threshold
+
+        # Create underlying selectors
+        self._parallel_selector = AllToAllSelector()
+        self._sequential_selector = RingSelector(agents)
+        self._minimal_selector = RoundRobinSelector()
+
+        # Current state
+        self._convergence_state: str = "diverging"
+        self._similarity: float = 0.0
+
+    def set_convergence_state(
+        self,
+        state: str,
+        similarity: float = 0.0,
+    ) -> None:
+        """
+        Set the current convergence state.
+
+        Args:
+            state: One of "diverging", "refining", or "converged"
+            similarity: Current similarity score (0-1)
+        """
+        self._convergence_state = state
+        self._similarity = similarity
+
+    def select_critics(self, proposal_agent: str, all_critics: Sequence[Agent]) -> list[Agent]:
+        """
+        Select critics based on current convergence state.
+
+        When diverging: All critics review all proposals (parallel exploration)
+        When refining: Ring topology for focused sequential critique
+        When converged: Minimal critique (round-robin) to finalize
+        """
+        if self._convergence_state == "diverging" or self._similarity < self._parallel_threshold:
+            # Maximum parallelism during divergence
+            return self._parallel_selector.select_critics(proposal_agent, all_critics)
+
+        elif (
+            self._convergence_state == "converged" or self._similarity > self._sequential_threshold
+        ):
+            # Minimal critique when converged
+            return self._minimal_selector.select_critics(proposal_agent, all_critics)
+
+        else:
+            # Ring topology during refinement phase
+            return self._sequential_selector.select_critics(proposal_agent, all_critics)
+
+    def get_current_topology(self) -> str:
+        """Get the name of the currently active topology."""
+        if self._convergence_state == "diverging" or self._similarity < self._parallel_threshold:
+            return "all-to-all"
+        elif (
+            self._convergence_state == "converged" or self._similarity > self._sequential_threshold
+        ):
+            return "round-robin"
+        else:
+            return "ring"
 
 
 def select_critics_for_proposal(

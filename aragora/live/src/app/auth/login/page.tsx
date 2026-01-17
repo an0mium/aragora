@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -112,6 +113,9 @@ export default function LoginPage() {
                   {isLoading ? 'AUTHENTICATING...' : 'LOGIN'}
                 </button>
               </form>
+
+              {/* Social Login Options */}
+              <SocialLoginButtons mode="login" />
 
               <div className="mt-6 text-center">
                 <Link

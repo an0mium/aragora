@@ -40,6 +40,7 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, name?: string, organization?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  setTokens: (accessToken: string, refreshToken: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -246,6 +247,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [state.tokens, state.user]);
 
+  // Set tokens from OAuth callback - fetches user profile from API
+  const setTokens = useCallback(async (accessToken: string, refreshToken: string) => {
+    // Calculate expiry (default 1 hour from now if not provided)
+    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+
+    const tokens: Tokens = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAt,
+    };
+
+    // Store tokens first
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+
+    // Fetch user profile using the access token
+    try {
+      const response = await fetch(`${API_BASE}/api/user/me`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const user = data.user;
+
+        // Store user
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+        // Update state
+        setState({
+          user,
+          organization: data.organization || null,
+          tokens,
+          isLoading: false,
+          isAuthenticated: true,
+        });
+      } else {
+        // Token might be invalid - clear and throw
+        clearAuth();
+        throw new Error('Failed to fetch user profile');
+      }
+    } catch (error) {
+      // If user fetch fails, still store tokens but mark as loading
+      // The user might be created but profile endpoint doesn't exist
+      setState(prev => ({
+        ...prev,
+        tokens,
+        isLoading: false,
+        isAuthenticated: true,
+      }));
+    }
+  }, []);
+
   // Auto-refresh token before expiry
   useEffect(() => {
     if (!state.tokens?.expires_at) return;
@@ -263,7 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.tokens?.expires_at, refreshToken]);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, refreshToken }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, refreshToken, setTokens }}>
       {children}
     </AuthContext.Provider>
   );

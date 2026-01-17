@@ -572,3 +572,219 @@ class Replay(BaseModel):
     consensus: Optional[ConsensusResult] = None
     created_at: datetime
     duration_seconds: int = 0
+
+
+# =============================================================================
+# Document Models
+# =============================================================================
+
+
+class DocumentStatus(str, Enum):
+    """Status of document processing."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AuditType(str, Enum):
+    """Type of document audit."""
+
+    SECURITY = "security"
+    COMPLIANCE = "compliance"
+    CONSISTENCY = "consistency"
+    QUALITY = "quality"
+
+
+class FindingSeverity(str, Enum):
+    """Severity level for audit findings."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
+class Document(BaseModel):
+    """A document in the system."""
+
+    id: str
+    filename: str
+    mime_type: str
+    size_bytes: int
+    status: DocumentStatus = DocumentStatus.PENDING
+    chunk_count: int = 0
+    created_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentChunk(BaseModel):
+    """A chunk of a processed document."""
+
+    id: str
+    document_id: str
+    content: str
+    chunk_index: int
+    token_count: int = 0
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentUploadResponse(BaseModel):
+    """Response from uploading a document."""
+
+    document_id: str
+    filename: str
+    status: DocumentStatus = DocumentStatus.PENDING
+    message: str = ""
+
+
+class BatchUploadResponse(BaseModel):
+    """Response from batch upload."""
+
+    job_id: str
+    document_count: int
+    status: str
+    message: str = ""
+
+
+class BatchJobStatus(BaseModel):
+    """Status of a batch processing job."""
+
+    job_id: str
+    status: str
+    progress: float = 0.0
+    document_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    error: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class BatchJobResults(BaseModel):
+    """Results of a completed batch job."""
+
+    job_id: str
+    documents: list[Document] = Field(default_factory=list)
+    failed: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DocumentContext(BaseModel):
+    """LLM-ready context from document chunks."""
+
+    document_id: str
+    total_tokens: int
+    context: str
+    chunks_used: int
+    truncated: bool = False
+
+
+class ProcessingStats(BaseModel):
+    """Document processing statistics."""
+
+    total_documents: int = 0
+    pending: int = 0
+    processing: int = 0
+    completed: int = 0
+    failed: int = 0
+    total_chunks: int = 0
+    total_tokens: int = 0
+
+
+class SupportedFormats(BaseModel):
+    """Supported document formats."""
+
+    formats: list[str] = Field(default_factory=list)
+    mime_types: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Audit Session Models
+# =============================================================================
+
+
+class AuditSessionStatus(str, Enum):
+    """Status of an audit session."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class AuditFinding(BaseModel):
+    """A finding from a document audit."""
+
+    id: str = ""
+    session_id: str
+    document_id: str = ""
+    chunk_id: str = ""
+    audit_type: AuditType
+    category: str
+    severity: FindingSeverity
+    confidence: float = 0.0
+    title: str
+    description: str
+    evidence_text: str = ""
+    evidence_location: str = ""
+    recommendation: str = ""
+    found_by: str = ""
+    created_at: Optional[datetime] = None
+
+
+class AuditSession(BaseModel):
+    """An audit session."""
+
+    id: str
+    document_ids: list[str] = Field(default_factory=list)
+    audit_types: list[AuditType] = Field(default_factory=list)
+    status: AuditSessionStatus = AuditSessionStatus.PENDING
+    progress: float = 0.0
+    finding_count: int = 0
+    model: str = "gemini-1.5-flash"
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error: Optional[str] = None
+
+
+class AuditSessionCreateRequest(BaseModel):
+    """Request to create an audit session."""
+
+    document_ids: list[str]
+    audit_types: list[str] = Field(
+        default_factory=lambda: ["security", "compliance", "consistency", "quality"]
+    )
+    model: str = "gemini-1.5-flash"
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditSessionCreateResponse(BaseModel):
+    """Response from creating an audit session."""
+
+    session_id: str
+    status: AuditSessionStatus = AuditSessionStatus.PENDING
+    document_count: int = 0
+    audit_types: list[str] = Field(default_factory=list)
+
+
+class AuditReportFormat(str, Enum):
+    """Format for audit reports."""
+
+    JSON = "json"
+    MARKDOWN = "markdown"
+    HTML = "html"
+    PDF = "pdf"
+
+
+class AuditReport(BaseModel):
+    """Audit report data."""
+
+    session_id: str
+    format: AuditReportFormat = AuditReportFormat.JSON
+    content: str
+    generated_at: datetime

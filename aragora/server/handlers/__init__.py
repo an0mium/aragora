@@ -46,7 +46,9 @@ from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
 from .docs import DocsHandler
 from .features import DocumentHandler  # Moved to features/
+from .features import DocumentBatchHandler  # Batch document upload
 from .features import EvidenceHandler  # Moved to features/
+from .features import FolderUploadHandler  # Folder upload support
 from .evolution import EvolutionABTestingHandler  # Moved to evolution/
 from .evolution import EvolutionHandler  # Moved to evolution/
 from .features import FeaturesHandler  # Moved to features/
@@ -112,6 +114,8 @@ ALL_HANDLERS = [
     RelationshipHandler,
     MomentsHandler,
     DocumentHandler,
+    DocumentBatchHandler,  # Batch document upload
+    FolderUploadHandler,  # Folder upload support
     VerificationHandler,
     AuditingHandler,
     DashboardHandler,
@@ -210,6 +214,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "BroadcastHandler": Stability.STABLE,  # 65 tests, podcast generation
     "GenesisHandler": Stability.STABLE,  # 26 tests, evolution visibility
     "DocumentHandler": Stability.STABLE,  # 36 tests, document management
+    "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
+    "FolderUploadHandler": Stability.EXPERIMENTAL,  # Folder upload support - new
     "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
     "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
@@ -265,6 +271,8 @@ __all__ = [
     "RelationshipHandler",
     "MomentsHandler",
     "DocumentHandler",
+    "DocumentBatchHandler",
+    "FolderUploadHandler",
     "VerificationHandler",
     "AuditingHandler",
     "DashboardHandler",

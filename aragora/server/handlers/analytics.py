@@ -111,7 +111,8 @@ class AnalyticsHandler(BaseHandler):
         }
 
         for debate in debates:
-            result = debate.get("result", {})  # type: ignore[attr-defined]
+            debate_dict = debate if isinstance(debate, dict) else {}
+            result = debate_dict.get("result", {})
             report = result.get("disagreement_report")
             if report:
                 if report.get("unanimous_critiques"):
@@ -144,7 +145,8 @@ class AnalyticsHandler(BaseHandler):
         }
 
         for debate in debates:
-            messages = debate.get("messages", [])  # type: ignore[attr-defined]
+            debate_dict = debate if isinstance(debate, dict) else {}
+            messages = debate_dict.get("messages", [])
             for msg in messages:
                 role = msg.get("cognitive_role", msg.get("role", "unknown"))
                 stats["role_assignments"][role] = stats["role_assignments"].get(role, 0) + 1
@@ -173,7 +175,8 @@ class AnalyticsHandler(BaseHandler):
 
         total_rounds = 0
         for debate in debates:
-            result = debate.get("result", {})  # type: ignore[attr-defined]
+            debate_dict = debate if isinstance(debate, dict) else {}
+            result = debate_dict.get("result", {})
             rounds = result.get("rounds_used", 0)
             total_rounds += rounds
 
@@ -217,11 +220,12 @@ class AnalyticsHandler(BaseHandler):
         consensus_reached_count = 0
 
         for debate in debates:
-            result = debate.get("result", {})  # type: ignore[attr-defined]
+            debate_dict = debate if isinstance(debate, dict) else {}
+            result = debate_dict.get("result", {})
             confidence = result.get("confidence", 0.0)
             consensus = result.get("consensus_reached", False)
-            debate_id = debate.get("id", "")  # type: ignore[attr-defined]
-            timestamp = debate.get("timestamp", "")  # type: ignore[attr-defined]
+            debate_id = debate_dict.get("id", "")
+            timestamp = debate_dict.get("timestamp", "")
 
             confidence_history.append(
                 {

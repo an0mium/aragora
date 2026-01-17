@@ -237,8 +237,8 @@ def lru_cache_with_ttl(
             return result
 
         # Attach cache reference for manual invalidation
-        wrapper.cache = cache  # type: ignore[attr-defined]  # Dynamic attribute attachment
-        wrapper.cache_key_prefix = key_prefix or func.__name__  # type: ignore[attr-defined]
+        setattr(wrapper, "cache", cache)
+        setattr(wrapper, "cache_key_prefix", key_prefix or func.__name__)
 
         return cast(Callable[..., T], wrapper)
 

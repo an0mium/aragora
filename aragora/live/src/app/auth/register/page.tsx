@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -174,6 +175,9 @@ export default function RegisterPage() {
                   {isLoading ? 'INITIALIZING...' : 'CREATE ACCOUNT'}
                 </button>
               </form>
+
+              {/* Social Login Options */}
+              <SocialLoginButtons mode="register" />
 
               <div className="mt-6 text-center">
                 <Link

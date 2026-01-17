@@ -50,8 +50,8 @@ from .errors import (
     ValidationError,
 )
 from .transport import RateLimiter, RetryConfig
+from .resources import AgentsAPI, DocumentsAPI, LeaderboardAPI, MemoryAPI, VerificationAPI
 from .models import (
-    AgentProfile,
     ConsensusType,
     Debate,
     DebateCreateRequest,
@@ -66,7 +66,6 @@ from .models import (
     GraphDebateCreateRequest,
     GraphDebateCreateResponse,
     HealthCheck,
-    LeaderboardEntry,
     MatrixConclusion,
     # Matrix debates
     MatrixDebate,
@@ -74,15 +73,8 @@ from .models import (
     MatrixDebateCreateResponse,
     MatrixScenario,
     # Memory analytics
-    MemoryAnalyticsResponse,
-    MemorySnapshotResponse,
-    # Replays
     Replay,
     ReplaySummary,
-    # Verification
-    VerifyClaimRequest,
-    VerifyClaimResponse,
-    VerifyStatusResponse,
 )
 
 if TYPE_CHECKING:
@@ -500,75 +492,6 @@ class DebatesAPI:
             offset += page_size
 
 
-class AgentsAPI:
-    """API interface for agents."""
-
-    def __init__(self, client: "AragoraClient"):
-        self._client = client
-
-    def list(self) -> list[AgentProfile]:
-        """
-        List all available agents.
-
-        Returns:
-            List of AgentProfile objects.
-        """
-        response = self._client._get("/api/agents")
-        agents = response.get("agents", response) if isinstance(response, dict) else response
-        return [AgentProfile(**a) for a in agents]
-
-    async def list_async(self) -> List[AgentProfile]:
-        """Async version of list()."""
-        response = await self._client._get_async("/api/agents")
-        agents = response.get("agents", response) if isinstance(response, dict) else response
-        return [AgentProfile(**a) for a in agents]
-
-    def get(self, agent_id: str) -> AgentProfile:
-        """
-        Get agent profile by ID.
-
-        Args:
-            agent_id: The agent ID.
-
-        Returns:
-            AgentProfile with details.
-        """
-        response = self._client._get(f"/api/agent/{agent_id}")
-        return AgentProfile(**response)
-
-    async def get_async(self, agent_id: str) -> AgentProfile:
-        """Async version of get()."""
-        response = await self._client._get_async(f"/api/agent/{agent_id}")
-        return AgentProfile(**response)
-
-
-class LeaderboardAPI:
-    """API interface for leaderboard."""
-
-    def __init__(self, client: "AragoraClient"):
-        self._client = client
-
-    def get(self, limit: int = 10) -> list[LeaderboardEntry]:
-        """
-        Get leaderboard rankings.
-
-        Args:
-            limit: Maximum number of entries to return.
-
-        Returns:
-            List of LeaderboardEntry objects.
-        """
-        response = self._client._get("/api/leaderboard", params={"limit": limit})
-        rankings = response.get("rankings", response) if isinstance(response, dict) else response
-        return [LeaderboardEntry(**r) for r in rankings]
-
-    async def get_async(self, limit: int = 10) -> list[LeaderboardEntry]:
-        """Async version of get()."""
-        response = await self._client._get_async("/api/leaderboard", params={"limit": limit})
-        rankings = response.get("rankings", response) if isinstance(response, dict) else response
-        return [LeaderboardEntry(**r) for r in rankings]
-
-
 class GauntletAPI:
     """API interface for gauntlet (adversarial validation)."""
 
@@ -882,138 +805,6 @@ class MatrixDebatesAPI:
         return MatrixConclusion(**response)
 
 
-class VerificationAPI:
-    """API interface for formal verification of claims."""
-
-    def __init__(self, client: "AragoraClient"):
-        self._client = client
-
-    def verify(
-        self,
-        claim: str,
-        context: str | None = None,
-        backend: str = "z3",
-        timeout: int = 30,
-    ) -> VerifyClaimResponse:
-        """
-        Verify a claim using formal methods.
-
-        Args:
-            claim: The claim to verify in natural language.
-            context: Optional context for the claim.
-            backend: Verification backend (z3, lean, coq).
-            timeout: Verification timeout in seconds.
-
-        Returns:
-            VerifyClaimResponse with status, proof, or counterexample.
-        """
-        request = VerifyClaimRequest(
-            claim=claim,
-            context=context,
-            backend=backend,
-            timeout=timeout,
-        )
-
-        response = self._client._post("/api/verify/claim", request.model_dump())
-        return VerifyClaimResponse(**response)
-
-    async def verify_async(
-        self,
-        claim: str,
-        context: str | None = None,
-        backend: str = "z3",
-        timeout: int = 30,
-    ) -> VerifyClaimResponse:
-        """Async version of verify()."""
-        request = VerifyClaimRequest(
-            claim=claim,
-            context=context,
-            backend=backend,
-            timeout=timeout,
-        )
-
-        response = await self._client._post_async("/api/verify/claim", request.model_dump())
-        return VerifyClaimResponse(**response)
-
-    def status(self) -> VerifyStatusResponse:
-        """
-        Check verification backend availability.
-
-        Returns:
-            VerifyStatusResponse with available backends.
-        """
-        response = self._client._get("/api/verify/status")
-        return VerifyStatusResponse(**response)
-
-    async def status_async(self) -> VerifyStatusResponse:
-        """Async version of status()."""
-        response = await self._client._get_async("/api/verify/status")
-        return VerifyStatusResponse(**response)
-
-
-class MemoryAPI:
-    """API interface for memory tier analytics."""
-
-    def __init__(self, client: "AragoraClient"):
-        self._client = client
-
-    def analytics(self, days: int = 30) -> MemoryAnalyticsResponse:
-        """
-        Get comprehensive memory tier analytics.
-
-        Args:
-            days: Number of days to analyze (1-365).
-
-        Returns:
-            MemoryAnalyticsResponse with tier stats and recommendations.
-        """
-        response = self._client._get("/api/memory/analytics", params={"days": days})
-        return MemoryAnalyticsResponse(**response)
-
-    async def analytics_async(self, days: int = 30) -> MemoryAnalyticsResponse:
-        """Async version of analytics()."""
-        response = await self._client._get_async("/api/memory/analytics", params={"days": days})
-        return MemoryAnalyticsResponse(**response)
-
-    def tier_stats(self, tier_name: str, days: int = 30) -> dict:
-        """
-        Get statistics for a specific memory tier.
-
-        Args:
-            tier_name: Name of the tier (fast, medium, slow, glacial).
-            days: Number of days to analyze.
-
-        Returns:
-            Dict with tier-specific statistics.
-        """
-        response = self._client._get(
-            f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
-        )
-        return response
-
-    async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict:
-        """Async version of tier_stats()."""
-        response = await self._client._get_async(
-            f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
-        )
-        return response
-
-    def snapshot(self) -> MemorySnapshotResponse:
-        """
-        Take a manual memory analytics snapshot.
-
-        Returns:
-            MemorySnapshotResponse with snapshot details.
-        """
-        response = self._client._post("/api/memory/analytics/snapshot", {})
-        return MemorySnapshotResponse(**response)
-
-    async def snapshot_async(self) -> MemorySnapshotResponse:
-        """Async version of snapshot()."""
-        response = await self._client._post_async("/api/memory/analytics/snapshot", {})
-        return MemorySnapshotResponse(**response)
-
-
 class ReplayAPI:
     """API interface for debate replays."""
 
@@ -1125,6 +916,7 @@ class AragoraClient:
         - debates: Standard debates (create, get, list, run)
         - graph_debates: Graph-structured debates with branching
         - matrix_debates: Parallel scenario debates
+        - documents: Document management, batch processing, and auditing
         - verification: Formal claim verification
         - memory: Memory tier analytics
         - agents: Agent discovery and profiles
@@ -1200,6 +992,9 @@ class AragoraClient:
         self.verification = VerificationAPI(self)
         self.memory = MemoryAPI(self)
         self.replays = ReplayAPI(self)
+
+        # Document management and auditing
+        self.documents = DocumentsAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""

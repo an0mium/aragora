@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 try:
     from aragora.agents.base import create_agent
 except ImportError:
-    create_agent = None  # type: ignore
+    create_agent = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import MomentDetector

@@ -1,9 +1,11 @@
 """
 Aragora Audit System.
 
-Enterprise-grade audit logging for compliance (SOC 2, HIPAA, GDPR, SOX).
+Enterprise-grade audit logging for compliance (SOC 2, HIPAA, GDPR, SOX)
+and document auditing for defect detection.
 
 Usage:
+    # Compliance logging
     from aragora.audit import AuditLog, AuditEvent, AuditCategory
 
     audit = AuditLog()
@@ -12,6 +14,13 @@ Usage:
         action="login",
         actor_id="user_123",
     ))
+
+    # Document auditing
+    from aragora.audit import DocumentAuditor, AuditSession
+
+    auditor = DocumentAuditor()
+    session = await auditor.create_session(document_ids=["doc1"])
+    await auditor.run_audit(session.id)
 """
 
 from .log import (
@@ -24,8 +33,20 @@ from .log import (
     audit_auth_login,
     audit_data_access,
 )
+from .document_auditor import (
+    DocumentAuditor,
+    AuditSession,
+    AuditConfig,
+    AuditFinding,
+    AuditType,
+    AuditStatus,
+    FindingSeverity,
+    FindingStatus,
+    get_document_auditor,
+)
 
 __all__ = [
+    # Compliance logging
     "AuditCategory",
     "AuditEvent",
     "AuditLog",
@@ -34,4 +55,14 @@ __all__ = [
     "audit_admin_action",
     "audit_auth_login",
     "audit_data_access",
+    # Document auditing
+    "DocumentAuditor",
+    "AuditSession",
+    "AuditConfig",
+    "AuditFinding",
+    "AuditType",
+    "AuditStatus",
+    "FindingSeverity",
+    "FindingStatus",
+    "get_document_auditor",
 ]

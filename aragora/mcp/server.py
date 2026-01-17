@@ -28,8 +28,8 @@ try:
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-    Server = None  # type: ignore
-    stdio_server = None  # type: ignore
+    Server = None  # type: ignore[assignment]
+    stdio_server = None  # type: ignore[assignment]
 
 
 class AragoraMCPServer:

@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +293,9 @@ class EvidenceCollector:
                 if isinstance(result, BaseException):
                     logger.warning(f"Connector search error: {result}")
                 else:
-                    connector_snippets, searched_count = result  # type: ignore[misc]
+                    connector_snippets, searched_count = cast(
+                        Tuple[List["EvidenceSnippet"], int], result
+                    )
                     all_snippets.extend(connector_snippets)
                     total_searched += searched_count
 
@@ -344,7 +346,7 @@ class EvidenceCollector:
                         metadata=result.metadata,
                     )
                 else:  # Dict result from other connectors
-                    result_dict: dict[str, Any] = result  # type: ignore[assignment]
+                    result_dict = cast(dict[str, Any], result)
                     snippet = EvidenceSnippet(
                         id=f"{connector_name}_{i}",
                         source=connector_name,

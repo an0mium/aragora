@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
 
@@ -114,7 +114,7 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
     tier_names = ["fast", "medium", "slow", "glacial"]
     for tier_name in tier_names:
         # tier_name is validated to be one of the literal keys in tier_names list above
-        limit: int = max_entries[tier_name]  # type: ignore[literal-required]
+        limit = cast(int, max_entries[tier_name])
         if limit <= 0:
             continue
         count = tier_counts.get(tier_name, 0)
@@ -336,7 +336,7 @@ def enforce_tier_limits(
         for t in tiers_to_process:
             tier_name = t.value
             # get() returns Optional[int] but we provide a default, so result is always int
-            limit: int = max_entries.get(tier_name, 10000)  # type: ignore[assignment]
+            limit = cast(int, max_entries.get(tier_name, 10000))
 
             # Count current entries
             cursor.execute(

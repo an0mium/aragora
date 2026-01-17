@@ -193,9 +193,7 @@ class EventEmitter:
             "strengths": [],
         }
 
-    def emit_agent_preview(
-        self, agents: list["Agent"], role_assignments: dict
-    ) -> None:
+    def emit_agent_preview(self, agents: list["Agent"], role_assignments: dict) -> None:
         """Emit agent preview for quick UI feedback.
 
         Shows agent roles and stances while proposals are being generated.

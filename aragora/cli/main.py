@@ -1071,10 +1071,20 @@ Examples:
 
     create_billing_parser(subparsers)
 
-    # Audit command
+    # Audit command (compliance audit logs)
     from aragora.cli.audit import create_audit_parser
 
     create_audit_parser(subparsers)
+
+    # Document audit command (document analysis)
+    from aragora.cli.document_audit import create_document_audit_parser
+
+    create_document_audit_parser(subparsers)
+
+    # Documents command (upload, list, show with folder support)
+    from aragora.cli.documents import create_documents_parser
+
+    create_documents_parser(subparsers)
 
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(

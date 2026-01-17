@@ -193,25 +193,26 @@ def _handle_response_error(
         return _build_error_action(error, ctx, retryable_exceptions, override_delay)
 
     elif e.status >= 500:
-        # Reassigning error variable to different exception subclass based on status code
-        error = AgentConnectionError(  # type: ignore[assignment]
+        # Server error - create connection error for 5xx
+        server_error = AgentConnectionError(
             f"Server error (HTTP {e.status})",
             agent_name=ctx.agent_name,
             status_code=e.status,
             cause=e,
         )
-        return _build_error_action(error, ctx, retryable_exceptions)
+        return _build_error_action(server_error, ctx, retryable_exceptions)
 
     else:
         # 4xx errors - not retryable
-        # Reassigning error variable to different exception subclass based on status code
-        error = AgentAPIError(  # type: ignore[assignment]
+        api_error = AgentAPIError(
             f"API error (HTTP {e.status}): {sanitize_error(str(e))}",
             agent_name=ctx.agent_name,
             status_code=e.status,
             cause=e,
         )
-        return ErrorAction(error=error, should_retry=False, delay_seconds=0.0, log_level="error")
+        return ErrorAction(
+            error=api_error, should_retry=False, delay_seconds=0.0, log_level="error"
+        )
 
 
 def _handle_agent_error(

@@ -63,6 +63,7 @@ TournamentHandler: HandlerType = None
 MemoryHandler: HandlerType = None
 LeaderboardViewHandler: HandlerType = None
 DocumentHandler: HandlerType = None
+DocumentBatchHandler: HandlerType = None
 VerificationHandler: HandlerType = None
 AuditingHandler: HandlerType = None
 RelationshipHandler: HandlerType = None
@@ -98,6 +99,7 @@ OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
 FormalVerificationHandler: HandlerType = None
 EvidenceHandler: HandlerType = None
+FolderUploadHandler: HandlerType = None
 WebhookHandler: HandlerType = None
 AdminHandler: HandlerType = None
 HandlerResult: HandlerType = None
@@ -156,7 +158,13 @@ try:
         DocumentHandler as _DocumentHandler,
     )
     from aragora.server.handlers import (
+        DocumentBatchHandler as _DocumentBatchHandler,
+    )
+    from aragora.server.handlers import (
         EvidenceHandler as _EvidenceHandler,
+    )
+    from aragora.server.handlers import (
+        FolderUploadHandler as _FolderUploadHandler,
     )
     from aragora.server.handlers import (
         EvolutionABTestingHandler as _EvolutionABTestingHandler,
@@ -292,6 +300,7 @@ try:
     MemoryHandler = _MemoryHandler
     LeaderboardViewHandler = _LeaderboardViewHandler
     DocumentHandler = _DocumentHandler
+    DocumentBatchHandler = _DocumentBatchHandler
     VerificationHandler = _VerificationHandler
     AuditingHandler = _AuditingHandler
     RelationshipHandler = _RelationshipHandler
@@ -327,6 +336,7 @@ try:
     ReviewsHandler = _ReviewsHandler
     FormalVerificationHandler = _FormalVerificationHandler
     EvidenceHandler = _EvidenceHandler
+    FolderUploadHandler = _FolderUploadHandler
     WebhookHandler = _WebhookHandler
     AdminHandler = _AdminHandler
     HandlerResult = _HandlerResult
@@ -358,6 +368,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_memory_handler", MemoryHandler),
     ("_leaderboard_handler", LeaderboardViewHandler),
     ("_document_handler", DocumentHandler),
+    ("_document_batch_handler", DocumentBatchHandler),
     ("_verification_handler", VerificationHandler),
     ("_auditing_handler", AuditingHandler),
     ("_relationship_handler", RelationshipHandler),
@@ -393,6 +404,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_reviews_handler", ReviewsHandler),
     ("_formal_verification_handler", FormalVerificationHandler),
     ("_evidence_handler", EvidenceHandler),
+    ("_folder_upload_handler", FolderUploadHandler),
     ("_webhook_handler", WebhookHandler),
     ("_admin_handler", AdminHandler),
 ]
@@ -448,6 +460,7 @@ class RouteIndex:
             "_tournament_handler": ["/api/tournaments/"],
             "_memory_handler": ["/api/memory/"],
             "_document_handler": ["/api/documents/"],
+            "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
             "_auditing_handler": [
                 "/api/debates/capability-probe",
                 "/api/debates/deep-audit",
@@ -477,6 +490,7 @@ class RouteIndex:
             "_reviews_handler": ["/api/reviews/"],
             "_formal_verification_handler": ["/api/verify/"],
             "_evidence_handler": ["/api/evidence"],
+            "_folder_upload_handler": ["/api/documents/folder", "/api/documents/folders"],
             "_webhook_handler": ["/api/webhooks"],
             "_admin_handler": ["/api/admin"],
         }
@@ -810,6 +824,7 @@ class HandlerRegistryMixin:
     _memory_handler: Optional["BaseHandler"] = None
     _leaderboard_handler: Optional["BaseHandler"] = None
     _document_handler: Optional["BaseHandler"] = None
+    _document_batch_handler: Optional["BaseHandler"] = None
     _verification_handler: Optional["BaseHandler"] = None
     _auditing_handler: Optional["BaseHandler"] = None
     _relationship_handler: Optional["BaseHandler"] = None
@@ -844,6 +859,7 @@ class HandlerRegistryMixin:
     _formal_verification_handler: Optional["BaseHandler"] = None
     _evolution_ab_testing_handler: Optional["BaseHandler"] = None
     _evidence_handler: Optional["BaseHandler"] = None
+    _folder_upload_handler: Optional["BaseHandler"] = None
     _webhook_handler: Optional["BaseHandler"] = None
     _admin_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False

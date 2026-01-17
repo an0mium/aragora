@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 if TYPE_CHECKING:
     import aiohttp.web
 
-    from aragora.core import Agent
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 

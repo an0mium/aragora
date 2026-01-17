@@ -206,10 +206,10 @@ def deprecated(
             return func(*args, **kwargs)
 
         # Store deprecation info on the wrapper (dynamic attributes for introspection)
-        wrapper._deprecated = True  # type: ignore[attr-defined]  # Dynamic attribute
-        wrapper._deprecation_info = info  # type: ignore[attr-defined]  # Dynamic attribute
-        wrapper._sunset = sunset  # type: ignore[attr-defined]  # Dynamic attribute
-        wrapper._replacement = replacement  # type: ignore[attr-defined]  # Dynamic attribute
+        setattr(wrapper, "_deprecated", True)
+        setattr(wrapper, "_deprecation_info", info)
+        setattr(wrapper, "_sunset", sunset)
+        setattr(wrapper, "_replacement", replacement)
 
         return cast(F, wrapper)
 

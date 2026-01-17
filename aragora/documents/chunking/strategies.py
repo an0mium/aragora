@@ -30,7 +30,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Literal, Optional
 
-from aragora.documents.chunking.token_counter import TokenCounter, get_token_counter
+from aragora.documents.chunking.token_counter import get_token_counter
 from aragora.documents.models import ChunkType, DocumentChunk
 
 logger = logging.getLogger(__name__)

@@ -111,8 +111,8 @@ def stability_marker(
         )
 
         # Store stability on the function itself
-        func._stability = stability  # type: ignore[attr-defined]
-        func._stability_info = _stability_registry[func_name]  # type: ignore[attr-defined]
+        setattr(func, "_stability", stability)
+        setattr(func, "_stability_info", _stability_registry[func_name])
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:

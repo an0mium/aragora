@@ -18,12 +18,9 @@ from threading import Thread
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.agents.grounded import (
-        MomentDetector,  # type: ignore[attr-defined]
-        PositionLedger,  # type: ignore[attr-defined]
-    )
+    from aragora.agents.grounded import MomentDetector, PositionLedger
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.truth_grounding import PositionTracker  # type: ignore[attr-defined]
+    from aragora.agents.truth_grounding import PositionTracker
     from aragora.billing.usage import UsageTracker
     from aragora.broadcast.storage import AudioFileStore
     from aragora.broadcast.video_gen import VideoGenerator
@@ -32,10 +29,7 @@ if TYPE_CHECKING:
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.insights.flip_detector import FlipDetector
     from aragora.insights.store import InsightStore
-    from aragora.memory.consensus import (  # type: ignore[attr-defined]
-        ConsensusMemory,
-        DissentRetriever,
-    )
+    from aragora.memory.consensus import ConsensusMemory, DissentRetriever
     from aragora.persistence.supabase import SupabaseClient
     from aragora.ranking.elo import EloSystem
     from aragora.server.documents import DocumentStore

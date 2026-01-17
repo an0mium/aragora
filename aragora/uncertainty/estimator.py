@@ -11,7 +11,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ class ConfidenceEstimator:
                     agent.name, 0.5, "Error estimating confidence"
                 )
             else:
-                score: ConfidenceScore = result  # type: ignore[assignment]
+                score = cast(ConfidenceScore, result)
                 confidences[agent.name] = score
                 # Store for calibration tracking
                 self._store_confidence(agent.name, score)

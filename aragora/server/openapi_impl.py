@@ -16,7 +16,7 @@ Usage:
 
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 # Import schemas and helpers from submodules
 from aragora.server.openapi.schemas import COMMON_SCHEMAS
@@ -98,7 +98,9 @@ def get_openapi_yaml() -> str:
     try:
         import yaml
 
-        result: str = yaml.dump(generate_openapi_schema(), default_flow_style=False, sort_keys=False)
+        result: str = yaml.dump(
+            generate_openapi_schema(), default_flow_style=False, sort_keys=False
+        )
         return result
     except ImportError:
         # Fallback to JSON if PyYAML not installed

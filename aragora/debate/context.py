@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
+    from aragora.debate.cancellation import CancellationToken
     from aragora.typing import EventEmitterProtocol
 
 
@@ -57,6 +58,12 @@ class DebateContext:
 
     domain: str = "general"
     """Extracted domain for metrics and specialization."""
+
+    session_id: str = ""
+    """Session ID for session lifecycle tracking."""
+
+    cancellation_token: Optional["CancellationToken"] = None
+    """Cancellation token for cooperative cancellation of long-running operations."""
 
     # =========================================================================
     # Agent Subsets (computed at phase boundaries)
@@ -256,6 +263,7 @@ class DebateContext:
             "debate_id": self.debate_id,
             "correlation_id": self.correlation_id,
             "domain": self.domain,
+            "session_id": self.session_id,
             "agents": [a.name for a in self.agents],
             "proposers": [a.name for a in self.proposers],
             "current_round": self.current_round,
@@ -266,3 +274,20 @@ class DebateContext:
             "avg_novelty": self.avg_novelty,
             "low_novelty_agents": self.low_novelty_agents,
         }
+
+    def check_cancellation(self) -> None:
+        """
+        Check if cancellation was requested and raise if so.
+
+        Use this at cancellation points in phase execution:
+            ctx.check_cancellation()  # Raises DebateCancelled if cancelled
+        """
+        if self.cancellation_token is not None:
+            self.cancellation_token.check()
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if the debate has been cancelled."""
+        if self.cancellation_token is None:
+            return False
+        return self.cancellation_token.is_cancelled

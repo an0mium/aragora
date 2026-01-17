@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 try:
     from aragora.auth import get_sso_provider as _get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
-    _get_sso_provider = None  # type: ignore[assignment, misc]
+    _get_sso_provider = None  # type: ignore[assignment]
 
 
 def get_sso_provider() -> Any:

@@ -161,7 +161,9 @@ class EvidenceClaimLinker:
         self._embedder = None
         if use_embeddings is True and not EMBEDDINGS_AVAILABLE:
             logger.warning("Embeddings requested but sentence-transformers not installed")
-        elif use_embeddings is not False and EMBEDDINGS_AVAILABLE and SentenceTransformer is not None:
+        elif (
+            use_embeddings is not False and EMBEDDINGS_AVAILABLE and SentenceTransformer is not None
+        ):
             try:
                 self._embedder = SentenceTransformer(embedding_model)
                 logger.debug(f"Loaded embedding model: {embedding_model}")

@@ -34,24 +34,24 @@ try:
 
     HAS_JWT = True
 except ImportError:
-    jwt = None  # type: ignore
+    jwt = None  # type: ignore[assignment]
     HAS_JWT = False
 
     # Stub exception classes when PyJWT not installed
     # These will never be raised but allow the except clauses to be valid
-    class ExpiredSignatureError(Exception):  # type: ignore
+    class ExpiredSignatureError(Exception):  # type: ignore[no-redef]
         pass
 
-    class InvalidSignatureError(Exception):  # type: ignore
+    class InvalidSignatureError(Exception):  # type: ignore[no-redef]
         pass
 
-    class DecodeError(Exception):  # type: ignore
+    class DecodeError(Exception):  # type: ignore[no-redef]
         pass
 
-    class InvalidTokenError(Exception):  # type: ignore
+    class InvalidTokenError(Exception):  # type: ignore[no-redef]
         pass
 
-    class InvalidAudienceError(Exception):  # type: ignore
+    class InvalidAudienceError(Exception):  # type: ignore[no-redef]
         pass
 
 

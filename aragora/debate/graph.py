@@ -757,10 +757,10 @@ class GraphDebateOrchestrator:
             stream_type = type_map.get(event_type)
             if stream_type and event_emitter:
                 event_emitter.emit(
-                    StreamEvent(  # type: ignore[call-arg]
+                    StreamEvent(
                         type=stream_type,
                         data=data,
-                        debate_id=debate_id,
+                        loop_id=debate_id,
                     )
                 )
         except Exception as e:

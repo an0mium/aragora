@@ -1469,6 +1469,295 @@ class GauntletAPI {
 }
 
 // =============================================================================
+// Documents API (Document Management & Auditing)
+// =============================================================================
+
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type AuditType = 'security' | 'compliance' | 'consistency' | 'quality';
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type AuditSessionStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+
+export interface Document {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  status: DocumentStatus;
+  chunk_count: number;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentChunk {
+  id: string;
+  document_id: string;
+  content: string;
+  chunk_index: number;
+  token_count: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentUploadResponse {
+  document_id: string;
+  filename: string;
+  status: DocumentStatus;
+  message?: string;
+}
+
+export interface BatchUploadResponse {
+  job_id: string;
+  document_count: number;
+  status: string;
+  message?: string;
+}
+
+export interface BatchJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  document_count: number;
+  completed_count: number;
+  failed_count: number;
+  error?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface BatchJobResults {
+  job_id: string;
+  documents: Document[];
+  failed: Array<{ filename: string; error: string }>;
+}
+
+export interface DocumentContext {
+  document_id: string;
+  total_tokens: number;
+  context: string;
+  chunks_used: number;
+  truncated: boolean;
+}
+
+export interface ProcessingStats {
+  total_documents: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  total_chunks: number;
+  total_tokens: number;
+}
+
+export interface SupportedFormats {
+  formats: string[];
+  mime_types: string[];
+}
+
+export interface AuditFinding {
+  id: string;
+  session_id: string;
+  document_id: string;
+  chunk_id?: string;
+  audit_type: AuditType;
+  category: string;
+  severity: FindingSeverity;
+  confidence: number;
+  title: string;
+  description: string;
+  evidence_text?: string;
+  evidence_location?: string;
+  recommendation?: string;
+  found_by?: string;
+  created_at?: string;
+}
+
+export interface AuditSession {
+  id: string;
+  document_ids: string[];
+  audit_types: AuditType[];
+  status: AuditSessionStatus;
+  progress: number;
+  finding_count: number;
+  model: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  error?: string;
+}
+
+export interface AuditSessionCreateResponse {
+  session_id: string;
+  status: AuditSessionStatus;
+  document_count: number;
+  audit_types: string[];
+}
+
+export interface AuditReport {
+  session_id: string;
+  format: 'json' | 'markdown' | 'html' | 'pdf';
+  content: string;
+  generated_at: string;
+}
+
+class DocumentsAPI {
+  constructor(private http: HttpClient) {}
+
+  // Document Management
+
+  async list(options?: { limit?: number; offset?: number; status?: DocumentStatus }): Promise<{ documents: Document[] }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.status) params.set('status', options.status);
+    const query = params.toString();
+    return this.http.get(`/api/documents${query ? `?${query}` : ''}`);
+  }
+
+  async get(documentId: string): Promise<Document> {
+    return this.http.get(`/api/documents/${documentId}`);
+  }
+
+  async upload(file: File, metadata?: Record<string, unknown>): Promise<DocumentUploadResponse> {
+    const content = await this.fileToBase64(file);
+    return this.http.post('/api/documents/upload', {
+      filename: file.name,
+      content,
+      content_type: file.type || 'application/octet-stream',
+      metadata,
+    });
+  }
+
+  async delete(documentId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/documents/${documentId}`);
+  }
+
+  async formats(): Promise<SupportedFormats> {
+    return this.http.get('/api/documents/formats');
+  }
+
+  // Batch Processing
+
+  async batchUpload(files: File[], metadata?: Record<string, unknown>): Promise<BatchUploadResponse> {
+    const fileData = await Promise.all(
+      files.map(async (file) => ({
+        filename: file.name,
+        content: await this.fileToBase64(file),
+        content_type: file.type || 'application/octet-stream',
+      }))
+    );
+    return this.http.post('/api/documents/batch', { files: fileData, metadata });
+  }
+
+  async batchStatus(jobId: string): Promise<BatchJobStatus> {
+    return this.http.get(`/api/documents/batch/${jobId}`);
+  }
+
+  async batchResults(jobId: string): Promise<BatchJobResults> {
+    return this.http.get(`/api/documents/batch/${jobId}/results`);
+  }
+
+  async batchCancel(jobId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/documents/batch/${jobId}`);
+  }
+
+  async processingStats(): Promise<ProcessingStats> {
+    return this.http.get('/api/documents/processing/stats');
+  }
+
+  // Document Content
+
+  async chunks(documentId: string, options?: { limit?: number; offset?: number }): Promise<{ chunks: DocumentChunk[] }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/documents/${documentId}/chunks${query ? `?${query}` : ''}`);
+  }
+
+  async context(documentId: string, options?: { max_tokens?: number; model?: string }): Promise<DocumentContext> {
+    const params = new URLSearchParams();
+    if (options?.max_tokens) params.set('max_tokens', String(options.max_tokens));
+    if (options?.model) params.set('model', options.model);
+    const query = params.toString();
+    return this.http.get(`/api/documents/${documentId}/context${query ? `?${query}` : ''}`);
+  }
+
+  // Audit Sessions
+
+  async createAudit(options: {
+    document_ids: string[];
+    audit_types?: AuditType[];
+    model?: string;
+  }): Promise<AuditSessionCreateResponse> {
+    return this.http.post('/api/audit/sessions', {
+      document_ids: options.document_ids,
+      audit_types: options.audit_types || ['security', 'compliance', 'consistency', 'quality'],
+      model: options.model || 'gemini-1.5-flash',
+    });
+  }
+
+  async listAudits(options?: { limit?: number; offset?: number; status?: AuditSessionStatus }): Promise<{ sessions: AuditSession[] }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.status) params.set('status', options.status);
+    const query = params.toString();
+    return this.http.get(`/api/audit/sessions${query ? `?${query}` : ''}`);
+  }
+
+  async getAudit(sessionId: string): Promise<AuditSession> {
+    return this.http.get(`/api/audit/sessions/${sessionId}`);
+  }
+
+  async startAudit(sessionId: string): Promise<AuditSession> {
+    return this.http.post(`/api/audit/sessions/${sessionId}/start`, {});
+  }
+
+  async pauseAudit(sessionId: string): Promise<AuditSession> {
+    return this.http.post(`/api/audit/sessions/${sessionId}/pause`, {});
+  }
+
+  async resumeAudit(sessionId: string): Promise<AuditSession> {
+    return this.http.post(`/api/audit/sessions/${sessionId}/resume`, {});
+  }
+
+  async cancelAudit(sessionId: string): Promise<AuditSession> {
+    return this.http.post(`/api/audit/sessions/${sessionId}/cancel`, {});
+  }
+
+  async auditFindings(sessionId: string, options?: { severity?: FindingSeverity; audit_type?: AuditType }): Promise<{ findings: AuditFinding[] }> {
+    const params = new URLSearchParams();
+    if (options?.severity) params.set('severity', options.severity);
+    if (options?.audit_type) params.set('audit_type', options.audit_type);
+    const query = params.toString();
+    return this.http.get(`/api/audit/sessions/${sessionId}/findings${query ? `?${query}` : ''}`);
+  }
+
+  async auditReport(sessionId: string, format: 'json' | 'markdown' | 'html' | 'pdf' = 'json'): Promise<AuditReport> {
+    return this.http.get(`/api/audit/sessions/${sessionId}/report?format=${format}`);
+  }
+
+  async intervene(sessionId: string, action: string, message?: string): Promise<AuditSession> {
+    return this.http.post(`/api/audit/sessions/${sessionId}/intervene`, { action, message });
+  }
+
+  // Helper Methods
+
+  private async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+        const base64 = result.split(',')[1] || result;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1494,6 +1783,8 @@ export class AragoraClient {
   readonly nomicAdmin: NomicAdminAPI;
   readonly genesis: GenesisAPI;
   readonly gauntlet: GauntletAPI;
+  // Document Management & Auditing
+  readonly documents: DocumentsAPI;
 
   constructor(config: AragoraClientConfig) {
     this.http = new HttpClient(config);
@@ -1517,6 +1808,8 @@ export class AragoraClient {
     this.nomicAdmin = new NomicAdminAPI(this.http);
     this.genesis = new GenesisAPI(this.http);
     this.gauntlet = new GauntletAPI(this.http);
+    // Document Management & Auditing
+    this.documents = new DocumentsAPI(this.http);
   }
 
   async health(): Promise<HealthStatus> {
