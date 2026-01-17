@@ -1,5 +1,10 @@
 'use client';
 
+// Required for static export with dynamic routes
+export async function generateStaticParams() {
+  return [];
+}
+
 /**
  * Audit Session Detail Page
  *
