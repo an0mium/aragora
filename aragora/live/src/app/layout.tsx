@@ -3,6 +3,8 @@ import './globals.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { SidebarProvider } from '@/context/SidebarContext';
+import { Sidebar } from '@/components/Sidebar';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -38,13 +40,16 @@ export default function RootLayout({
           Skip to main content
         </a>
         <AuthProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <div id="main-content" tabIndex={-1}>
-                {children}
-              </div>
-            </ErrorBoundary>
-          </ToastProvider>
+          <SidebarProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                <Sidebar />
+                <div id="main-content" tabIndex={-1}>
+                  {children}
+                </div>
+              </ErrorBoundary>
+            </ToastProvider>
+          </SidebarProvider>
         </AuthProvider>
       </body>
     </html>

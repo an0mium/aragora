@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Logo } from './Logo';
+import { useSidebar } from '@/context/SidebarContext';
 
 interface AsciiBannerProps {
   subtitle?: string;
@@ -113,10 +114,13 @@ export function AsciiBannerCompact({
   showLogo?: boolean;
   onLogoClick?: () => void;
 }) {
+  const { toggle } = useSidebar();
+  const handleLogoClick = onLogoClick ?? toggle;
+
   return (
     <div className="flex items-center gap-3">
       {showLogo && (
-        <Logo size="sm" onClick={onLogoClick} />
+        <Logo size="sm" onClick={handleLogoClick} />
       )}
       {showAsciiArt && (
         <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
