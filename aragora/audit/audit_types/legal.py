@@ -142,8 +142,7 @@ class LegalAuditor:
         LegalPattern(
             name="Consequential Damages Exposure",
             pattern=re.compile(
-                r"(?i)(?<!not\s)(?<!no\s)(?<!exclude.{0,20})"
-                r"(consequential|indirect|special|punitive|incidental)\s+damages"
+                r"(?i)(consequential|indirect|special|punitive|incidental)\s+damages"
             ),
             severity=FindingSeverity.HIGH,
             category="damages_risk",

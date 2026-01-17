@@ -8,7 +8,7 @@ status checking, and queue management.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from aragora.exceptions import DebateStartError
 from aragora.server.validation.entities import SAFE_ID_PATTERN, validate_path_segment
@@ -16,6 +16,7 @@ from aragora.server.validation.schema import BATCH_SUBMIT_SCHEMA, validate_again
 
 from ..base import (
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -24,7 +25,21 @@ from ..base import (
 from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
-    from .handler import DebatesHandler
+    from aragora.server.debate_queue import BatchItem
+
+
+class _DebatesHandlerProtocol(Protocol):
+    """Protocol defining the interface that BatchOperationsMixin expects from its host class."""
+
+    ctx: ServerContext
+
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> Optional[dict]:
+        """Read and parse JSON body from request handler."""
+        ...
+
+    def _create_debate_executor(self) -> Callable[["BatchItem"], Any]:
+        """Create a debate executor function for the batch queue."""
+        ...
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +49,7 @@ class BatchOperationsMixin:
 
     @rate_limit(rpm=10, limiter_name="batch_submit")
     @handle_errors("submit batch")
-    def _submit_batch(self: "DebatesHandler", handler) -> HandlerResult:  # type: ignore[misc]
+    def _submit_batch(self: _DebatesHandlerProtocol, handler: Any) -> HandlerResult:
         """Submit a batch of debates for processing.
 
         POST body:
@@ -233,7 +248,7 @@ class BatchOperationsMixin:
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 
-    def _create_debate_executor(self: "DebatesHandler"):  # type: ignore[misc]
+    def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[["BatchItem"], Any]:
         """Create a debate executor function for the batch queue."""
         from aragora.server.debate_queue import BatchItem
 
@@ -275,7 +290,7 @@ class BatchOperationsMixin:
         return execute_debate
 
     @handle_errors("get batch status")
-    def _get_batch_status(self: "DebatesHandler", batch_id: str) -> HandlerResult:  # type: ignore[misc]
+    def _get_batch_status(self: _DebatesHandlerProtocol, batch_id: str) -> HandlerResult:
         """Get status of a batch request.
 
         Returns full batch status including all items.
@@ -297,8 +312,8 @@ class BatchOperationsMixin:
         return json_response(status)
 
     @handle_errors("list batches")
-    def _list_batches(  # type: ignore[misc]
-        self: "DebatesHandler", limit: int, status_filter: Optional[str] = None
+    def _list_batches(
+        self: _DebatesHandlerProtocol, limit: int, status_filter: Optional[str] = None
     ) -> HandlerResult:
         """List batch requests.
 
@@ -331,7 +346,7 @@ class BatchOperationsMixin:
         )
 
     @handle_errors("get queue status")
-    def _get_queue_status(self: "DebatesHandler") -> HandlerResult:  # type: ignore[misc]
+    def _get_queue_status(self: _DebatesHandlerProtocol) -> HandlerResult:
         """Get overall queue status.
 
         Returns queue health and processing statistics.
