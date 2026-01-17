@@ -2,13 +2,16 @@
 # Hot-reload development setup
 #
 # Usage:
-#   docker-compose -f docker-compose.dev.yml up    # Start dev environment
-#   docker-compose -f docker-compose.dev.yml down  # Stop
+#   docker-compose -f docker-compose.dev.yml up           # Start dev environment
+#   docker-compose -f docker-compose.dev.yml down         # Stop
+#   docker-compose -f docker-compose.dev.yml --profile knowledge up  # With Weaviate
 #
 # Features:
 #   - Backend: Source mounted for hot reload via watchdog
 #   - Frontend: Next.js dev server with fast refresh
 #   - Redis: For caching and rate limiting
+#   - Weaviate (optional): Vector database for knowledge pipeline
+#     Enable with: --profile knowledge and ARAGORA_WEAVIATE_ENABLED=true
 #
 # Required:
 #   - At least one API key in .env file
@@ -44,6 +47,10 @@ services:
       # PostgreSQL (optional - set USE_POSTGRES=1 to enable)
       - DATABASE_URL=${DATABASE_URL:-postgresql://aragora:aragora_dev_password@postgres:5432/aragora}
       - USE_POSTGRES=${USE_POSTGRES:-0}
+      # Weaviate (optional - set ARAGORA_WEAVIATE_ENABLED=true to enable)
+      - ARAGORA_WEAVIATE_ENABLED=${ARAGORA_WEAVIATE_ENABLED:-false}
+      - ARAGORA_WEAVIATE_URL=http://weaviate:8080
+      - ARAGORA_EMBEDDING_MODEL=${ARAGORA_EMBEDDING_MODEL:-all-MiniLM-L6-v2}
     volumes:
       # Mount source code for hot reload
       - ./aragora:/app/aragora:ro
@@ -175,11 +182,58 @@ services:
     networks:
       - aragora-dev
 
+  # ==========================================================================
+  # Weaviate Vector Database (optional - for knowledge pipeline)
+  # ==========================================================================
+  # Enable with: ARAGORA_WEAVIATE_ENABLED=true docker-compose -f docker-compose.dev.yml up
+  weaviate:
+    image: semitechnologies/weaviate:1.24.1
+    container_name: aragora-weaviate-dev
+    profiles:
+      - knowledge  # Only starts with --profile knowledge or when explicitly started
+    ports:
+      - "8081:8080"  # Weaviate API (8081 to avoid conflict with aragora-dev)
+      - "50051:50051"  # gRPC
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "text2vec-transformers"
+      ENABLE_MODULES: "text2vec-transformers,generative-openai"
+      TRANSFORMERS_INFERENCE_API: "http://t2v-transformers:8080"
+      CLUSTER_HOSTNAME: "node1"
+    volumes:
+      - weaviate-dev-data:/var/lib/weaviate
+    depends_on:
+      t2v-transformers:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aragora-dev
+
+  # Weaviate text2vec-transformers module for local embeddings
+  t2v-transformers:
+    image: semitechnologies/transformers-inference:sentence-transformers-all-MiniLM-L6-v2
+    container_name: aragora-t2v-transformers-dev
+    profiles:
+      - knowledge  # Only starts with --profile knowledge
+    environment:
+      ENABLE_CUDA: "0"  # Set to 1 for GPU support
+    restart: unless-stopped
+    networks:
+      - aragora-dev
+
 volumes:
   aragora-dev-data:
   aragora-dev-nomic:
   redis-dev-data:
   postgres-dev-data:
+  weaviate-dev-data:
 
 networks:
   aragora-dev:

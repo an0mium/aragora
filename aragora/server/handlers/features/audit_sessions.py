@@ -498,70 +498,156 @@ class AuditSessionsHandler(BaseHandler):
         Export audit report in various formats.
 
         Query params:
-        - format: json | markdown | html | csv (default: markdown)
-        - include_evidence: true | false (default: true)
+        - format: json | markdown | html | pdf (default: markdown)
+        - template: executive_summary | detailed_findings | compliance_attestation | security_assessment
+        - min_severity: critical | high | medium | low | info (default: low)
+        - include_resolved: true | false (default: false)
+        - author: Author name for the report
+        - company: Company name for branding
         """
         session = _sessions.get(session_id)
         if not session:
             return self._error_response(404, f"Session {session_id} not found")
 
-        # Get format
+        # Get query parameters
         report_format = request.query.get("format", "markdown")
-        include_evidence = request.query.get("include_evidence", "true") == "true"
+        template = request.query.get("template", "detailed_findings")
+        min_severity = request.query.get("min_severity", "low")
+        include_resolved = request.query.get("include_resolved", "false") == "true"
+        author = request.query.get("author", "")
+        company = request.query.get("company", "Aragora")
 
         findings = _findings.get(session_id, [])
 
-        # Import report generator
-        from aragora.audit.reports.defect_report import (
-            DefectReport,
-            ReportConfig,
-            ReportFormat,
-        )
+        try:
+            # Import new report generator
+            from aragora.reports import (
+                AuditReportGenerator,
+                ReportConfig,
+                ReportFormat,
+                ReportTemplate,
+            )
 
-        # Map format string to enum
-        format_map = {
-            "json": ReportFormat.JSON,
-            "markdown": ReportFormat.MARKDOWN,
-            "html": ReportFormat.HTML,
-            "csv": ReportFormat.CSV,
-        }
-        output_format = format_map.get(report_format, ReportFormat.MARKDOWN)
+            # Map format string to enum
+            format_map = {
+                "json": ReportFormat.JSON,
+                "markdown": ReportFormat.MARKDOWN,
+                "html": ReportFormat.HTML,
+                "pdf": ReportFormat.PDF,
+            }
+            output_format = format_map.get(report_format, ReportFormat.MARKDOWN)
 
-        config = ReportConfig(
-            format=output_format,
-            include_evidence=include_evidence,
-            title=f"Audit Report - Session {session_id[:8]}",
-        )
+            # Map template string to enum
+            template_map = {
+                "executive_summary": ReportTemplate.EXECUTIVE_SUMMARY,
+                "detailed_findings": ReportTemplate.DETAILED_FINDINGS,
+                "compliance_attestation": ReportTemplate.COMPLIANCE_ATTESTATION,
+                "security_assessment": ReportTemplate.SECURITY_ASSESSMENT,
+            }
+            output_template = template_map.get(template, ReportTemplate.DETAILED_FINDINGS)
 
-        report = DefectReport(
-            findings=findings,
-            config=config,
-            session_id=session_id,
-            audit_start=(
-                datetime.fromisoformat(session["created_at"]) if session["created_at"] else None
-            ),
-            audit_end=(
-                datetime.fromisoformat(session["completed_at"])
-                if session.get("completed_at")
-                else None
-            ),
-        )
+            # Create config
+            config = ReportConfig(
+                min_severity=min_severity,
+                include_resolved=include_resolved,
+                author=author,
+                company_name=company,
+            )
 
-        content = report.generate()
+            # Create a mock session object for the generator
+            from dataclasses import dataclass, field
+            from typing import Optional
+            from aragora.audit.document_auditor import (
+                AuditSession as RealSession,
+                AuditFinding,
+                AuditType,
+                FindingSeverity,
+                FindingStatus,
+                SessionStatus,
+            )
 
-        # Set appropriate content type
-        content_types = {
-            "json": "application/json",
-            "markdown": "text/markdown",
-            "html": "text/html",
-            "csv": "text/csv",
-        }
+            # Convert dict findings to AuditFinding objects
+            finding_objects = []
+            for f in findings:
+                try:
+                    finding_obj = AuditFinding(
+                        id=f.get("id", ""),
+                        title=f.get("title", ""),
+                        description=f.get("description", ""),
+                        severity=FindingSeverity(f.get("severity", "medium")),
+                        confidence=f.get("confidence", 0.8),
+                        audit_type=AuditType(f.get("audit_type", "security")),
+                        category=f.get("category", "general"),
+                        document_id=f.get("document_id", ""),
+                        chunk_id=f.get("chunk_id"),
+                        evidence_text=f.get("evidence_text", ""),
+                        evidence_location=f.get("evidence_location"),
+                        recommendation=f.get("recommendation"),
+                        status=FindingStatus(f.get("status", "open")),
+                    )
+                    finding_objects.append(finding_obj)
+                except Exception as e:
+                    logger.warning(f"Could not convert finding: {e}")
 
-        return {
-            "status": 200,
-            "headers": {"Content-Type": content_types.get(report_format, "text/plain")},
-            "body": content,
-        }
+            # Create mock session with findings
+            mock_session = RealSession(
+                id=session_id,
+                document_ids=session.get("document_ids", []),
+                audit_types=[AuditType(t) for t in session.get("audit_types", ["security"])],
+                name=session.get("name", ""),
+                model=session.get("model", "unknown"),
+                status=SessionStatus(session.get("status", "completed")),
+            )
+            mock_session.findings = finding_objects
+            mock_session.total_chunks = session.get("progress", {}).get("total_chunks", 0)
+            mock_session.processed_chunks = session.get("progress", {}).get("processed_chunks", 0)
+
+            if session.get("completed_at"):
+                mock_session.completed_at = datetime.fromisoformat(session["completed_at"])
+            if session.get("started_at"):
+                mock_session.started_at = datetime.fromisoformat(session["started_at"])
+
+            # Generate report
+            generator = AuditReportGenerator(config)
+            report = await generator.generate(
+                session=mock_session,
+                format=output_format,
+                template=output_template,
+            )
+
+            # Set appropriate content type
+            content_types = {
+                "json": "application/json",
+                "markdown": "text/markdown",
+                "html": "text/html",
+                "pdf": "application/pdf",
+            }
+
+            # Add content disposition for download
+            filename = report.filename
+            headers = {
+                "Content-Type": content_types.get(report_format, "text/plain"),
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "X-Report-Findings-Count": str(report.findings_count),
+            }
+
+            return {
+                "status": 200,
+                "headers": headers,
+                "body": report.content,
+            }
+
+        except ImportError as e:
+            logger.warning(f"New report generator not available, falling back: {e}")
+            # Fallback to legacy JSON export
+            return self._json_response(
+                200,
+                {
+                    "session": session,
+                    "findings": findings,
+                    "generated_at": datetime.utcnow().isoformat(),
+                },
+            )
 
     async def _run_audit_background(self, session_id: str):
         """

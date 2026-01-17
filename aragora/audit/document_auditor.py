@@ -284,6 +284,11 @@ class AuditConfig:
     use_hive_mind: bool = True  # Enable Hive-Mind for multi-document audits
     consensus_verification: bool = True  # Use Byzantine consensus for critical findings
 
+    # Knowledge pipeline integration
+    use_knowledge_pipeline: bool = True  # Enable knowledge enrichment
+    store_findings_as_facts: bool = True  # Store findings in knowledge base
+    knowledge_workspace_id: str = "default"  # Workspace for knowledge operations
+
 
 class DocumentAuditor:
     """
@@ -319,6 +324,11 @@ class DocumentAuditor:
         self._handlers: dict[AuditType, Any] = {}
         self._load_handlers()
 
+        # Knowledge pipeline integration
+        self._knowledge_adapter: Optional[Any] = None
+        if self.config.use_knowledge_pipeline:
+            self._init_knowledge_adapter()
+
     def _load_handlers(self) -> None:
         """Load audit type handlers."""
         try:
@@ -348,6 +358,24 @@ class DocumentAuditor:
             self._handlers[AuditType.QUALITY] = QualityAuditor()
         except ImportError:
             logger.debug("Quality auditor not available")
+
+    def _init_knowledge_adapter(self) -> None:
+        """Initialize knowledge pipeline adapter."""
+        try:
+            from aragora.audit.knowledge_adapter import (
+                AuditKnowledgeAdapter,
+                KnowledgeAuditConfig,
+            )
+
+            kb_config = KnowledgeAuditConfig(
+                enrich_with_facts=True,
+                store_findings_as_facts=self.config.store_findings_as_facts,
+                workspace_id=self.config.knowledge_workspace_id,
+            )
+            self._knowledge_adapter = AuditKnowledgeAdapter(kb_config)
+            logger.info("Knowledge adapter initialized for audit")
+        except ImportError:
+            logger.debug("Knowledge adapter not available")
 
     async def create_session(
         self,
@@ -479,7 +507,18 @@ class DocumentAuditor:
             # Use standard sequential pipeline
             verified_findings = await self._execute_standard_pipeline(session, chunks)
 
-        # Phase 5: Finalize
+        # Phase 5: Store findings in knowledge base
+        if self._knowledge_adapter and self.config.store_findings_as_facts:
+            session.current_phase = "storing_knowledge"
+            self._notify_progress(session, 0.95)
+            try:
+                stored_count = await self._knowledge_adapter.store_session_findings(session)
+                logger.info(f"Stored {stored_count} findings as facts in knowledge base")
+            except Exception as e:
+                logger.warning(f"Failed to store findings in knowledge base: {e}")
+                session.errors.append(f"Knowledge storage error: {e}")
+
+        # Phase 6: Finalize
         session.current_phase = "finalizing"
         session.findings = verified_findings
         session.progress = 1.0

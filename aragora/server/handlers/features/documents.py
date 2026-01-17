@@ -32,6 +32,11 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
+# Knowledge processing enabled by default (can be disabled via env var)
+KNOWLEDGE_PROCESSING_DEFAULT = os.environ.get(
+    "ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true"
+).lower() == "true"
+
 # DoS protection
 MAX_MULTIPART_PARTS = 10
 MAX_FILENAME_LENGTH = 255
@@ -121,7 +126,20 @@ class DocumentHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST document requests to appropriate methods."""
         if path == "/api/documents/upload":
-            return self._upload_document(handler)
+            # Extract knowledge processing options from query params
+            process_knowledge = query_params.get("process_knowledge", [None])[0]
+            if process_knowledge is None:
+                process_knowledge = KNOWLEDGE_PROCESSING_DEFAULT
+            else:
+                process_knowledge = process_knowledge.lower() == "true"
+
+            workspace_id = query_params.get("workspace_id", ["default"])[0]
+
+            return self._upload_document(
+                handler,
+                process_knowledge=process_knowledge,
+                workspace_id=workspace_id,
+            )
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -271,11 +289,23 @@ class DocumentHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("document upload")
-    def _upload_document(self, handler, user=None) -> HandlerResult:
+    def _upload_document(
+        self,
+        handler,
+        user=None,
+        process_knowledge: bool = True,
+        workspace_id: str = "default",
+    ) -> HandlerResult:
         """Handle document upload. Rate limited by IP.
 
         Accepts multipart/form-data or raw file upload with X-Filename header.
         Returns structured error codes for client handling.
+
+        Args:
+            handler: HTTP request handler
+            user: Authenticated user (from decorator)
+            process_knowledge: Whether to process through knowledge pipeline
+            workspace_id: Workspace ID for knowledge processing
         """
         # Check rate limit
         rate_limit_error = self._check_upload_rate_limit(handler)
@@ -378,18 +408,45 @@ class DocumentHandler(BaseHandler):
 
             logger.info(f"Document uploaded: {filename} ({len(file_content)} bytes) -> {doc_id}")
 
-            return json_response(
-                {
-                    "success": True,
-                    "document": {
-                        "id": doc_id,
-                        "filename": doc.filename,
-                        "word_count": doc.word_count,
-                        "page_count": doc.page_count,
-                        "preview": doc.preview,
-                    },
-                }
-            )
+            # Build response
+            response_data: dict[str, Any] = {
+                "success": True,
+                "document": {
+                    "id": doc_id,
+                    "filename": doc.filename,
+                    "word_count": doc.word_count,
+                    "page_count": doc.page_count,
+                    "preview": doc.preview,
+                },
+            }
+
+            # Process through knowledge pipeline if enabled
+            if process_knowledge:
+                try:
+                    from aragora.knowledge.integration import process_uploaded_document
+
+                    knowledge_result = process_uploaded_document(
+                        content=file_content,
+                        filename=filename,
+                        workspace_id=workspace_id,
+                        document_id=doc_id,
+                        async_processing=True,  # Queue for background processing
+                    )
+                    response_data.update(knowledge_result)
+                    logger.info(
+                        f"Knowledge processing queued for {doc_id}: "
+                        f"{knowledge_result.get('knowledge_processing', {}).get('job_id', 'N/A')}"
+                    )
+                except ImportError:
+                    logger.warning("Knowledge pipeline not available, skipping")
+                except Exception as ke:
+                    logger.warning(f"Knowledge processing failed, document still uploaded: {ke}")
+                    response_data["knowledge_processing"] = {
+                        "status": "failed",
+                        "error": str(ke)[:200],
+                    }
+
+            return json_response(response_data)
         except ImportError as e:
             logger.error(f"Document import error: {e}")
             return UploadError(

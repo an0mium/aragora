@@ -9,6 +9,8 @@ Endpoints for enterprise document ingestion:
 - GET /api/documents/{doc_id}/chunks - Get document chunks
 - GET /api/documents/{doc_id}/context - Get LLM-ready context
 - GET /api/documents/processing/stats - Get processing statistics
+- GET /api/knowledge/jobs - Get knowledge processing jobs
+- GET /api/knowledge/jobs/{job_id} - Get knowledge job status
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Optional
 
 from ..base import (
@@ -24,6 +27,11 @@ from ..base import (
     error_response,
     json_response,
 )
+
+# Knowledge processing enabled by default
+KNOWLEDGE_PROCESSING_DEFAULT = os.environ.get(
+    "ARAGORA_KNOWLEDGE_AUTO_PROCESS", "true"
+).lower() == "true"
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +47,7 @@ class DocumentBatchHandler(BaseHandler):
     ROUTES = [
         "/api/documents/batch",
         "/api/documents/processing/stats",
+        "/api/knowledge/jobs",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -52,12 +61,29 @@ class DocumentBatchHandler(BaseHandler):
         if path.startswith("/api/documents/") and path.count("/") == 4:
             if path.endswith("/chunks") or path.endswith("/context"):
                 return True
+        # Handle /api/knowledge/jobs/{job_id}
+        if path.startswith("/api/knowledge/jobs/"):
+            return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests."""
         if path == "/api/documents/processing/stats":
             return self._get_processing_stats()
+
+        # GET /api/knowledge/jobs - list all knowledge processing jobs
+        if path == "/api/knowledge/jobs":
+            workspace_id = query_params.get("workspace_id", [None])[0]
+            status = query_params.get("status", [None])[0]
+            limit = int(query_params.get("limit", ["100"])[0])
+            return self._list_knowledge_jobs(workspace_id, status, limit)
+
+        # GET /api/knowledge/jobs/{job_id} - get specific job status
+        if path.startswith("/api/knowledge/jobs/"):
+            parts = path.split("/")
+            if len(parts) == 5:
+                job_id = parts[4]
+                return self._get_knowledge_job_status(job_id)
 
         # GET /api/documents/batch/{job_id}
         if path.startswith("/api/documents/batch/"):
@@ -116,6 +142,7 @@ class DocumentBatchHandler(BaseHandler):
             chunk_overlap: Optional (default 50)
             priority: Optional (low, normal, high, urgent)
             tags: Optional JSON array of tags
+            process_knowledge: Optional boolean (default true) - enable knowledge pipeline
 
         Response:
             {
@@ -123,7 +150,11 @@ class DocumentBatchHandler(BaseHandler):
                 "batch_id": "batch-uuid",
                 "total_files": 3,
                 "total_size_bytes": 1024000,
-                "estimated_chunks": 150
+                "estimated_chunks": 150,
+                "knowledge_processing": {
+                    "enabled": true,
+                    "job_ids": ["kp_...", ...]
+                }
             }
         """
         try:
@@ -162,12 +193,19 @@ class DocumentBatchHandler(BaseHandler):
                 return error_response(f"Maximum {MAX_BATCH_SIZE} files per batch", 400)
 
             # Extract form parameters
-            workspace_id = form_data.get("workspace_id", "")
+            workspace_id = form_data.get("workspace_id", "default") or "default"
             chunking_strategy = form_data.get("chunking_strategy")
             chunk_size = int(form_data.get("chunk_size", "512"))
             chunk_overlap = int(form_data.get("chunk_overlap", "50"))
             priority_str = form_data.get("priority", "normal")
             tags_json = form_data.get("tags", "[]")
+
+            # Parse knowledge processing option
+            process_knowledge_str = form_data.get("process_knowledge", "")
+            if process_knowledge_str:
+                process_knowledge = process_knowledge_str.lower() == "true"
+            else:
+                process_knowledge = KNOWLEDGE_PROCESSING_DEFAULT
 
             # Parse tags
             try:
@@ -232,19 +270,51 @@ class DocumentBatchHandler(BaseHandler):
                 except Exception:  # noqa: BLE001 - Token counting fallback
                     estimated_chunks += 1
 
-            return json_response(
-                {
-                    "job_ids": job_ids,
-                    "batch_id": batch_id,
-                    "total_files": len(job_ids),
-                    "total_size_bytes": total_size,
-                    "estimated_chunks": estimated_chunks,
-                    "chunking_strategy": chunking_strategy or "auto",
-                    "chunk_size": chunk_size,
-                    "chunk_overlap": chunk_overlap,
-                },
-                status=202,  # Accepted for processing
-            )
+            # Queue knowledge processing if enabled
+            knowledge_job_ids = []
+            if process_knowledge:
+                try:
+                    from aragora.knowledge.integration import queue_document_processing
+
+                    for filename, content in files:
+                        kp_job_id = queue_document_processing(
+                            content=content,
+                            filename=filename,
+                            workspace_id=workspace_id,
+                        )
+                        knowledge_job_ids.append(kp_job_id)
+                    logger.info(
+                        f"Queued {len(knowledge_job_ids)} knowledge processing jobs for batch {batch_id}"
+                    )
+                except ImportError:
+                    logger.warning("Knowledge pipeline not available for batch processing")
+                except Exception as ke:
+                    logger.warning(f"Knowledge processing queue failed: {ke}")
+
+            # Build response
+            response_data: dict[str, Any] = {
+                "job_ids": job_ids,
+                "batch_id": batch_id,
+                "total_files": len(job_ids),
+                "total_size_bytes": total_size,
+                "estimated_chunks": estimated_chunks,
+                "chunking_strategy": chunking_strategy or "auto",
+                "chunk_size": chunk_size,
+                "chunk_overlap": chunk_overlap,
+            }
+
+            if knowledge_job_ids:
+                response_data["knowledge_processing"] = {
+                    "enabled": True,
+                    "job_ids": knowledge_job_ids,
+                }
+            elif process_knowledge:
+                response_data["knowledge_processing"] = {
+                    "enabled": True,
+                    "status": "unavailable",
+                }
+
+            return json_response(response_data, status=202)  # Accepted for processing
 
         except Exception as e:
             logger.exception("Batch upload failed")
@@ -542,6 +612,51 @@ class DocumentBatchHandler(BaseHandler):
                 return future.result(timeout=10)
         else:
             return loop.run_until_complete(processor.cancel(job_id))
+
+    # Knowledge processing job handlers
+
+    def _list_knowledge_jobs(
+        self,
+        workspace_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+    ) -> HandlerResult:
+        """List all knowledge processing jobs with optional filtering."""
+        try:
+            from aragora.knowledge.integration import get_all_jobs
+
+            jobs = get_all_jobs(workspace_id=workspace_id, status=status, limit=limit)
+            return json_response(
+                {
+                    "jobs": jobs,
+                    "count": len(jobs),
+                    "filters": {
+                        "workspace_id": workspace_id,
+                        "status": status,
+                        "limit": limit,
+                    },
+                }
+            )
+        except ImportError:
+            return error_response("Knowledge pipeline not available", 503)
+        except Exception as e:
+            logger.error(f"Error listing knowledge jobs: {e}")
+            return error_response(f"Failed to list jobs: {str(e)}", 500)
+
+    def _get_knowledge_job_status(self, job_id: str) -> HandlerResult:
+        """Get status of a specific knowledge processing job."""
+        try:
+            from aragora.knowledge.integration import get_job_status
+
+            status = get_job_status(job_id)
+            if not status:
+                return error_response(f"Knowledge job not found: {job_id}", 404)
+            return json_response(status)
+        except ImportError:
+            return error_response("Knowledge pipeline not available", 503)
+        except Exception as e:
+            logger.error(f"Error getting knowledge job status: {e}")
+            return error_response(f"Failed to get job status: {str(e)}", 500)
 
 
 # Export for handler registration

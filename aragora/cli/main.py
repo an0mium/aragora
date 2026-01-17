@@ -1086,6 +1086,11 @@ Examples:
 
     create_documents_parser(subparsers)
 
+    # Knowledge command (knowledge base operations)
+    from aragora.cli.knowledge import create_knowledge_parser
+
+    create_knowledge_parser(subparsers)
+
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(
         "memory",

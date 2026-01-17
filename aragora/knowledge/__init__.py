@@ -62,6 +62,18 @@ from aragora.knowledge.fact_extractor import (
     FactExtractor,
     create_fact_extractor,
 )
+from aragora.knowledge.integration import (
+    KnowledgeProcessingConfig,
+    ProcessingJob,
+    get_all_jobs,
+    get_job_status,
+    get_pipeline,
+    process_document_async,
+    process_document_sync,
+    process_uploaded_document,
+    queue_document_processing,
+    shutdown_pipeline,
+)
 
 __all__ = [
     # Core types
@@ -95,4 +107,15 @@ __all__ = [
     "ExtractedFact",
     "FactExtractor",
     "create_fact_extractor",
+    # Integration
+    "KnowledgeProcessingConfig",
+    "ProcessingJob",
+    "get_all_jobs",
+    "get_job_status",
+    "get_pipeline",
+    "process_document_async",
+    "process_document_sync",
+    "process_uploaded_document",
+    "queue_document_processing",
+    "shutdown_pipeline",
 ]
