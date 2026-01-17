@@ -43,16 +43,16 @@ class ResponseHelpersMixin:
     - _response_status: int
     """
 
-    # Type stubs for expected attributes from the Protocol
+    # Type annotations for expected attributes from the parent class
+    # These are declared as ClassVars to avoid interfering with instance attributes
     _rate_limit_result: Optional["RateLimitResult"]
     _response_status: int
     headers: Any
     wfile: BinaryIO
 
-    # Declare methods expected from the parent class
-    def send_response(self, code: int) -> None: ...
-    def send_header(self, keyword: str, value: str) -> None: ...
-    def end_headers(self) -> None: ...
+    # NOTE: We do NOT declare stub methods here (send_response, send_header, end_headers)
+    # because doing so would override the actual implementations from BaseHTTPRequestHandler.
+    # The parent class provides these methods; we just use them.
 
     def _send_json(self, data: Any, status: int = 200) -> None:
         """Send JSON response with all standard headers."""
