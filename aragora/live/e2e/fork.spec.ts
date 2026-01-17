@@ -41,8 +41,7 @@ const mockForks = {
   total: 2,
 };
 
-// TODO: Enable when fork feature is complete on production
-test.describe.skip('Fork Visualizer', () => {
+test.describe('Fork Visualizer', () => {
   test.beforeEach(async ({ page }) => {
     await mockApiResponse(page, '**/api/health', { status: 'ok' });
     await mockApiResponse(page, '**/api/debates/test-debate', mockDebate);
@@ -139,8 +138,7 @@ test.describe.skip('Fork Visualizer', () => {
   });
 });
 
-// TODO: Enable when fork feature is complete on production
-test.describe.skip('Fork Visualizer - Empty State', () => {
+test.describe('Fork Visualizer - Empty State', () => {
   test('should show empty state when no forks', async ({ page }) => {
     await mockApiResponse(page, '**/api/health', { status: 'ok' });
     await mockApiResponse(page, '**/api/debates/no-forks', mockDebate);

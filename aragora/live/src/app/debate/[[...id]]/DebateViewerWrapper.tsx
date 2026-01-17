@@ -15,6 +15,7 @@ import { MemoryInspector } from '@/components/MemoryInspector';
 import { MetricsPanel } from '@/components/MetricsPanel';
 import { BroadcastPanel } from '@/components/broadcast/BroadcastPanel';
 import { EvidencePanel } from '@/components/EvidencePanel';
+import { ForkVisualizer } from '@/components/fork-visualizer';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -143,13 +144,16 @@ export function DebateViewerWrapper() {
             </div>
           </div>
 
-          {/* Evidence and Broadcast Panels */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          {/* Evidence, Broadcast, and Fork Panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
             <PanelErrorBoundary panelName="Evidence">
               <EvidencePanel debateId={debateId} />
             </PanelErrorBoundary>
             <PanelErrorBoundary panelName="Broadcast">
               <BroadcastPanel debateId={debateId} debateTitle={`Debate ${debateId}`} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary panelName="Fork Explorer">
+              <ForkVisualizer debateId={debateId} />
             </PanelErrorBoundary>
           </div>
 
