@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 
 type Status = 'processing' | 'success' | 'error';
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTokens } = useAuth();
@@ -127,5 +127,39 @@ export default function OAuthCallbackPage() {
         </div>
       </main>
     </>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <>
+      <Scanlines opacity={0.02} />
+      <CRTVignette />
+      <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col items-center justify-center">
+        <div className="w-full max-w-md p-8">
+          <div className="border border-acid-green/30 bg-surface/50 p-8 text-center">
+            <div className="mb-6">
+              <div className="inline-block animate-spin text-4xl text-acid-cyan">
+                &#x21BB;
+              </div>
+            </div>
+            <h1 className="text-xl font-mono text-acid-green mb-4">AUTHENTICATING...</h1>
+            <p className="text-text-muted text-sm font-mono mb-6">Processing authentication...</p>
+            <div className="text-acid-green/50 text-xs font-mono">
+              <p>{'═'.repeat(25)}</p>
+              <p className="mt-2">Please wait...</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }
