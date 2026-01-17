@@ -408,7 +408,7 @@ class SimpleEmbedder:
         embedding = [0.0] * dim
 
         for word in words:
-            h = hashlib.md5(word.encode()).hexdigest()
+            h = hashlib.md5(word.encode(), usedforsecurity=False).hexdigest()
             for i in range(0, len(h), 2):
                 idx = int(h[i : i + 2], 16) % dim
                 embedding[idx] += 1.0
