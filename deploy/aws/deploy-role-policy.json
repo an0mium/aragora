@@ -55,6 +55,17 @@
         "lightsail:GetContainerServices"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "SecretsManagerAccess",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:*:ACCOUNT_ID:secret:aragora/*"
+      ]
     }
   ]
 }
