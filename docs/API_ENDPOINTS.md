@@ -5,6 +5,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 ## Table of Contents
 
 - [Analytics](#analytics)
+- [AnalyticsDashboard](#analyticsdashboard)
 - [Auditing](#auditing)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
@@ -16,6 +17,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Introspection](#introspection)
+- [Knowledge](#knowledge)
 - [Laboratory](#laboratory)
 - [Metrics](#metrics)
 - [Moments](#moments)
@@ -30,6 +32,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Tournament](#tournament)
 - [Training](#training)
 - [Webhook](#webhook)
+- [Workspace](#workspace)
 
 ---
 
@@ -56,6 +59,40 @@ Get ranking statistics
 ### `GET` `/api/memory/stats`
 
 Get memory statistics
+
+---
+
+## AnalyticsDashboard
+
+Handler for analytics dashboard endpoints.
+
+### `GET` `/api/analytics/summary` 🔒
+
+Get dashboard summary with key metrics
+
+### `GET` `/api/analytics/trends/findings`
+
+GET /api/analytics/trends/findings
+
+### `GET` `/api/analytics/remediation` 🔒
+
+Get remediation performance metrics
+
+### `GET` `/api/analytics/agents`
+
+GET /api/analytics/agents
+
+### `GET` `/api/analytics/cost` 🔒
+
+Get cost analysis for audits
+
+### `GET` `/api/analytics/compliance` 🔒
+
+Get compliance scorecard for specified frameworks
+
+### `GET` `/api/analytics/heatmap` 🔒
+
+Get risk heatmap data (category x severity)
 
 ---
 
@@ -346,6 +383,28 @@ List available agents
 ### `GET` `/api/introspection/agents/{name}`
 
 Get introspection for specific agent
+
+---
+
+## Knowledge
+
+Handler for knowledge base API endpoints.
+
+### `GET` `/api/knowledge/query`
+
+Get or create query engine
+
+### `GET` `/api/knowledge/facts` 🔒
+
+Handle POST /api/knowledge/facts/:id/relations - Add relation from fact
+
+### `GET` `/api/knowledge/search` 🔒
+
+Handle GET /api/knowledge/search - Search chunks
+
+### `GET` `/api/knowledge/stats` 🔒
+
+Handle GET /api/knowledge/stats - Get statistics
 
 ---
 
@@ -698,6 +757,80 @@ Handle DELETE /api/webhooks/:id - delete webhook
 ### `GET` `/api/webhooks/events`
 
 Handle GET /api/webhooks/events - list available event types
+
+---
+
+## Workspace
+
+Workspace Handler - Enterprise Privacy and Data Isolation APIs.
+
+### `POST` `/api/workspaces`
+
+Create a new workspace
+
+### `GET` `/api/workspaces`
+
+List workspaces
+
+### `GET` `/api/workspaces/{id}`
+
+Get workspace details
+
+### `DELETE` `/api/workspaces/{id}`
+
+Delete workspace
+
+### `POST` `/api/workspaces/{id}/members`
+
+Add member to workspace
+
+### `DELETE` `/api/workspaces/{id}/members/{user_id}`
+
+Remove member
+
+### `GET` `/api/retention/policies`
+
+List retention policies
+
+### `POST` `/api/retention/policies`
+
+Create retention policy
+
+### `PUT` `/api/retention/policies/{id}`
+
+Update retention policy
+
+### `DELETE` `/api/retention/policies/{id}`
+
+Delete retention policy
+
+### `POST` `/api/retention/policies/{id}/execute`
+
+Execute retention policy
+
+### `GET` `/api/retention/expiring`
+
+Get items expiring soon
+
+### `POST` `/api/classify`
+
+Classify content sensitivity
+
+### `GET` `/api/classify/policy/{level}`
+
+Get policy for sensitivity level
+
+### `GET` `/api/audit/entries`
+
+Query audit entries
+
+### `GET` `/api/audit/report`
+
+Generate compliance report
+
+### `GET` `/api/audit/verify`
+
+Verify audit log integrity
 
 ---
 
