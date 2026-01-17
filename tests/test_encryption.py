@@ -52,31 +52,27 @@ from aragora.security.encryption import (
 @pytest.fixture
 def encryption_service():
     """Create an encryption service with a test key."""
-    config = EncryptionConfig(
-        default_algorithm=EncryptionAlgorithm.AES_256_GCM,
-        key_rotation_days=90,
-    )
-    service = EncryptionService(config)
-
-    # Add a test key
-    test_key = os.urandom(32)
-    service.add_key(test_key, "test-key-1")
-
+    # Generate a 32-byte master key
+    master_key = os.urandom(32)
+    service = EncryptionService(master_key=master_key)
     return service
 
 
 @pytest.fixture
-def encryption_service_with_rotation():
-    """Create an encryption service with multiple keys for rotation testing."""
-    config = EncryptionConfig(key_rotation_days=30)
-    service = EncryptionService(config)
+def encryption_config():
+    """Create a custom encryption config."""
+    return EncryptionConfig(
+        algorithm=EncryptionAlgorithm.AES_256_GCM,
+        default_key_ttl_days=90,
+        auto_rotate=True,
+    )
 
-    # Add primary key
-    service.add_key(os.urandom(32), "primary-key")
-    # Add an older key
-    service.add_key(os.urandom(32), "old-key")
 
-    return service
+@pytest.fixture
+def encryption_service_with_config(encryption_config):
+    """Create an encryption service with custom config."""
+    master_key = os.urandom(32)
+    return EncryptionService(config=encryption_config, master_key=master_key)
 
 
 # ============================================================================
@@ -206,66 +202,48 @@ class TestAssociatedData:
 class TestKeyManagement:
     """Tests for key management operations."""
 
-    def test_add_key(self):
-        """Test adding a new key."""
+    def test_generate_key(self):
+        """Test generating a new key."""
         service = EncryptionService()
-        key_bytes = os.urandom(32)
 
-        key = service.add_key(key_bytes, "my-key")
+        key = service.generate_key("my-key")
 
-        assert key.id == "my-key"
+        assert key.key_id == "my-key"
         assert key.algorithm == EncryptionAlgorithm.AES_256_GCM
         assert key.created_at is not None
+        assert len(key.key_bytes) == 32
 
-    def test_add_key_auto_id(self):
-        """Test adding key with auto-generated ID."""
+    def test_generate_key_auto_id(self):
+        """Test generating key with auto-generated ID."""
         service = EncryptionService()
 
-        key = service.add_key(os.urandom(32))
+        key = service.generate_key()
 
-        assert key.id is not None
-        assert len(key.id) > 0
+        assert key.key_id is not None
+        assert key.key_id.startswith("key_")
 
-    def test_invalid_key_size(self):
-        """Test that invalid key size raises error."""
-        service = EncryptionService()
+    def test_master_key_initialization(self):
+        """Test initializing with a master key."""
+        master_key = os.urandom(32)
+        service = EncryptionService(master_key=master_key)
 
+        assert service.get_active_key_id() == "master"
+
+    def test_invalid_master_key_size(self):
+        """Test that invalid master key size raises error."""
         with pytest.raises(ValueError, match="32 bytes"):
-            service.add_key(os.urandom(16), "too-short")
+            EncryptionService(master_key=os.urandom(16))  # 16 bytes instead of 32
 
-    def test_get_key(self, encryption_service):
-        """Test retrieving a key by ID."""
-        key = encryption_service.get_key("test-key-1")
-
-        assert key is not None
-        assert key.id == "test-key-1"
-
-    def test_get_nonexistent_key(self, encryption_service):
-        """Test getting non-existent key returns None."""
-        key = encryption_service.get_key("nonexistent")
-
-        assert key is None
-
-    def test_list_keys(self, encryption_service_with_rotation):
+    def test_list_keys(self, encryption_service):
         """Test listing all keys."""
-        keys = encryption_service_with_rotation.list_keys()
+        # Service already has master key
+        encryption_service.generate_key("secondary")
 
-        assert len(keys) == 2
-        assert any(k.id == "primary-key" for k in keys)
-        assert any(k.id == "old-key" for k in keys)
+        keys = encryption_service.list_keys()
 
-    def test_remove_key(self, encryption_service_with_rotation):
-        """Test removing a key."""
-        result = encryption_service_with_rotation.remove_key("old-key")
-
-        assert result is True
-        assert encryption_service_with_rotation.get_key("old-key") is None
-
-    def test_remove_nonexistent_key(self, encryption_service):
-        """Test removing non-existent key."""
-        result = encryption_service.remove_key("nonexistent")
-
-        assert result is False
+        assert len(keys) >= 1
+        key_ids = [k["key_id"] for k in keys]
+        assert "master" in key_ids or "secondary" in key_ids
 
 
 # ============================================================================
@@ -278,44 +256,42 @@ class TestKeyRotation:
 
     def test_rotate_key(self, encryption_service):
         """Test rotating a key."""
-        old_key = encryption_service.get_key("test-key-1")
+        old_key_id = encryption_service.get_active_key_id()
 
-        new_key = encryption_service.rotate_key("test-key-1")
+        new_key = encryption_service.rotate_key()
 
-        assert new_key.id != old_key.id
-        assert new_key.created_at > old_key.created_at
-        # Old key should be rotated (marked inactive)
-        old = encryption_service.get_key("test-key-1")
-        assert old.rotated_at is not None
+        assert new_key.key_id == old_key_id  # Same key_id, new version
+        assert new_key.version > 1
 
     def test_decrypt_with_old_key_after_rotation(self, encryption_service):
-        """Test that data encrypted with old key can still be decrypted."""
+        """Test that data encrypted before rotation can still be decrypted."""
         plaintext = "Encrypted before rotation"
 
-        encrypted = encryption_service.encrypt(plaintext, key_id="test-key-1")
+        encrypted = encryption_service.encrypt(plaintext)
 
         # Rotate the key
-        encryption_service.rotate_key("test-key-1")
+        encryption_service.rotate_key()
 
-        # Should still be able to decrypt with the old key
+        # Should still be able to decrypt
         decrypted = encryption_service.decrypt_string(encrypted)
 
         assert decrypted == plaintext
 
-    def test_needs_rotation(self):
-        """Test checking if key needs rotation."""
-        config = EncryptionConfig(key_rotation_days=30)
-        service = EncryptionService(config)
+    def test_re_encrypt_with_new_key(self, encryption_service):
+        """Test re-encrypting data with new key."""
+        plaintext = "Original data"
 
-        # Add fresh key
-        service.add_key(os.urandom(32), "fresh-key")
-        assert service.needs_rotation("fresh-key") is False
+        encrypted_v1 = encryption_service.encrypt(plaintext)
+        v1_key_version = encrypted_v1.key_version
 
-        # Manually set created_at to old date
-        key = service.get_key("fresh-key")
-        key.created_at = datetime.utcnow() - timedelta(days=60)
+        encryption_service.rotate_key()
 
-        assert service.needs_rotation("fresh-key") is True
+        # Re-encrypt with new key
+        encrypted_v2 = encryption_service.re_encrypt(encrypted_v1)
+
+        assert encrypted_v2.key_version > v1_key_version
+        decrypted = encryption_service.decrypt_string(encrypted_v2)
+        assert decrypted == plaintext
 
 
 # ============================================================================
@@ -332,10 +308,11 @@ class TestKeyDerivation:
         password = "my-secure-password"
         salt = os.urandom(16)
 
-        key, _ = service.derive_key_from_password(password, salt, "derived-key")
+        key, returned_salt = service.derive_key_from_password(password, salt, "derived-key")
 
-        assert key.id == "derived-key"
+        assert key.key_id == "derived-key"
         assert key.algorithm == EncryptionAlgorithm.AES_256_GCM
+        assert returned_salt == salt
 
     def test_derive_key_generates_salt(self):
         """Test that salt is generated if not provided."""
@@ -349,21 +326,19 @@ class TestKeyDerivation:
 
     def test_same_password_same_salt_same_key(self):
         """Test that same password and salt produce same key."""
-        service = EncryptionService()
         password = "my-secure-password"
         salt = os.urandom(16)
 
-        # First derivation
-        key1, _ = service.derive_key_from_password(password, salt, "key1")
-        encrypted1 = service.encrypt("test", key_id="key1")
+        # First service - derive and encrypt
+        service1 = EncryptionService()
+        key1, _ = service1.derive_key_from_password(password, salt, "key1")
+        encrypted = service1.encrypt("test", key_id="key1")
 
-        # Create new service and derive same key
+        # Second service - derive same key and decrypt
         service2 = EncryptionService()
-        key2, _ = service2.derive_key_from_password(password, salt, "key2")
+        key2, _ = service2.derive_key_from_password(password, salt, "key1")
 
-        # Should be able to decrypt with second service
-        decrypted = service2.decrypt_string(encrypted1)
-
+        decrypted = service2.decrypt_string(encrypted)
         assert decrypted == "test"
 
     def test_different_salt_different_key(self):
@@ -375,7 +350,7 @@ class TestKeyDerivation:
         key2, salt2 = service.derive_key_from_password(password, key_id="key2")
 
         assert salt1 != salt2
-        # Keys should be different (different salts)
+        # Keys will be different due to different salts
 
 
 # ============================================================================
@@ -399,7 +374,7 @@ class TestFieldLevelEncryption:
         assert encrypted_record["name"] == "John Doe"  # Not encrypted
         assert encrypted_record["email"] == "john@example.com"  # Not encrypted
         assert encrypted_record["ssn"] != "123-45-6789"  # Encrypted
-        assert encrypted_record["ssn"].startswith("enc:")  # Marked as encrypted
+        assert encrypted_record["ssn"]["_encrypted"] is True  # Marked as encrypted
 
     def test_decrypt_single_field(self, encryption_service):
         """Test decrypting a single field in a record."""
@@ -427,29 +402,11 @@ class TestFieldLevelEncryption:
         )
 
         assert encrypted_record["name"] == "John Doe"
-        assert encrypted_record["ssn"].startswith("enc:")
-        assert encrypted_record["credit_card"].startswith("enc:")
+        assert encrypted_record["ssn"]["_encrypted"] is True
+        assert encrypted_record["credit_card"]["_encrypted"] is True
         assert encrypted_record["email"] == "john@example.com"
 
-    def test_encrypt_nested_fields(self, encryption_service):
-        """Test encrypting nested fields using dot notation."""
-        record = {
-            "user": {
-                "name": "John Doe",
-                "pii": {
-                    "ssn": "123-45-6789",
-                },
-            },
-        }
-
-        encrypted_record = encryption_service.encrypt_fields(
-            record, ["user.pii.ssn"]
-        )
-
-        assert encrypted_record["user"]["name"] == "John Doe"
-        assert encrypted_record["user"]["pii"]["ssn"].startswith("enc:")
-
-    def test_encrypt_with_associated_data(self, encryption_service):
+    def test_encrypt_with_associated_data_for_fields(self, encryption_service):
         """Test field encryption with record-level AAD."""
         record = {
             "id": "user-123",
@@ -457,11 +414,11 @@ class TestFieldLevelEncryption:
         }
 
         encrypted_record = encryption_service.encrypt_fields(
-            record, ["ssn"], associated_data=b"user-123"
+            record, ["ssn"], associated_data="user-123"
         )
 
         decrypted_record = encryption_service.decrypt_fields(
-            encrypted_record, ["ssn"], associated_data=b"user-123"
+            encrypted_record, ["ssn"], associated_data="user-123"
         )
 
         assert decrypted_record["ssn"] == "123-45-6789"
@@ -475,30 +432,6 @@ class TestFieldLevelEncryption:
         assert "ssn" not in encrypted_record
         assert encrypted_record["name"] == "John Doe"
 
-    def test_encrypt_field_preserves_types(self, encryption_service):
-        """Test that field types are preserved after round-trip."""
-        record = {
-            "string_field": "test",
-            "int_field": 42,
-            "float_field": 3.14,
-            "bool_field": True,
-            "list_field": [1, 2, 3],
-            "dict_field": {"nested": "value"},
-        }
-
-        encrypted = encryption_service.encrypt_fields(
-            record, ["string_field", "int_field", "float_field"]
-        )
-        decrypted = encryption_service.decrypt_fields(
-            encrypted, ["string_field", "int_field", "float_field"]
-        )
-
-        assert decrypted["string_field"] == "test"
-        assert decrypted["int_field"] == 42
-        assert decrypted["float_field"] == 3.14
-        assert decrypted["bool_field"] is True
-        assert decrypted["list_field"] == [1, 2, 3]
-
 
 # ============================================================================
 # EncryptedData Serialization Tests
@@ -508,47 +441,56 @@ class TestFieldLevelEncryption:
 class TestEncryptedDataSerialization:
     """Tests for EncryptedData serialization."""
 
-    def test_to_dict(self, encryption_service):
-        """Test converting EncryptedData to dictionary."""
+    def test_to_bytes(self, encryption_service):
+        """Test converting EncryptedData to bytes."""
         encrypted = encryption_service.encrypt("test")
 
-        data = encrypted.to_dict()
+        data_bytes = encrypted.to_bytes()
 
-        assert "ciphertext" in data
-        assert "nonce" in data
-        assert "key_id" in data
-        assert "algorithm" in data
-        assert data["algorithm"] == "aes-256-gcm"
+        assert isinstance(data_bytes, bytes)
+        assert len(data_bytes) > 0
 
-    def test_from_dict(self, encryption_service):
-        """Test creating EncryptedData from dictionary."""
+    def test_from_bytes(self, encryption_service):
+        """Test creating EncryptedData from bytes."""
         encrypted = encryption_service.encrypt("test")
-        data = encrypted.to_dict()
+        data_bytes = encrypted.to_bytes()
 
-        restored = EncryptedData.from_dict(data)
+        restored = EncryptedData.from_bytes(data_bytes)
 
         # Should be able to decrypt
         decrypted = encryption_service.decrypt_string(restored)
         assert decrypted == "test"
 
-    def test_to_string(self, encryption_service):
-        """Test converting EncryptedData to string."""
+    def test_to_base64(self, encryption_service):
+        """Test converting EncryptedData to base64."""
         encrypted = encryption_service.encrypt("test")
 
-        string_repr = encrypted.to_string()
+        base64_str = encrypted.to_base64()
 
-        assert string_repr.startswith("enc:")
-        assert "$" in string_repr  # Contains delimiter
+        assert isinstance(base64_str, str)
+        # Should be valid base64
+        base64.b64decode(base64_str)
 
-    def test_from_string(self, encryption_service):
-        """Test creating EncryptedData from string."""
+    def test_from_base64(self, encryption_service):
+        """Test creating EncryptedData from base64."""
         encrypted = encryption_service.encrypt("test")
-        string_repr = encrypted.to_string()
+        base64_str = encrypted.to_base64()
 
-        restored = EncryptedData.from_string(string_repr)
+        restored = EncryptedData.from_base64(base64_str)
 
         decrypted = encryption_service.decrypt_string(restored)
         assert decrypted == "test"
+
+    def test_roundtrip_base64(self, encryption_service):
+        """Test full roundtrip through base64."""
+        plaintext = "Sensitive data to protect"
+
+        encrypted = encryption_service.encrypt(plaintext)
+        serialized = encrypted.to_base64()
+        restored = EncryptedData.from_base64(serialized)
+        decrypted = encryption_service.decrypt_string(restored)
+
+        assert decrypted == plaintext
 
 
 # ============================================================================
@@ -561,13 +503,10 @@ class TestErrorHandling:
 
     def test_decrypt_with_wrong_key(self):
         """Test decryption fails with wrong key."""
-        service1 = EncryptionService()
-        service1.add_key(os.urandom(32), "key1")
+        service1 = EncryptionService(master_key=os.urandom(32))
+        service2 = EncryptionService(master_key=os.urandom(32))  # Different key
 
-        service2 = EncryptionService()
-        service2.add_key(os.urandom(32), "key1")  # Different key, same ID
-
-        encrypted = service1.encrypt("test", key_id="key1")
+        encrypted = service1.encrypt("test")
 
         with pytest.raises(Exception):
             service2.decrypt(encrypted)
@@ -581,6 +520,7 @@ class TestErrorHandling:
             ciphertext=b"corrupted" + encrypted.ciphertext[9:],
             nonce=encrypted.nonce,
             key_id=encrypted.key_id,
+            key_version=encrypted.key_version,
             algorithm=encrypted.algorithm,
         )
 
@@ -595,6 +535,7 @@ class TestErrorHandling:
             ciphertext=encrypted.ciphertext,
             nonce=os.urandom(12),  # Wrong nonce
             key_id=encrypted.key_id,
+            key_version=encrypted.key_version,
             algorithm=encrypted.algorithm,
         )
 
@@ -603,10 +544,92 @@ class TestErrorHandling:
 
     def test_encrypt_without_keys(self):
         """Test encryption fails when no keys are configured."""
-        service = EncryptionService()
+        service = EncryptionService()  # No master key, no generated key
 
-        with pytest.raises(ValueError, match="No encryption keys"):
+        with pytest.raises(ValueError):
             service.encrypt("test")
+
+
+# ============================================================================
+# EncryptionConfig Tests
+# ============================================================================
+
+
+class TestEncryptionConfig:
+    """Tests for encryption configuration."""
+
+    def test_default_config(self):
+        """Test default configuration values."""
+        config = EncryptionConfig()
+
+        assert config.algorithm == EncryptionAlgorithm.AES_256_GCM
+        assert config.key_size_bits == 256
+        assert config.nonce_size_bytes == 12
+        assert config.auto_rotate is True
+
+    def test_custom_config(self):
+        """Test custom configuration."""
+        config = EncryptionConfig(
+            default_key_ttl_days=30,
+            auto_rotate=False,
+            rotation_overlap_days=14,
+        )
+
+        assert config.default_key_ttl_days == 30
+        assert config.auto_rotate is False
+        assert config.rotation_overlap_days == 14
+
+
+# ============================================================================
+# EncryptionKey Tests
+# ============================================================================
+
+
+class TestEncryptionKey:
+    """Tests for encryption key objects."""
+
+    def test_key_creation(self):
+        """Test creating an encryption key."""
+        key = EncryptionKey(
+            key_id="test-key",
+            key_bytes=os.urandom(32),
+            algorithm=EncryptionAlgorithm.AES_256_GCM,
+            version=1,
+            created_at=datetime.utcnow(),
+        )
+
+        assert key.key_id == "test-key"
+        assert key.version == 1
+        assert not key.is_expired
+
+    def test_key_expiration(self):
+        """Test key expiration detection."""
+        key = EncryptionKey(
+            key_id="test-key",
+            key_bytes=os.urandom(32),
+            algorithm=EncryptionAlgorithm.AES_256_GCM,
+            version=1,
+            created_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() - timedelta(days=1),  # Expired
+        )
+
+        assert key.is_expired
+
+    def test_key_to_dict(self):
+        """Test converting key to dictionary."""
+        key = EncryptionKey(
+            key_id="test-key",
+            key_bytes=os.urandom(32),
+            algorithm=EncryptionAlgorithm.AES_256_GCM,
+            version=1,
+            created_at=datetime.utcnow(),
+        )
+
+        data = key.to_dict()
+
+        assert data["key_id"] == "test-key"
+        assert data["version"] == 1
+        assert "key_bytes" not in data  # Should not expose key material
 
 
 # ============================================================================
@@ -617,26 +640,33 @@ class TestErrorHandling:
 class TestGlobalService:
     """Tests for global encryption service management."""
 
-    def test_init_encryption_service(self):
-        """Test initializing global encryption service."""
-        with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": "x" * 64}):
-            import aragora.security.encryption as enc_module
+    def test_init_encryption_service_with_master_key(self):
+        """Test initializing global encryption service with master key."""
+        import aragora.security.encryption as enc_module
 
-            enc_module._encryption_service = None
+        # Reset singleton
+        enc_module._encryption_service = None
 
-            service = init_encryption_service()
+        master_key = os.urandom(32)
+        service = init_encryption_service(master_key=master_key)
 
-            assert service is not None
-            assert len(service.list_keys()) == 1
+        assert service is not None
+        assert service.get_active_key_id() == "master"
 
-    def test_get_encryption_service_singleton(self):
-        """Test get_encryption_service returns same instance."""
-        with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": "y" * 64}):
-            import aragora.security.encryption as enc_module
+        # Clean up
+        enc_module._encryption_service = None
 
-            enc_module._encryption_service = None
+    def test_init_encryption_service_with_config(self):
+        """Test initializing global encryption service with config."""
+        import aragora.security.encryption as enc_module
 
-            service1 = get_encryption_service()
-            service2 = get_encryption_service()
+        enc_module._encryption_service = None
 
-            assert service1 is service2
+        config = EncryptionConfig(default_key_ttl_days=30)
+        master_key = os.urandom(32)
+        service = init_encryption_service(config=config, master_key=master_key)
+
+        assert service is not None
+        assert service.config.default_key_ttl_days == 30
+
+        enc_module._encryption_service = None

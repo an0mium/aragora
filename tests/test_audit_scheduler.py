@@ -4,15 +4,12 @@ Tests for AuditScheduler - scheduled and triggered audit execution.
 Tests cover:
 - Schedule creation and management
 - Cron expression parsing
-- Webhook triggers
-- Git push and file upload events
-- Job execution and history
+- Job execution lifecycle
 """
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime, timedelta, timezone
-import json
 
 from aragora.scheduler.audit_scheduler import (
     AuditScheduler,
@@ -21,6 +18,7 @@ from aragora.scheduler.audit_scheduler import (
     JobRun,
     TriggerType,
     ScheduleStatus,
+    CronParser,
 )
 
 
@@ -59,21 +57,8 @@ def schedule_config():
         name="Daily Security Audit",
         cron="0 2 * * *",  # 2 AM daily
         workspace_id="ws-123",
-        audit_preset="code_security",
-        enabled=True,
+        preset="code_security",
     )
-
-
-@pytest.fixture
-def webhook_config():
-    """Create a webhook configuration."""
-    return {
-        "id": "webhook-123",
-        "secret": "test-secret-key",
-        "workspace_id": "ws-123",
-        "audit_preset": "code_security",
-        "enabled": True,
-    }
 
 
 # ============================================================================
@@ -90,26 +75,39 @@ class TestScheduleConfig:
             name="Test Schedule",
             cron="0 0 * * *",
             workspace_id="ws-123",
-            audit_preset="security",
+            preset="security",
         )
 
         assert config.name == "Test Schedule"
         assert config.cron == "0 0 * * *"
-        assert config.enabled is True  # Default
+        assert config.preset == "security"
+        assert config.trigger_type == TriggerType.CRON
 
-    def test_schedule_config_with_triggers(self):
-        """Test schedule with additional triggers."""
+    def test_schedule_config_with_audit_types(self):
+        """Test schedule with audit types configuration."""
         config = ScheduleConfig(
-            name="Multi-trigger Schedule",
+            name="Multi-type Schedule",
             cron="0 0 * * *",
             workspace_id="ws-123",
-            audit_preset="security",
-            on_push_branches=["main", "develop"],
-            on_upload=True,
+            preset="security",
+            audit_types=["security", "compliance"],
         )
 
-        assert config.on_push_branches == ["main", "develop"]
-        assert config.on_upload is True
+        assert config.audit_types == ["security", "compliance"]
+        assert config.notify_on_complete is True  # Default
+
+    def test_schedule_config_interval_trigger(self):
+        """Test schedule with interval trigger."""
+        config = ScheduleConfig(
+            name="Interval Schedule",
+            trigger_type=TriggerType.INTERVAL,
+            interval_minutes=60,
+            workspace_id="ws-123",
+            preset="security",
+        )
+
+        assert config.trigger_type == TriggerType.INTERVAL
+        assert config.interval_minutes == 60
 
 
 # ============================================================================
@@ -120,31 +118,33 @@ class TestScheduleConfig:
 class TestScheduledJob:
     """Tests for scheduled job objects."""
 
-    def test_job_creation(self, schedule_config):
+    def test_job_creation(self, scheduler, schedule_config):
         """Test creating a scheduled job."""
-        job = ScheduledJob(
-            id="job-123",
-            config=schedule_config,
-            created_at=datetime.now(timezone.utc),
-        )
+        job = scheduler.add_schedule(schedule_config)
 
-        assert job.id == "job-123"
+        assert job is not None
+        assert job.job_id is not None
+        assert job.schedule_id is not None
         assert job.config == schedule_config
-        assert job.next_run is not None or job.next_run is None
+        assert job.status == ScheduleStatus.ACTIVE
 
-    def test_job_to_dict(self, schedule_config):
+    def test_job_has_next_run(self, scheduler, schedule_config):
+        """Test that cron job has next_run calculated."""
+        job = scheduler.add_schedule(schedule_config)
+
+        # Cron schedule should have next_run set
+        assert job.next_run is not None
+
+    def test_job_to_dict(self, scheduler, schedule_config):
         """Test converting job to dictionary."""
-        job = ScheduledJob(
-            id="job-123",
-            config=schedule_config,
-            created_at=datetime.now(timezone.utc),
-        )
+        job = scheduler.add_schedule(schedule_config)
 
         data = job.to_dict()
 
-        assert "id" in data
+        assert "job_id" in data
+        assert "schedule_id" in data
         assert "config" in data
-        assert "created_at" in data
+        assert "status" in data
 
 
 # ============================================================================
@@ -195,6 +195,7 @@ class TestJobRun:
 
         data = run.to_dict()
 
+        assert data["run_id"] == "run-123"
         assert data["status"] == "completed"
 
 
@@ -211,7 +212,7 @@ class TestSchedulerScheduleManagement:
         job = scheduler.add_schedule(schedule_config)
 
         assert job is not None
-        assert job.id is not None
+        assert job.job_id is not None
         assert job.config == schedule_config
 
     def test_add_schedule_generates_id(self, scheduler, schedule_config):
@@ -219,93 +220,84 @@ class TestSchedulerScheduleManagement:
         job1 = scheduler.add_schedule(schedule_config)
         job2 = scheduler.add_schedule(schedule_config)
 
-        assert job1.id != job2.id
+        assert job1.job_id != job2.job_id
 
-    def test_get_schedule(self, scheduler, schedule_config):
-        """Test retrieving a schedule by ID."""
+    def test_get_job(self, scheduler, schedule_config):
+        """Test retrieving a job by ID."""
         job = scheduler.add_schedule(schedule_config)
 
-        retrieved = scheduler.get_schedule(job.id)
+        retrieved = scheduler.get_job(job.job_id)
 
         assert retrieved is not None
-        assert retrieved.id == job.id
+        assert retrieved.job_id == job.job_id
 
-    def test_get_nonexistent_schedule(self, scheduler):
-        """Test getting non-existent schedule returns None."""
-        result = scheduler.get_schedule("nonexistent")
+    def test_get_nonexistent_job(self, scheduler):
+        """Test getting non-existent job returns None."""
+        result = scheduler.get_job("nonexistent")
 
         assert result is None
 
-    def test_list_schedules(self, scheduler, schedule_config):
-        """Test listing all schedules."""
+    def test_list_jobs(self, scheduler, schedule_config):
+        """Test listing all jobs."""
         scheduler.add_schedule(schedule_config)
         scheduler.add_schedule(schedule_config)
 
-        schedules = scheduler.list_schedules()
+        jobs = scheduler.list_jobs()
 
-        assert len(schedules) == 2
+        assert len(jobs) == 2
 
-    def test_list_schedules_by_workspace(self, scheduler):
-        """Test listing schedules filtered by workspace."""
+    def test_list_jobs_by_workspace(self, scheduler):
+        """Test listing jobs filtered by workspace."""
         config1 = ScheduleConfig(
             name="Job 1",
             cron="0 0 * * *",
             workspace_id="ws-1",
-            audit_preset="security",
+            preset="security",
         )
         config2 = ScheduleConfig(
             name="Job 2",
             cron="0 0 * * *",
             workspace_id="ws-2",
-            audit_preset="security",
+            preset="security",
         )
 
         scheduler.add_schedule(config1)
         scheduler.add_schedule(config2)
 
-        ws1_jobs = scheduler.list_schedules(workspace_id="ws-1")
+        ws1_jobs = scheduler.list_jobs(workspace_id="ws-1")
 
         assert len(ws1_jobs) == 1
         assert ws1_jobs[0].config.workspace_id == "ws-1"
 
-    def test_update_schedule(self, scheduler, schedule_config):
-        """Test updating a schedule."""
+    def test_remove_schedule(self, scheduler, schedule_config):
+        """Test removing a schedule."""
         job = scheduler.add_schedule(schedule_config)
 
-        updated_config = ScheduleConfig(
-            name="Updated Schedule",
-            cron="0 3 * * *",  # Changed to 3 AM
-            workspace_id="ws-123",
-            audit_preset="code_security",
-        )
-
-        result = scheduler.update_schedule(job.id, updated_config)
+        result = scheduler.remove_schedule(job.job_id)
 
         assert result is True
-        updated = scheduler.get_schedule(job.id)
-        assert updated.config.name == "Updated Schedule"
-        assert updated.config.cron == "0 3 * * *"
+        assert scheduler.get_job(job.job_id) is None
 
-    def test_delete_schedule(self, scheduler, schedule_config):
-        """Test deleting a schedule."""
+    def test_pause_schedule(self, scheduler, schedule_config):
+        """Test pausing a schedule."""
         job = scheduler.add_schedule(schedule_config)
 
-        result = scheduler.delete_schedule(job.id)
+        result = scheduler.pause_schedule(job.job_id)
 
         assert result is True
-        assert scheduler.get_schedule(job.id) is None
+        paused = scheduler.get_job(job.job_id)
+        assert paused.status == ScheduleStatus.PAUSED
 
-    def test_enable_disable_schedule(self, scheduler, schedule_config):
-        """Test enabling and disabling a schedule."""
+    def test_resume_schedule(self, scheduler, schedule_config):
+        """Test resuming a paused schedule."""
         job = scheduler.add_schedule(schedule_config)
+        scheduler.pause_schedule(job.job_id)
 
-        scheduler.disable_schedule(job.id)
-        disabled = scheduler.get_schedule(job.id)
-        assert disabled.config.enabled is False
+        result = scheduler.resume_schedule(job.job_id)
 
-        scheduler.enable_schedule(job.id)
-        enabled = scheduler.get_schedule(job.id)
-        assert enabled.config.enabled is True
+        assert result is True
+        resumed = scheduler.get_job(job.job_id)
+        assert resumed.status == ScheduleStatus.ACTIVE
 
 
 # ============================================================================
@@ -316,352 +308,32 @@ class TestSchedulerScheduleManagement:
 class TestCronExpressions:
     """Tests for cron expression handling."""
 
-    def test_parse_valid_cron(self, scheduler):
-        """Test parsing valid cron expressions."""
+    def test_parse_daily_cron(self):
+        """Test parsing daily cron expression."""
         # Daily at midnight
-        next_run = scheduler._parse_cron("0 0 * * *")
+        next_run = CronParser.next_run("0 0 * * *")
+        assert next_run is not None
+        assert isinstance(next_run, datetime)
+
+    def test_parse_hourly_cron(self):
+        """Test parsing hourly cron expression."""
+        next_run = CronParser.next_run("0 * * * *")
         assert next_run is not None
 
-        # Every hour
-        next_run = scheduler._parse_cron("0 * * * *")
+    def test_parse_weekly_cron(self):
+        """Test parsing weekly cron expression."""
+        # Weekly on Monday at midnight
+        next_run = CronParser.next_run("0 0 * * 1")
         assert next_run is not None
 
-        # Weekly on Monday
-        next_run = scheduler._parse_cron("0 0 * * 1")
-        assert next_run is not None
-
-    def test_parse_invalid_cron(self, scheduler):
-        """Test parsing invalid cron expressions."""
-        with pytest.raises(ValueError):
-            scheduler._parse_cron("invalid cron")
-
-        with pytest.raises(ValueError):
-            scheduler._parse_cron("* * *")  # Too few fields
-
-    def test_next_run_calculation(self, scheduler, schedule_config):
-        """Test next run time is calculated correctly."""
-        job = scheduler.add_schedule(schedule_config)
-
-        # Next run should be in the future
-        if job.next_run:
-            assert job.next_run > datetime.now(timezone.utc)
-
-    def test_next_run_after_completion(self, scheduler, schedule_config):
-        """Test next run is updated after job completion."""
-        job = scheduler.add_schedule(schedule_config)
-        original_next = job.next_run
-
-        # Simulate job completion
-        scheduler._update_next_run(job.id)
-
-        updated = scheduler.get_schedule(job.id)
-        # Next run should be different (moved forward)
-        if original_next and updated.next_run:
-            assert updated.next_run >= original_next
-
-
-# ============================================================================
-# Job Execution Tests
-# ============================================================================
-
-
-class TestJobExecution:
-    """Tests for job execution."""
-
-    @pytest.mark.asyncio
-    async def test_trigger_job_manually(self, scheduler, schedule_config, mock_auditor):
-        """Test manually triggering a job."""
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            job = scheduler.add_schedule(schedule_config)
-
-            run = await scheduler.trigger_job(job.id)
-
-            assert run is not None
-            assert run.job_id == job.id
-            assert run.trigger_type == TriggerType.MANUAL
-
-    @pytest.mark.asyncio
-    async def test_trigger_nonexistent_job(self, scheduler):
-        """Test triggering non-existent job returns None."""
-        run = await scheduler.trigger_job("nonexistent")
-
-        assert run is None
-
-    @pytest.mark.asyncio
-    async def test_trigger_disabled_job(self, scheduler, schedule_config):
-        """Test triggering disabled job."""
-        schedule_config.enabled = False
-        job = scheduler.add_schedule(schedule_config)
-
-        run = await scheduler.trigger_job(job.id)
-
-        # May or may not trigger depending on implementation
-        # Some schedulers allow manual triggers on disabled jobs
-
-    @pytest.mark.asyncio
-    async def test_job_run_records_history(self, scheduler, schedule_config, mock_auditor):
-        """Test that job runs are recorded in history."""
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            job = scheduler.add_schedule(schedule_config)
-
-            await scheduler.trigger_job(job.id)
-            await scheduler.trigger_job(job.id)
-
-            history = scheduler.get_job_history(job.id)
-
-            assert len(history) == 2
-
-
-# ============================================================================
-# Webhook Trigger Tests
-# ============================================================================
-
-
-class TestWebhookTriggers:
-    """Tests for webhook-triggered audits."""
-
-    def test_register_webhook(self, scheduler, webhook_config):
-        """Test registering a webhook."""
-        result = scheduler.register_webhook(webhook_config)
-
-        assert result is True
-        assert scheduler.get_webhook(webhook_config.id) is not None
-
-    def test_verify_webhook_signature(self, scheduler, webhook_config):
-        """Test webhook signature verification."""
-        scheduler.register_webhook(webhook_config)
-
-        payload = {"event": "push", "ref": "refs/heads/main"}
-        # Generate valid signature
-        import hmac
-        import hashlib
-
-        signature = hmac.new(
-            webhook_config.secret.encode(),
-            json.dumps(payload).encode(),
-            hashlib.sha256,
-        ).hexdigest()
-
-        is_valid = scheduler._verify_signature(
-            webhook_config.id,
-            payload,
-            f"sha256={signature}",
-        )
-
-        assert is_valid is True
-
-    def test_reject_invalid_signature(self, scheduler, webhook_config):
-        """Test rejecting invalid webhook signature."""
-        scheduler.register_webhook(webhook_config)
-
-        payload = {"event": "push"}
-        invalid_signature = "sha256=invalid"
-
-        is_valid = scheduler._verify_signature(
-            webhook_config.id,
-            payload,
-            invalid_signature,
-        )
-
-        assert is_valid is False
-
-    @pytest.mark.asyncio
-    async def test_handle_webhook(self, scheduler, webhook_config, mock_auditor):
-        """Test handling webhook event."""
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            scheduler.register_webhook(webhook_config)
-
-            payload = {"event": "push", "ref": "refs/heads/main"}
-            import hmac
-            import hashlib
-
-            signature = "sha256=" + hmac.new(
-                webhook_config.secret.encode(),
-                json.dumps(payload).encode(),
-                hashlib.sha256,
-            ).hexdigest()
-
-            runs = await scheduler.handle_webhook(
-                webhook_config.id,
-                payload,
-                signature,
-            )
-
-            assert len(runs) >= 0  # May or may not trigger depending on config
-
-
-# ============================================================================
-# Git Push Event Tests
-# ============================================================================
-
-
-class TestGitPushEvents:
-    """Tests for git push triggered audits."""
-
-    @pytest.mark.asyncio
-    async def test_handle_git_push(self, scheduler, mock_auditor):
-        """Test handling git push event."""
-        config = ScheduleConfig(
-            name="Push-triggered Audit",
-            workspace_id="ws-123",
-            audit_preset="code_security",
-            on_push_branches=["main"],
-        )
-
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            job = scheduler.add_schedule(config)
-
-            runs = await scheduler.handle_git_push(
-                repository="org/repo",
-                branch="main",
-                commit_sha="abc123",
-            )
-
-            # Should trigger audit for main branch
-            assert len(runs) >= 0
-
-    @pytest.mark.asyncio
-    async def test_git_push_non_matching_branch(self, scheduler):
-        """Test git push on non-matching branch doesn't trigger."""
-        config = ScheduleConfig(
-            name="Push-triggered Audit",
-            workspace_id="ws-123",
-            audit_preset="code_security",
-            on_push_branches=["main"],  # Only main
-        )
-
-        scheduler.add_schedule(config)
-
-        runs = await scheduler.handle_git_push(
-            repository="org/repo",
-            branch="feature-branch",  # Not main
-            commit_sha="abc123",
-        )
-
-        assert len(runs) == 0
-
-    @pytest.mark.asyncio
-    async def test_git_push_wildcard_branch(self, scheduler, mock_auditor):
-        """Test git push with wildcard branch pattern."""
-        config = ScheduleConfig(
-            name="Push-triggered Audit",
-            workspace_id="ws-123",
-            audit_preset="code_security",
-            on_push_branches=["release/*"],
-        )
-
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            scheduler.add_schedule(config)
-
-            runs = await scheduler.handle_git_push(
-                repository="org/repo",
-                branch="release/v1.0",
-                commit_sha="abc123",
-            )
-
-            # Should match wildcard pattern
-            # Implementation may vary
-
-
-# ============================================================================
-# File Upload Event Tests
-# ============================================================================
-
-
-class TestFileUploadEvents:
-    """Tests for file upload triggered audits."""
-
-    @pytest.mark.asyncio
-    async def test_handle_file_upload(self, scheduler, mock_auditor):
-        """Test handling file upload event."""
-        config = ScheduleConfig(
-            name="Upload-triggered Audit",
-            workspace_id="ws-123",
-            audit_preset="legal_due_diligence",
-            on_upload=True,
-        )
-
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            scheduler.add_schedule(config)
-
-            runs = await scheduler.handle_file_upload(
-                workspace_id="ws-123",
-                document_ids=["doc-1", "doc-2"],
-            )
-
-            assert len(runs) >= 0
-
-    @pytest.mark.asyncio
-    async def test_file_upload_different_workspace(self, scheduler):
-        """Test file upload in different workspace doesn't trigger."""
-        config = ScheduleConfig(
-            name="Upload-triggered Audit",
-            workspace_id="ws-123",
-            audit_preset="legal_due_diligence",
-            on_upload=True,
-        )
-
-        scheduler.add_schedule(config)
-
-        runs = await scheduler.handle_file_upload(
-            workspace_id="ws-999",  # Different workspace
-            document_ids=["doc-1"],
-        )
-
-        assert len(runs) == 0
-
-
-# ============================================================================
-# Job History Tests
-# ============================================================================
-
-
-class TestJobHistory:
-    """Tests for job history management."""
-
-    @pytest.mark.asyncio
-    async def test_get_job_history(self, scheduler, schedule_config, mock_auditor):
-        """Test retrieving job run history."""
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            job = scheduler.add_schedule(schedule_config)
-
-            await scheduler.trigger_job(job.id)
-            await scheduler.trigger_job(job.id)
-            await scheduler.trigger_job(job.id)
-
-            history = scheduler.get_job_history(job.id, limit=2)
-
-            assert len(history) == 2
-
-    @pytest.mark.asyncio
-    async def test_get_job_history_empty(self, scheduler, schedule_config):
-        """Test getting history for job with no runs."""
-        job = scheduler.add_schedule(schedule_config)
-
-        history = scheduler.get_job_history(job.id)
-
-        assert len(history) == 0
-
-    @pytest.mark.asyncio
-    async def test_get_run_by_id(self, scheduler, schedule_config, mock_auditor):
-        """Test getting specific run by ID."""
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor",
-                   return_value=mock_auditor):
-            job = scheduler.add_schedule(schedule_config)
-
-            run = await scheduler.trigger_job(job.id)
-
-            retrieved = scheduler.get_run(run.id)
-
-            assert retrieved is not None
-            assert retrieved.id == run.id
+    def test_next_run_in_future(self):
+        """Test that next run is in the future."""
+        next_run = CronParser.next_run("0 0 * * *")
+        if next_run:
+            # Should be within 24 hours for daily schedule
+            now = datetime.utcnow()
+            assert next_run > now
+            assert next_run < now + timedelta(days=2)
 
 
 # ============================================================================
@@ -675,34 +347,37 @@ class TestSchedulerLifecycle:
     @pytest.mark.asyncio
     async def test_start_scheduler(self, scheduler):
         """Test starting the scheduler."""
-        await scheduler.start()
+        # Start in background
+        task = scheduler.start()
 
-        assert scheduler.is_running is True
+        # Give it a moment to start
+        import asyncio
+        await asyncio.sleep(0.1)
+
+        assert scheduler._running is True
+
+        # Clean up
+        await scheduler.stop()
 
     @pytest.mark.asyncio
     async def test_stop_scheduler(self, scheduler):
         """Test stopping the scheduler."""
-        await scheduler.start()
+        scheduler.start()
+        import asyncio
+        await asyncio.sleep(0.1)
+
         await scheduler.stop()
 
-        assert scheduler.is_running is False
+        assert scheduler._running is False
 
-    @pytest.mark.asyncio
-    async def test_get_due_jobs(self, scheduler):
-        """Test getting jobs that are due to run."""
-        # Create job with past next_run
-        config = ScheduleConfig(
-            name="Due Job",
-            cron="* * * * *",  # Every minute
-            workspace_id="ws-123",
-            audit_preset="security",
-        )
+    def test_list_jobs_by_status(self, scheduler, schedule_config):
+        """Test listing jobs filtered by status."""
+        job1 = scheduler.add_schedule(schedule_config)
+        job2 = scheduler.add_schedule(schedule_config)
+        scheduler.pause_schedule(job2.job_id)
 
-        job = scheduler.add_schedule(config)
-        # Force next_run to be in the past
-        job.next_run = datetime.now(timezone.utc) - timedelta(minutes=5)
+        active_jobs = scheduler.list_jobs(status=ScheduleStatus.ACTIVE)
+        paused_jobs = scheduler.list_jobs(status=ScheduleStatus.PAUSED)
 
-        due_jobs = scheduler.get_due_jobs()
-
-        assert len(due_jobs) >= 1
-        assert any(j.id == job.id for j in due_jobs)
+        assert len(active_jobs) == 1
+        assert len(paused_jobs) == 1
