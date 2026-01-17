@@ -150,3 +150,6 @@ typings/
 docs/investor/
 :memory:-shm
 :memory:-wal
+
+# Comparison projects (external references)
+.comparison/

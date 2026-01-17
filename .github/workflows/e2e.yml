@@ -56,26 +56,39 @@ jobs:
 
       - name: Start Aragora backend
         run: |
-          # Create nomic directory for storage (optional but helps)
+          # Create nomic directory for storage
           mkdir -p .nomic
 
+          # Start server with explicit data directory
           aragora serve --api-port 8080 --ws-port 8766 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
-          # Wait for server to be healthy (increased timeout for CI)
+          # Wait for server to be healthy using lightweight endpoint
           for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
               echo "Backend server is healthy"
               break
             fi
             echo "Waiting for backend... ($i/60)"
+            # Show recent log output for debugging
+            if [ $i -eq 30 ] || [ $i -eq 45 ]; then
+              echo "=== Recent server logs ==="
+              tail -20 /tmp/aragora-server.log 2>/dev/null || true
+              echo "=========================="
+            fi
             sleep 2
           done
 
-          curl -fsS http://127.0.0.1:8080/api/health
+          # Final health check with detailed output
+          if ! curl -fsS http://127.0.0.1:8080/healthz; then
+            echo "Server failed to become healthy. Full logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
         env:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
+          ARAGORA_DATA_DIR: .nomic
 
       - name: Install frontend dependencies
         working-directory: aragora/live
