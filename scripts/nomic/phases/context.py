@@ -5,15 +5,22 @@ Phase 0: Gather codebase understanding
 - All agents explore codebase to gather context
 - Each agent uses its native codebase exploration harness
 - Prevents proposals for features that already exist
+- (New) CodebaseAuditor identifies improvement opportunities
 """
 
 import asyncio
+import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, TYPE_CHECKING
 
-from . import ContextResult
+from . import ContextResult, AuditFindingSummary
+
+if TYPE_CHECKING:
+    from aragora.audit.codebase_auditor import CodebaseAuditor
+
+logger = logging.getLogger(__name__)
 
 # Optional metrics recording (imported lazily to avoid circular imports)
 _metrics_recorder: Optional[Callable[[str, str, float], None]] = None
@@ -58,6 +65,8 @@ class ContextPhase:
         log_fn: Optional[Callable[..., None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         get_features_fn: Optional[Callable[[], str]] = None,
+        codebase_auditor: Optional["CodebaseAuditor"] = None,
+        enable_audit: bool = True,
     ):
         """
         Initialize the context gathering phase.
@@ -73,6 +82,8 @@ class ContextPhase:
             log_fn: Function to log messages
             stream_emit_fn: Function to emit streaming events
             get_features_fn: Function to get current features as fallback
+            codebase_auditor: Optional CodebaseAuditor for identifying issues
+            enable_audit: Whether to run codebase audit (default True)
         """
         self.aragora_path = aragora_path
         self.claude = claude_agent
@@ -84,6 +95,8 @@ class ContextPhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._get_features = get_features_fn or (lambda: "No features available")
+        self.codebase_auditor = codebase_auditor
+        self.enable_audit = enable_audit
 
     async def execute(self) -> ContextResult:
         """
@@ -150,6 +163,12 @@ class ContextPhase:
                 ]
             )
 
+        # Run codebase audit in parallel with agent exploration (if enabled)
+        audit_task = None
+        if self.enable_audit and self.codebase_auditor:
+            self._log("  [audit] Running codebase audit in parallel...")
+            audit_task = asyncio.create_task(self._run_codebase_audit())
+
         # Run all agents in parallel
         results = await asyncio.gather(*exploration_tasks, return_exceptions=True)
 
@@ -171,6 +190,22 @@ class ContextPhase:
 
         gathered_context = "\n\n".join(combined_context)
 
+        # Collect audit results
+        audit_findings: List[AuditFindingSummary] = []
+        audit_proposals: List[str] = []
+        if audit_task:
+            try:
+                audit_findings, audit_proposals = await audit_task
+                if audit_findings:
+                    self._log(f"  [audit] Found {len(audit_findings)} audit findings")
+                    # Add audit context to gathered context
+                    audit_summary = self._format_audit_findings(audit_findings)
+                    combined_context.append(audit_summary)
+                    gathered_context = "\n\n".join(combined_context)
+            except Exception as e:
+                self._log(f"  [audit] Audit failed: {e}")
+                logger.warning(f"Codebase audit failed: {e}")
+
         phase_duration = time.perf_counter() - phase_start
         success = len(combined_context) > 0
         self._log(
@@ -182,7 +217,11 @@ class ContextPhase:
             self.cycle_count,
             success,
             phase_duration,
-            {"agents": len(combined_context), "context_length": len(gathered_context)},
+            {
+                "agents": len(combined_context),
+                "context_length": len(gathered_context),
+                "audit_findings": len(audit_findings),
+            },
         )
 
         # Record metrics if configured
@@ -191,11 +230,16 @@ class ContextPhase:
 
         return ContextResult(
             success=success,
-            data={"agents_succeeded": len(combined_context)},
+            data={
+                "agents_succeeded": len(combined_context),
+                "audit_findings_count": len(audit_findings),
+            },
             duration_seconds=phase_duration,
             codebase_summary=gathered_context,
             recent_changes="",  # Can be populated if needed
             open_issues=[],
+            audit_findings=audit_findings,
+            audit_proposals=audit_proposals,
         )
 
     def _build_explore_prompt(self) -> str:
@@ -249,6 +293,72 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             if _agent_metrics_recorder:
                 agent_duration = time.perf_counter() - agent_start
                 _agent_metrics_recorder("context", name, agent_duration)
+
+    async def _run_codebase_audit(self) -> Tuple[List[AuditFindingSummary], List[str]]:
+        """Run codebase audit and return findings with proposals.
+
+        Returns:
+            Tuple of (findings list, proposals list)
+        """
+        if not self.codebase_auditor:
+            return [], []
+
+        try:
+            # Run the audit
+            result = await self.codebase_auditor.audit_codebase()
+
+            # Convert findings to summary format
+            findings: List[AuditFindingSummary] = []
+            for finding in result.findings[:10]:  # Limit to top 10
+                findings.append(AuditFindingSummary(
+                    title=finding.title,
+                    category=finding.category,
+                    severity=finding.severity.value if hasattr(finding.severity, 'value') else str(finding.severity),
+                    description=finding.description[:200],  # Truncate
+                    file_path=finding.file_path,
+                ))
+
+            # Convert findings to proposals
+            proposals = self.codebase_auditor.findings_to_proposals(result.findings)
+            proposal_texts = [
+                f"[{p.severity.value}] {p.title}: {p.description[:100]}..."
+                for p in proposals[:5]  # Limit to top 5 proposals
+            ]
+
+            return findings, proposal_texts
+
+        except Exception as e:
+            logger.warning(f"Codebase audit error: {e}")
+            return [], []
+
+    def _format_audit_findings(self, findings: List[AuditFindingSummary]) -> str:
+        """Format audit findings for inclusion in context."""
+        if not findings:
+            return ""
+
+        lines = ["=== CODEBASE AUDIT FINDINGS (Automated Analysis) ==="]
+        lines.append("The following issues were identified by automated codebase scanning:\n")
+
+        # Group by severity
+        by_severity: dict = {}
+        for f in findings:
+            severity = f.get("severity", "medium")
+            if severity not in by_severity:
+                by_severity[severity] = []
+            by_severity[severity].append(f)
+
+        # Output in severity order
+        for severity in ["critical", "high", "medium", "low"]:
+            if severity in by_severity:
+                lines.append(f"\n### {severity.upper()} Severity:")
+                for f in by_severity[severity]:
+                    lines.append(f"- [{f.get('category', 'unknown')}] {f.get('title', 'Unknown')}")
+                    lines.append(f"  {f.get('description', '')}")
+                    if f.get("file_path"):
+                        lines.append(f"  File: {f.get('file_path')}")
+
+        lines.append("\n" + "=" * 50)
+        return "\n".join(lines)
 
 
 __all__ = ["ContextPhase", "set_metrics_recorder"]

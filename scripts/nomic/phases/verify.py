@@ -7,15 +7,19 @@ Phase 4: Verify changes work
 - Run tests
 - Optional Codex audit
 - Evidence staleness check
+- Consistency audit (new)
 """
 
 import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional, TYPE_CHECKING
 
 from . import VerifyResult
+
+if TYPE_CHECKING:
+    from aragora.audit.audit_types.consistency import ConsistencyAuditor
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,8 @@ class VerifyPhase:
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
         save_state_fn: Optional[Callable[[dict], None]] = None,
+        consistency_auditor: Optional["ConsistencyAuditor"] = None,
+        enable_consistency_check: bool = True,
     ):
         """
         Initialize the verify phase.
@@ -51,6 +57,8 @@ class VerifyPhase:
             stream_emit_fn: Function to emit streaming events
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
+            consistency_auditor: Optional ConsistencyAuditor for change validation
+            enable_consistency_check: Whether to run consistency check (default True)
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -60,6 +68,8 @@ class VerifyPhase:
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
+        self.consistency_auditor = consistency_auditor
+        self.enable_consistency_check = enable_consistency_check
 
     async def execute(self) -> VerifyResult:
         """
@@ -95,6 +105,14 @@ class VerifyPhase:
             if audit_result:
                 checks.append(audit_result)
                 all_passed = all(c.get("passed", False) for c in checks)
+
+        # 5. Consistency check (if enabled and auditor available)
+        if all_passed and self.enable_consistency_check and self.consistency_auditor:
+            consistency_result = await self._check_consistency()
+            checks.append(consistency_result)
+            # Consistency failures are warnings, not blockers (unless critical)
+            if not consistency_result.get("passed") and consistency_result.get("severity") == "critical":
+                all_passed = False
 
         # Save state
         self._save_state(
@@ -344,6 +362,113 @@ Be concise - this is a quality gate, not a full review."""
         except Exception as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
+
+    async def _check_consistency(self) -> dict:
+        """Check changed files for consistency issues using ConsistencyAuditor.
+
+        Returns:
+            Check result dict with passed, findings, and severity
+        """
+        self._log("  [consistency] Checking changes for consistency...")
+        try:
+            changed_files = await self._get_changed_files()
+            if not changed_files:
+                self._log("    [consistency] No changed files to check")
+                return {
+                    "check": "consistency",
+                    "passed": True,
+                    "output": "No changed files",
+                }
+
+            # Filter to Python files and docs
+            relevant_files = [
+                f for f in changed_files
+                if f.endswith(('.py', '.md', '.rst', '.txt'))
+            ]
+
+            if not relevant_files:
+                self._log("    [consistency] No relevant files to check")
+                return {
+                    "check": "consistency",
+                    "passed": True,
+                    "output": "No relevant files",
+                }
+
+            self._log(f"    [consistency] Checking {len(relevant_files)} files...")
+
+            # Read file contents and create chunks
+            from aragora.audit.document_auditor import AuditSession, AuditType
+
+            session = AuditSession(
+                session_id=f"verify_{self.cycle_count}",
+                document_ids=[str(self.aragora_path / f) for f in relevant_files],
+            )
+
+            # Build chunks from changed files
+            chunks = []
+            for file_path in relevant_files[:10]:  # Limit to 10 files
+                full_path = self.aragora_path / file_path
+                if full_path.exists():
+                    try:
+                        content = full_path.read_text()
+                        chunks.append({
+                            "id": file_path,
+                            "document_id": file_path,
+                            "content": content[:5000],  # Limit content size
+                        })
+                    except Exception as e:
+                        logger.warning(f"Failed to read {file_path}: {e}")
+
+            if not chunks:
+                return {
+                    "check": "consistency",
+                    "passed": True,
+                    "output": "No readable files",
+                }
+
+            # Run consistency audit
+            findings = await self.consistency_auditor.audit(chunks, session)
+
+            # Categorize findings by severity
+            critical_count = sum(
+                1 for f in findings
+                if hasattr(f, 'severity') and str(f.severity).lower() in ('critical', 'high')
+            )
+
+            if critical_count > 0:
+                self._log(f"    [consistency] Found {critical_count} critical/high issues")
+                self._stream_emit(
+                    "on_verification_result", "consistency", False,
+                    f"{critical_count} critical issues found"
+                )
+                return {
+                    "check": "consistency",
+                    "passed": False,
+                    "severity": "critical" if critical_count >= 3 else "high",
+                    "findings": len(findings),
+                    "critical": critical_count,
+                    "output": f"Found {len(findings)} issues ({critical_count} critical/high)",
+                }
+            else:
+                self._log(f"    [consistency] Passed ({len(findings)} minor issues)")
+                self._stream_emit("on_verification_result", "consistency", True, "OK")
+                return {
+                    "check": "consistency",
+                    "passed": True,
+                    "findings": len(findings),
+                    "output": f"Passed ({len(findings)} minor issues)",
+                }
+
+        except Exception as e:
+            self._log(f"    [consistency] Check failed: {e}")
+            logger.warning(f"Consistency check error: {e}")
+            # Don't block on consistency check failure
+            return {
+                "check": "consistency",
+                "passed": True,
+                "error": str(e),
+                "note": "Check skipped due to error",
+            }
 
 
 __all__ = ["VerifyPhase"]

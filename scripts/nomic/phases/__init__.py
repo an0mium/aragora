@@ -25,12 +25,25 @@ class PhaseResult(TypedDict, total=False):
     duration_seconds: float
 
 
+class AuditFindingSummary(TypedDict, total=False):
+    """Summary of an audit finding for Nomic loop."""
+
+    title: str
+    category: str
+    severity: str
+    description: str
+    file_path: Optional[str]
+
+
 class ContextResult(PhaseResult):
     """Result from context gathering phase."""
 
     codebase_summary: str
     recent_changes: str
     open_issues: List[str]
+    # Audit integration
+    audit_findings: List[AuditFindingSummary]
+    audit_proposals: List[str]
 
 
 class DebateResult(PhaseResult):
@@ -84,6 +97,7 @@ from .scope_limiter import ScopeLimiter, ScopeEvaluation, check_design_scope
 __all__ = [
     # Result types
     "PhaseResult",
+    "AuditFindingSummary",
     "ContextResult",
     "DebateResult",
     "DesignResult",

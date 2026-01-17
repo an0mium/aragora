@@ -340,7 +340,7 @@ export default function AuditSessionDetailPage() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">// AUDIT SESSION</span>
+            <span className="text-muted font-mono text-sm">{'//'} AUDIT SESSION</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />

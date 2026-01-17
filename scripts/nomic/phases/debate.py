@@ -50,6 +50,9 @@ class LearningContext:
     relationship_context: str = ""
     calibration_context: str = ""
     pulse_context: str = ""
+    # Audit integration
+    audit_context: str = ""  # Findings from CodebaseAuditor
+    audit_proposals: List[str] = field(default_factory=list)
 
     def to_string(self) -> str:
         """Combine all context into a single string."""
@@ -71,6 +74,7 @@ class LearningContext:
             ("relationship_context", self.relationship_context),
             ("calibration_context", self.calibration_context),
             ("pulse_context", self.pulse_context),
+            ("audit_context", self.audit_context),
         ]:
             if value:
                 parts.append(value)
@@ -296,6 +300,23 @@ You may adopt it, critique it, improve upon it, or propose something entirely di
 """
             self._log(f"  Including human proposal: {self.initial_proposal[:100]}...")
 
+        # Build audit proposals section (high-priority)
+        audit_section = ""
+        if learning.audit_proposals:
+            proposals_text = "\n".join(f"  - {p}" for p in learning.audit_proposals[:5])
+            audit_section = f"""
+
+===== AUDIT-IDENTIFIED ISSUES (High Priority) =====
+Automated codebase analysis has identified the following issues.
+These are VERIFIED problems that should be considered as high-priority candidates:
+
+{proposals_text}
+
+Consider addressing these issues OR propose something more impactful.
+===================================================
+"""
+            self._log(f"  Including {len(learning.audit_proposals)} audit proposals")
+
         learning_text = learning.to_string()
 
         return f"""{SAFETY_PREAMBLE}
@@ -304,6 +325,7 @@ What single improvement would most benefit aragora RIGHT NOW?
 
 CRITICAL: Read the codebase analysis below carefully. DO NOT propose features that already exist.
 {learning_text}
+{audit_section}
 Consider what would make aragora:
 - More INTERESTING (novel, creative, intellectually stimulating)
 - More POWERFUL (capable, versatile, effective)

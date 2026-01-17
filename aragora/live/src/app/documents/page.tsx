@@ -130,7 +130,7 @@ export default function DocumentsPage() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="hover:text-accent"><AsciiBannerCompact /></Link>
-            <span className="text-muted font-mono text-sm">// DOCUMENTS</span>
+            <span className="text-muted font-mono text-sm">{'//'} DOCUMENTS</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
