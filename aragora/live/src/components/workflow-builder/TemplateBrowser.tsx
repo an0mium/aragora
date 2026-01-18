@@ -33,7 +33,7 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const url = new URL(`${API_BASE_URL}/api/workflows/templates`);
+      const url = new URL(`${API_BASE_URL}/api/workflow-templates`);
       if (selectedCategory) {
         url.searchParams.set('category', selectedCategory);
       }
@@ -59,7 +59,7 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
   const handleSelectTemplate = async (templateId: string) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/workflows/templates/${templateId}`
+        `${API_BASE_URL}/api/workflow-templates/${templateId}`
       );
       if (!response.ok) throw new Error('Failed to fetch template');
 

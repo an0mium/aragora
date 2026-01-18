@@ -42,7 +42,7 @@ export default function WorkflowsPage() {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/workflows/templates`);
+      const response = await fetch(`${API_BASE_URL}/api/workflow-templates`);
       if (!response.ok) throw new Error('Failed to fetch templates');
 
       const data = await response.json();

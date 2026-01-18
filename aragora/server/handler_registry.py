@@ -102,6 +102,7 @@ EvaluationHandler: HandlerType = None
 EvidenceHandler: HandlerType = None
 FolderUploadHandler: HandlerType = None
 WebhookHandler: HandlerType = None
+WorkflowHandler: HandlerType = None
 AdminHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
@@ -284,6 +285,9 @@ try:
     from aragora.server.handlers import (
         WebhookHandler as _WebhookHandler,
     )
+    from aragora.server.handlers import (
+        WorkflowHandler as _WorkflowHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -343,6 +347,7 @@ try:
     EvidenceHandler = _EvidenceHandler
     FolderUploadHandler = _FolderUploadHandler
     WebhookHandler = _WebhookHandler
+    WorkflowHandler = _WorkflowHandler
     AdminHandler = _AdminHandler
     HandlerResult = _HandlerResult
 
@@ -412,6 +417,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_evidence_handler", EvidenceHandler),
     ("_folder_upload_handler", FolderUploadHandler),
     ("_webhook_handler", WebhookHandler),
+    ("_workflow_handler", WorkflowHandler),
     ("_admin_handler", AdminHandler),
 ]
 
