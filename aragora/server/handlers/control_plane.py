@@ -5,7 +5,7 @@ Provides REST API endpoints for the enterprise control plane:
 - Agent registration and discovery
 - Task submission and status
 - Health monitoring
-- Control plane statistics
+- Control plane statistics and metrics
 
 Endpoints:
     GET  /api/control-plane/agents           - List registered agents
@@ -23,6 +23,8 @@ Endpoints:
     GET  /api/control-plane/health           - System health
     GET  /api/control-plane/health/:agent_id - Agent health
     GET  /api/control-plane/stats            - Control plane statistics
+    GET  /api/control-plane/queue            - Job queue (pending/running tasks)
+    GET  /api/control-plane/metrics          - Dashboard metrics
 """
 
 from __future__ import annotations
@@ -144,6 +146,14 @@ class ControlPlaneHandler(BaseHandler):
         if path == "/api/control-plane/stats":
             return self._handle_stats()
 
+        # /api/control-plane/queue
+        if path == "/api/control-plane/queue":
+            return self._handle_get_queue(query_params)
+
+        # /api/control-plane/metrics
+        if path == "/api/control-plane/metrics":
+            return self._handle_get_metrics()
+
         return None
 
     def _handle_list_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
@@ -261,6 +271,102 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(stats)
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
+            return error_response(str(e), 500)
+
+    def _handle_get_queue(self, query_params: Dict[str, Any]) -> HandlerResult:
+        """Get current job queue (pending and running tasks)."""
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        try:
+            from aragora.control_plane.scheduler import TaskStatus
+            from datetime import datetime
+
+            limit = int(query_params.get("limit", ["50"])[0]) if isinstance(
+                query_params.get("limit"), list
+            ) else int(query_params.get("limit", 50))
+
+            # Get pending and running tasks
+            pending = _run_async(
+                coordinator._scheduler.list_by_status(TaskStatus.PENDING, limit=limit)
+            )
+            running = _run_async(
+                coordinator._scheduler.list_by_status(TaskStatus.RUNNING, limit=limit)
+            )
+
+            # Format tasks as jobs for the frontend
+            def task_to_job(task) -> Dict[str, Any]:
+                # Calculate progress based on status
+                progress = 0.0
+                if task.status.value == "running":
+                    # If running, estimate progress or use metadata
+                    progress = task.metadata.get("progress", 0.5)
+                elif task.status.value == "completed":
+                    progress = 1.0
+
+                return {
+                    "id": task.id,
+                    "type": task.task_type,
+                    "name": task.metadata.get("name", f"{task.task_type} task"),
+                    "status": task.status.value,
+                    "progress": progress,
+                    "started_at": datetime.fromtimestamp(task.started_at).isoformat() if task.started_at else None,
+                    "created_at": datetime.fromtimestamp(task.created_at).isoformat() if task.created_at else None,
+                    "document_count": task.payload.get("document_count", 0),
+                    "agents_assigned": [task.assigned_agent] if task.assigned_agent else [],
+                    "priority": task.priority.name.lower(),
+                }
+
+            jobs = [task_to_job(t) for t in running] + [task_to_job(t) for t in pending]
+
+            return json_response({
+                "jobs": jobs,
+                "total": len(jobs),
+            })
+        except Exception as e:
+            logger.error(f"Error getting queue: {e}")
+            return error_response(str(e), 500)
+
+    def _handle_get_metrics(self) -> HandlerResult:
+        """Get control plane metrics for dashboard."""
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        try:
+            # Get comprehensive stats
+            stats = _run_async(coordinator.get_stats())
+
+            scheduler_stats = stats.get("scheduler", {})
+            registry_stats = stats.get("registry", {})
+
+            by_status = scheduler_stats.get("by_status", {})
+            agent_by_status = registry_stats.get("by_status", {})
+
+            # Calculate metrics for dashboard
+            active_jobs = by_status.get("running", 0)
+            queued_jobs = by_status.get("pending", 0)
+            completed_jobs = by_status.get("completed", 0)
+
+            agents_available = registry_stats.get("available_agents", 0)
+            agents_busy = agent_by_status.get("busy", 0)
+            total_agents = registry_stats.get("total_agents", 0)
+
+            return json_response({
+                "active_jobs": active_jobs,
+                "queued_jobs": queued_jobs,
+                "completed_jobs": completed_jobs,
+                "agents_available": agents_available,
+                "agents_busy": agents_busy,
+                "total_agents": total_agents,
+                # These could come from a metrics store if available
+                "documents_processed_today": scheduler_stats.get("by_type", {}).get("document_processing", 0),
+                "audits_completed_today": scheduler_stats.get("by_type", {}).get("audit", 0),
+                "tokens_used_today": 0,  # Would need token tracking integration
+            })
+        except Exception as e:
+            logger.error(f"Error getting metrics: {e}")
             return error_response(str(e), 500)
 
     # =========================================================================

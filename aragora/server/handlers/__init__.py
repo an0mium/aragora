@@ -121,6 +121,7 @@ from .social import RelationshipHandler  # Moved to social/
 from .replays import ReplaysHandler
 from .reviews import ReviewsHandler
 from .routing import RoutingHandler
+from .ml import MLHandler
 from .selection import SelectionHandler
 from .social import SlackHandler  # Moved to social/
 from .social import SocialMediaHandler
@@ -173,6 +174,7 @@ ALL_HANDLERS = [
     CalibrationHandler,
     CheckpointHandler,
     RoutingHandler,
+    MLHandler,  # ML capabilities API (routing, scoring, consensus)
     SelectionHandler,  # Selection plugin API
     EvaluationHandler,  # LLM-as-Judge evaluation endpoints
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
@@ -242,6 +244,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
+    "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
@@ -385,6 +388,7 @@ __all__ = [
     "IntrospectionHandler",
     "CalibrationHandler",
     "RoutingHandler",
+    "MLHandler",
     "EvolutionHandler",
     "EvolutionABTestingHandler",
     "PluginsHandler",
