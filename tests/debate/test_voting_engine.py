@@ -27,7 +27,7 @@ from aragora.debate.voting_engine import (
 class MockVote:
     """Mock vote object for testing."""
 
-    agent_name: str
+    agent: str  # Changed from agent_name to match VotingEngine expectations
     choice: str
     vote_type: VoteType = VoteType.AGREE
     reasoning: str = ""

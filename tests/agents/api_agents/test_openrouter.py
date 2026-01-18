@@ -70,10 +70,9 @@ class TestOpenRouterAgentInitialization:
         """Should set default system prompt with language enforcement."""
         from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
-        with patch("aragora.agents.api_agents.openrouter.ENFORCE_RESPONSE_LANGUAGE", True):
-            with patch(
-                "aragora.agents.api_agents.openrouter.DEFAULT_DEBATE_LANGUAGE", "English"
-            ):
+        # Patch at the source (aragora.config) since openrouter imports from there
+        with patch("aragora.config.ENFORCE_RESPONSE_LANGUAGE", True):
+            with patch("aragora.config.DEFAULT_DEBATE_LANGUAGE", "English"):
                 agent = OpenRouterAgent()
 
                 if agent.system_prompt:
@@ -103,7 +102,7 @@ class TestOpenRouterContextBuilding:
 
         # Create 10 messages
         context = [
-            Message(agent=f"agent{i}", content=f"Message {i}", role="proposer", round_num=1)
+            Message(agent=f"agent{i}", content=f"Message {i}", role="proposer", round=1)
             for i in range(10)
         ]
 
