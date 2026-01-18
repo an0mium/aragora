@@ -1,0 +1,742 @@
+"""
+Notion Enterprise Connector.
+
+Provides full integration with Notion workspaces:
+- Page and database crawling
+- Block content extraction
+- Database property extraction
+- Incremental sync via timestamps
+- Nested page traversal
+
+Requires Notion Integration API credentials.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, AsyncIterator, Dict, List, Optional
+
+from aragora.connectors.enterprise.base import (
+    EnterpriseConnector,
+    SyncItem,
+    SyncState,
+)
+from aragora.reasoning.provenance import SourceType
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NotionPage:
+    """A Notion page."""
+
+    id: str
+    title: str
+    url: str
+    content: str = ""
+    parent_type: str = ""  # workspace, page_id, database_id
+    parent_id: str = ""
+    created_by: str = ""
+    created_at: Optional[datetime] = None
+    last_edited_by: str = ""
+    last_edited_at: Optional[datetime] = None
+    archived: bool = False
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class NotionDatabase:
+    """A Notion database."""
+
+    id: str
+    title: str
+    url: str
+    description: str = ""
+    properties: Dict[str, Any] = field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    last_edited_at: Optional[datetime] = None
+
+
+class NotionConnector(EnterpriseConnector):
+    """
+    Enterprise connector for Notion workspaces.
+
+    Features:
+    - Page content extraction (all block types)
+    - Database crawling with property extraction
+    - Nested page traversal
+    - Incremental sync via last_edited_time
+    - Rich text to plaintext conversion
+
+    Authentication:
+    - Internal Integration token
+    - Requires workspace access configuration in Notion
+
+    Usage:
+        connector = NotionConnector(
+            workspace_name="Engineering",  # For identification
+        )
+        result = await connector.sync()
+    """
+
+    def __init__(
+        self,
+        workspace_name: str = "default",
+        include_archived: bool = False,
+        include_databases: bool = True,
+        max_depth: int = 5,
+        **kwargs,
+    ):
+        """
+        Initialize Notion connector.
+
+        Args:
+            workspace_name: Name for identification (any string)
+            include_archived: Whether to include archived pages
+            include_databases: Whether to crawl database entries
+            max_depth: Maximum depth for nested page traversal
+        """
+        connector_id = f"notion_{workspace_name.lower().replace(' ', '_')}"
+        super().__init__(connector_id=connector_id, **kwargs)
+
+        self.workspace_name = workspace_name
+        self.include_archived = include_archived
+        self.include_databases = include_databases
+        self.max_depth = max_depth
+
+        # Cache
+        self._pages_cache: Dict[str, NotionPage] = {}
+        self._databases_cache: Dict[str, NotionDatabase] = {}
+
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.DOCUMENT
+
+    @property
+    def name(self) -> str:
+        return f"Notion ({self.workspace_name})"
+
+    async def _get_auth_header(self) -> Dict[str, str]:
+        """Get authentication header."""
+        token = await self.credentials.get_credential("NOTION_API_TOKEN")
+
+        if not token:
+            raise ValueError(
+                "Notion credentials not configured. Set NOTION_API_TOKEN"
+            )
+
+        return {
+            "Authorization": f"Bearer {token}",
+            "Notion-Version": "2022-06-28",
+        }
+
+    async def _api_request(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        params: Optional[Dict[str, Any]] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Make a request to Notion API."""
+        import httpx
+
+        headers = await self._get_auth_header()
+        headers["Content-Type"] = "application/json"
+
+        url = f"https://api.notion.com/v1{endpoint}"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json_data,
+                timeout=60,
+            )
+            response.raise_for_status()
+            return response.json() if response.content else {}
+
+    async def _search_pages(
+        self,
+        query: str = "",
+        filter_type: Optional[str] = None,
+        start_cursor: Optional[str] = None,
+    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """Search for pages and databases."""
+        body: Dict[str, Any] = {
+            "page_size": 100,
+        }
+
+        if query:
+            body["query"] = query
+
+        if filter_type:
+            body["filter"] = {"property": "object", "value": filter_type}
+
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+
+        data = await self._api_request("/search", method="POST", json_data=body)
+
+        results = data.get("results", [])
+        next_cursor = data.get("next_cursor")
+
+        return results, next_cursor
+
+    async def _get_page(self, page_id: str) -> Optional[NotionPage]:
+        """Get a page by ID."""
+        try:
+            data = await self._api_request(f"/pages/{page_id}")
+            return self._parse_page(data)
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to get page {page_id}: {e}")
+            return None
+
+    async def _get_database(self, database_id: str) -> Optional[NotionDatabase]:
+        """Get a database by ID."""
+        try:
+            data = await self._api_request(f"/databases/{database_id}")
+            return self._parse_database(data)
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to get database {database_id}: {e}")
+            return None
+
+    async def _query_database(
+        self,
+        database_id: str,
+        start_cursor: Optional[str] = None,
+    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """Query database entries."""
+        body: Dict[str, Any] = {
+            "page_size": 100,
+        }
+
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+
+        data = await self._api_request(
+            f"/databases/{database_id}/query",
+            method="POST",
+            json_data=body,
+        )
+
+        results = data.get("results", [])
+        next_cursor = data.get("next_cursor")
+
+        return results, next_cursor
+
+    async def _get_block_children(
+        self,
+        block_id: str,
+        start_cursor: Optional[str] = None,
+    ) -> tuple[List[Dict[str, Any]], Optional[str]]:
+        """Get child blocks of a block."""
+        params: Dict[str, Any] = {"page_size": 100}
+
+        if start_cursor:
+            params["start_cursor"] = start_cursor
+
+        data = await self._api_request(f"/blocks/{block_id}/children", params=params)
+
+        results = data.get("results", [])
+        next_cursor = data.get("next_cursor")
+
+        return results, next_cursor
+
+    async def _get_page_content(self, page_id: str, depth: int = 0) -> str:
+        """Get full content of a page by extracting all blocks."""
+        if depth >= self.max_depth:
+            return ""
+
+        content_parts = []
+        cursor = None
+
+        while True:
+            blocks, cursor = await self._get_block_children(page_id, cursor)
+
+            for block in blocks:
+                block_content = self._extract_block_content(block)
+                if block_content:
+                    content_parts.append(block_content)
+
+                # Recursively get nested blocks
+                if block.get("has_children"):
+                    nested_content = await self._get_page_content(block["id"], depth + 1)
+                    if nested_content:
+                        content_parts.append(nested_content)
+
+            if not cursor:
+                break
+
+        return "\n".join(content_parts)
+
+    def _parse_page(self, data: Dict[str, Any]) -> NotionPage:
+        """Parse page data into NotionPage."""
+        # Extract title from properties
+        title = ""
+        properties = data.get("properties", {})
+        for prop_name, prop_value in properties.items():
+            if prop_value.get("type") == "title":
+                title_parts = prop_value.get("title", [])
+                title = self._rich_text_to_string(title_parts)
+                break
+
+        # Parse parent
+        parent = data.get("parent", {})
+        parent_type = parent.get("type", "")
+        parent_id = parent.get(parent_type, "") if parent_type else ""
+
+        # Parse timestamps
+        created_at = None
+        last_edited_at = None
+
+        if data.get("created_time"):
+            try:
+                created_at = datetime.fromisoformat(
+                    data["created_time"].replace("Z", "+00:00")
+                )
+            except ValueError as e:
+                logger.debug(f"Invalid created_time format: {e}")
+
+        if data.get("last_edited_time"):
+            try:
+                last_edited_at = datetime.fromisoformat(
+                    data["last_edited_time"].replace("Z", "+00:00")
+                )
+            except ValueError as e:
+                logger.debug(f"Invalid last_edited_time format: {e}")
+
+        return NotionPage(
+            id=data.get("id", ""),
+            title=title or "Untitled",
+            url=data.get("url", ""),
+            parent_type=parent_type,
+            parent_id=parent_id,
+            created_by=data.get("created_by", {}).get("id", ""),
+            created_at=created_at,
+            last_edited_by=data.get("last_edited_by", {}).get("id", ""),
+            last_edited_at=last_edited_at,
+            archived=data.get("archived", False),
+            properties=properties,
+        )
+
+    def _parse_database(self, data: Dict[str, Any]) -> NotionDatabase:
+        """Parse database data into NotionDatabase."""
+        # Extract title
+        title_parts = data.get("title", [])
+        title = self._rich_text_to_string(title_parts) or "Untitled Database"
+
+        # Extract description
+        description_parts = data.get("description", [])
+        description = self._rich_text_to_string(description_parts)
+
+        # Parse timestamps
+        created_at = None
+        last_edited_at = None
+
+        if data.get("created_time"):
+            try:
+                created_at = datetime.fromisoformat(
+                    data["created_time"].replace("Z", "+00:00")
+                )
+            except ValueError as e:
+                logger.debug(f"Invalid created_time format: {e}")
+
+        if data.get("last_edited_time"):
+            try:
+                last_edited_at = datetime.fromisoformat(
+                    data["last_edited_time"].replace("Z", "+00:00")
+                )
+            except ValueError as e:
+                logger.debug(f"Invalid last_edited_time format: {e}")
+
+        return NotionDatabase(
+            id=data.get("id", ""),
+            title=title,
+            url=data.get("url", ""),
+            description=description,
+            properties=data.get("properties", {}),
+            created_at=created_at,
+            last_edited_at=last_edited_at,
+        )
+
+    def _rich_text_to_string(self, rich_text: List[Dict[str, Any]]) -> str:
+        """Convert Notion rich text array to plain string."""
+        parts = []
+        for item in rich_text:
+            text = item.get("plain_text", "") or item.get("text", {}).get("content", "")
+            if text:
+                parts.append(text)
+        return "".join(parts)
+
+    def _extract_block_content(self, block: Dict[str, Any]) -> str:
+        """Extract text content from a block."""
+        block_type = block.get("type", "")
+        block_data = block.get(block_type, {})
+
+        # Text-based blocks
+        if block_type in [
+            "paragraph",
+            "heading_1",
+            "heading_2",
+            "heading_3",
+            "bulleted_list_item",
+            "numbered_list_item",
+            "quote",
+            "callout",
+            "toggle",
+        ]:
+            rich_text = block_data.get("rich_text", [])
+            text = self._rich_text_to_string(rich_text)
+
+            # Add formatting
+            if block_type == "heading_1":
+                return f"# {text}"
+            elif block_type == "heading_2":
+                return f"## {text}"
+            elif block_type == "heading_3":
+                return f"### {text}"
+            elif block_type == "bulleted_list_item":
+                return f"- {text}"
+            elif block_type == "numbered_list_item":
+                return f"1. {text}"
+            elif block_type == "quote":
+                return f"> {text}"
+            elif block_type == "callout":
+                emoji = block_data.get("icon", {}).get("emoji", "")
+                return f"{emoji} {text}"
+
+            return text
+
+        # Code blocks
+        elif block_type == "code":
+            rich_text = block_data.get("rich_text", [])
+            code = self._rich_text_to_string(rich_text)
+            language = block_data.get("language", "")
+            return f"```{language}\n{code}\n```"
+
+        # To-do items
+        elif block_type == "to_do":
+            rich_text = block_data.get("rich_text", [])
+            text = self._rich_text_to_string(rich_text)
+            checked = block_data.get("checked", False)
+            return f"[{'x' if checked else ' '}] {text}"
+
+        # Table of contents, divider, etc.
+        elif block_type == "divider":
+            return "---"
+
+        # Embed types
+        elif block_type in ["embed", "bookmark", "link_preview"]:
+            url = block_data.get("url", "")
+            return f"[Link: {url}]"
+
+        # File/Image
+        elif block_type in ["file", "image", "video", "pdf"]:
+            file_data = block_data.get("file", {}) or block_data.get("external", {})
+            url = file_data.get("url", "")
+            caption = self._rich_text_to_string(block_data.get("caption", []))
+            return f"[{block_type.title()}: {caption or url}]"
+
+        return ""
+
+    def _extract_database_entry_content(
+        self,
+        entry: Dict[str, Any],
+        database: NotionDatabase,
+    ) -> str:
+        """Extract content from a database entry."""
+        parts = []
+
+        properties = entry.get("properties", {})
+
+        for prop_name, prop_value in properties.items():
+            prop_type = prop_value.get("type", "")
+            value = ""
+
+            if prop_type == "title":
+                value = self._rich_text_to_string(prop_value.get("title", []))
+            elif prop_type == "rich_text":
+                value = self._rich_text_to_string(prop_value.get("rich_text", []))
+            elif prop_type == "number":
+                value = str(prop_value.get("number", ""))
+            elif prop_type == "select":
+                select = prop_value.get("select")
+                value = select.get("name", "") if select else ""
+            elif prop_type == "multi_select":
+                options = prop_value.get("multi_select", [])
+                value = ", ".join(opt.get("name", "") for opt in options)
+            elif prop_type == "date":
+                date = prop_value.get("date")
+                if date:
+                    value = date.get("start", "")
+                    if date.get("end"):
+                        value += f" - {date['end']}"
+            elif prop_type == "checkbox":
+                value = "Yes" if prop_value.get("checkbox") else "No"
+            elif prop_type == "url":
+                value = prop_value.get("url", "")
+            elif prop_type == "email":
+                value = prop_value.get("email", "")
+            elif prop_type == "phone_number":
+                value = prop_value.get("phone_number", "")
+            elif prop_type == "status":
+                status = prop_value.get("status")
+                value = status.get("name", "") if status else ""
+
+            if value:
+                parts.append(f"{prop_name}: {value}")
+
+        return "\n".join(parts)
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """
+        Yield Notion pages and database entries for syncing.
+        """
+        # Parse last sync timestamp from cursor
+        modified_since = None
+        if state.cursor:
+            try:
+                modified_since = datetime.fromisoformat(state.cursor)
+            except ValueError as e:
+                logger.debug(f"Invalid cursor timestamp, starting fresh sync: {e}")
+
+        items_yielded = 0
+        cursor = None
+
+        # Search for all pages
+        while True:
+            results, cursor = await self._search_pages(filter_type="page", start_cursor=cursor)
+
+            for item in results:
+                if item.get("object") != "page":
+                    continue
+
+                page = self._parse_page(item)
+
+                # Skip archived if not included
+                if page.archived and not self.include_archived:
+                    continue
+
+                # Skip if not modified since last sync
+                if modified_since and page.last_edited_at and page.last_edited_at < modified_since:
+                    continue
+
+                # Get full content
+                content = await self._get_page_content(page.id)
+                page.content = content
+
+                full_content = f"# {page.title}\n\n{content}"
+
+                yield SyncItem(
+                    id=f"notion-page-{page.id}",
+                    content=full_content[:50000],
+                    source_type="document",
+                    source_id=f"notion/page/{page.id}",
+                    title=page.title,
+                    url=page.url,
+                    author=page.last_edited_by or page.created_by,
+                    created_at=page.created_at,
+                    updated_at=page.last_edited_at,
+                    domain="enterprise/notion",
+                    confidence=0.85,
+                    metadata={
+                        "page_id": page.id,
+                        "parent_type": page.parent_type,
+                        "parent_id": page.parent_id,
+                        "archived": page.archived,
+                    },
+                )
+
+                items_yielded += 1
+
+                # Update cursor
+                if page.last_edited_at:
+                    current = state.cursor
+                    new_ts = page.last_edited_at.isoformat()
+                    if not current or new_ts > current:
+                        state.cursor = new_ts
+
+                if items_yielded >= batch_size:
+                    await asyncio.sleep(0)
+
+            if not cursor:
+                break
+
+        # Search for databases and their entries
+        if self.include_databases:
+            cursor = None
+
+            while True:
+                results, cursor = await self._search_pages(
+                    filter_type="database", start_cursor=cursor
+                )
+
+                for item in results:
+                    if item.get("object") != "database":
+                        continue
+
+                    database = self._parse_database(item)
+                    self._databases_cache[database.id] = database
+
+                    # Query database entries
+                    entry_cursor = None
+                    while True:
+                        entries, entry_cursor = await self._query_database(
+                            database.id, entry_cursor
+                        )
+
+                        for entry in entries:
+                            entry_page = self._parse_page(entry)
+
+                            if entry_page.archived and not self.include_archived:
+                                continue
+
+                            if (
+                                modified_since
+                                and entry_page.last_edited_at
+                                and entry_page.last_edited_at < modified_since
+                            ):
+                                continue
+
+                            # Extract properties content
+                            props_content = self._extract_database_entry_content(
+                                entry, database
+                            )
+
+                            # Get page content
+                            page_content = await self._get_page_content(entry_page.id)
+
+                            full_content = f"# {entry_page.title}\n\n{props_content}\n\n{page_content}"
+
+                            yield SyncItem(
+                                id=f"notion-db-{database.id}-{entry_page.id}",
+                                content=full_content[:50000],
+                                source_type="document",
+                                source_id=f"notion/database/{database.id}/entry/{entry_page.id}",
+                                title=entry_page.title,
+                                url=entry_page.url,
+                                author=entry_page.last_edited_by or entry_page.created_by,
+                                created_at=entry_page.created_at,
+                                updated_at=entry_page.last_edited_at,
+                                domain="enterprise/notion",
+                                confidence=0.85,
+                                metadata={
+                                    "page_id": entry_page.id,
+                                    "database_id": database.id,
+                                    "database_title": database.title,
+                                },
+                            )
+
+                            items_yielded += 1
+
+                            if entry_page.last_edited_at:
+                                current = state.cursor
+                                new_ts = entry_page.last_edited_at.isoformat()
+                                if not current or new_ts > current:
+                                    state.cursor = new_ts
+
+                        if not entry_cursor:
+                            break
+
+                if not cursor:
+                    break
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> list:
+        """Search Notion content."""
+        from aragora.connectors.base import Evidence
+
+        results = []
+        cursor = None
+        count = 0
+
+        while count < limit:
+            items, cursor = await self._search_pages(query=query, start_cursor=cursor)
+
+            for item in items:
+                if count >= limit:
+                    break
+
+                if item.get("object") == "page":
+                    page = self._parse_page(item)
+                    content = await self._get_page_content(page.id)
+
+                    results.append(
+                        Evidence(
+                            id=f"notion-{page.id}",
+                            source_type=self.source_type,
+                            source_id=page.id,
+                            content=content[:2000],
+                            title=page.title,
+                            url=page.url,
+                            confidence=0.8,
+                        )
+                    )
+                    count += 1
+
+                elif item.get("object") == "database":
+                    database = self._parse_database(item)
+                    results.append(
+                        Evidence(
+                            id=f"notion-db-{database.id}",
+                            source_type=self.source_type,
+                            source_id=database.id,
+                            content=database.description or database.title,
+                            title=database.title,
+                            url=database.url,
+                            confidence=0.8,
+                            metadata={"type": "database"},
+                        )
+                    )
+                    count += 1
+
+            if not cursor:
+                break
+
+        return results
+
+    async def fetch(self, evidence_id: str) -> Optional[Any]:
+        """Fetch a specific Notion page."""
+        from aragora.connectors.base import Evidence
+
+        # Extract page ID
+        if evidence_id.startswith("notion-page-"):
+            page_id = evidence_id[12:]
+        elif evidence_id.startswith("notion-"):
+            page_id = evidence_id[7:]
+        else:
+            page_id = evidence_id
+
+        page = await self._get_page(page_id)
+        if not page:
+            return None
+
+        content = await self._get_page_content(page.id)
+
+        return Evidence(
+            id=evidence_id,
+            source_type=self.source_type,
+            source_id=page.id,
+            content=content,
+            title=page.title,
+            url=page.url,
+            created_at=page.created_at.isoformat() if page.created_at else None,
+            confidence=0.85,
+        )
+
+
+__all__ = ["NotionConnector", "NotionPage", "NotionDatabase"]

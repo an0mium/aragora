@@ -199,8 +199,8 @@ class MongoDBConnector(EnterpriseConnector):
                         if cursor_data.get("collection") == collection_name:
                             from bson import ObjectId
                             query["_id"] = {"$gt": ObjectId(cursor_data["last_id"])}
-                    except (json.JSONDecodeError, Exception):
-                        pass
+                    except (json.JSONDecodeError, Exception) as e:
+                        logger.debug(f"Failed to parse cursor, starting from beginning: {e}")
 
                 # Sort by timestamp or _id
                 sort_field = self.timestamp_field if state.last_item_timestamp else "_id"
@@ -287,8 +287,8 @@ class MongoDBConnector(EnterpriseConnector):
                             "score": doc.get("score", 0),
                         })
                     continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Text search not available, falling back to regex: {e}")
 
                 # Fallback to regex search on string fields
                 # Get a sample document to find string fields

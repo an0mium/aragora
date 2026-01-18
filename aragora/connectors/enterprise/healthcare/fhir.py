@@ -774,8 +774,8 @@ class FHIRConnector(EnterpriseConnector):
                                 updated_at = datetime.fromisoformat(
                                     last_updated.replace("Z", "+00:00")
                                 )
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.debug(f"Invalid FHIR lastUpdated format: {e}")
 
                         # Create sync item
                         item_id = f"fhir:{self.organization_id}:{resource_name}:{resource_id}"
