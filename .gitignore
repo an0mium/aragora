@@ -153,3 +153,6 @@ docs/investor/
 
 # Comparison projects (external references)
 .comparison/
+# Local config
+.python-version
+.claude/
