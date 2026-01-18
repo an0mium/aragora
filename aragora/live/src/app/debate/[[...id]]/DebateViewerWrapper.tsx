@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { DebateViewer } from '@/components/DebateViewer';
+import { DebateViewer } from '@/components/debate-viewer';
 import { CruxPanel } from '@/components/CruxPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';

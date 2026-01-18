@@ -13,6 +13,7 @@ export interface FeatureInfo {
   endpoints?: string[];
   install_hint?: string;
   category?: string;
+  reason?: string;  // Reason if unavailable (e.g., "Requires configuration: Set API keys")
 }
 
 /**

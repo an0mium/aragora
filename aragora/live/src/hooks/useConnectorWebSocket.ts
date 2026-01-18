@@ -3,11 +3,17 @@
 /**
  * Connector WebSocket hook for real-time connector sync updates.
  *
+ * @status PENDING_UI_INTEGRATION - This hook is fully implemented but not yet
+ * wired to any UI component. Intended for use with ConnectorDashboard when
+ * connector sync UI is built.
+ *
  * Provides:
  * - Sync progress tracking
  * - Document ingestion events
  * - Connector status updates
  * - Error notifications
+ *
+ * @see aragora/live/src/components/control-plane/ConnectorDashboard/ for target integration
  */
 
 import { useState, useCallback, useMemo } from 'react';

@@ -9,8 +9,9 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useDebateWebSocket } from '@/hooks/useDebateWebSocket';
 import { LiveDebateView } from './LiveDebateView';
 import { ArchivedDebateView } from './ArchivedDebateView';
-import type { DebateViewerProps, DebateArtifact, StreamingMessage } from './types';
+import type { DebateViewerProps, DebateArtifact, StreamingMessage, CruxClaim } from './types';
 import { logger } from '@/utils/logger';
+import { API_BASE_URL } from '@/config';
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
 
@@ -24,6 +25,10 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
   const [userScrolled, setUserScrolled] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Crux highlighting state
+  const [cruxes, setCruxes] = useState<CruxClaim[]>([]);
+  const [showCruxHighlighting, setShowCruxHighlighting] = useState(true);
+
   const isLiveDebate = debateId.startsWith('adhoc_');
 
   const {
@@ -34,10 +39,13 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     streamingMessages,
     streamEvents,
     hasCitations,
+    error: liveError,
+    errorDetails: liveErrorDetails,
     sendVote,
     sendSuggestion,
     registerAckCallback,
     registerErrorCallback,
+    reconnect,
   } = useDebateWebSocket({
     debateId,
     wsUrl,
@@ -49,6 +57,37 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
       setShowCitations(true);
     }
   }, [hasCitations]);
+
+  // Fetch cruxes for highlighting when we have enough messages
+  useEffect(() => {
+    // Skip for non-live debates or if already fetched
+    if (!isLiveDebate || cruxes.length > 0) return;
+    // Wait until we have at least 3 messages
+    if (liveMessages.length < 3) return;
+
+    const fetchCruxes = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/belief-network/${debateId}/cruxes?top_k=5`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.cruxes && data.cruxes.length > 0) {
+            setCruxes(data.cruxes.map((c: { claim_id?: string; statement?: string; author?: string; crux_score?: number }) => ({
+              claim_id: c.claim_id || '',
+              statement: c.statement || '',
+              author: c.author || '',
+              crux_score: c.crux_score,
+            })));
+          }
+        }
+      } catch (err) {
+        logger.debug('Failed to fetch cruxes:', err);
+      }
+    };
+
+    // Delay fetch slightly to let debate settle
+    const timer = setTimeout(fetchCruxes, 2000);
+    return () => clearTimeout(timer);
+  }, [liveMessages.length, cruxes.length, debateId, isLiveDebate]);
 
   // Detect when user manually scrolls up
   const handleScroll = useCallback(() => {
@@ -162,6 +201,9 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               onScroll={handleScroll}
               userScrolled={userScrolled}
               onResumeAutoScroll={handleResumeAutoScroll}
+              cruxes={cruxes}
+              showCruxHighlighting={showCruxHighlighting}
+              setShowCruxHighlighting={setShowCruxHighlighting}
             />
           )}
 

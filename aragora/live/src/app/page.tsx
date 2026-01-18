@@ -18,7 +18,7 @@ import { DebateBrowser } from '@/components/DebateBrowser';
 import { DebateExportModal } from '@/components/DebateExportModal';
 import { VerdictCard } from '@/components/VerdictCard';
 import { CompareButton } from '@/components/CompareView';
-import { DeepAuditToggle } from '@/components/DeepAuditView';
+import { DeepAuditToggle } from '@/components/deep-audit';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -54,7 +54,7 @@ const CompareView = dynamic(() => import('@/components/CompareView').then(m => (
 });
 
 // Only shown in deep-audit view mode
-const DeepAuditView = dynamic(() => import('@/components/DeepAuditView').then(m => ({ default: m.DeepAuditView })), {
+const DeepAuditView = dynamic(() => import('@/components/deep-audit').then(m => ({ default: m.DeepAuditView })), {
   ssr: false,
 });
 

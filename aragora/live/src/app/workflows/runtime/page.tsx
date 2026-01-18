@@ -70,22 +70,26 @@ export default function WorkflowRuntimePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [usingMockData, setUsingMockData] = useState(false);
 
   const fetchExecutions = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/workflow-executions`);
       if (!response.ok) {
-        // Use mock data if API not available
+        // Demo mode: use mock data if API not available
         setExecutions(getMockExecutions());
+        setUsingMockData(true);
         setError(null);
         return;
       }
       const data = await response.json();
       setExecutions(data.executions || []);
+      setUsingMockData(false);
       setError(null);
     } catch {
-      // Use mock data on error
+      // Demo mode: use mock data on error
       setExecutions(getMockExecutions());
+      setUsingMockData(true);
     } finally {
       setLoading(false);
     }
@@ -158,9 +162,17 @@ export default function WorkflowRuntimePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-mono font-bold text-text mb-2">
-              Workflow Runtime
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-mono font-bold text-text">
+                Workflow Runtime
+              </h1>
+              {usingMockData && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-900/20 border border-yellow-600/30 rounded text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                  <span className="font-mono text-yellow-400">DEMO MODE</span>
+                </div>
+              )}
+            </div>
             <p className="text-text-muted">Monitor active workflow executions</p>
           </div>
           <Link

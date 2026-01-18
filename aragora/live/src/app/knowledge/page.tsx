@@ -77,31 +77,47 @@ export default function KnowledgeMoundPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (searchQuery) params.set('query', searchQuery);
-      if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (tierFilter !== 'all') params.set('tier', tierFilter);
-      if (typeFilter !== 'all') params.set('type', typeFilter);
+      if (typeFilter !== 'all') params.set('node_types', typeFilter);
       params.set('limit', '50');
 
-      const response = await fetch(`${API_BASE_URL}/api/knowledge/query?${params}`);
-      if (!response.ok) {
-        setNodes(getMockNodes());
-        setStats(getMockStats());
-        return;
+      // Use semantic query for search, or list nodes for browsing
+      if (searchQuery) {
+        const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: searchQuery,
+            limit: 50,
+            node_types: typeFilter !== 'all' ? [typeFilter] : undefined,
+          }),
+        });
+        if (!response.ok) {
+          setNodes(getMockNodes());
+          return;
+        }
+        const data = await response.json();
+        setNodes(data.nodes || []);
+      } else {
+        const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes?${params}`);
+        if (!response.ok) {
+          setNodes(getMockNodes());
+          return;
+        }
+        const data = await response.json();
+        setNodes(data.nodes || []);
       }
-      const data = await response.json();
-      setNodes(data.items || []);
     } catch {
       setNodes(getMockNodes());
-      setStats(getMockStats());
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, sourceFilter, tierFilter, typeFilter]);
+  }, [searchQuery, tierFilter, typeFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/knowledge/stats`);
+      // Use mound stats endpoint
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/stats`);
       if (!response.ok) {
         setStats(getMockStats());
         return;
@@ -115,7 +131,8 @@ export default function KnowledgeMoundPage() {
 
   const fetchRelationships = useCallback(async (nodeId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/knowledge/nodes/${nodeId}/relationships`);
+      // Use the mound API for node relationships
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/nodes/${nodeId}/relationships`);
       if (!response.ok) {
         setRelationships(getMockRelationships(nodeId));
         return;

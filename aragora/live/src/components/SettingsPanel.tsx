@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBackend } from '@/components/BackendSelector';
 import { API_BASE_URL } from '@/config';
+import { MFASettings } from '@/components/settings/MFASettings';
 
 interface FeatureConfig {
   // Feature toggles
@@ -1373,31 +1374,38 @@ export function SettingsPanel() {
 
               <div className="card p-6 border-acid-yellow/30">
                 <h3 className="font-mono text-acid-yellow mb-4">Security</h3>
-                <p className="font-mono text-xs text-text-muted mb-4">
-                  Manage your session security and active logins.
-                </p>
-                <button
-                  onClick={handleLogoutAllDevices}
-                  disabled={logoutAllStatus === 'loading'}
-                  className={`w-full px-4 py-2 border font-mono text-sm rounded transition-colors text-left ${
-                    logoutAllStatus === 'success'
-                      ? 'border-acid-green/40 text-acid-green bg-acid-green/10'
+
+                {/* MFA Settings */}
+                <MFASettings user={user} />
+
+                <div className="mt-6 pt-4 border-t border-acid-yellow/20">
+                  <h4 className="font-mono text-sm text-text mb-2">Session Management</h4>
+                  <p className="font-mono text-xs text-text-muted mb-4">
+                    Manage your active sessions across devices.
+                  </p>
+                  <button
+                    onClick={handleLogoutAllDevices}
+                    disabled={logoutAllStatus === 'loading'}
+                    className={`w-full px-4 py-2 border font-mono text-sm rounded transition-colors text-left ${
+                      logoutAllStatus === 'success'
+                        ? 'border-acid-green/40 text-acid-green bg-acid-green/10'
+                        : logoutAllStatus === 'error'
+                        ? 'border-acid-red/40 text-acid-red bg-acid-red/10'
+                        : 'border-acid-yellow/40 text-acid-yellow hover:bg-acid-yellow/10'
+                    } disabled:opacity-50`}
+                  >
+                    {logoutAllStatus === 'loading'
+                      ? 'Logging out...'
+                      : logoutAllStatus === 'success'
+                      ? 'Logged out! Redirecting...'
                       : logoutAllStatus === 'error'
-                      ? 'border-acid-red/40 text-acid-red bg-acid-red/10'
-                      : 'border-acid-yellow/40 text-acid-yellow hover:bg-acid-yellow/10'
-                  } disabled:opacity-50`}
-                >
-                  {logoutAllStatus === 'loading'
-                    ? 'Logging out...'
-                    : logoutAllStatus === 'success'
-                    ? 'Logged out! Redirecting...'
-                    : logoutAllStatus === 'error'
-                    ? 'Failed - try again'
-                    : 'Logout All Devices'}
-                </button>
-                <p className="font-mono text-xs text-text-muted mt-2">
-                  Invalidates all sessions and tokens. You will be signed out everywhere.
-                </p>
+                      ? 'Failed - try again'
+                      : 'Logout All Devices'}
+                  </button>
+                  <p className="font-mono text-xs text-text-muted mt-2">
+                    Invalidates all sessions and tokens. You will be signed out everywhere.
+                  </p>
+                </div>
               </div>
 
               <div className="card p-6 border-acid-red/30">

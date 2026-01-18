@@ -70,27 +70,47 @@ interface FeatureUnavailableProps {
  * Default fallback component for unavailable features
  *
  * Shows feature name and optional install hints from the backend.
+ * Distinguishes between "requires configuration" and truly unavailable.
  */
 function FeatureUnavailable({ featureId }: FeatureUnavailableProps) {
   const info = useFeatureInfo(featureId);
 
+  // Check if feature requires configuration (vs truly missing)
+  const requiresConfig = info?.reason?.toLowerCase().includes('requires configuration') ||
+    info?.reason?.toLowerCase().includes('set ') ||
+    info?.reason?.toLowerCase().includes('api key');
+
+  const statusText = requiresConfig
+    ? 'Requires Configuration'
+    : 'Unavailable';
+
+  const statusColor = requiresConfig
+    ? 'text-blue-400 border-blue-500/30'
+    : 'text-amber-400 border-amber-500/30';
+
+  const bgColor = requiresConfig
+    ? 'bg-blue-900/10'
+    : 'bg-amber-900/10';
+
   return (
-    <div className="bg-surface border border-amber-500/30 rounded-lg p-4">
+    <div className={`bg-surface border ${statusColor.split(' ')[1]} rounded-lg p-4`}>
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-amber-400 text-lg">!</span>
-        <h3 className="text-sm font-medium text-amber-400">
-          {info?.name || featureId} Unavailable
+        <span className={`${statusColor.split(' ')[0]} text-lg`}>
+          {requiresConfig ? '\u2699' : '!'}
+        </span>
+        <h3 className={`text-sm font-medium ${statusColor.split(' ')[0]}`}>
+          {info?.name || featureId} {statusText}
         </h3>
       </div>
       <p className="text-xs text-text-muted mb-2">
-        {info?.description || `The ${featureId} feature is not currently available.`}
+        {info?.reason || info?.description || `The ${featureId} feature is not currently available.`}
       </p>
       {info?.install_hint && (
-        <details className="mt-2">
+        <details className="mt-2" open={requiresConfig}>
           <summary className="text-xs text-text-muted cursor-pointer hover:text-text">
-            How to enable
+            {requiresConfig ? 'Configuration steps' : 'How to enable'}
           </summary>
-          <p className="mt-2 text-xs text-amber-300/70 bg-amber-900/10 p-2 rounded">
+          <p className={`mt-2 text-xs ${statusColor.split(' ')[0].replace('text-', 'text-')}/70 ${bgColor} p-2 rounded`}>
             {info.install_hint}
           </p>
         </details>

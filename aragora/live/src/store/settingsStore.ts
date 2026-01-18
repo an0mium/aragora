@@ -60,6 +60,7 @@ export interface APIKey {
 export interface BackendConfig {
   apiUrl: string;
   wsUrl: string;
+  controlPlaneWsUrl?: string;
   defaultAgents: string[];
   defaultRounds: number;
 }

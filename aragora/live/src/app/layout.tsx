@@ -4,7 +4,11 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { SidebarProvider } from '@/context/SidebarContext';
+import { ConnectionProvider } from '@/context/ConnectionContext';
+import { DebateSelectionProvider } from '@/context/DebateSelectionContext';
 import { Sidebar } from '@/components/Sidebar';
+import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
+import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -32,6 +36,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="crt-overlay crt-flicker">
+        {/* Configuration health banner - shows warnings for missing env vars */}
+        <ConfigHealthBanner />
         {/* Skip to main content link for keyboard/screen reader users */}
         <a
           href="#main-content"
@@ -40,16 +46,21 @@ export default function RootLayout({
           Skip to main content
         </a>
         <AuthProvider>
-          <SidebarProvider>
-            <ToastProvider>
-              <ErrorBoundary>
-                <Sidebar />
-                <div id="main-content" tabIndex={-1}>
-                  {children}
-                </div>
-              </ErrorBoundary>
-            </ToastProvider>
-          </SidebarProvider>
+          <ConnectionProvider>
+            <DebateSelectionProvider>
+              <SidebarProvider>
+                <ToastProvider>
+                  <ErrorBoundary>
+                    <Sidebar />
+                    <GlobalConnectionStatus />
+                    <div id="main-content" tabIndex={-1}>
+                      {children}
+                    </div>
+                  </ErrorBoundary>
+                </ToastProvider>
+              </SidebarProvider>
+            </DebateSelectionProvider>
+          </ConnectionProvider>
         </AuthProvider>
       </body>
     </html>

@@ -528,11 +528,221 @@ class BillingAPI {
   }
 }
 
+// =============================================================================
+// Analytics Types
+// =============================================================================
+
+export interface AnalyticsSummary {
+  total_debates: number;
+  total_messages: number;
+  consensus_rate: number;
+  avg_debate_duration_ms: number;
+  active_users_24h: number;
+  top_topics: Array<{ topic: string; count: number }>;
+}
+
+export interface FindingsTrend {
+  date: string;
+  findings_count: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface RemediationMetrics {
+  total_findings: number;
+  remediated: number;
+  pending: number;
+  avg_remediation_time_hours: number;
+  remediation_rate: number;
+}
+
+export interface AgentMetrics {
+  agent_id: string;
+  name: string;
+  debates_participated: number;
+  avg_message_length: number;
+  consensus_contribution: number;
+  response_time_ms: number;
+  elo_rating?: number;
+}
+
+export interface CostAnalysis {
+  total_cost_usd: number;
+  cost_by_model: Record<string, number>;
+  cost_by_debate_type: Record<string, number>;
+  projected_monthly_cost: number;
+  cost_trend: Array<{ date: string; cost: number }>;
+}
+
+export interface ComplianceScore {
+  overall_score: number;
+  categories: Array<{
+    category: string;
+    score: number;
+    max_score: number;
+    findings: number;
+  }>;
+  last_audit: string;
+}
+
+export interface HeatmapData {
+  x_labels: string[];
+  y_labels: string[];
+  values: number[][];
+  max_value: number;
+}
+
+export interface DisagreementStats {
+  total_disagreements: number;
+  avg_disagreement_intensity: number;
+  resolved_rate: number;
+  top_disagreement_topics: Array<{ topic: string; count: number }>;
+}
+
 class AnalyticsAPI {
   constructor(private http: HttpClient) {}
 
   async overview(days = 30) {
     return this.http.get<unknown>(`/api/analytics?days=${days}`);
+  }
+
+  /** Dashboard summary metrics */
+  async summary(): Promise<{ summary: AnalyticsSummary }> {
+    return this.http.get('/api/analytics/summary');
+  }
+
+  /** Finding trends over time */
+  async findingsTrends(days = 30): Promise<{ trends: FindingsTrend[] }> {
+    return this.http.get(`/api/analytics/trends/findings?days=${days}`);
+  }
+
+  /** Remediation metrics */
+  async remediation(): Promise<{ metrics: RemediationMetrics }> {
+    return this.http.get('/api/analytics/remediation');
+  }
+
+  /** Agent performance metrics */
+  async agents(): Promise<{ agents: AgentMetrics[] }> {
+    return this.http.get('/api/analytics/agents');
+  }
+
+  /** Cost analysis */
+  async cost(days = 30): Promise<{ analysis: CostAnalysis }> {
+    return this.http.get(`/api/analytics/cost?days=${days}`);
+  }
+
+  /** Compliance scorecard */
+  async compliance(): Promise<{ compliance: ComplianceScore }> {
+    return this.http.get('/api/analytics/compliance');
+  }
+
+  /** Risk heatmap data */
+  async heatmap(): Promise<{ heatmap: HeatmapData }> {
+    return this.http.get('/api/analytics/heatmap');
+  }
+
+  /** Disagreement statistics */
+  async disagreements(): Promise<{ stats: DisagreementStats }> {
+    return this.http.get('/api/analytics/disagreements');
+  }
+
+  /** Role rotation statistics */
+  async roleRotation(): Promise<{ stats: unknown }> {
+    return this.http.get('/api/analytics/role-rotation');
+  }
+
+  /** Early stopping statistics */
+  async earlyStops(): Promise<{ stats: unknown }> {
+    return this.http.get('/api/analytics/early-stops');
+  }
+
+  /** Consensus quality metrics */
+  async consensusQuality(): Promise<{ stats: unknown }> {
+    return this.http.get('/api/analytics/consensus-quality');
+  }
+}
+
+// =============================================================================
+// MFA API
+// =============================================================================
+
+export interface MFASetupResponse {
+  secret: string;
+  provisioning_uri: string;
+  message: string;
+}
+
+export interface MFAEnableResponse {
+  message: string;
+  backup_codes: string[];
+  warning: string;
+}
+
+export interface MFAVerifyResponse {
+  message: string;
+  user: Record<string, unknown>;
+  tokens: {
+    access_token: string;
+    refresh_token: string;
+    token_type: string;
+    expires_in: number;
+  };
+  backup_codes_remaining?: number;
+  backup_codes_warning?: string;
+}
+
+export interface MFABackupCodesResponse {
+  message: string;
+  backup_codes: string[];
+  warning: string;
+}
+
+class MFAAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Initialize MFA setup - generates TOTP secret and provisioning URI.
+   * User should scan the QR code with their authenticator app.
+   */
+  async setup(): Promise<MFASetupResponse> {
+    return this.http.post<MFASetupResponse>('/api/auth/mfa/setup', {});
+  }
+
+  /**
+   * Enable MFA after verifying the setup code from authenticator app.
+   * Returns backup codes that user should save.
+   */
+  async enable(code: string): Promise<MFAEnableResponse> {
+    return this.http.post<MFAEnableResponse>('/api/auth/mfa/enable', { code });
+  }
+
+  /**
+   * Disable MFA for the user.
+   * Requires either current MFA code or password.
+   */
+  async disable(options: { code?: string; password?: string }): Promise<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/mfa/disable', options);
+  }
+
+  /**
+   * Verify MFA code during login (after receiving pending token).
+   * Returns full authentication tokens on success.
+   */
+  async verify(pendingToken: string, code: string): Promise<MFAVerifyResponse> {
+    return this.http.post<MFAVerifyResponse>('/api/auth/mfa/verify', {
+      pending_token: pendingToken,
+      code,
+    });
+  }
+
+  /**
+   * Regenerate backup codes.
+   * Requires current MFA code for verification.
+   */
+  async regenerateBackupCodes(code: string): Promise<MFABackupCodesResponse> {
+    return this.http.post<MFABackupCodesResponse>('/api/auth/mfa/backup-codes', { code });
   }
 }
 
@@ -2655,8 +2865,20 @@ class QueueAPI {
     return this.http.post(`/api/queue/jobs/${jobId}/retry`, {});
   }
 
-  async getStats(): Promise<{ stats: QueueStats }> {
+  async getStats(): Promise<{ stats: QueueStats; timestamp: string }> {
     return this.http.get('/api/queue/stats');
+  }
+
+  async getWorkers(): Promise<{
+    workers: Array<{
+      name: string;
+      pending: number;
+      idle_time_ms: number;
+      last_delivery?: string;
+    }>;
+    total: number;
+  }> {
+    return this.http.get('/api/queue/workers');
   }
 
   async purgeCompleted(olderThanHours = 24): Promise<{ purged_count: number }> {
@@ -2751,6 +2973,7 @@ export class AragoraClient {
   readonly organizations: OrganizationsAPI;
   readonly billing: BillingAPI;
   readonly analytics: AnalyticsAPI;
+  readonly mfa: MFAAPI;
   readonly admin: AdminAPI;
   readonly system: SystemAPI;
   readonly training: TrainingAPI;
@@ -2784,6 +3007,7 @@ export class AragoraClient {
     this.organizations = new OrganizationsAPI(this.http);
     this.billing = new BillingAPI(this.http);
     this.analytics = new AnalyticsAPI(this.http);
+    this.mfa = new MFAAPI(this.http);
     this.admin = new AdminAPI(this.http);
     this.system = new SystemAPI(this.http);
     this.training = new TrainingAPI(this.http);
