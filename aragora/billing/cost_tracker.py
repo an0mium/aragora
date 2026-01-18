@@ -22,7 +22,6 @@ from typing import Any, Callable, Dict, List, Optional, Set
 from uuid import uuid4
 
 from aragora.billing.usage import (
-    PROVIDER_PRICING,
     UsageEvent,
     UsageEventType,
     UsageTracker,

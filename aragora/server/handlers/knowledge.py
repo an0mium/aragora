@@ -226,7 +226,6 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("knowledge query")
     def _handle_query(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/query - Natural language query."""
-        import asyncio
 
         # Read request body
         try:
@@ -410,7 +409,6 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("verify fact")
     def _handle_verify_fact(self, fact_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/facts/:id/verify - Verify fact."""
-        import asyncio
 
         store = self._get_fact_store()
         fact = store.get_fact(fact_id)
@@ -586,7 +584,6 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("search chunks")
     def _handle_search(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/search - Search chunks."""
-        import asyncio
 
         query = get_bounded_string_param(query_params, "q", "", max_length=500)
         if not query:
@@ -663,7 +660,6 @@ class KnowledgeMoundHandler(BaseHandler):
     def _get_mound(self):
         """Get or create Knowledge Mound instance."""
         if self._mound is None:
-            import asyncio
             from aragora.knowledge.mound import KnowledgeMound
 
             self._mound = KnowledgeMound(workspace_id="default")
@@ -768,7 +764,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("mound query")
     def _handle_mound_query(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/query - Semantic query."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -822,7 +817,6 @@ class KnowledgeMoundHandler(BaseHandler):
         if err:
             return err
 
-        import asyncio
         from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
         from aragora.memory.tier_manager import MemoryTier
 
@@ -890,7 +884,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("get node")
     def _handle_get_node(self, node_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes/:id - Get specific node."""
-        import asyncio
 
         mound = self._get_mound()
         if not mound:
@@ -910,7 +903,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("list nodes")
     def _handle_list_nodes(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes - List/filter nodes."""
-        import asyncio
         from aragora.memory.tier_manager import MemoryTier
 
         workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
@@ -956,7 +948,6 @@ class KnowledgeMoundHandler(BaseHandler):
         if err:
             return err
 
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1012,7 +1003,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("graph traversal")
     def _handle_graph_traversal(self, path: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id - Graph traversal."""
-        import asyncio
 
         parts = path.strip("/").split("/")
         if len(parts) < 5:
@@ -1055,7 +1045,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("mound stats")
     def _handle_mound_stats(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/stats - Get mound statistics."""
-        import asyncio
 
         mound = self._get_mound()
         if not mound:
@@ -1160,7 +1149,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("get culture")
     def _handle_get_culture(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/culture - Get organization culture profile."""
-        import asyncio
 
         workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
 
@@ -1184,7 +1172,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("add culture document")
     def _handle_add_culture_document(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/documents - Add culture document."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1244,7 +1231,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("promote to culture")
     def _handle_promote_to_culture(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/promote - Promote knowledge to culture."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1294,7 +1280,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("get stale knowledge")
     def _handle_get_stale(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/stale - Get stale knowledge items."""
-        import asyncio
 
         workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
         threshold = get_bounded_float_param(query_params, "threshold", 0.5, min_val=0.0, max_val=1.0)
@@ -1335,7 +1320,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("revalidate node")
     def _handle_revalidate_node(self, node_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/revalidate/:id - Trigger revalidation."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1371,7 +1355,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("schedule revalidation")
     def _handle_schedule_revalidation(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/schedule-revalidation - Schedule batch."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1415,7 +1398,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("sync continuum")
     def _handle_sync_continuum(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/continuum - Sync from ContinuumMemory."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1458,7 +1440,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("sync consensus")
     def _handle_sync_consensus(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/consensus - Sync from ConsensusMemory."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1501,7 +1482,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("sync facts")
     def _handle_sync_facts(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/sync/facts - Sync from FactStore."""
-        import asyncio
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -1548,7 +1528,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("graph lineage")
     def _handle_graph_lineage(self, path: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/lineage - Get node lineage."""
-        import asyncio
 
         parts = path.strip("/").split("/")
         if len(parts) < 5:
@@ -1588,7 +1567,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("graph related")
     def _handle_graph_related(self, path: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/related - Get related nodes."""
-        import asyncio
 
         parts = path.strip("/").split("/")
         if len(parts) < 5:

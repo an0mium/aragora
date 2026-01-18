@@ -14,7 +14,6 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -23,10 +22,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from aragora.connectors.repository_crawler import (
     CrawlConfig,
-    CrawlResult,
     CrawledFile,
     FileSymbol,
-    FileDependency,
     RepositoryCrawler,
 )
 

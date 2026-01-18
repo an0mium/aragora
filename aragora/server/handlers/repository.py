@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 

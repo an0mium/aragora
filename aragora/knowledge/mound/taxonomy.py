@@ -24,11 +24,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.graph_store import KnowledgeGraphStore

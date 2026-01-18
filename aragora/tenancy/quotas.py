@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from aragora.tenancy.context import get_current_tenant, get_current_tenant_id
 
 if TYPE_CHECKING:
-    from aragora.tenancy.tenant import Tenant
+    pass
 
 logger = logging.getLogger(__name__)
 

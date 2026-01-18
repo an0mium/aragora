@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useAragoraClient } from '@/lib/aragora-client';
+import { useAragoraClient } from '@/hooks/useAragoraClient';
 import { useAsyncData } from '@/hooks/useAsyncData';
 import type {
   AnalyticsSummary,

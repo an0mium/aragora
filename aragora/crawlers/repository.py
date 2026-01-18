@@ -18,15 +18,13 @@ import hashlib
 import logging
 import os
 import re
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import AsyncIterator, List, Optional
 
 from aragora.crawlers.base import (
     BaseCrawler,
-    ContentType,
     CrawlerConfig,
     CrawlResult,
     CrawlStats,

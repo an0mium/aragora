@@ -7,16 +7,12 @@ sync operations, and scheduler configuration.
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.connectors.enterprise import (
     SyncScheduler,
     SyncSchedule,
-    SyncJob,
-    SyncHistory,
     GitHubEnterpriseConnector,
     S3Connector,
     PostgreSQLConnector,
@@ -423,7 +419,7 @@ async def handle_list_workflow_templates(
     GET /api/workflows/templates
     GET /api/workflows/templates?category=legal
     """
-    from aragora.workflow.templates import list_templates, WORKFLOW_TEMPLATES
+    from aragora.workflow.templates import list_templates
 
     templates = list_templates(category=category)
 

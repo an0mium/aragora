@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
@@ -23,9 +22,8 @@ if TYPE_CHECKING:
         ConsensusMemory,
         ConsensusRecord,
         DissentRecord,
-        SimilarDebate,
     )
-    from aragora.knowledge.mound.types import KnowledgeItem, IngestionRequest
+    from aragora.knowledge.mound.types import KnowledgeItem
 
 logger = logging.getLogger(__name__)
 

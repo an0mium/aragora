@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 from aragora.debate.cognitive_limiter import (
-    CHARS_PER_TOKEN,
     STRESS_BUDGETS,
     CognitiveBudget,
     CognitiveLoadLimiter,
@@ -25,7 +24,7 @@ from aragora.debate.cognitive_limiter import (
 
 if TYPE_CHECKING:
     from aragora.rlm import HierarchicalCompressor
-    from aragora.rlm.types import AbstractionLevel, CompressionResult
+    from aragora.rlm.types import CompressionResult
 
 logger = logging.getLogger(__name__)
 
@@ -482,7 +481,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         falls back to rule-based compression.
         """
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in an async context, use rule-based for sync call
             return self._compress_context_sync(messages, critiques, patterns, extra_context)
         except RuntimeError:
@@ -607,7 +606,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         try:
             from aragora.rlm.bridge import AragoraRLM
-            from aragora.rlm.types import RLMContext, AbstractionLevel
+            from aragora.rlm.types import RLMContext
 
             # Build RLM context from compressed messages
             all_content = []

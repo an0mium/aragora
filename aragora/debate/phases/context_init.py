@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
-    from aragora.rlm.types import RLMContext
 
 logger = logging.getLogger(__name__)
 

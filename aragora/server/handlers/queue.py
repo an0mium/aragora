@@ -27,7 +27,6 @@ from .base import (
     HandlerResult,
     PaginatedHandlerMixin,
     error_response,
-    get_int_param,
     get_string_param,
     json_response,
 )

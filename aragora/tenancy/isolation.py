@@ -27,7 +27,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
 from aragora.tenancy.context import (
-    TenantMismatchError,
     TenantNotSetError,
     get_current_tenant_id,
     require_tenant_id,

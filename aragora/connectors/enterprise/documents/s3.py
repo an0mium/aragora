@@ -13,8 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import mimetypes
-from datetime import datetime, timezone
+from datetime import timezone
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
 
@@ -339,8 +338,8 @@ class S3Connector(EnterpriseConnector):
         if len(parts) < 3:
             return None
 
-        bucket = parts[1]
-        key_hash = parts[2]
+        parts[1]
+        parts[2]
 
         # We can't reverse the hash, so this is mainly for verification
         logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")

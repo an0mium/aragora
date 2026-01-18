@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence
+from dataclasses import dataclass
+from typing import Any, List, Sequence
 
 from aragora.audit.base_auditor import (
     AuditContext,
@@ -24,7 +24,6 @@ from aragora.audit.base_auditor import (
 )
 from aragora.audit.document_auditor import (
     AuditFinding,
-    AuditType,
     FindingSeverity,
 )
 

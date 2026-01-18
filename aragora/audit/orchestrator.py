@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Type
 
 from aragora.audit.base_auditor import (
     AuditContext,
-    AuditorCapabilities,
     BaseAuditor,
     ChunkData,
 )

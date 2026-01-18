@@ -33,12 +33,9 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
-import re
+from typing import Any, Dict, List, Optional, Set, Union
 import yaml
-import json
 
 # Try to use Pydantic v2, fall back to basic validation
 try:
@@ -474,7 +471,7 @@ class WorkflowValidator:
                 else:
                     result.add_error(
                         f"Step '{step_id}' references unknown next_step: {next_id}",
-                        f"steps[?].next_steps",
+                        "steps[?].next_steps",
                         "UNKNOWN_NEXT_STEP",
                     )
 

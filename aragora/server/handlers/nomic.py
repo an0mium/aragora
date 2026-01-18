@@ -396,7 +396,6 @@ class NomicHandler(BaseHandler):
 
         try:
             import subprocess
-            import os
 
             # Check if already running
             state_file = nomic_dir / "nomic_state.json"

@@ -328,7 +328,7 @@ class MongoDBConnector(EnterpriseConnector):
         if len(parts) < 4:
             return None
 
-        database, collection_name, doc_hash = parts[1], parts[2], parts[3]
+        database, _collection_name, _doc_hash = parts[1], parts[2], parts[3]
 
         if database != self.database_name:
             return None
@@ -363,7 +363,7 @@ class MongoDBConnector(EnterpriseConnector):
         """Handle a change stream event."""
         operation = change.get("operationType")
         collection = change.get("ns", {}).get("coll")
-        doc_key = change.get("documentKey", {})
+        change.get("documentKey", {})
 
         logger.info(f"[{self.name}] Change: {operation} on {collection}")
 

@@ -13,7 +13,6 @@ Provides CRUD operations and execution control for workflows:
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -832,7 +831,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
-        import asyncio
 
         # GET /api/workflow-executions
         if path == "/api/workflow-executions":
@@ -880,7 +878,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if err:
             return err
 
-        import asyncio
 
         # POST /api/workflows/{id}/execute
         if path.endswith("/execute"):

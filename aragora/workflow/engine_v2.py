@@ -42,7 +42,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Type
+from typing import Any, Callable, Dict, Optional, Set, Type
 
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.types import (
@@ -50,7 +50,6 @@ from aragora.workflow.types import (
     StepDefinition,
     StepResult,
     StepStatus,
-    WorkflowCheckpoint,
     WorkflowConfig,
     WorkflowDefinition,
     WorkflowResult,

@@ -31,13 +31,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import struct
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from aragora.knowledge.mound.types import KnowledgeSource
 from aragora.memory.embeddings import (
@@ -50,7 +48,6 @@ from aragora.memory.embeddings import (
     unpack_embedding,
 )
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 
 logger = logging.getLogger(__name__)
 

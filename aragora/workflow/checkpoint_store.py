@@ -15,11 +15,13 @@ from __future__ import annotations
 
 import json
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound import KnowledgeMound
 
 from aragora.workflow.types import WorkflowCheckpoint
 

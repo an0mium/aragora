@@ -6,7 +6,6 @@ Client for invoking external agents via the A2A protocol.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import uuid

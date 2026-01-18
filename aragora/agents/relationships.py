@@ -16,17 +16,12 @@ __all__ = [
 ]
 
 import logging
-import sqlite3
-from contextlib import contextmanager
 from datetime import datetime
-from typing import Generator, Optional
+from typing import Optional
 
 from aragora.config import DB_ELO_PATH
-from aragora.ranking.database import EloDatabase
 from aragora.ranking.relationships import (
     AgentRelationship,
-    RelationshipMetrics,
-    RelationshipStats,
     RelationshipTracker as BaseRelationshipTracker,
 )
 

@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,

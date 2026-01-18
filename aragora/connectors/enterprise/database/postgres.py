@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -361,7 +361,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         if len(parts) < 4:
             return None
 
-        database, table, pk_hash = parts[1], parts[2], parts[3]
+        database, _table, _pk_hash = parts[1], parts[2], parts[3]
 
         if database != self.database:
             return None

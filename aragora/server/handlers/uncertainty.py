@@ -22,7 +22,6 @@ from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
-    get_string_param,
     json_response,
 )
 from .utils.rate_limit import rate_limit
@@ -51,11 +50,10 @@ class UncertaintyHandler(BaseHandler):
         self, path: str, method: str, handler: Any = None
     ) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
-        query_params: Dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
-            query_params = parse_qs(query_str)
+            parse_qs(query_str)
 
         # POST /api/uncertainty/estimate
         if path == "/api/uncertainty/estimate" and method == "POST":

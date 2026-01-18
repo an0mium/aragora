@@ -21,15 +21,13 @@ Configuration:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from aragora.workflow.types import (
     WorkflowDefinition,
-    StepDefinition,
     Position,
     NodeCategory,
     WorkflowCategory,
-    VisualNodeData,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
@@ -86,7 +84,6 @@ class HierarchicalPattern(WorkflowPattern):
         worker_x = 500
         review_x = 700
         y_base = 200
-        worker_spacing = 120
 
         # Step 1: Manager decomposition
         decompose_prompt = self.delegation_prompt or self._build_decompose_prompt()

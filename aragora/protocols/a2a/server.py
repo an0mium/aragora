@@ -7,16 +7,13 @@ Server for exposing Aragora agents via the A2A protocol.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import time
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
 
 from aragora.protocols.a2a.types import (
     AgentCard,
     AgentCapability,
-    ContextItem,
     TaskRequest,
     TaskResult,
     TaskStatus,
@@ -392,7 +389,6 @@ class A2AServer:
 
     async def _handle_audit(self, request: TaskRequest) -> TaskResult:
         """Handle audit capability requests."""
-        from aragora.audit.base_auditor import BaseAuditor
 
         # Determine audit type from context
         audit_type = "security"

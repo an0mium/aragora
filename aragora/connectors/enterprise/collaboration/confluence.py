@@ -20,7 +20,7 @@ import html
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import (

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useBackend } from '@/components/BackendSelector';
 import { API_BASE_URL } from '@/config';
 import { MFASettings } from '@/components/settings/MFASettings';
+import { SessionHistory } from '@/components/session/SessionHistory';
 
 interface FeatureConfig {
   // Feature toggles
@@ -1379,10 +1380,8 @@ export function SettingsPanel() {
                 <MFASettings user={user} />
 
                 <div className="mt-6 pt-4 border-t border-acid-yellow/20">
-                  <h4 className="font-mono text-sm text-text mb-2">Session Management</h4>
-                  <p className="font-mono text-xs text-text-muted mb-4">
-                    Manage your active sessions across devices.
-                  </p>
+                  <h4 className="font-mono text-sm text-text mb-4">Session Management</h4>
+                  <SessionHistory className="mb-4" />
                   <button
                     onClick={handleLogoutAllDevices}
                     disabled={logoutAllStatus === 'loading'}
@@ -1400,10 +1399,10 @@ export function SettingsPanel() {
                       ? 'Logged out! Redirecting...'
                       : logoutAllStatus === 'error'
                       ? 'Failed - try again'
-                      : 'Logout All Devices'}
+                      : 'Logout All Devices (Including Current)'}
                   </button>
                   <p className="font-mono text-xs text-text-muted mt-2">
-                    Invalidates all sessions and tokens. You will be signed out everywhere.
+                    Invalidates all sessions including your current one. You will be signed out everywhere.
                   </p>
                 </div>
               </div>

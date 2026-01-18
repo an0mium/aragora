@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -34,7 +33,7 @@ from aragora.server.metrics import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeNode, NodeType
+    from aragora.knowledge.mound import KnowledgeNode
 
 logger = logging.getLogger(__name__)
 

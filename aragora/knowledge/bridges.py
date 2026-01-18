@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.evidence.collector import Evidence as CollectorEvidence
-    from aragora.knowledge.mound import KnowledgeMound, KnowledgeNode, MemoryTier, ProvenanceChain
+    from aragora.knowledge.mound import KnowledgeMound
     from aragora.learning.meta import HyperparameterState, LearningMetrics
 
 logger = logging.getLogger(__name__)

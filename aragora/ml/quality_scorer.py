@@ -24,7 +24,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
-import numpy as np
 
 logger = logging.getLogger(__name__)
 

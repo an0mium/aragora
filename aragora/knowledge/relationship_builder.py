@@ -19,7 +19,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from aragora.connectors.repository_crawler import (
     CrawledFile,

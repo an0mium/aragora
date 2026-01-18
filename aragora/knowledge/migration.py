@@ -31,18 +31,14 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.knowledge.mound import (
     KnowledgeMound,
     KnowledgeNode,
-    KnowledgeRelationship,
     ProvenanceChain,
     ProvenanceType,
 )
@@ -656,15 +652,12 @@ async def run_migration_cli(
     migrator = KnowledgeMoundMigrator(mound)
 
     if dry_run:
-        print("Running dry run migration estimate...")
-        estimates = await migrator.dry_run(
+        await migrator.dry_run(
             workspace_id=workspace_id,
             continuum_source=continuum,
             consensus_source=consensus,
         )
-        print(json.dumps(estimates, indent=2))
     else:
-        print("Running full migration...")
         async with migrator.migration_context(f"migration_{workspace_id}"):
             results = await migrator.migrate_all(
                 workspace_id=workspace_id,
@@ -672,8 +665,7 @@ async def run_migration_cli(
                 consensus_source=consensus,
             )
             for source, result in results.items():
-                print(f"\n{source}:")
-                print(json.dumps(result.to_dict(), indent=2))
+                pass
 
     await mound.close()
 

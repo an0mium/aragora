@@ -18,16 +18,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from aragora.tenancy.tenant import Tenant
+    pass
 
 logger = logging.getLogger(__name__)
 

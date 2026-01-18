@@ -33,7 +33,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -47,10 +46,9 @@ from typing import Any, Callable, Literal, Optional, Union
 from aragora.config import DB_KNOWLEDGE_PATH
 from aragora.knowledge.types import (
     Fact,
-    FactRelationType,
     ValidationStatus,
 )
-from aragora.memory.tier_manager import MemoryTier, TIER_ORDER
+from aragora.memory.tier_manager import MemoryTier
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -975,7 +973,6 @@ class KnowledgeMound:
         if self._vector_store and self._embedding_fn:
             try:
                 query_embedding = self._embedding_fn(query)
-                filters = {}
                 if node_types:
                     # Note: Weaviate filters multiple types via OR, we'll filter post-search
                     pass

@@ -10,10 +10,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, Optional
 
 from aragora.workflow.queue.task import (
     TaskResult,
@@ -112,7 +112,7 @@ class TaskExecutor(ABC):
 
             return result
 
-        except Exception as e:
+        except Exception:
             self._stats.tasks_failed += 1
             raise
 

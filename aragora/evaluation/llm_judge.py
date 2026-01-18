@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -754,7 +754,7 @@ Provide your comparison:"""
                     dimension=dim,
                     score=score,
                     confidence=0.4,
-                    feedback=f"Extracted from text",
+                    feedback="Extracted from text",
                 )
 
         return scores

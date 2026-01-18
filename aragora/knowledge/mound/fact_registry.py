@@ -27,12 +27,11 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from aragora.knowledge.types import ValidationStatus
 from aragora.knowledge.mound_core import ProvenanceType

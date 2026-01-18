@@ -11,7 +11,7 @@ Wraps the NomicStateMachine and phase implementations to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -78,7 +78,7 @@ class NomicLoopStep(BaseStep):
         # Validate phases
         phases = [p for p in phases if p in self.ALL_PHASES]
         if not phases:
-            logger.warning(f"No valid phases specified, using all phases")
+            logger.warning("No valid phases specified, using all phases")
             phases = self.ALL_PHASES
 
         logger.info(
@@ -106,14 +106,6 @@ class NomicLoopStep(BaseStep):
             )
 
             # Map phase names to state machine states
-            phase_to_state = {
-                "context": NomicState.CONTEXT,
-                "debate": NomicState.DEBATE,
-                "design": NomicState.DESIGN,
-                "implement": NomicState.IMPLEMENT,
-                "verify": NomicState.VERIFY,
-                "commit": NomicState.COMMIT,
-            }
 
             # Build phase instances
             phase_instances = {}

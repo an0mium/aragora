@@ -31,7 +31,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from aragora.debate.delegation import DelegationStrategy

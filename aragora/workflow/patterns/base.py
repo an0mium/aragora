@@ -17,7 +17,6 @@ from aragora.workflow.types import (
     WorkflowDefinition,
     StepDefinition,
     TransitionRule,
-    ExecutionPattern,
     VisualNodeData,
     VisualEdgeData,
     Position,

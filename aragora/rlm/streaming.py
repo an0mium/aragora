@@ -33,7 +33,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from aragora.rlm.types import AbstractionLevel, RLMContext
+    from aragora.rlm.types import RLMContext
 
 logger = logging.getLogger(__name__)
 

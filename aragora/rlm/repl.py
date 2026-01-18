@@ -9,7 +9,6 @@ import ast
 import io
 import logging
 import re
-import sys
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional

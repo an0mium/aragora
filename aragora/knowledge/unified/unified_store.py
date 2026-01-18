@@ -18,7 +18,7 @@ import asyncio
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 

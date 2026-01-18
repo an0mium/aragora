@@ -26,8 +26,6 @@ from aragora.training.model_registry import ModelMetadata, ModelRegistry
 
 if TYPE_CHECKING:
     from aragora.training.tinker_client import TinkerClient
-    from aragora.server.storage import DebateStorage
-    from aragora.gauntlet.runner import GauntletRunner
 
 
 # Keywords for filtering debates by vertical
@@ -687,7 +685,7 @@ class SpecialistTrainingPipeline:
         # Load training data from exported files
         output_dir = Path(f"data/training/{config.vertical.value}/{model_id}")
         sft_file = output_dir / "sft_debates.jsonl"
-        dpo_file = output_dir / "dpo_debates.jsonl"
+        output_dir / "dpo_debates.jsonl"
 
         training_data: List[Dict[str, Any]] = []
 

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from aragora.evidence.metadata import MetadataEnricher
 from aragora.evidence.quality import QualityContext, QualityScorer
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.fts_utils import sanitize_fts_query
+from aragora.storage.fts_utils import MAX_FTS_TERMS, sanitize_fts_query
 
 logger = logging.getLogger(__name__)
 

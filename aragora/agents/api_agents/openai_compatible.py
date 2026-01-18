@@ -13,7 +13,6 @@ This eliminates ~150 lines of duplicate code per agent.
 import logging
 from typing import AsyncGenerator
 
-import aiohttp
 
 from aragora.agents.api_agents.common import (
     AgentAPIError,

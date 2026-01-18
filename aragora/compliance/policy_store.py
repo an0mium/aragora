@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 
 from aragora.config.legacy import get_db_path
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 
 
 def _get_default_db_path() -> Path:

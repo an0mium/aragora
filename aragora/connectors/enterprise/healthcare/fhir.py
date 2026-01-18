@@ -16,10 +16,10 @@ import json
 import logging
 import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,

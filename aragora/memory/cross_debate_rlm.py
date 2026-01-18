@@ -23,7 +23,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -32,7 +31,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
-    from aragora.rlm.types import RLMContext
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +414,7 @@ class CrossDebateMemory:
 
     async def _manage_memory_limits(self) -> None:
         """Manage memory limits and tier transitions."""
-        now = datetime.now()
+        datetime.now()
 
         # Update tiers based on age
         for entry in self._entries.values():

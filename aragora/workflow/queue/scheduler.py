@@ -8,20 +8,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from aragora.workflow.queue.task import (
     TaskPriority,
     TaskStatus,
     WorkflowTask,
 )
-from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig
-from aragora.workflow.queue.executor import ExecutorPool, TaskExecutor
+from aragora.workflow.queue.queue import TaskQueue
+from aragora.workflow.queue.executor import ExecutorPool
 
 logger = logging.getLogger(__name__)
 

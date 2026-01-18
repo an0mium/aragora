@@ -8,7 +8,7 @@ knowledge modules within the Knowledge Mound.
 from __future__ import annotations
 
 import logging
-from typing import Callable, Type
+from typing import Type
 
 from aragora.knowledge.mound.verticals.base import BaseVerticalKnowledge
 

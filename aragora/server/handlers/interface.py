@@ -23,7 +23,6 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
 
     from aragora.billing.auth.context import UserAuthContext
 

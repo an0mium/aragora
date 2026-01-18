@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -80,7 +80,7 @@ class KnowledgePipelineStep(BaseStep):
         connector_type = config.get("connector_type", "local_docs")
         connector_config = config.get("connector_config", {})
         timeout_seconds = config.get("timeout_seconds", 600.0)
-        batch_size = config.get("batch_size", 10)
+        config.get("batch_size", 10)
 
         # Also check workflow inputs for sources
         input_sources = context.get_input("sources", [])

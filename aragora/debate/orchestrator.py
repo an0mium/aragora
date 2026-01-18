@@ -1150,7 +1150,7 @@ class Arena:
                 # Emit event for dashboard
                 self._notify_spectator(
                     "knowledge_ingested",
-                    details=f"Stored debate conclusion in Knowledge Mound",
+                    details="Stored debate conclusion in Knowledge Mound",
                     metric=result.confidence,
                 )
 

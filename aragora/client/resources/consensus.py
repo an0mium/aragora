@@ -7,7 +7,6 @@ Provides access to consensus memory, dissents, and risk warnings.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:

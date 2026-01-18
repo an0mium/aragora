@@ -18,9 +18,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 

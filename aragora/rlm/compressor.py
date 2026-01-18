@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from .types import (
@@ -212,7 +212,6 @@ Conclusion:""",
         )
 
         # Build higher abstraction levels
-        previous_level = AbstractionLevel.FULL
         previous_nodes = level_0_nodes
 
         for level in [
@@ -245,7 +244,6 @@ Conclusion:""",
                 compressed_tokens[level] = level_tokens
                 compression_ratios[level] = level_tokens / original_tokens if original_tokens > 0 else 0
 
-                previous_level = level
                 previous_nodes = level_nodes
 
         # Extract key topics from metadata level

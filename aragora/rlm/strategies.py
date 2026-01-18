@@ -14,7 +14,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from .types import (
     AbstractionLevel,
@@ -22,7 +22,6 @@ from .types import (
     RLMConfig,
     RLMContext,
     RLMQuery,
-    RLMResult,
 )
 
 logger = logging.getLogger(__name__)

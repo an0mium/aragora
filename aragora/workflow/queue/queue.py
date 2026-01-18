@@ -9,12 +9,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    from aragora.workflow.queue.executor import TaskExecutor
 
 from aragora.workflow.queue.task import (
-    TaskPriority,
     TaskStatus,
     TaskResult,
     WorkflowTask,

@@ -45,16 +45,12 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Sequence
 
 from aragora.config import DB_KNOWLEDGE_PATH
 from aragora.knowledge.mound.types import (
-    ConfidenceLevel,
     CulturePattern,
-    CulturePatternType,
     CultureProfile,
     GraphQueryResult,
     IngestionRequest,
@@ -70,8 +66,6 @@ from aragora.knowledge.mound.types import (
     RelationshipType,
     SourceFilter,
     StalenessCheck,
-    StalenessReason,
-    StoreResult,
     SyncResult,
 )
 from aragora.knowledge.mound.converters import (

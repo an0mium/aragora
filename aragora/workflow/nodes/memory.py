@@ -9,7 +9,7 @@ Provides workflow steps for reading and writing to the Knowledge Mound:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 

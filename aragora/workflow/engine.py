@@ -19,13 +19,11 @@ import json
 import logging
 import time
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
-    ExecutionPattern,
     StepDefinition,
     StepResult,
     StepStatus,
@@ -38,7 +36,6 @@ from aragora.workflow.types import (
 from aragora.workflow.step import (
     WorkflowStep,
     WorkflowContext,
-    BaseStep,
     AgentStep,
     ParallelStep,
     ConditionalStep,

@@ -28,7 +28,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from aragora.documents.chunking.token_counter import get_token_counter
 from aragora.documents.models import ChunkType, DocumentChunk
@@ -1098,7 +1098,7 @@ class HierarchicalChunkNavigator:
             if include_children and score >= 0.5 and chunk.id:
                 children = self.drill_down(chunk.id)[:2]  # Limit children
                 for child in children:
-                    context_parts.append(f"\n### Details:")
+                    context_parts.append("\n### Details:")
                     context_parts.append(child.content[:500] + "..." if len(child.content) > 500 else child.content)
 
             context_parts.append("")
