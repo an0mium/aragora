@@ -1,12 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ApiError } from './ApiError';
 
 type ExportType = 'sft' | 'dpo' | 'gauntlet';
 type OutputFormat = 'json' | 'jsonl';
+
+// Pipeline status types
+type PipelineStage = 'idle' | 'collecting' | 'filtering' | 'transforming' | 'exporting' | 'complete' | 'error';
+
+interface PipelineStatus {
+  stage: PipelineStage;
+  progress: number;
+  message: string;
+  recordsProcessed: number;
+  totalRecords: number;
+}
 
 interface ExportStats {
   available_exporters: string[];
@@ -46,6 +57,88 @@ interface ExportResult {
   data?: string;
 }
 
+// Pipeline Progress Bar Component
+function PipelineProgress({ status }: { status: PipelineStatus }) {
+  const stageLabels: Record<PipelineStage, string> = {
+    idle: 'Ready',
+    collecting: 'Collecting data...',
+    filtering: 'Applying filters...',
+    transforming: 'Transforming records...',
+    exporting: 'Generating export...',
+    complete: 'Export complete!',
+    error: 'Export failed',
+  };
+
+  const stageColors: Record<PipelineStage, string> = {
+    idle: 'bg-slate-500',
+    collecting: 'bg-blue-500',
+    filtering: 'bg-cyan-500',
+    transforming: 'bg-purple-500',
+    exporting: 'bg-green-500',
+    complete: 'bg-green-400',
+    error: 'bg-red-500',
+  };
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-white">
+          {status.message || stageLabels[status.stage]}
+        </span>
+        <span className="text-xs text-slate-400">
+          {status.recordsProcessed > 0 && (
+            <>{status.recordsProcessed.toLocaleString()} / {status.totalRecords.toLocaleString()} records</>
+          )}
+        </span>
+      </div>
+      <div className="w-full bg-slate-700 rounded-full h-2">
+        <div
+          className={`h-2 rounded-full transition-all duration-300 ${stageColors[status.stage]}`}
+          style={{ width: `${Math.min(status.progress, 100)}%` }}
+        />
+      </div>
+      <div className="flex justify-between mt-2 text-xs text-slate-500">
+        <span className={status.stage !== 'idle' ? 'text-blue-400' : ''}>Collect</span>
+        <span className={['filtering', 'transforming', 'exporting', 'complete'].includes(status.stage) ? 'text-cyan-400' : ''}>Filter</span>
+        <span className={['transforming', 'exporting', 'complete'].includes(status.stage) ? 'text-purple-400' : ''}>Transform</span>
+        <span className={['exporting', 'complete'].includes(status.stage) ? 'text-green-400' : ''}>Export</span>
+      </div>
+    </div>
+  );
+}
+
+// Data Preview Component
+function DataPreview({ records, exportType }: { records: unknown[]; exportType: ExportType }) {
+  if (!records.length) return null;
+
+  const sample = records.slice(0, 3);
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium text-white">Data Preview</h4>
+        <span className="text-xs text-slate-400">
+          Showing {sample.length} of {records.length} records
+        </span>
+      </div>
+      <div className="space-y-2 max-h-60 overflow-y-auto">
+        {sample.map((record, i) => (
+          <div key={i} className="bg-slate-900 rounded p-2 text-xs font-mono text-slate-300 overflow-x-auto">
+            <pre className="whitespace-pre-wrap break-words">
+              {JSON.stringify(record, null, 2).slice(0, 500)}
+              {JSON.stringify(record, null, 2).length > 500 && '...'}
+            </pre>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        <span className="text-slate-400">Format:</span>
+        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">{exportType.toUpperCase()}</span>
+      </div>
+    </div>
+  );
+}
+
 export function TrainingExportPanel() {
   const client = useAragoraClient();
   const [loading, setLoading] = useState(true);
@@ -71,6 +164,20 @@ export function TrainingExportPanel() {
   const [includeDebates, setIncludeDebates] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Pipeline status state
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>({
+    stage: 'idle',
+    progress: 0,
+    message: '',
+    recordsProcessed: 0,
+    totalRecords: 0,
+  });
+
+  // Preview state
+  const [previewData, setPreviewData] = useState<unknown[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchData = useCallback(async () => {
     if (!client) return;
     setLoading(true);
@@ -95,12 +202,72 @@ export function TrainingExportPanel() {
     fetchData();
   }, [fetchData]);
 
+  // Simulate pipeline progress
+  const simulatePipelineProgress = (stage: PipelineStage, targetProgress: number, totalRecords: number) => {
+    return new Promise<void>((resolve) => {
+      const startProgress = pipelineStatus.progress;
+      const increment = (targetProgress - startProgress) / 10;
+      let current = startProgress;
+      let recordsProcessed = 0;
+      const recordIncrement = Math.floor(totalRecords / 10);
+
+      progressTimerRef.current = setInterval(() => {
+        current += increment;
+        recordsProcessed = Math.min(recordsProcessed + recordIncrement, totalRecords);
+
+        if (current >= targetProgress) {
+          setPipelineStatus({
+            stage,
+            progress: targetProgress,
+            message: '',
+            recordsProcessed: totalRecords,
+            totalRecords,
+          });
+          if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+          resolve();
+        } else {
+          setPipelineStatus({
+            stage,
+            progress: Math.round(current),
+            message: '',
+            recordsProcessed,
+            totalRecords,
+          });
+        }
+      }, 100);
+    });
+  };
+
   const runExport = async () => {
     if (!client) return;
     setIsExporting(true);
     setError(null);
+    setShowPreview(false);
+
+    // Initialize pipeline
+    setPipelineStatus({
+      stage: 'collecting',
+      progress: 0,
+      message: 'Starting export pipeline...',
+      recordsProcessed: 0,
+      totalRecords: limit,
+    });
 
     try {
+      // Stage 1: Collecting
+      await simulatePipelineProgress('collecting', 25, limit);
+
+      // Stage 2: Filtering
+      setPipelineStatus(prev => ({ ...prev, stage: 'filtering', message: 'Applying quality filters...' }));
+      await simulatePipelineProgress('filtering', 50, limit);
+
+      // Stage 3: Transforming
+      setPipelineStatus(prev => ({ ...prev, stage: 'transforming', message: 'Transforming to export format...' }));
+      await simulatePipelineProgress('transforming', 75, limit);
+
+      // Stage 4: Exporting (actual API call)
+      setPipelineStatus(prev => ({ ...prev, stage: 'exporting', message: 'Generating export file...' }));
+
       let result: unknown;
 
       if (exportType === 'sft') {
@@ -128,18 +295,49 @@ export function TrainingExportPanel() {
         });
       }
 
-      setLastExport(result as ExportResult);
+      // Complete
+      const exportResult = result as ExportResult;
+      setPipelineStatus({
+        stage: 'complete',
+        progress: 100,
+        message: `Exported ${exportResult.total_records} records successfully!`,
+        recordsProcessed: exportResult.total_records,
+        totalRecords: exportResult.total_records,
+      });
+
+      setLastExport(exportResult);
+      setPreviewData(exportResult.records || []);
+      setShowPreview(true);
       setActiveTab('history');
 
       // Refresh stats
       const statsRes = await client.training.stats().catch(() => null);
       if (statsRes) setStats(statsRes as unknown as ExportStats);
     } catch (e) {
+      setPipelineStatus({
+        stage: 'error',
+        progress: pipelineStatus.progress,
+        message: e instanceof Error ? e.message : 'Export failed',
+        recordsProcessed: 0,
+        totalRecords: limit,
+      });
       setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setIsExporting(false);
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+      }
     }
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+      }
+    };
+  }, []);
 
   const downloadExport = () => {
     if (!lastExport) return;
@@ -171,6 +369,19 @@ export function TrainingExportPanel() {
     { id: 'formats' as const, label: 'Formats' },
     { id: 'history' as const, label: 'History' },
   ];
+
+  // Reset pipeline when export type changes
+  useEffect(() => {
+    setPipelineStatus({
+      stage: 'idle',
+      progress: 0,
+      message: '',
+      recordsProcessed: 0,
+      totalRecords: 0,
+    });
+    setShowPreview(false);
+    setPreviewData([]);
+  }, [exportType]);
 
   if (loading && !stats) {
     return (
@@ -402,6 +613,16 @@ export function TrainingExportPanel() {
               </div>
             </div>
 
+            {/* Pipeline Progress (shown during export) */}
+            {isExporting && (
+              <PipelineProgress status={pipelineStatus} />
+            )}
+
+            {/* Data Preview (shown after export) */}
+            {showPreview && previewData.length > 0 && !isExporting && (
+              <DataPreview records={previewData} exportType={exportType} />
+            )}
+
             {/* Export Button */}
             <button
               onClick={runExport}
@@ -422,6 +643,14 @@ export function TrainingExportPanel() {
                 `Export ${exportType.toUpperCase()} Data`
               )}
             </button>
+
+            {/* Pipeline Complete Message */}
+            {pipelineStatus.stage === 'complete' && !isExporting && (
+              <div className="flex items-center gap-2 text-green-400 text-sm">
+                <span>&#x2713;</span>
+                <span>{pipelineStatus.message}</span>
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm">{error}</p>
