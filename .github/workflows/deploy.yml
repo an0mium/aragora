@@ -341,13 +341,21 @@ jobs:
             fi
 
             # Configure environment via systemd override (secure - not written to .env file)
+            echo "Configuring environment via systemd..."
+            sudo mkdir -p /etc/systemd/system/aragora.service.d/
+            cat << 'ENVCONF' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+[Service]
+# Production mode and AWS Secrets Manager
+Environment="ARAGORA_ENV=production"
+Environment="ARAGORA_USE_SECRETS_MANAGER=true"
+Environment="ARAGORA_SECRET_NAME=aragora/production"
+Environment="AWS_REGION=us-east-2"
+ENVCONF
+            # Add SENTRY_DSN if available
             if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
-              echo "Configuring environment via systemd..."
-              sudo mkdir -p /etc/systemd/system/aragora.service.d/
-              echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
               echo 'Environment="SENTRY_DSN=${{ secrets.SENTRY_DSN }}"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
-              sudo systemctl daemon-reload
             fi
+            sudo systemctl daemon-reload
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
             # Script auto-detects SSL certs and uses HTTP-only config if none found
@@ -592,6 +600,18 @@ jobs:
             if ! python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')" 2>&1; then
               exit 1
             fi
+
+            # Configure environment via systemd override
+            echo "Configuring environment via systemd..."
+            sudo mkdir -p /etc/systemd/system/aragora.service.d/
+            cat << 'ENVCONF' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+[Service]
+Environment="ARAGORA_ENV=production"
+Environment="ARAGORA_USE_SECRETS_MANAGER=true"
+Environment="ARAGORA_SECRET_NAME=aragora/production"
+Environment="AWS_REGION=us-east-2"
+ENVCONF
+            sudo systemctl daemon-reload
 
             sudo systemctl stop aragora 2>/dev/null || true
             sudo fuser -k 8765/tcp 2>/dev/null || true
