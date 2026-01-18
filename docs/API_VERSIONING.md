@@ -1,307 +1,144 @@
-# API Versioning
+# API Versioning Strategy
 
-Aragora uses path-based API versioning to enable backward-compatible evolution of the API.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Version Format](#version-format)
-- [Using Versioned Endpoints](#using-versioned-endpoints)
-- [Response Headers](#response-headers)
-- [Legacy Endpoint Support](#legacy-endpoint-support)
-- [Migration Guide](#migration-guide)
-- [Breaking Change Policy](#breaking-change-policy)
-
----
-
-## Overview
-
-All API endpoints support versioning through URL path prefixes:
-
-```
-/api/v1/debates     # Versioned (recommended)
-/api/debates        # Legacy (deprecated, still works)
-```
-
-Version information is included in every API response via headers, allowing clients to detect when they're using legacy endpoints.
-
----
+Aragora uses URL prefix versioning with header-based fallback for API version management.
 
 ## Version Format
 
-### Path-Based (Recommended)
-
-```
-/api/v{major}/resource
-```
-
-Examples:
+### URL Prefix (Recommended)
 ```
 GET /api/v1/debates
-POST /api/v1/debates
-GET /api/v1/agent/anthropic-api/profile
-GET /api/v1/leaderboard
+GET /api/v2/debates
 ```
 
-### Header-Based (Alternative)
-
-For clients that cannot modify URL paths, version can be specified via Accept header:
-
+### Header-Based
 ```http
-GET /api/debates HTTP/1.1
-Accept: application/vnd.aragora.v1+json
+GET /api/debates
+X-API-Version: 2
 ```
 
-Response will use the specified version.
-
----
-
-## Using Versioned Endpoints
-
-### Recommended Approach
-
-Always use versioned endpoints in production:
-
-```python
-# Python (requests)
-import requests
-
-BASE_URL = "https://api.aragora.ai/api/v1"
-
-# List debates
-response = requests.get(f"{BASE_URL}/debates")
-
-# Create debate
-response = requests.post(f"{BASE_URL}/debates", json={
-    "task": "Discuss API design patterns",
-    "agents": ["anthropic-api", "openai-api"],
-})
+### Accept Header
+```http
+GET /api/debates
+Accept: application/json; version=2
 ```
 
-```javascript
-// JavaScript (fetch)
-const BASE_URL = 'https://api.aragora.ai/api/v1';
+## Current Versions
 
-// List debates
-const debates = await fetch(`${BASE_URL}/debates`).then(r => r.json());
+| Version | Status | Released | Sunset Date |
+|---------|--------|----------|-------------|
+| v1 | Stable | 2024-01-01 | - |
+| v2 | Beta | 2025-01-01 | - |
+| v3 | Alpha | 2026-01-01 | - |
 
-// Get agent profile
-const profile = await fetch(`${BASE_URL}/agent/anthropic-api/profile`).then(r => r.json());
-```
+## Version Selection Priority
 
-```bash
-# cURL
-curl -X GET https://api.aragora.ai/api/v1/debates \
-  -H "Authorization: Bearer $TOKEN"
-```
+1. URL path prefix (`/api/v1/...`)
+2. `X-API-Version` header
+3. `Accept` header version parameter
+4. Default to v1
 
----
+## Deprecation Policy
 
-## Response Headers
+### Timeline
+- **Warning**: 6+ months before sunset
+- **Critical**: 30 days before sunset
+- **Sunset**: Endpoint removed
 
-Every API response includes version headers:
+### Headers
+Deprecated endpoints include:
+- `Deprecation: @<timestamp>` (RFC 8594)
+- `Sunset: <date>` (ISO 8601)
+- `Link: <replacement>; rel="successor-version"`
+- `X-Deprecation-Level: warning|critical|sunset`
 
-### Standard Headers
-
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-API-Version` | Version used for this request | `v1` |
-| `X-API-Supported-Versions` | All supported versions | `v1` |
-
-### Legacy Path Headers
-
-When using unversioned paths (`/api/debates`), additional headers are included:
-
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-API-Legacy` | Indicates legacy path usage | `true` |
-| `X-API-Migration` | Suggests migration to versioned path | `Use /api/v1/ prefix...` |
-
-### Deprecated Version Headers
-
-When a version is deprecated (still works but scheduled for removal):
-
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-API-Deprecated` | Indicates deprecated version | `true` |
-| `X-API-Sunset` | Date when version will be removed | `2026-06-01` |
-
-### Example Response
-
+### Example Response Headers
 ```http
 HTTP/1.1 200 OK
-Content-Type: application/json
-X-API-Version: v1
-X-API-Supported-Versions: v1
-
-{"debates": [...]}
+Deprecation: @1735689600
+Sunset: 2025-01-01
+Link: </api/v2/users>; rel="successor-version"
+X-Deprecation-Level: warning
 ```
-
-Legacy path response:
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-X-API-Version: v1
-X-API-Supported-Versions: v1
-X-API-Legacy: true
-X-API-Migration: Use /api/v1/ prefix for versioned endpoints
-
-{"debates": [...]}
-```
-
----
-
-## Legacy Endpoint Support
-
-### Current Status
-
-Legacy (unversioned) endpoints are fully supported but emit deprecation warnings:
-
-| Legacy Path | Versioned Path | Status |
-|-------------|----------------|--------|
-| `/api/debates` | `/api/v1/debates` | Supported with warning |
-| `/api/agent/*` | `/api/v1/agent/*` | Supported with warning |
-| `/api/leaderboard` | `/api/v1/leaderboard` | Supported with warning |
-
-### Behavior
-
-1. Legacy paths route to the same handlers as versioned paths
-2. Response includes `X-API-Legacy: true` header
-3. No functional difference in behavior
-4. Full deprecation timeline TBD
-
-### Detection
-
-Check for legacy usage in your client:
-
-```python
-response = requests.get("https://api.aragora.ai/api/debates")
-
-if response.headers.get("X-API-Legacy") == "true":
-    print("Warning: Using legacy endpoint, migrate to /api/v1/")
-```
-
----
 
 ## Migration Guide
 
-### Step 1: Update Base URL
+### v1 → v2
 
+#### Response Format Changes
+v1 returns data directly:
+```json
+{
+  "debates": [...]
+}
+```
+
+v2 wraps with metadata:
+```json
+{
+  "data": {
+    "debates": [...]
+  },
+  "meta": {
+    "version": "v2",
+    "timestamp": "2025-01-18T12:00:00Z"
+  }
+}
+```
+
+#### Endpoint Changes
+| v1 | v2 | Notes |
+|----|----|-------|
+| GET /api/v1/debates | GET /api/v2/debates | Response format changed |
+| POST /api/v1/debate | POST /api/v2/debates | Endpoint renamed |
+
+## Usage
+
+### Python Client
 ```python
-# Before
-BASE_URL = "https://api.aragora.ai/api"
+from aragora.client import AragoraClient
 
-# After
-BASE_URL = "https://api.aragora.ai/api/v1"
+# Specify version
+client = AragoraClient(api_version="v2")
+
+# Or per-request
+response = client.get("/debates", api_version="v2")
 ```
 
-### Step 2: Update All Endpoint Calls
+### TypeScript Client
+```typescript
+import { AragoraClient } from 'aragora';
 
-No other changes needed - all endpoints work identically with the version prefix.
+// Specify version
+const client = new AragoraClient({ apiVersion: 'v2' });
 
-### Step 3: Verify Headers
-
-Check that responses include `X-API-Version: v1` without `X-API-Legacy`.
-
-### Step 4: Update Documentation
-
-Update any API documentation to reference versioned endpoints.
-
----
-
-## Breaking Change Policy
-
-### Versioning Rules
-
-1. **Major versions (v1 → v2)**: May contain breaking changes
-2. **Minor versions**: Add features, never remove
-3. **Patch versions**: Bug fixes only
-
-### What Constitutes a Breaking Change
-
-- Removing an endpoint
-- Removing a required field from response
-- Changing field types
-- Changing authentication requirements
-- Changing rate limit behavior
-
-### What Is NOT a Breaking Change
-
-- Adding new endpoints
-- Adding optional fields to responses
-- Adding optional request parameters
-- Performance improvements
-- Bug fixes
-
-### Deprecation Timeline
-
-When an endpoint or version is deprecated:
-
-1. **Announcement**: Deprecation notice in release notes
-2. **Warning Headers**: `X-API-Deprecated: true` and `X-API-Sunset` date
-3. **Migration Period**: Minimum 90 days
-4. **Sunset**: Endpoint returns `410 Gone`
-
----
-
-## Supported Versions
-
-| Version | Status | Notes |
-|---------|--------|-------|
-| `v1` | **Current** | Recommended for all new integrations |
-
----
-
-## Implementation Details
-
-### Server Configuration
-
-Version configuration is managed in `aragora/server/versioning.py`:
-
-```python
-from aragora.server.versioning import (
-    APIVersion,
-    get_version_config,
-    set_version_config,
-    VersionConfig,
-)
-
-# View current config
-config = get_version_config()
-print(config.current)  # APIVersion.V1
-print(config.supported)  # [APIVersion.V1]
-
-# Custom config (for testing)
-set_version_config(VersionConfig(
-    current=APIVersion.V1,
-    supported=[APIVersion.V1],
-    deprecated=[],
-    sunset_dates={},
-))
+// Or per-request
+const debates = await client.get('/debates', { apiVersion: 'v2' });
 ```
 
-### Route Matching
+### curl
+```bash
+# URL prefix (recommended)
+curl https://api.aragora.io/api/v2/debates
 
-The handler registry automatically normalizes versioned paths:
-
-```
-/api/v1/debates → /api/debates (for handler matching)
-```
-
-Handlers only need to define routes for unversioned paths:
-
-```python
-class DebatesHandler(BaseHandler):
-    ROUTES = [
-        "/api/debates",      # Matches both /api/debates AND /api/v1/debates
-        "/api/debates/list",
-    ]
+# Header-based
+curl -H "X-API-Version: 2" https://api.aragora.io/api/debates
 ```
 
----
+## Monitoring
 
-## See Also
+### Metrics
+- `aragora_api_requests_total{version="v1"}` - Requests by version
+- `aragora_deprecated_endpoint_calls_total` - Deprecated endpoint usage
+- `aragora_version_adoption{version="v2"}` - Version adoption rate
 
-- [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md) - Full deprecation policy
-- [API_REFERENCE.md](./API_REFERENCE.md) - Complete API documentation
-- [SECURITY.md](./SECURITY.md) - Authentication and security
+### Alerts
+- Warning when sunset endpoint usage > 100/hour
+- Critical when sunset < 30 days with active usage
+
+## Best Practices
+
+1. **Always specify version** - Don't rely on defaults
+2. **Subscribe to deprecation notices** - Monitor sunset dates
+3. **Test with new versions early** - Use beta/alpha in staging
+4. **Use semantic versioning** - Major version = breaking changes
+5. **Plan migrations** - Start migration 3+ months before sunset
