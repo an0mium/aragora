@@ -82,6 +82,15 @@
 | [A_B_TESTING.md](A_B_TESTING.md) | A/B testing debates |
 | [comparison.md](comparison.md) | Model comparison |
 
+## Algorithms
+
+| Document | Description |
+|----------|-------------|
+| [algorithms/README.md](algorithms/README.md) | Algorithm documentation overview |
+| [algorithms/CONSENSUS.md](algorithms/CONSENSUS.md) | Multi-agent consensus detection and proof generation |
+| [algorithms/CONVERGENCE.md](algorithms/CONVERGENCE.md) | Semantic similarity for debate convergence |
+| [algorithms/ELO_CALIBRATION.md](algorithms/ELO_CALIBRATION.md) | Agent skill rating and team selection |
+
 ## Agent Development
 
 | Document | Description |

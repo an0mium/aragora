@@ -96,6 +96,14 @@ Real-time debate visualization at **[aragora.ai](https://aragora.ai)**:
 - Late-joiner state sync
 - Multi-loop support
 
+### Algorithm Documentation
+Deep-dive documentation for core debate algorithms:
+- **[Consensus Detection](docs/algorithms/CONSENSUS.md)** - Multi-agent consensus mechanisms and proof generation
+- **[Convergence Detection](docs/algorithms/CONVERGENCE.md)** - Semantic similarity for debate convergence
+- **[ELO & Calibration](docs/algorithms/ELO_CALIBRATION.md)** - Agent skill rating and team selection
+
+See [docs/algorithms/README.md](docs/algorithms/README.md) for the full algorithm reference.
+
 ## AI Red Team Code Review
 
 Get **unanimous AI consensus** on your pull requests. When 3 independent AI models agree on an issue, you know it's worth fixing. This is Gauntlet configured for code-level stress-testing.
