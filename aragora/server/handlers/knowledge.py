@@ -30,9 +30,12 @@ Knowledge Mound API (unified knowledge storage):
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Coroutine, Optional, TypeVar
+
+T = TypeVar("T")
 
 from aragora.knowledge import (
     DatasetQueryEngine,
@@ -64,6 +67,24 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. This is the recommended pattern for calling async
+    code from sync handlers.
+
+    Args:
+        coro: The coroutine to run
+
+    Returns:
+        The result of the coroutine
+    """
+    return asyncio.run(coro)
+
 
 # Rate limiter for knowledge endpoints (60 requests per minute)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
@@ -237,10 +258,7 @@ class KnowledgeHandler(BaseHandler):
 
         # Run async query
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(engine.query(question, workspace_id, options))
-            loop.close()
+            result = _run_async(engine.query(question, workspace_id, options))
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
             return error_response(f"Query failed: {e}", 500)
@@ -392,10 +410,7 @@ class KnowledgeHandler(BaseHandler):
             return error_response("Agent verification not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            verified = loop.run_until_complete(engine.verify_fact(fact_id))
-            loop.close()
+            verified = _run_async(engine.verify_fact(fact_id))
         except Exception as e:
             logger.error(f"Verification failed: {e}")
             return error_response(f"Verification failed: {e}", 500)
@@ -555,10 +570,7 @@ class KnowledgeHandler(BaseHandler):
         engine = self._get_query_engine()
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(engine.search(query, workspace_id, limit))
-            loop.close()
+            results = _run_async(engine.search(query, workspace_id, limit))
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return error_response(f"Search failed: {e}", 500)
@@ -627,10 +639,7 @@ class KnowledgeMoundHandler(BaseHandler):
             self._mound = KnowledgeMound(workspace_id="default")
             # Initialize synchronously for handler use
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self._mound.initialize())
-                loop.close()
+                _run_async(self._mound.initialize())
                 self._mound_initialized = True
             except Exception as e:
                 logger.error(f"Failed to initialize Knowledge Mound: {e}")
@@ -755,9 +764,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(
+            result = _run_async(
                 mound.query_semantic(
                     query=query,
                     limit=limit,
@@ -766,7 +773,6 @@ class KnowledgeMoundHandler(BaseHandler):
                     workspace_id=workspace_id,
                 )
             )
-            loop.close()
         except Exception as e:
             logger.error(f"Mound query failed: {e}")
             return error_response(f"Query failed: {e}", 500)
@@ -837,12 +843,9 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            node_id = loop.run_until_complete(mound.add_node(node))
+            node_id = _run_async(mound.add_node(node))
             # Fetch the saved node
-            saved_node = loop.run_until_complete(mound.get_node(node_id))
-            loop.close()
+            saved_node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to create node: {e}")
             return error_response(f"Failed to create node: {e}", 500)
@@ -859,10 +862,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            node = loop.run_until_complete(mound.get_node(node_id))
-            loop.close()
+            node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -892,9 +892,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            nodes = loop.run_until_complete(
+            nodes = _run_async(
                 mound.query_nodes(
                     workspace_id=workspace_id,
                     node_types=node_types,
@@ -904,7 +902,6 @@ class KnowledgeMoundHandler(BaseHandler):
                     offset=offset,
                 )
             )
-            loop.close()
         except Exception as e:
             logger.error(f"Failed to list nodes: {e}")
             return error_response(f"Failed to list nodes: {e}", 500)
@@ -951,9 +948,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            rel_id = loop.run_until_complete(
+            rel_id = _run_async(
                 mound.add_relationship(
                     from_node_id=from_node_id,
                     to_node_id=to_node_id,
@@ -963,7 +958,6 @@ class KnowledgeMoundHandler(BaseHandler):
                     metadata=data.get("metadata"),
                 )
             )
-            loop.close()
         except Exception as e:
             logger.error(f"Failed to create relationship: {e}")
             return error_response(f"Failed to create relationship: {e}", 500)
@@ -997,9 +991,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            nodes = loop.run_until_complete(
+            nodes = _run_async(
                 mound.query_graph(
                     start_node_id=node_id,
                     relationship_type=relationship_type,
@@ -1007,7 +999,6 @@ class KnowledgeMoundHandler(BaseHandler):
                     direction=direction,
                 )
             )
-            loop.close()
         except Exception as e:
             logger.error(f"Graph traversal failed: {e}")
             return error_response(f"Graph traversal failed: {e}", 500)
@@ -1031,10 +1022,7 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            stats = loop.run_until_complete(mound.get_stats())
-            loop.close()
+            stats = _run_async(mound.get_stats())
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")
             return error_response(f"Failed to get stats: {e}", 500)
@@ -1069,3 +1057,474 @@ class KnowledgeMoundHandler(BaseHandler):
             "repo_path": repo_path,
             "workspace_id": workspace_id,
         }, status=202)
+
+    # =========================================================================
+    # Culture Management Endpoints (Phase A1)
+    # =========================================================================
+
+    @handle_errors("get culture")
+    def _handle_get_culture(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/culture - Get organization culture profile."""
+        import asyncio
+
+        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            culture = _run_async(mound.get_culture_profile(workspace_id))
+        except Exception as e:
+            logger.error(f"Failed to get culture profile: {e}")
+            return error_response(f"Failed to get culture profile: {e}", 500)
+
+        return json_response({
+            "workspace_id": culture.workspace_id,
+            "patterns": {k: v.to_dict() if hasattr(v, 'to_dict') else v for k, v in culture.patterns.items()},
+            "generated_at": culture.generated_at.isoformat() if culture.generated_at else None,
+            "total_observations": culture.total_observations,
+        })
+
+    @handle_errors("add culture document")
+    def _handle_add_culture_document(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/culture/documents - Add culture document."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        content = data.get("content", "")
+        if not content:
+            return error_response("Content is required", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+        document_type = data.get("document_type", "policy")
+        metadata = data.get("metadata", {})
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        # Store as a culture-related knowledge node
+        try:
+            from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+            from aragora.memory.tier_manager import MemoryTier
+
+            provenance = ProvenanceChain(
+                source_type=ProvenanceType.USER,
+                source_id="culture_document",
+            )
+
+            node = KnowledgeNode(
+                node_type="culture",
+                content=content,
+                confidence=1.0,  # Culture documents are authoritative
+                provenance=provenance,
+                tier=MemoryTier.GLACIAL,  # Long-term storage
+                workspace_id=workspace_id,
+                topics=["culture", document_type],
+                metadata={"document_type": document_type, **metadata},
+            )
+
+            node_id = _run_async(mound.add_node(node))
+        except Exception as e:
+            logger.error(f"Failed to add culture document: {e}")
+            return error_response(f"Failed to add culture document: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "document_type": document_type,
+            "workspace_id": workspace_id,
+            "message": "Culture document added successfully",
+        }, status=201)
+
+    @handle_errors("promote to culture")
+    def _handle_promote_to_culture(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/culture/promote - Promote knowledge to culture."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        node_id = data.get("node_id")
+        if not node_id:
+            return error_response("node_id is required", 400)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            from aragora.memory.tier_manager import MemoryTier
+
+            # Update node to culture tier and type
+            updated = _run_async(mound.update(node_id, {
+                "node_type": "culture",
+                "tier": MemoryTier.GLACIAL.value,
+                "promoted_to_culture": True,
+            }))
+
+            if not updated:
+                return error_response(f"Node not found: {node_id}", 404)
+
+        except Exception as e:
+            logger.error(f"Failed to promote to culture: {e}")
+            return error_response(f"Failed to promote to culture: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "promoted": True,
+            "message": "Knowledge promoted to culture successfully",
+        })
+
+    # =========================================================================
+    # Staleness and Revalidation Endpoints (Phase A1)
+    # =========================================================================
+
+    @handle_errors("get stale knowledge")
+    def _handle_get_stale(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/stale - Get stale knowledge items."""
+        import asyncio
+
+        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
+        threshold = get_bounded_float_param(query_params, "threshold", 0.5, min_val=0.0, max_val=1.0)
+        limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            stale_items = _run_async(
+                mound.get_stale_knowledge(
+                    threshold=threshold,
+                    limit=limit,
+                    workspace_id=workspace_id,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to get stale knowledge: {e}")
+            return error_response(f"Failed to get stale knowledge: {e}", 500)
+
+        return json_response({
+            "stale_items": [
+                {
+                    "node_id": item.node_id,
+                    "staleness_score": item.staleness_score,
+                    "reasons": [r.value if hasattr(r, 'value') else r for r in item.reasons],
+                    "last_validated_at": item.last_validated_at.isoformat() if item.last_validated_at else None,
+                    "recommended_action": item.recommended_action,
+                }
+                for item in stale_items
+            ],
+            "total": len(stale_items),
+            "threshold": threshold,
+            "workspace_id": workspace_id,
+        })
+
+    @handle_errors("revalidate node")
+    def _handle_revalidate_node(self, node_id: str, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/revalidate/:id - Trigger revalidation."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        validator = data.get("validator", "api")
+        new_confidence = data.get("confidence")
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            _run_async(mound.mark_validated(node_id, validator, new_confidence))
+        except Exception as e:
+            logger.error(f"Failed to revalidate node: {e}")
+            return error_response(f"Failed to revalidate node: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "validated": True,
+            "validator": validator,
+            "new_confidence": new_confidence,
+            "message": "Node revalidated successfully",
+        })
+
+    @handle_errors("schedule revalidation")
+    def _handle_schedule_revalidation(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/schedule-revalidation - Schedule batch."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        node_ids = data.get("node_ids", [])
+        if not node_ids:
+            return error_response("node_ids is required", 400)
+
+        priority = data.get("priority", "low")
+        if priority not in ("low", "medium", "high"):
+            return error_response("priority must be 'low', 'medium', or 'high'", 400)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            scheduled = _run_async(mound.schedule_revalidation(node_ids, priority))
+        except Exception as e:
+            logger.error(f"Failed to schedule revalidation: {e}")
+            return error_response(f"Failed to schedule revalidation: {e}", 500)
+
+        return json_response({
+            "scheduled": scheduled,
+            "priority": priority,
+            "count": len(scheduled),
+            "message": f"Scheduled {len(scheduled)} nodes for revalidation",
+        }, status=202)
+
+    # =========================================================================
+    # Sync Endpoints (Phase A1)
+    # =========================================================================
+
+    @handle_errors("sync continuum")
+    def _handle_sync_continuum(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/sync/continuum - Sync from ContinuumMemory."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+        since = data.get("since")  # ISO timestamp
+        limit = data.get("limit", 100)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            result = _run_async(
+                mound.sync_from_continuum(workspace_id=workspace_id, since=since, limit=limit)
+            )
+        except AttributeError:
+            return json_response({
+                "synced": 0,
+                "message": "Sync from ContinuumMemory not yet implemented",
+                "workspace_id": workspace_id,
+            })
+        except Exception as e:
+            logger.error(f"Failed to sync from continuum: {e}")
+            return error_response(f"Failed to sync from continuum: {e}", 500)
+
+        return json_response({
+            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
+            "workspace_id": workspace_id,
+            "message": "Sync from ContinuumMemory completed",
+        })
+
+    @handle_errors("sync consensus")
+    def _handle_sync_consensus(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/sync/consensus - Sync from ConsensusMemory."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+        since = data.get("since")
+        limit = data.get("limit", 100)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            result = _run_async(
+                mound.sync_from_consensus(workspace_id=workspace_id, since=since, limit=limit)
+            )
+        except AttributeError:
+            return json_response({
+                "synced": 0,
+                "message": "Sync from ConsensusMemory not yet implemented",
+                "workspace_id": workspace_id,
+            })
+        except Exception as e:
+            logger.error(f"Failed to sync from consensus: {e}")
+            return error_response(f"Failed to sync from consensus: {e}", 500)
+
+        return json_response({
+            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
+            "workspace_id": workspace_id,
+            "message": "Sync from ConsensusMemory completed",
+        })
+
+    @handle_errors("sync facts")
+    def _handle_sync_facts(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/sync/facts - Sync from FactStore."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+        since = data.get("since")
+        limit = data.get("limit", 100)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            result = _run_async(
+                mound.sync_from_facts(workspace_id=workspace_id, since=since, limit=limit)
+            )
+        except AttributeError:
+            return json_response({
+                "synced": 0,
+                "message": "Sync from FactStore not yet implemented",
+                "workspace_id": workspace_id,
+            })
+        except Exception as e:
+            logger.error(f"Failed to sync from facts: {e}")
+            return error_response(f"Failed to sync from facts: {e}", 500)
+
+        return json_response({
+            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
+            "workspace_id": workspace_id,
+            "message": "Sync from FactStore completed",
+        })
+
+    # =========================================================================
+    # Extended Graph Endpoints (Phase A1)
+    # =========================================================================
+
+    @handle_errors("graph lineage")
+    def _handle_graph_lineage(self, path: str, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/graph/:id/lineage - Get node lineage."""
+        import asyncio
+
+        parts = path.strip("/").split("/")
+        if len(parts) < 5:
+            return error_response("Node ID required", 400)
+
+        node_id = parts[4]
+        depth = get_clamped_int_param(query_params, "depth", 5, min_val=1, max_val=10)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            # Query graph with derived_from relationships only
+            result = _run_async(
+                mound.query_graph(
+                    start_id=node_id,
+                    relationship_types=["derived_from"],
+                    depth=depth,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Graph lineage failed: {e}")
+            return error_response(f"Graph lineage failed: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "lineage": {
+                "nodes": [n.to_dict() for n in result.nodes],
+                "edges": [e.to_dict() if hasattr(e, 'to_dict') else e for e in result.edges],
+                "total_nodes": result.total_nodes,
+                "total_edges": result.total_edges,
+            },
+            "depth": depth,
+        })
+
+    @handle_errors("graph related")
+    def _handle_graph_related(self, path: str, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/graph/:id/related - Get related nodes."""
+        import asyncio
+
+        parts = path.strip("/").split("/")
+        if len(parts) < 5:
+            return error_response("Node ID required", 400)
+
+        node_id = parts[4]
+        relationship_type = get_bounded_string_param(query_params, "relationship_type", None, max_length=50)
+        limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            # Query graph with depth 1 for immediate relations
+            rel_types = [relationship_type] if relationship_type else None
+            result = _run_async(
+                mound.query_graph(
+                    start_id=node_id,
+                    relationship_types=rel_types,
+                    depth=1,
+                    max_nodes=limit,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Get related nodes failed: {e}")
+            return error_response(f"Get related nodes failed: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "related": [n.to_dict() for n in result.nodes if n.id != node_id],
+            "relationship_type": relationship_type,
+            "total": len(result.nodes) - 1,  # Exclude start node
+        })
