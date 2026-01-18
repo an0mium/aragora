@@ -41,83 +41,99 @@ _oauth_limiter = RateLimiter(requests_per_minute=20)
 
 
 # =============================================================================
-# Configuration
+# Configuration (loaded lazily to support AWS Secrets Manager)
 # =============================================================================
 
-# Check if we're in production mode
-_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "").lower() == "production"
 
-# Core OAuth credentials - Google
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+def _get_secret(name: str, default: str = "") -> str:
+    """Get a secret from AWS Secrets Manager or environment."""
+    try:
+        from aragora.config.secrets import get_secret
+        return get_secret(name, default) or default
+    except ImportError:
+        return os.environ.get(name, default)
 
-# Core OAuth credentials - GitHub
-GITHUB_CLIENT_ID = os.environ.get("GITHUB_OAUTH_CLIENT_ID", "")
-GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_OAUTH_CLIENT_SECRET", "")
 
-# Redirect URIs - require explicit configuration in production
-_GOOGLE_REDIRECT_URI_ENV = os.environ.get("GOOGLE_OAUTH_REDIRECT_URI")
-_GITHUB_REDIRECT_URI_ENV = os.environ.get("GITHUB_OAUTH_REDIRECT_URI")
-_OAUTH_SUCCESS_URL_ENV = os.environ.get("OAUTH_SUCCESS_URL")
-_OAUTH_ERROR_URL_ENV = os.environ.get("OAUTH_ERROR_URL")
+def _is_production() -> bool:
+    """Check if we're in production mode."""
+    return os.environ.get("ARAGORA_ENV", "").lower() == "production"
 
-# Use env vars or localhost fallbacks (with warnings for dev mode)
-if _IS_PRODUCTION:
-    # In production, use env vars only (no fallbacks)
-    GOOGLE_REDIRECT_URI = _GOOGLE_REDIRECT_URI_ENV or ""
-    GITHUB_REDIRECT_URI = _GITHUB_REDIRECT_URI_ENV or ""
-    OAUTH_SUCCESS_URL = _OAUTH_SUCCESS_URL_ENV or ""
-    OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or ""
-else:
-    # Dev mode: warn and use localhost fallbacks
-    GOOGLE_REDIRECT_URI = (
-        _GOOGLE_REDIRECT_URI_ENV or "http://localhost:8080/api/auth/oauth/google/callback"
+
+def _get_google_client_id() -> str:
+    return _get_secret("GOOGLE_OAUTH_CLIENT_ID", "")
+
+
+def _get_google_client_secret() -> str:
+    return _get_secret("GOOGLE_OAUTH_CLIENT_SECRET", "")
+
+
+def _get_github_client_id() -> str:
+    return _get_secret("GITHUB_OAUTH_CLIENT_ID", "")
+
+
+def _get_github_client_secret() -> str:
+    return _get_secret("GITHUB_OAUTH_CLIENT_SECRET", "")
+
+
+def _get_google_redirect_uri() -> str:
+    val = _get_secret("GOOGLE_OAUTH_REDIRECT_URI", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:8080/api/auth/oauth/google/callback"
+
+
+def _get_github_redirect_uri() -> str:
+    val = _get_secret("GITHUB_OAUTH_REDIRECT_URI", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:8080/api/auth/oauth/github/callback"
+
+
+def _get_oauth_success_url() -> str:
+    val = _get_secret("OAUTH_SUCCESS_URL", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:3000/auth/callback"
+
+
+def _get_oauth_error_url() -> str:
+    val = _get_secret("OAUTH_ERROR_URL", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:3000/auth/error"
+
+
+def _get_allowed_redirect_hosts() -> frozenset:
+    val = _get_secret("OAUTH_ALLOWED_REDIRECT_HOSTS", "")
+    if not val:
+        if _is_production():
+            return frozenset()
+        val = "localhost,127.0.0.1"
+    return frozenset(
+        host.strip().lower() for host in val.split(",") if host.strip()
     )
-    GITHUB_REDIRECT_URI = (
-        _GITHUB_REDIRECT_URI_ENV or "http://localhost:8080/api/auth/oauth/github/callback"
-    )
-    OAUTH_SUCCESS_URL = _OAUTH_SUCCESS_URL_ENV or "http://localhost:3000/auth/callback"
-    OAUTH_ERROR_URL = _OAUTH_ERROR_URL_ENV or "http://localhost:3000/auth/error"
 
-    # Log warnings in dev mode when using fallbacks
-    if not _GOOGLE_REDIRECT_URI_ENV:
-        logger.warning(
-            "[OAuth] GOOGLE_OAUTH_REDIRECT_URI not set, using localhost fallback. "
-            "This will fail in production."
-        )
-    if not _GITHUB_REDIRECT_URI_ENV:
-        logger.warning(
-            "[OAuth] GITHUB_OAUTH_REDIRECT_URI not set, using localhost fallback. "
-            "This will fail in production."
-        )
-    if not _OAUTH_SUCCESS_URL_ENV:
-        logger.warning(
-            "[OAuth] OAUTH_SUCCESS_URL not set, using localhost fallback. "
-            "This will fail in production."
-        )
-    if not _OAUTH_ERROR_URL_ENV:
-        logger.warning(
-            "[OAuth] OAUTH_ERROR_URL not set, using localhost fallback. "
-            "This will fail in production."
-        )
 
-# Security: Allowed redirect hosts (comma-separated)
-# Only redirect URLs with these hosts are allowed after OAuth
-_ALLOWED_REDIRECT_HOSTS_STR = os.environ.get("OAUTH_ALLOWED_REDIRECT_HOSTS")
-if not _ALLOWED_REDIRECT_HOSTS_STR:
-    if _IS_PRODUCTION:
-        logger.warning(
-            "[OAuth] OAUTH_ALLOWED_REDIRECT_HOSTS not set in production! "
-            "OAuth will reject all redirects. Set this to your domain(s)."
-        )
-        _ALLOWED_REDIRECT_HOSTS_STR = ""  # No allowed hosts = reject all
-    else:
-        _ALLOWED_REDIRECT_HOSTS_STR = "localhost,127.0.0.1"
-        logger.debug("[OAuth] Using localhost for allowed redirect hosts (dev mode)")
-
-ALLOWED_OAUTH_REDIRECT_HOSTS = frozenset(
-    host.strip().lower() for host in _ALLOWED_REDIRECT_HOSTS_STR.split(",") if host.strip()
-)
+# Legacy module-level variables (for backward compatibility, now call functions)
+# These are kept for any code that imports them directly
+_IS_PRODUCTION = _is_production()
+GOOGLE_CLIENT_ID = _get_google_client_id()
+GOOGLE_CLIENT_SECRET = _get_google_client_secret()
+GITHUB_CLIENT_ID = _get_github_client_id()
+GITHUB_CLIENT_SECRET = _get_github_client_secret()
+GOOGLE_REDIRECT_URI = _get_google_redirect_uri()
+GITHUB_REDIRECT_URI = _get_github_redirect_uri()
+OAUTH_SUCCESS_URL = _get_oauth_success_url()
+OAUTH_ERROR_URL = _get_oauth_error_url()
+ALLOWED_OAUTH_REDIRECT_HOSTS = _get_allowed_redirect_hosts()
 
 
 def validate_oauth_config() -> list[str]:
