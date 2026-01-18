@@ -100,11 +100,31 @@ eval(expression, {"__builtins__": {}}, namespace)
 
 ```python
 # These will fail due to missing builtins:
-"import os; os.system('rm -rf /')"      # No import
-"open('/etc/passwd').read()"            # No open
-"__builtins__['eval']('...')"          # Empty builtins
-"().__class__.__bases__[0].__subclasses__()"  # No class introspection
+"import os; os.system('rm -rf /')"      # No import statement
+"open('/etc/passwd').read()"            # No open function
+"__builtins__['eval']('...')"          # Empty builtins dict
 ```
+
+### Known Limitation: Class Introspection
+
+**Important:** The current eval() sandboxing does NOT prevent Python class introspection:
+
+```python
+# This SUCCEEDS with current sandboxing (returns ~200 subclasses):
+"().__class__.__bases__[0].__subclasses__()"
+
+# This can potentially find and invoke dangerous classes
+```
+
+While exploiting this requires specific knowledge and the workflow runs with limited permissions, this represents a theoretical sandbox escape path.
+
+**Mitigations in place:**
+- Workflow definitions typically come from trusted sources (admins, developers)
+- Expressions operate on workflow data, not system resources
+- Timeout controls prevent runaway execution
+- Server process runs with minimal privileges
+
+**Recommended migration:** See [ADR-010: AST-Based Expression Evaluation](#future-migration-to-ast) below.
 
 ## Audit Logging
 
@@ -172,6 +192,36 @@ Deeply nested expressions could cause stack overflow:
 2. **Expression allowlisting** - Pre-approve expression patterns
 3. **Resource limits** - Add memory/CPU limits to expression evaluation
 4. **Static analysis** - Lint expressions before execution
+
+## Future Migration to AST
+
+<a name="future-migration-to-ast"></a>
+
+The policy engine (`aragora/policy/engine.py`) already implements a secure AST-based evaluator that should be adopted by the workflow module:
+
+```python
+# Current approach (workflow module) - has sandbox escape risks:
+eval(expression, {"__builtins__": {}}, namespace)
+
+# Recommended approach (policy engine) - explicitly blocks dangerous patterns:
+tree = ast.parse(condition, mode="eval")
+return self._eval_node(tree.body, context)
+```
+
+The AST-based approach:
+- Parses expressions without executing them
+- Walks the AST tree, evaluating only allowed node types
+- **Explicitly blocks**: `ast.Attribute`, `ast.Call`, `ast.Subscript`
+- Supports: comparisons, boolean logic, literals, and whitelisted variable access
+
+**Migration priority:** Medium (current mitigations are adequate for trusted workflow sources)
+
+**Files to update:**
+- `aragora/workflow/engine.py:508` - Transition conditions
+- `aragora/workflow/step.py:267,332` - Step conditions
+- `aragora/workflow/nodes/task.py:210,238,292` - Task expressions
+- `aragora/workflow/nodes/decision.py:166,288` - Decision expressions
+- `aragora/workflow/nodes/human_checkpoint.py:277` - Auto-approval conditions
 
 ## Related Documentation
 
