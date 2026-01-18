@@ -38,6 +38,11 @@ if TYPE_CHECKING:
 _MAX_CLI_SUBPROCESSES = int(os.environ.get("ARAGORA_MAX_CLI_SUBPROCESSES", "10"))
 _subprocess_semaphore = asyncio.Semaphore(_MAX_CLI_SUBPROCESSES)
 
+# Maximum prompt size to pass as CLI argument (avoids E2BIG error)
+# Prompts larger than this should be passed via stdin where supported
+# Configurable via ARAGORA_MAX_CLI_PROMPT_CHARS environment variable
+MAX_CLI_PROMPT_CHARS = int(os.environ.get("ARAGORA_MAX_CLI_PROMPT_CHARS", "100000"))  # 100KB default
+
 # Re-export constants for backward compatibility
 __all__ = [
     "CLIAgent",
@@ -49,6 +54,7 @@ __all__ = [
     "QwenCLIAgent",
     "DeepseekCLIAgent",
     "KiloCodeAgent",
+    "MAX_CLI_PROMPT_CHARS",
     "MAX_CONTEXT_CHARS",
     "MAX_MESSAGE_CHARS",
     "RATE_LIMIT_PATTERNS",  # Re-exported from errors.py
@@ -323,6 +329,14 @@ class CLIAgent(CritiqueMixin, Agent):
             full_prompt = f"System context: {self.system_prompt}\n\n{full_prompt}"
         return full_prompt
 
+    def _is_prompt_too_large_for_argv(self, prompt: str) -> bool:
+        """Check if prompt is too large to pass as CLI argument.
+
+        Large prompts can trigger E2BIG (argument list too long) errors.
+        Returns True if prompt should be passed via stdin instead.
+        """
+        return len(prompt) > MAX_CLI_PROMPT_CHARS
+
     async def _generate_with_fallback(
         self,
         cli_command: list[str],
@@ -535,8 +549,21 @@ class GeminiCLIAgent(CLIAgent):
         return "\n".join(filtered).strip()
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using gemini CLI."""
+        """Generate a response using gemini CLI.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                ["gemini", "--yolo", "-o", "text", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+                response_extractor=self._extract_gemini_response,
+            )
         return await self._generate_with_fallback(
             ["gemini", "--yolo", "-o", "text", full_prompt],
             prompt,
@@ -658,8 +685,21 @@ class GrokCLIAgent(CLIAgent):
         return final_content if final_content else output
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using grok CLI."""
+        """Generate a response using grok CLI.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                ["grok", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+                response_extractor=self._extract_grok_response,
+            )
         return await self._generate_with_fallback(
             ["grok", "-p", full_prompt],
             prompt,
@@ -681,8 +721,20 @@ class QwenCLIAgent(CLIAgent):
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using qwen CLI."""
+        """Generate a response using qwen CLI.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                ["qwen", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
         return await self._generate_with_fallback(
             ["qwen", "-p", full_prompt],
             prompt,
@@ -704,8 +756,20 @@ class DeepseekCLIAgent(CLIAgent):
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using deepseek CLI."""
+        """Generate a response using deepseek CLI.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                ["deepseek", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
         return await self._generate_with_fallback(
             ["deepseek", "-p", full_prompt],
             prompt,
@@ -743,8 +807,30 @@ class OpenAIAgent(CLIAgent):
             return result
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using openai CLI."""
+        """Generate a response using openai CLI.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                [
+                    "openai",
+                    "api",
+                    "chat.completions.create",
+                    "-m",
+                    self.model,
+                    "-g",
+                    "user",
+                    "-",  # Read content from stdin
+                ],
+                prompt,
+                context,
+                input_text=full_prompt,
+                response_extractor=self._extract_openai_response,
+            )
         return await self._generate_with_fallback(
             [
                 "openai",

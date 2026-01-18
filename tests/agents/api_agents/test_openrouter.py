@@ -61,10 +61,10 @@ class TestOpenRouterAgentInitialization:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("openrouter")
+        spec = AgentRegistry.get_spec("openrouter")
 
-        assert info is not None
-        assert info["agent_type"] == "API (OpenRouter)"
+        assert spec is not None
+        assert spec.agent_type == "API (OpenRouter)"
 
     def test_default_system_prompt_with_language_enforcement(self, mock_env_with_api_keys):
         """Should set default system prompt with language enforcement."""
@@ -449,10 +449,10 @@ class TestDeepSeekAgent:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("deepseek")
+        spec = AgentRegistry.get_spec("deepseek")
 
-        assert info is not None
-        assert "deepseek" in info["default_model"]
+        assert spec is not None
+        assert "deepseek" in spec.default_model
 
 
 class TestDeepSeekReasonerAgent:
@@ -486,9 +486,9 @@ class TestLlamaAgent:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("llama")
+        spec = AgentRegistry.get_spec("llama")
 
-        assert info is not None
+        assert spec is not None
 
 
 class TestQwenAgent:
@@ -508,9 +508,9 @@ class TestQwenAgent:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("qwen")
+        spec = AgentRegistry.get_spec("qwen")
 
-        assert info is not None
+        assert spec is not None
 
 
 class TestQwenMaxAgent:
@@ -559,9 +559,9 @@ class TestKimiK2Agent:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("kimi")
+        spec = AgentRegistry.get_spec("kimi")
 
-        assert info is not None
+        assert spec is not None
 
 
 class TestKimiThinkingAgent:

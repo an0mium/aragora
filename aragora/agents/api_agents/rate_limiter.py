@@ -136,6 +136,8 @@ class OpenRouterRateLimiter:
             await asyncio.sleep(backoff_delay)
 
         while True:
+            # Compute state inside lock, but sleep outside to avoid blocking event loop
+            api_wait_time: Optional[float] = None
             with self._lock:
                 self._refill()
 
@@ -144,14 +146,22 @@ class OpenRouterRateLimiter:
                     wait_time = (self._api_reset or 60) - time.time()
                     if wait_time > 0 and wait_time < timeout:
                         logger.debug(f"OpenRouter API limit reached, waiting {wait_time:.1f}s")
-                        await asyncio.sleep(min(wait_time, 1.0))
-                        continue
+                        api_wait_time = min(wait_time, 1.0)
+                        # Don't sleep here - will sleep after releasing lock
 
-                if self._tokens >= 1:
-                    self._tokens -= 1
-                    acquired = True
+                if api_wait_time is None:  # Only try to acquire if not waiting for API limit
+                    if self._tokens >= 1:
+                        self._tokens -= 1
+                        acquired = True
+                    else:
+                        acquired = False
                 else:
                     acquired = False
+
+            # Sleep OUTSIDE lock to avoid blocking event loop
+            if api_wait_time is not None:
+                await asyncio.sleep(api_wait_time)
+                continue
 
             # Stagger delay OUTSIDE lock to allow parallel token acquisition
             if acquired:
@@ -397,6 +407,8 @@ class ProviderRateLimiter:
             await asyncio.sleep(backoff_delay)
 
         while True:
+            # Compute state inside lock, but sleep outside to avoid blocking event loop
+            api_wait_time: Optional[float] = None
             with self._lock:
                 self._refill()
 
@@ -407,14 +419,22 @@ class ProviderRateLimiter:
                         logger.debug(
                             f"[{self.provider}] API limit reached, waiting {wait_time:.1f}s"
                         )
-                        await asyncio.sleep(min(wait_time, 1.0))
-                        continue
+                        api_wait_time = min(wait_time, 1.0)
+                        # Don't sleep here - will sleep after releasing lock
 
-                if self._tokens >= 1:
-                    self._tokens -= 1
-                    acquired = True
+                if api_wait_time is None:  # Only try to acquire if not waiting for API limit
+                    if self._tokens >= 1:
+                        self._tokens -= 1
+                        acquired = True
+                    else:
+                        acquired = False
                 else:
                     acquired = False
+
+            # Sleep OUTSIDE lock to avoid blocking event loop
+            if api_wait_time is not None:
+                await asyncio.sleep(api_wait_time)
+                continue
 
             # Stagger delay OUTSIDE lock to allow parallel token acquisition
             if acquired:

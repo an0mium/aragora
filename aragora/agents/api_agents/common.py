@@ -102,11 +102,20 @@ def get_shared_connector() -> aiohttp.TCPConnector:
             # Close old connector if it exists and is still open
             if _shared_connector is not None and not _shared_connector.closed:
                 try:
-                    # Note: close() returns a coroutine, but we schedule it
-                    # for execution rather than awaiting in this sync context
-                    _shared_connector.close()
-                except Exception:  # noqa: BLE001 - Cleanup errors should not propagate
-                    pass
+                    # close() returns a coroutine - schedule it on the loop
+                    # so connections are properly cleaned up
+                    if current_loop_id is not None:
+                        asyncio.get_running_loop().create_task(
+                            _shared_connector.close()
+                        )
+                    else:
+                        # No running loop, try to close synchronously
+                        # This may leave the connector in a partially closed state
+                        # but is better than leaking completely
+                        _shared_connector._closed = True
+                        logger.debug("Marked old connector as closed (no event loop)")
+                except Exception as e:  # noqa: BLE001 - Cleanup errors should not propagate
+                    logger.debug(f"Error closing old connector: {e}")
 
             per_host, total = _get_connection_limits()
             _shared_connector = aiohttp.TCPConnector(
@@ -183,13 +192,18 @@ async def close_shared_connector() -> None:
 
 
 # Maximum buffer size for streaming responses (prevents DoS via memory exhaustion)
-# Now configurable via ARAGORA_STREAM_BUFFER_SIZE env var
-def _get_stream_buffer_size() -> int:
-    """Get max stream buffer size from settings."""
+# Configurable via settings.agent.stream_buffer_size
+def get_stream_buffer_size() -> int:
+    """Get max stream buffer size from settings.
+
+    Unified across all streaming pathways for consistent DoS protection.
+    Default is 5MB (5 * 1024 * 1024 bytes).
+    """
     return get_settings().agent.stream_buffer_size
 
 
-MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # Default fallback, use _get_stream_buffer_size()
+# Legacy constant for backward compatibility - prefer get_stream_buffer_size()
+MAX_STREAM_BUFFER_SIZE = 5 * 1024 * 1024  # 5MB default, unified with aragora/agents/streaming.py
 
 
 def calculate_retry_delay(
@@ -325,7 +339,7 @@ class SSEStreamParser:
         self.content_extractor = content_extractor
         self.done_marker = done_marker
         self.max_buffer_size = (
-            max_buffer_size if max_buffer_size is not None else _get_stream_buffer_size()
+            max_buffer_size if max_buffer_size is not None else get_stream_buffer_size()
         )
         self.chunk_timeout = (
             chunk_timeout if chunk_timeout is not None else _get_stream_chunk_timeout()

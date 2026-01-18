@@ -68,11 +68,11 @@ class TestOpenAIAgentInitialization:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("openai-api")
+        spec = AgentRegistry.get_spec("openai-api")
 
-        assert info is not None
-        assert info["default_model"] == "gpt-5.2"
-        assert info["agent_type"] == "API"
+        assert spec is not None
+        assert spec.default_model == "gpt-5.2"
+        assert spec.agent_type == "API"
 
 
 class TestOpenAIWebSearchDetection:
@@ -181,23 +181,18 @@ class TestOpenAIGenerate:
     async def test_generate_records_token_usage(self, mock_env_with_api_keys, mock_openai_response):
         """Should record token usage from response."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from tests.agents.api_agents.conftest import MockClientSession, MockResponse
 
         agent = OpenAIAPIAgent()
         agent.reset_token_usage()
 
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = MagicMock()
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value=mock_openai_response)
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_response = MockResponse(status=200, json_data=mock_openai_response)
+        mock_session = MockClientSession([mock_response])
 
-            mock_session.post = MagicMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session",
+            return_value=mock_session,
+        ):
             await agent.generate("Test prompt")
 
         assert agent.last_tokens_in == 100

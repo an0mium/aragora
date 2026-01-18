@@ -7,6 +7,7 @@ across multiple API agent implementations.
 
 __all__ = [
     "StreamingMixin",
+    "get_stream_buffer_size",
     "MAX_STREAM_BUFFER_SIZE",
 ]
 
@@ -14,12 +15,23 @@ import json
 import logging
 from typing import Any, AsyncIterator
 
+from aragora.config.settings import get_settings
 from aragora.exceptions import StreamingError
 
 logger = logging.getLogger(__name__)
 
-# Maximum buffer size for streaming responses (1MB) - DoS protection
-MAX_STREAM_BUFFER_SIZE = 1024 * 1024
+
+def get_stream_buffer_size() -> int:
+    """Get max stream buffer size from settings.
+
+    Configurable via settings.agent.stream_buffer_size.
+    Default is 5MB (5 * 1024 * 1024 bytes).
+    """
+    return get_settings().agent.stream_buffer_size
+
+
+# Legacy constant for backward compatibility - prefer get_stream_buffer_size()
+MAX_STREAM_BUFFER_SIZE = 5 * 1024 * 1024  # 5MB default
 
 
 class StreamingMixin:

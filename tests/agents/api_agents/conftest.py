@@ -69,6 +69,10 @@ class MockStreamResponse:
                 self._index += 1
                 return chunk
 
+            def iter_any(self):
+                """Return self as async iterator (mimics aiohttp StreamReader)."""
+                return self
+
         return AsyncContent(self._chunks)
 
     async def text(self) -> str:
@@ -296,13 +300,13 @@ def sample_context():
             agent="agent1",
             content="First message",
             role="proposer",
-            round_num=1,
+            round=1,
         ),
         Message(
             agent="agent2",
             content="Response to first message",
             role="critic",
-            round_num=1,
+            round=1,
         ),
     ]
 

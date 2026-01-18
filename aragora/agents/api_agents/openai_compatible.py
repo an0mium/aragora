@@ -24,6 +24,7 @@ from aragora.agents.api_agents.common import (
     Critique,
     Message,
     _sanitize_error_message,
+    create_client_session,
     create_openai_sse_parser,
     handle_agent_errors,
 )
@@ -154,12 +155,12 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         messages = self._build_messages(full_prompt)
         payload = self._build_payload(messages, stream=False)
 
-        async with aiohttp.ClientSession() as session:
+        # Use shared connection pool for better resource management
+        async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
@@ -201,12 +202,12 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         messages = self._build_messages(full_prompt)
         payload = self._build_payload(messages, stream=True)
 
-        async with aiohttp.ClientSession() as session:
+        # Use shared connection pool for better resource management
+        async with create_client_session(timeout=self.timeout) as session:
             async with session.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()

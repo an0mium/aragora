@@ -70,11 +70,11 @@ class TestAnthropicAgentInitialization:
         """Should be registered in agent registry."""
         from aragora.agents.registry import AgentRegistry
 
-        info = AgentRegistry.get_agent_info("anthropic-api")
+        spec = AgentRegistry.get_spec("anthropic-api")
 
-        assert info is not None
-        assert info["default_model"] == "claude-opus-4-5-20251101"
-        assert info["agent_type"] == "API"
+        assert spec is not None
+        assert spec.default_model == "claude-opus-4-5-20251101"
+        assert spec.agent_type == "API"
 
 
 class TestAnthropicWebSearchDetection:
@@ -142,7 +142,7 @@ class TestAnthropicGenerate:
         mock_session = MockClientSession([mock_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             result = await agent.generate("Test prompt")
@@ -163,7 +163,7 @@ class TestAnthropicGenerate:
         mock_session = MockClientSession([mock_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             result = await agent.generate("Test prompt", context=sample_context)
@@ -184,7 +184,7 @@ class TestAnthropicGenerate:
         mock_session = MockClientSession([mock_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             result = await agent.generate("Check https://example.com")
@@ -206,7 +206,7 @@ class TestAnthropicGenerate:
         mock_session = MockClientSession([mock_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             await agent.generate("Test prompt")
@@ -232,7 +232,7 @@ class TestAnthropicGenerateStream:
         mock_response = MockStreamResponse(status=200, chunks=mock_anthropic_sse_chunks)
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.anthropic.create_client_session"
         ) as mock_create_session:
             mock_session = MagicMock()
             mock_session.post = MagicMock(return_value=mock_response)
@@ -266,7 +266,7 @@ class TestAnthropicQuotaFallback:
         mock_session = MockClientSession([mock_quota_error_response, fallback_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             with patch.object(agent, "fallback_generate", new_callable=AsyncMock) as mock_fallback:
@@ -285,7 +285,7 @@ class TestAnthropicQuotaFallback:
         agent = AnthropicAPIAgent(enable_fallback=False)
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.anthropic.create_client_session"
         ) as mock_create_session:
             mock_session = MagicMock()
             mock_session.post = MagicMock(return_value=mock_quota_error_response)
@@ -351,7 +351,7 @@ class TestAnthropicErrorHandling:
         agent = AnthropicAPIAgent()
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.anthropic.create_client_session"
         ) as mock_create_session:
             mock_session = MagicMock()
             mock_session.post = MagicMock(return_value=mock_api_error_response)
@@ -377,7 +377,7 @@ class TestAnthropicErrorHandling:
         mock_session = MockClientSession([bad_response])
 
         with patch(
-            "aragora.agents.api_agents.common.create_client_session",
+            "aragora.agents.api_agents.anthropic.create_client_session",
             return_value=mock_session,
         ):
             with pytest.raises(AgentAPIError) as exc_info:
