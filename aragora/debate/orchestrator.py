@@ -178,6 +178,9 @@ class Arena:
         relationship_tracker=None,  # Optional RelationshipTracker for agent relationships
         moment_detector=None,  # Optional MomentDetector for significant moments
         tier_analytics_tracker=None,  # Optional TierAnalyticsTracker for memory ROI
+        knowledge_mound=None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
+        enable_knowledge_retrieval: bool = True,  # Query mound before debates
+        enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
@@ -282,6 +285,9 @@ class Arena:
             relationship_tracker=relationship_tracker,
             moment_detector=moment_detector,
             tier_analytics_tracker=tier_analytics_tracker,
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_retrieval=enable_knowledge_retrieval,
+            enable_knowledge_ingestion=enable_knowledge_ingestion,
         )
 
         # Initialize user participation and roles
@@ -525,6 +531,9 @@ class Arena:
         relationship_tracker,
         moment_detector,
         tier_analytics_tracker=None,
+        knowledge_mound=None,
+        enable_knowledge_retrieval: bool = True,
+        enable_knowledge_ingestion: bool = True,
     ) -> None:
         """Initialize tracking subsystems for positions, relationships, and learning."""
         self.position_tracker = position_tracker
@@ -540,6 +549,11 @@ class Arena:
         self.relationship_tracker = relationship_tracker
         self.moment_detector = moment_detector
         self.tier_analytics_tracker = tier_analytics_tracker
+
+        # Knowledge Mound integration
+        self.knowledge_mound = knowledge_mound
+        self.enable_knowledge_retrieval = enable_knowledge_retrieval
+        self.enable_knowledge_ingestion = enable_knowledge_ingestion
 
         # Auto-initialize MomentDetector when elo_system available but no detector provided
         if self.moment_detector is None and self.elo_system:
@@ -1032,6 +1046,116 @@ class Arena:
     async def _gather_trending_context(self) -> Optional[str]:
         """Gather pulse/trending context from social platforms."""
         return await self._context_delegator.gather_trending_context()
+
+    async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
+        """Fetch relevant knowledge from Knowledge Mound for debate context.
+
+        Queries the unified knowledge superstructure for semantically related
+        knowledge items to inform the debate.
+
+        Args:
+            task: The debate task to find relevant knowledge for
+            limit: Maximum number of knowledge items to retrieve
+
+        Returns:
+            Formatted string with knowledge context, or None if unavailable
+        """
+        if not self.knowledge_mound or not self.enable_knowledge_retrieval:
+            return None
+
+        try:
+            # Query mound for semantically related knowledge
+            results = await self.knowledge_mound.query_semantic(
+                query=task,
+                limit=limit,
+                min_confidence=0.5,
+            )
+
+            if not results or not results.items:
+                return None
+
+            # Format knowledge for agent context
+            lines = ["## KNOWLEDGE MOUND CONTEXT"]
+            lines.append("Relevant knowledge from organizational memory:\n")
+
+            for item in results.items[:limit]:
+                source = getattr(item, "source", "unknown")
+                confidence = getattr(item, "confidence", 0.0)
+                content = getattr(item, "content", str(item))[:300]
+                lines.append(f"**[{source}]** (confidence: {confidence:.0%})")
+                lines.append(f"{content}")
+                lines.append("")
+
+            logger.info(f"  [knowledge_mound] Retrieved {len(results.items)} items for context")
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
+            return None
+
+    async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
+        """Store debate outcome in Knowledge Mound for future retrieval.
+
+        Ingests the consensus conclusion and key claims from high-confidence
+        debates into the organizational knowledge superstructure.
+
+        Args:
+            result: The debate result to ingest
+        """
+        if not self.knowledge_mound or not self.enable_knowledge_ingestion:
+            return
+
+        # Only ingest high-quality outcomes (consensus with decent confidence)
+        if not result.final_answer or result.confidence < 0.5:
+            logger.debug("  [knowledge_mound] Skipping low-confidence debate outcome")
+            return
+
+        try:
+            from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+            # Build metadata from debate result
+            metadata = {
+                "debate_id": result.id,
+                "task": self.env.task[:500] if self.env else "",
+                "confidence": result.confidence,
+                "consensus_reached": result.consensus_reached,
+                "rounds_used": result.rounds_used,
+                "participants": result.participants[:10] if result.participants else [],
+                "winner": result.winner,
+            }
+
+            # Add belief cruxes if available
+            if hasattr(result, "debate_cruxes") and result.debate_cruxes:
+                metadata["crux_claims"] = [
+                    str(c.get("claim", c))[:200] for c in result.debate_cruxes[:5]
+                ]
+
+            # Ingest the consensus conclusion
+            ingestion_result = await self.knowledge_mound.store(
+                IngestionRequest(
+                    content=f"Debate Conclusion: {result.final_answer[:2000]}",
+                    source_type=KnowledgeSource.DEBATE,
+                    debate_id=result.id,
+                    confidence=result.confidence,
+                    workspace_id=self.knowledge_mound.workspace_id,
+                    metadata=metadata,
+                )
+            )
+
+            if ingestion_result.success:
+                logger.info(
+                    f"  [knowledge_mound] Ingested debate outcome (node_id={ingestion_result.node_id})"
+                )
+
+                # Emit event for dashboard
+                self._notify_spectator(
+                    "knowledge_ingested",
+                    details=f"Stored debate conclusion in Knowledge Mound",
+                    metric=result.confidence,
+                )
+
+        except Exception as e:
+            logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
 
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int

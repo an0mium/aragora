@@ -43,6 +43,10 @@ _EXPORT_MAP = {
     "ClaimAnalysis": ("aragora.debate.evidence_linker", "ClaimAnalysis"),
     "CognitiveBudget": ("aragora.debate.cognitive_limiter", "CognitiveBudget"),
     "CognitiveLoadLimiter": ("aragora.debate.cognitive_limiter", "CognitiveLoadLimiter"),
+    "RLMCognitiveLoadLimiter": ("aragora.debate.cognitive_limiter_rlm", "RLMCognitiveLoadLimiter"),
+    "create_rlm_limiter": ("aragora.debate.cognitive_limiter_rlm", "create_rlm_limiter"),
+    "RLMCognitiveBudget": ("aragora.debate.cognitive_limiter_rlm", "RLMCognitiveBudget"),
+    "CompressedContext": ("aragora.debate.cognitive_limiter_rlm", "CompressedContext"),
     "ConditionalConsensus": ("aragora.debate.counterfactual", "ConditionalConsensus"),
     "ConsensusOutcome": ("aragora.debate.outcome_tracker", "ConsensusOutcome"),
     "Contradiction": ("aragora.debate.cross_proposal_analyzer", "Contradiction"),
@@ -314,6 +318,11 @@ __all__ = [
     "CognitiveLoadLimiter",
     "CognitiveBudget",
     "limit_debate_context",
+    # RLM-Enhanced Cognitive Load Limiter
+    "RLMCognitiveLoadLimiter",
+    "RLMCognitiveBudget",
+    "CompressedContext",
+    "create_rlm_limiter",
     "STRESS_BUDGETS",
     # Recovery Narrator
     "RecoveryNarrator",

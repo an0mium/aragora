@@ -118,6 +118,10 @@ class FeedbackPhase:
         broadcast_pipeline: Optional[BroadcastPipelineProtocol] = None,
         auto_broadcast: bool = False,
         broadcast_min_confidence: float = 0.8,
+        # Knowledge Mound integration
+        knowledge_mound: Optional[Any] = None,  # KnowledgeMound for unified knowledge ingestion
+        enable_knowledge_ingestion: bool = True,  # Store debate outcomes in mound
+        ingest_debate_outcome: Optional[Callable[[Any], Any]] = None,  # Callback to ingest outcome
     ):
         """
         Initialize the feedback phase.
@@ -149,6 +153,9 @@ class FeedbackPhase:
             broadcast_pipeline: Optional BroadcastPipeline for audio/video generation
             auto_broadcast: If True, trigger broadcast after high-quality debates
             broadcast_min_confidence: Minimum confidence to trigger broadcast (default 0.8)
+            knowledge_mound: Optional KnowledgeMound for unified knowledge ingestion
+            enable_knowledge_ingestion: If True, store debate outcomes in mound
+            ingest_debate_outcome: Async callback to ingest outcome into mound
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -172,12 +179,15 @@ class FeedbackPhase:
         self.broadcast_pipeline = broadcast_pipeline
         self.auto_broadcast = auto_broadcast
         self.broadcast_min_confidence = broadcast_min_confidence
+        self.knowledge_mound = knowledge_mound
+        self.enable_knowledge_ingestion = enable_knowledge_ingestion
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
         self._store_debate_outcome_as_memory = store_debate_outcome_as_memory
         self._update_continuum_memory_outcomes = update_continuum_memory_outcomes
         self._index_debate_async = index_debate_async
+        self._ingest_debate_outcome = ingest_debate_outcome
 
         # Initialize helper classes for extracted logic
         self._consensus_storage = ConsensusStorage(consensus_memory=consensus_memory)
@@ -261,8 +271,32 @@ class FeedbackPhase:
         # 20. Emit training data for Tinker fine-tuning
         await self._training_emitter.emit_training_data(ctx)
 
-        # 21. Auto-trigger broadcast for high-quality debates
+        # 21. Ingest debate outcome into Knowledge Mound
+        await self._ingest_knowledge_outcome(ctx)
+
+        # 22. Auto-trigger broadcast for high-quality debates
         await self._maybe_trigger_broadcast(ctx)
+
+    async def _ingest_knowledge_outcome(self, ctx: "DebateContext") -> None:
+        """Ingest debate outcome into Knowledge Mound for future retrieval.
+
+        Stores high-confidence debate conclusions in the unified knowledge
+        superstructure so they can inform future debates on related topics.
+        """
+        if not self.knowledge_mound or not self.enable_knowledge_ingestion:
+            return
+
+        if not self._ingest_debate_outcome:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            await self._ingest_debate_outcome(result)
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.warning("[knowledge_mound] Failed to ingest outcome: %s", e)
 
     async def _maybe_trigger_broadcast(self, ctx: "DebateContext") -> None:
         """Trigger broadcast for high-quality debates.

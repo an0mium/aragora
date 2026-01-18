@@ -19,8 +19,19 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
+    from aragora.rlm.types import RLMContext
 
 logger = logging.getLogger(__name__)
+
+# Check for RLM availability
+try:
+    from aragora.rlm import HierarchicalCompressor, RLMConfig, RLMContext as _RLMContext
+    HAS_RLM = True
+except ImportError:
+    HAS_RLM = False
+    HierarchicalCompressor = None
+    RLMConfig = None
+    _RLMContext = None
 
 
 class ContextInitializer:
@@ -56,11 +67,19 @@ class ContextInitializer:
         dissent_retriever: Any = None,  # DissentRetriever for historical minority views
         pulse_manager: Any = None,  # PulseManager for trending topics
         auto_fetch_trending: bool = False,  # Auto-fetch trending if no topic provided
+        # Knowledge Mound integration
+        knowledge_mound: Any = None,  # KnowledgeMound for unified knowledge queries
+        enable_knowledge_retrieval: bool = True,  # Query mound before debates
+        # RLM (Recursive Language Models) for context compression
+        enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
+        rlm_config: Any = None,  # RLMConfig for compression settings
+        rlm_agent_call: Optional[Callable[[str, str], str]] = None,  # Agent callback for compression
         # Callbacks for orchestrator methods
         fetch_historical_context: Optional[Callable] = None,
         format_patterns_for_prompt: Optional[Callable] = None,
         get_successful_patterns_from_memory: Optional[Callable] = None,
         perform_research: Optional[Callable] = None,
+        fetch_knowledge_context: Optional[Callable] = None,  # Callback to fetch knowledge context
     ):
         """
         Initialize the context initializer.
@@ -77,10 +96,13 @@ class ContextInitializer:
             dissent_retriever: Optional DissentRetriever for historical minority views
             pulse_manager: Optional PulseManager for fetching trending topics
             auto_fetch_trending: If True and no trending_topic provided, auto-fetch from Pulse
+            knowledge_mound: Optional KnowledgeMound for unified knowledge queries
+            enable_knowledge_retrieval: If True, query mound for relevant knowledge
             fetch_historical_context: Async callback to fetch historical context
             format_patterns_for_prompt: Callback to format patterns for prompts
             get_successful_patterns_from_memory: Callback to get memory patterns
             perform_research: Async callback to perform pre-debate research
+            fetch_knowledge_context: Async callback to fetch knowledge from mound
         """
         self.initial_messages = initial_messages or []
         self.trending_topic = trending_topic
@@ -93,12 +115,26 @@ class ContextInitializer:
         self.dissent_retriever = dissent_retriever
         self.pulse_manager = pulse_manager
         self.auto_fetch_trending = auto_fetch_trending
+        self.knowledge_mound = knowledge_mound
+        self.enable_knowledge_retrieval = enable_knowledge_retrieval
+
+        # RLM configuration
+        self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
+        self._rlm_compressor: Optional[Any] = None
+        if self.enable_rlm_compression and HierarchicalCompressor:
+            config = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
+            self._rlm_compressor = HierarchicalCompressor(
+                config=config,
+                agent_call=rlm_agent_call,
+            )
+            logger.info("[rlm] RLM compression enabled for context initialization")
 
         # Callbacks
         self._fetch_historical_context = fetch_historical_context
         self._format_patterns_for_prompt = format_patterns_for_prompt
         self._get_successful_patterns_from_memory = get_successful_patterns_from_memory
         self._perform_research = perform_research
+        self._fetch_knowledge_context = fetch_knowledge_context
 
     async def initialize(self, ctx: "DebateContext") -> None:
         """
@@ -120,11 +156,12 @@ class ContextInitializer:
         6. Auto-fetch trending topics from Pulse (if enabled)
         7. Inject trending topic context
         8. Fetch historical context
-        9. Inject learned patterns
-        10. Inject memory patterns
-        11. Inject historical dissents
-        12. Perform pre-debate research
-        13. Collect evidence (auto-collection)
+        9. Fetch knowledge mound context (unified knowledge queries)
+        10. Inject learned patterns
+        11. Inject memory patterns
+        12. Inject historical dissents
+        13. Perform pre-debate research
+        14. Collect evidence (auto-collection)
 
         Args:
             ctx: The DebateContext to initialize
@@ -171,16 +208,19 @@ class ContextInitializer:
         # 8. Fetch historical context (async, with timeout)
         await self._fetch_historical(ctx)
 
-        # 9. Inject learned patterns from InsightStore (async)
+        # 9. Fetch knowledge mound context (unified organizational knowledge)
+        await self._inject_knowledge_context(ctx)
+
+        # 10. Inject learned patterns from InsightStore (async)
         await self._inject_insight_patterns(ctx)
 
-        # 10. Inject memory patterns from CritiqueStore
+        # 11. Inject memory patterns from CritiqueStore
         self._inject_memory_patterns(ctx)
 
-        # 11. Inject historical dissents from ConsensusMemory
+        # 12. Inject historical dissents from ConsensusMemory
         self._inject_historical_dissents(ctx)
 
-        # 12. Start research in background (non-blocking for fast startup)
+        # 13. Start research in background (non-blocking for fast startup)
         # Research runs in parallel with proposals, results injected before round 2
         if self.protocol and getattr(self.protocol, "enable_research", False):
             ctx.background_research_task = asyncio.create_task(
@@ -188,7 +228,7 @@ class ContextInitializer:
             )
             logger.info("background_research_started")
 
-        # 13. Start evidence collection in background (non-blocking)
+        # 14. Start evidence collection in background (non-blocking)
         if (
             self.evidence_collector
             and self.protocol
@@ -196,6 +236,11 @@ class ContextInitializer:
         ):
             ctx.background_evidence_task = asyncio.create_task(self._collect_evidence(ctx))
             logger.info("background_evidence_started")
+
+        # 15. Compress accumulated context with RLM (if enabled)
+        # This creates a hierarchical representation for efficient agent access
+        if self.enable_rlm_compression and self._rlm_compressor and ctx.env.context:
+            await self._compress_context_with_rlm(ctx)
 
     def _inject_fork_history(self, ctx: "DebateContext") -> None:
         """Inject fork debate history into partial messages."""
@@ -310,6 +355,40 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"Historical context fetch error: {e}")
             ctx.historical_context_cache = ""
+
+    async def _inject_knowledge_context(self, ctx: "DebateContext") -> None:
+        """Fetch and inject knowledge from Knowledge Mound.
+
+        Queries the unified knowledge superstructure for semantically related
+        knowledge items that can inform the debate. This provides agents with
+        organizational memory and previously learned conclusions.
+        """
+        if not self.knowledge_mound or not self.enable_knowledge_retrieval:
+            return
+
+        if not self._fetch_knowledge_context:
+            return
+
+        try:
+            knowledge_context = await asyncio.wait_for(
+                self._fetch_knowledge_context(ctx.env.task, limit=10),
+                timeout=10.0,  # 10 second timeout
+            )
+
+            if knowledge_context:
+                if ctx.env.context:
+                    ctx.env.context += "\n\n" + knowledge_context
+                else:
+                    ctx.env.context = knowledge_context
+                logger.info(
+                    "[knowledge_mound] Injected knowledge context into debate (%d chars)",
+                    len(knowledge_context),
+                )
+
+        except asyncio.TimeoutError:
+            logger.warning("[knowledge_mound] Knowledge context fetch timed out")
+        except Exception as e:
+            logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
 
     async def _inject_insight_patterns(self, ctx: "DebateContext") -> None:
         """Inject learned patterns and high-confidence insights from past debates.
@@ -566,3 +645,94 @@ class ContextInitializer:
         if not ctx.proposers and ctx.agents:
             # Default to first agent if no dedicated proposers
             ctx.proposers = [ctx.agents[0]]
+
+    async def _compress_context_with_rlm(self, ctx: "DebateContext") -> None:
+        """
+        Compress accumulated context using Recursive Language Models (RLM).
+
+        Based on the paper "Recursive Language Models" (arXiv:2512.24601),
+        this method creates a hierarchical representation of context that
+        enables agents to efficiently navigate long content.
+
+        The compressed context is stored in ctx.rlm_context and can be used
+        by agents through the REPL interface to:
+        - Start with high-level abstracts
+        - Drill down into detailed sections as needed
+        - Search semantically across the hierarchy
+
+        This is particularly valuable when context exceeds agent context windows,
+        as it maintains semantic fidelity while enabling 100x longer content.
+        """
+        if not self._rlm_compressor:
+            return
+
+        try:
+            context_content = ctx.env.context or ""
+            if len(context_content) < 1000:
+                # Skip compression for very short context
+                logger.debug("[rlm] Context too short for compression, skipping")
+                return
+
+            # Estimate tokens
+            estimated_tokens = len(context_content) // 4
+
+            logger.info(
+                "[rlm] Compressing context: %d chars (~%d tokens)",
+                len(context_content),
+                estimated_tokens,
+            )
+
+            # Determine source type from context content
+            source_type = "text"
+            if "## Round" in context_content or "Proposal" in context_content:
+                source_type = "debate"
+            elif "def " in context_content or "class " in context_content:
+                source_type = "code"
+
+            # Compress with timeout
+            compression_result = await asyncio.wait_for(
+                self._rlm_compressor.compress(
+                    content=context_content,
+                    source_type=source_type,
+                    max_levels=3,  # ABSTRACT, SUMMARY, DETAILED
+                ),
+                timeout=30.0,  # 30 second timeout for compression
+            )
+
+            # Store hierarchical context in DebateContext
+            ctx.rlm_context = compression_result.context
+
+            # Log compression stats
+            compression_stats = compression_result.compression_ratio
+            summary_ratio = compression_stats.get(
+                _RLMContext and list(compression_stats.keys())[1] if len(compression_stats) > 1 else None,
+                0,
+            ) if compression_stats else 0
+
+            logger.info(
+                "[rlm] Context compressed: %d → %d tokens at summary level (%.0f%% reduction)",
+                estimated_tokens,
+                compression_result.compressed_tokens.get(
+                    list(compression_result.compressed_tokens.keys())[1], estimated_tokens
+                ) if len(compression_result.compressed_tokens) > 1 else estimated_tokens,
+                (1 - summary_ratio) * 100 if summary_ratio else 0,
+            )
+
+            # Optionally replace context with summary for agents with small windows
+            # Agents can still access full content via ctx.rlm_context.get_at_level()
+            if hasattr(ctx, "use_compressed_context") and ctx.use_compressed_context:
+                summary = compression_result.context.get_at_level(
+                    _RLMContext.AbstractionLevel.SUMMARY if _RLMContext else None
+                ) if _RLMContext else ctx.env.context
+                if summary and len(summary) < len(context_content):
+                    ctx.env.context = (
+                        "## COMPRESSED CONTEXT (use rlm_context for full access)\n\n"
+                        + summary
+                    )
+                    logger.info("[rlm] Replaced context with summary level")
+
+        except asyncio.TimeoutError:
+            logger.warning("[rlm] Context compression timed out after 30s")
+        except Exception as e:
+            logger.warning("[rlm] Context compression failed: %s", e)
+            # Continue without compressed context - don't break the debate

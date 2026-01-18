@@ -141,6 +141,11 @@ class ArenaConfig:
     moment_detector: Optional[MomentDetectorProtocol] = None
     tier_analytics_tracker: Optional[Any] = None  # TierAnalyticsTracker for memory ROI
 
+    # Knowledge Mound integration
+    knowledge_mound: Optional[Any] = None  # KnowledgeMound for unified knowledge queries/ingestion
+    enable_knowledge_retrieval: bool = True  # Query mound before debates for relevant knowledge
+    enable_knowledge_ingestion: bool = True  # Store consensus outcomes in mound after debates
+
     # Genesis evolution
     population_manager: Optional[PopulationManagerProtocol] = None
     auto_evolve: bool = False  # Trigger evolution after high-quality debates
@@ -227,6 +232,9 @@ class ArenaConfig:
             "relationship_tracker": self.relationship_tracker,
             "moment_detector": self.moment_detector,
             "tier_analytics_tracker": self.tier_analytics_tracker,
+            "knowledge_mound": self.knowledge_mound,
+            "enable_knowledge_retrieval": self.enable_knowledge_retrieval,
+            "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,

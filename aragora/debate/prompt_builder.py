@@ -27,6 +27,16 @@ if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.elo import EloSystem
+    from aragora.rlm.types import RLMContext
+
+# Check for RLM availability
+try:
+    from aragora.rlm import HierarchicalCompressor, AbstractionLevel
+    HAS_RLM = True
+except ImportError:
+    HAS_RLM = False
+    HierarchicalCompressor = None
+    AbstractionLevel = None
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +101,10 @@ class PromptBuilder:
         # Question classification cache (populated by classify_question_async)
         self._classification: Optional["QuestionClassification"] = None
         self._question_classifier: Optional["QuestionClassifier"] = None
+
+        # RLM hierarchical context (set by ContextInitializer when enabled)
+        self._rlm_context: Optional["RLMContext"] = None
+        self._enable_rlm_hints: bool = HAS_RLM  # Show agents how to query context
 
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
@@ -563,6 +577,91 @@ and building on others' ideas."""
     def get_continuum_context(self) -> str:
         """Get cached continuum memory context."""
         return self._continuum_context_cache
+
+    def set_rlm_context(self, context: Optional["RLMContext"]) -> None:
+        """Set hierarchical RLM context for drill-down access.
+
+        This context enables agents to query compressed debate history
+        at different abstraction levels rather than working with truncated text.
+
+        Args:
+            context: RLMContext from HierarchicalCompressor, or None to disable
+        """
+        self._rlm_context = context
+        if context:
+            logger.debug(
+                "[rlm] Set hierarchical context with %d levels",
+                len(context.levels) if hasattr(context, 'levels') else 0
+            )
+
+    def get_rlm_context_hint(self) -> str:
+        """Get RLM context hint for agent prompts.
+
+        When hierarchical context is available, this informs agents that
+        they can query for more detail on specific topics instead of
+        relying only on the truncated summary.
+
+        Returns:
+            Formatted hint string, or empty if RLM not available
+        """
+        if not self._enable_rlm_hints or not self._rlm_context:
+            return ""
+
+        # Build hint based on available abstraction levels
+        levels_available = []
+        if hasattr(self._rlm_context, 'levels'):
+            for level in self._rlm_context.levels:
+                levels_available.append(level.name if hasattr(level, 'name') else str(level))
+
+        if not levels_available:
+            return ""
+
+        return f"""## HIERARCHICAL CONTEXT AVAILABLE
+The debate history has been compressed into multiple abstraction levels
+for efficient processing. You are seeing a SUMMARY view.
+
+**Available detail levels:** {', '.join(levels_available)}
+
+If you need more detail on a specific topic mentioned in the context,
+you can request drill-down by including in your response:
+  [QUERY: <your specific question about the context>]
+
+The system will provide relevant details from the full history."""
+
+    def get_rlm_abstract(self, max_chars: int = 2000) -> str:
+        """Get abstract-level summary from RLM context.
+
+        Returns the highest abstraction level available, suitable for
+        injection into prompts when context limits are tight.
+
+        Args:
+            max_chars: Maximum characters to return
+
+        Returns:
+            Abstract summary or empty string
+        """
+        if not self._rlm_context:
+            return ""
+
+        try:
+            # Try to get ABSTRACT level first, then SUMMARY
+            if AbstractionLevel and hasattr(self._rlm_context, 'get_at_level'):
+                abstract = self._rlm_context.get_at_level(AbstractionLevel.ABSTRACT)
+                if abstract:
+                    return abstract[:max_chars]
+
+                summary = self._rlm_context.get_at_level(AbstractionLevel.SUMMARY)
+                if summary:
+                    return summary[:max_chars]
+
+            # Fallback to original content truncated
+            if hasattr(self._rlm_context, 'original_content'):
+                return self._rlm_context.original_content[:max_chars] + "..."
+
+        except Exception as e:
+            logger.debug(f"RLM abstract retrieval error: {e}")
+
+        return ""
 
     def get_language_constraint(self) -> str:
         """Get language enforcement instruction for agent prompts.

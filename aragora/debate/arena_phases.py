@@ -244,10 +244,13 @@ def init_phases(arena: "Arena") -> None:
         dissent_retriever=arena.dissent_retriever,
         pulse_manager=arena.pulse_manager,
         auto_fetch_trending=arena.auto_fetch_trending,
+        knowledge_mound=getattr(arena, "knowledge_mound", None),
+        enable_knowledge_retrieval=getattr(arena, "enable_knowledge_retrieval", True),
         fetch_historical_context=arena._fetch_historical_context,
         format_patterns_for_prompt=arena._format_patterns_for_prompt,
         get_successful_patterns_from_memory=arena._get_successful_patterns_from_memory,
         perform_research=arena._perform_research,
+        fetch_knowledge_context=arena._fetch_knowledge_context,
     )
 
     # Phase 1: Initial Proposals
@@ -407,6 +410,9 @@ def init_phases(arena: "Arena") -> None:
         broadcast_pipeline=arena.extensions.broadcast_pipeline,
         auto_broadcast=arena.extensions.auto_broadcast,
         broadcast_min_confidence=arena.extensions.broadcast_min_confidence,
+        knowledge_mound=getattr(arena, "knowledge_mound", None),
+        enable_knowledge_ingestion=getattr(arena, "enable_knowledge_ingestion", True),
+        ingest_debate_outcome=arena._ingest_debate_outcome,
     )
 
 
