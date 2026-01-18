@@ -42,7 +42,7 @@ class TestConnectionPool:
 
         # Connection should be usable
         cursor = conn.execute("SELECT 1")
-        assert cursor.fetchone() == (1,)
+        assert cursor.fetchone()[0] == 1
 
         pool.release(conn)
 
@@ -187,7 +187,8 @@ class TestConnectionPool:
         pool.close()
 
         # Pool should be closed
-        with pytest.raises(RuntimeError):
+        from aragora.exceptions import DatabaseError
+        with pytest.raises(DatabaseError):
             pool.acquire()
 
     def test_release_connection_not_from_pool(self, pool, temp_db):
@@ -216,7 +217,7 @@ class TestConnectionPool:
 
         # Should still work
         cursor = conn2.execute("SELECT 1")
-        assert cursor.fetchone() == (1,)
+        assert cursor.fetchone()[0] == 1
 
         pool.release(conn2)
         pool.close()
