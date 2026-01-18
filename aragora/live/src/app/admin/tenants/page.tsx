@@ -54,17 +54,33 @@ function TenantCard({ tenant, onEdit, onSuspend, onDelete }: {
         </div>
       </div>
       <div className="space-y-3">
-        {['api', 'storage', 'debates'].map(key => (
-          <div key={key}>
-            <div className="flex justify-between text-sm mb-1">
-              <span>{key === 'api' ? 'API Calls' : key === 'storage' ? 'Storage' : 'Debates'}</span>
-              <span>{key === 'storage' ? formatBytes(tenant.usage.storageBytes) : tenant.usage[key as keyof typeof tenant.usage].toLocaleString()}</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className={'h-2 rounded-full ' + (usagePercent[key as keyof typeof usagePercent] > 90 ? 'bg-red-500' : 'bg-green-500')} style={{ width: Math.min(usagePercent[key as keyof typeof usagePercent], 100) + '%' }} />
-            </div>
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>API Calls</span>
+            <span>{tenant.usage.apiCalls.toLocaleString()}</span>
           </div>
-        ))}
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className={'h-2 rounded-full ' + (usagePercent.api > 90 ? 'bg-red-500' : 'bg-green-500')} style={{ width: Math.min(usagePercent.api, 100) + '%' }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Storage</span>
+            <span>{formatBytes(tenant.usage.storageBytes)}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className={'h-2 rounded-full ' + (usagePercent.storage > 90 ? 'bg-red-500' : 'bg-green-500')} style={{ width: Math.min(usagePercent.storage, 100) + '%' }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Debates</span>
+            <span>{tenant.usage.debates.toLocaleString()}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className={'h-2 rounded-full ' + (usagePercent.debates > 90 ? 'bg-red-500' : 'bg-green-500')} style={{ width: Math.min(usagePercent.debates, 100) + '%' }} />
+          </div>
+        </div>
       </div>
       <div className="flex gap-2 mt-4 pt-4 border-t">
         <button onClick={() => onEdit(tenant)} className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded">Edit</button>

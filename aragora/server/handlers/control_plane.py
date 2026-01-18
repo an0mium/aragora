@@ -83,6 +83,28 @@ class ControlPlaneHandler(BaseHandler):
             return self.__class__.coordinator
         return self.ctx.get("control_plane_coordinator")
 
+    def _get_stream(self) -> Optional[Any]:
+        """Get the control plane stream server for event emissions."""
+        return self.ctx.get("control_plane_stream")
+
+    def _emit_event(self, emit_method: str, *args, **kwargs) -> None:
+        """Emit an event to the control plane stream (fire-and-forget).
+
+        Args:
+            emit_method: Name of the emit method on the stream server
+            *args, **kwargs: Arguments to pass to the emit method
+        """
+        stream = self._get_stream()
+        if not stream:
+            return
+        try:
+            method = getattr(stream, emit_method, None)
+            if method:
+                _run_async(method(*args, **kwargs))
+        except Exception as e:
+            # Don't let stream errors affect the main request
+            logger.debug(f"Stream emission error: {e}")
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/control-plane/")
@@ -342,6 +364,15 @@ class ControlPlaneHandler(BaseHandler):
                 )
             )
 
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_agent_registered",
+                agent_id=agent_id,
+                capabilities=capabilities,
+                model=model,
+                provider=provider,
+            )
+
             return json_response(agent.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Error registering agent: {e}")
@@ -416,6 +447,15 @@ class ControlPlaneHandler(BaseHandler):
                 )
             )
 
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_task_submitted",
+                task_id=task_id,
+                task_type=task_type,
+                priority=priority,
+                required_capabilities=required_capabilities,
+            )
+
             return json_response({"task_id": task_id}, status=201)
         except KeyError:
             return error_response(f"Invalid priority: {priority}", 400)
@@ -452,6 +492,13 @@ class ControlPlaneHandler(BaseHandler):
 
             if not task:
                 return json_response({"task": None})
+
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_task_claimed",
+                task_id=task.id,
+                agent_id=agent_id,
+            )
 
             return json_response({"task": task.to_dict()})
         except Exception as e:
