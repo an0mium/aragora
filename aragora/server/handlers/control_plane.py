@@ -253,7 +253,7 @@ class ControlPlaneHandler(BaseHandler):
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_register_agent(body)
+            return self._handle_register_agent(body, handler)
 
         # /api/control-plane/agents/:id/heartbeat
         if path.endswith("/heartbeat") and "/agents/" in path:
@@ -270,7 +270,7 @@ class ControlPlaneHandler(BaseHandler):
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_submit_task(body)
+            return self._handle_submit_task(body, handler)
 
         # /api/control-plane/tasks/:id/complete
         if path.endswith("/complete") and "/tasks/" in path:
@@ -308,8 +308,13 @@ class ControlPlaneHandler(BaseHandler):
 
         return None
 
-    def _handle_register_agent(self, body: Dict[str, Any]) -> HandlerResult:
+    def _handle_register_agent(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Register a new agent."""
+        # Require authentication for agent registration
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -366,8 +371,13 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error processing heartbeat: {e}")
             return error_response(str(e), 500)
 
-    def _handle_submit_task(self, body: Dict[str, Any]) -> HandlerResult:
+    def _handle_submit_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Submit a new task."""
+        # Require authentication for task submission
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -525,12 +535,17 @@ class ControlPlaneHandler(BaseHandler):
         # /api/control-plane/agents/:id
         if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
             agent_id = path.split("/")[-1]
-            return self._handle_unregister_agent(agent_id)
+            return self._handle_unregister_agent(agent_id, handler)
 
         return None
 
-    def _handle_unregister_agent(self, agent_id: str) -> HandlerResult:
+    def _handle_unregister_agent(self, agent_id: str, handler: Any) -> HandlerResult:
         """Unregister an agent."""
+        # Require authentication for agent unregistration
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)

@@ -197,7 +197,7 @@ class KnowledgeHandler(BaseHandler):
             elif method == "PUT":
                 return self._handle_update_fact(fact_id, handler)
             elif method == "DELETE":
-                return self._handle_delete_fact(fact_id)
+                return self._handle_delete_fact(fact_id, handler)
 
         # /api/knowledge/facts/:id/verify
         if len(parts) == 5 and parts[4] == "verify":
@@ -315,6 +315,11 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("create fact")
     def _handle_create_fact(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/facts - Create new fact."""
+        # Require authentication for fact creation
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 0:
@@ -347,6 +352,11 @@ class KnowledgeHandler(BaseHandler):
     @handle_errors("update fact")
     def _handle_update_fact(self, fact_id: str, handler: Any) -> HandlerResult:
         """Handle PUT /api/knowledge/facts/:id - Update fact."""
+        # Require authentication for fact updates
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 0:
@@ -382,8 +392,13 @@ class KnowledgeHandler(BaseHandler):
         return json_response(updated.to_dict())
 
     @handle_errors("delete fact")
-    def _handle_delete_fact(self, fact_id: str) -> HandlerResult:
+    def _handle_delete_fact(self, fact_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/knowledge/facts/:id - Delete fact."""
+        # Require authentication for fact deletion
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         store = self._get_fact_store()
         deleted = store.delete_fact(fact_id)
 
@@ -407,7 +422,22 @@ class KnowledgeHandler(BaseHandler):
 
         # Verify requires DatasetQueryEngine with agents
         if not isinstance(engine, DatasetQueryEngine):
-            return error_response("Agent verification not available", 503)
+            # Queue for later verification when capability becomes available
+            # Update fact metadata to track pending verification
+            store.update_fact(
+                fact_id,
+                metadata={
+                    **fact.metadata,
+                    "_pending_verification": True,
+                    "_verification_queued_at": __import__("time").time(),
+                },
+            )
+            return json_response({
+                "fact_id": fact_id,
+                "verified": None,
+                "status": "queued",
+                "message": "Agent verification not currently available. Fact queued for verification when capability becomes available.",
+            })
 
         try:
             verified = _run_async(engine.verify_fact(fact_id))
@@ -787,6 +817,11 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("create node")
     def _handle_create_node(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/nodes - Create knowledge node."""
+        # Require authentication for node creation
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         import asyncio
         from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
         from aragora.memory.tier_manager import MemoryTier
@@ -916,6 +951,11 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("create relationship")
     def _handle_create_relationship(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/relationships - Add relationship."""
+        # Require authentication for relationship creation
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         import asyncio
 
         try:
@@ -1032,6 +1072,11 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("index repository")
     def _handle_index_repository(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/index/repository - Index a repository."""
+        # Require authentication for repository indexing
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 0:
