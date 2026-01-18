@@ -1,5 +1,8 @@
 # Aragora Deployment Guide
 
+**Version**: 2.0.0
+**Last Updated**: January 18, 2026
+
 This guide covers deploying Aragora to production environments.
 
 ## Prerequisites
@@ -234,6 +237,41 @@ For more database setup details, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
 | `STRIPE_SECRET_KEY` | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 
+### Multi-Tenant Configuration (v2.0.0+)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_MULTI_TENANT` | `false` | Enable multi-tenant isolation |
+| `ARAGORA_DEFAULT_TENANT` | `default` | Default tenant ID for legacy requests |
+| `ARAGORA_TENANT_HEADER` | `X-Tenant-ID` | HTTP header for tenant identification |
+
+#### Tenant Quotas
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_QUOTA_API_CALLS` | `100000` | Monthly API call limit per tenant |
+| `ARAGORA_QUOTA_TOKENS` | `10000000` | Monthly token limit per tenant |
+| `ARAGORA_QUOTA_STORAGE_GB` | `100` | Storage limit in GB per tenant |
+| `ARAGORA_QUOTA_DEBATES` | `1000` | Monthly debate limit per tenant |
+
+### API Versioning (v2.0.0+)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_API_VERSION` | `v2` | Current API version |
+| `ARAGORA_API_LEGACY_ENABLED` | `true` | Support legacy unversioned endpoints |
+| `ARAGORA_API_V1_SUNSET` | `2026-12-31` | Sunset date for API v1 |
+
+The API supports both URL prefix versioning (`/api/v2/debates`) and header-based versioning (`X-API-Version: v2`).
+
+### Metering & Usage Tracking (v2.0.0+)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_METERING_ENABLED` | `true` | Enable usage metering |
+| `ARAGORA_METERING_FLUSH_INTERVAL` | `60` | Seconds between metering flushes |
+| `ARAGORA_METERING_BACKEND` | `prometheus` | Metering backend (prometheus/statsd) |
+
 ## Resource Requirements
 
 ### Minimum (Development)
@@ -294,6 +332,46 @@ scrape_configs:
 | `aragora_debate_duration_seconds` | Debate duration histogram |
 | `aragora_agent_errors_total` | Agent error count by type |
 | `aragora_consensus_rate` | Consensus achievement rate |
+
+### v2.0.0 Metrics
+
+| Metric | Description | Alert Threshold |
+|--------|-------------|-----------------|
+| `aragora_rlm_compression_ratio` | RLM context compression | < 0.5 |
+| `aragora_tenant_requests_total` | Per-tenant request rate | - |
+| `aragora_connector_sync_duration_seconds` | Connector sync time | p95 > 60s |
+| `aragora_billing_events_total` | Billing events by tenant | - |
+| `aragora_quota_usage_ratio` | Quota utilization per tenant | > 0.9 |
+
+### Grafana Dashboard
+
+Import the pre-built dashboard from `k8s/monitoring/aragora-dashboard.json`:
+
+```bash
+# Port-forward Grafana
+kubectl -n monitoring port-forward svc/grafana 3000:3000
+
+# Import via Grafana UI:
+# 1. Go to Dashboards > Import
+# 2. Upload k8s/monitoring/aragora-dashboard.json
+# 3. Select Prometheus data source
+```
+
+### Alerting Rules
+
+Apply alert rules from `k8s/monitoring/alerts.yaml`:
+
+```bash
+kubectl apply -f k8s/monitoring/alerts.yaml
+```
+
+Key alerts included:
+- `AragoraHighErrorRate` - Agent error rate > 10/min
+- `AragoraSlowDebates` - p95 debate duration > 5min
+- `AragoraQuotaNearLimit` - Tenant quota > 90%
+- `AragoraConnectorSyncFailed` - Connector sync failures
+
+See `docs/RUNBOOK_METRICS.md` for alert response procedures.
 
 ## Troubleshooting
 
@@ -463,6 +541,50 @@ locust -f tests/load/locustfile.py --host=https://aragora.yourdomain.com
 - [ ] Health checks passing (`/healthz`, `/readyz`)
 - [ ] Load tested with expected traffic
 
+## Rollback Procedures (v2.0.0+)
+
+### Kubernetes Rollback
+
+```bash
+# View rollout history
+kubectl -n aragora rollout history deployment/aragora
+
+# Rollback to previous version
+kubectl -n aragora rollout undo deployment/aragora
+
+# Rollback to specific revision
+kubectl -n aragora rollout undo deployment/aragora --to-revision=2
+
+# Verify rollback
+kubectl -n aragora rollout status deployment/aragora
+```
+
+### Database Rollback
+
+```bash
+# Rollback one alembic migration
+alembic downgrade -1
+
+# Rollback to specific revision
+alembic downgrade abc123
+
+# Restore from backup
+pg_restore -d aragora backup_20260118.dump
+```
+
+### API Version Rollback
+
+If you need to revert API changes while maintaining v2.0.0 server:
+
+```bash
+# Set environment to use legacy endpoints
+export ARAGORA_API_VERSION=v1
+export ARAGORA_API_LEGACY_ENABLED=true
+
+# Apply config change
+kubectl -n aragora set env deployment/aragora ARAGORA_API_VERSION=v1
+```
+
 ## Security Recommendations
 
 1. **Use Sealed Secrets or External Secrets** for API keys
@@ -470,6 +592,8 @@ locust -f tests/load/locustfile.py --host=https://aragora.yourdomain.com
 3. **Set resource limits** to prevent resource exhaustion
 4. **Use NetworkPolicies** to restrict traffic
 5. **Enable Pod Security Standards** (restricted profile)
+6. **Enable audit logging** for multi-tenant environments
+7. **Configure tenant isolation** for shared deployments
 
 ## Backup and Recovery
 
