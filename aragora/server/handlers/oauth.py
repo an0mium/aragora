@@ -428,7 +428,12 @@ class OAuthHandler(BaseHandler):
 
         # Security: Validate redirect URL against allowlist to prevent open redirects
         if not _validate_redirect_url(redirect_url):
-            return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
+            # Debug: show what we're validating
+            from urllib.parse import urlparse
+            parsed = urlparse(redirect_url)
+            host = parsed.hostname.lower() if parsed.hostname else "no-host"
+            allowed = list(_get_allowed_redirect_hosts())
+            return error_response(f"Invalid redirect URL. host={host}, allowed={allowed}, redirect_url={redirect_url}", 400)
 
         # Check if this is for account linking (user already authenticated)
         user_id = None
