@@ -167,6 +167,42 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full contribution guide. For
 frontend contributions, also see [FRONTEND_DEVELOPMENT.md](./FRONTEND_DEVELOPMENT.md),
 and for new agents, see [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md).
 
+## Documentation Maintenance
+
+### Review Schedule
+
+Documentation is reviewed and updated according to this schedule:
+
+| Category | Review Frequency | Last Review |
+|----------|------------------|-------------|
+| Quick Start / Getting Started | Monthly | 2026-01 |
+| API Reference | With each release | 2026-01 |
+| Architecture / Core Concepts | Quarterly | 2026-01 |
+| Feature Documentation | When features change | Ongoing |
+| Security Documentation | Monthly | 2026-01 |
+| Troubleshooting | As issues are reported | Ongoing |
+
+### Documentation Review Checklist
+
+When reviewing documentation:
+
+1. **Accuracy**: Do code examples still work? Are APIs current?
+2. **Completeness**: Are all features documented? Missing sections?
+3. **Clarity**: Is the writing clear and accessible?
+4. **Links**: Do all internal/external links work?
+5. **Versioning**: Is version-specific info clearly marked?
+
+### Reporting Issues
+
+Found outdated or incorrect documentation?
+
+1. Open a GitHub issue with the label `documentation`
+2. Include the document path and section
+3. Describe what's incorrect or outdated
+4. Suggest a correction if possible
+
+---
+
 ## Support
 
 - [GitHub Issues](https://github.com/an0mium/aragora/issues)
