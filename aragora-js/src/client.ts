@@ -379,6 +379,49 @@ import {
   RelationshipGraphResponse,
   RelationshipStatsResponse,
   PairDetailResponse,
+  // Control Plane types
+  ControlPlaneAgent,
+  ControlPlaneTask,
+  ControlPlaneHealth,
+  ControlPlaneStats,
+  ControlPlaneAgentStatus,
+  ControlPlaneTaskStatus,
+  ControlPlaneTaskPriority,
+  RegisterAgentRequest,
+  SubmitTaskRequest,
+  CompleteTaskRequest,
+  FailTaskRequest,
+  // Workflow types
+  WorkflowDefinition,
+  WorkflowExecution,
+  WorkflowApprovalRequest,
+  WorkflowTemplate,
+  WorkflowExecutionStatus,
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
+  ExecuteWorkflowRequest,
+  ResolveApprovalRequest,
+  SimulateWorkflowRequest,
+  SimulateWorkflowResponse,
+  WorkflowVersion,
+  // Knowledge types
+  KnowledgeNode,
+  KnowledgeRelationship,
+  KnowledgeFact,
+  KnowledgeQueryResult,
+  KnowledgeMoundStats,
+  KnowledgeNodeType,
+  KnowledgeTier,
+  KnowledgeRelationType,
+  CreateKnowledgeNodeRequest,
+  CreateKnowledgeRelationshipRequest,
+  CreateKnowledgeFactRequest,
+  UpdateKnowledgeFactRequest,
+  QueryKnowledgeRequest,
+  TraverseGraphRequest,
+  TraverseGraphResponse,
+  SearchChunksRequest,
+  SearchChunksResponse,
 } from './types';
 
 // =============================================================================
@@ -4436,6 +4479,597 @@ class RelationshipAPI {
 }
 
 // =============================================================================
+// Control Plane API
+// =============================================================================
+
+/**
+ * Control Plane API - Agent registry, task scheduling, and system coordination.
+ */
+class ControlPlaneAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all registered agents.
+   * @param options - Optional filters (status, capability)
+   */
+  async listAgents(options: {
+    status?: ControlPlaneAgentStatus;
+    capability?: string;
+  } = {}): Promise<{ agents: ControlPlaneAgent[] }> {
+    const params = new URLSearchParams();
+    if (options.status) params.set('status', options.status);
+    if (options.capability) params.set('capability', options.capability);
+    const queryString = params.toString();
+    return this.http.get<{ agents: ControlPlaneAgent[] }>(
+      `/api/control-plane/agents${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Get details of a specific agent.
+   * @param agentId - The agent's unique identifier
+   */
+  async getAgent(agentId: string): Promise<ControlPlaneAgent> {
+    return this.http.get<ControlPlaneAgent>(
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}`
+    );
+  }
+
+  /**
+   * Register a new agent with the control plane.
+   * @param data - Agent registration data
+   */
+  async registerAgent(data: RegisterAgentRequest): Promise<ControlPlaneAgent> {
+    return this.http.post<ControlPlaneAgent>('/api/control-plane/agents', data);
+  }
+
+  /**
+   * Unregister an agent from the control plane.
+   * @param agentId - The agent's unique identifier
+   */
+  async unregisterAgent(agentId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}`
+    );
+  }
+
+  /**
+   * Send a heartbeat for an agent.
+   * @param agentId - The agent's unique identifier
+   * @param metadata - Optional metadata to include with heartbeat
+   */
+  async heartbeat(
+    agentId: string,
+    metadata?: Record<string, unknown>
+  ): Promise<{ acknowledged: boolean; timestamp: string }> {
+    return this.http.post<{ acknowledged: boolean; timestamp: string }>(
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/heartbeat`,
+      { metadata }
+    );
+  }
+
+  /**
+   * Submit a task to the scheduler.
+   * @param data - Task submission data
+   */
+  async submitTask(data: SubmitTaskRequest): Promise<ControlPlaneTask> {
+    return this.http.post<ControlPlaneTask>('/api/control-plane/tasks', data);
+  }
+
+  /**
+   * Get a specific task by ID.
+   * @param taskId - The task's unique identifier
+   */
+  async getTask(taskId: string): Promise<ControlPlaneTask> {
+    return this.http.get<ControlPlaneTask>(
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}`
+    );
+  }
+
+  /**
+   * List tasks with optional filters.
+   * @param options - Filter options
+   */
+  async listTasks(options: {
+    status?: ControlPlaneTaskStatus;
+    priority?: ControlPlaneTaskPriority;
+    agentId?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ tasks: ControlPlaneTask[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.status) params.set('status', options.status);
+    if (options.priority) params.set('priority', options.priority);
+    if (options.agentId) params.set('agent_id', options.agentId);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const queryString = params.toString();
+    return this.http.get<{ tasks: ControlPlaneTask[]; total: number }>(
+      `/api/control-plane/tasks${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Mark a task as completed.
+   * @param taskId - The task's unique identifier
+   * @param result - Task completion result
+   */
+  async completeTask(taskId: string, result: CompleteTaskRequest): Promise<ControlPlaneTask> {
+    return this.http.post<ControlPlaneTask>(
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/complete`,
+      result
+    );
+  }
+
+  /**
+   * Mark a task as failed.
+   * @param taskId - The task's unique identifier
+   * @param error - Error information
+   */
+  async failTask(taskId: string, error: FailTaskRequest): Promise<ControlPlaneTask> {
+    return this.http.post<ControlPlaneTask>(
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/fail`,
+      error
+    );
+  }
+
+  /**
+   * Cancel a pending or running task.
+   * @param taskId - The task's unique identifier
+   * @param reason - Optional cancellation reason
+   */
+  async cancelTask(taskId: string, reason?: string): Promise<ControlPlaneTask> {
+    return this.http.post<ControlPlaneTask>(
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/cancel`,
+      { reason }
+    );
+  }
+
+  /**
+   * Get control plane health status.
+   */
+  async getHealth(): Promise<ControlPlaneHealth> {
+    return this.http.get<ControlPlaneHealth>('/api/control-plane/health');
+  }
+
+  /**
+   * Get control plane statistics.
+   */
+  async getStats(): Promise<ControlPlaneStats> {
+    return this.http.get<ControlPlaneStats>('/api/control-plane/stats');
+  }
+}
+
+// =============================================================================
+// Workflows API
+// =============================================================================
+
+/**
+ * Workflows API - DAG-based workflow definitions, execution, and approvals.
+ */
+class WorkflowsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all workflows.
+   * @param options - Filter and pagination options
+   */
+  async list(options: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ workflows: WorkflowDefinition[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.status) params.set('status', options.status);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const queryString = params.toString();
+    return this.http.get<{ workflows: WorkflowDefinition[]; total: number }>(
+      `/api/workflows${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Get a specific workflow by ID.
+   * @param workflowId - The workflow's unique identifier
+   */
+  async get(workflowId: string): Promise<WorkflowDefinition> {
+    return this.http.get<WorkflowDefinition>(
+      `/api/workflows/${encodeURIComponent(workflowId)}`
+    );
+  }
+
+  /**
+   * Create a new workflow.
+   * @param data - Workflow creation data
+   */
+  async create(data: CreateWorkflowRequest): Promise<WorkflowDefinition> {
+    return this.http.post<WorkflowDefinition>('/api/workflows', data);
+  }
+
+  /**
+   * Update an existing workflow.
+   * @param workflowId - The workflow's unique identifier
+   * @param data - Workflow update data
+   */
+  async update(workflowId: string, data: UpdateWorkflowRequest): Promise<WorkflowDefinition> {
+    return this.http.put<WorkflowDefinition>(
+      `/api/workflows/${encodeURIComponent(workflowId)}`,
+      data
+    );
+  }
+
+  /**
+   * Delete a workflow.
+   * @param workflowId - The workflow's unique identifier
+   */
+  async delete(workflowId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/workflows/${encodeURIComponent(workflowId)}`
+    );
+  }
+
+  /**
+   * Execute a workflow.
+   * @param workflowId - The workflow's unique identifier
+   * @param data - Execution parameters
+   */
+  async execute(workflowId: string, data?: ExecuteWorkflowRequest): Promise<WorkflowExecution> {
+    return this.http.post<WorkflowExecution>(
+      `/api/workflows/${encodeURIComponent(workflowId)}/execute`,
+      data || {}
+    );
+  }
+
+  /**
+   * Get execution status.
+   * @param executionId - The execution's unique identifier
+   */
+  async getExecution(executionId: string): Promise<WorkflowExecution> {
+    return this.http.get<WorkflowExecution>(
+      `/api/workflows/executions/${encodeURIComponent(executionId)}`
+    );
+  }
+
+  /**
+   * List executions for a workflow or all executions.
+   * @param options - Filter options
+   */
+  async listExecutions(options: {
+    workflowId?: string;
+    status?: WorkflowExecutionStatus;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ executions: WorkflowExecution[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.workflowId) params.set('workflow_id', options.workflowId);
+    if (options.status) params.set('status', options.status);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const queryString = params.toString();
+    return this.http.get<{ executions: WorkflowExecution[]; total: number }>(
+      `/api/workflows/executions${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Terminate a running execution.
+   * @param executionId - The execution's unique identifier
+   * @param reason - Optional termination reason
+   */
+  async terminate(executionId: string, reason?: string): Promise<WorkflowExecution> {
+    return this.http.post<WorkflowExecution>(
+      `/api/workflows/executions/${encodeURIComponent(executionId)}/terminate`,
+      { reason }
+    );
+  }
+
+  /**
+   * Simulate a workflow execution (dry run).
+   * @param workflowId - The workflow's unique identifier
+   * @param data - Simulation parameters
+   */
+  async simulate(workflowId: string, data?: SimulateWorkflowRequest): Promise<SimulateWorkflowResponse> {
+    return this.http.post<SimulateWorkflowResponse>(
+      `/api/workflows/${encodeURIComponent(workflowId)}/simulate`,
+      data || {}
+    );
+  }
+
+  /**
+   * Get version history for a workflow.
+   * @param workflowId - The workflow's unique identifier
+   */
+  async getVersions(workflowId: string): Promise<{ versions: WorkflowVersion[] }> {
+    return this.http.get<{ versions: WorkflowVersion[] }>(
+      `/api/workflows/${encodeURIComponent(workflowId)}/versions`
+    );
+  }
+
+  /**
+   * List available workflow templates.
+   * @param category - Optional category filter
+   */
+  async listTemplates(category?: string): Promise<{ templates: WorkflowTemplate[] }> {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    const queryString = params.toString();
+    return this.http.get<{ templates: WorkflowTemplate[] }>(
+      `/api/workflows/templates${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * List pending approval requests.
+   * @param workflowId - Optional workflow filter
+   */
+  async listApprovals(workflowId?: string): Promise<{ approvals: WorkflowApprovalRequest[] }> {
+    const params = new URLSearchParams();
+    if (workflowId) params.set('workflow_id', workflowId);
+    const queryString = params.toString();
+    return this.http.get<{ approvals: WorkflowApprovalRequest[] }>(
+      `/api/workflows/approvals${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Resolve an approval request.
+   * @param requestId - The approval request's unique identifier
+   * @param decision - Approval or rejection decision
+   */
+  async resolveApproval(requestId: string, decision: ResolveApprovalRequest): Promise<WorkflowApprovalRequest> {
+    return this.http.post<WorkflowApprovalRequest>(
+      `/api/workflows/approvals/${encodeURIComponent(requestId)}/resolve`,
+      decision
+    );
+  }
+}
+
+// =============================================================================
+// Knowledge API
+// =============================================================================
+
+/**
+ * Knowledge API - Facts, nodes, relationships, and semantic search.
+ */
+class KnowledgeAPI {
+  constructor(private http: HttpClient) {}
+
+  // ---------------------------------------------------------------------------
+  // Facts API
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Query facts using natural language.
+   * @param question - Natural language question
+   * @param options - Query options
+   */
+  async queryFacts(
+    question: string,
+    options: { limit?: number; threshold?: number; workspaceId?: string } = {}
+  ): Promise<KnowledgeQueryResult> {
+    return this.http.post<KnowledgeQueryResult>('/api/knowledge/facts/query', {
+      question,
+      ...options,
+    });
+  }
+
+  /**
+   * List facts with optional filters.
+   * @param options - Filter and pagination options
+   */
+  async listFacts(options: {
+    tier?: KnowledgeTier;
+    domain?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ facts: KnowledgeFact[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.tier) params.set('tier', options.tier);
+    if (options.domain) params.set('domain', options.domain);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const queryString = params.toString();
+    return this.http.get<{ facts: KnowledgeFact[]; total: number }>(
+      `/api/knowledge/facts${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Get a specific fact by ID.
+   * @param factId - The fact's unique identifier
+   */
+  async getFact(factId: string): Promise<KnowledgeFact> {
+    return this.http.get<KnowledgeFact>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}`
+    );
+  }
+
+  /**
+   * Create a new fact.
+   * @param data - Fact creation data
+   */
+  async createFact(data: CreateKnowledgeFactRequest): Promise<KnowledgeFact> {
+    return this.http.post<KnowledgeFact>('/api/knowledge/facts', data);
+  }
+
+  /**
+   * Update an existing fact.
+   * @param factId - The fact's unique identifier
+   * @param data - Fact update data
+   */
+  async updateFact(factId: string, data: UpdateKnowledgeFactRequest): Promise<KnowledgeFact> {
+    return this.http.put<KnowledgeFact>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}`,
+      data
+    );
+  }
+
+  /**
+   * Delete a fact.
+   * @param factId - The fact's unique identifier
+   */
+  async deleteFact(factId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}`
+    );
+  }
+
+  /**
+   * Verify a fact using agents.
+   * @param factId - The fact's unique identifier
+   */
+  async verifyFact(factId: string): Promise<{ verified: boolean; confidence: number; agents: string[] }> {
+    return this.http.post<{ verified: boolean; confidence: number; agents: string[] }>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}/verify`,
+      {}
+    );
+  }
+
+  /**
+   * Get contradictions for a fact.
+   * @param factId - The fact's unique identifier
+   */
+  async getContradictions(factId: string): Promise<{ contradictions: KnowledgeFact[] }> {
+    return this.http.get<{ contradictions: KnowledgeFact[] }>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}/contradictions`
+    );
+  }
+
+  /**
+   * Get relations for a fact.
+   * @param factId - The fact's unique identifier
+   */
+  async getFactRelations(factId: string): Promise<{ relations: KnowledgeRelationship[] }> {
+    return this.http.get<{ relations: KnowledgeRelationship[] }>(
+      `/api/knowledge/facts/${encodeURIComponent(factId)}/relations`
+    );
+  }
+
+  /**
+   * Add a relation from a fact to another entity.
+   * @param sourceId - The source fact's unique identifier
+   * @param data - Relationship data
+   */
+  async addFactRelation(
+    sourceId: string,
+    data: { targetId: string; type: KnowledgeRelationType; metadata?: Record<string, unknown> }
+  ): Promise<KnowledgeRelationship> {
+    return this.http.post<KnowledgeRelationship>(
+      `/api/knowledge/facts/${encodeURIComponent(sourceId)}/relations`,
+      data
+    );
+  }
+
+  /**
+   * Search document chunks semantically.
+   * @param query - Search query
+   * @param options - Search options
+   */
+  async searchChunks(query: string, options: SearchChunksRequest = {}): Promise<SearchChunksResponse> {
+    return this.http.post<SearchChunksResponse>('/api/knowledge/chunks/search', {
+      query,
+      ...options,
+    });
+  }
+
+  /**
+   * Get facts statistics.
+   * @param workspaceId - Optional workspace filter
+   */
+  async getFactsStats(workspaceId?: string): Promise<{ total: number; byTier: Record<string, number>; byDomain: Record<string, number> }> {
+    const params = new URLSearchParams();
+    if (workspaceId) params.set('workspace_id', workspaceId);
+    const queryString = params.toString();
+    return this.http.get<{ total: number; byTier: Record<string, number>; byDomain: Record<string, number> }>(
+      `/api/knowledge/facts/stats${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Mound API
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Query the Knowledge Mound with semantic search.
+   * @param query - Search query
+   * @param options - Query options
+   */
+  async queryMound(query: string, options: QueryKnowledgeRequest = {}): Promise<KnowledgeQueryResult> {
+    return this.http.post<KnowledgeQueryResult>('/api/knowledge/mound/query', {
+      query,
+      ...options,
+    });
+  }
+
+  /**
+   * Create a new knowledge node.
+   * @param data - Node creation data
+   */
+  async createNode(data: CreateKnowledgeNodeRequest): Promise<KnowledgeNode> {
+    return this.http.post<KnowledgeNode>('/api/knowledge/nodes', data);
+  }
+
+  /**
+   * Get a specific node by ID.
+   * @param nodeId - The node's unique identifier
+   */
+  async getNode(nodeId: string): Promise<KnowledgeNode> {
+    return this.http.get<KnowledgeNode>(
+      `/api/knowledge/nodes/${encodeURIComponent(nodeId)}`
+    );
+  }
+
+  /**
+   * List nodes with optional filters.
+   * @param options - Filter and pagination options
+   */
+  async listNodes(options: {
+    type?: KnowledgeNodeType;
+    tier?: KnowledgeTier;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ nodes: KnowledgeNode[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.type) params.set('type', options.type);
+    if (options.tier) params.set('tier', options.tier);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const queryString = params.toString();
+    return this.http.get<{ nodes: KnowledgeNode[]; total: number }>(
+      `/api/knowledge/nodes${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Create a relationship between nodes.
+   * @param data - Relationship creation data
+   */
+  async createRelationship(data: CreateKnowledgeRelationshipRequest): Promise<KnowledgeRelationship> {
+    return this.http.post<KnowledgeRelationship>('/api/knowledge/relationships', data);
+  }
+
+  /**
+   * Traverse the knowledge graph from a starting node.
+   * @param nodeId - Starting node's unique identifier
+   * @param options - Traversal options
+   */
+  async traverseGraph(nodeId: string, options: TraverseGraphRequest = {}): Promise<TraverseGraphResponse> {
+    return this.http.post<TraverseGraphResponse>(
+      `/api/knowledge/nodes/${encodeURIComponent(nodeId)}/traverse`,
+      options
+    );
+  }
+
+  /**
+   * Get Knowledge Mound statistics.
+   */
+  async getMoundStats(): Promise<KnowledgeMoundStats> {
+    return this.http.get<KnowledgeMoundStats>('/api/knowledge/mound/stats');
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -4486,6 +5120,9 @@ export class AragoraClient {
   readonly evolution: EvolutionAPI;
   readonly broadcast: BroadcastAPI;
   readonly relationships: RelationshipAPI;
+  readonly controlPlane: ControlPlaneAPI;
+  readonly workflows: WorkflowsAPI;
+  readonly knowledge: KnowledgeAPI;
 
   /**
    * Create a new Aragora client.
@@ -4558,6 +5195,9 @@ export class AragoraClient {
     this.evolution = new EvolutionAPI(this.http);
     this.broadcast = new BroadcastAPI(this.http);
     this.relationships = new RelationshipAPI(this.http);
+    this.controlPlane = new ControlPlaneAPI(this.http);
+    this.workflows = new WorkflowsAPI(this.http);
+    this.knowledge = new KnowledgeAPI(this.http);
   }
 
   /**

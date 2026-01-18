@@ -4185,3 +4185,645 @@ export interface FolderUploadResult {
   /** Whether all files were uploaded successfully */
   success: boolean;
 }
+
+// =============================================================================
+// Control Plane Types
+// =============================================================================
+
+export enum ControlPlaneAgentStatus {
+  STARTING = 'starting',
+  READY = 'ready',
+  BUSY = 'busy',
+  DRAINING = 'draining',
+  OFFLINE = 'offline',
+  FAILED = 'failed',
+}
+
+export enum ControlPlaneTaskStatus {
+  PENDING = 'pending',
+  ASSIGNED = 'assigned',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  TIMEOUT = 'timeout',
+}
+
+export enum ControlPlaneTaskPriority {
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  URGENT = 'urgent',
+}
+
+export interface ControlPlaneAgent {
+  agent_id: string;
+  capabilities: string[];
+  model: string;
+  provider: string;
+  status: ControlPlaneAgentStatus;
+  metadata?: Record<string, unknown>;
+  tasks_completed?: number;
+  tasks_failed?: number;
+  avg_latency_ms?: number;
+  last_heartbeat?: string;
+  registered_at?: string;
+}
+
+export interface ControlPlaneAgentRegistration {
+  agent_id: string;
+  capabilities: string[];
+  model: string;
+  provider: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ControlPlaneTask {
+  id: string;
+  task_type: string;
+  status: ControlPlaneTaskStatus;
+  payload: Record<string, unknown>;
+  required_capabilities: string[];
+  priority: ControlPlaneTaskPriority;
+  assigned_agent?: string;
+  result?: unknown;
+  error?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  timeout_seconds?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ControlPlaneTaskSubmission {
+  task_type: string;
+  payload: Record<string, unknown>;
+  required_capabilities?: string[];
+  priority?: ControlPlaneTaskPriority;
+  timeout_seconds?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ControlPlaneHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  agents: Record<string, ControlPlaneAgentHealth>;
+  timestamp?: string;
+}
+
+export interface ControlPlaneAgentHealth {
+  agent_id: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  last_heartbeat?: string;
+  latency_ms?: number;
+  error_rate?: number;
+  cpu_usage?: number;
+  memory_usage?: number;
+}
+
+export interface ControlPlaneStats {
+  total_agents: number;
+  available_agents: number;
+  busy_agents: number;
+  offline_agents: number;
+  pending_tasks: number;
+  running_tasks: number;
+  completed_tasks_24h: number;
+  failed_tasks_24h: number;
+  avg_task_duration_ms?: number;
+  queue_size: number;
+  uptime_seconds?: number;
+}
+
+export interface ControlPlaneListAgentsResponse {
+  agents: ControlPlaneAgent[];
+  total: number;
+}
+
+export interface ControlPlaneListTasksResponse {
+  tasks: ControlPlaneTask[];
+  total: number;
+}
+
+/** Request to register an agent with the control plane */
+export interface RegisterAgentRequest {
+  agent_id: string;
+  capabilities: string[];
+  model: string;
+  provider: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Request to submit a task to the scheduler */
+export interface SubmitTaskRequest {
+  task_type: string;
+  payload: Record<string, unknown>;
+  required_capabilities?: string[];
+  priority?: ControlPlaneTaskPriority;
+  timeout_seconds?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** Request to mark a task as completed */
+export interface CompleteTaskRequest {
+  result: unknown;
+  metadata?: Record<string, unknown>;
+}
+
+/** Request to mark a task as failed */
+export interface FailTaskRequest {
+  error: string;
+  error_code?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// =============================================================================
+// Workflow Types
+// =============================================================================
+
+export enum WorkflowStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  ARCHIVED = 'archived',
+}
+
+export enum WorkflowExecutionStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  TERMINATED = 'terminated',
+  PAUSED = 'paused',
+}
+
+export enum WorkflowStepType {
+  AGENT = 'agent',
+  DEBATE = 'debate',
+  QUICK_DEBATE = 'quick_debate',
+  PARALLEL = 'parallel',
+  CONDITIONAL = 'conditional',
+  LOOP = 'loop',
+  HUMAN_CHECKPOINT = 'human_checkpoint',
+  MEMORY_READ = 'memory_read',
+  MEMORY_WRITE = 'memory_write',
+  DECISION = 'decision',
+  TASK = 'task',
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  step_type: WorkflowStepType | string;
+  config: Record<string, unknown>;
+  next_steps?: string[];
+  timeout_seconds?: number;
+  optional?: boolean;
+  position?: { x: number; y: number };
+}
+
+export interface WorkflowTransition {
+  id: string;
+  from_step: string;
+  to_step: string;
+  condition?: string;
+  label?: string;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  entry_step: string;
+  steps: WorkflowStep[];
+  transitions: WorkflowTransition[];
+  config?: {
+    timeout_seconds?: number;
+    max_tokens?: number;
+    max_cost_usd?: number;
+  };
+  version?: string;
+  status?: WorkflowStatus;
+  created_at?: string;
+  updated_at?: string;
+  tenant_id?: string;
+}
+
+export interface WorkflowStepResult {
+  step_id: string;
+  step_name?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  started_at?: string;
+  completed_at?: string;
+  output?: unknown;
+  error?: string;
+  duration_ms?: number;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  workflow_name?: string;
+  tenant_id?: string;
+  status: WorkflowExecutionStatus;
+  started_at: string;
+  completed_at?: string;
+  inputs: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  steps: WorkflowStepResult[];
+  current_step?: string;
+  error?: string;
+  duration_ms?: number;
+}
+
+export interface WorkflowApprovalChecklist {
+  label: string;
+  required: boolean;
+  checked?: boolean;
+}
+
+export interface WorkflowApprovalRequest {
+  id: string;
+  workflow_id: string;
+  execution_id: string;
+  step_id: string;
+  title: string;
+  description: string;
+  checklist?: WorkflowApprovalChecklist[];
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  created_at: string;
+  expires_at?: string;
+  resolved_at?: string;
+  responder_id?: string;
+  notes?: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  usage_count?: number;
+  definition: Partial<WorkflowDefinition>;
+}
+
+export interface WorkflowSimulationResult {
+  is_valid: boolean;
+  validation_errors: string[];
+  execution_plan: Array<{
+    step_id: string;
+    step_name: string;
+    step_type: string;
+  }>;
+  estimated_steps: number;
+  estimated_duration_ms?: number;
+}
+
+export interface WorkflowVersion {
+  version: string;
+  updated_at: string;
+  updated_by?: string;
+  changes?: string;
+}
+
+export interface WorkflowListResponse {
+  workflows: WorkflowDefinition[];
+  total_count: number;
+}
+
+export interface WorkflowExecutionListResponse {
+  executions: WorkflowExecution[];
+  total_count: number;
+}
+
+export interface WorkflowTemplateListResponse {
+  templates: WorkflowTemplate[];
+  count: number;
+}
+
+export interface WorkflowApprovalListResponse {
+  approvals: WorkflowApprovalRequest[];
+  count: number;
+}
+
+/** Request to create a new workflow */
+export interface CreateWorkflowRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  entry_step: string;
+  steps: WorkflowStep[];
+  transitions: WorkflowTransition[];
+  config?: {
+    timeout_seconds?: number;
+    max_tokens?: number;
+    max_cost_usd?: number;
+  };
+}
+
+/** Request to update an existing workflow */
+export interface UpdateWorkflowRequest {
+  name?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  entry_step?: string;
+  steps?: WorkflowStep[];
+  transitions?: WorkflowTransition[];
+  config?: {
+    timeout_seconds?: number;
+    max_tokens?: number;
+    max_cost_usd?: number;
+  };
+  status?: WorkflowStatus;
+}
+
+/** Request to execute a workflow */
+export interface ExecuteWorkflowRequest {
+  inputs?: Record<string, unknown>;
+  tenant_id?: string;
+}
+
+/** Request to resolve a workflow approval */
+export interface ResolveApprovalRequest {
+  decision: 'approved' | 'rejected';
+  notes?: string;
+  checklist?: Array<{ label: string; checked: boolean }>;
+}
+
+/** Request to simulate a workflow */
+export interface SimulateWorkflowRequest {
+  inputs?: Record<string, unknown>;
+}
+
+/** Response from workflow simulation */
+export interface SimulateWorkflowResponse {
+  is_valid: boolean;
+  validation_errors: string[];
+  execution_plan: Array<{
+    step_id: string;
+    step_name: string;
+    step_type: string;
+  }>;
+  estimated_steps: number;
+  estimated_duration_ms?: number;
+}
+
+// =============================================================================
+// Knowledge Types
+// =============================================================================
+
+export enum KnowledgeNodeType {
+  FACT = 'fact',
+  CLAIM = 'claim',
+  MEMORY = 'memory',
+  EVIDENCE = 'evidence',
+  CONSENSUS = 'consensus',
+  ENTITY = 'entity',
+}
+
+export enum KnowledgeTier {
+  FAST = 'fast',
+  MEDIUM = 'medium',
+  SLOW = 'slow',
+  GLACIAL = 'glacial',
+}
+
+export enum KnowledgeRelationType {
+  SUPPORTS = 'supports',
+  CONTRADICTS = 'contradicts',
+  DERIVED_FROM = 'derived_from',
+  RELATED_TO = 'related_to',
+  SUPERSEDES = 'supersedes',
+}
+
+export enum KnowledgeSourceType {
+  DEBATE = 'debate',
+  DOCUMENT = 'document',
+  USER = 'user',
+  AGENT = 'agent',
+  CONSENSUS = 'consensus',
+  IMPORT = 'import',
+}
+
+export interface KnowledgeProvenance {
+  source_type: KnowledgeSourceType | string;
+  source_id?: string;
+  debate_id?: string;
+  document_id?: string;
+  agent_id?: string;
+  agent_name?: string;
+  user_id?: string;
+  timestamp?: string;
+}
+
+export interface KnowledgeNode {
+  id: string;
+  node_type: KnowledgeNodeType | string;
+  content: string;
+  confidence: number;
+  tier: KnowledgeTier | string;
+  workspace_id?: string;
+  topics?: string[];
+  metadata?: Record<string, unknown>;
+  provenance?: KnowledgeProvenance;
+  created_at: string;
+  updated_at?: string;
+  accessed_at?: string;
+  staleness_score?: number;
+  validation_status?: 'verified' | 'unverified' | 'superseded';
+}
+
+export interface KnowledgeRelationship {
+  id: string;
+  from_node_id: string;
+  to_node_id: string;
+  relationship_type: KnowledgeRelationType | string;
+  strength: number;
+  created_at: string;
+  created_by?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeFact extends KnowledgeNode {
+  statement: string;
+  evidence_ids?: string[];
+  source_documents?: string[];
+}
+
+export interface KnowledgeQueryOptions {
+  workspace_id?: string;
+  limit?: number;
+  node_types?: string[];
+  min_confidence?: number;
+  tier?: string;
+  use_agents?: boolean;
+  extract_facts?: boolean;
+  include_citations?: boolean;
+}
+
+export interface KnowledgeQueryResult {
+  query: string;
+  workspace_id?: string;
+  answer?: string;
+  nodes: KnowledgeNode[];
+  total_count: number;
+  processing_time_ms: number;
+  sources?: Array<{
+    node_id: string;
+    relevance: number;
+    snippet?: string;
+  }>;
+}
+
+export interface KnowledgeGraphTraversal {
+  start_node_id: string;
+  depth: number;
+  direction: 'outgoing' | 'incoming' | 'both';
+  relationship_type?: string;
+  nodes: KnowledgeNode[];
+  relationships: KnowledgeRelationship[];
+  count: number;
+}
+
+export interface KnowledgeMoundStats {
+  total_nodes: number;
+  nodes_by_type: Record<string, number>;
+  nodes_by_tier: Record<string, number>;
+  total_relationships: number;
+  avg_confidence: number;
+  stale_nodes_count: number;
+  workspace_count?: number;
+}
+
+export interface KnowledgeFactListResponse {
+  facts: KnowledgeFact[];
+  total: number;
+}
+
+export interface KnowledgeNodeListResponse {
+  nodes: KnowledgeNode[];
+  count: number;
+}
+
+export interface KnowledgeRelationListResponse {
+  relations: KnowledgeRelationship[];
+  count: number;
+}
+
+export interface KnowledgeContradictionsResponse {
+  fact_id: string;
+  contradictions: KnowledgeFact[];
+  count: number;
+}
+
+export interface KnowledgeSearchResult {
+  query: string;
+  workspace_id?: string;
+  results: Array<{
+    id: string;
+    content: string;
+    score: number;
+    node_type?: string;
+  }>;
+  count: number;
+}
+
+/** Request to create a new knowledge node */
+export interface CreateKnowledgeNodeRequest {
+  node_type: KnowledgeNodeType | string;
+  content: string;
+  confidence?: number;
+  tier?: KnowledgeTier | string;
+  workspace_id?: string;
+  topics?: string[];
+  metadata?: Record<string, unknown>;
+  provenance?: Partial<KnowledgeProvenance>;
+}
+
+/** Request to create a relationship between nodes */
+export interface CreateKnowledgeRelationshipRequest {
+  from_node_id: string;
+  to_node_id: string;
+  relationship_type: KnowledgeRelationType | string;
+  strength?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** Request to create a fact */
+export interface CreateKnowledgeFactRequest {
+  statement: string;
+  content: string;
+  confidence?: number;
+  tier?: KnowledgeTier | string;
+  workspace_id?: string;
+  topics?: string[];
+  metadata?: Record<string, unknown>;
+  evidence_ids?: string[];
+  source_documents?: string[];
+}
+
+/** Request to update a fact */
+export interface UpdateKnowledgeFactRequest {
+  statement?: string;
+  content?: string;
+  confidence?: number;
+  tier?: KnowledgeTier | string;
+  topics?: string[];
+  metadata?: Record<string, unknown>;
+  validation_status?: 'verified' | 'unverified' | 'superseded';
+}
+
+/** Request to query knowledge */
+export interface QueryKnowledgeRequest {
+  workspace_id?: string;
+  limit?: number;
+  node_types?: string[];
+  min_confidence?: number;
+  tier?: string;
+  use_agents?: boolean;
+  extract_facts?: boolean;
+  include_citations?: boolean;
+}
+
+/** Request to traverse knowledge graph */
+export interface TraverseGraphRequest {
+  depth?: number;
+  direction?: 'outgoing' | 'incoming' | 'both';
+  relationship_types?: string[];
+  max_nodes?: number;
+}
+
+/** Response from graph traversal */
+export interface TraverseGraphResponse {
+  start_node_id: string;
+  depth: number;
+  direction: 'outgoing' | 'incoming' | 'both';
+  nodes: KnowledgeNode[];
+  relationships: KnowledgeRelationship[];
+  count: number;
+}
+
+/** Request to search document chunks */
+export interface SearchChunksRequest {
+  limit?: number;
+  threshold?: number;
+  document_ids?: string[];
+  workspace_id?: string;
+}
+
+/** Response from chunk search */
+export interface SearchChunksResponse {
+  query: string;
+  chunks: Array<{
+    id: string;
+    content: string;
+    document_id: string;
+    score: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  count: number;
+}
