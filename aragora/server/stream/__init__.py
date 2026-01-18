@@ -70,6 +70,19 @@ _EXPORTS = {
     "DebateStreamServer": ("aragora.server.stream.debate_stream_server", "DebateStreamServer"),
     "AiohttpUnifiedServer": ("aragora.server.stream.servers", "AiohttpUnifiedServer"),
     "DEBATE_AVAILABLE": ("aragora.server.stream.debate_stream_server", "DEBATE_AVAILABLE"),
+    # Control plane stream
+    "ControlPlaneStreamServer": (
+        "aragora.server.stream.control_plane_stream",
+        "ControlPlaneStreamServer",
+    ),
+    "ControlPlaneEventType": (
+        "aragora.server.stream.control_plane_stream",
+        "ControlPlaneEventType",
+    ),
+    "ControlPlaneEvent": (
+        "aragora.server.stream.control_plane_stream",
+        "ControlPlaneEvent",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -126,6 +139,10 @@ __all__ = [
     "DebateStreamServer",
     "AiohttpUnifiedServer",
     "DEBATE_AVAILABLE",
+    # Control plane stream
+    "ControlPlaneStreamServer",
+    "ControlPlaneEventType",
+    "ControlPlaneEvent",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",
