@@ -128,7 +128,7 @@ class KnowledgeMound:
                 from aragora.memory.continuum import ContinuumMemory
 
                 self._continuum = ContinuumMemory()
-                await self._continuum.initialize()
+                # ContinuumMemory initializes in __init__, no async initialize needed
             except ImportError:
                 logger.warning("ContinuumMemory not available")
 
@@ -658,13 +658,14 @@ class KnowledgeMound:
         if not self._facts:
             raise RuntimeError("FactStore not available")
 
-        await self._facts.add_fact(
+        # add_fact is synchronous
+        self._facts.add_fact(
             statement=content,
             evidence_ids=metadata.get("evidence_ids", []),
             source_documents=metadata.get("source_documents", []),
-            workspace_id=metadata.get("workspace_id"),
+            workspace_id=metadata.get("workspace_id", "default"),
             confidence=metadata.get("confidence", 0.5),
-            tags=metadata.get("tags", []),
+            topics=metadata.get("topics", []),
         )
 
     async def _get_item_by_id(self, item_id: str) -> Optional[KnowledgeItem]:

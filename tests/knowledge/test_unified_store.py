@@ -351,31 +351,31 @@ class TestLinkResult:
 
 
 class TestUnifiedStoreConfig:
-    """Test UnifiedStoreConfig."""
+    """Test UnifiedStoreConfig (KnowledgeMoundConfig)."""
 
     def test_default_config(self):
         """Test default configuration."""
         config = UnifiedStoreConfig()
 
-        assert config.workspace_id == "default"
-        assert config.enable_continuum is True
-        assert config.enable_consensus is True
-        assert config.enable_facts is True
-        assert config.enable_vector is True
-        assert config.default_max_results == 10
-        assert config.cache_ttl_seconds == 60
+        # Test actual config attributes
+        assert config.enable_cross_references is True
+        assert config.enable_vector_search is True
+        assert config.enable_link_inference is False
+        assert config.default_limit == 20
+        assert config.max_limit == 100
+        assert config.parallel_queries is True
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = UnifiedStoreConfig(
-            workspace_id="custom",
-            enable_continuum=False,
-            default_max_results=50,
+            enable_vector_search=False,
+            default_limit=50,
+            parallel_queries=False,
         )
 
-        assert config.workspace_id == "custom"
-        assert config.enable_continuum is False
-        assert config.default_max_results == 50
+        assert config.enable_vector_search is False
+        assert config.default_limit == 50
+        assert config.parallel_queries is False
 
 
 class TestUnifiedKnowledgeStore:
@@ -384,7 +384,7 @@ class TestUnifiedKnowledgeStore:
     @pytest.fixture
     def store(self):
         """Create store for testing."""
-        config = UnifiedStoreConfig(workspace_id="test")
+        config = UnifiedStoreConfig()
         return UnifiedKnowledgeStore(config)
 
     @pytest.mark.asyncio
@@ -392,7 +392,7 @@ class TestUnifiedKnowledgeStore:
         """Test basic store functionality."""
         # Store should be created successfully
         assert store is not None
-        assert store.workspace_id == "test"
+        assert store.config is not None
 
     @pytest.mark.asyncio
     async def test_store_and_retrieve(self, store):
@@ -483,11 +483,9 @@ class TestUnifiedStoreIntegration:
     def integrated_store(self):
         """Create store with all backends enabled."""
         config = UnifiedStoreConfig(
-            workspace_id="integration_test",
-            enable_continuum=True,
-            enable_consensus=True,
-            enable_facts=True,
-            enable_vector=False,  # May not be available
+            enable_cross_references=True,
+            enable_vector_search=False,  # May not be available
+            parallel_queries=True,
         )
         return UnifiedKnowledgeStore(config)
 
@@ -495,7 +493,7 @@ class TestUnifiedStoreIntegration:
     async def test_store_initialization(self, integrated_store):
         """Test store initializes properly."""
         assert integrated_store is not None
-        assert integrated_store.workspace_id == "integration_test"
+        assert integrated_store.config is not None
 
     @pytest.mark.asyncio
     async def test_federated_query(self, integrated_store):
