@@ -1,8 +1,85 @@
 # Aragora Project Status
 
-*Last updated: January 16, 2026 (18:00 UTC)*
+*Last updated: January 18, 2026 (16:30 UTC)*
 
 ## Current Release
+
+### v2.0.0 - Enterprise & Production Hardening Release (January 2026)
+
+**Production Ready** - Aragora 2.0.0 represents a major milestone with enterprise features, comprehensive E2E testing, and production hardening.
+
+#### Key Highlights
+- **28,912+ tests** collected and passing (+4,000 from v1.5.1)
+- **Production Readiness**: 99%+ (all major systems complete)
+- **Lines of Code**: 430,000+ LOC
+- **0 production blockers**
+- **0 uncommitted files**
+
+#### What's New in 2.0.0 (Phase 6-7)
+
+**Multi-Tenant Isolation** (NEW)
+- `aragora/tenancy/` module with context, isolation, quotas
+- Thread-safe and async-safe tenant context management
+- SQL query auto-filtering by tenant
+- Rate limiting and usage quotas per tenant
+
+**Usage Metering & Billing** (NEW)
+- `aragora/billing/metering.py` - Tenant-aware usage tracking
+- BillingEvent collection with periodic flush
+- Per-tenant cost calculation and projections
+- Integration with quota enforcement
+
+**Extended Debates (50+ Rounds)** (NEW)
+- `aragora/debate/extended_rounds.py` - RLM context management
+- Sliding window compression for long debates
+- Adaptive context strategy selection
+- Checkpoint/resume for extended sessions
+
+**Streaming RLM Queries** (NEW)
+- `aragora/rlm/streaming.py` - Progressive context loading
+- Top-down, bottom-up, and targeted streaming modes
+- Real-time drill-down during debates
+
+**Cross-Debate Memory** (NEW)
+- `aragora/memory/cross_debate_rlm.py` - Institutional memory
+- Tiered storage (hot/warm/cold/archive)
+- Relevance-based context retrieval
+
+**API Versioning** (NEW)
+- `aragora/server/versioning/` - URL prefix versioning
+- Header-based version negotiation
+- RFC 8594 deprecation headers
+- Sunset date tracking and warnings
+
+**E2E Integration Tests** (NEW)
+- `tests/e2e/` - Comprehensive E2E test suite
+- Connector sync lifecycle tests
+- Debate 50+ round tests
+- Multi-tenant isolation verification
+
+**Performance Benchmarks** (NEW)
+- `benchmarks/` - Performance benchmark suite
+- RLM compression efficiency metrics
+- Tenant isolation overhead tests
+- Extended debate memory profiling
+
+**Observability** (NEW)
+- Prometheus metrics for RLM and connectors
+- Grafana dashboard (`k8s/monitoring/aragora-dashboard.json`)
+- Alert rules (`k8s/monitoring/alerts.yaml`)
+- Metrics runbook (`docs/RUNBOOK_METRICS.md`)
+
+**Admin UI** (NEW)
+- `/admin/tenants` - Tenant management portal
+- `/admin/usage` - Usage dashboard with metrics
+
+**Enterprise Connectors** (Complete)
+- 22 connectors (databases, collaboration, documents)
+- SharePoint, Confluence, Notion, Slack, Google Drive
+- Sync persistence with SQLite/PostgreSQL
+- Health monitoring and metrics
+
+---
 
 ### v1.5.1 - E2E Testing & SOC 2 Compliance Update (January 2026)
 

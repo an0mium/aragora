@@ -3548,6 +3548,570 @@ Handle Stripe webhook events (subscription updates, payment events).
 
 ---
 
+## Job Queue API
+
+Background job queue management for long-running tasks.
+
+### Submit Job
+
+```http
+POST /api/queue/jobs
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "type": "debate_export",
+  "payload": {
+    "debate_id": "debate-123",
+    "format": "json"
+  },
+  "priority": "normal"
+}
+```
+
+Response:
+```json
+{
+  "job_id": "job-abc123",
+  "status": "pending",
+  "position": 3
+}
+```
+
+### List Jobs
+
+```http
+GET /api/queue/jobs?status=pending&limit=20
+```
+
+Query parameters:
+- `status`: Filter by status (`pending`, `running`, `completed`, `failed`)
+- `type`: Filter by job type
+- `limit`: Max results (default 50)
+- `offset`: Pagination offset
+
+### Get Job Status
+
+```http
+GET /api/queue/jobs/{job_id}
+```
+
+Response:
+```json
+{
+  "job_id": "job-abc123",
+  "type": "debate_export",
+  "status": "running",
+  "progress": 45,
+  "created_at": "2026-01-18T10:00:00Z",
+  "started_at": "2026-01-18T10:00:05Z"
+}
+```
+
+### Retry Failed Job
+
+```http
+POST /api/queue/jobs/{job_id}/retry
+Authorization: Bearer <token>
+```
+
+### Cancel Job
+
+```http
+DELETE /api/queue/jobs/{job_id}
+Authorization: Bearer <token>
+```
+
+### Queue Statistics
+
+```http
+GET /api/queue/stats
+```
+
+Response:
+```json
+{
+  "pending": 12,
+  "running": 3,
+  "completed_24h": 156,
+  "failed_24h": 2,
+  "avg_wait_time_ms": 1250,
+  "avg_processing_time_ms": 4500
+}
+```
+
+### Worker Status
+
+```http
+GET /api/queue/workers
+```
+
+Response:
+```json
+{
+  "workers": [
+    {
+      "id": "worker-1",
+      "status": "busy",
+      "current_job": "job-abc123",
+      "jobs_completed": 42
+    }
+  ]
+}
+```
+
+---
+
+## Moments API
+
+Track and query significant debate moments (upsets, reversals, breakthroughs).
+
+### Get Moments Summary
+
+```http
+GET /api/moments/summary
+```
+
+Response:
+```json
+{
+  "total_moments": 156,
+  "by_type": {
+    "upset_victory": 23,
+    "position_reversal": 18,
+    "consensus_breakthrough": 45,
+    "calibration_vindication": 12,
+    "alliance_shift": 8,
+    "streak_achievement": 30,
+    "domain_mastery": 20
+  },
+  "recent_count_24h": 12
+}
+```
+
+### Get Moments Timeline
+
+```http
+GET /api/moments/timeline?limit=50&offset=0
+```
+
+Response:
+```json
+{
+  "moments": [
+    {
+      "id": "moment-123",
+      "type": "upset_victory",
+      "debate_id": "debate-456",
+      "agent": "claude-3",
+      "description": "Won against higher-rated opponent",
+      "significance": 0.85,
+      "timestamp": "2026-01-18T10:30:00Z"
+    }
+  ],
+  "total": 156
+}
+```
+
+### Get Trending Moments
+
+```http
+GET /api/moments/trending?limit=10
+```
+
+Returns most significant recent moments.
+
+### Get Moments by Type
+
+```http
+GET /api/moments/by-type/{type}
+```
+
+Valid types: `upset_victory`, `position_reversal`, `calibration_vindication`, `alliance_shift`, `consensus_breakthrough`, `streak_achievement`, `domain_mastery`
+
+---
+
+## Checkpoint API
+
+Pause, checkpoint, and resume debates.
+
+### List Checkpoints
+
+```http
+GET /api/checkpoints?debate_id=abc123&limit=20
+```
+
+Response:
+```json
+{
+  "checkpoints": [
+    {
+      "id": "cp-123",
+      "debate_id": "debate-456",
+      "round": 3,
+      "created_at": "2026-01-18T10:00:00Z",
+      "reason": "manual_pause",
+      "resumable": true
+    }
+  ]
+}
+```
+
+### Get Resumable Checkpoints
+
+```http
+GET /api/checkpoints/resumable
+```
+
+Returns checkpoints that can be resumed.
+
+### Get Checkpoint Details
+
+```http
+GET /api/checkpoints/{id}
+```
+
+Response:
+```json
+{
+  "id": "cp-123",
+  "debate_id": "debate-456",
+  "round": 3,
+  "state": {
+    "current_round": 3,
+    "agents": ["claude-3", "gpt-4"],
+    "votes": {"claude-3": 2, "gpt-4": 1}
+  },
+  "created_at": "2026-01-18T10:00:00Z",
+  "resumable": true
+}
+```
+
+### Resume from Checkpoint
+
+```http
+POST /api/checkpoints/{id}/resume
+Authorization: Bearer <token>
+```
+
+Resumes a paused debate from the checkpoint state.
+
+### Delete Checkpoint
+
+```http
+DELETE /api/checkpoints/{id}
+Authorization: Bearer <token>
+```
+
+### Create Checkpoint for Debate
+
+```http
+POST /api/debates/{id}/checkpoint
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "reason": "user_requested"
+}
+```
+
+### Pause Debate
+
+```http
+POST /api/debates/{id}/pause
+Authorization: Bearer <token>
+```
+
+Pauses a running debate and creates a checkpoint automatically.
+
+---
+
+## Workspace API (Enterprise)
+
+Multi-tenant workspace management with data isolation.
+
+### Create Workspace
+
+```http
+POST /api/workspaces
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Engineering Team",
+  "description": "Workspace for engineering debates",
+  "settings": {
+    "default_retention_days": 90,
+    "require_approval": true
+  }
+}
+```
+
+### List Workspaces
+
+```http
+GET /api/workspaces
+Authorization: Bearer <token>
+```
+
+### Get Workspace Details
+
+```http
+GET /api/workspaces/{id}
+Authorization: Bearer <token>
+```
+
+### Delete Workspace
+
+```http
+DELETE /api/workspaces/{id}
+Authorization: Bearer <token>
+```
+
+### Add Workspace Member
+
+```http
+POST /api/workspaces/{id}/members
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "user_id": "user-123",
+  "role": "member",
+  "permissions": ["read", "write"]
+}
+```
+
+### Remove Workspace Member
+
+```http
+DELETE /api/workspaces/{id}/members/{user_id}
+Authorization: Bearer <token>
+```
+
+### Retention Policies
+
+```http
+GET /api/retention/policies
+POST /api/retention/policies
+PUT /api/retention/policies/{id}
+DELETE /api/retention/policies/{id}
+POST /api/retention/policies/{id}/execute
+GET /api/retention/expiring
+```
+
+### Content Classification
+
+```http
+POST /api/classify
+Content-Type: application/json
+
+{
+  "content": "Debate transcript text...",
+  "context": "internal_review"
+}
+```
+
+Response:
+```json
+{
+  "level": "confidential",
+  "confidence": 0.92,
+  "reasons": ["contains_internal_data"]
+}
+```
+
+### Audit Log
+
+```http
+GET /api/audit/entries?actor=user-123&action=read&limit=100
+GET /api/audit/report?start=2026-01-01&end=2026-01-18
+GET /api/audit/verify
+```
+
+SOC 2 Controls: CC6.1, CC6.3 - Logical access controls
+
+---
+
+## Privacy API (GDPR/CCPA)
+
+Data export and account deletion for regulatory compliance.
+
+### Export User Data
+
+```http
+GET /api/privacy/export
+Authorization: Bearer <token>
+```
+
+GDPR Article 15, CCPA Right to Know. Exports all user data.
+
+Response:
+```json
+{
+  "export_id": "export-123",
+  "status": "processing",
+  "estimated_completion": "2026-01-18T10:30:00Z"
+}
+```
+
+### Get Data Inventory
+
+```http
+GET /api/privacy/data-inventory
+Authorization: Bearer <token>
+```
+
+Response:
+```json
+{
+  "categories": [
+    {
+      "name": "debate_history",
+      "description": "Your debate participation history",
+      "count": 42,
+      "retention": "90 days"
+    },
+    {
+      "name": "preferences",
+      "description": "Account settings and preferences",
+      "count": 1,
+      "retention": "Until account deletion"
+    }
+  ]
+}
+```
+
+### Delete Account
+
+```http
+DELETE /api/privacy/account
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "confirmation": "DELETE_MY_ACCOUNT",
+  "reason": "no_longer_needed"
+}
+```
+
+GDPR Article 17, CCPA Right to Delete.
+
+### Update Privacy Preferences
+
+```http
+POST /api/privacy/preferences
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "do_not_sell": true,
+  "marketing_emails": false,
+  "analytics_tracking": false
+}
+```
+
+CCPA Do Not Sell compliance.
+
+SOC 2 Control: P5-01 - User access to personal data
+
+---
+
+## Training Export API
+
+Export debate data for model fine-tuning.
+
+### Export SFT Data
+
+```http
+POST /api/training/export/sft
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "filters": {
+    "min_quality": 0.8,
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-18"
+  },
+  "format": "jsonl"
+}
+```
+
+Supervised Fine-Tuning format export.
+
+### Export DPO Data
+
+```http
+POST /api/training/export/dpo
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "filters": {
+    "min_margin": 0.3,
+    "include_ties": false
+  },
+  "format": "jsonl"
+}
+```
+
+Direct Preference Optimization format with chosen/rejected pairs.
+
+### Export Gauntlet Data
+
+```http
+POST /api/training/export/gauntlet
+Authorization: Bearer <token>
+```
+
+Adversarial training data from gauntlet challenges.
+
+### Get Export Statistics
+
+```http
+GET /api/training/stats
+```
+
+Response:
+```json
+{
+  "total_debates": 1234,
+  "exportable_sft": 890,
+  "exportable_dpo": 456,
+  "last_export": "2026-01-17T15:00:00Z"
+}
+```
+
+### List Export Formats
+
+```http
+GET /api/training/formats
+```
+
+Response:
+```json
+{
+  "formats": [
+    {"id": "jsonl", "name": "JSON Lines", "extensions": [".jsonl"]},
+    {"id": "parquet", "name": "Apache Parquet", "extensions": [".parquet"]},
+    {"id": "csv", "name": "CSV", "extensions": [".csv"]}
+  ]
+}
+```
+
+### Training Jobs
+
+```http
+GET /api/training/jobs
+POST /api/training/jobs/{id}/start
+POST /api/training/jobs/{id}/complete
+GET /api/training/jobs/{id}/metrics
+GET /api/training/jobs/{id}/artifacts
+```
+
+---
+
 ## Deprecated Endpoints
 
 The following endpoints are deprecated and will be removed in future versions.
