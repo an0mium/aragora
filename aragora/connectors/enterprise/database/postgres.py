@@ -325,8 +325,9 @@ class PostgreSQLConnector(EnterpriseConnector):
                                 "data": dict(row),
                                 "rank": row.get("rank", 0),
                             })
-                    except Exception:
-                        # Fallback to ILIKE search
+                    except Exception as e:
+                        # Fallback to ILIKE search (FTS may not be configured)
+                        logger.debug(f"FTS query failed on {table}, falling back to ILIKE: {e}")
                         columns = await self._get_table_columns(table)
                         text_columns = [c["column_name"] for c in columns if "char" in c["data_type"] or "text" in c["data_type"]]
 

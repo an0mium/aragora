@@ -331,8 +331,9 @@ class FindingWorkflowHandler(BaseHandler):
         try:
             body = await self._parse_json_body(request)
             comment = body.get("comment", "")
-        except Exception:
-            pass
+        except Exception as e:
+            # Comment is optional, proceed with empty string if body parsing fails
+            logger.debug(f"Optional comment body not provided or invalid: {e}")
 
         user_id, user_name = self._get_user_from_request(request)
 
