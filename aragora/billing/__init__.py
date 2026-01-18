@@ -56,6 +56,16 @@ from aragora.billing.cost_tracker import (
     get_cost_tracker,
     record_usage,
 )
+from aragora.billing.metering import (
+    BillingEvent,
+    BillingEventType,
+    BillingPeriod,
+    MeteringConfig,
+    UsageMeter,
+    UsageSummary as MeteringSummary,
+    get_usage_meter,
+    record_usage as record_billing_usage,
+)
 
 __all__ = [
     # Models
@@ -103,4 +113,13 @@ __all__ = [
     "CostGranularity",
     "get_cost_tracker",
     "record_usage",
+    # Metering
+    "BillingEvent",
+    "BillingEventType",
+    "BillingPeriod",
+    "MeteringConfig",
+    "UsageMeter",
+    "MeteringSummary",
+    "get_usage_meter",
+    "record_billing_usage",
 ]
