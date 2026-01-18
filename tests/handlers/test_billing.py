@@ -1564,7 +1564,7 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             with patch("aragora.server.handlers.admin.billing._is_duplicate_webhook") as mock_dup:
                 with patch("aragora.server.handlers.admin.billing._mark_webhook_processed"):
-                    with patch("aragora.server.handlers.admin.billing.get_recovery_store") as mock_recovery:
+                    with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery:
                         mock_parse.return_value = event
                         mock_dup.return_value = False
                         mock_recovery_store = MagicMock()
@@ -1607,8 +1607,8 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             with patch("aragora.server.handlers.admin.billing._is_duplicate_webhook") as mock_dup:
                 with patch("aragora.server.handlers.admin.billing._mark_webhook_processed"):
-                    with patch("aragora.server.handlers.admin.billing.get_recovery_store") as mock_recovery:
-                        with patch("aragora.server.handlers.admin.billing.get_billing_notifier") as mock_notifier:
+                    with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery:
+                        with patch("aragora.billing.notifications.get_billing_notifier") as mock_notifier:
                             mock_parse.return_value = event
                             mock_dup.return_value = False
 

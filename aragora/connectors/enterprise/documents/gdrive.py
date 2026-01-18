@@ -185,7 +185,8 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         self._access_token = data["access_token"]
         expires_in = data.get("expires_in", 3600)
-        self._token_expiry = now.replace(microsecond=0) + asyncio.coroutines.timedelta(seconds=expires_in - 60)
+        from datetime import timedelta
+        self._token_expiry = now.replace(microsecond=0) + timedelta(seconds=expires_in - 60)
 
         return self._access_token
 
