@@ -145,11 +145,19 @@ class ConsensusProof:
     @property
     def checksum(self) -> str:
         """Generate checksum for proof integrity."""
+
+        def enum_dict_factory(data: list) -> dict:
+            """Convert Enum values to their string values for JSON serialization."""
+            return {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in data
+            }
+
         content = json.dumps(
             {
                 "final_claim": self.final_claim,
-                "votes": [asdict(v) for v in self.votes],
-                "claims": [asdict(c) for c in self.claims],
+                "votes": [asdict(v, dict_factory=enum_dict_factory) for v in self.votes],
+                "claims": [asdict(c, dict_factory=enum_dict_factory) for c in self.claims],
             },
             sort_keys=True,
         )
