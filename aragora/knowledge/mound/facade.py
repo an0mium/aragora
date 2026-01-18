@@ -1551,8 +1551,8 @@ class KnowledgeMound:
         if self._vector_store:
             try:
                 await self._vector_store.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing vector store: {e}")
         if hasattr(self._meta_store, "close"):
             await self._meta_store.close()
 

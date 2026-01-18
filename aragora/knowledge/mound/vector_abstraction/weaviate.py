@@ -267,8 +267,8 @@ class WeaviateVectorStore(BaseVectorStore):
             try:
                 collection.data.delete_by_id(id)
                 deleted += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error deleting vector {id}: {e}")
 
         return deleted
 
@@ -417,8 +417,8 @@ class WeaviateVectorStore(BaseVectorStore):
                     },
                     embedding=obj.vector.get("default") if obj.vector else None,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
 

@@ -89,8 +89,8 @@ def get_embedding_provider() -> EmbeddingProvider:
         response = requests.get("http://localhost:11434/api/tags", timeout=1)
         if response.status_code == 200:
             return OllamaEmbedding()
-    except Exception:
-        pass
+    except (requests.RequestException, ImportError, OSError):
+        pass  # Ollama not available, try next provider
 
     # Fallback to hash-based
     return EmbeddingProvider()

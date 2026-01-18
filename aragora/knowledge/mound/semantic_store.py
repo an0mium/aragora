@@ -210,8 +210,8 @@ class SemanticStore(SQLiteStore):
                     sock.settimeout(0.5)
                     if sock.connect_ex((host, port)) == 0:
                         return ollama
-            except Exception:
-                pass
+            except (socket.error, OSError, ImportError):
+                pass  # Ollama not reachable, will use fallback
             # Fall back to hash-based embeddings
             logger.warning(
                 "No embedding API available, using hash-based fallback. "

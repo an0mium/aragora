@@ -304,15 +304,15 @@ class KnowledgePipeline:
         if self._embedding_service:
             try:
                 self._embedding_service.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing embedding service: {e}")
 
         # Cleanup Knowledge Mound
         if self._knowledge_mound:
             try:
                 await self._knowledge_mound.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing knowledge mound: {e}")
 
         logger.info("Knowledge pipeline stopped")
 

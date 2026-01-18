@@ -404,8 +404,8 @@ class ChromaVectorStore(BaseVectorStore):
                     metadata={k: v for k, v in meta.items() if k != "namespace"},
                     embedding=results["embeddings"][0] if results.get("embeddings") else None,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
 

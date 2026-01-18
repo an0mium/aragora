@@ -433,8 +433,8 @@ class QdrantVectorStore(BaseVectorStore):
                     },
                     embedding=point.vector if isinstance(point.vector, list) else None,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
 

@@ -653,8 +653,9 @@ Then briefly explain your reasoning."""
         """Close resources."""
         try:
             self._embedding_service.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # Ignore cleanup errors but log for debugging
+            logger.debug(f"Error closing embedding service: {e}")
 
 
 class SimpleQueryEngine:
@@ -758,5 +759,6 @@ class SimpleQueryEngine:
         """Close resources."""
         try:
             self._embedding_service.close()
-        except Exception:
-            pass
+        except Exception as e:
+            # Ignore cleanup errors but log for debugging
+            logger.debug(f"Error closing embedding service: {e}")
