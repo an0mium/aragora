@@ -1,13 +1,22 @@
-name: Deploy
+name: Deploy (Legacy)
+
+# ⚠️ DEPRECATED: This workflow uses long-lived SSH keys which is a security risk.
+# Use deploy-secure.yml instead, which uses AWS OIDC authentication.
+#
+# Migration guide: See docs/CI_CD_SECURITY.md
+#
+# This workflow will be removed in a future release. It is currently disabled
+# for automated triggers and only available via manual workflow_dispatch.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - '.github/workflows/deploy.yml'
-      - 'requirements.txt'
-      - 'pyproject.toml'
+  # Disabled automatic triggers - use deploy-secure.yml for push-triggered deploys
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'aragora/**'
+  #     - '.github/workflows/deploy.yml'
+  #     - 'requirements.txt'
+  #     - 'pyproject.toml'
   workflow_dispatch:
     inputs:
       environment:
@@ -25,10 +34,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deprecation-warning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show deprecation warning
+        run: |
+          echo "::warning::This workflow (deploy.yml) is DEPRECATED and uses insecure SSH keys."
+          echo "::warning::Please use deploy-secure.yml instead, which uses AWS OIDC authentication."
+          echo "::warning::See docs/CI_CD_SECURITY.md for migration instructions."
+          echo ""
+          echo "## ⚠️ Deprecation Notice" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow uses **long-lived SSH keys** stored in GitHub secrets." >> $GITHUB_STEP_SUMMARY
+          echo "This is a security risk. Please migrate to **deploy-secure.yml** which uses:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AWS OIDC authentication (no stored credentials)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AWS SSM Run Command (no SSH access)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Temporary, scoped credentials" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Full audit trail in AWS CloudTrail" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See [CI/CD Security Guide](../docs/CI_CD_SECURITY.md) for migration instructions." >> $GITHUB_STEP_SUMMARY
+
   # Note: Tests run via separate Tests workflow. This workflow deploys directly.
   # Use branch protection to require Tests workflow to pass before merge.
 
   deploy-cloudflare:
+    needs: deprecation-warning
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'cloudflare' || github.event.inputs.environment == null || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -77,6 +108,7 @@ jobs:
   deploy-lightsail:
     # DISABLED: Lightsail deprecated in favor of multi-EC2 with Cloudflare Load Balancer
     # See deploy/cloudflare-lb-setup.md for architecture details
+    needs: deprecation-warning
     if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -280,7 +312,8 @@ jobs:
           echo "  3. The LIGHTSAIL_HOST secret contains the correct IP address"
 
   deploy-ec2:
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
+    needs: deprecation-warning
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true  # Don't fail the workflow if EC2 is unreachable
@@ -531,7 +564,8 @@ jobs:
 
   deploy-ec2-2:
     # EC2 Instance #2 for high availability (requires EC2_HOST_2 and EC2_SSH_KEY_2 secrets)
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null || github.event_name == 'push'
+    needs: deprecation-warning
+    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2' || github.event.inputs.environment == null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true
@@ -647,7 +681,7 @@ jobs:
           EOF
 
   notify:
-    needs: [deploy-cloudflare, deploy-ec2, deploy-ec2-2]
+    needs: [deprecation-warning, deploy-cloudflare, deploy-ec2, deploy-ec2-2]
     # Don't run notify when workflow is cancelled - prevents stuck "queued" jobs
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest

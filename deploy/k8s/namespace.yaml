@@ -1,4 +1,12 @@
 # Aragora Kubernetes Namespace
+#
+# Pod Security Standards (PSS) are enforced via namespace labels.
+# Using "restricted" profile for maximum security:
+# - Prevents privilege escalation
+# - Requires non-root containers
+# - Drops all capabilities
+# - Enforces seccomp profiles
+#
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -6,3 +14,11 @@ metadata:
   labels:
     app.kubernetes.io/name: aragora
     app.kubernetes.io/part-of: aragora
+    # Pod Security Standards - enforced at namespace level
+    # See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest

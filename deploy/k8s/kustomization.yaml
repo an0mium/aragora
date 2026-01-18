@@ -10,6 +10,7 @@ resources:
   - cert-manager.yaml      # ClusterIssuers for TLS certificates
   - configmap.yaml
   - secret.yaml
+  - network-policy.yaml    # Zero-trust network segmentation
   - redis/statefulset.yaml
   - redis/service.yaml
   # - redis/cluster.yaml   # Uncomment for Redis Cluster deployment

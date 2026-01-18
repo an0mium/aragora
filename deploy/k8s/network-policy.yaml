@@ -1,0 +1,217 @@
+# Network Policies for Aragora
+#
+# These policies implement a zero-trust network model:
+# - Default deny all ingress/egress
+# - Explicitly allow required communication paths
+# - Segment traffic between components
+#
+# Apply with: kubectl apply -f network-policy.yaml
+
+---
+# Default deny all ingress traffic to aragora namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Default deny all egress traffic from aragora namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+
+---
+# Allow Aragora server to receive traffic from ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-aragora-ingress
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow traffic from ingress-nginx namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Allow Aragora server to communicate with Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-aragora-to-redis
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Egress
+  egress:
+    # Allow egress to Redis within the namespace
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+---
+# Allow Aragora server to make external API calls (LLM providers)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-aragora-external-apis
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS to external APIs (Anthropic, OpenAI, etc.)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              # Block private networks (except cluster)
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+# Allow Redis to accept connections from Aragora
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-ingress
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: aragora
+      ports:
+        - protocol: TCP
+          port: 6379
+
+---
+# Allow intra-pod communication for Redis cluster
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-cluster
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 16379  # Redis cluster bus
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 16379
+
+---
+# Allow Prometheus to scrape metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: aragora
+  labels:
+    app.kubernetes.io/part-of: aragora
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080

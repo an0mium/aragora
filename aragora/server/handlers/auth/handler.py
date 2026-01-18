@@ -385,6 +385,7 @@ class AuthHandler(BaseHandler):
 
         return json_response({"tokens": tokens.to_dict()})
 
+    @rate_limit(rpm=10, limiter_name="auth_logout")
     @handle_errors("logout")
     def _handle_logout(self, handler) -> HandlerResult:
         """Handle user logout (token invalidation)."""
@@ -476,6 +477,7 @@ class AuthHandler(BaseHandler):
             }
         )
 
+    @rate_limit(rpm=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
         """Get current user information."""
@@ -508,6 +510,7 @@ class AuthHandler(BaseHandler):
             }
         )
 
+    @rate_limit(rpm=5, limiter_name="auth_update_me")
     @handle_errors("update user info")
     def _handle_update_me(self, handler) -> HandlerResult:
         """Update current user information."""
@@ -596,6 +599,7 @@ class AuthHandler(BaseHandler):
 
         return json_response({"message": "Password changed successfully"})
 
+    @rate_limit(rpm=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
     def _handle_revoke_token(self, handler) -> HandlerResult:
         """Explicitly revoke a specific token."""
@@ -700,6 +704,7 @@ class AuthHandler(BaseHandler):
             }
         )
 
+    @rate_limit(rpm=5, limiter_name="auth_revoke_api_key")
     @handle_errors("revoke API key")
     def _handle_revoke_api_key(self, handler) -> HandlerResult:
         """Revoke the user's API key."""
