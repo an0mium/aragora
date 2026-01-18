@@ -242,11 +242,15 @@ class TranslationBackend:
         target: Language,
     ) -> TranslationResult:
         """Translate text from source to target language."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"Subclass {self.__class__.__name__} must implement translate()"
+        )
 
     async def detect_language(self, text: str) -> LanguageDetectionResult:
         """Detect the language of text."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"Subclass {self.__class__.__name__} must implement detect_language()"
+        )
 
 
 class LLMTranslationBackend(TranslationBackend):

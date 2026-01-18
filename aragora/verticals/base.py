@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from jinja2 import Template
@@ -146,7 +147,7 @@ class VerticalSpecialistAgent(APIAgent):
         self._tool_call_history.append({
             "tool": tool_name,
             "parameters": parameters,
-            "timestamp": None,  # TODO: Add timestamp
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
 
         # Invoke the actual tool implementation
