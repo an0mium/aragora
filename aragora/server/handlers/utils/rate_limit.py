@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, TypeVar, cast
 from aragora.server.middleware.rate_limit import (
     RateLimitResult,
     rate_limit_headers,
+    user_rate_limit,
 )
 from aragora.server.middleware.rate_limit import (
     get_rate_limiter as get_middleware_limiter,
@@ -291,6 +292,7 @@ def rate_limit(
 __all__ = [
     "RateLimiter",
     "rate_limit",
+    "user_rate_limit",
     "get_client_ip",
     "_get_limiter",
     "_limiters",

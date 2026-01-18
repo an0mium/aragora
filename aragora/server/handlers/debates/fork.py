@@ -19,7 +19,7 @@ from ..base import (
     require_storage,
     safe_error_message,
 )
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit, user_rate_limit
 
 if TYPE_CHECKING:
     pass
@@ -54,6 +54,8 @@ class _DebatesHandlerProtocol(Protocol):
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
 
+    @user_rate_limit(action="debate_create")
+    @rate_limit(rpm=5, limiter_name="debates_fork")
     @require_storage
     def _fork_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Create a counterfactual fork of a debate at a specific branch point.
@@ -181,6 +183,7 @@ class ForkOperationsMixin:
             )
             return error_response(safe_error_message(e, "create fork"), 500)
 
+    @user_rate_limit(action="vote")
     @rate_limit(rpm=10, limiter_name="debates_verify_outcome")
     @handle_errors("verify debate outcome")
     def _verify_outcome(
@@ -358,6 +361,7 @@ class ForkOperationsMixin:
             )
             return error_response(safe_error_message(e, "get followup suggestions"), 500)
 
+    @user_rate_limit(action="debate_create")
     @rate_limit(rpm=5, limiter_name="debates_followup")
     @require_storage
     def _create_followup_debate(

@@ -39,6 +39,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +245,8 @@ class ControlPlaneHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @user_rate_limit(action="agent_call")
+    @rate_limit(rpm=60, limiter_name="control_plane_post")
     def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:

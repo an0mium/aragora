@@ -61,7 +61,7 @@ from .response_formatting import (
     normalize_status,
 )
 from .search import SearchOperationsMixin
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -845,6 +845,7 @@ class DebatesHandler(
 
         return None
 
+    @user_rate_limit(action="debate_create")
     @rate_limit(rpm=5, limiter_name="debates_create")
     @require_quota("debate")
     def _create_debate(self, handler) -> HandlerResult:

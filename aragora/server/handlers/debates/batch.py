@@ -22,7 +22,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import rate_limit, user_rate_limit
 
 if TYPE_CHECKING:
     from aragora.server.debate_queue import BatchItem
@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 class BatchOperationsMixin:
     """Mixin providing batch debate operations for DebatesHandler."""
 
+    @user_rate_limit(action="debate_create")
     @rate_limit(rpm=10, limiter_name="batch_submit")
     @handle_errors("submit batch")
     def _submit_batch(self: _DebatesHandlerProtocol, handler: Any) -> HandlerResult:
