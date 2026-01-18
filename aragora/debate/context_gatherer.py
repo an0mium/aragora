@@ -8,13 +8,29 @@ Timeouts:
     CONTEXT_GATHER_TIMEOUT: Overall timeout for gather_all (default: 10s)
     EVIDENCE_TIMEOUT: Timeout for evidence collection (default: 5s)
     TRENDING_TIMEOUT: Timeout for trending topics (default: 3s)
+
+RLM Integration:
+    When enable_rlm_compression is True and a compressor is available,
+    large documents are hierarchically compressed instead of truncated.
+    This preserves semantic content while fitting within token budgets.
 """
 
 import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from aragora.rlm import HierarchicalCompressor
+
+# Check for RLM availability
+try:
+    from aragora.rlm import HierarchicalCompressor as _HierarchicalCompressor
+    HAS_RLM = True
+except ImportError:
+    HAS_RLM = False
+    _HierarchicalCompressor = None
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +63,9 @@ class ContextGatherer:
         evidence_store_callback: Optional[Callable[..., Any]] = None,
         prompt_builder: Optional[Any] = None,
         project_root: Optional[Path] = None,
+        enable_rlm_compression: bool = True,
+        rlm_compressor: Optional["HierarchicalCompressor"] = None,
+        rlm_compression_threshold: int = 3000,  # Chars above which to use RLM
     ):
         """
         Initialize the context gatherer.
@@ -57,6 +76,9 @@ class ContextGatherer:
             prompt_builder: Optional PromptBuilder to receive evidence pack.
             project_root: Optional project root path for documentation lookup.
                          Defaults to detecting from this file's location.
+            enable_rlm_compression: Whether to use RLM for large document compression.
+            rlm_compressor: Optional pre-configured HierarchicalCompressor.
+            rlm_compression_threshold: Char count above which to apply RLM compression.
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -70,6 +92,14 @@ class ContextGatherer:
 
         # Cache for continuum memory context
         self._continuum_context_cache: Optional[str] = None
+
+        # RLM configuration
+        self._enable_rlm = enable_rlm_compression and HAS_RLM
+        self._rlm_compressor = rlm_compressor
+        self._rlm_threshold = rlm_compression_threshold
+        if self._enable_rlm and not self._rlm_compressor and _HierarchicalCompressor:
+            self._rlm_compressor = _HierarchicalCompressor()
+            logger.debug("[rlm] ContextGatherer: RLM compression enabled")
 
     @property
     def evidence_pack(self) -> Optional[Any]:
@@ -215,6 +245,9 @@ class ContextGatherer:
         Only activates for tasks mentioning Aragora, multi-agent debates,
         decision stress-tests, nomic loop, or the debate framework.
 
+        Uses RLM compression for large documents to preserve semantic content
+        instead of simple truncation.
+
         Args:
             task: The debate topic/task description.
 
@@ -244,30 +277,43 @@ class ContextGatherer:
             aragora_context_parts: list[str] = []
             loop = asyncio.get_running_loop()
 
-            def _read_file_sync(path: Path, limit: int) -> str | None:
+            def _read_file_sync(path: Path) -> str | None:
+                """Read full file content without truncation."""
                 try:
                     if path.exists():
-                        return path.read_text()[:limit]
+                        return path.read_text()
                 except (OSError, UnicodeDecodeError) as e:
                     logger.debug(f"Failed to read file {path}: {e}")
                 return None
 
-            # Read key documentation files
+            # Read key documentation files (full content, RLM will compress)
             key_docs = ["FEATURES.md", "ARCHITECTURE.md", "QUICKSTART.md", "STATUS.md"]
             for doc_name in key_docs:
                 doc_path = docs_dir / doc_name
                 content = await loop.run_in_executor(
                     None,
-                    lambda p=doc_path: _read_file_sync(p, 3000),  # type: ignore[misc]
+                    lambda p=doc_path: _read_file_sync(p),  # type: ignore[misc]
                 )
                 if content:
-                    aragora_context_parts.append(f"### {doc_name}\n{content}")
+                    # Use RLM to compress if content is large
+                    compressed = await self._compress_with_rlm(
+                        content,
+                        source_type="documentation",
+                        max_chars=3000,
+                    )
+                    aragora_context_parts.append(f"### {doc_name}\n{compressed}")
 
             # Also include CLAUDE.md for project overview
             claude_md = self._project_root / "CLAUDE.md"
-            content = await loop.run_in_executor(None, lambda: _read_file_sync(claude_md, 2000))
+            content = await loop.run_in_executor(None, lambda: _read_file_sync(claude_md))
             if content:
-                aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{content}")
+                # Compress CLAUDE.md with RLM if large
+                compressed = await self._compress_with_rlm(
+                    content,
+                    source_type="documentation",
+                    max_chars=2000,
+                )
+                aragora_context_parts.insert(0, f"### Project Overview (CLAUDE.md)\n{compressed}")
 
             if aragora_context_parts:
                 logger.info("Injected Aragora project documentation context")
@@ -414,6 +460,71 @@ class ContextGatherer:
         self._research_context_cache = None
         self._research_evidence_pack = None
         self._continuum_context_cache = None
+
+    async def _compress_with_rlm(
+        self,
+        content: str,
+        source_type: str = "documentation",
+        max_chars: int = 3000,
+    ) -> str:
+        """
+        Compress large content using RLM hierarchical compression.
+
+        Uses RLM to create a semantic summary instead of simple truncation.
+        Falls back to truncation if RLM is unavailable or fails.
+
+        Args:
+            content: The content to compress
+            source_type: Type of content (for compression hints)
+            max_chars: Target character limit
+
+        Returns:
+            Compressed or truncated content
+        """
+        # If content is under threshold, return as-is
+        if len(content) <= self._rlm_threshold:
+            return content[:max_chars] if len(content) > max_chars else content
+
+        # If RLM is not enabled or compressor unavailable, use simple truncation
+        if not self._enable_rlm or not self._rlm_compressor:
+            return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
+
+        try:
+            # Use RLM hierarchical compression
+            compression_result = await asyncio.wait_for(
+                self._rlm_compressor.compress(
+                    content=content,
+                    source_type=source_type,
+                    max_levels=2,  # ABSTRACT and SUMMARY for faster compression
+                ),
+                timeout=10.0,  # 10 second timeout for individual document
+            )
+
+            # Get summary level (or abstract if summary is too long)
+            try:
+                from aragora.rlm.types import AbstractionLevel
+                summary = compression_result.context.get_at_level(AbstractionLevel.SUMMARY)
+                if summary and len(summary) > max_chars:
+                    # Fall back to abstract
+                    summary = compression_result.context.get_at_level(AbstractionLevel.ABSTRACT)
+            except (ImportError, AttributeError):
+                # Fallback: just use any compressed content available
+                summary = None
+
+            if summary and len(summary) < len(content):
+                logger.debug(
+                    f"[rlm] Compressed {len(content)} -> {len(summary)} chars "
+                    f"({len(summary)/len(content)*100:.0f}%)"
+                )
+                return summary[:max_chars] if len(summary) > max_chars else summary
+
+        except asyncio.TimeoutError:
+            logger.debug("[rlm] Document compression timed out")
+        except Exception as e:
+            logger.debug(f"[rlm] Document compression failed: {e}")
+
+        # Fallback to truncation
+        return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
 
     def get_continuum_context(
         self,
