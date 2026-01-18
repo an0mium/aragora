@@ -180,7 +180,7 @@ class SyncJob:
     def _parse_cron_next(self, cron_expr: str) -> Optional[datetime]:
         """Parse cron expression and get next run time."""
         try:
-            from croniter import croniter
+            from croniter import croniter  # type: ignore[import-untyped]
             cron = croniter(cron_expr, datetime.now(timezone.utc))
             return cron.get_next(datetime)
         except ImportError:

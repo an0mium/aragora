@@ -6,6 +6,7 @@ import type { Workspace } from './WorkspaceManager';
 export interface WorkspaceSettingsProps {
   workspace: Workspace;
   onSave?: (workspace: Workspace) => void;
+  onDelete?: () => void;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ const COMPLIANCE_FRAMEWORKS = [
 export function WorkspaceSettings({
   workspace,
   onSave,
+  onDelete,
   className = '',
 }: WorkspaceSettingsProps) {
   const [name, setName] = useState(workspace.name);
@@ -237,7 +239,10 @@ export function WorkspaceSettings({
                   This will permanently delete the workspace and all its data.
                 </p>
               </div>
-              <button className="px-4 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors">
+              <button
+                onClick={onDelete}
+                className="px-4 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors"
+              >
                 DELETE
               </button>
             </div>

@@ -74,6 +74,16 @@ from aragora.knowledge.mound.types import (
     StoreResult,
     SyncResult,
 )
+from aragora.knowledge.mound.converters import (
+    node_to_item,
+    relationship_to_link,
+    continuum_to_item,
+    consensus_to_item,
+    fact_to_item,
+    vector_result_to_item,
+    evidence_to_item,
+    critique_to_item,
+)
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory
@@ -1885,123 +1895,37 @@ class KnowledgeMound:
             )
 
     # =========================================================================
-    # Conversion Helpers
+    # Conversion Helpers (delegated to converters module)
     # =========================================================================
 
     def _node_to_item(self, node: Any) -> KnowledgeItem:
         """Convert KnowledgeNode to KnowledgeItem."""
-        return KnowledgeItem(
-            id=node.id,
-            content=node.content,
-            source=KnowledgeSource.FACT,
-            source_id=node.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=node.created_at,
-            updated_at=node.updated_at,
-            metadata=node.metadata,
-            importance=node.confidence,
-        )
+        return node_to_item(node)
 
     def _rel_to_link(self, rel: Any) -> KnowledgeLink:
         """Convert KnowledgeRelationship to KnowledgeLink."""
-        return KnowledgeLink(
-            id=rel.id,
-            source_id=rel.from_node_id,
-            target_id=rel.to_node_id,
-            relationship=RelationshipType(rel.relationship_type),
-            confidence=rel.strength,
-            created_at=rel.created_at,
-            metadata=rel.metadata,
-        )
+        return relationship_to_link(rel)
 
     def _continuum_to_item(self, entry: Any) -> KnowledgeItem:
         """Convert ContinuumMemory entry to KnowledgeItem."""
-        return KnowledgeItem(
-            id=f"cm_{entry.id}",
-            content=entry.content,
-            source=KnowledgeSource.CONTINUUM,
-            source_id=entry.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=datetime.fromisoformat(entry.created_at),
-            updated_at=datetime.fromisoformat(entry.last_updated),
-            metadata={"tier": entry.tier.value},
-            importance=entry.importance,
-        )
+        return continuum_to_item(entry)
 
     def _consensus_to_item(self, entry: Any) -> KnowledgeItem:
         """Convert ConsensusMemory entry to KnowledgeItem."""
-        return KnowledgeItem(
-            id=f"cs_{entry.id}",
-            content=getattr(entry, "final_claim", None) or entry.topic,
-            source=KnowledgeSource.CONSENSUS,
-            source_id=entry.id,
-            confidence=ConfidenceLevel.HIGH,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            metadata={"debate_id": getattr(entry, "debate_id", None)},
-            importance=getattr(entry, "confidence", 0.5),
-        )
+        return consensus_to_item(entry)
 
     def _fact_to_item(self, fact: Any) -> KnowledgeItem:
         """Convert Fact to KnowledgeItem."""
-        return KnowledgeItem(
-            id=f"fc_{fact.id}",
-            content=fact.statement,
-            source=KnowledgeSource.FACT,
-            source_id=fact.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=fact.created_at,
-            updated_at=fact.updated_at or fact.created_at,
-            metadata={"evidence_ids": fact.evidence_ids},
-            importance=fact.confidence,
-        )
+        return fact_to_item(fact)
 
     def _vector_result_to_item(self, result: Any) -> KnowledgeItem:
         """Convert vector search result to KnowledgeItem."""
-        return KnowledgeItem(
-            id=f"vc_{result.id}",
-            content=result.content,
-            source=KnowledgeSource.VECTOR,
-            source_id=result.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            metadata=result.metadata or {},
-            importance=getattr(result, "score", 0.5),
-        )
+        return vector_result_to_item(result)
 
     def _evidence_to_item(self, evidence: Any) -> KnowledgeItem:
         """Convert EvidenceSnippet to KnowledgeItem."""
-        return KnowledgeItem(
-            id=f"ev_{evidence.id}",
-            content=evidence.content,
-            source=KnowledgeSource.EVIDENCE,
-            source_id=evidence.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=getattr(evidence, "created_at", datetime.now()),
-            updated_at=getattr(evidence, "updated_at", datetime.now()),
-            metadata={
-                "source_url": getattr(evidence, "source_url", None),
-                "debate_id": getattr(evidence, "debate_id", None),
-                "agent_id": getattr(evidence, "agent_id", None),
-            },
-            importance=getattr(evidence, "quality_score", 0.5),
-        )
+        return evidence_to_item(evidence)
 
     def _critique_to_item(self, pattern: Any) -> KnowledgeItem:
         """Convert CritiquePattern to KnowledgeItem."""
-        content = getattr(pattern, "pattern", "") or getattr(pattern, "content", "")
-        return KnowledgeItem(
-            id=f"cr_{pattern.id}",
-            content=content,
-            source=KnowledgeSource.CRITIQUE,
-            source_id=pattern.id,
-            confidence=ConfidenceLevel.MEDIUM,
-            created_at=getattr(pattern, "created_at", datetime.now()),
-            updated_at=getattr(pattern, "updated_at", datetime.now()),
-            metadata={
-                "success_count": getattr(pattern, "success_count", 0),
-                "agent_name": getattr(pattern, "agent_name", None),
-            },
-            importance=getattr(pattern, "success_rate", 0.5),
-        )
+        return critique_to_item(pattern)

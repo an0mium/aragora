@@ -72,7 +72,7 @@ class BaseExporter(ABC):
     exporter_type: str = "base"
 
     @abstractmethod
-    def export(self, **kwargs) -> list[dict[str, Any]]:
+    def export(self, **kwargs: Any) -> list[dict[str, Any]]:
         """Export training data.
 
         Returns:
@@ -83,7 +83,7 @@ class BaseExporter(ABC):
     def export_to_file(
         self,
         output_path: str | Path,
-        **kwargs,
+        **kwargs: Any,
     ) -> ExportMetadata:
         """Export training data to a JSONL file.
 

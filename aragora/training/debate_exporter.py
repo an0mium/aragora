@@ -86,7 +86,7 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str = "",
         domain: str = "",
-        agents: Optional[list] = None,
+        agents: Optional[list[Any]] = None,
     ) -> dict[str, int]:
         """
         Export training data from a completed debate.
@@ -167,7 +167,7 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str,
         domain: str,
-        agents: Optional[list],
+        agents: Optional[list[Any]],
     ) -> Optional[dict[str, Any]]:
         """Create an SFT training record from debate result."""
         task = getattr(result, "task", "")
@@ -210,7 +210,7 @@ class DebateTrainingExporter:
         result: Any,
         debate_id: str,
         domain: str,
-        agents: Optional[list],
+        agents: Optional[list[Any]],
     ) -> list[dict[str, Any]]:
         """Create DPO preference records from debate result.
 

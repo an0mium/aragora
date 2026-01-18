@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { WorkspaceSettings } from './WorkspaceSettings';
 import { TeamAccessPanel } from './TeamAccessPanel';
+import { useWorkspaces, type Workspace as HookWorkspace } from '@/hooks/useWorkspaces';
 
 export interface WorkspaceMember {
   id: string;
@@ -31,7 +32,6 @@ export interface Workspace {
 }
 
 export interface WorkspaceManagerProps {
-  workspaces?: Workspace[];
   currentWorkspaceId?: string;
   onWorkspaceSelect?: (workspace: Workspace) => void;
   onWorkspaceCreate?: (name: string, description: string) => void;
@@ -39,90 +39,69 @@ export interface WorkspaceManagerProps {
   className?: string;
 }
 
-// Mock data
-const MOCK_WORKSPACES: Workspace[] = [
-  {
-    id: 'ws_001',
-    name: 'Engineering',
-    description: 'Software development team workspace',
-    owner: 'admin@company.com',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-16T10:00:00Z',
-    members: [
-      { id: 'u1', name: 'Alice Chen', email: 'alice@company.com', role: 'owner', joinedAt: '2024-01-01T00:00:00Z', lastActive: '2024-01-16T12:00:00Z' },
-      { id: 'u2', name: 'Bob Smith', email: 'bob@company.com', role: 'admin', joinedAt: '2024-01-02T00:00:00Z', lastActive: '2024-01-16T10:00:00Z' },
-      { id: 'u3', name: 'Carol Jones', email: 'carol@company.com', role: 'member', joinedAt: '2024-01-05T00:00:00Z' },
-    ],
-    settings: {
-      defaultVertical: 'software',
-      complianceFrameworks: ['OWASP', 'CWE'],
-      agentLimit: 10,
-      documentsQuota: 10000,
-      documentsUsed: 2340,
-    },
-  },
-  {
-    id: 'ws_002',
-    name: 'Legal',
-    description: 'Legal and compliance workspace',
-    owner: 'legal@company.com',
-    createdAt: '2024-01-05T00:00:00Z',
-    updatedAt: '2024-01-15T14:00:00Z',
-    members: [
-      { id: 'u4', name: 'David Lee', email: 'david@company.com', role: 'owner', joinedAt: '2024-01-05T00:00:00Z' },
-      { id: 'u5', name: 'Eve Wilson', email: 'eve@company.com', role: 'member', joinedAt: '2024-01-06T00:00:00Z' },
-    ],
-    settings: {
-      defaultVertical: 'legal',
-      complianceFrameworks: ['GDPR', 'CCPA'],
-      agentLimit: 5,
-      documentsQuota: 5000,
-      documentsUsed: 890,
-    },
-  },
-  {
-    id: 'ws_003',
-    name: 'Research',
-    description: 'R&D and innovation workspace',
-    owner: 'research@company.com',
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-14T09:00:00Z',
-    members: [
-      { id: 'u6', name: 'Frank Brown', email: 'frank@company.com', role: 'owner', joinedAt: '2024-01-10T00:00:00Z' },
-    ],
-    settings: {
-      defaultVertical: 'research',
-      complianceFrameworks: ['IRB'],
-      agentLimit: 8,
-      documentsQuota: 8000,
-      documentsUsed: 1560,
-    },
-  },
-];
+// Map hook workspace to component workspace type
+function mapToComponentWorkspace(ws: HookWorkspace): Workspace {
+  return {
+    id: ws.id,
+    name: ws.name,
+    description: ws.description,
+    owner: ws.owner,
+    members: ws.members.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      role: m.role,
+      joinedAt: m.joinedAt,
+      lastActive: m.lastActive,
+    })),
+    createdAt: ws.createdAt,
+    updatedAt: ws.updatedAt,
+    settings: ws.settings,
+  };
+}
 
 type ViewMode = 'list' | 'settings' | 'team';
 
 export function WorkspaceManager({
-  workspaces = MOCK_WORKSPACES,
   currentWorkspaceId,
   onWorkspaceSelect,
   onWorkspaceUpdate,
   className = '',
 }: WorkspaceManagerProps) {
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
-    currentWorkspaceId || (workspaces.length > 0 ? workspaces[0].id : null)
-  );
+  // Use the workspaces hook
+  const {
+    workspaces: hookWorkspaces,
+    selectedWorkspace: hookSelectedWorkspace,
+    loading,
+    error,
+    selectWorkspace,
+    createWorkspace,
+    updateWorkspace,
+    deleteWorkspace,
+    addMember,
+    removeMember,
+  } = useWorkspaces({ autoLoad: true });
+
+  // Map to component types
+  const workspaces = hookWorkspaces.map(mapToComponentWorkspace);
+  const selectedWorkspace = hookSelectedWorkspace ? mapToComponentWorkspace(hookSelectedWorkspace) : null;
+  const selectedWorkspaceId = selectedWorkspace?.id || currentWorkspaceId;
+
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const selectedWorkspace = useMemo(() => {
-    return workspaces.find((ws) => ws.id === selectedWorkspaceId);
-  }, [workspaces, selectedWorkspaceId]);
+  // Select workspace on initial load if currentWorkspaceId is provided
+  useState(() => {
+    if (currentWorkspaceId && !hookSelectedWorkspace) {
+      selectWorkspace(currentWorkspaceId);
+    }
+  });
 
-  const handleWorkspaceClick = (workspace: Workspace) => {
-    setSelectedWorkspaceId(workspace.id);
+  const handleWorkspaceClick = useCallback((workspace: Workspace) => {
+    selectWorkspace(workspace.id);
     onWorkspaceSelect?.(workspace);
-  };
+  }, [selectWorkspace, onWorkspaceSelect]);
 
   const getUsagePercent = (used: number, quota: number) => {
     return Math.min(100, Math.round((used / quota) * 100));
@@ -158,6 +137,67 @@ export function WorkspaceManager({
     return vertical ? icons[vertical] || '' : '';
   };
 
+  // Handle workspace creation
+  const handleCreateWorkspace = useCallback(async (name: string, description: string) => {
+    setIsCreating(true);
+    try {
+      const workspace = await createWorkspace({ name, description });
+      if (workspace) {
+        setShowCreateModal(false);
+        selectWorkspace(workspace.id);
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  }, [createWorkspace, selectWorkspace]);
+
+  // Handle workspace update (from settings)
+  const handleWorkspaceUpdate = useCallback(async (updated: Workspace) => {
+    const result = await updateWorkspace(updated.id, {
+      name: updated.name,
+      description: updated.description,
+      settings: updated.settings,
+    });
+    if (result) {
+      onWorkspaceUpdate?.(updated);
+    }
+  }, [updateWorkspace, onWorkspaceUpdate]);
+
+  // Handle member add
+  const handleMemberAdd = useCallback(async (email: string, role: WorkspaceMember['role']) => {
+    if (!selectedWorkspace) return;
+    // Convert role to permissions
+    const permissions = role === 'admin' ? ['read', 'write', 'admin'] :
+                       role === 'member' ? ['read', 'write'] : ['read'];
+    await addMember(selectedWorkspace.id, email, permissions);
+  }, [selectedWorkspace, addMember]);
+
+  // Handle member remove
+  const handleMemberRemove = useCallback(async (memberId: string) => {
+    if (!selectedWorkspace) return;
+    await removeMember(selectedWorkspace.id, memberId);
+  }, [selectedWorkspace, removeMember]);
+
+  // Handle role change (remove and re-add with new permissions)
+  const handleRoleChange = useCallback(async (memberId: string, role: WorkspaceMember['role']) => {
+    if (!selectedWorkspace) return;
+    // For simplicity, we'll need to remove and re-add - or this could be a separate endpoint
+    const permissions = role === 'admin' ? ['read', 'write', 'admin'] :
+                       role === 'member' ? ['read', 'write'] : ['read'];
+    await removeMember(selectedWorkspace.id, memberId);
+    await addMember(selectedWorkspace.id, memberId, permissions);
+  }, [selectedWorkspace, removeMember, addMember]);
+
+  // Handle workspace delete
+  const handleDeleteWorkspace = useCallback(async () => {
+    if (!selectedWorkspace) return;
+    const confirmed = window.confirm(`Are you sure you want to delete "${selectedWorkspace.name}"? This action cannot be undone.`);
+    if (confirmed) {
+      await deleteWorkspace(selectedWorkspace.id, true);
+      setViewMode('list');
+    }
+  }, [selectedWorkspace, deleteWorkspace]);
+
   return (
     <div className={`bg-surface border border-border rounded-lg overflow-hidden ${className}`}>
       {/* Header */}
@@ -167,12 +207,13 @@ export function WorkspaceManager({
             WORKSPACE MANAGER
           </h3>
           <p className="text-xs text-text-muted mt-1">
-            Manage workspaces and team access
+            {loading ? 'Loading...' : error ? `Error: ${error}` : 'Manage workspaces and team access'}
           </p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-3 py-1.5 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+          disabled={loading}
+          className="px-3 py-1.5 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
         >
           + NEW WORKSPACE
         </button>
@@ -198,14 +239,38 @@ export function WorkspaceManager({
 
       {/* Content */}
       <div className="p-4">
-        {viewMode === 'list' && (
+        {loading && workspaces.length === 0 && (
+          <div className="text-center py-8 text-text-muted font-mono">
+            Loading workspaces...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-8 text-red-400 font-mono">
+            Error: {error}
+          </div>
+        )}
+
+        {!loading && !error && workspaces.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-text-muted font-mono mb-4">No workspaces found</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+            >
+              Create your first workspace
+            </button>
+          </div>
+        )}
+
+        {viewMode === 'list' && workspaces.length > 0 && (
           <div className="space-y-3">
             {workspaces.map((workspace) => {
               const usagePercent = getUsagePercent(
                 workspace.settings.documentsUsed,
                 workspace.settings.documentsQuota
               );
-              const isSelected = workspace.id === selectedWorkspaceId;
+              const isSelected = workspace.id === selectedWorkspace?.id;
 
               return (
                 <div
@@ -282,24 +347,17 @@ export function WorkspaceManager({
         {viewMode === 'settings' && selectedWorkspace && (
           <WorkspaceSettings
             workspace={selectedWorkspace}
-            onSave={(updated) => {
-              onWorkspaceUpdate?.(updated);
-            }}
+            onSave={handleWorkspaceUpdate}
+            onDelete={handleDeleteWorkspace}
           />
         )}
 
         {viewMode === 'team' && selectedWorkspace && (
           <TeamAccessPanel
             workspace={selectedWorkspace}
-            onMemberAdd={(email, role) => {
-              console.log('Add member:', email, role);
-            }}
-            onMemberRemove={(memberId) => {
-              console.log('Remove member:', memberId);
-            }}
-            onRoleChange={(memberId, role) => {
-              console.log('Change role:', memberId, role);
-            }}
+            onMemberAdd={handleMemberAdd}
+            onMemberRemove={handleMemberRemove}
+            onRoleChange={handleRoleChange}
           />
         )}
       </div>
@@ -310,13 +368,12 @@ export function WorkspaceManager({
           <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md">
             <h3 className="font-mono font-bold text-acid-green mb-4">CREATE WORKSPACE</h3>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const name = (form.elements.namedItem('name') as HTMLInputElement).value;
                 const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
-                console.log('Create workspace:', name, description);
-                setShowCreateModal(false);
+                await handleCreateWorkspace(name, description);
               }}
             >
               <div className="space-y-4">
@@ -326,7 +383,8 @@ export function WorkspaceManager({
                     name="name"
                     type="text"
                     required
-                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                    disabled={isCreating}
+                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green disabled:opacity-50"
                     placeholder="Workspace name"
                   />
                 </div>
@@ -335,7 +393,8 @@ export function WorkspaceManager({
                   <textarea
                     name="description"
                     rows={3}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+                    disabled={isCreating}
+                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green resize-none disabled:opacity-50"
                     placeholder="Workspace description"
                   />
                 </div>
@@ -344,15 +403,17 @@ export function WorkspaceManager({
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 text-xs font-mono border border-border rounded hover:border-text-muted transition-colors"
+                  disabled={isCreating}
+                  className="flex-1 px-4 py-2 text-xs font-mono border border-border rounded hover:border-text-muted transition-colors disabled:opacity-50"
                 >
                   CANCEL
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+                  disabled={isCreating}
+                  className="flex-1 px-4 py-2 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
                 >
-                  CREATE
+                  {isCreating ? 'CREATING...' : 'CREATE'}
                 </button>
               </div>
             </form>

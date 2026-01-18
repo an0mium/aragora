@@ -437,6 +437,21 @@ module = [
     # Added strict - Control Plane modules (Jan 2026)
     "aragora.control_plane.*",
     "aragora.server.handlers.control_plane",
+    # Added strict - Phase 19 training module (Jan 2026)
+    "aragora.training.__init__",
+    "aragora.training.debate_exporter",
+    "aragora.training.evaluator",
+    "aragora.training.model_registry",
+    "aragora.training.specialist_models",
+    "aragora.training.tinker_client",
+    "aragora.training.training_scheduler",
+    "aragora.training.exporters.__init__",
+    "aragora.training.exporters.base",
+    "aragora.training.exporters.dpo_exporter",
+    "aragora.training.exporters.gauntlet_exporter",
+    "aragora.training.exporters.sft_exporter",
+    # Added strict - Phase 20 enterprise connectors (Jan 2026)
+    "aragora.connectors.enterprise.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -483,7 +498,7 @@ check_untyped_defs = false
 
 # Ignore missing stubs for third-party libraries
 [[tool.mypy.overrides]]
-module = ["yaml"]
+module = ["yaml", "croniter"]
 ignore_missing_imports = true
 
 # Ignore errors in modules with complex third-party types or dynamic patterns

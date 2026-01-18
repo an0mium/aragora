@@ -12,6 +12,39 @@
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { WorkspaceManager, type Workspace, type WorkspaceMember } from '../src/components/control-plane/WorkspaceManager/WorkspaceManager';
+import type { Workspace as HookWorkspace } from '../src/hooks/useWorkspaces';
+
+// Mock the useWorkspaces hook
+const mockSelectWorkspace = jest.fn();
+const mockCreateWorkspace = jest.fn();
+const mockUpdateWorkspace = jest.fn();
+const mockDeleteWorkspace = jest.fn();
+const mockAddMember = jest.fn();
+const mockRemoveMember = jest.fn();
+
+jest.mock('../src/hooks/useWorkspaces', () => ({
+  useWorkspaces: () => ({
+    workspaces: mockHookWorkspaces,
+    selectedWorkspace: mockSelectedWorkspace,
+    loading: mockLoading,
+    error: mockError,
+    selectWorkspace: mockSelectWorkspace,
+    createWorkspace: mockCreateWorkspace,
+    updateWorkspace: mockUpdateWorkspace,
+    deleteWorkspace: mockDeleteWorkspace,
+    addMember: mockAddMember,
+    removeMember: mockRemoveMember,
+    loadWorkspaces: jest.fn(),
+    loadWorkspace: jest.fn(),
+    refetch: jest.fn(),
+  }),
+}));
+
+// Default mock state
+let mockHookWorkspaces: HookWorkspace[] = [];
+let mockSelectedWorkspace: HookWorkspace | null = null;
+let mockLoading = false;
+let mockError: string | null = null;
 
 const mockWorkspaces: Workspace[] = [
   {
@@ -54,17 +87,44 @@ const mockWorkspaces: Workspace[] = [
   },
 ];
 
+// Convert mockWorkspaces to hook format for use in tests
+const toHookWorkspace = (ws: Workspace): HookWorkspace => ({
+  id: ws.id,
+  name: ws.name,
+  description: ws.description,
+  owner: ws.owner,
+  organization_id: 'org_default',
+  members: ws.members.map(m => ({
+    ...m,
+    permissions: m.role === 'owner' ? ['read', 'write', 'admin', 'manage'] :
+                 m.role === 'admin' ? ['read', 'write', 'admin'] :
+                 m.role === 'member' ? ['read', 'write'] : ['read'],
+  })),
+  createdAt: ws.createdAt,
+  updatedAt: ws.updatedAt,
+  settings: ws.settings,
+});
+
 describe('WorkspaceManager', () => {
+  beforeEach(() => {
+    // Reset mock state
+    mockHookWorkspaces = mockWorkspaces.map(toHookWorkspace);
+    mockSelectedWorkspace = mockHookWorkspaces[0];
+    mockLoading = false;
+    mockError = null;
+    jest.clearAllMocks();
+  });
+
   describe('Header', () => {
     it('renders the workspace manager header', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('WORKSPACE MANAGER')).toBeInTheDocument();
       expect(screen.getByText('Manage workspaces and team access')).toBeInTheDocument();
     });
 
     it('shows new workspace button', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('+ NEW WORKSPACE')).toBeInTheDocument();
     });
@@ -72,7 +132,7 @@ describe('WorkspaceManager', () => {
 
   describe('View Mode Tabs', () => {
     it('shows all view mode tabs', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('Workspaces')).toBeInTheDocument();
       expect(screen.getByText('Settings')).toBeInTheDocument();
@@ -80,14 +140,14 @@ describe('WorkspaceManager', () => {
     });
 
     it('starts with Workspaces tab active', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       const workspacesTab = screen.getByText('Workspaces');
       expect(workspacesTab).toHaveClass('text-acid-green');
     });
 
     it('switches to Settings tab when clicked', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Settings'));
@@ -98,7 +158,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('switches to Team tab when clicked', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Team'));
@@ -109,7 +169,9 @@ describe('WorkspaceManager', () => {
     });
 
     it('disables Settings and Team tabs when no workspace is selected', () => {
-      render(<WorkspaceManager workspaces={[]} />);
+      mockHookWorkspaces = [];
+      mockSelectedWorkspace = null;
+      render(<WorkspaceManager />);
 
       const settingsTab = screen.getByText('Settings');
       const teamTab = screen.getByText('Team');
@@ -121,21 +183,21 @@ describe('WorkspaceManager', () => {
 
   describe('Workspace List', () => {
     it('displays all workspaces', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('Engineering')).toBeInTheDocument();
       expect(screen.getByText('Legal')).toBeInTheDocument();
     });
 
     it('shows workspace descriptions', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('Software development team workspace')).toBeInTheDocument();
       expect(screen.getByText('Legal and compliance workspace')).toBeInTheDocument();
     });
 
     it('shows member count for each workspace', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       // Engineering has 3 members, Legal has 1
       expect(screen.getAllByText('3').length).toBeGreaterThan(0);
@@ -143,21 +205,21 @@ describe('WorkspaceManager', () => {
     });
 
     it('shows agent limit for each workspace', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('10')).toBeInTheDocument();
       expect(screen.getByText('5')).toBeInTheDocument();
     });
 
     it('shows document usage', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('2,340 / 10,000')).toBeInTheDocument();
       expect(screen.getByText('4,500 / 5,000')).toBeInTheDocument();
     });
 
     it('shows compliance frameworks', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       expect(screen.getByText('OWASP')).toBeInTheDocument();
       expect(screen.getByText('CWE')).toBeInTheDocument();
@@ -168,14 +230,16 @@ describe('WorkspaceManager', () => {
 
   describe('Workspace Selection', () => {
     it('selects first workspace by default', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       // Engineering should be marked as active
       expect(screen.getByText('ACTIVE')).toBeInTheDocument();
     });
 
     it('respects currentWorkspaceId prop', () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} currentWorkspaceId="ws_002" />);
+      // Set selected workspace to Legal (ws_002)
+      mockSelectedWorkspace = mockHookWorkspaces.find(ws => ws.id === 'ws_002') || null;
+      render(<WorkspaceManager currentWorkspaceId="ws_002" />);
 
       // Legal workspace should be marked active
       const legalCard = screen.getByText('Legal').closest('div[class*="border"]');
@@ -184,7 +248,7 @@ describe('WorkspaceManager', () => {
 
     it('calls onWorkspaceSelect when workspace is clicked', async () => {
       const mockOnSelect = jest.fn();
-      render(<WorkspaceManager workspaces={mockWorkspaces} onWorkspaceSelect={mockOnSelect} />);
+      render(<WorkspaceManager onWorkspaceSelect={mockOnSelect} />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Legal'));
@@ -199,7 +263,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('shows ACTIVE badge on selected workspace', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       // Initially Engineering is selected
       let activeLabels = screen.getAllByText('ACTIVE');
@@ -218,7 +282,7 @@ describe('WorkspaceManager', () => {
 
   describe('Usage Indicators', () => {
     it('shows usage progress bar', () => {
-      const { container } = render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      const { container } = render(<WorkspaceManager />);
 
       // Look for progress bars
       const progressBars = container.querySelectorAll('[class*="bg-acid-green"], [class*="bg-red-500"], [class*="bg-yellow-500"]');
@@ -226,7 +290,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('uses red color for high usage (90%+)', () => {
-      const { container } = render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      const { container } = render(<WorkspaceManager />);
 
       // Legal workspace has 90% usage, should show red
       const redBars = container.querySelectorAll('[class*="bg-red-500"]');
@@ -236,7 +300,7 @@ describe('WorkspaceManager', () => {
 
   describe('Create Workspace Modal', () => {
     it('opens modal when New Workspace button is clicked', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('+ NEW WORKSPACE'));
@@ -248,7 +312,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('has name and description fields', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('+ NEW WORKSPACE'));
@@ -259,7 +323,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('closes modal when Cancel is clicked', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('+ NEW WORKSPACE'));
@@ -275,7 +339,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('has Create button', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('+ NEW WORKSPACE'));
@@ -285,7 +349,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('closes modal on form submission', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('+ NEW WORKSPACE'));
@@ -310,7 +374,7 @@ describe('WorkspaceManager', () => {
 
   describe('Settings View', () => {
     it('shows WorkspaceSettings component in settings view', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Settings'));
@@ -323,7 +387,7 @@ describe('WorkspaceManager', () => {
 
   describe('Team View', () => {
     it('shows TeamAccessPanel component in team view', async () => {
-      render(<WorkspaceManager workspaces={mockWorkspaces} />);
+      render(<WorkspaceManager />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Team'));
@@ -336,7 +400,9 @@ describe('WorkspaceManager', () => {
 
   describe('Empty State', () => {
     it('handles empty workspaces array', () => {
-      render(<WorkspaceManager workspaces={[]} />);
+      mockHookWorkspaces = [];
+      mockSelectedWorkspace = null;
+      render(<WorkspaceManager />);
 
       // Should still render the header
       expect(screen.getByText('WORKSPACE MANAGER')).toBeInTheDocument();
@@ -348,7 +414,7 @@ describe('WorkspaceManager', () => {
   describe('CSS Classes', () => {
     it('applies custom className', () => {
       const { container } = render(
-        <WorkspaceManager workspaces={mockWorkspaces} className="custom-class" />
+        <WorkspaceManager className="custom-class" />
       );
 
       expect(container.firstChild).toHaveClass('custom-class');

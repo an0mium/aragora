@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class NomicHandler(BaseHandler):
-    """Handler for nomic loop state and monitoring endpoints."""
+    """Handler for nomic loop state, monitoring, and control endpoints."""
 
     ROUTES = [
         "/api/nomic/state",
@@ -43,12 +43,20 @@ class NomicHandler(BaseHandler):
         "/api/nomic/metrics",
         "/api/nomic/log",
         "/api/nomic/risk-register",
+        "/api/nomic/control/start",
+        "/api/nomic/control/stop",
+        "/api/nomic/control/pause",
+        "/api/nomic/control/resume",
+        "/api/nomic/control/skip-phase",
+        "/api/nomic/proposals",
+        "/api/nomic/proposals/approve",
+        "/api/nomic/proposals/reject",
         "/api/modes",
     ]
 
-    def can_handle(self, path: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
-        return path in self.ROUTES
+        return path in self.ROUTES or path.startswith("/api/nomic/")
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route nomic endpoint requests."""
@@ -56,6 +64,7 @@ class NomicHandler(BaseHandler):
             "/api/nomic/state": self._get_nomic_state,
             "/api/nomic/health": self._get_nomic_health,
             "/api/nomic/metrics": self._get_nomic_metrics,
+            "/api/nomic/proposals": self._get_proposals,
             "/api/modes": self._get_modes,
         }
 
@@ -343,3 +352,393 @@ class NomicHandler(BaseHandler):
             logger.debug(f"Could not load custom modes: {type(e).__name__}: {e}")
 
         return json_response({"modes": modes, "total": len(modes)})
+
+    # =========================================================================
+    # POST Handlers - Control Operations
+    # =========================================================================
+
+    def handle_post(
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests for control operations."""
+        if path == "/api/nomic/control/start":
+            body = self.read_json_body(handler) or {}
+            return self._start_nomic_loop(body)
+
+        if path == "/api/nomic/control/stop":
+            body = self.read_json_body(handler) or {}
+            return self._stop_nomic_loop(body)
+
+        if path == "/api/nomic/control/pause":
+            return self._pause_nomic_loop()
+
+        if path == "/api/nomic/control/resume":
+            return self._resume_nomic_loop()
+
+        if path == "/api/nomic/control/skip-phase":
+            return self._skip_phase()
+
+        if path == "/api/nomic/proposals/approve":
+            body = self.read_json_body(handler) or {}
+            return self._approve_proposal(body)
+
+        if path == "/api/nomic/proposals/reject":
+            body = self.read_json_body(handler) or {}
+            return self._reject_proposal(body)
+
+        return None
+
+    def _start_nomic_loop(self, body: dict) -> HandlerResult:
+        """Start the nomic loop with optional configuration."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            import subprocess
+            import os
+
+            # Check if already running
+            state_file = nomic_dir / "nomic_state.json"
+            if state_file.exists():
+                with open(state_file) as f:
+                    state = json.load(f)
+                if state.get("running"):
+                    return error_response("Nomic loop is already running", 409)
+
+            # Extract configuration
+            cycles = body.get("cycles", 1)
+            max_cycles = body.get("max_cycles", 10)
+            auto_approve = body.get("auto_approve", False)
+
+            # Start nomic loop as subprocess
+            script_path = nomic_dir.parent.parent / "scripts" / "nomic_loop.py"
+            if not script_path.exists():
+                # Try alternate path
+                script_path = nomic_dir.parent / "scripts" / "nomic_loop.py"
+
+            if not script_path.exists():
+                return error_response("Nomic loop script not found", 500)
+
+            cmd = [
+                "python", str(script_path),
+                "--cycles", str(min(cycles, max_cycles)),
+            ]
+            if auto_approve:
+                cmd.append("--auto-approve")
+
+            # Start in background
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=str(nomic_dir.parent.parent),
+                start_new_session=True,
+            )
+
+            # Update state file
+            state = {
+                "running": True,
+                "pid": process.pid,
+                "started_at": datetime.now().isoformat(),
+                "cycle": 0,
+                "phase": "starting",
+                "target_cycles": cycles,
+                "auto_approve": auto_approve,
+            }
+            with open(state_file, "w") as f:
+                json.dump(state, f, indent=2)
+
+            return json_response({
+                "status": "started",
+                "pid": process.pid,
+                "target_cycles": cycles,
+            }, status=202)
+
+        except Exception as e:
+            logger.error("Failed to start nomic loop: %s", e, exc_info=True)
+            return error_response(f"Failed to start nomic loop: {e}", 500)
+
+    def _stop_nomic_loop(self, body: dict) -> HandlerResult:
+        """Stop the running nomic loop."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            import signal
+            import os
+
+            state_file = nomic_dir / "nomic_state.json"
+            if not state_file.exists():
+                return error_response("Nomic loop is not running", 404)
+
+            with open(state_file) as f:
+                state = json.load(f)
+
+            pid = state.get("pid")
+            if not pid:
+                return error_response("No PID found in state", 404)
+
+            # Check if process exists
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                # Process doesn't exist, update state
+                state["running"] = False
+                state["stopped_at"] = datetime.now().isoformat()
+                with open(state_file, "w") as f:
+                    json.dump(state, f, indent=2)
+                return json_response({"status": "already_stopped"})
+
+            # Send graceful shutdown signal
+            graceful = body.get("graceful", True)
+            sig = signal.SIGTERM if graceful else signal.SIGKILL
+            os.kill(pid, sig)
+
+            # Update state
+            state["running"] = False
+            state["stopped_at"] = datetime.now().isoformat()
+            state["stopped_reason"] = "user_requested"
+            with open(state_file, "w") as f:
+                json.dump(state, f, indent=2)
+
+            return json_response({
+                "status": "stopping" if graceful else "killed",
+                "pid": pid,
+            })
+
+        except Exception as e:
+            logger.error("Failed to stop nomic loop: %s", e, exc_info=True)
+            return error_response(f"Failed to stop nomic loop: {e}", 500)
+
+    def _pause_nomic_loop(self) -> HandlerResult:
+        """Pause the nomic loop at current phase."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            state_file = nomic_dir / "nomic_state.json"
+            if not state_file.exists():
+                return error_response("Nomic loop is not running", 404)
+
+            with open(state_file) as f:
+                state = json.load(f)
+
+            if not state.get("running"):
+                return error_response("Nomic loop is not running", 404)
+
+            if state.get("paused"):
+                return error_response("Nomic loop is already paused", 409)
+
+            state["paused"] = True
+            state["paused_at"] = datetime.now().isoformat()
+
+            with open(state_file, "w") as f:
+                json.dump(state, f, indent=2)
+
+            return json_response({
+                "status": "paused",
+                "cycle": state.get("cycle", 0),
+                "phase": state.get("phase", "unknown"),
+            })
+
+        except Exception as e:
+            logger.error("Failed to pause nomic loop: %s", e, exc_info=True)
+            return error_response(f"Failed to pause nomic loop: {e}", 500)
+
+    def _resume_nomic_loop(self) -> HandlerResult:
+        """Resume a paused nomic loop."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            state_file = nomic_dir / "nomic_state.json"
+            if not state_file.exists():
+                return error_response("Nomic loop is not running", 404)
+
+            with open(state_file) as f:
+                state = json.load(f)
+
+            if not state.get("paused"):
+                return error_response("Nomic loop is not paused", 409)
+
+            state["paused"] = False
+            state["resumed_at"] = datetime.now().isoformat()
+
+            with open(state_file, "w") as f:
+                json.dump(state, f, indent=2)
+
+            return json_response({
+                "status": "resumed",
+                "cycle": state.get("cycle", 0),
+                "phase": state.get("phase", "unknown"),
+            })
+
+        except Exception as e:
+            logger.error("Failed to resume nomic loop: %s", e, exc_info=True)
+            return error_response(f"Failed to resume nomic loop: {e}", 500)
+
+    def _skip_phase(self) -> HandlerResult:
+        """Skip the current phase and move to the next."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            state_file = nomic_dir / "nomic_state.json"
+            if not state_file.exists():
+                return error_response("Nomic loop is not running", 404)
+
+            with open(state_file) as f:
+                state = json.load(f)
+
+            current_phase = state.get("phase", "unknown")
+            phases = ["context", "debate", "design", "implement", "verify"]
+
+            if current_phase in phases:
+                current_idx = phases.index(current_phase)
+                next_idx = (current_idx + 1) % len(phases)
+                next_phase = phases[next_idx]
+
+                # If we're wrapping to context, increment cycle
+                if next_phase == "context":
+                    state["cycle"] = state.get("cycle", 0) + 1
+
+                state["phase"] = next_phase
+                state["skip_requested"] = True
+                state["skipped_at"] = datetime.now().isoformat()
+
+                with open(state_file, "w") as f:
+                    json.dump(state, f, indent=2)
+
+                return json_response({
+                    "status": "skip_requested",
+                    "previous_phase": current_phase,
+                    "next_phase": next_phase,
+                    "cycle": state.get("cycle", 0),
+                })
+            else:
+                return error_response(f"Unknown phase: {current_phase}", 400)
+
+        except Exception as e:
+            logger.error("Failed to skip phase: %s", e, exc_info=True)
+            return error_response(f"Failed to skip phase: {e}", 500)
+
+    def _get_proposals(self) -> HandlerResult:
+        """Get pending improvement proposals."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            proposals_file = nomic_dir / "proposals.json"
+            if not proposals_file.exists():
+                return json_response({"proposals": [], "total": 0})
+
+            with open(proposals_file) as f:
+                data = json.load(f)
+
+            proposals = data.get("proposals", [])
+            pending = [p for p in proposals if p.get("status") == "pending"]
+
+            return json_response({
+                "proposals": pending,
+                "total": len(pending),
+                "all_proposals": len(proposals),
+            })
+
+        except Exception as e:
+            logger.error("Failed to get proposals: %s", e, exc_info=True)
+            return error_response(f"Failed to get proposals: {e}", 500)
+
+    def _approve_proposal(self, body: dict) -> HandlerResult:
+        """Approve a pending proposal."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        proposal_id = body.get("proposal_id")
+        if not proposal_id:
+            return error_response("proposal_id is required", 400)
+
+        try:
+            proposals_file = nomic_dir / "proposals.json"
+            if not proposals_file.exists():
+                return error_response("No proposals found", 404)
+
+            with open(proposals_file) as f:
+                data = json.load(f)
+
+            proposals = data.get("proposals", [])
+            found = False
+            for p in proposals:
+                if p.get("id") == proposal_id:
+                    p["status"] = "approved"
+                    p["approved_at"] = datetime.now().isoformat()
+                    p["approved_by"] = body.get("approved_by", "user")
+                    found = True
+                    break
+
+            if not found:
+                return error_response(f"Proposal not found: {proposal_id}", 404)
+
+            data["proposals"] = proposals
+            with open(proposals_file, "w") as f:
+                json.dump(data, f, indent=2)
+
+            return json_response({
+                "status": "approved",
+                "proposal_id": proposal_id,
+            })
+
+        except Exception as e:
+            logger.error("Failed to approve proposal: %s", e, exc_info=True)
+            return error_response(f"Failed to approve proposal: {e}", 500)
+
+    def _reject_proposal(self, body: dict) -> HandlerResult:
+        """Reject a pending proposal."""
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        proposal_id = body.get("proposal_id")
+        if not proposal_id:
+            return error_response("proposal_id is required", 400)
+
+        try:
+            proposals_file = nomic_dir / "proposals.json"
+            if not proposals_file.exists():
+                return error_response("No proposals found", 404)
+
+            with open(proposals_file) as f:
+                data = json.load(f)
+
+            proposals = data.get("proposals", [])
+            found = False
+            for p in proposals:
+                if p.get("id") == proposal_id:
+                    p["status"] = "rejected"
+                    p["rejected_at"] = datetime.now().isoformat()
+                    p["rejected_by"] = body.get("rejected_by", "user")
+                    p["rejection_reason"] = body.get("reason", "")
+                    found = True
+                    break
+
+            if not found:
+                return error_response(f"Proposal not found: {proposal_id}", 404)
+
+            data["proposals"] = proposals
+            with open(proposals_file, "w") as f:
+                json.dump(data, f, indent=2)
+
+            return json_response({
+                "status": "rejected",
+                "proposal_id": proposal_id,
+            })
+
+        except Exception as e:
+            logger.error("Failed to reject proposal: %s", e, exc_info=True)
+            return error_response(f"Failed to reject proposal: {e}", 500)

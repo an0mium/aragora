@@ -131,6 +131,7 @@ class SyncStore:
         os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
 
         self._connection = await aiosqlite.connect(db_path)
+        assert self._connection is not None
 
         # Create tables
         await self._connection.executescript("""
@@ -198,6 +199,7 @@ class SyncStore:
             return
 
         self._connection = await asyncpg.connect(self._database_url)
+        assert self._connection is not None
 
         # Create tables
         await self._connection.execute("""
