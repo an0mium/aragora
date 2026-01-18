@@ -25,7 +25,6 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -274,12 +273,12 @@ def reset_secret_manager() -> None:
     _manager = None
 
 
-@lru_cache(maxsize=128)
 def get_secret(name: str, default: str | None = None) -> str | None:
     """
-    Get a secret value (cached).
+    Get a secret value.
 
     This is the main entry point for getting secrets throughout the application.
+    Caching happens inside SecretManager (AWS secrets are loaded once on first access).
 
     Args:
         name: Secret name (e.g., "JWT_SECRET_KEY")
