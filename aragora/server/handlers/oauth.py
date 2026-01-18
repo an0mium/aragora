@@ -1005,9 +1005,19 @@ class OAuthHandler(BaseHandler):
             manager = get_secret_manager()
             cached_secrets_count = len(manager._cached_secrets)
             aws_client_ok = manager._get_aws_client() is not None
+
+            # Try to load secrets and capture any error
+            load_error = None
+            if aws_client_ok and cached_secrets_count == 0:
+                try:
+                    secrets = manager._load_from_aws()
+                    cached_secrets_count = len(secrets)
+                except Exception as load_e:
+                    load_error = str(load_e)
         except Exception as e:
             cached_secrets_count = -1
             aws_client_ok = False
+            load_error = str(e)
             logger.error(f"Debug error: {e}")
 
         debug_info = {
@@ -1017,6 +1027,7 @@ class OAuthHandler(BaseHandler):
             "env": env_mode,
             "cached_secrets_count": cached_secrets_count,
             "aws_client_ok": aws_client_ok,
+            "load_error": load_error,
         }
         return json_response({"providers": providers, "_debug": debug_info})
 
