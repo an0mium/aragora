@@ -771,8 +771,8 @@ class TrainingHandler(BaseHandler):
                     if content_length > 0:
                         raw_body = handler.rfile.read(content_length)
                         body = json.loads(raw_body.decode("utf-8"))
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.debug(f"Could not parse completion body: {e}, using defaults")
 
             final_loss = float(body.get("final_loss", 0.0))
             checkpoint_path = body.get("checkpoint_path", "")

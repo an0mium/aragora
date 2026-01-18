@@ -225,8 +225,10 @@ class TaskScheduler:
                         id="0",
                         mkstream=True,
                     )
-                except Exception:
-                    pass  # Group may already exist
+                except Exception as e:
+                    # Group may already exist (BUSYGROUP error) - this is expected
+                    if "BUSYGROUP" not in str(e):
+                        logger.debug(f"Consumer group creation note for {stream_key}: {e}")
 
             logger.info(f"TaskScheduler connected to Redis: {self._redis_url}")
 

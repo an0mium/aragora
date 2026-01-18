@@ -43,7 +43,7 @@ from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
 from .prometheus import record_http_request
 from .storage import DebateStorage
-from .stream import DebateStreamServer, SyncEventEmitter
+from .stream import ControlPlaneStreamServer, DebateStreamServer, SyncEventEmitter
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -100,6 +100,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     storage: Optional[DebateStorage] = None
     static_dir: Optional[Path] = None
     stream_emitter: Optional[SyncEventEmitter] = None
+    control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None
@@ -773,6 +774,7 @@ class UnifiedServer:
         self,
         http_port: int = 8080,
         ws_port: int = 8765,
+        control_plane_port: int = 8766,
         ws_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         http_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         static_dir: Optional[Path] = None,
@@ -787,6 +789,7 @@ class UnifiedServer:
         Args:
             http_port: Port for HTTP API server (default 8080)
             ws_port: Port for WebSocket streaming (default 8765)
+            control_plane_port: Port for control plane WebSocket (default 8766)
             ws_host: WebSocket bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
             http_host: HTTP bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
             static_dir: Optional path to static files for serving UI
@@ -813,6 +816,7 @@ class UnifiedServer:
         """
         self.http_port = http_port
         self.ws_port = ws_port
+        self.control_plane_port = control_plane_port
         self.ws_host = ws_host
         self.http_host = http_host
         self.static_dir = static_dir
@@ -822,8 +826,9 @@ class UnifiedServer:
         self.ssl_key = ssl_key
         self.ssl_enabled = bool(ssl_cert and ssl_key)
 
-        # Create WebSocket server
+        # Create WebSocket servers
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
+        self.control_plane_stream = ControlPlaneStreamServer(host=ws_host, port=control_plane_port)
 
         # Initialize Supabase persistence if available
         self.persistence = init_persistence(enable_persistence)
@@ -832,6 +837,7 @@ class UnifiedServer:
         UnifiedHandler.storage = storage
         UnifiedHandler.static_dir = static_dir
         UnifiedHandler.stream_emitter = self.stream_server.emitter
+        UnifiedHandler.control_plane_stream = self.control_plane_stream
         UnifiedHandler.persistence = self.persistence
 
         # Initialize nomic-dependent subsystems
@@ -933,7 +939,7 @@ class UnifiedServer:
                 break
 
     async def start(self) -> None:
-        """Start both HTTP and WebSocket servers."""
+        """Start HTTP and WebSocket servers."""
         # Run startup sequence (monitoring, tracing, metrics, background tasks, etc.)
         from aragora.server.startup import run_startup_sequence
 
@@ -947,6 +953,7 @@ class UnifiedServer:
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
         logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")
+        logger.info(f"  Control Plane WS: ws://localhost:{self.control_plane_port}")
         if self.ssl_enabled:
             logger.info(f"  SSL:        enabled (cert: {self.ssl_cert})")
         if self.static_dir:
@@ -961,8 +968,11 @@ class UnifiedServer:
         self._http_thread = Thread(target=self._run_http_server, daemon=True)
         self._http_thread.start()
 
-        # Start WebSocket server in foreground
-        await self.stream_server.start()
+        # Start both WebSocket servers concurrently
+        await asyncio.gather(
+            self.stream_server.start(),
+            self.control_plane_stream.start(),
+        )
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
@@ -1096,9 +1106,17 @@ class UnifiedServer:
         if hasattr(self, "stream_server") and self.stream_server:
             try:
                 await self.stream_server.graceful_shutdown()
-                logger.info("WebSocket connections closed")
+                logger.info("Debate stream WebSocket connections closed")
             except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                logger.warning(f"WebSocket shutdown error: {e}")
+                logger.warning(f"Debate stream WebSocket shutdown error: {e}")
+
+        # 5.5. Close control plane WebSocket connections
+        if hasattr(self, "control_plane_stream") and self.control_plane_stream:
+            try:
+                await self.control_plane_stream.stop()
+                logger.info("Control plane WebSocket connections closed")
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
+                logger.warning(f"Control plane WebSocket shutdown error: {e}")
 
         # 6. Close shared HTTP connector (prevents connection leaks)
         try:

@@ -315,8 +315,8 @@ class AuditSessionsHandler(BaseHandler):
         try:
             body = await self._parse_json_body(request)
             reason = body.get("reason", reason)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug(f"Could not parse cancellation reason from body: {e}, using default")
 
         # Trigger CancellationToken if available
         token = _cancellation_tokens.get(session_id)

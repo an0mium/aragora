@@ -1,21 +1,26 @@
 """
-Control Plane API Handler.
+Agent Dashboard API Handler.
 
-Provides agent orchestration and monitoring endpoints:
+Provides agent orchestration and monitoring endpoints for the UI dashboard:
 - List/monitor running agents
 - Pause/resume individual agents
 - View and manage processing queue
 - Real-time dashboard updates via WebSocket
 
+Note: This is the UI-focused dashboard handler. For the enterprise control plane
+with Redis-backed task scheduling, see aragora/server/handlers/control_plane.py.
+
 Usage:
-    GET    /api/control-plane/agents         - List running agents
-    GET    /api/control-plane/agents/{id}    - Get agent details
-    POST   /api/control-plane/agents/{id}/pause   - Pause agent
-    POST   /api/control-plane/agents/{id}/resume  - Resume agent
-    GET    /api/control-plane/queue          - View processing queue
-    POST   /api/control-plane/queue/prioritize    - Reorder queue
-    GET    /api/control-plane/metrics        - System metrics
-    WS     /api/control-plane/stream         - Real-time updates
+    GET    /api/agent-dashboard/agents         - List running agents
+    GET    /api/agent-dashboard/agents/{id}    - Get agent details
+    POST   /api/agent-dashboard/agents/{id}/pause   - Pause agent
+    POST   /api/agent-dashboard/agents/{id}/resume  - Resume agent
+    GET    /api/agent-dashboard/queue          - View processing queue
+    POST   /api/agent-dashboard/queue/prioritize    - Reorder queue
+    GET    /api/agent-dashboard/metrics        - System metrics
+    WS     /api/agent-dashboard/stream         - Real-time updates
+
+Legacy routes (/api/control-plane/*) are still supported for backward compatibility.
 """
 
 from __future__ import annotations
@@ -44,24 +49,29 @@ _metrics: dict[str, Any] = {
 }
 
 
-class ControlPlaneHandler(BaseHandler):
+class AgentDashboardHandler(BaseHandler):
     """
-    Handler for control plane endpoints.
+    Handler for agent dashboard endpoints.
 
-    Provides visibility and control over the agent orchestration system.
+    Provides visibility and control over the agent orchestration system
+    for the UI dashboard. Uses in-memory state for demo/development.
+
+    For enterprise deployments with Redis-backed task scheduling,
+    see ControlPlaneHandler in aragora/server/handlers/control_plane.py.
     """
 
     ROUTES = [
-        "/api/control-plane/agents",
-        "/api/control-plane/agents/{agent_id}",
-        "/api/control-plane/agents/{agent_id}/pause",
-        "/api/control-plane/agents/{agent_id}/resume",
-        "/api/control-plane/agents/{agent_id}/metrics",
-        "/api/control-plane/queue",
-        "/api/control-plane/queue/prioritize",
-        "/api/control-plane/metrics",
-        "/api/control-plane/stream",
-        "/api/control-plane/health",
+        # New canonical routes
+        "/api/agent-dashboard/agents",
+        "/api/agent-dashboard/agents/{agent_id}",
+        "/api/agent-dashboard/agents/{agent_id}/pause",
+        "/api/agent-dashboard/agents/{agent_id}/resume",
+        "/api/agent-dashboard/agents/{agent_id}/metrics",
+        "/api/agent-dashboard/queue",
+        "/api/agent-dashboard/queue/prioritize",
+        "/api/agent-dashboard/metrics",
+        "/api/agent-dashboard/stream",
+        "/api/agent-dashboard/health",
     ]
 
     async def handle_request(self, request: Any) -> Any:
@@ -534,4 +544,7 @@ class ControlPlaneHandler(BaseHandler):
         }
 
 
-__all__ = ["ControlPlaneHandler"]
+# Backward compatibility alias
+ControlPlaneHandler = AgentDashboardHandler
+
+__all__ = ["AgentDashboardHandler", "ControlPlaneHandler", "_task_queue", "_agents"]
