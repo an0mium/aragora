@@ -35,6 +35,32 @@ from .analytics_dashboard import AnalyticsDashboardHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
+# Handler interfaces for type checking and contract definition
+from .interface import (
+    HandlerInterface,
+    AuthenticatedHandlerInterface,
+    PaginatedHandlerInterface,
+    CachedHandlerInterface,
+    StorageAccessInterface,
+    MinimalServerContext,
+    RouteConfig,
+    HandlerRegistration,
+    is_handler,
+    is_authenticated_handler,
+)
+# Standalone utilities that don't require full server infrastructure
+from .utilities import (
+    get_host_header,
+    get_agent_name,
+    agent_to_dict,
+    normalize_agent_names,
+    extract_path_segment,
+    build_api_url,
+    is_json_content_type,
+    get_media_type,
+    get_request_id,
+    get_content_length,
+)
 from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
 from .breakpoints import BreakpointsHandler
@@ -298,6 +324,28 @@ __all__ = [
     "BaseHandler",
     "json_response",
     "error_response",
+    # Handler interfaces (from interface.py)
+    "HandlerInterface",
+    "AuthenticatedHandlerInterface",
+    "PaginatedHandlerInterface",
+    "CachedHandlerInterface",
+    "StorageAccessInterface",
+    "MinimalServerContext",
+    "RouteConfig",
+    "HandlerRegistration",
+    "is_handler",
+    "is_authenticated_handler",
+    # Standalone utilities (from utilities.py)
+    "get_host_header",
+    "get_agent_name",
+    "agent_to_dict",
+    "normalize_agent_names",
+    "extract_path_segment",
+    "build_api_url",
+    "is_json_content_type",
+    "get_media_type",
+    "get_request_id",
+    "get_content_length",
     # Handler registry
     "ALL_HANDLERS",
     # Individual handlers
