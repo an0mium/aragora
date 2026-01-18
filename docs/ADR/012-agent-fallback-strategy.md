@@ -1,4 +1,4 @@
-# ADR-003: Agent Fallback Strategy
+# ADR-012: Agent Fallback Strategy
 
 ## Status
 Accepted

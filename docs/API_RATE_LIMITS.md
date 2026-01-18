@@ -128,6 +128,80 @@ requests.post(f"{API_BASE}/api/webhooks", json={
 })
 ```
 
+## Per-User Rate Limiting
+
+For authenticated users, Aragora implements per-user rate limiting based on user ID rather than IP address. This provides fairer limits when users share IPs (e.g., corporate networks) and prevents abuse via IP rotation.
+
+### Action-Based Limits
+
+Different operations have different limits per authenticated user:
+
+| Action | Limit (req/min) | Description |
+|--------|-----------------|-------------|
+| `default` | 60 | Default for authenticated requests |
+| `debate_create` | 10 | Creating new debates |
+| `vote` | 30 | Voting on proposals |
+| `agent_call` | 120 | Calling agent APIs |
+| `export` | 5 | Exporting data |
+| `admin` | 300 | Admin operations |
+
+### How It Works
+
+1. **Authenticated requests** are rate-limited by `user_id`
+2. **Unauthenticated requests** fall back to IP-based limiting
+3. Each action has its own bucket (limits don't share)
+4. Burst multiplier (2x) allows short spikes
+
+### Response Headers
+
+Per-user rate-limited responses include additional context:
+
+```
+X-RateLimit-Limit: 10           # Your limit for this action
+X-RateLimit-Remaining: 7        # Requests remaining
+X-RateLimit-Reset: 1705123456   # Reset timestamp
+X-RateLimit-Action: debate_create  # Which action was limited
+```
+
+### Decorator Usage
+
+Backend handlers use the `@user_rate_limit` decorator:
+
+```python
+from aragora.server.handlers.utils.rate_limit import user_rate_limit
+
+class DebatesHandler(BaseHandler):
+    @user_rate_limit(action="debate_create")
+    def _create_debate(self, handler):
+        # Limited to 10 debates/minute per user
+        ...
+
+    @user_rate_limit(action="vote")
+    def _submit_vote(self, handler):
+        # Limited to 30 votes/minute per user
+        ...
+```
+
+### Checking Your Status
+
+To see your current rate limit status across all actions:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api.aragora.ai/api/rate-limit/status
+```
+
+Response:
+```json
+{
+  "user_id": "user-123",
+  "limits": {
+    "debate_create": { "remaining": 8, "limit": 10, "retry_after": 0 },
+    "vote": { "remaining": 30, "limit": 30, "retry_after": 0 }
+  }
+}
+```
+
 ## Endpoint-Specific Limits
 
 Some endpoints have stricter limits to prevent abuse:

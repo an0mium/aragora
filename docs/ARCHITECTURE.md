@@ -1,5 +1,8 @@
 # Aragora Architecture
 
+> **Last Updated:** 2026-01-18
+
+
 This document describes the high-level architecture of aragora, the AI red team / decision stress-test platform. The multi-agent debate system is the engine that powers adversarial validation.
 
 ## System Overview

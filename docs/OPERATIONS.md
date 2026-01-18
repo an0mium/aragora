@@ -702,6 +702,6 @@ export ARAGORA_DB_POOL_TIMEOUT=30
 
 ### Support Contacts
 
-- GitHub Issues: https://github.com/aragora/aragora/issues
+- GitHub Issues: https://github.com/an0mium/aragora/issues
 - Documentation: https://docs.aragora.ai
 - Status Page: https://status.aragora.ai

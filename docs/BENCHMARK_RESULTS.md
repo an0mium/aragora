@@ -164,4 +164,4 @@ Results are stored in `.benchmarks/` and compared against baseline.
 
 - [Performance Targets](./PERFORMANCE_TARGETS.md)
 - [API Rate Limits](./API_RATE_LIMITS.md)
-- [Monitoring](./MONITORING.md)
+- [Monitoring](./OBSERVABILITY.md)

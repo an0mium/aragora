@@ -688,5 +688,5 @@ evidence = client._request("POST", "/api/evidence/collect", json={
 ## See Also
 
 - [Pulse System Guide](PULSE.md) - Trending topic integration
-- [Provenance Documentation](PROVENANCE.md) - Full provenance system details
+- [Provenance Documentation](./FEATURES.md#provenance--evidence-chain) - Full provenance system details
 - [API Endpoints](API_ENDPOINTS.md) - Full API endpoint reference

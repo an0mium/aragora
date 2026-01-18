@@ -606,5 +606,5 @@ def test_quality_filter():
 ## See Also
 
 - [Evidence System Guide](EVIDENCE.md) - External data integration
-- [Scheduler Documentation](SCHEDULER.md) - Debate scheduling details
+- [Scheduler Documentation](./PULSE_SYSTEM.md) - Debate scheduling details
 - [API Reference](API_REFERENCE.md) - REST API endpoints

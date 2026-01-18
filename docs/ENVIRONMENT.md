@@ -1,5 +1,8 @@
 # Environment Variable Reference
 
+> **Last Updated:** 2026-01-18
+
+
 Complete reference for all environment variables used by Aragora.
 
 ## Quick Start

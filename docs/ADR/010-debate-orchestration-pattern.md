@@ -1,4 +1,4 @@
-# ADR-001: Debate Orchestration Pattern
+# ADR-010: Debate Orchestration Pattern
 
 ## Status
 Accepted

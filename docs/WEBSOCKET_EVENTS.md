@@ -283,3 +283,360 @@ analytics events emitted directly by the debate pipeline.
 Some events are emitted only when the corresponding feature is enabled. Use
 `loop_list` and `sync` control messages to seed UI state before processing
 stream events.
+
+## Control Plane Stream
+
+The control plane provides a separate WebSocket stream for agent orchestration
+and task lifecycle events. This is useful for monitoring dashboards and
+coordination UIs.
+
+### Endpoint
+
+```
+ws://localhost:8766/api/control-plane/stream
+ws://localhost:8766/ws/control-plane
+```
+
+### Connection Flow
+
+On connection, the server sends a `connected` event:
+
+```json
+{
+  "type": "connected",
+  "timestamp": 1732735053.123,
+  "data": {
+    "message": "Connected to control plane stream"
+  }
+}
+```
+
+### Agent Events
+
+Events related to agent lifecycle and status:
+
+#### `agent_registered`
+Emitted when an agent registers with the control plane.
+
+```json
+{
+  "type": "agent_registered",
+  "timestamp": 1732735053.123,
+  "data": {
+    "agent_id": "agent-abc123",
+    "capabilities": ["debate", "critique", "summarize"],
+    "model": "claude-3-opus",
+    "provider": "anthropic"
+  }
+}
+```
+
+#### `agent_unregistered`
+Emitted when an agent unregisters or is removed.
+
+```json
+{
+  "type": "agent_unregistered",
+  "timestamp": 1732735053.123,
+  "data": {
+    "agent_id": "agent-abc123",
+    "reason": "graceful_shutdown"
+  }
+}
+```
+
+#### `agent_status_changed`
+Emitted when an agent's status changes (idle, busy, etc.).
+
+```json
+{
+  "type": "agent_status_changed",
+  "timestamp": 1732735053.123,
+  "data": {
+    "agent_id": "agent-abc123",
+    "old_status": "idle",
+    "new_status": "busy"
+  }
+}
+```
+
+#### `agent_heartbeat`
+Periodic heartbeat from an agent.
+
+```json
+{
+  "type": "agent_heartbeat",
+  "timestamp": 1732735053.123,
+  "data": {
+    "agent_id": "agent-abc123",
+    "status": "idle",
+    "tasks_completed": 42
+  }
+}
+```
+
+#### `agent_timeout`
+Emitted when an agent fails to send heartbeats within the expected interval.
+
+```json
+{
+  "type": "agent_timeout",
+  "timestamp": 1732735053.123,
+  "data": {
+    "agent_id": "agent-abc123",
+    "last_heartbeat": 1732734053.123
+  }
+}
+```
+
+### Task Events
+
+Events related to task lifecycle:
+
+#### `task_submitted`
+Emitted when a new task is submitted to the scheduler.
+
+```json
+{
+  "type": "task_submitted",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "task_type": "debate",
+    "priority": "high",
+    "required_capabilities": ["debate", "critique"]
+  }
+}
+```
+
+#### `task_claimed`
+Emitted when an agent claims a task.
+
+```json
+{
+  "type": "task_claimed",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "agent_id": "agent-abc123"
+  }
+}
+```
+
+#### `task_started`
+Emitted when an agent begins executing a task.
+
+```json
+{
+  "type": "task_started",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "agent_id": "agent-abc123"
+  }
+}
+```
+
+#### `task_completed`
+Emitted when a task completes successfully.
+
+```json
+{
+  "type": "task_completed",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "agent_id": "agent-abc123",
+    "result_summary": "Debate concluded with consensus..."
+  }
+}
+```
+
+#### `task_failed`
+Emitted when a task fails.
+
+```json
+{
+  "type": "task_failed",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "agent_id": "agent-abc123",
+    "error": "Agent timeout during execution",
+    "retries_left": 2
+  }
+}
+```
+
+#### `task_cancelled`
+Emitted when a task is cancelled.
+
+```json
+{
+  "type": "task_cancelled",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "reason": "user_requested"
+  }
+}
+```
+
+#### `task_retrying`
+Emitted when a failed task is being retried.
+
+```json
+{
+  "type": "task_retrying",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "attempt": 2,
+    "max_attempts": 3
+  }
+}
+```
+
+#### `task_dead_lettered`
+Emitted when a task exhausts retries and is moved to the dead letter queue.
+
+```json
+{
+  "type": "task_dead_lettered",
+  "timestamp": 1732735053.123,
+  "data": {
+    "task_id": "task-xyz789",
+    "reason": "Max retries exceeded"
+  }
+}
+```
+
+### System Events
+
+Events related to system health and metrics:
+
+#### `health_update`
+Periodic system health status.
+
+```json
+{
+  "type": "health_update",
+  "timestamp": 1732735053.123,
+  "data": {
+    "status": "healthy",
+    "agents": {
+      "total": 5,
+      "idle": 3,
+      "busy": 2
+    }
+  }
+}
+```
+
+#### `metrics_update`
+System metrics update.
+
+```json
+{
+  "type": "metrics_update",
+  "timestamp": 1732735053.123,
+  "data": {
+    "tasks_per_minute": 12.5,
+    "avg_task_duration": 4.2,
+    "queue_depth": 8
+  }
+}
+```
+
+#### `scheduler_stats`
+Detailed scheduler statistics.
+
+```json
+{
+  "type": "scheduler_stats",
+  "timestamp": 1732735053.123,
+  "data": {
+    "pending_tasks": 15,
+    "running_tasks": 4,
+    "completed_today": 342,
+    "failed_today": 3,
+    "avg_wait_time": 1.2
+  }
+}
+```
+
+### Error Events
+
+#### `error`
+System error notification.
+
+```json
+{
+  "type": "error",
+  "timestamp": 1732735053.123,
+  "data": {
+    "error": "Redis connection lost",
+    "context": {
+      "component": "scheduler",
+      "retry_in": 5
+    }
+  }
+}
+```
+
+### Client Messages
+
+Clients can send the following messages to the control plane stream:
+
+#### Ping
+Keep-alive ping:
+
+```json
+{ "type": "ping" }
+```
+
+Server responds with:
+
+```json
+{ "type": "pong", "timestamp": 1732735053.123 }
+```
+
+#### Subscribe (Future)
+Subscribe to specific event types (not yet implemented):
+
+```json
+{
+  "type": "subscribe",
+  "events": ["task_completed", "task_failed"]
+}
+```
+
+### Example: JavaScript Client
+
+```javascript
+const ws = new WebSocket('ws://localhost:8766/api/control-plane/stream');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  switch (data.type) {
+    case 'agent_registered':
+      console.log(`Agent ${data.data.agent_id} joined`);
+      break;
+    case 'task_completed':
+      console.log(`Task ${data.data.task_id} completed`);
+      break;
+    case 'task_failed':
+      console.error(`Task ${data.data.task_id} failed: ${data.data.error}`);
+      break;
+    case 'health_update':
+      updateDashboard(data.data);
+      break;
+  }
+};
+
+// Keep connection alive
+setInterval(() => {
+  ws.send(JSON.stringify({ type: 'ping' }));
+}, 30000);
+```

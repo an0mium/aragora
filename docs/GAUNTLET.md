@@ -1,6 +1,17 @@
 # Gauntlet Mode - Adversarial Stress Testing
 
+> **Last Updated:** 2026-01-18
+
 Gauntlet is Aragora's adversarial validation engine for stress-testing high-stakes decisions through multi-agent debate.
+
+## Related Documentation
+
+| Document | Purpose |
+|----------|---------|
+| **GAUNTLET.md** (this) | Overview and usage guide |
+| [GAUNTLET_ARCHITECTURE.md](./GAUNTLET_ARCHITECTURE.md) | Package structure and internals |
+| [PROBE_STRATEGIES.md](./PROBE_STRATEGIES.md) | Probing strategy reference |
+| [MODES_REFERENCE.md](./MODES_REFERENCE.md) | Debate modes (RedTeam, Prober) |
 
 ## Overview
 

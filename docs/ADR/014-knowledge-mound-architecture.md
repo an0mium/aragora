@@ -1,4 +1,4 @@
-# ADR-005: Knowledge Mound Architecture
+# ADR-014: Knowledge Mound Architecture
 
 ## Status
 Accepted

@@ -17,6 +17,7 @@ __all__ = [
     "RelationshipStats",
     "RelationshipMetrics",
     "RelationshipTracker",
+    "AgentRelationship",  # Compatibility alias for agents module
 ]
 
 import logging
@@ -62,6 +63,94 @@ class RelationshipMetrics:
     debate_count: int
     agreement_rate: float = 0.0
     head_to_head: str = "0-0"
+
+
+@dataclass
+class AgentRelationship:
+    """
+    Relationship metrics between two agents with computed properties.
+
+    Compatibility class that provides the same interface as the legacy
+    agents.relationships.AgentRelationship for backwards compatibility.
+    """
+
+    agent_a: str
+    agent_b: str
+    debate_count: int = 0
+    agreement_count: int = 0
+    critique_count_a_to_b: int = 0
+    critique_count_b_to_a: int = 0
+    critique_accepted_a_to_b: int = 0
+    critique_accepted_b_to_a: int = 0
+    position_changes_a_after_b: int = 0
+    position_changes_b_after_a: int = 0
+    a_wins_over_b: int = 0
+    b_wins_over_a: int = 0
+    updated_at: str = ""
+
+    @property
+    def rivalry_score(self) -> float:
+        """High debates + low agreement + competitive win rate."""
+        if self.debate_count < 3:
+            return 0.0
+        disagreement_rate = 1 - (self.agreement_count / self.debate_count)
+        total_wins = self.a_wins_over_b + self.b_wins_over_a
+        competitiveness = (
+            1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
+        )
+        frequency_factor = min(1.0, self.debate_count / 20)
+        return disagreement_rate * competitiveness * frequency_factor
+
+    @property
+    def alliance_score(self) -> float:
+        """High agreement + mutual critique acceptance."""
+        if self.debate_count < 3:
+            return 0.0
+        agreement_rate = self.agreement_count / self.debate_count
+        total_critiques = self.critique_count_a_to_b + self.critique_count_b_to_a
+        total_accepted = self.critique_accepted_a_to_b + self.critique_accepted_b_to_a
+        acceptance_rate = total_accepted / max(total_critiques, 1)
+        return agreement_rate * 0.6 + acceptance_rate * 0.4
+
+    @property
+    def influence_a_on_b(self) -> float:
+        """How much A influences B's positions."""
+        if self.debate_count == 0:
+            return 0.0
+        return self.position_changes_b_after_a / self.debate_count
+
+    @property
+    def influence_b_on_a(self) -> float:
+        """How much B influences A's positions."""
+        if self.debate_count == 0:
+            return 0.0
+        return self.position_changes_a_after_b / self.debate_count
+
+    def get_influence(self, from_agent: str) -> float:
+        """Get influence score from one agent to the other."""
+        if from_agent == self.agent_a:
+            return self.influence_a_on_b
+        elif from_agent == self.agent_b:
+            return self.influence_b_on_a
+        return 0.0
+
+    @classmethod
+    def from_stats(cls, stats: "RelationshipStats") -> "AgentRelationship":
+        """Create AgentRelationship from RelationshipStats."""
+        return cls(
+            agent_a=stats.agent_a,
+            agent_b=stats.agent_b,
+            debate_count=stats.debate_count,
+            agreement_count=stats.agreement_count,
+            critique_count_a_to_b=stats.critique_count_a_to_b,
+            critique_count_b_to_a=stats.critique_count_b_to_a,
+            critique_accepted_a_to_b=stats.critique_accepted_a_to_b,
+            critique_accepted_b_to_a=stats.critique_accepted_b_to_a,
+            position_changes_a_after_b=stats.position_changes_a_after_b,
+            position_changes_b_after_a=stats.position_changes_b_after_a,
+            a_wins_over_b=stats.a_wins_over_b,
+            b_wins_over_a=stats.b_wins_over_a,
+        )
 
 
 class RelationshipTracker:

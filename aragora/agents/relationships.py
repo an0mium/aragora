@@ -1,9 +1,14 @@
 """
 Agent relationship tracking for grounded personas.
 
-Computes relationship metrics from existing debate data including
-rivalry scores, alliance scores, and influence networks.
+This module re-exports relationship tracking functionality from the canonical
+implementation in aragora.ranking.relationships and provides additional
+convenience methods for agent-specific use cases.
+
+For new code, prefer importing directly from aragora.ranking.relationships.
 """
+
+from __future__ import annotations
 
 __all__ = [
     "AgentRelationship",
@@ -13,104 +18,45 @@ __all__ = [
 import logging
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Generator, Optional
 
 from aragora.config import DB_ELO_PATH
 from aragora.ranking.database import EloDatabase
+from aragora.ranking.relationships import (
+    AgentRelationship,
+    RelationshipMetrics,
+    RelationshipStats,
+    RelationshipTracker as BaseRelationshipTracker,
+)
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AgentRelationship:
-    """Relationship metrics between two agents."""
-
-    agent_a: str
-    agent_b: str
-    debate_count: int = 0
-    agreement_count: int = 0
-    critique_count_a_to_b: int = 0
-    critique_count_b_to_a: int = 0
-    critique_accepted_a_to_b: int = 0
-    critique_accepted_b_to_a: int = 0
-    position_changes_a_after_b: int = 0
-    position_changes_b_after_a: int = 0
-    a_wins_over_b: int = 0
-    b_wins_over_a: int = 0
-    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
-    @property
-    def rivalry_score(self) -> float:
-        """High debates + low agreement + competitive win rate."""
-        if self.debate_count < 3:
-            return 0.0
-        disagreement_rate = 1 - (self.agreement_count / self.debate_count)
-        total_wins = self.a_wins_over_b + self.b_wins_over_a
-        competitiveness = 1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
-        frequency_factor = min(1.0, self.debate_count / 20)
-        return disagreement_rate * competitiveness * frequency_factor
-
-    @property
-    def alliance_score(self) -> float:
-        """High agreement + mutual critique acceptance."""
-        if self.debate_count < 3:
-            return 0.0
-        agreement_rate = self.agreement_count / self.debate_count
-        total_critiques = self.critique_count_a_to_b + self.critique_count_b_to_a
-        total_accepted = self.critique_accepted_a_to_b + self.critique_accepted_b_to_a
-        acceptance_rate = total_accepted / max(total_critiques, 1)
-        return agreement_rate * 0.6 + acceptance_rate * 0.4
-
-    @property
-    def influence_a_on_b(self) -> float:
-        """How much A influences B's positions."""
-        if self.debate_count == 0:
-            return 0.0
-        return self.position_changes_b_after_a / self.debate_count
-
-    @property
-    def influence_b_on_a(self) -> float:
-        """How much B influences A's positions."""
-        if self.debate_count == 0:
-            return 0.0
-        return self.position_changes_a_after_b / self.debate_count
-
-    def get_influence(self, from_agent: str) -> float:
-        """Get influence score from one agent to the other."""
-        if from_agent == self.agent_a:
-            return self.influence_a_on_b
-        elif from_agent == self.agent_b:
-            return self.influence_b_on_a
-        return 0.0
-
-
-class RelationshipTracker:
+class RelationshipTracker(BaseRelationshipTracker):
     """
-    Computes relationship metrics from existing debate data.
+    Extended RelationshipTracker with agent-specific convenience methods.
 
-    Uses EloSystem's matches table and CritiqueStore's critiques table.
+    Inherits all functionality from aragora.ranking.relationships.RelationshipTracker
+    and adds:
+    - update_from_debate() for bulk updates from debate events
+    - get_relationship() returning AgentRelationship with computed properties
+    - get_influence_network() for influence analysis
     """
 
-    def __init__(
-        self,
-        elo_db_path: str = DB_ELO_PATH,
-    ):
-        self.elo_db_path = Path(elo_db_path)
-        self.db = EloDatabase(elo_db_path)
-        self._init_tables()
+    def __init__(self, elo_db_path: str = DB_ELO_PATH):
+        """
+        Initialize the relationship tracker.
 
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get a database connection with guaranteed cleanup."""
-        with self.db.connection() as conn:
-            yield conn
+        Args:
+            elo_db_path: Path to the ELO database file.
+        """
+        super().__init__(elo_db_path)
+        self._ensure_tables()
 
-    def _init_tables(self) -> None:
-        """Add agent_relationships table if not exists."""
-        with self._get_connection() as conn:
+    def _ensure_tables(self) -> None:
+        """Ensure relationship tables exist."""
+        with self._db.connection() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS agent_relationships (
@@ -155,11 +101,21 @@ class RelationshipTracker:
         critiques: list[dict],
         position_changes: Optional[dict[str, list[str]]] = None,
     ) -> None:
-        """Update all relationship metrics from a completed debate."""
-        with self._get_connection() as conn:
+        """
+        Update all relationship metrics from a completed debate.
+
+        Args:
+            debate_id: Unique identifier for the debate
+            participants: List of agent names that participated
+            winner: Name of the winning agent (if any)
+            votes: Mapping of agent -> vote value
+            critiques: List of critique records
+            position_changes: Optional mapping of agent -> list of agents that influenced them
+        """
+        with self._db.connection() as conn:
             # Update relationships for each pair
             for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1 :]:
+                for agent_b in participants[i + 1:]:
                     canonical_a, canonical_b = self._canonical_pair(agent_a, agent_b)
                     is_swapped = canonical_a != agent_a
 
@@ -205,7 +161,7 @@ class RelationshipTracker:
                             UPDATE agent_relationships
                             SET {col} = {col} + 1
                             WHERE agent_a = ? AND agent_b = ?
-                            """,  # nosec B608 - col is from controlled set, not user input
+                            """,  # nosec B608 - col is from controlled set
                             (canonical_a, canonical_b),
                         )
                     elif winner == agent_b:
@@ -215,7 +171,7 @@ class RelationshipTracker:
                             UPDATE agent_relationships
                             SET {col} = {col} + 1
                             WHERE agent_a = ? AND agent_b = ?
-                            """,  # nosec B608 - col is from controlled set, not user input
+                            """,  # nosec B608 - col is from controlled set
                             (canonical_a, canonical_b),
                         )
 
@@ -224,19 +180,6 @@ class RelationshipTracker:
                 critic = critique.get("agent") or critique.get("critic")
                 target = critique.get("target") or critique.get("target_agent")
                 if not critic or not target or critic == target:
-                    # Log why critique was dropped for debugging
-                    if not critic:
-                        logger.debug(
-                            f"Critique dropped: missing critic field in debate {debate_id}"
-                        )
-                    elif not target:
-                        logger.debug(
-                            f"Critique dropped: missing target field in debate {debate_id}"
-                        )
-                    elif critic == target:
-                        logger.debug(
-                            f"Critique dropped: self-critique by {critic} in debate {debate_id}"
-                        )
                     continue
 
                 canonical_a, canonical_b = self._canonical_pair(critic, target)
@@ -248,106 +191,53 @@ class RelationshipTracker:
                     UPDATE agent_relationships
                     SET {col} = {col} + 1
                     WHERE agent_a = ? AND agent_b = ?
-                    """,  # nosec B608 - col is from controlled set, not user input
+                    """,  # nosec B608 - col is from controlled set
                     (canonical_a, canonical_b),
                 )
 
             conn.commit()
 
     def get_relationship(self, agent_a: str, agent_b: str) -> AgentRelationship:
-        """Get relationship between two agents."""
-        canonical_a, canonical_b = self._canonical_pair(agent_a, agent_b)
+        """
+        Get relationship between two agents with computed properties.
 
-        with self._get_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT * FROM agent_relationships WHERE agent_a = ? AND agent_b = ?",
-                (canonical_a, canonical_b),
-            )
-            row = cursor.fetchone()
+        Args:
+            agent_a: First agent name
+            agent_b: Second agent name
 
-        if row is None:
+        Returns:
+            AgentRelationship with rivalry_score, alliance_score, and influence properties
+        """
+        stats = self.get_raw(agent_a, agent_b)
+        if stats is None:
+            canonical_a, canonical_b = self._canonical_pair(agent_a, agent_b)
             return AgentRelationship(agent_a=canonical_a, agent_b=canonical_b)
 
-        return AgentRelationship(
-            agent_a=row["agent_a"],
-            agent_b=row["agent_b"],
-            debate_count=row["debate_count"],
-            agreement_count=row["agreement_count"],
-            critique_count_a_to_b=row["critique_count_a_to_b"],
-            critique_count_b_to_a=row["critique_count_b_to_a"],
-            critique_accepted_a_to_b=row["critique_accepted_a_to_b"],
-            critique_accepted_b_to_a=row["critique_accepted_b_to_a"],
-            position_changes_a_after_b=row["position_changes_a_after_b"],
-            position_changes_b_after_a=row["position_changes_b_after_a"],
-            a_wins_over_b=row["a_wins_over_b"],
-            b_wins_over_a=row["b_wins_over_a"],
-            updated_at=row["updated_at"],
-        )
+        return AgentRelationship.from_stats(stats)
 
     def get_all_relationships(self, agent_name: str) -> list[AgentRelationship]:
-        """Get all relationships for an agent."""
-        with self._get_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT * FROM agent_relationships
-                WHERE agent_a = ? OR agent_b = ?
-                ORDER BY debate_count DESC
-                """,
-                (agent_name, agent_name),
-            )
-            rows = cursor.fetchall()
+        """
+        Get all relationships for an agent with computed properties.
 
-        return [
-            AgentRelationship(
-                agent_a=row["agent_a"],
-                agent_b=row["agent_b"],
-                debate_count=row["debate_count"],
-                agreement_count=row["agreement_count"],
-                critique_count_a_to_b=row["critique_count_a_to_b"],
-                critique_count_b_to_a=row["critique_count_b_to_a"],
-                critique_accepted_a_to_b=row["critique_accepted_a_to_b"],
-                critique_accepted_b_to_a=row["critique_accepted_b_to_a"],
-                position_changes_a_after_b=row["position_changes_a_after_b"],
-                position_changes_b_after_a=row["position_changes_b_after_a"],
-                a_wins_over_b=row["a_wins_over_b"],
-                b_wins_over_a=row["b_wins_over_a"],
-                updated_at=row["updated_at"],
-            )
-            for row in rows
-        ]
+        Args:
+            agent_name: Agent to get relationships for
 
-    def get_rivals(self, agent_name: str, limit: int = 5) -> list[tuple[str, float]]:
-        """Get top rivals by rivalry score."""
-        relationships = self.get_all_relationships(agent_name)
-        rivals = []
-
-        for rel in relationships:
-            other = rel.agent_b if rel.agent_a == agent_name else rel.agent_a
-            score = rel.rivalry_score
-            if score > 0:
-                rivals.append((other, score))
-
-        rivals.sort(key=lambda x: x[1], reverse=True)
-        return rivals[:limit]
-
-    def get_allies(self, agent_name: str, limit: int = 5) -> list[tuple[str, float]]:
-        """Get top allies by alliance score."""
-        relationships = self.get_all_relationships(agent_name)
-        allies = []
-
-        for rel in relationships:
-            other = rel.agent_b if rel.agent_a == agent_name else rel.agent_a
-            score = rel.alliance_score
-            if score > 0:
-                allies.append((other, score))
-
-        allies.sort(key=lambda x: x[1], reverse=True)
-        return allies[:limit]
+        Returns:
+            List of AgentRelationship sorted by debate_count descending
+        """
+        stats_list = self.get_all_for_agent(agent_name)
+        return [AgentRelationship.from_stats(s) for s in stats_list]
 
     def get_influence_network(self, agent_name: str) -> dict[str, list[tuple[str, float]]]:
-        """Get who this agent influences and who influences them."""
+        """
+        Get who this agent influences and who influences them.
+
+        Args:
+            agent_name: Agent to analyze
+
+        Returns:
+            Dict with 'influences' and 'influenced_by' lists of (agent, score) tuples
+        """
         relationships = self.get_all_relationships(agent_name)
 
         influences = []  # Who this agent influences

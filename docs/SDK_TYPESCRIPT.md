@@ -591,6 +591,6 @@ If upgrading from an earlier version:
 
 ## Support
 
-- [GitHub Issues](https://github.com/aragora-ai/aragora/issues)
+- [GitHub Issues](https://github.com/an0mium/aragora/issues)
 - [API Reference](API_REFERENCE.md)
 - [Python SDK Guide](SDK_GUIDE.md)

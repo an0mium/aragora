@@ -1,5 +1,8 @@
 # Aragora Feature Documentation
 
+> **Last Updated:** 2026-01-18
+
+
 This document provides detailed documentation for all 65+ features implemented in aragora through 21 phases of self-improvement.
 
 ## Table of Contents
@@ -1981,6 +1984,66 @@ curl -X POST https://api.aragora.ai/api/debates/matrix \
   "comparison_matrix": {...}
 }
 ```
+
+---
+
+## Enterprise Features
+
+### Cross-Workspace Coordination
+**File:** `aragora/coordination/cross_workspace.py`
+
+Enables workflows that span multiple workspaces with proper isolation and permission management.
+
+```python
+from aragora.coordination import (
+    CrossWorkspaceCoordinator,
+    FederatedWorkspace,
+    FederationPolicy,
+    DataSharingConsent,
+    SharingScope,
+)
+
+# Create coordinator
+coordinator = CrossWorkspaceCoordinator()
+
+# Define federation policy
+policy = FederationPolicy(
+    allow_data_sharing=True,
+    require_explicit_consent=True,
+    allowed_scopes=[SharingScope.DEBATE_RESULTS, SharingScope.AGENT_METRICS],
+)
+
+# Register federated workspace
+workspace = FederatedWorkspace(
+    workspace_id="partner-org",
+    policy=policy,
+)
+coordinator.register_workspace(workspace)
+
+# Execute cross-workspace request
+result = await coordinator.execute(
+    CrossWorkspaceRequest(
+        source_workspace="my-org",
+        target_workspace="partner-org",
+        operation="run_debate",
+        payload={"task": "Review architecture proposal"},
+    )
+)
+```
+
+**Key Features:**
+- Cross-workspace data sharing with explicit consent
+- Federated agent execution across organizations
+- Multi-workspace workflow orchestration
+- Secure inter-workspace communication
+- Permission delegation and scoping
+
+### Agent Routing & Selection
+**File:** `aragora/routing/`
+
+Intelligent agent selection and load balancing for optimal task assignment.
+
+See [AGENT_SELECTION.md](./AGENT_SELECTION.md) for routing strategies.
 
 ---
 

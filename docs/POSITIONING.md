@@ -87,7 +87,7 @@ Debate is the internal combustion engine. The product is a defensible decision r
 ## Contact
 
 For pilot discussions:
-- GitHub: [aragora-ai/aragora](https://github.com/aragora-ai/aragora)
+- GitHub: [aragora-ai/aragora](https://github.com/an0mium/aragora)
 - Technical documentation: `/docs/`
 
 ---

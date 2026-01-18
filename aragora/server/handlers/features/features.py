@@ -260,6 +260,8 @@ def _check_requirement(requirement: str) -> tuple[bool, Optional[str]]:
         "crux_analyzer": _check_crux,
         "rhetorical_observer": _check_rhetorical,
         "trickster": _check_trickster,
+        "plugin_runner": _check_plugin_runner,
+        "memory_manager": _check_memory_manager,
     }
 
     check_func = checks.get(requirement)
@@ -275,8 +277,15 @@ def _check_requirement(requirement: str) -> tuple[bool, Optional[str]]:
 
 # Individual requirement checks
 def _check_pulse() -> tuple[bool, Optional[str]]:
+    import os
+
     try:
         importlib.import_module("aragora.pulse.manager")
+        # Check if API keys are configured
+        has_twitter = bool(os.environ.get("TWITTER_API_KEY") or os.environ.get("TWITTER_BEARER_TOKEN"))
+        has_reddit = bool(os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"))
+        if not has_twitter and not has_reddit:
+            return False, "Requires configuration: Set TWITTER_API_KEY or REDDIT_CLIENT_ID/SECRET"
         return True, None
     except ImportError:
         return False, "Pulse module not installed"
@@ -431,6 +440,22 @@ def _check_trickster() -> tuple[bool, Optional[str]]:
         return True, None
     except ImportError:
         return False, "Trickster not available"
+
+
+def _check_plugin_runner() -> tuple[bool, Optional[str]]:
+    try:
+        importlib.import_module("aragora.plugins.runner")
+        return True, None
+    except ImportError:
+        return False, "Plugin runner not available"
+
+
+def _check_memory_manager() -> tuple[bool, Optional[str]]:
+    try:
+        importlib.import_module("aragora.memory.manager")
+        return True, None
+    except ImportError:
+        return False, "Memory manager not available"
 
 
 def get_all_features() -> dict[str, dict[str, Any]]:

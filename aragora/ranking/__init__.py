@@ -18,6 +18,7 @@ from aragora.ranking.redteam import (
     VulnerabilitySummary,
 )
 from aragora.ranking.relationships import (
+    AgentRelationship,
     RelationshipMetrics,
     RelationshipStats,
     RelationshipTracker,
@@ -43,6 +44,7 @@ __all__ = [
     "RelationshipTracker",
     "RelationshipStats",
     "RelationshipMetrics",
+    "AgentRelationship",
     # Red Team
     "RedTeamIntegrator",
     "RedTeamResult",

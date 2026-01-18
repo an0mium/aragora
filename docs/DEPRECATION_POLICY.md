@@ -146,7 +146,7 @@ We commit to:
 ## Contact
 
 For API deprecation questions or migration assistance:
-- GitHub Issues: https://github.com/aragora/aragora/issues
+- GitHub Issues: https://github.com/an0mium/aragora/issues
 - Tag: `api-migration`
 
 ---

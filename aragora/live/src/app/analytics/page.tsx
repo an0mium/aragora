@@ -14,6 +14,18 @@ const AnalyticsPanel = dynamic(
     ssr: false,
     loading: () => (
       <div className="card p-4 animate-pulse">
+        <div className="h-[200px] bg-surface rounded" />
+      </div>
+    ),
+  }
+);
+
+const AnalyticsDashboard = dynamic(
+  () => import('@/components/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="card p-4 animate-pulse">
         <div className="h-[500px] bg-surface rounded" />
       </div>
     ),
@@ -78,9 +90,17 @@ export default function AnalyticsPage() {
             </p>
           </div>
 
-          <PanelErrorBoundary panelName="Analytics">
-            <AnalyticsPanel apiBase={backendConfig.api} events={[]} />
+          {/* Comprehensive Dashboard */}
+          <PanelErrorBoundary panelName="Dashboard">
+            <AnalyticsDashboard />
           </PanelErrorBoundary>
+
+          {/* Legacy Panel for specific debate analysis */}
+          <div className="mt-6">
+            <PanelErrorBoundary panelName="Debate Analytics">
+              <AnalyticsPanel apiBase={backendConfig.api} events={[]} />
+            </PanelErrorBoundary>
+          </div>
         </div>
 
         {/* Footer */}

@@ -4304,6 +4304,33 @@ export interface ControlPlaneListTasksResponse {
   total: number;
 }
 
+/** A job in the control plane queue (pending or running task) */
+export interface ControlPlaneJob {
+  id: string;
+  type: string;
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'queued';
+  progress: number;
+  started_at?: string;
+  created_at?: string;
+  document_count?: number;
+  agents_assigned: string[];
+  priority?: string;
+}
+
+/** Control plane metrics for dashboard display */
+export interface ControlPlaneMetrics {
+  active_jobs: number;
+  queued_jobs: number;
+  completed_jobs: number;
+  agents_available: number;
+  agents_busy: number;
+  total_agents: number;
+  documents_processed_today?: number;
+  audits_completed_today?: number;
+  tokens_used_today?: number;
+}
+
 /** Request to register an agent with the control plane */
 export interface RegisterAgentRequest {
   agent_id: string;

@@ -8,6 +8,7 @@ Provides CRUD operations and execution control for workflows:
 - /api/workflows/:id/versions - Version history
 - /api/workflow-templates - Workflow template gallery
 - /api/workflow-approvals - Human approval management
+- /api/workflow-executions - List all workflow executions (for runtime dashboard)
 """
 
 from __future__ import annotations
@@ -820,7 +821,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         return (
             path.startswith("/api/workflows") or
             path.startswith("/api/workflow-templates") or
-            path.startswith("/api/workflow-approvals")
+            path.startswith("/api/workflow-approvals") or
+            path.startswith("/api/workflow-executions")
         )
 
     def handle(
@@ -831,6 +833,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return None
 
         import asyncio
+
+        # GET /api/workflow-executions
+        if path == "/api/workflow-executions":
+            return self._handle_list_executions(query_params)
 
         # GET /api/workflow-templates
         if path == "/api/workflow-templates":
@@ -1177,6 +1183,36 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response({"approvals": approvals, "count": len(approvals)})
         except Exception as e:
             logger.exception(f"Failed to list approvals: {e}")
+            return error_response(str(e), 500)
+
+    def _handle_list_executions(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/workflow-executions.
+
+        Returns all workflow executions across all workflows, filtered by status.
+        Used by the runtime monitoring dashboard.
+        """
+        import asyncio
+
+        try:
+            status_filter = get_string_param(query_params, "status", None)
+            workflow_id = get_string_param(query_params, "workflow_id", None)
+            limit = get_int_param(query_params, "limit", 50)
+
+            executions = asyncio.run(list_executions(
+                workflow_id=workflow_id,
+                limit=limit,
+            ))
+
+            # Apply status filter if provided
+            if status_filter:
+                executions = [e for e in executions if e.get("status") == status_filter]
+
+            return json_response({
+                "executions": executions,
+                "count": len(executions),
+            })
+        except Exception as e:
+            logger.exception(f"Failed to list executions: {e}")
             return error_response(str(e), 500)
 
     def _handle_resolve_approval(self, request_id: str, body: dict, query_params: dict) -> HandlerResult:

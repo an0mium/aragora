@@ -304,6 +304,6 @@ const response = await fetch('/api/admin/users', {
 ## See Also
 
 - [API Reference](API_REFERENCE.md) - Full API documentation
-- [Authentication Guide](AUTH.md) - Auth configuration
+- [Authentication Guide](SECURITY.md) - Auth configuration
 - [Runbook](RUNBOOK.md) - Operational procedures
 - [Evidence System](EVIDENCE.md) - Evidence connectors

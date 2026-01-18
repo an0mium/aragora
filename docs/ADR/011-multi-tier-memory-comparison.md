@@ -1,4 +1,4 @@
-# ADR-002: Multi-Tier Memory System
+# ADR-011: Multi-Tier Memory System
 
 ## Status
 Accepted

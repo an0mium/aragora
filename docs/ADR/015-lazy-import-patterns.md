@@ -1,4 +1,4 @@
-# ADR-006: Lazy Import Patterns
+# ADR-015: Lazy Import Patterns
 
 **Status:** Accepted
 **Date:** 2026-01-18

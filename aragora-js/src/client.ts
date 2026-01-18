@@ -384,6 +384,8 @@ import {
   ControlPlaneTask,
   ControlPlaneHealth,
   ControlPlaneStats,
+  ControlPlaneJob,
+  ControlPlaneMetrics,
   ControlPlaneAgentStatus,
   ControlPlaneTaskStatus,
   ControlPlaneTaskPriority,
@@ -4637,6 +4639,28 @@ class ControlPlaneAPI {
    */
   async getStats(): Promise<ControlPlaneStats> {
     return this.http.get<ControlPlaneStats>('/api/control-plane/stats');
+  }
+
+  /**
+   * Get control plane job queue (pending and running tasks).
+   * @param options - Filter and pagination options
+   */
+  async getQueue(options: {
+    limit?: number;
+  } = {}): Promise<{ jobs: ControlPlaneJob[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    const queryString = params.toString();
+    return this.http.get<{ jobs: ControlPlaneJob[]; total: number }>(
+      `/api/control-plane/queue${queryString ? `?${queryString}` : ''}`
+    );
+  }
+
+  /**
+   * Get control plane metrics for dashboard.
+   */
+  async getMetrics(): Promise<ControlPlaneMetrics> {
+    return this.http.get<ControlPlaneMetrics>('/api/control-plane/metrics');
   }
 }
 

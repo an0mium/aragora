@@ -1,6 +1,17 @@
 # Aragora Modes Guide
 
+> **Last Updated:** 2026-01-18
+
 Operational modes for focused AI agent behavior. Modes control what tools an agent can use and provide specialized system prompts for different tasks.
+
+## Related Documentation
+
+| Document | Purpose |
+|----------|---------|
+| **MODES_GUIDE.md** (this) | Operational modes (Architect, Coder, etc.) |
+| [MODES_REFERENCE.md](./MODES_REFERENCE.md) | Debate modes (RedTeam, Prober, Audit) |
+| [GAUNTLET.md](./GAUNTLET.md) | Comprehensive stress-testing |
+| [PROBE_STRATEGIES.md](./PROBE_STRATEGIES.md) | Probing strategies reference |
 
 ## Overview
 

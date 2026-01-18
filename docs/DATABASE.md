@@ -1,6 +1,16 @@
 # Database Architecture
 
+> **Last Updated:** 2026-01-18
+
 Aragora uses a dual-storage architecture: SQLite for local development and persistent state, Supabase for cloud deployment. PostgreSQL is supported for production deployments.
+
+## Related Documentation
+
+| Document | Purpose |
+|----------|---------|
+| **DATABASE.md** (this) | Architecture and configuration |
+| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Installation and setup guide |
+| [ENVIRONMENT.md](./ENVIRONMENT.md) | Environment variables reference |
 
 ## Quick Reference
 

@@ -246,4 +246,4 @@ Options:
 
 - Stripe Documentation: https://stripe.com/docs
 - Stripe Support: https://support.stripe.com
-- Aragora Issues: https://github.com/aragora/aragora/issues
+- Aragora Issues: https://github.com/an0mium/aragora/issues

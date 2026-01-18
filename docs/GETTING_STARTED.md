@@ -1,5 +1,8 @@
 # Getting Started with Aragora
 
+> **Last Updated:** 2026-01-18
+
+
 **Aragora** is an Adversarial Validation Engine that stress-tests decisions through multi-agent AI debate. This is the canonical onboarding guide (see `docs/START_HERE.md` for the short entry point).
 
 **Choose your path:**
@@ -480,18 +483,20 @@ pip install -e .
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ANTHROPIC_API_KEY` | Claude API key | - |
-| `OPENAI_API_KEY` | GPT-4 API key | - |
-| `GEMINI_API_KEY` | Gemini API key | - |
-| `XAI_API_KEY` | Grok API key | - |
-| `MISTRAL_API_KEY` | Mistral API key (EU perspective) | - |
-| `DEEPSEEK_API_KEY` | DeepSeek API key | - |
-| `OPENROUTER_API_KEY` | OpenRouter key (Qwen/DeepSeek/Yi) | - |
-| `KIMI_API_KEY` | Kimi (Moonshot) API key | - |
-| `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | 900 |
-| `ARAGORA_API_URL` | API base URL for CLI/SDK | http://localhost:8080 |
+**Quick Reference** (see [ENVIRONMENT.md](./ENVIRONMENT.md) for complete reference):
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Claude API key | At least one |
+| `OPENAI_API_KEY` | GPT-4 API key | At least one |
+| `GEMINI_API_KEY` | Gemini API key | Optional |
+| `XAI_API_KEY` | Grok API key | Optional |
+| `MISTRAL_API_KEY` | Mistral API key | Optional |
+| `OPENROUTER_API_KEY` | Fallback provider | Recommended |
+
+**Configuration Templates:**
+- `.env.starter` - Minimal config to get started
+- `.env.example` - Full configuration reference
 
 ### Health Endpoints
 
