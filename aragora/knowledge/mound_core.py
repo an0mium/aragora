@@ -878,10 +878,23 @@ class KnowledgeMound:
         # Save to SQLite
         self._meta_store.save_node(node)
 
-        # TODO: Save embedding to Weaviate when vector store is available
-        # if self._vector_store and self._embedding_fn:
-        #     embedding = self._embedding_fn(node.content)
-        #     await self._vector_store.index_node(node.id, node.content, embedding)
+        # Save embedding to Weaviate when vector store is available
+        if self._vector_store and self._embedding_fn:
+            try:
+                embedding = self._embedding_fn(node.content)
+                await self._vector_store.upsert(
+                    id=node.id,
+                    embedding=embedding,
+                    content=node.content,
+                    metadata={
+                        "node_type": node.node_type,
+                        "confidence": node.confidence,
+                        "workspace_id": node.workspace_id,
+                    },
+                    namespace=node.workspace_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save embedding to vector store: {e}")
 
         logger.debug(f"Added knowledge node: {node.id} ({node.node_type})")
         return node.id
@@ -958,8 +971,46 @@ class KnowledgeMound:
 
         ws_id = workspace_id or self.workspace_id
 
-        # TODO: Use Weaviate for semantic search when available
-        # For now, fall back to keyword-based search
+        # Use Weaviate for semantic search when available
+        if self._vector_store and self._embedding_fn:
+            try:
+                query_embedding = self._embedding_fn(query)
+                filters = {}
+                if node_types:
+                    # Note: Weaviate filters multiple types via OR, we'll filter post-search
+                    pass
+
+                vector_results = await self._vector_store.search(
+                    embedding=query_embedding,
+                    limit=limit * 2,  # Fetch extra for filtering
+                    namespace=ws_id,
+                    min_score=min_confidence,
+                )
+
+                # Get full nodes from SQLite and filter by type/confidence
+                result_nodes = []
+                for vr in vector_results:
+                    node = self._meta_store.get_node(vr.id)
+                    if node:
+                        if node_types and node.node_type not in node_types:
+                            continue
+                        if node.confidence < min_confidence:
+                            continue
+                        result_nodes.append(node)
+                        if len(result_nodes) >= limit:
+                            break
+
+                elapsed_ms = int((time.time() - start) * 1000)
+                return KnowledgeQueryResult(
+                    nodes=result_nodes,
+                    total_count=len(result_nodes),
+                    query=query,
+                    processing_time_ms=elapsed_ms,
+                )
+            except Exception as e:
+                logger.warning(f"Vector search failed, falling back to keyword: {e}")
+
+        # Fall back to keyword-based search
         nodes = self._meta_store.query_nodes(
             workspace_id=ws_id,
             node_types=node_types,
@@ -1116,7 +1167,48 @@ class KnowledgeMound:
             node_id = await self.add_node(consensus_node)
             created_ids.append(node_id)
 
-        # TODO: Extract facts from debate messages when extract_facts=True
+        # Extract facts from debate messages when extract_facts=True
+        if extract_facts and hasattr(debate_result, "messages"):
+            messages = debate_result.messages
+            for msg in messages:
+                # Extract factual claims from agent messages
+                content = getattr(msg, "content", "") if hasattr(msg, "content") else str(msg)
+                agent_id = getattr(msg, "agent", "unknown") if hasattr(msg, "agent") else "unknown"
+
+                # Skip short or non-substantive messages
+                if len(content) < 50:
+                    continue
+
+                # Create a claim node from each substantive message
+                claim_node = KnowledgeNode(
+                    node_type="claim",
+                    content=content[:2000],  # Truncate long content
+                    confidence=0.6,  # Lower confidence for unverified claims
+                    provenance=ProvenanceChain(
+                        source_type=ProvenanceType.AGENT,
+                        source_id=agent_id,
+                        agent_id=agent_id,
+                        debate_id=getattr(debate_result, "debate_id", None),
+                    ),
+                    workspace_id=self.workspace_id,
+                    validation_status=ValidationStatus.PENDING,
+                    metadata={
+                        "agent": agent_id,
+                        "debate_round": getattr(msg, "round", 0),
+                    },
+                )
+                claim_id = await self.add_node(claim_node)
+                created_ids.append(claim_id)
+
+                # Link claim to consensus if one exists
+                if created_ids and created_ids[0] != claim_id:
+                    await self.add_relationship(
+                        from_node_id=claim_id,
+                        to_node_id=created_ids[0],  # Consensus node
+                        relationship_type="supports",
+                        strength=0.5,
+                        created_by=agent_id,
+                    )
 
         return created_ids
 

@@ -380,23 +380,84 @@ class InMemoryVectorStore(BaseVectorStore):
         vector: StoredVector,
         filters: dict[str, Any],
     ) -> bool:
-        """Check if a vector matches filter criteria."""
+        """Check if a vector matches filter criteria.
+
+        Supports operators:
+        - $eq: Equal (default when value is not a dict)
+        - $ne: Not equal
+        - $gt: Greater than
+        - $gte: Greater than or equal
+        - $lt: Less than
+        - $lte: Less than or equal
+        - $in: Value in list
+        - $nin: Value not in list
+        - $exists: Field exists (value=True) or not (value=False)
+        - $contains: String contains (for text fields)
+
+        Example:
+            filters = {
+                "confidence": {"$gte": 0.8},
+                "node_type": {"$in": ["fact", "claim"]},
+                "tags.category": "security"  # Nested + simple equality
+            }
+        """
         for key, value in filters.items():
             # Support nested keys with dot notation
             parts = key.split(".")
             current = vector.metadata
+            field_exists = True
             for part in parts:
                 if isinstance(current, dict) and part in current:
                     current = current[part]
                 else:
+                    field_exists = False
+                    current = None
+                    break
+
+            # Check if value is an operator dict
+            if isinstance(value, dict) and any(k.startswith("$") for k in value.keys()):
+                for op, op_value in value.items():
+                    if not self._apply_operator(current, op, op_value, field_exists):
+                        return False
+            else:
+                # Simple equality check (default $eq behavior)
+                if not field_exists or current != value:
                     return False
 
-            # Simple equality check
-            # TODO: Support operators ($eq, $gt, $lt, $in, etc.)
-            if current != value:
-                return False
-
         return True
+
+    def _apply_operator(
+        self,
+        field_value: Any,
+        operator: str,
+        op_value: Any,
+        field_exists: bool,
+    ) -> bool:
+        """Apply a filter operator to a field value."""
+        if operator == "$eq":
+            return field_exists and field_value == op_value
+        elif operator == "$ne":
+            return not field_exists or field_value != op_value
+        elif operator == "$gt":
+            return field_exists and field_value > op_value
+        elif operator == "$gte":
+            return field_exists and field_value >= op_value
+        elif operator == "$lt":
+            return field_exists and field_value < op_value
+        elif operator == "$lte":
+            return field_exists and field_value <= op_value
+        elif operator == "$in":
+            return field_exists and field_value in op_value
+        elif operator == "$nin":
+            return not field_exists or field_value not in op_value
+        elif operator == "$exists":
+            return field_exists == op_value
+        elif operator == "$contains":
+            return field_exists and isinstance(field_value, str) and op_value in field_value
+        else:
+            # Unknown operator - treat as equality for backwards compatibility
+            logger.warning(f"Unknown filter operator: {operator}")
+            return field_exists and field_value == op_value
 
     def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
         """Calculate cosine similarity between two vectors."""
