@@ -267,6 +267,15 @@ module = [
     "aragora.plugins.builtin.lint",
     "aragora.plugins.builtin.security",
     "aragora.plugins.builtin.tests",
+    # Added strict - Phase 18 plugin system completion (Jan 2026)
+    "aragora.plugins.__init__",
+    "aragora.plugins.manifest",
+    "aragora.plugins.runner",
+    "aragora.plugins.builtin.__init__",
+    "aragora.plugins.selection.__init__",
+    "aragora.plugins.selection.protocols",
+    "aragora.plugins.selection.registry",
+    "aragora.plugins.selection.strategies",
     # Added strict - Phase 9 server handlers (Jan 2026)
     "aragora.server.handlers.reviews",
     "aragora.server.handlers.docs",
@@ -488,8 +497,7 @@ module = [
     # Nomic phases (complex orchestration)
     "aragora.nomic.phases.*",
     "aragora.nomic.checkpoints",
-    # Plugins - runner has dynamic loading, builtins promoted to strict
-    "aragora.plugins.runner",
+    # Plugins - all promoted to strict in Phase 18
     # Verification (Z3/Lean types)
     "aragora.verification.proofs",
     "aragora.verification.formal",
@@ -539,7 +547,6 @@ module = [
     "aragora.server.middleware.*",
     "aragora.server.handlers.admin.cache",
     "aragora.server.handlers.utils.database",
-    "aragora.plugins.runner",
     "aragora.nomic.recovery",
     "aragora.logging_config",
     "aragora.agents.api_agents.rate_limiter",
