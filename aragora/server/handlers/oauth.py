@@ -48,9 +48,19 @@ _oauth_limiter = RateLimiter(requests_per_minute=20)
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
     try:
-        from aragora.config.secrets import get_secret
-        return get_secret(name, default) or default
+        from aragora.config.secrets import get_secret, get_secret_manager
+        # Debug: check if secrets were loaded
+        manager = get_secret_manager()
+        if not manager._initialized:
+            manager._initialize()
+        cached_count = len(manager._cached_secrets)
+        logger.debug(f"Secrets manager: initialized={manager._initialized}, cached={cached_count}")
+        result = get_secret(name, default) or default
+        return result
     except ImportError:
+        return os.environ.get(name, default)
+    except Exception as e:
+        logger.error(f"Error getting secret {name}: {e}")
         return os.environ.get(name, default)
 
 
@@ -990,11 +1000,23 @@ class OAuthHandler(BaseHandler):
             )
 
         # Temporary debug info
+        try:
+            from aragora.config.secrets import get_secret_manager
+            manager = get_secret_manager()
+            cached_secrets_count = len(manager._cached_secrets)
+            aws_client_ok = manager._get_aws_client() is not None
+        except Exception as e:
+            cached_secrets_count = -1
+            aws_client_ok = False
+            logger.error(f"Debug error: {e}")
+
         debug_info = {
             "google_id_set": bool(google_id),
             "github_id_set": bool(github_id),
             "use_aws": use_aws,
             "env": env_mode,
+            "cached_secrets_count": cached_secrets_count,
+            "aws_client_ok": aws_client_ok,
         }
         return json_response({"providers": providers, "_debug": debug_info})
 
