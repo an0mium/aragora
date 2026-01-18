@@ -535,6 +535,14 @@ class ControlPlaneHandler(BaseHandler):
             if not success:
                 return error_response(f"Task not found: {task_id}", 404)
 
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_task_completed",
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                result=result,
+            )
+
             return json_response({"completed": True})
         except Exception as e:
             logger.error(f"Error completing task: {e}")
@@ -569,6 +577,15 @@ class ControlPlaneHandler(BaseHandler):
 
             if not success:
                 return error_response(f"Task not found: {task_id}", 404)
+
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_task_failed",
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                error=error,
+                retries_left=0,  # Coordinator tracks retries
+            )
 
             return json_response({"failed": True})
         except Exception as e:
@@ -632,6 +649,13 @@ class ControlPlaneHandler(BaseHandler):
 
             if not success:
                 return error_response(f"Agent not found: {agent_id}", 404)
+
+            # Emit event for real-time streaming
+            self._emit_event(
+                "emit_agent_unregistered",
+                agent_id=agent_id,
+                reason="manual_unregistration",
+            )
 
             return json_response({"unregistered": True})
         except Exception as e:
