@@ -414,6 +414,12 @@ module = [
     "aragora.server.handlers.debates.export",
     "aragora.server.handlers.debates.analysis",
     "aragora.server.handlers.debates.search",
+    # Added strict - Phase 17 mypy expansion (Jan 2026)
+    "aragora.memory.continuum",
+    "aragora.debate.phases.critique",
+    "aragora.queue.status",
+    "aragora.agents.api_agents.common",
+    "aragora.debate.convergence",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
