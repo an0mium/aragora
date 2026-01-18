@@ -45,6 +45,12 @@ ALLOWED_QUERY_PARAMS = {
     "lines": None,
     # Belief network
     "top_k": None,
+    # OAuth
+    "redirect_url": 500,  # Where to redirect after OAuth
+    "code": 500,  # OAuth authorization code
+    "state": 500,  # OAuth state parameter
+    "error": 200,  # OAuth error
+    "error_description": 500,  # OAuth error description
 }
 
 
