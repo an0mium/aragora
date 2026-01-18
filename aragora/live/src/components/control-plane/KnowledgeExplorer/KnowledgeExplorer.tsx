@@ -7,9 +7,10 @@ import { useKnowledgeExplorerStore } from '@/store/knowledgeExplorerStore';
 import { QueryInterface } from './QueryInterface';
 import { NodeBrowser } from './NodeBrowser';
 import { GraphViewer } from './GraphViewer';
+import { StaleKnowledgeTab, type StaleNode } from './StaleKnowledgeTab';
 import type { KnowledgeNode, GraphNode } from '@/store/knowledgeExplorerStore';
 
-export type ExplorerTab = 'search' | 'browse' | 'graph';
+export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale';
 
 export interface KnowledgeExplorerProps {
   /** Initial tab to show */
@@ -224,6 +225,20 @@ export function KnowledgeExplorer({
         />
       </div>
     ),
+
+    stale: (
+      <StaleKnowledgeTab
+        nodes={(stats?.stale_nodes || []) as StaleNode[]}
+        loading={statsLoading}
+        onRevalidate={async (_nodeId: string) => {
+          await loadStats();
+        }}
+        onScheduleRevalidation={async (_nodeIds: string[]) => {
+          await loadStats();
+        }}
+        onRefresh={loadStats}
+      />
+    ),
   };
 
   return (
@@ -237,6 +252,7 @@ export function KnowledgeExplorer({
         { id: 'search', label: 'Search', content: tabContent.search },
         { id: 'browse', label: 'Browse', badge: totalNodes, content: tabContent.browse },
         { id: 'graph', label: 'Graph', content: tabContent.graph },
+        { id: 'stale', label: 'Stale', badge: stats?.stale_nodes_count, content: tabContent.stale },
       ]}
       activeTab={activeTab}
       onTabChange={(tab) => setActiveTab(tab as ExplorerTab)}

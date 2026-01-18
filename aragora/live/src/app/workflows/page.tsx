@@ -88,13 +88,22 @@ export default function WorkflowsPage() {
             </p>
           </div>
 
-          <Link
-            href="/workflows/builder"
-            className="px-6 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded flex items-center gap-2"
-          >
-            <span>+</span>
-            <span>New Workflow</span>
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href="/workflows/runtime"
+              className="px-4 py-3 bg-surface border border-border text-text font-mono hover:border-acid-green transition-colors rounded flex items-center gap-2"
+            >
+              <span>📊</span>
+              <span>Runtime</span>
+            </Link>
+            <Link
+              href="/workflows/builder"
+              className="px-6 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded flex items-center gap-2"
+            >
+              <span>+</span>
+              <span>New Workflow</span>
+            </Link>
+          </div>
         </div>
       </div>
 

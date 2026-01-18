@@ -16,7 +16,17 @@ import {
   WorkflowBuilder,
   KnowledgeExplorer,
   ExecutionMonitor,
+  PolicyDashboard,
+  WorkspaceManager,
+  ConnectorDashboard,
 } from '@/components/control-plane';
+
+// Verticals Components
+import {
+  VerticalSelector,
+  KnowledgeExplorer as VerticalKnowledgeExplorer,
+  ExecutionMonitor as VerticalExecutionMonitor,
+} from '@/components/verticals';
 
 interface Agent {
   id: string;
@@ -50,7 +60,7 @@ interface SystemMetrics {
   tokens_used_today: number;
 }
 
-type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'executions' | 'queue' | 'settings';
+type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'connectors' | 'executions' | 'queue' | 'verticals' | 'policy' | 'workspace' | 'settings';
 
 export default function ControlPlanePage() {
   const { config: backendConfig } = useBackend();
@@ -61,6 +71,57 @@ export default function ControlPlanePage() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [useWebSocket, setUseWebSocket] = useState(true);
+
+  // WebSocket connection for real-time updates
+  const {
+    isConnected: wsConnected,
+    agents: wsAgents,
+    jobs: wsJobs,
+    metrics: wsMetrics,
+    recentFindings,
+    reconnect: wsReconnect,
+  } = useControlPlaneWebSocket({
+    enabled: useWebSocket,
+    autoReconnect: true,
+    onFindingDetected: (finding) => {
+      // Could show a toast notification here
+      console.log('New finding detected:', finding.title);
+    },
+  });
+
+  // Use WebSocket data when connected, otherwise use REST data
+  const displayAgents = wsConnected && wsAgents.length > 0 ? wsAgents.map(a => ({
+    id: a.id,
+    name: a.name,
+    model: a.model,
+    status: a.status,
+    current_task: a.current_task,
+    requests_today: a.requests_today,
+    tokens_used: a.tokens_used,
+    last_active: a.last_active,
+  })) : agents;
+
+  const displayJobs = wsConnected && wsJobs.length > 0 ? wsJobs.map(j => ({
+    id: j.id,
+    type: j.type,
+    name: j.name,
+    status: j.status,
+    progress: j.progress,
+    started_at: j.started_at,
+    document_count: j.document_count,
+    agents_assigned: j.agents_assigned,
+  })) : jobs;
+
+  const displayMetrics = wsConnected && wsMetrics ? {
+    active_jobs: wsMetrics.active_jobs,
+    queued_jobs: wsMetrics.queued_jobs,
+    agents_available: wsMetrics.agents_available,
+    agents_busy: wsMetrics.agents_busy,
+    documents_processed_today: wsMetrics.documents_processed_today,
+    audits_completed_today: wsMetrics.audits_completed_today,
+    tokens_used_today: wsMetrics.tokens_used_today,
+  } : metrics;
 
   // Fetch agents
   const fetchAgents = useCallback(async () => {
@@ -143,14 +204,17 @@ export default function ControlPlanePage() {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Auto-refresh
+  // Auto-refresh (fallback to polling when WebSocket is not connected)
   useEffect(() => {
+    // Skip polling if WebSocket is connected and providing data
+    if (wsConnected && (wsAgents.length > 0 || wsJobs.length > 0)) return;
     if (!autoRefresh) return;
+
     const interval = setInterval(() => {
       fetchAllData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchAllData]);
+  }, [autoRefresh, fetchAllData, wsConnected, wsAgents.length, wsJobs.length]);
 
   const pauseJob = async (jobId: string) => {
     try {
@@ -208,11 +272,15 @@ export default function ControlPlanePage() {
 
   const tabs = [
     { id: 'overview' as TabId, label: 'OVERVIEW' },
-    { id: 'agents' as TabId, label: 'AGENTS', count: agents.length },
+    { id: 'agents' as TabId, label: 'AGENTS', count: displayAgents.length },
     { id: 'workflows' as TabId, label: 'WORKFLOWS' },
     { id: 'knowledge' as TabId, label: 'KNOWLEDGE' },
+    { id: 'connectors' as TabId, label: 'CONNECTORS' },
     { id: 'executions' as TabId, label: 'EXECUTIONS' },
-    { id: 'queue' as TabId, label: 'QUEUE', count: jobs.filter(j => j.status === 'running' || j.status === 'queued').length },
+    { id: 'queue' as TabId, label: 'QUEUE', count: displayJobs.filter(j => j.status === 'running' || j.status === 'queued').length },
+    { id: 'verticals' as TabId, label: 'VERTICALS' },
+    { id: 'policy' as TabId, label: 'POLICY' },
+    { id: 'workspace' as TabId, label: 'WORKSPACE' },
     { id: 'settings' as TabId, label: 'SETTINGS' },
   ];
 
@@ -229,13 +297,29 @@ export default function ControlPlanePage() {
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
+              {usingMockData && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-900/20 border border-yellow-600/30 rounded text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                  <span className="font-mono text-yellow-400">DEMO MODE</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
+                {wsConnected ? (
+                  <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" title="WebSocket connected" />
+                ) : (
+                  <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
+                )}
                 <button
-                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  onClick={() => {
+                    if (wsConnected) {
+                      setUseWebSocket(!useWebSocket);
+                    } else {
+                      setAutoRefresh(!autoRefresh);
+                    }
+                  }}
                   className="text-xs font-mono text-text-muted hover:text-text transition-colors"
                 >
-                  {autoRefresh ? 'LIVE' : 'PAUSED'}
+                  {wsConnected ? 'WS LIVE' : autoRefresh ? 'POLLING' : 'PAUSED'}
                 </button>
               </div>
               <Link
@@ -296,37 +380,37 @@ export default function ControlPlanePage() {
             ) : (
               <>
                 {/* Overview Tab */}
-                {activeTab === 'overview' && metrics && (
+                {activeTab === 'overview' && displayMetrics && (
                   <div className="space-y-6">
                     {/* Metrics Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="card p-4">
                         <div className="text-xs font-mono text-text-muted mb-1">ACTIVE JOBS</div>
-                        <div className="text-2xl font-mono text-acid-cyan">{metrics.active_jobs}</div>
+                        <div className="text-2xl font-mono text-acid-cyan">{displayMetrics.active_jobs}</div>
                       </div>
                       <div className="card p-4">
                         <div className="text-xs font-mono text-text-muted mb-1">QUEUED</div>
-                        <div className="text-2xl font-mono text-acid-yellow">{metrics.queued_jobs}</div>
+                        <div className="text-2xl font-mono text-acid-yellow">{displayMetrics.queued_jobs}</div>
                       </div>
                       <div className="card p-4">
                         <div className="text-xs font-mono text-text-muted mb-1">AGENTS AVAILABLE</div>
-                        <div className="text-2xl font-mono text-success">{metrics.agents_available}/{metrics.agents_available + metrics.agents_busy}</div>
+                        <div className="text-2xl font-mono text-success">{displayMetrics.agents_available}/{displayMetrics.agents_available + displayMetrics.agents_busy}</div>
                       </div>
                       <div className="card p-4">
                         <div className="text-xs font-mono text-text-muted mb-1">TOKENS TODAY</div>
-                        <div className="text-2xl font-mono">{formatTokens(metrics.tokens_used_today)}</div>
+                        <div className="text-2xl font-mono">{formatTokens(displayMetrics.tokens_used_today)}</div>
                       </div>
                     </div>
 
                     {/* Agent Workflow Visualization */}
                     <div className="card p-4">
                       <AgentWorkflowVisualization
-                        agents={agents.map(a => ({
+                        agents={displayAgents.map(a => ({
                           ...a,
                           requests_today: a.requests_today,
                           tokens_used: a.tokens_used,
                         }))}
-                        jobs={jobs.map(j => ({
+                        jobs={displayJobs.map(j => ({
                           ...j,
                           agents_assigned: j.agents_assigned,
                         }))}
@@ -345,12 +429,12 @@ export default function ControlPlanePage() {
                         <h2 className="font-mono text-sm text-acid-green">Active Jobs</h2>
                       </div>
                       <div className="p-4 space-y-3">
-                        {jobs.filter(j => j.status === 'running').length === 0 ? (
+                        {displayJobs.filter(j => j.status === 'running').length === 0 ? (
                           <div className="text-center text-text-muted font-mono text-sm py-4">
                             No active jobs
                           </div>
                         ) : (
-                          jobs.filter(j => j.status === 'running').map(job => (
+                          displayJobs.filter(j => j.status === 'running').map(job => (
                             <div key={job.id} className="bg-surface p-3 rounded border border-border">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="font-mono text-sm">{job.name}</span>
@@ -380,7 +464,7 @@ export default function ControlPlanePage() {
                         <h2 className="font-mono text-sm text-acid-green">Agent Status</h2>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
-                        {agents.map(agent => (
+                        {displayAgents.map(agent => (
                           <div key={agent.id} className="bg-surface p-3 rounded border border-border">
                             <div className="flex items-center gap-2 mb-2">
                               <span className={`w-2 h-2 rounded-full ${
@@ -436,6 +520,15 @@ export default function ControlPlanePage() {
                   />
                 )}
 
+                {/* Connectors Tab */}
+                {activeTab === 'connectors' && (
+                  <ConnectorDashboard
+                    onSelectConnector={(connector) => {
+                      console.log('Connector selected:', connector.name);
+                    }}
+                  />
+                )}
+
                 {/* Executions Tab */}
                 {activeTab === 'executions' && (
                   <ExecutionMonitor
@@ -448,12 +541,24 @@ export default function ControlPlanePage() {
                 {/* Queue Tab */}
                 {activeTab === 'queue' && (
                   <div className="space-y-4">
-                    {jobs.length === 0 ? (
+                    {/* Real-time indicator */}
+                    {wsConnected && (
+                      <div className="flex items-center gap-2 text-xs font-mono text-acid-green mb-2">
+                        <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
+                        Real-time updates via WebSocket
+                        {recentFindings.length > 0 && (
+                          <span className="ml-2 px-2 py-0.5 bg-acid-green/20 rounded">
+                            {recentFindings.length} recent findings
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {displayJobs.length === 0 ? (
                       <div className="card p-8 text-center">
                         <div className="font-mono text-text-muted">No jobs in queue</div>
                       </div>
                     ) : (
-                      jobs.map(job => (
+                      displayJobs.map(job => (
                         <div key={job.id} className="card p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
@@ -524,6 +629,42 @@ export default function ControlPlanePage() {
                       ))
                     )}
                   </div>
+                )}
+
+                {/* Verticals Tab */}
+                {activeTab === 'verticals' && (
+                  <div className="space-y-6">
+                    <VerticalSelector
+                      onSelect={(vertical) => {
+                        console.log('Vertical selected:', vertical.id);
+                      }}
+                    />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="h-[400px]">
+                        <VerticalKnowledgeExplorer />
+                      </div>
+                      <div className="h-[400px]">
+                        <VerticalExecutionMonitor />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Policy Tab */}
+                {activeTab === 'policy' && (
+                  <PolicyDashboard />
+                )}
+
+                {/* Workspace Tab */}
+                {activeTab === 'workspace' && (
+                  <WorkspaceManager
+                    onWorkspaceSelect={(workspace) => {
+                      console.log('Workspace selected:', workspace.id);
+                    }}
+                    onWorkspaceUpdate={(workspace) => {
+                      console.log('Workspace updated:', workspace.id);
+                    }}
+                  />
                 )}
 
                 {/* Settings Tab */}

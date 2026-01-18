@@ -150,3 +150,40 @@ export {
   selectGraphHasData,
   selectIsAnyPanelOpen,
 } from './knowledgeExplorerStore';
+
+// Control Plane store - agent registry and task scheduling
+export {
+  useControlPlaneStore,
+  // Types
+  type AgentStatus,
+  type TaskStatus,
+  type TaskPriority,
+  type ControlPlaneAgent,
+  type ControlPlaneTask,
+  type ControlPlaneHealth,
+  type ControlPlaneStats,
+  // Selectors
+  selectAgents,
+  selectAgentsLoading,
+  selectAgentsError,
+  selectTasks,
+  selectTasksLoading,
+  selectTasksError,
+  selectTaskFilters,
+  selectHealth,
+  selectHealthLoading,
+  selectStats as selectControlPlaneStats,
+  selectStatsLoading,
+  selectIsConnected,
+  selectLastUpdate,
+  selectSelectedAgentId,
+  selectSelectedTaskId,
+  selectAgentById,
+  selectTaskById,
+  selectAgentsByStatus,
+  selectTasksByStatus,
+  selectFilteredTasks,
+  selectIsHealthy,
+  selectAgentCount,
+  selectTaskCount,
+} from './controlPlaneStore';

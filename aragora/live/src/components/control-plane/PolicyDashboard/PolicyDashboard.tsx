@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApi } from '@/hooks/useApi';
 import { useBackend } from '@/components/BackendSelector';
+import { usePolicies } from '@/hooks/usePolicies';
 import { ComplianceFrameworkList, type ComplianceFramework } from './ComplianceFrameworkList';
 import { ViolationTracker, type ComplianceViolation } from './ViolationTracker';
 import { RiskOverview } from './RiskOverview';
@@ -25,11 +26,39 @@ export function PolicyDashboard({
   const { config: backendConfig } = useBackend();
   const api = useApi(backendConfig?.api);
 
+  // Use the policies hook for violations and stats
+  const {
+    violations: policyViolations,
+    loading: violationsLoading,
+    riskScore,
+    openViolations,
+    criticalViolations,
+    updateViolationStatus,
+    refetch: refetchViolations,
+  } = usePolicies({ autoLoad: true });
+
   const [activeTab, setActiveTab] = useState<PolicyTab>(defaultTab);
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
-  const [violations, setViolations] = useState<ComplianceViolation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [frameworksLoading, setFrameworksLoading] = useState(true);
   const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
+
+  // Map policy violations to ComplianceViolation format for ViolationTracker
+  const violations: ComplianceViolation[] = useMemo(() =>
+    policyViolations.map((v) => ({
+      id: v.id,
+      rule_id: v.rule_id,
+      rule_name: v.rule_name,
+      framework_id: v.framework_id,
+      vertical_id: v.vertical_id,
+      severity: v.severity,
+      status: v.status,
+      description: v.description,
+      source: v.source,
+      detected_at: v.detected_at,
+      resolved_at: v.resolved_at,
+    })),
+    [policyViolations]
+  );
 
   // Available verticals
   const verticals = useMemo(() => [
@@ -40,8 +69,9 @@ export function PolicyDashboard({
     { id: 'research', name: 'Research' },
   ], []);
 
-  // Load frameworks from API
+  // Load frameworks from verticals API
   const loadFrameworks = useCallback(async () => {
+    setFrameworksLoading(true);
     try {
       const allFrameworks: ComplianceFramework[] = [];
 
@@ -70,66 +100,35 @@ export function PolicyDashboard({
             });
           });
         } catch {
-          // Skip verticals that fail
+          // Skip verticals that fail - will be empty
         }
       }
 
-      if (allFrameworks.length === 0) {
-        // Mock data
-        setFrameworks([
-          { framework_id: 'owasp', name: 'OWASP Top 10', description: 'Web application security risks', level: 'mandatory', vertical_id: 'software', rules_count: 10, enabled: true },
-          { framework_id: 'cwe', name: 'CWE', description: 'Common Weakness Enumeration', level: 'recommended', vertical_id: 'software', rules_count: 25, enabled: true },
-          { framework_id: 'gdpr', name: 'GDPR', description: 'General Data Protection Regulation', level: 'mandatory', vertical_id: 'legal', rules_count: 15, enabled: true },
-          { framework_id: 'hipaa', name: 'HIPAA', description: 'Health Insurance Portability Act', level: 'mandatory', vertical_id: 'healthcare', rules_count: 18, enabled: true },
-          { framework_id: 'sox', name: 'SOX', description: 'Sarbanes-Oxley Act', level: 'mandatory', vertical_id: 'accounting', rules_count: 12, enabled: true },
-          { framework_id: 'irb', name: 'IRB', description: 'Institutional Review Board', level: 'mandatory', vertical_id: 'research', rules_count: 8, enabled: true },
-        ]);
-      } else {
-        setFrameworks(allFrameworks);
-      }
-    } catch (err) {
-      console.error('Failed to load frameworks:', err);
+      setFrameworks(allFrameworks);
+    } catch {
+      setFrameworks([]);
+    } finally {
+      setFrameworksLoading(false);
     }
   }, [api, verticals]);
 
-  // Load violations
-  const loadViolations = useCallback(async () => {
-    try {
-      const response = await api.get('/api/compliance/violations') as { violations: ComplianceViolation[] };
-      setViolations(response.violations || []);
-    } catch {
-      setViolations([
-        { id: 'v_001', rule_id: 'owasp_a03', rule_name: 'SQL Injection Prevention', framework_id: 'owasp', vertical_id: 'software', severity: 'critical', status: 'open', description: 'Potential SQL injection in user input', source: 'src/api/users.py:42', detected_at: new Date().toISOString() },
-        { id: 'v_002', rule_id: 'hipaa_phi', rule_name: 'PHI Protection', framework_id: 'hipaa', vertical_id: 'healthcare', severity: 'high', status: 'investigating', description: 'PHI detected in logs', source: 'logs/app.log:1542', detected_at: new Date(Date.now() - 86400000).toISOString() },
-        { id: 'v_003', rule_id: 'gdpr_consent', rule_name: 'Consent Management', framework_id: 'gdpr', vertical_id: 'legal', severity: 'medium', status: 'resolved', description: 'Missing consent banner', source: 'forms/signup.tsx', detected_at: new Date(Date.now() - 172800000).toISOString(), resolved_at: new Date(Date.now() - 86400000).toISOString() },
-      ]);
-    }
-  }, [api]);
-
-  // Load data
+  // Load frameworks on mount
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      await Promise.all([loadFrameworks(), loadViolations()]);
-      setLoading(false);
-    };
-    load();
-  }, [loadFrameworks, loadViolations]);
+    loadFrameworks();
+  }, [loadFrameworks]);
 
-  // Stats
+  // Combined loading state
+  const loading = frameworksLoading || violationsLoading;
+
+  // Stats - use values from the hook for violations
   const stats = useMemo(() => ({
     totalFrameworks: frameworks.length,
     enabledFrameworks: frameworks.filter((f) => f.enabled).length,
     totalRules: frameworks.reduce((acc, f) => acc + f.rules_count, 0),
-    openViolations: violations.filter((v) => v.status !== 'resolved').length,
-    criticalViolations: violations.filter((v) => v.severity === 'critical' && v.status !== 'resolved').length,
-    riskScore: Math.min(100,
-      violations.filter((v) => v.status !== 'resolved').reduce((acc, v) => {
-        const weights = { critical: 25, high: 10, medium: 5, low: 2 };
-        return acc + (weights[v.severity] || 0);
-      }, 0)
-    ),
-  }), [frameworks, violations]);
+    openViolations: openViolations.length,
+    criticalViolations: criticalViolations.length,
+    riskScore,
+  }), [frameworks, openViolations, criticalViolations, riskScore]);
 
   const tabs: Array<{ id: PolicyTab; label: string; badge?: number }> = [
     { id: 'overview', label: 'Overview' },

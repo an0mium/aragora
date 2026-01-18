@@ -85,6 +85,16 @@ export interface GraphResult {
   depth: number;
 }
 
+export interface StaleNodeInfo {
+  id: string;
+  content: string;
+  node_type: NodeType;
+  confidence: number;
+  staleReason: string;
+  lastValidated?: string;
+  daysStale: number;
+}
+
 export interface MoundStats {
   total_nodes: number;
   nodes_by_type: Record<NodeType, number>;
@@ -92,6 +102,7 @@ export interface MoundStats {
   total_relationships: number;
   avg_confidence: number;
   stale_nodes_count: number;
+  stale_nodes?: StaleNodeInfo[];
 }
 
 // ============================================================================
@@ -167,7 +178,7 @@ interface KnowledgeExplorerState {
   statsLoading: boolean;
 
   // Active tab
-  activeTab: 'search' | 'browse' | 'graph';
+  activeTab: 'search' | 'browse' | 'graph' | 'stale';
 }
 
 interface KnowledgeExplorerActions {
@@ -225,7 +236,7 @@ interface KnowledgeExplorerActions {
   setStatsLoading: (loading: boolean) => void;
 
   // Tab navigation
-  setActiveTab: (tab: 'search' | 'browse' | 'graph') => void;
+  setActiveTab: (tab: 'search' | 'browse' | 'graph' | 'stale') => void;
 
   // Reset
   resetExplorer: () => void;

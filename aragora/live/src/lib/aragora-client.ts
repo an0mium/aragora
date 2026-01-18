@@ -1758,6 +1758,85 @@ class DocumentsAPI {
 }
 
 // =============================================================================
+// Control Plane API
+// =============================================================================
+
+export type ControlPlaneAgentStatus = 'starting' | 'available' | 'busy' | 'draining' | 'offline' | 'failed';
+
+export interface ControlPlaneAgent {
+  agent_id: string;
+  capabilities: string[];
+  model: string;
+  provider: string;
+  status: ControlPlaneAgentStatus;
+  metadata?: Record<string, unknown>;
+  tasks_completed?: number;
+  tasks_failed?: number;
+  avg_latency_ms?: number;
+  last_heartbeat?: string;
+  registered_at?: string;
+}
+
+export interface ControlPlaneTask {
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  assigned_agent?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  error?: string;
+}
+
+export interface ControlPlaneHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  agents: Record<string, {
+    agent_id: string;
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    last_heartbeat?: string;
+    latency_ms?: number;
+    error_rate?: number;
+  }>;
+  agents_available?: number;
+  agents_total?: number;
+  active_tasks?: number;
+  uptime_seconds?: number;
+  timestamp?: string;
+}
+
+class ControlPlaneAPI {
+  constructor(private http: HttpClient) {}
+
+  async listAgents(): Promise<{ agents: ControlPlaneAgent[] }> {
+    return this.http.get('/api/control-plane/agents');
+  }
+
+  async getAgent(agentId: string): Promise<{ agent: ControlPlaneAgent }> {
+    return this.http.get(`/api/control-plane/agents/${agentId}`);
+  }
+
+  async listTasks(): Promise<{ tasks: ControlPlaneTask[] }> {
+    return this.http.get('/api/control-plane/tasks');
+  }
+
+  async getTask(taskId: string): Promise<{ task: ControlPlaneTask }> {
+    return this.http.get(`/api/control-plane/tasks/${taskId}`);
+  }
+
+  async createTask(task: { name: string; agent_id?: string }): Promise<{ task: ControlPlaneTask }> {
+    return this.http.post('/api/control-plane/tasks', task);
+  }
+
+  async cancelTask(taskId: string): Promise<{ success: boolean }> {
+    return this.http.post(`/api/control-plane/tasks/${taskId}/cancel`, {});
+  }
+
+  async health(): Promise<{ health: ControlPlaneHealth }> {
+    return this.http.get('/api/control-plane/health');
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1785,6 +1864,8 @@ export class AragoraClient {
   readonly gauntlet: GauntletAPI;
   // Document Management & Auditing
   readonly documents: DocumentsAPI;
+  // Control Plane
+  readonly controlPlane: ControlPlaneAPI;
 
   constructor(config: AragoraClientConfig) {
     this.http = new HttpClient(config);
@@ -1810,6 +1891,8 @@ export class AragoraClient {
     this.gauntlet = new GauntletAPI(this.http);
     // Document Management & Auditing
     this.documents = new DocumentsAPI(this.http);
+    // Control Plane
+    this.controlPlane = new ControlPlaneAPI(this.http);
   }
 
   async health(): Promise<HealthStatus> {

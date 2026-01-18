@@ -68,3 +68,64 @@ export {
   type ComplianceViolation,
   type RiskOverviewProps,
 } from './PolicyDashboard';
+
+// Workspace Manager
+export {
+  WorkspaceManager,
+  WorkspaceSettings,
+  TeamAccessPanel,
+  type WorkspaceManagerProps,
+  type Workspace,
+  type WorkspaceMember,
+  type WorkspaceSettingsProps,
+  type TeamAccessPanelProps,
+} from './WorkspaceManager';
+
+// Fine-tuning Pipeline
+export {
+  FineTuningDashboard,
+  ModelSelector,
+  TrainingConfig,
+  JobMonitor,
+  type FineTuningDashboardProps,
+  type FineTuningJob,
+  type ModelSelectorProps,
+  type AvailableModel,
+  type TrainingConfigProps,
+  type TrainingParameters,
+  type JobMonitorProps,
+} from './FineTuning';
+
+// Connector Dashboard
+export {
+  ConnectorDashboard,
+  ConnectorCard,
+  ConnectorConfigModal,
+  SyncStatusWidget,
+  type ConnectorDashboardProps,
+  type ConnectorFilter,
+  type DashboardTab,
+  type ConnectorCardProps,
+  type ConnectorInfo,
+  type ConnectorType,
+  type ConnectorStatus,
+  type ConnectorConfigModalProps,
+  type ConnectorConfigField,
+  type SyncStatusWidgetProps,
+  type SyncHistoryItem,
+} from './ConnectorDashboard';
+
+// Template Gallery
+export {
+  TemplateGallery,
+  TemplateCard,
+  TemplatePreview,
+  type TemplateGalleryProps,
+  type TemplateFilter as GalleryTemplateFilter,
+  type TemplateSort,
+  type TemplateCardProps,
+  type WorkflowTemplate,
+  type WorkflowStep,
+  type WorkflowCategory,
+  type TemplatePreviewProps,
+} from './TemplateGallery';
