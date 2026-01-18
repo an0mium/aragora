@@ -43,6 +43,7 @@ from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
 from .consensus import ConsensusHandler
+from .control_plane import ControlPlaneHandler
 from .critique import CritiqueHandler
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
@@ -122,6 +123,7 @@ ALL_HANDLERS = [
     MetricsHandler,
     ConsensusHandler,
     BeliefHandler,
+    ControlPlaneHandler,  # Enterprise control plane API
     CritiqueHandler,
     GenesisHandler,
     ReplaysHandler,
@@ -209,6 +211,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
+    "ControlPlaneHandler": Stability.EXPERIMENTAL,  # Enterprise control plane - Phase 0
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
@@ -311,6 +314,7 @@ __all__ = [
     "MetricsHandler",
     "ConsensusHandler",
     "BeliefHandler",
+    "ControlPlaneHandler",
     "CritiqueHandler",
     "GenesisHandler",
     "ReplaysHandler",
