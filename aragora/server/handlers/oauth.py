@@ -353,6 +353,7 @@ class OAuthHandler(BaseHandler):
         "/api/auth/oauth/link",
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
+        "/api/auth/oauth/debug",  # Temporary debug endpoint
         "/api/user/oauth-providers",
     ]
 
