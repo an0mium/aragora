@@ -136,8 +136,8 @@ export function AgentWorkflowVisualization({
     const agentNodes: WorkflowNode[] = agents.map((agent) => ({
       id: `agent-${agent.id}`,
       type: 'agent' as WorkflowNodeType,
-      label: agent.name,
-      status: agent.status === 'working' ? 'working' : agent.status === 'error' ? 'error' : 'idle',
+      label: agent.name || agent.id,
+      status: agent.status === 'working' || agent.status === 'busy' ? 'working' : agent.status === 'error' ? 'error' : 'idle',
       agent,
     }));
 
@@ -397,7 +397,7 @@ export function AgentWorkflowVisualization({
   const activeJobs = jobs.filter((j) => j.status === 'running');
   const totalProgress =
     activeJobs.length > 0
-      ? activeJobs.reduce((sum, j) => sum + j.progress, 0) / activeJobs.length
+      ? activeJobs.reduce((sum, j) => sum + (j.progress ?? 0), 0) / activeJobs.length
       : 0;
 
   return (
@@ -454,8 +454,8 @@ export function AgentWorkflowVisualization({
           {selectedNode.agent && (
             <div className="space-y-1 text-xs font-mono text-text-muted">
               <div>Model: {selectedNode.agent.model}</div>
-              <div>Requests: {selectedNode.agent.requests_today}</div>
-              <div>Tokens: {selectedNode.agent.tokens_used.toLocaleString()}</div>
+              <div>Requests: {selectedNode.agent.requests_today ?? 0}</div>
+              <div>Tokens: {(selectedNode.agent.tokens_used ?? 0).toLocaleString()}</div>
               {selectedNode.agent.current_task && (
                 <div className="mt-2 p-2 bg-bg rounded text-acid-cyan">
                   {selectedNode.agent.current_task}

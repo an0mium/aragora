@@ -8,26 +8,31 @@ export type BackendType = 'production' | 'development';
 interface BackendConfig {
   api: string;
   ws: string;
+  controlPlaneWs?: string;
   label: string;
   description: string;
   fallbackApi?: string;
   fallbackWs?: string;
+  fallbackControlPlaneWs?: string;
 }
 
 export const BACKENDS: Record<BackendType, BackendConfig> = {
   production: {
     api: 'https://api.aragora.ai',
     ws: 'wss://api.aragora.ai/ws',
+    controlPlaneWs: 'wss://api.aragora.ai/api/control-plane/stream',
     label: 'PROD',
     description: 'AWS Lightsail (always-on)',
   },
   development: {
     api: 'https://api-dev.aragora.ai',
     ws: 'wss://api-dev.aragora.ai/ws',
+    controlPlaneWs: 'wss://api-dev.aragora.ai/api/control-plane/stream',
     label: 'DEV',
     description: 'Local Mac (via tunnel or localhost)',
     fallbackApi: 'http://localhost:8080',
     fallbackWs: 'ws://localhost:8765/ws',
+    fallbackControlPlaneWs: 'ws://localhost:8766/api/control-plane/stream',
   },
 };
 

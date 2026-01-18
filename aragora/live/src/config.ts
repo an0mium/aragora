@@ -11,6 +11,7 @@
 // === API Configuration ===
 const _API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const _WS_URL = process.env.NEXT_PUBLIC_WS_URL;
+const _CONTROL_PLANE_WS_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_WS_URL;
 
 // Warn in browser when env vars are missing (only warn once)
 if (typeof window !== 'undefined') {
@@ -30,6 +31,7 @@ if (typeof window !== 'undefined') {
 
 export const API_BASE_URL = _API_BASE_URL || 'http://localhost:8080';
 export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
+export const CONTROL_PLANE_WS_URL = _CONTROL_PLANE_WS_URL || 'ws://localhost:8766/api/control-plane/stream';
 
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');

@@ -147,45 +147,102 @@ export function useControlPlane({
   const setSelectedTaskId = useControlPlaneStore((s) => s.setSelectedTaskId);
 
   // Real-time updates via WebSocket
-  const { isConnected: wsConnected } = useControlPlaneWebSocket({
+  const { isConnected: wsConnected, agents: wsAgentsMap, tasks: wsTasksMap } = useControlPlaneWebSocket({
     enabled: enableRealtime,
-    onAgentStatusChange: (agent) => {
-      // Map WebSocket agent format to store format
+    onAgentRegistered: (agentId, data) => {
+      // Add new agent to store
       updateAgent({
-        agent_id: agent.id,
-        name: agent.name,
-        provider: '',
-        model: agent.model,
-        capabilities: [],
-        status: agent.status === 'idle' ? 'available' : agent.status === 'working' ? 'busy' : agent.status === 'rate_limited' ? 'draining' : 'offline',
+        agent_id: agentId,
+        name: (data.name as string) || agentId,
+        provider: (data.provider as string) || '',
+        model: (data.model as string) || 'unknown',
+        capabilities: (data.capabilities as string[]) || [],
+        status: 'available',
       });
       setLastUpdate(Date.now());
     },
-    onJobProgress: (job) => {
-      // Map job to task format
+    onAgentStatusChanged: (agentId, _oldStatus, newStatus) => {
+      // Map WebSocket agent format to store format
+      const statusMap: Record<string, 'available' | 'busy' | 'draining' | 'offline'> = {
+        idle: 'available',
+        busy: 'busy',
+        working: 'busy',
+        rate_limited: 'draining',
+        error: 'offline',
+        offline: 'offline',
+      };
+      // Get current agent data from map
+      const agent = wsAgentsMap.get(agentId);
+      updateAgent({
+        agent_id: agentId,
+        name: agent?.name || agentId,
+        provider: agent?.provider || '',
+        model: agent?.model || 'unknown',
+        capabilities: agent?.capabilities || [],
+        status: statusMap[newStatus] || 'offline',
+      });
+      setLastUpdate(Date.now());
+    },
+    onTaskSubmitted: (taskId, data) => {
+      // Add new task to store
       updateTask({
-        id: job.id,
-        name: job.name,
-        status: job.status === 'queued' ? 'pending' : job.status as ControlPlaneTask['status'],
-        assigned_agent: job.agents_assigned[0],
-        created_at: job.started_at || new Date().toISOString(),
-        started_at: job.started_at,
-        completed_at: job.completed_at,
-        error: job.error_message,
+        id: taskId,
+        name: (data.task_type as string) || taskId,
+        status: 'pending',
+        created_at: new Date().toISOString(),
       });
       setLastUpdate(Date.now());
     },
-    onMetricsUpdate: (metrics) => {
+    onTaskClaimed: (taskId, agentId) => {
+      const task = wsTasksMap.get(taskId);
+      updateTask({
+        id: taskId,
+        name: task?.task_type || taskId,
+        status: 'running',
+        assigned_agent: agentId,
+        created_at: task?.created_at || new Date().toISOString(),
+        started_at: new Date().toISOString(),
+      });
+      setLastUpdate(Date.now());
+    },
+    onTaskCompleted: (taskId, agentId, _result) => {
+      const task = wsTasksMap.get(taskId);
+      updateTask({
+        id: taskId,
+        name: task?.task_type || taskId,
+        status: 'completed',
+        assigned_agent: agentId,
+        created_at: task?.created_at || new Date().toISOString(),
+        started_at: task?.started_at,
+        completed_at: new Date().toISOString(),
+      });
+      setLastUpdate(Date.now());
+    },
+    onTaskFailed: (taskId, agentId, error) => {
+      const task = wsTasksMap.get(taskId);
+      updateTask({
+        id: taskId,
+        name: task?.task_type || taskId,
+        status: 'failed',
+        assigned_agent: agentId,
+        created_at: task?.created_at || new Date().toISOString(),
+        started_at: task?.started_at,
+        completed_at: new Date().toISOString(),
+        error: error,
+      });
+      setLastUpdate(Date.now());
+    },
+    onSchedulerStats: (stats) => {
       setStats({
-        total_agents: metrics.agents_available + metrics.agents_busy + metrics.agents_error,
-        available_agents: metrics.agents_available,
-        busy_agents: metrics.agents_busy,
-        offline_agents: metrics.agents_error,
-        pending_tasks: metrics.queued_jobs,
-        running_tasks: metrics.active_jobs,
-        completed_tasks_24h: metrics.audits_completed_today,
-        failed_tasks_24h: 0,
-        queue_size: metrics.queued_jobs,
+        total_agents: stats.agents_registered,
+        available_agents: stats.agents_idle,
+        busy_agents: stats.agents_busy,
+        offline_agents: 0,
+        pending_tasks: stats.pending_tasks,
+        running_tasks: stats.running_tasks,
+        completed_tasks_24h: stats.completed_tasks,
+        failed_tasks_24h: stats.failed_tasks,
+        queue_size: stats.pending_tasks,
       });
     },
   });

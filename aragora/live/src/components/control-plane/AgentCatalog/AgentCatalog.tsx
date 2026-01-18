@@ -50,9 +50,12 @@ export function AgentCatalog({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Real-time updates via WebSocket
-  const { agents: liveAgents, isConnected } = useControlPlaneWebSocket({
+  const { agents: liveAgentsMap, isConnected } = useControlPlaneWebSocket({
     enabled: enableRealtime,
   });
+
+  // Convert Map to Array for compatibility
+  const liveAgents = useMemo(() => Array.from(liveAgentsMap.values()), [liveAgentsMap]);
 
   // Merge live agent data with static data
   const mergedAgents = useMemo(() => {

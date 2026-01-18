@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { AgentWorkflowVisualization } from '@/components/AgentWorkflowVisualization';
-import { useControlPlaneWebSocket } from '@/hooks/useControlPlaneWebSocket';
+import { useControlPlaneWebSocket, type TaskState } from '@/hooks/useControlPlaneWebSocket';
 
 // Control Plane Components
 import {
@@ -76,51 +76,70 @@ export default function ControlPlanePage() {
   // WebSocket connection for real-time updates
   const {
     isConnected: wsConnected,
-    agents: wsAgents,
-    jobs: wsJobs,
-    metrics: wsMetrics,
-    recentFindings,
+    agents: wsAgentsMap,
+    tasks: wsTasksMap,
+    schedulerStats,
+    recentEvents,
     reconnect: wsReconnect,
   } = useControlPlaneWebSocket({
     enabled: useWebSocket,
     autoReconnect: true,
-    onFindingDetected: (_finding) => {
+    onTaskCompleted: (_taskId, _agentId) => {
       // Could show a toast notification here
     },
   });
 
+  // Convert Map to array and map to display format
+  const wsAgentsArray = Array.from(wsAgentsMap.values());
+  const wsTasksArray = Array.from(wsTasksMap.values());
+
   // Use WebSocket data when connected, otherwise use REST data
-  const displayAgents = wsConnected && wsAgents.length > 0 ? wsAgents.map(a => ({
+  const displayAgents = wsConnected && wsAgentsArray.length > 0 ? wsAgentsArray.map(a => ({
     id: a.id,
-    name: a.name,
+    name: a.id, // Use ID as name since new backend doesn't have separate name
     model: a.model,
-    status: a.status,
-    current_task: a.current_task,
-    requests_today: a.requests_today,
-    tokens_used: a.tokens_used,
-    last_active: a.last_active,
+    status: a.status === 'busy' ? 'working' : a.status as Agent['status'],
+    current_task: a.current_task_id,
+    requests_today: 0, // Not tracked in new schema
+    tokens_used: 0, // Not tracked in new schema
+    last_active: a.last_heartbeat,
   })) : agents;
 
-  const displayJobs = wsConnected && wsJobs.length > 0 ? wsJobs.map(j => ({
-    id: j.id,
-    type: j.type,
-    name: j.name,
-    status: j.status,
-    progress: j.progress,
-    started_at: j.started_at,
-    document_count: j.document_count,
-    agents_assigned: j.agents_assigned,
+  const displayJobs = wsConnected && wsTasksArray.length > 0 ? wsTasksArray.map(t => ({
+    id: t.id,
+    type: t.task_type as ProcessingJob['type'],
+    name: t.task_type,
+    status: t.status === 'claimed' ? 'running' : t.status as ProcessingJob['status'],
+    progress: t.status === 'completed' ? 100 : t.status === 'running' ? 50 : 0,
+    started_at: t.started_at,
+    document_count: undefined,
+    agents_assigned: t.assigned_agent_id ? [t.assigned_agent_id] : [],
   })) : jobs;
 
-  const displayMetrics = wsConnected && wsMetrics ? {
-    active_jobs: wsMetrics.active_jobs,
-    queued_jobs: wsMetrics.queued_jobs,
-    agents_available: wsMetrics.agents_available,
-    agents_busy: wsMetrics.agents_busy,
-    documents_processed_today: wsMetrics.documents_processed_today,
-    audits_completed_today: wsMetrics.audits_completed_today,
-    tokens_used_today: wsMetrics.tokens_used_today,
+  const displayMetrics = wsConnected && schedulerStats ? {
+    active_jobs: schedulerStats.running_tasks,
+    queued_jobs: schedulerStats.pending_tasks,
+    agents_available: schedulerStats.agents_idle,
+    agents_busy: schedulerStats.agents_busy,
+    documents_processed_today: 0, // Not tracked in new schema
+    audits_completed_today: schedulerStats.completed_tasks,
+    tokens_used_today: 0, // Not tracked in new schema
   } : metrics;
+
+  // Map recent events to findings for backwards compatibility (if any task failed events)
+  const recentFindings = recentEvents
+    .filter(e => e.type === 'task_failed')
+    .slice(0, 50)
+    .map(e => ({
+      id: e.data.task_id as string,
+      session_id: '',
+      document_id: '',
+      severity: 'medium' as const,
+      category: 'task_failure',
+      title: `Task ${e.data.task_id} failed: ${e.data.error || 'Unknown error'}`,
+      found_by: (e.data.agent_id as string) || 'unknown',
+      timestamp: new Date(e.timestamp * 1000).toISOString(),
+    }));
 
   // Fetch agents
   const fetchAgents = useCallback(async () => {
@@ -203,14 +222,14 @@ export default function ControlPlanePage() {
   // Auto-refresh (fallback to polling when WebSocket is not connected)
   useEffect(() => {
     // Skip polling if WebSocket is connected and providing data
-    if (wsConnected && (wsAgents.length > 0 || wsJobs.length > 0)) return;
+    if (wsConnected && (wsAgentsArray.length > 0 || wsTasksArray.length > 0)) return;
     if (!autoRefresh) return;
 
     const interval = setInterval(() => {
       fetchAllData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchAllData, wsConnected, wsAgents.length, wsJobs.length]);
+  }, [autoRefresh, fetchAllData, wsConnected, wsAgentsArray.length, wsTasksArray.length]);
 
   const pauseJob = async (jobId: string) => {
     try {
@@ -405,10 +424,21 @@ export default function ControlPlanePage() {
                           ...a,
                           requests_today: a.requests_today,
                           tokens_used: a.tokens_used,
+                          capabilities: [],
+                          provider: 'unknown',
                         }))}
                         jobs={displayJobs.map(j => ({
-                          ...j,
+                          id: j.id,
+                          task_type: j.type,
+                          status: (j.status === 'queued' ? 'pending' : j.status === 'paused' ? 'pending' : j.status) as TaskState['status'],
+                          priority: 'normal' as const,
+                          required_capabilities: [],
                           agents_assigned: j.agents_assigned,
+                          progress: j.progress,
+                          started_at: j.started_at,
+                          name: j.name,
+                          type: j.type,
+                          document_count: j.document_count,
                         }))}
                         width={850}
                         height={350}
