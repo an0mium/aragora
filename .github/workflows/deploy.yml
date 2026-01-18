@@ -343,7 +343,7 @@ jobs:
             # Configure environment via systemd override (secure - not written to .env file)
             echo "Configuring environment via systemd..."
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
-            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\nEnvironment="ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
@@ -593,7 +593,7 @@ jobs:
             # Configure environment via systemd override
             echo "Configuring environment via systemd..."
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
-            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\nEnvironment="ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             sudo systemctl stop aragora 2>/dev/null || true
