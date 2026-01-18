@@ -367,6 +367,8 @@ class TaskScheduler:
             task.assigned_agent = None
             task.assigned_at = None
             task.started_at = None
+            # Clear the message ID since we're requeuing (new stream entry)
+            task.metadata.pop("_stream_message_id", None)
             await self._save_task(task)
             await self._enqueue_task(task)
             logger.warning(
@@ -378,6 +380,8 @@ class TaskScheduler:
             task.completed_at = time.time()
             await self._save_task(task)
             await self._ack_task(task)
+            # Move to dead-letter queue for later analysis
+            await self._move_to_dead_letter(task, error)
             logger.error(f"Task {task_id} failed permanently: {error}")
 
         return True
@@ -583,10 +587,60 @@ class TaskScheduler:
             self._local_queue.sort(key=lambda t: t.priority.value, reverse=True)
 
     async def _ack_task(self, task: Task) -> None:
-        """Acknowledge task completion in the queue."""
-        # In Redis Streams, acknowledgment happens via XACK
-        # For simplicity, we handle this during claim
-        pass
+        """Acknowledge task completion in the queue.
+
+        Performs XACK to remove the message from the pending entries list (PEL),
+        then XDEL to remove the message from the stream entirely.
+        """
+        if not self._redis:
+            return
+
+        # Get the stream key for this task's priority
+        stream_key = f"{self._stream_prefix}{task.priority.name.lower()}"
+
+        # Get the message ID stored when we claimed the task
+        message_id = task.metadata.get("_stream_message_id")
+        if not message_id:
+            logger.warning(f"Task {task.id} has no stream message ID for acknowledgment")
+            return
+
+        try:
+            # XACK removes from pending entries list
+            await self._redis.xack(stream_key, self._consumer_group, message_id)
+
+            # XDEL removes the message from stream (keeps stream size bounded)
+            await self._redis.xdel(stream_key, message_id)
+
+            logger.debug(f"Acknowledged task {task.id} (message_id={message_id})")
+        except Exception as e:
+            logger.error(f"Failed to acknowledge task {task.id}: {e}")
+
+    async def _move_to_dead_letter(self, task: Task, reason: str) -> None:
+        """Move task to dead-letter queue after exhausting retries.
+
+        Args:
+            task: The failed task
+            reason: Reason for moving to dead-letter queue
+        """
+        if not self._redis:
+            return
+
+        dlq_key = f"{self._stream_prefix}dead_letter"
+        try:
+            await self._redis.xadd(
+                dlq_key,
+                {
+                    "task_id": task.id,
+                    "task_type": task.task_type,
+                    "reason": reason,
+                    "failed_at": str(time.time()),
+                    "retries": str(task.retries),
+                    "original_priority": task.priority.name,
+                },
+            )
+            logger.info(f"Task {task.id} moved to dead-letter queue: {reason}")
+        except Exception as e:
+            logger.error(f"Failed to move task {task.id} to dead-letter queue: {e}")
 
     async def _claim_from_redis(
         self,
@@ -624,13 +678,37 @@ class TaskScheduler:
                         if not task:
                             # Task deleted, ack and skip
                             await self._redis.xack(stream_key, self._consumer_group, msg_id)
+                            await self._redis.xdel(stream_key, msg_id)
                             continue
 
                         # Check capabilities
                         if task.required_capabilities and not task.required_capabilities.issubset(cap_set):
                             # Worker doesn't have required capabilities
-                            # In production, use separate streams per capability
+                            # XACK to remove from this worker's pending list
+                            await self._redis.xack(stream_key, self._consumer_group, msg_id)
+
+                            # Track rejection in metadata for debugging
+                            if "rejection_count" not in task.metadata:
+                                task.metadata["rejection_count"] = 0
+                            task.metadata["rejection_count"] += 1
+                            task.metadata["last_rejected_by"] = worker_id
+                            task.metadata["last_rejected_reason"] = (
+                                f"Missing capabilities: {task.required_capabilities - cap_set}"
+                            )
+
+                            # Requeue for another worker to claim
+                            # Note: This creates a new stream entry, old one is acked
+                            await self._save_task(task)
+                            await self._enqueue_task(task)
+
+                            logger.debug(
+                                f"Task {task_id} rejected by {worker_id}: "
+                                f"needs {task.required_capabilities}, has {cap_set}"
+                            )
                             continue
+
+                        # Store message_id for later acknowledgment
+                        task.metadata["_stream_message_id"] = msg_id
 
                         # Claim the task
                         task.status = TaskStatus.RUNNING

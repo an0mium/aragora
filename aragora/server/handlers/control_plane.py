@@ -27,8 +27,11 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Coroutine, Dict, Optional, TypeVar
+
+T = TypeVar("T")
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -38,6 +41,23 @@ from aragora.server.handlers.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. This is the recommended pattern for calling async
+    code from sync handlers.
+
+    Args:
+        coro: The coroutine to run
+
+    Returns:
+        The result of the coroutine
+    """
+    return asyncio.run(coro)
 
 
 class ControlPlaneHandler(BaseHandler):
@@ -61,6 +81,10 @@ class ControlPlaneHandler(BaseHandler):
         if self.__class__.coordinator is not None:
             return self.__class__.coordinator
         return self.ctx.get("control_plane_coordinator")
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/control-plane/")
 
     # =========================================================================
     # GET Handlers
@@ -101,8 +125,6 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_list_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List registered agents."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -111,7 +133,7 @@ class ControlPlaneHandler(BaseHandler):
         only_available = query_params.get("available", "true").lower() == "true"
 
         try:
-            agents = asyncio.get_event_loop().run_until_complete(
+            agents = _run_async(
                 coordinator.list_agents(
                     capability=capability,
                     only_available=only_available,
@@ -128,14 +150,12 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_get_agent(self, agent_id: str) -> HandlerResult:
         """Get agent by ID."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
 
         try:
-            agent = asyncio.get_event_loop().run_until_complete(
+            agent = _run_async(
                 coordinator.get_agent(agent_id)
             )
 
@@ -149,14 +169,12 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task by ID."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
 
         try:
-            task = asyncio.get_event_loop().run_until_complete(
+            task = _run_async(
                 coordinator.get_task(task_id)
             )
 
@@ -208,14 +226,12 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_stats(self) -> HandlerResult:
         """Get control plane statistics."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
 
         try:
-            stats = asyncio.get_event_loop().run_until_complete(
+            stats = _run_async(
                 coordinator.get_stats()
             )
 
@@ -294,8 +310,6 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_register_agent(self, body: Dict[str, Any]) -> HandlerResult:
         """Register a new agent."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -310,7 +324,7 @@ class ControlPlaneHandler(BaseHandler):
         metadata = body.get("metadata", {})
 
         try:
-            agent = asyncio.get_event_loop().run_until_complete(
+            agent = _run_async(
                 coordinator.register_agent(
                     agent_id=agent_id,
                     capabilities=capabilities,
@@ -329,8 +343,6 @@ class ControlPlaneHandler(BaseHandler):
         self, agent_id: str, body: Dict[str, Any]
     ) -> HandlerResult:
         """Handle agent heartbeat."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -342,7 +354,7 @@ class ControlPlaneHandler(BaseHandler):
 
             agent_status = AgentStatus(status) if status else None
 
-            success = asyncio.get_event_loop().run_until_complete(
+            success = _run_async(
                 coordinator.heartbeat(agent_id, agent_status)
             )
 
@@ -356,8 +368,6 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_submit_task(self, body: Dict[str, Any]) -> HandlerResult:
         """Submit a new task."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -377,7 +387,7 @@ class ControlPlaneHandler(BaseHandler):
 
             priority_enum = TaskPriority[priority.upper()]
 
-            task_id = asyncio.get_event_loop().run_until_complete(
+            task_id = _run_async(
                 coordinator.submit_task(
                     task_type=task_type,
                     payload=payload,
@@ -397,8 +407,6 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_claim_task(self, body: Dict[str, Any]) -> HandlerResult:
         """Claim a task for an agent."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -411,7 +419,7 @@ class ControlPlaneHandler(BaseHandler):
         block_ms = body.get("block_ms", 5000)
 
         try:
-            task = asyncio.get_event_loop().run_until_complete(
+            task = _run_async(
                 coordinator.claim_task(
                     agent_id=agent_id,
                     capabilities=capabilities,
@@ -431,8 +439,6 @@ class ControlPlaneHandler(BaseHandler):
         self, task_id: str, body: Dict[str, Any]
     ) -> HandlerResult:
         """Mark task as completed."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -442,7 +448,7 @@ class ControlPlaneHandler(BaseHandler):
         latency_ms = body.get("latency_ms")
 
         try:
-            success = asyncio.get_event_loop().run_until_complete(
+            success = _run_async(
                 coordinator.complete_task(
                     task_id=task_id,
                     result=result,
@@ -461,8 +467,6 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_fail_task(self, task_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Mark task as failed."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -473,7 +477,7 @@ class ControlPlaneHandler(BaseHandler):
         requeue = body.get("requeue", True)
 
         try:
-            success = asyncio.get_event_loop().run_until_complete(
+            success = _run_async(
                 coordinator.fail_task(
                     task_id=task_id,
                     error=error,
@@ -493,14 +497,12 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_cancel_task(self, task_id: str) -> HandlerResult:
         """Cancel a task."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
 
         try:
-            success = asyncio.get_event_loop().run_until_complete(
+            success = _run_async(
                 coordinator.cancel_task(task_id)
             )
 
@@ -529,14 +531,12 @@ class ControlPlaneHandler(BaseHandler):
 
     def _handle_unregister_agent(self, agent_id: str) -> HandlerResult:
         """Unregister an agent."""
-        import asyncio
-
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
 
         try:
-            success = asyncio.get_event_loop().run_until_complete(
+            success = _run_async(
                 coordinator.unregister_agent(agent_id)
             )
 

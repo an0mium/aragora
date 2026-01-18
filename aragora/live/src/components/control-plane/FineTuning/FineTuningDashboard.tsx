@@ -1,102 +1,90 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { ModelSelector, type AvailableModel } from './ModelSelector';
 import { TrainingConfig, type TrainingParameters } from './TrainingConfig';
 import { JobMonitor } from './JobMonitor';
+import { useFineTuning, type FineTuningJob, type CreateJobData } from '@/hooks/useFineTuning';
 
-export interface FineTuningJob {
-  id: string;
-  name: string;
-  vertical: string;
-  baseModel: string;
-  status: 'queued' | 'preparing' | 'training' | 'completed' | 'failed' | 'cancelled';
-  progress: number;
-  currentEpoch?: number;
-  totalEpochs?: number;
-  currentStep?: number;
-  totalSteps?: number;
-  loss?: number;
-  trainingExamples: number;
-  startedAt?: string;
-  completedAt?: string;
-  outputPath?: string;
-  error?: string;
-}
+// Re-export the type for backward compatibility
+export type { FineTuningJob };
 
 export interface FineTuningDashboardProps {
-  jobs?: FineTuningJob[];
-  onStartJob?: (config: TrainingParameters & { model: AvailableModel }) => void;
-  onCancelJob?: (jobId: string) => void;
+  onJobCreated?: (job: FineTuningJob) => void;
+  onJobCancelled?: (jobId: string) => void;
+  /** Polling interval in ms for job updates (default 30000, 0 to disable) */
+  pollInterval?: number;
   className?: string;
 }
 
 type TabId = 'new' | 'jobs' | 'models';
 
-// Mock jobs for demonstration
-const MOCK_JOBS: FineTuningJob[] = [
-  {
-    id: 'ft_001',
-    name: 'Legal Specialist v2',
-    vertical: 'legal',
-    baseModel: 'nlpaueb/legal-bert-base-uncased',
-    status: 'training',
-    progress: 0.45,
-    currentEpoch: 2,
-    totalEpochs: 3,
-    currentStep: 450,
-    totalSteps: 1000,
-    loss: 0.324,
-    trainingExamples: 2500,
-    startedAt: '2024-01-16T10:00:00Z',
-  },
-  {
-    id: 'ft_002',
-    name: 'Healthcare Compliance Model',
-    vertical: 'healthcare',
-    baseModel: 'medicalai/ClinicalBERT',
-    status: 'completed',
-    progress: 1.0,
-    currentEpoch: 3,
-    totalEpochs: 3,
-    trainingExamples: 1800,
-    startedAt: '2024-01-15T14:00:00Z',
-    completedAt: '2024-01-15T18:30:00Z',
-    outputPath: '/models/healthcare_compliance_v1',
-  },
-  {
-    id: 'ft_003',
-    name: 'Code Review Assistant',
-    vertical: 'software',
-    baseModel: 'codellama/CodeLlama-7b-Instruct-hf',
-    status: 'queued',
-    progress: 0,
-    trainingExamples: 5000,
-  },
-];
-
 export function FineTuningDashboard({
-  jobs = MOCK_JOBS,
-  onStartJob,
-  onCancelJob,
+  onJobCreated,
+  onJobCancelled,
+  pollInterval = 30000,
   className = '',
 }: FineTuningDashboardProps) {
+  // Use the fine-tuning hook
+  const {
+    jobs,
+    stats,
+    loading,
+    error,
+    createJob,
+    startJob,
+    cancelJob,
+  } = useFineTuning({ autoLoad: true, pollInterval });
+
   const [activeTab, setActiveTab] = useState<TabId>('jobs');
   const [selectedModel, setSelectedModel] = useState<AvailableModel | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const stats = useMemo(() => ({
-    running: jobs.filter(j => j.status === 'training' || j.status === 'preparing').length,
-    queued: jobs.filter(j => j.status === 'queued').length,
-    completed: jobs.filter(j => j.status === 'completed').length,
-    failed: jobs.filter(j => j.status === 'failed').length,
-  }), [jobs]);
+  // Handle job creation
+  const handleStartTraining = useCallback(async (params: TrainingParameters) => {
+    if (!selectedModel) return;
 
-  const handleStartTraining = (params: TrainingParameters) => {
-    if (selectedModel && onStartJob) {
-      onStartJob({ ...params, model: selectedModel });
-      setActiveTab('jobs');
+    setIsCreating(true);
+    try {
+      // Build the job creation data
+      const jobData: CreateJobData = {
+        name: params.jobName,
+        vertical: selectedModel.vertical,
+        base_model: selectedModel.id,
+        training_config: {
+          lora_r: params.loraR,
+          lora_alpha: params.loraAlpha,
+          lora_dropout: params.loraDropout,
+          num_epochs: params.numEpochs,
+          batch_size: params.batchSize,
+          learning_rate: params.learningRate,
+          max_seq_length: params.maxSeqLength,
+          quantization: params.quantization,
+          gradient_checkpointing: params.gradientCheckpointing,
+          dataset_path: params.datasetPath || undefined,
+        },
+      };
+
+      const job = await createJob(jobData);
+      if (job) {
+        // Optionally start the job immediately
+        await startJob(job.id);
+        onJobCreated?.(job);
+        setActiveTab('jobs');
+        setSelectedModel(null);
+      }
+    } finally {
+      setIsCreating(false);
     }
-  };
+  }, [selectedModel, createJob, startJob, onJobCreated]);
+
+  // Handle job cancellation
+  const handleCancelJob = useCallback(async (jobId: string) => {
+    const success = await cancelJob(jobId);
+    if (success) {
+      onJobCancelled?.(jobId);
+    }
+  }, [cancelJob, onJobCancelled]);
 
   return (
     <div className={`bg-surface border border-border rounded-lg overflow-hidden ${className}`}>
@@ -106,7 +94,7 @@ export function FineTuningDashboard({
           FINE-TUNING PIPELINE
         </h3>
         <p className="text-xs text-text-muted mt-1">
-          Train domain-specific models with LoRA adapters
+          {loading ? 'Loading...' : error ? `Error: ${error}` : 'Train domain-specific models with LoRA adapters'}
         </p>
       </div>
 
@@ -151,20 +139,37 @@ export function FineTuningDashboard({
 
       {/* Tab Content */}
       <div className="p-4">
-        {activeTab === 'jobs' && (
+        {loading && jobs.length === 0 && (
+          <div className="text-center py-8 text-text-muted font-mono">
+            Loading training jobs...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-8 text-red-400 font-mono">
+            Error: {error}
+          </div>
+        )}
+
+        {activeTab === 'jobs' && !loading && !error && (
           <JobMonitor
             jobs={jobs}
-            onCancelJob={onCancelJob}
+            onCancelJob={handleCancelJob}
           />
         )}
 
         {activeTab === 'new' && (
           <div className="space-y-6">
+            {isCreating && (
+              <div className="p-4 bg-bg border border-acid-green/30 rounded text-center">
+                <p className="font-mono text-acid-green">Creating training job...</p>
+              </div>
+            )}
             <ModelSelector
               selectedModel={selectedModel}
               onSelectModel={setSelectedModel}
             />
-            {selectedModel && (
+            {selectedModel && !isCreating && (
               <TrainingConfig
                 model={selectedModel}
                 onStartTraining={handleStartTraining}

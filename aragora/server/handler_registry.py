@@ -104,12 +104,24 @@ FolderUploadHandler: HandlerType = None
 WebhookHandler: HandlerType = None
 WorkflowHandler: HandlerType = None
 AdminHandler: HandlerType = None
+ControlPlaneHandler: HandlerType = None
+KnowledgeHandler: HandlerType = None
+KnowledgeMoundHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
 try:
     from aragora.server.handlers import (
         AdminHandler as _AdminHandler,
+    )
+    from aragora.server.handlers import (
+        ControlPlaneHandler as _ControlPlaneHandler,
+    )
+    from aragora.server.handlers import (
+        KnowledgeHandler as _KnowledgeHandler,
+    )
+    from aragora.server.handlers import (
+        KnowledgeMoundHandler as _KnowledgeMoundHandler,
     )
     from aragora.server.handlers import (
         AgentsHandler as _AgentsHandler,
@@ -349,6 +361,9 @@ try:
     WebhookHandler = _WebhookHandler
     WorkflowHandler = _WorkflowHandler
     AdminHandler = _AdminHandler
+    ControlPlaneHandler = _ControlPlaneHandler
+    KnowledgeHandler = _KnowledgeHandler
+    KnowledgeMoundHandler = _KnowledgeMoundHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -419,6 +434,9 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_webhook_handler", WebhookHandler),
     ("_workflow_handler", WorkflowHandler),
     ("_admin_handler", AdminHandler),
+    ("_control_plane_handler", ControlPlaneHandler),
+    ("_knowledge_handler", KnowledgeHandler),
+    ("_knowledge_mound_handler", KnowledgeMoundHandler),
 ]
 
 
@@ -505,6 +523,9 @@ class RouteIndex:
             "_folder_upload_handler": ["/api/documents/folder", "/api/documents/folders"],
             "_webhook_handler": ["/api/webhooks"],
             "_admin_handler": ["/api/admin"],
+            "_control_plane_handler": ["/api/control-plane/"],
+            "_knowledge_handler": ["/api/knowledge/"],
+            "_knowledge_mound_handler": ["/api/knowledge/mound/"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:
@@ -874,6 +895,9 @@ class HandlerRegistryMixin:
     _folder_upload_handler: Optional["BaseHandler"] = None
     _webhook_handler: Optional["BaseHandler"] = None
     _admin_handler: Optional["BaseHandler"] = None
+    _control_plane_handler: Optional["BaseHandler"] = None
+    _knowledge_handler: Optional["BaseHandler"] = None
+    _knowledge_mound_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

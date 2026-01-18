@@ -11,9 +11,41 @@
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { FineTuningDashboard } from '../src/components/control-plane/FineTuning/FineTuningDashboard';
-import type { FineTuningJob } from '../src/components/control-plane/FineTuning/FineTuningDashboard';
+import type { FineTuningJob } from '../src/hooks/useFineTuning';
 
-const mockJobs: FineTuningJob[] = [
+// Mock the useFineTuning hook
+const mockCreateJob = jest.fn();
+const mockStartJob = jest.fn();
+const mockCancelJob = jest.fn();
+
+jest.mock('../src/hooks/useFineTuning', () => ({
+  useFineTuning: () => ({
+    jobs: mockJobs,
+    stats: mockStats,
+    loading: mockLoading,
+    error: mockError,
+    createJob: mockCreateJob,
+    startJob: mockStartJob,
+    cancelJob: mockCancelJob,
+    loadJobs: jest.fn(),
+    loadJob: jest.fn(),
+    refetch: jest.fn(),
+    getJobMetrics: jest.fn(),
+    getJobArtifacts: jest.fn(),
+    exportSFT: jest.fn(),
+    exportDPO: jest.fn(),
+    getStats: jest.fn(),
+    getFormats: jest.fn(),
+  }),
+}));
+
+// Default mock state
+let mockJobs: FineTuningJob[] = [];
+let mockStats = { running: 0, queued: 0, completed: 0, failed: 0 };
+let mockLoading = false;
+let mockError: string | null = null;
+
+const defaultMockJobs: FineTuningJob[] = [
   {
     id: 'ft_001',
     name: 'Legal Specialist v2',
@@ -64,16 +96,32 @@ const mockJobs: FineTuningJob[] = [
   },
 ];
 
+const defaultMockStats = {
+  running: 1,
+  queued: 1,
+  completed: 1,
+  failed: 1,
+};
+
 describe('FineTuningDashboard', () => {
+  beforeEach(() => {
+    // Reset mock state
+    mockJobs = [...defaultMockJobs];
+    mockStats = { ...defaultMockStats };
+    mockLoading = false;
+    mockError = null;
+    jest.clearAllMocks();
+  });
+
   describe('Header and Stats', () => {
     it('renders the dashboard header', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
       expect(screen.getByText('FINE-TUNING PIPELINE')).toBeInTheDocument();
       expect(screen.getByText('Train domain-specific models with LoRA adapters')).toBeInTheDocument();
     });
 
     it('displays correct job statistics', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
 
       // Verify stat labels exist (may appear multiple times due to filter buttons)
       const trainingLabels = screen.getAllByText('Training');
@@ -92,22 +140,42 @@ describe('FineTuningDashboard', () => {
     });
 
     it('handles empty jobs array', () => {
-      render(<FineTuningDashboard jobs={[]} />);
+      mockJobs = [];
+      mockStats = { running: 0, queued: 0, completed: 0, failed: 0 };
+      render(<FineTuningDashboard />);
       // All stats should show 0 for empty jobs
       const zeroValues = screen.getAllByText('0');
       expect(zeroValues.length).toBeGreaterThan(0);
+    });
+
+    it('shows loading state', () => {
+      mockLoading = true;
+      mockJobs = [];
+      render(<FineTuningDashboard />);
+      expect(screen.getByText('Loading...')).toBeInTheDocument();
+    });
+
+    it('shows error state', () => {
+      mockError = 'Failed to connect';
+      render(<FineTuningDashboard />);
+      // Error message is in a div with red-400 class
+      const errorDiv = screen.getByText((content, element) => {
+        return element?.className?.includes('text-red-400') &&
+               element?.textContent === 'Error: Failed to connect';
+      });
+      expect(errorDiv).toBeInTheDocument();
     });
   });
 
   describe('Tab Navigation', () => {
     it('shows Active Jobs tab by default', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
       expect(screen.getByText('Active Jobs')).toBeInTheDocument();
       expect(screen.getByText('Legal Specialist v2')).toBeInTheDocument();
     });
 
     it('switches to New Job tab when clicked', async () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('New Job'));
@@ -118,7 +186,7 @@ describe('FineTuningDashboard', () => {
     });
 
     it('switches to Available Models tab when clicked', async () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
 
       await act(async () => {
         fireEvent.click(screen.getByText('Available Models'));
@@ -131,20 +199,20 @@ describe('FineTuningDashboard', () => {
 
   describe('Job Display', () => {
     it('displays job names in the list', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
       expect(screen.getByText('Legal Specialist v2')).toBeInTheDocument();
       expect(screen.getByText('Healthcare Model')).toBeInTheDocument();
       expect(screen.getByText('Code Review Assistant')).toBeInTheDocument();
     });
 
     it('shows base model for each job', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
       expect(screen.getByText('nlpaueb/legal-bert-base-uncased')).toBeInTheDocument();
       expect(screen.getByText('medicalai/ClinicalBERT')).toBeInTheDocument();
     });
 
     it('displays job status badges', () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
       expect(screen.getByText('training')).toBeInTheDocument();
       expect(screen.getByText('completed')).toBeInTheDocument();
       expect(screen.getByText('queued')).toBeInTheDocument();
@@ -153,9 +221,11 @@ describe('FineTuningDashboard', () => {
   });
 
   describe('Training Job Start', () => {
-    it('calls onStartJob when training is started', async () => {
-      const mockStartJob = jest.fn();
-      render(<FineTuningDashboard jobs={mockJobs} onStartJob={mockStartJob} />);
+    it('calls createJob and startJob when training is started', async () => {
+      mockCreateJob.mockResolvedValue({ id: 'ft_new', name: 'Test Job' });
+      mockStartJob.mockResolvedValue(true);
+
+      render(<FineTuningDashboard />);
 
       // Navigate to New Job tab
       await act(async () => {
@@ -172,14 +242,16 @@ describe('FineTuningDashboard', () => {
         fireEvent.click(screen.getByText('START TRAINING'));
       });
 
-      expect(mockStartJob).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockCreateJob).toHaveBeenCalled();
+      });
     });
   });
 
   describe('Job Cancellation', () => {
-    it('calls onCancelJob when cancel is clicked', async () => {
-      const mockCancelJob = jest.fn();
-      render(<FineTuningDashboard jobs={mockJobs} onCancelJob={mockCancelJob} />);
+    it('calls cancelJob when cancel is clicked', async () => {
+      mockCancelJob.mockResolvedValue(true);
+      render(<FineTuningDashboard />);
 
       // Expand a job to see cancel button
       await act(async () => {
@@ -192,13 +264,15 @@ describe('FineTuningDashboard', () => {
         fireEvent.click(cancelButton);
       });
 
-      expect(mockCancelJob).toHaveBeenCalledWith('ft_001');
+      await waitFor(() => {
+        expect(mockCancelJob).toHaveBeenCalledWith('ft_001');
+      });
     });
   });
 
   describe('Model Selection Flow', () => {
     it('navigates to New Job tab when model is selected from Available Models', async () => {
-      render(<FineTuningDashboard jobs={mockJobs} />);
+      render(<FineTuningDashboard />);
 
       // Go to Available Models tab
       await act(async () => {
