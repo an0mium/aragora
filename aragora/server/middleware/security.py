@@ -265,6 +265,12 @@ class SecurityConfig:
             "event_type": {"mutation", "crossover", "selection", "extinction", "speciation"},
             # Logs
             "lines": None,
+            # OAuth
+            "redirect_url": None,  # Where to redirect after OAuth
+            "code": None,  # OAuth authorization code
+            "state": None,  # OAuth state parameter
+            "error": None,  # OAuth error
+            "error_description": None,  # OAuth error description
         }
     )
 
