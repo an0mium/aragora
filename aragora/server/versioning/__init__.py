@@ -36,6 +36,19 @@ from aragora.server.versioning.deprecation import (
     deprecated,
     sunset_date,
 )
+from aragora.server.versioning.compat import (
+    API_RELEASE_VERSION,
+    VersionConfig,
+    get_version_config,
+    set_version_config,
+    extract_version,
+    version_response_headers,
+    normalize_path_version,
+    strip_version_prefix,
+    is_versioned_path,
+    is_legacy_path,
+    get_path_version,
+)
 
 __all__ = [
     # Version types
@@ -51,4 +64,16 @@ __all__ = [
     "DeprecationWarning",
     "deprecated",
     "sunset_date",
+    # Compat layer
+    "API_RELEASE_VERSION",
+    "VersionConfig",
+    "get_version_config",
+    "set_version_config",
+    "extract_version",
+    "version_response_headers",
+    "normalize_path_version",
+    "strip_version_prefix",
+    "is_versioned_path",
+    "is_legacy_path",
+    "get_path_version",
 ]
