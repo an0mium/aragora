@@ -927,6 +927,51 @@ class TrainingAPI {
     const path = query ? `/api/training/export/gauntlet?${query}` : '/api/training/export/gauntlet';
     return this.http.get<TrainingExportResponse>(path);
   }
+
+  // === Job Management (Enterprise Training Pipeline) ===
+
+  async listJobs(options?: {
+    status?: 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+    job_type?: 'sft' | 'dpo' | 'rlhf' | 'evaluation';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ jobs: TrainingJob[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.job_type) params.set('job_type', options.job_type);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/training/jobs${query ? `?${query}` : ''}`);
+  }
+
+  async getJob(jobId: string): Promise<{ job: TrainingJob }> {
+    return this.http.get(`/api/training/jobs/${jobId}`);
+  }
+
+  async createJob(config: TrainingJobConfig): Promise<{ job: TrainingJob }> {
+    return this.http.post('/api/training/jobs', config);
+  }
+
+  async startJob(jobId: string): Promise<{ job: TrainingJob; message: string }> {
+    return this.http.post(`/api/training/jobs/${jobId}/start`, {});
+  }
+
+  async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.post(`/api/training/jobs/${jobId}/cancel`, {});
+  }
+
+  async getJobMetrics(jobId: string): Promise<{ metrics: TrainingJobMetrics }> {
+    return this.http.get(`/api/training/jobs/${jobId}/metrics`);
+  }
+
+  async getJobArtifacts(jobId: string): Promise<{ artifacts: TrainingJobArtifacts }> {
+    return this.http.get(`/api/training/jobs/${jobId}/artifacts`);
+  }
+
+  async deleteJob(jobId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/training/jobs/${jobId}`);
+  }
 }
 
 class SystemAPI {
@@ -1837,6 +1882,863 @@ class ControlPlaneAPI {
 }
 
 // =============================================================================
+// Policy API (Compliance & Policy Management)
+// =============================================================================
+
+export type PolicyLevel = 'required' | 'recommended' | 'optional';
+export type ViolationStatus = 'open' | 'investigating' | 'resolved' | 'false_positive';
+export type ViolationSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export interface PolicyRule {
+  id: string;
+  name: string;
+  description: string;
+  pattern?: string;
+  severity: ViolationSeverity;
+  enabled: boolean;
+}
+
+export interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  framework_id: string;
+  workspace_id: string;
+  vertical_id: string;
+  level: PolicyLevel;
+  enabled: boolean;
+  rules: PolicyRule[];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PolicyInput {
+  name: string;
+  description?: string;
+  framework_id: string;
+  workspace_id?: string;
+  vertical_id: string;
+  level?: PolicyLevel;
+  enabled?: boolean;
+  rules?: Omit<PolicyRule, 'id'>[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface Violation {
+  id: string;
+  policy_id: string;
+  rule_id: string;
+  rule_name: string;
+  framework_id: string;
+  vertical_id: string;
+  workspace_id: string;
+  severity: ViolationSeverity;
+  status: ViolationStatus;
+  description: string;
+  source: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  resolution_notes?: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+export interface ViolationFilters {
+  workspace_id?: string;
+  vertical_id?: string;
+  framework_id?: string;
+  policy_id?: string;
+  status?: ViolationStatus;
+  severity?: ViolationSeverity;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ComplianceCheckResult {
+  compliant: boolean;
+  score: number;
+  issues: Array<{
+    rule_id: string;
+    framework: string;
+    severity: ViolationSeverity;
+    description: string;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export interface ComplianceStats {
+  policies: {
+    total: number;
+    enabled: number;
+    disabled: number;
+  };
+  violations: {
+    total: number;
+    open: number;
+    by_severity: {
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+    };
+  };
+  risk_score: number;
+}
+
+class PolicyAPI {
+  constructor(private http: HttpClient) {}
+
+  async list(options?: {
+    workspace_id?: string;
+    vertical_id?: string;
+    framework_id?: string;
+    enabled_only?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ policies: Policy[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.workspace_id) params.set('workspace_id', options.workspace_id);
+    if (options?.vertical_id) params.set('vertical_id', options.vertical_id);
+    if (options?.framework_id) params.set('framework_id', options.framework_id);
+    if (options?.enabled_only) params.set('enabled_only', 'true');
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/policies${query ? `?${query}` : ''}`);
+  }
+
+  async get(policyId: string): Promise<{ policy: Policy }> {
+    return this.http.get(`/api/policies/${policyId}`);
+  }
+
+  async create(policy: PolicyInput): Promise<{ policy: Policy; message: string }> {
+    return this.http.post('/api/policies', policy);
+  }
+
+  async update(policyId: string, updates: Partial<PolicyInput>): Promise<{ policy: Policy; message: string }> {
+    return this.http.put(`/api/policies/${policyId}`, updates);
+  }
+
+  async delete(policyId: string): Promise<{ message: string; policy_id: string }> {
+    return this.http.delete(`/api/policies/${policyId}`);
+  }
+
+  async toggle(policyId: string, enabled?: boolean): Promise<{ message: string; policy_id: string; enabled: boolean }> {
+    return this.http.post(`/api/policies/${policyId}/toggle`, { enabled });
+  }
+
+  async getViolations(policyId: string, options?: {
+    status?: ViolationStatus;
+    severity?: ViolationSeverity;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ violations: Violation[]; total: number; policy_id: string }> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.severity) params.set('severity', options.severity);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/policies/${policyId}/violations${query ? `?${query}` : ''}`);
+  }
+
+  async listViolations(filters?: ViolationFilters): Promise<{ violations: Violation[]; total: number }> {
+    const params = new URLSearchParams();
+    if (filters?.workspace_id) params.set('workspace_id', filters.workspace_id);
+    if (filters?.vertical_id) params.set('vertical_id', filters.vertical_id);
+    if (filters?.framework_id) params.set('framework_id', filters.framework_id);
+    if (filters?.policy_id) params.set('policy_id', filters.policy_id);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.severity) params.set('severity', filters.severity);
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    if (filters?.offset) params.set('offset', String(filters.offset));
+    const query = params.toString();
+    return this.http.get(`/api/compliance/violations${query ? `?${query}` : ''}`);
+  }
+
+  async getViolation(violationId: string): Promise<{ violation: Violation }> {
+    return this.http.get(`/api/compliance/violations/${violationId}`);
+  }
+
+  async updateViolation(violationId: string, status: ViolationStatus, notes?: string): Promise<{ violation: Violation; message: string }> {
+    return this.http.put(`/api/compliance/violations/${violationId}`, {
+      status,
+      resolution_notes: notes,
+    });
+  }
+
+  async checkCompliance(content: string, options?: {
+    frameworks?: string[];
+    min_severity?: ViolationSeverity;
+    store_violations?: boolean;
+    workspace_id?: string;
+    source?: string;
+  }): Promise<{ result: ComplianceCheckResult; compliant: boolean; score: number; issue_count: number }> {
+    return this.http.post('/api/compliance/check', {
+      content,
+      ...options,
+    });
+  }
+
+  async getStats(workspaceId?: string): Promise<ComplianceStats> {
+    const params = workspaceId ? `?workspace_id=${workspaceId}` : '';
+    return this.http.get(`/api/compliance/stats${params}`);
+  }
+}
+
+// =============================================================================
+// Workflows API (Visual Workflow Builder)
+// =============================================================================
+
+export type WorkflowStatus = 'draft' | 'active' | 'archived';
+export type WorkflowCategory = 'general' | 'legal' | 'healthcare' | 'finance' | 'research' | 'custom';
+export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'terminated';
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  step_type: 'agent' | 'debate' | 'decision' | 'human_checkpoint' | 'condition' | 'parallel';
+  config: Record<string, unknown>;
+  description?: string;
+  next_steps?: string[];
+  visual?: {
+    position: { x: number; y: number };
+    category: string;
+    color?: string;
+  };
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  category: WorkflowCategory;
+  tags: string[];
+  version: string;
+  status: WorkflowStatus;
+  steps: WorkflowStep[];
+  is_template: boolean;
+  tenant_id: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowInput {
+  name: string;
+  description?: string;
+  category?: WorkflowCategory;
+  tags?: string[];
+  steps: Omit<WorkflowStep, 'id'>[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  tenant_id: string;
+  status: ExecutionStatus;
+  started_at: string;
+  completed_at?: string;
+  inputs: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  steps?: Array<{
+    step_id: string;
+    status: string;
+    started_at: string;
+    completed_at?: string;
+    output?: unknown;
+    error?: string;
+  }>;
+  error?: string;
+  duration_ms?: number;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: WorkflowCategory;
+  tags: string[];
+  icon?: string;
+  usage_count: number;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowVersion {
+  version: string;
+  created_at: string;
+  created_by: string;
+  changes?: string;
+}
+
+export interface WorkflowApproval {
+  id: string;
+  workflow_id: string;
+  execution_id: string;
+  step_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  resolved_at?: string;
+  responder_id?: string;
+  notes?: string;
+  context?: Record<string, unknown>;
+}
+
+class WorkflowsAPI {
+  constructor(private http: HttpClient) {}
+
+  async list(options?: {
+    category?: WorkflowCategory;
+    tags?: string[];
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ workflows: Workflow[]; total_count: number }> {
+    const params = new URLSearchParams();
+    if (options?.category) params.set('category', options.category);
+    if (options?.tags) options.tags.forEach(t => params.append('tags', t));
+    if (options?.search) params.set('search', options.search);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/workflows${query ? `?${query}` : ''}`);
+  }
+
+  async get(workflowId: string): Promise<Workflow> {
+    return this.http.get(`/api/workflows/${workflowId}`);
+  }
+
+  async create(workflow: WorkflowInput): Promise<Workflow> {
+    return this.http.post('/api/workflows', workflow);
+  }
+
+  async update(workflowId: string, workflow: Partial<WorkflowInput>): Promise<Workflow> {
+    return this.http.put(`/api/workflows/${workflowId}`, workflow);
+  }
+
+  async delete(workflowId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/workflows/${workflowId}`);
+  }
+
+  async execute(workflowId: string, inputs?: Record<string, unknown>): Promise<WorkflowExecution> {
+    return this.http.post(`/api/workflows/${workflowId}/execute`, { inputs });
+  }
+
+  async simulate(workflowId: string, inputs?: Record<string, unknown>): Promise<{
+    valid: boolean;
+    errors: string[];
+    estimated_duration_ms?: number;
+  }> {
+    return this.http.post(`/api/workflows/${workflowId}/simulate`, { inputs });
+  }
+
+  async getExecution(executionId: string): Promise<WorkflowExecution> {
+    return this.http.get(`/api/workflows/executions/${executionId}`);
+  }
+
+  async listExecutions(workflowId?: string, limit = 20): Promise<WorkflowExecution[]> {
+    const params = new URLSearchParams();
+    if (workflowId) params.set('workflow_id', workflowId);
+    params.set('limit', String(limit));
+    const query = params.toString();
+    return this.http.get(`/api/workflows/executions${query ? `?${query}` : ''}`);
+  }
+
+  async cancelExecution(executionId: string): Promise<{ success: boolean }> {
+    return this.http.post(`/api/workflows/executions/${executionId}/terminate`, {});
+  }
+
+  async getVersions(workflowId: string, limit = 20): Promise<WorkflowVersion[]> {
+    return this.http.get(`/api/workflows/${workflowId}/versions?limit=${limit}`);
+  }
+
+  async restoreVersion(workflowId: string, version: string): Promise<Workflow> {
+    return this.http.post(`/api/workflows/${workflowId}/restore`, { version });
+  }
+
+  async listTemplates(options?: {
+    category?: WorkflowCategory;
+    tags?: string[];
+  }): Promise<WorkflowTemplate[]> {
+    const params = new URLSearchParams();
+    if (options?.category) params.set('category', options.category);
+    if (options?.tags) options.tags.forEach(t => params.append('tags', t));
+    const query = params.toString();
+    return this.http.get(`/api/workflow-templates${query ? `?${query}` : ''}`);
+  }
+
+  async getTemplate(templateId: string): Promise<WorkflowTemplate> {
+    return this.http.get(`/api/workflow-templates/${templateId}`);
+  }
+
+  async createFromTemplate(templateId: string, name: string, customizations?: Record<string, unknown>): Promise<Workflow> {
+    return this.http.post('/api/workflows/from-template', {
+      template_id: templateId,
+      name,
+      customizations,
+    });
+  }
+
+  async listApprovals(workflowId?: string): Promise<WorkflowApproval[]> {
+    const params = workflowId ? `?workflow_id=${workflowId}` : '';
+    return this.http.get(`/api/workflow-approvals${params}`);
+  }
+
+  async resolveApproval(requestId: string, status: 'approved' | 'rejected', notes?: string): Promise<{ success: boolean }> {
+    return this.http.post(`/api/workflow-approvals/${requestId}/resolve`, {
+      status,
+      notes,
+    });
+  }
+}
+
+// =============================================================================
+// Connectors API (Enterprise Data Connectors)
+// =============================================================================
+
+export type ConnectorType =
+  | 'mongodb' | 'postgresql' | 'mysql'
+  | 's3' | 'google_drive' | 'sharepoint'
+  | 'slack' | 'notion' | 'confluence'
+  | 'fhir' | 'custom';
+
+export type ConnectorStatus = 'active' | 'inactive' | 'error' | 'syncing';
+export type SyncJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface Connector {
+  id: string;
+  name: string;
+  connector_type: ConnectorType;
+  status: ConnectorStatus;
+  workspace_id: string;
+  config: Record<string, unknown>;
+  credentials_set: boolean;
+  last_sync_at?: string;
+  last_sync_status?: SyncJobStatus;
+  document_count: number;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConnectorInput {
+  name: string;
+  connector_type: ConnectorType;
+  workspace_id?: string;
+  config: Record<string, unknown>;
+  credentials?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SyncJob {
+  id: string;
+  connector_id: string;
+  status: SyncJobStatus;
+  started_at: string;
+  completed_at?: string;
+  documents_processed: number;
+  documents_added: number;
+  documents_updated: number;
+  documents_deleted: number;
+  error_message?: string;
+  progress_percent: number;
+}
+
+export interface SyncHistory {
+  syncs: SyncJob[];
+  total: number;
+}
+
+export interface ConnectorStats {
+  total_connectors: number;
+  active_connectors: number;
+  total_documents: number;
+  syncs_today: number;
+  syncs_failed_today: number;
+  by_type: Record<ConnectorType, number>;
+}
+
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
+  latency_ms?: number;
+  details?: Record<string, unknown>;
+}
+
+class ConnectorsAPI {
+  constructor(private http: HttpClient) {}
+
+  async list(options?: {
+    workspace_id?: string;
+    connector_type?: ConnectorType;
+    status?: ConnectorStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ connectors: Connector[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.workspace_id) params.set('workspace_id', options.workspace_id);
+    if (options?.connector_type) params.set('connector_type', options.connector_type);
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/connectors${query ? `?${query}` : ''}`);
+  }
+
+  async get(connectorId: string): Promise<{ connector: Connector }> {
+    return this.http.get(`/api/connectors/${connectorId}`);
+  }
+
+  async create(connector: ConnectorInput): Promise<{ connector: Connector; message: string }> {
+    return this.http.post('/api/connectors', connector);
+  }
+
+  async update(connectorId: string, updates: Partial<ConnectorInput>): Promise<{ connector: Connector; message: string }> {
+    return this.http.put(`/api/connectors/${connectorId}`, updates);
+  }
+
+  async delete(connectorId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.delete(`/api/connectors/${connectorId}`);
+  }
+
+  async sync(connectorId: string, options?: {
+    full_sync?: boolean;
+    filters?: Record<string, unknown>;
+  }): Promise<{ sync_job: SyncJob }> {
+    return this.http.post(`/api/connectors/${connectorId}/sync`, options || {});
+  }
+
+  async cancelSync(syncId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.post(`/api/connectors/sync/${syncId}/cancel`, {});
+  }
+
+  async getSyncStatus(syncId: string): Promise<{ sync_job: SyncJob }> {
+    return this.http.get(`/api/connectors/sync/${syncId}`);
+  }
+
+  async getSyncHistory(options?: {
+    connector_id?: string;
+    status?: SyncJobStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<SyncHistory> {
+    const params = new URLSearchParams();
+    if (options?.connector_id) params.set('connector_id', options.connector_id);
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/connectors/sync-history${query ? `?${query}` : ''}`);
+  }
+
+  async testConnection(connectorType: ConnectorType, config: Record<string, unknown>, credentials?: Record<string, string>): Promise<ConnectionTestResult> {
+    return this.http.post('/api/connectors/test', {
+      connector_type: connectorType,
+      config,
+      credentials,
+    });
+  }
+
+  async getStats(workspaceId?: string): Promise<{ stats: ConnectorStats }> {
+    const params = workspaceId ? `?workspace_id=${workspaceId}` : '';
+    return this.http.get(`/api/connectors/stats${params}`);
+  }
+
+  async listTypes(): Promise<{ types: Array<{ type: ConnectorType; name: string; description: string; config_schema: object }> }> {
+    return this.http.get('/api/connectors/types');
+  }
+}
+
+// =============================================================================
+// Repositories API (Code Repository Indexing)
+// =============================================================================
+
+export type IndexJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface CodeEntity {
+  id: string;
+  repository_id: string;
+  file_path: string;
+  entity_type: 'class' | 'function' | 'method' | 'interface' | 'constant' | 'module';
+  name: string;
+  signature?: string;
+  docstring?: string;
+  start_line: number;
+  end_line: number;
+  language: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RelationshipGraph {
+  nodes: Array<{
+    id: string;
+    name: string;
+    type: string;
+    file_path: string;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    relationship: 'imports' | 'calls' | 'inherits' | 'implements' | 'references';
+  }>;
+}
+
+export interface IndexJob {
+  id: string;
+  repository_path: string;
+  status: IndexJobStatus;
+  started_at: string;
+  completed_at?: string;
+  files_processed: number;
+  files_total: number;
+  entities_found: number;
+  relationships_found: number;
+  error_message?: string;
+  progress_percent: number;
+}
+
+export interface IndexOptions {
+  languages?: string[];
+  exclude_patterns?: string[];
+  include_patterns?: string[];
+  max_file_size_kb?: number;
+  extract_relationships?: boolean;
+}
+
+class RepositoriesAPI {
+  constructor(private http: HttpClient) {}
+
+  async index(repoPath: string, options?: IndexOptions): Promise<{ job: IndexJob }> {
+    return this.http.post('/api/repository/index', {
+      repo_path: repoPath,
+      ...options,
+    });
+  }
+
+  async incrementalUpdate(repositoryId: string): Promise<{ job: IndexJob }> {
+    return this.http.post(`/api/repository/${repositoryId}/incremental`, {});
+  }
+
+  async getIndexStatus(jobId: string): Promise<{ job: IndexJob }> {
+    return this.http.get(`/api/repository/jobs/${jobId}`);
+  }
+
+  async getEntities(repositoryId: string, options?: {
+    entity_type?: string;
+    file_path?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ entities: CodeEntity[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.entity_type) params.set('entity_type', options.entity_type);
+    if (options?.file_path) params.set('file_path', options.file_path);
+    if (options?.search) params.set('search', options.search);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/repository/${repositoryId}/entities${query ? `?${query}` : ''}`);
+  }
+
+  async getRelationshipGraph(repositoryId: string, options?: {
+    root_entity?: string;
+    depth?: number;
+    relationship_types?: string[];
+  }): Promise<{ graph: RelationshipGraph }> {
+    const params = new URLSearchParams();
+    if (options?.root_entity) params.set('root_entity', options.root_entity);
+    if (options?.depth) params.set('depth', String(options.depth));
+    if (options?.relationship_types) options.relationship_types.forEach(t => params.append('relationship_types', t));
+    const query = params.toString();
+    return this.http.get(`/api/repository/${repositoryId}/graph${query ? `?${query}` : ''}`);
+  }
+
+  async delete(repositoryId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/repository/${repositoryId}`);
+  }
+
+  async list(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ repositories: Array<{ id: string; path: string; indexed_at: string; entity_count: number }>; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/repository${query ? `?${query}` : ''}`);
+  }
+}
+
+// =============================================================================
+// Queue API (Job Queue Management)
+// =============================================================================
+
+export type QueueJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'retrying';
+export type QueueJobPriority = 'low' | 'normal' | 'high' | 'critical';
+
+export interface QueueJob {
+  id: string;
+  job_type: string;
+  status: QueueJobStatus;
+  priority: QueueJobPriority;
+  payload: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  error_message?: string;
+  attempt_count: number;
+  max_attempts: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  scheduled_at?: string;
+  worker_id?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface QueueJobInput {
+  job_type: string;
+  payload: Record<string, unknown>;
+  priority?: QueueJobPriority;
+  scheduled_at?: string;
+  max_attempts?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface QueueStats {
+  total_jobs: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  jobs_per_minute: number;
+  avg_processing_time_ms: number;
+  by_type: Record<string, { total: number; pending: number; failed: number }>;
+  workers_active: number;
+}
+
+class QueueAPI {
+  constructor(private http: HttpClient) {}
+
+  async listJobs(options?: {
+    status?: QueueJobStatus;
+    job_type?: string;
+    priority?: QueueJobPriority;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ jobs: QueueJob[]; total: number }> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.job_type) params.set('job_type', options.job_type);
+    if (options?.priority) params.set('priority', options.priority);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return this.http.get(`/api/queue/jobs${query ? `?${query}` : ''}`);
+  }
+
+  async getJob(jobId: string): Promise<{ job: QueueJob }> {
+    return this.http.get(`/api/queue/jobs/${jobId}`);
+  }
+
+  async submitJob(job: QueueJobInput): Promise<{ job: QueueJob }> {
+    return this.http.post('/api/queue/jobs', job);
+  }
+
+  async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
+    return this.http.post(`/api/queue/jobs/${jobId}/cancel`, {});
+  }
+
+  async retryJob(jobId: string): Promise<{ job: QueueJob }> {
+    return this.http.post(`/api/queue/jobs/${jobId}/retry`, {});
+  }
+
+  async getStats(): Promise<{ stats: QueueStats }> {
+    return this.http.get('/api/queue/stats');
+  }
+
+  async purgeCompleted(olderThanHours = 24): Promise<{ purged_count: number }> {
+    return this.http.post('/api/queue/purge', { older_than_hours: olderThanHours });
+  }
+}
+
+// =============================================================================
+// Extended Training API Types (Job Management)
+// =============================================================================
+
+export type TrainingJobStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type TrainingJobType = 'sft' | 'dpo' | 'rlhf' | 'evaluation';
+
+export interface TrainingJob {
+  id: string;
+  name: string;
+  job_type: TrainingJobType;
+  status: TrainingJobStatus;
+  model_base: string;
+  dataset_config: {
+    source: string;
+    filters?: Record<string, unknown>;
+    sample_count: number;
+  };
+  training_config: {
+    epochs: number;
+    batch_size: number;
+    learning_rate: number;
+    warmup_steps: number;
+    [key: string]: unknown;
+  };
+  progress: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  error_message?: string;
+  metrics?: TrainingJobMetrics;
+  artifacts?: TrainingJobArtifacts;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TrainingJobMetrics {
+  loss: number[];
+  eval_loss?: number[];
+  accuracy?: number[];
+  learning_rate?: number[];
+  epoch: number;
+  step: number;
+  samples_processed: number;
+  tokens_processed: number;
+  training_time_seconds: number;
+}
+
+export interface TrainingJobArtifacts {
+  model_path?: string;
+  checkpoint_paths: string[];
+  log_path?: string;
+  config_path?: string;
+  evaluation_report_path?: string;
+}
+
+export interface TrainingJobConfig {
+  name: string;
+  job_type: TrainingJobType;
+  model_base: string;
+  dataset_config: {
+    source: string;
+    filters?: Record<string, unknown>;
+    sample_count?: number;
+  };
+  training_config: {
+    epochs?: number;
+    batch_size?: number;
+    learning_rate?: number;
+    warmup_steps?: number;
+    [key: string]: unknown;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -1866,6 +2768,12 @@ export class AragoraClient {
   readonly documents: DocumentsAPI;
   // Control Plane
   readonly controlPlane: ControlPlaneAPI;
+  // Enterprise APIs (Integration First)
+  readonly policy: PolicyAPI;
+  readonly workflows: WorkflowsAPI;
+  readonly connectors: ConnectorsAPI;
+  readonly repositories: RepositoriesAPI;
+  readonly queue: QueueAPI;
 
   constructor(config: AragoraClientConfig) {
     this.http = new HttpClient(config);
@@ -1893,6 +2801,12 @@ export class AragoraClient {
     this.documents = new DocumentsAPI(this.http);
     // Control Plane
     this.controlPlane = new ControlPlaneAPI(this.http);
+    // Enterprise APIs (Integration First)
+    this.policy = new PolicyAPI(this.http);
+    this.workflows = new WorkflowsAPI(this.http);
+    this.connectors = new ConnectorsAPI(this.http);
+    this.repositories = new RepositoriesAPI(this.http);
+    this.queue = new QueueAPI(this.http);
   }
 
   async health(): Promise<HealthStatus> {
