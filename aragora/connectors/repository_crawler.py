@@ -112,7 +112,7 @@ class CrawlConfig:
     """Configuration for repository crawling."""
 
     # File inclusion/exclusion
-    include_patterns: List[str] = field(default_factory=lambda: ["**/*"])
+    include_patterns: List[str] = field(default_factory=lambda: ["*", "**/*"])
     exclude_patterns: List[str] = field(
         default_factory=lambda: [
             "**/node_modules/**",

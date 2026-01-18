@@ -5,6 +5,7 @@ Provides crawling and syncing from enterprise data sources:
 - Git repositories (GitHub, GitLab, Bitbucket)
 - Cloud documents (S3, SharePoint, Google Drive)
 - Databases (PostgreSQL, MongoDB, Snowflake)
+- Collaboration platforms (Confluence, Notion, Slack)
 - Healthcare systems (FHIR)
 
 All connectors support:
@@ -23,10 +24,15 @@ from aragora.connectors.enterprise.base import (
     EnvCredentialProvider,
 )
 from aragora.connectors.enterprise.git import GitHubEnterpriseConnector
-from aragora.connectors.enterprise.documents import S3Connector
+from aragora.connectors.enterprise.documents import S3Connector, SharePointConnector, GoogleDriveConnector
 from aragora.connectors.enterprise.database import PostgreSQLConnector, MongoDBConnector
 from aragora.connectors.enterprise.sync import SyncScheduler, SyncJob, SyncSchedule, SyncHistory
 from aragora.connectors.enterprise.healthcare import FHIRConnector, PHIRedactor, FHIRAuditLogger
+from aragora.connectors.enterprise.collaboration import (
+    ConfluenceConnector,
+    NotionConnector,
+    SlackConnector,
+)
 
 __all__ = [
     # Base classes
@@ -40,9 +46,15 @@ __all__ = [
     "GitHubEnterpriseConnector",
     # Document connectors
     "S3Connector",
+    "SharePointConnector",
+    "GoogleDriveConnector",
     # Database connectors
     "PostgreSQLConnector",
     "MongoDBConnector",
+    # Collaboration connectors
+    "ConfluenceConnector",
+    "NotionConnector",
+    "SlackConnector",
     # Sync scheduler
     "SyncScheduler",
     "SyncJob",
