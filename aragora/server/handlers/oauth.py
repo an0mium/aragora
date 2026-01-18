@@ -955,8 +955,21 @@ class OAuthHandler(BaseHandler):
         """List configured OAuth providers."""
         providers = []
 
+        # Debug: Log what's happening with secrets
+        google_id = _get_google_client_id()
+        github_id = _get_github_client_id()
+
+        # Log config state for debugging
+        use_aws = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "not_set")
+        env_mode = os.environ.get("ARAGORA_ENV", "not_set")
+        logger.info(
+            f"OAuth providers check: google_id={'set' if google_id else 'empty'}, "
+            f"github_id={'set' if github_id else 'empty'}, "
+            f"use_aws={use_aws}, env={env_mode}"
+        )
+
         # Call functions at runtime to get current config from Secrets Manager
-        if _get_google_client_id():
+        if google_id:
             providers.append(
                 {
                     "id": "google",
@@ -966,7 +979,7 @@ class OAuthHandler(BaseHandler):
                 }
             )
 
-        if _get_github_client_id():
+        if github_id:
             providers.append(
                 {
                     "id": "github",
@@ -976,7 +989,14 @@ class OAuthHandler(BaseHandler):
                 }
             )
 
-        return json_response({"providers": providers})
+        # Temporary debug info
+        debug_info = {
+            "google_id_set": bool(google_id),
+            "github_id_set": bool(github_id),
+            "use_aws": use_aws,
+            "env": env_mode,
+        }
+        return json_response({"providers": providers, "_debug": debug_info})
 
     @handle_errors("get user OAuth providers")
     def _handle_get_user_providers(self, handler) -> HandlerResult:
