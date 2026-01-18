@@ -329,14 +329,20 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
         return content_length
 
-    # Paths exempt from authentication (health checks, probes)
+    # Paths exempt from authentication (health checks, probes, OAuth flow)
     AUTH_EXEMPT_PATHS = frozenset([
         "/healthz",
         "/readyz",
         "/api/health",
         "/api/health/detailed",
         "/api/health/deep",
+        "/api/auth/oauth/providers",  # Login page needs to show available providers
     ])
+
+    # Path prefixes exempt from authentication (OAuth callbacks)
+    AUTH_EXEMPT_PREFIXES = (
+        "/api/auth/oauth/",  # OAuth flow (login, callback)
+    )
 
     def _check_rate_limit(self) -> bool:
         """Check auth and rate limit. Returns True if allowed, False if blocked.
@@ -347,8 +353,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             return True
 
         # Skip auth for health endpoints (needed for load balancers, monitoring)
+        # and OAuth flow (login/callback need to work before user is authenticated)
         parsed = urlparse(self.path)
         if parsed.path in self.AUTH_EXEMPT_PATHS:
+            return True
+        if any(parsed.path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
             return True
 
         # Convert headers to dict
