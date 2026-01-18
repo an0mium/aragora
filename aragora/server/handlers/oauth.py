@@ -1020,10 +1020,20 @@ class OAuthHandler(BaseHandler):
             load_error = str(e)
             logger.error(f"Debug error: {e}")
 
+        # Get config state from manager
+        try:
+            config_use_aws = manager.config.use_aws
+            config_secret_name = manager.config.secret_name
+        except Exception:
+            config_use_aws = "error"
+            config_secret_name = "error"
+
         debug_info = {
             "google_id_set": bool(google_id),
             "github_id_set": bool(github_id),
-            "use_aws": use_aws,
+            "env_use_aws": use_aws,
+            "config_use_aws": config_use_aws,
+            "config_secret_name": config_secret_name,
             "env": env_mode,
             "cached_secrets_count": cached_secrets_count,
             "aws_client_ok": aws_client_ok,
