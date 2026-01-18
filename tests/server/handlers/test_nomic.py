@@ -76,10 +76,11 @@ class TestNomicHandlerRouting:
         assert nomic_handler.can_handle("/api/modes") is True
 
     def test_cannot_handle_unknown_path(self, nomic_handler):
-        """Test that handler rejects unknown paths."""
+        """Test that handler rejects unknown paths outside its prefix."""
         assert nomic_handler.can_handle("/api/unknown") is False
         assert nomic_handler.can_handle("/api/nomic") is False
-        assert nomic_handler.can_handle("/api/nomic/unknown") is False
+        # Handler accepts all /api/nomic/* paths and handles 404 internally
+        assert nomic_handler.can_handle("/api/nomic/unknown") is True
 
 
 class TestNomicState:
