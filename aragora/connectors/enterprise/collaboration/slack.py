@@ -144,7 +144,7 @@ class SlackConnector(EnterpriseConnector):
 
     @property
     def source_type(self) -> SourceType:
-        return SourceType.CONSENSUS  # Conversations are collaborative
+        return SourceType.SYNTHESIS  # Conversations combine multiple contributors
 
     @property
     def name(self) -> str:

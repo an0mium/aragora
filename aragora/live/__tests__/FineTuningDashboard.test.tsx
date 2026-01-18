@@ -158,7 +158,12 @@ describe('FineTuningDashboard', () => {
     it('shows error state', () => {
       mockError = 'Failed to connect';
       render(<FineTuningDashboard />);
-      expect(screen.getByText(/Error: Failed to connect/)).toBeInTheDocument();
+      // Error message is in a div with red-400 class
+      const errorDiv = screen.getByText((content, element) => {
+        return element?.className?.includes('text-red-400') &&
+               element?.textContent === 'Error: Failed to connect';
+      });
+      expect(errorDiv).toBeInTheDocument();
     });
   });
 

@@ -60,12 +60,12 @@ class TestSlackConnectorInitialization:
         assert connector.exclude_bots is False
         assert connector.max_messages_per_channel == 500
 
-    def test_source_type_is_consensus(self):
-        """Should return CONSENSUS source type for conversations."""
+    def test_source_type_is_synthesis(self):
+        """Should return SYNTHESIS source type for collaborative conversations."""
         from aragora.connectors.enterprise.collaboration.slack import SlackConnector
 
         connector = SlackConnector()
-        assert connector.source_type == SourceType.CONSENSUS
+        assert connector.source_type == SourceType.SYNTHESIS
 
     def test_connector_id_is_normalized(self):
         """Should normalize workspace name in connector ID."""
