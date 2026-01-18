@@ -601,7 +601,8 @@ class RepositoryCrawler:
                 return stdout.decode("utf-8", errors="replace")
             return None
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Git command failed: {e}")
             return None
 
     async def _get_changed_files(self, repo_path: Path) -> Optional[Set[str]]:
@@ -619,7 +620,8 @@ class RepositoryCrawler:
                 return set(result.strip().split("\n"))
             return None
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get changed files: {e}")
             return None
 
     async def _discover_files(
@@ -834,7 +836,8 @@ class RepositoryCrawler:
                 sig += f" -> {ast.unparse(node.returns)}"
             return sig
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to extract function signature for {node.name}: {e}")
             return f"def {node.name}(...)"
 
     def _extract_python_symbols_regex(self, content: str) -> List[FileSymbol]:

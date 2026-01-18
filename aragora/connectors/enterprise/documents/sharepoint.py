@@ -408,8 +408,9 @@ class SharePointConnector(EnterpriseConnector):
                 # Try to decode as text
                 try:
                     return response.text
-                except Exception:
+                except Exception as e:
                     # Binary content, try base64
+                    logger.debug(f"[{self.name}] Text decode failed, using base64: {e}")
                     return base64.b64encode(response.content).decode()[:1000] + "..."
 
         except Exception as e:
@@ -589,7 +590,8 @@ class SharePointConnector(EnterpriseConnector):
                         created_at=data.get("createdDateTime"),
                         confidence=0.8,
                     )
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"[{self.name}] Failed to create fetch result: {e}")
                     continue
 
             return None

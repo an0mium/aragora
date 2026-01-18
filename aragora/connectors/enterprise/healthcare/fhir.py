@@ -564,7 +564,8 @@ class FHIRConnector(EnterpriseConnector):
                     else:
                         # Fallback to metadata
                         token_url = f"{self.base_url}/oauth2/token"
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"[{self.name}] SMART config discovery failed, using default: {e}")
                     token_url = f"{self.base_url}/oauth2/token"
 
                 # Request token (client credentials flow)

@@ -141,7 +141,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                 timeout=10,
             )
             self._gh_available = result.returncode == 0
-        except Exception:
+        except Exception as e:
+            logger.debug(f"gh CLI check failed: {e}")
             self._gh_available = False
 
         return self._gh_available
@@ -239,7 +240,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         import base64
         try:
             return base64.b64decode(output.strip()).decode("utf-8")
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Base64 decode failed for file content: {e}")
             return None
 
     def _should_index_file(self, path: str, size: int) -> bool:
