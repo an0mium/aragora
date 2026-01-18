@@ -325,8 +325,9 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception:
-                        pass  # Ignore errors in error handler
+                    except Exception as handler_error:
+                        # Don't let error handler failures cascade
+                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
 
         # Remove one-time hooks
         for hook in to_remove:
@@ -385,8 +386,9 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception:
-                        pass
+                    except Exception as handler_error:
+                        # Don't let error handler failures cascade
+                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
 
         # Remove one-time hooks
         for hook in to_remove:

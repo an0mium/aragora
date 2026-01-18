@@ -325,8 +325,8 @@ class LocalFileBackend(AuditLogBackend):
         if self.anchors_file.exists():
             try:
                 anchors = json.loads(self.anchors_file.read_text())
-            except Exception:
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not load anchors file, starting fresh: {e}")
 
         anchors[anchor.date] = anchor.to_dict()
         self.anchors_file.write_text(json.dumps(anchors, indent=2))
