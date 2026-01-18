@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Type
 
+from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
     ExecutionPattern,
     StepDefinition,
@@ -492,21 +493,16 @@ class WorkflowEngine:
         transition: TransitionRule,
         context: WorkflowContext,
     ) -> bool:
-        """Evaluate a transition condition."""
+        """Evaluate a transition condition using AST-based evaluator."""
         try:
             namespace = {
                 "inputs": context.inputs,
                 "outputs": context.step_outputs,
                 "state": context.state,
                 "step_output": context.step_outputs.get(transition.from_step),
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float,
-                "bool": bool,
             }
-            return bool(eval(transition.condition, {"__builtins__": {}}, namespace))
-        except Exception as e:
+            return safe_eval_bool(transition.condition, namespace)
+        except SafeEvalError as e:
             logger.warning(f"Failed to evaluate transition condition: {e}")
             return False
 

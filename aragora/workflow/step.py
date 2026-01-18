@@ -14,6 +14,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
+from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
+
 
 @runtime_checkable
 class WorkflowStep(Protocol):
@@ -251,21 +253,16 @@ class ConditionalStep(BaseStep):
             return {"skipped": True, "condition": self.condition}
 
     def _evaluate_condition(self, context: WorkflowContext) -> bool:
-        """Safely evaluate condition expression."""
+        """Safely evaluate condition expression using AST-based evaluator."""
         try:
             # Create evaluation namespace
             namespace = {
                 "inputs": context.inputs,
                 "outputs": context.step_outputs,
                 "state": context.state,
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float,
-                "bool": bool,
             }
-            return bool(eval(self.condition, {"__builtins__": {}}, namespace))
-        except Exception:
+            return safe_eval_bool(self.condition, namespace)
+        except SafeEvalError:
             return False
 
 
@@ -315,7 +312,7 @@ class LoopStep(BaseStep):
         }
 
     def _evaluate_condition(self, context: WorkflowContext) -> bool:
-        """Safely evaluate exit condition."""
+        """Safely evaluate exit condition using AST-based evaluator."""
         try:
             namespace = {
                 "inputs": context.inputs,
@@ -323,12 +320,7 @@ class LoopStep(BaseStep):
                 "state": context.state,
                 "iteration": context.state.get("loop_iteration", 0),
                 "last_output": context.state.get("loop_last_output"),
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float,
-                "bool": bool,
             }
-            return bool(eval(self.condition, {"__builtins__": {}}, namespace))
-        except Exception:
+            return safe_eval_bool(self.condition, namespace)
+        except SafeEvalError:
             return False

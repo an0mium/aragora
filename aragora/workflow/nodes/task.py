@@ -14,6 +14,7 @@ import asyncio
 import logging
 from typing import Any, Callable, Dict, Optional
 
+from aragora.workflow.safe_eval import SafeEvalError, safe_eval
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
@@ -207,7 +208,7 @@ class TaskStep(BaseStep):
             namespace[safe_name] = output
 
         try:
-            result = eval(transform_expr, {"__builtins__": {}}, namespace)
+            result = safe_eval(transform_expr, namespace)
 
             # Format output
             if output_format == "list" and not isinstance(result, list):
@@ -220,7 +221,7 @@ class TaskStep(BaseStep):
 
             return {"success": True, "result": result}
 
-        except Exception as e:
+        except SafeEvalError as e:
             return {"success": False, "error": f"Transform failed: {e}"}
 
     async def _execute_validate(self, config: Dict[str, Any], context: WorkflowContext) -> Any:
@@ -235,8 +236,8 @@ class TaskStep(BaseStep):
             "state": context.state,
         }
         try:
-            data = eval(data_expr, {"__builtins__": {}}, namespace)
-        except Exception as e:
+            data = safe_eval(data_expr, namespace)
+        except SafeEvalError as e:
             return {"success": False, "valid": False, "error": f"Invalid data expression: {e}"}
 
         # Validate against rules
@@ -289,9 +290,9 @@ class TaskStep(BaseStep):
             if "expression" in rule:
                 try:
                     ns = {"value": value, "field": field, "data": data, **namespace}
-                    if not eval(rule["expression"], {"__builtins__": {}}, ns):
+                    if not safe_eval(rule["expression"], ns):
                         errors.append(rule.get("message", f"Field '{field}' failed validation"))
-                except Exception:
+                except SafeEvalError:
                     warnings.append(f"Could not evaluate expression for '{field}'")
 
         return {

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
+from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
@@ -264,18 +265,15 @@ class HumanCheckpointStep(BaseStep):
         return "\n".join(parts)
 
     def _evaluate_condition(self, condition: str, context: WorkflowContext) -> bool:
-        """Safely evaluate a condition expression."""
+        """Safely evaluate a condition expression using AST-based evaluator."""
         try:
             namespace = {
                 "inputs": context.inputs,
                 "outputs": context.step_outputs,
                 "state": context.state,
-                "len": len,
-                "str": str,
-                "bool": bool,
             }
-            return bool(eval(condition, {"__builtins__": {}}, namespace))
-        except Exception:
+            return safe_eval_bool(condition, namespace)
+        except SafeEvalError:
             return False
 
 

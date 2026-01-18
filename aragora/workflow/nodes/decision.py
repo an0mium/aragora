@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from aragora.workflow.safe_eval import SafeEvalError, safe_eval, safe_eval_bool
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
@@ -163,8 +164,8 @@ class DecisionStep(BaseStep):
             namespace[safe_name] = output
 
         try:
-            return bool(eval(expression, {"__builtins__": {}}, namespace))
-        except Exception as e:
+            return safe_eval_bool(expression, namespace)
+        except SafeEvalError as e:
             logger.debug(f"Expression evaluation failed: {expression} -> {e}")
             raise
 
@@ -270,7 +271,7 @@ class SwitchStep(BaseStep):
         cases = config.get("cases", {})
         default = config.get("default", "")
 
-        # Evaluate value expression
+        # Evaluate value expression using AST-based evaluator
         try:
             # Create a dict-like wrapper that supports attribute access
             class DictWrapper(dict):
@@ -285,8 +286,8 @@ class SwitchStep(BaseStep):
                 "outputs": DictWrapper(context.step_outputs),
                 "state": DictWrapper(context.state),
             }
-            value = eval(value_expr, {"__builtins__": {}}, namespace)
-        except Exception as e:
+            value = safe_eval(value_expr, namespace)
+        except SafeEvalError as e:
             logger.warning(f"Value expression failed: {e}")
             value = None
 
