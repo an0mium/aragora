@@ -50,6 +50,17 @@ from aragora.connectors.sql import SQLConnector, SQLQueryResult
 from aragora.connectors.twitter import TwitterConnector
 from aragora.connectors.web import WebConnector
 from aragora.connectors.wikipedia import WikipediaConnector
+from aragora.connectors.repository_crawler import (
+    RepositoryCrawler,
+    CrawlConfig,
+    CrawlResult,
+    CrawlState,
+    CrawledFile,
+    FileSymbol,
+    FileDependency,
+    FileType,
+    crawl_repository,
+)
 
 __all__ = [
     # Base classes
@@ -86,4 +97,14 @@ __all__ = [
     # Utilities
     "is_retryable_error",
     "get_retry_delay",
+    # Repository Crawler
+    "RepositoryCrawler",
+    "CrawlConfig",
+    "CrawlResult",
+    "CrawlState",
+    "CrawledFile",
+    "FileSymbol",
+    "FileDependency",
+    "FileType",
+    "crawl_repository",
 ]

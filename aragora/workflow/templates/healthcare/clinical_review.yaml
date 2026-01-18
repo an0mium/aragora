@@ -1,0 +1,194 @@
+id: template_healthcare_clinical_review
+name: Clinical Documentation Review
+description: Multi-agent review of clinical documentation for accuracy, completeness, and compliance
+version: "1.0.0"
+category: healthcare
+tags:
+  - healthcare
+  - clinical
+  - documentation
+  - review
+  - compliance
+icon: clipboard-check
+is_template: true
+
+inputs:
+  clinical_document: Clinical documentation to review
+  document_type: Type of clinical document (progress note, discharge summary, etc.)
+  patient_context: Relevant patient context (de-identified)
+
+outputs:
+  review_result: Complete review findings
+  compliance_status: Compliance status
+  recommendations: Improvement recommendations
+
+steps:
+  - id: phi_scan
+    name: PHI Detection Scan
+    step_type: agent
+    description: Scan for proper PHI handling and de-identification
+    config:
+      agent_type: healthcare
+      prompt_template: |
+        Scan this clinical document for PHI handling:
+        - Verify proper de-identification where required
+        - Check for inadvertent PHI exposure
+        - Validate minimum necessary principle
+
+        Document type: {document_type}
+        Content: {clinical_document}
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - clinical_accuracy
+
+  - id: clinical_accuracy
+    name: Clinical Accuracy Review
+    step_type: debate
+    description: Multi-agent review of clinical accuracy and completeness
+    config:
+      topic: "Review clinical documentation for accuracy and completeness"
+      agents:
+        - clinical_reviewer
+        - medical_coder
+        - quality_analyst
+      rounds: 2
+      context:
+        - "{step.phi_scan}"
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - coding_review
+
+  - id: coding_review
+    name: Medical Coding Review
+    step_type: agent
+    description: Review diagnosis and procedure coding accuracy
+    config:
+      agent_type: healthcare
+      prompt_template: |
+        Review medical coding in this documentation:
+        - Verify ICD-10 diagnosis codes accuracy
+        - Check CPT/HCPCS procedure codes
+        - Validate code-to-documentation alignment
+        - Identify missing or incorrect codes
+
+        Clinical findings: {step.clinical_accuracy}
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - compliance_check
+
+  - id: compliance_check
+    name: Regulatory Compliance Check
+    step_type: decision
+    description: Evaluate regulatory compliance status
+    config:
+      conditions:
+        - name: critical_violation
+          expression: "step.phi_scan.get('phi_exposure_detected', False) or step.coding_review.get('critical_coding_errors', 0) > 0"
+          next_step: immediate_remediation
+        - name: minor_issues
+          expression: "len(step.clinical_accuracy.get('issues', [])) > 0 or step.coding_review.get('minor_errors', 0) > 0"
+          next_step: quality_review
+      default_branch: approve_document
+    visual:
+      position: {x: 100, y: 550}
+      category: control
+      color: "#ed8936"
+
+  - id: immediate_remediation
+    name: Immediate Remediation Required
+    step_type: human_checkpoint
+    description: Critical compliance issues requiring immediate attention
+    config:
+      title: CRITICAL - Compliance Violation Detected
+      description: Critical compliance issues have been identified requiring immediate remediation
+      checklist:
+        - label: PHI exposure addressed
+          required: true
+        - label: Coding errors corrected
+          required: true
+        - label: Incident report filed if required
+          required: true
+        - label: Corrective action plan documented
+          required: true
+      timeout_seconds: 14400  # 4 hours
+      priority: urgent
+      notify:
+        - compliance_officer
+        - privacy_officer
+    visual:
+      position: {x: 300, y: 700}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - store_review
+
+  - id: quality_review
+    name: Quality Improvement Review
+    step_type: human_checkpoint
+    description: Review minor issues for quality improvement
+    config:
+      title: Quality Review Required
+      description: Minor issues identified for quality improvement
+      checklist:
+        - label: Reviewed identified issues
+          required: true
+        - label: Provided feedback to author
+          required: false
+        - label: Updated quality metrics
+          required: true
+      timeout_seconds: 86400  # 24 hours
+    visual:
+      position: {x: 100, y: 700}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - store_review
+
+  - id: approve_document
+    name: Approve Document
+    step_type: task
+    description: Approve compliant documentation
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'approved',
+          'phi_compliant': True,
+          'coding_verified': True,
+          'clinical_accuracy': step.clinical_accuracy.get('accuracy_score', 0),
+          'review_date': datetime.now().isoformat()
+        }
+    visual:
+      position: {x: -100, y: 700}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - store_review
+
+  - id: store_review
+    name: Store Review Results
+    step_type: memory_write
+    description: Archive review results for quality metrics
+    config:
+      content: |
+        Clinical Documentation Review:
+        - Document Type: {document_type}
+        - PHI Scan: {step.phi_scan}
+        - Clinical Accuracy: {step.clinical_accuracy}
+        - Coding Review: {step.coding_review}
+        - Compliance Status: {step.compliance_check}
+      source_type: AUDIT
+      domain: healthcare/clinical_review
+    visual:
+      position: {x: 100, y: 850}
+      category: memory
+      color: "#9f7aea"

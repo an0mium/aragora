@@ -121,7 +121,7 @@ class DocumentsAPI:
         with open(path, "rb") as f:
             content = base64.b64encode(f.read()).decode("utf-8")
 
-        data = {
+        data: dict[str, Any] = {
             "filename": path.name,
             "content": content,
             "content_type": self._guess_mime_type(path.name),
@@ -145,7 +145,7 @@ class DocumentsAPI:
         with open(path, "rb") as f:
             content = base64.b64encode(f.read()).decode("utf-8")
 
-        data = {
+        data: dict[str, Any] = {
             "filename": path.name,
             "content": content,
             "content_type": self._guess_mime_type(path.name),

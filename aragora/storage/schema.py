@@ -139,6 +139,8 @@ def get_wal_connection(
         A sqlite3.Connection configured for WAL mode
     """
     conn = sqlite3.connect(db_path, timeout=timeout, check_same_thread=check_same_thread)
+    # Enable dict-style row access (row["column_name"])
+    conn.row_factory = sqlite3.Row
     # Enable WAL mode for better concurrency
     conn.execute("PRAGMA journal_mode=WAL")
     # Use NORMAL synchronous mode (safe with WAL, faster than FULL)

@@ -152,6 +152,39 @@ class StreamEventType(Enum):
     GAUNTLET_VERDICT = "gauntlet_verdict"  # Final verdict determined
     GAUNTLET_COMPLETE = "gauntlet_complete"  # Gauntlet stress-test completed
 
+    # Phase 2: Workflow Builder Events
+    WORKFLOW_CREATED = "workflow_created"  # New workflow definition created
+    WORKFLOW_UPDATED = "workflow_updated"  # Workflow definition updated
+    WORKFLOW_DELETED = "workflow_deleted"  # Workflow definition deleted
+
+    WORKFLOW_START = "workflow_start"  # Workflow execution started
+    WORKFLOW_STEP_START = "workflow_step_start"  # Step execution started
+    WORKFLOW_STEP_PROGRESS = "workflow_step_progress"  # Step progress update
+    WORKFLOW_STEP_COMPLETE = "workflow_step_complete"  # Step execution completed
+    WORKFLOW_STEP_FAILED = "workflow_step_failed"  # Step execution failed
+    WORKFLOW_STEP_SKIPPED = "workflow_step_skipped"  # Step was skipped
+
+    WORKFLOW_TRANSITION = "workflow_transition"  # Transitioning between steps
+    WORKFLOW_CHECKPOINT = "workflow_checkpoint"  # Checkpoint created
+    WORKFLOW_RESUMED = "workflow_resumed"  # Workflow resumed from checkpoint
+
+    WORKFLOW_HUMAN_APPROVAL_REQUIRED = "workflow_human_approval_required"  # Waiting for human
+    WORKFLOW_HUMAN_APPROVAL_RECEIVED = "workflow_human_approval_received"  # Human responded
+    WORKFLOW_HUMAN_APPROVAL_TIMEOUT = "workflow_human_approval_timeout"  # Approval timed out
+
+    WORKFLOW_DEBATE_START = "workflow_debate_start"  # Debate step starting
+    WORKFLOW_DEBATE_ROUND = "workflow_debate_round"  # Debate round completed
+    WORKFLOW_DEBATE_COMPLETE = "workflow_debate_complete"  # Debate step finished
+
+    WORKFLOW_MEMORY_READ = "workflow_memory_read"  # Knowledge Mound query executed
+    WORKFLOW_MEMORY_WRITE = "workflow_memory_write"  # Knowledge stored in Mound
+
+    WORKFLOW_COMPLETE = "workflow_complete"  # Workflow execution completed
+    WORKFLOW_FAILED = "workflow_failed"  # Workflow execution failed
+    WORKFLOW_TERMINATED = "workflow_terminated"  # Workflow manually terminated
+
+    WORKFLOW_METRICS = "workflow_metrics"  # Workflow execution metrics
+
 
 @dataclass
 class StreamEvent:

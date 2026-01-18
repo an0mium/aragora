@@ -1390,6 +1390,7 @@ def init_audit_log(
     """
     global _audit_log
 
+    backend_impl: AuditLogBackend
     if backend == AuditBackend.LOCAL:
         log_dir = backend_kwargs.get("log_dir", ".nomic/audit_logs")
         backend_impl = LocalFileBackend(log_dir)

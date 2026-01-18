@@ -25,7 +25,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from aragora.documents.models import DocumentChunk
 
@@ -240,7 +240,7 @@ class WeaviateStore:
         self,
         chunks: list[DocumentChunk],
         embeddings: list[list[float]],
-        on_progress: Optional[callable] = None,
+        on_progress: Optional[Callable[[int, int], None]] = None,
     ) -> list[str]:
         """
         Batch index multiple document chunks.
@@ -291,7 +291,7 @@ class WeaviateStore:
                     )
                     uuids.append(str(uuid))
 
-            if on_progress:
+            if on_progress is not None:
                 on_progress(min(i + self.config.batch_size, total), total)
 
             # Small delay between batches to avoid overwhelming the server

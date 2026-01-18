@@ -1,0 +1,336 @@
+id: template_software_security_audit
+name: Security Audit
+description: Comprehensive security audit of software systems including code, infrastructure, and configurations
+version: "1.0.0"
+category: code
+tags:
+  - software
+  - security
+  - audit
+  - owasp
+  - penetration-testing
+icon: shield
+is_template: true
+
+inputs:
+  audit_target: System or codebase to audit
+  audit_scope: Scope of audit (code, infrastructure, full)
+  threat_model: Threat model or attack vectors to consider
+
+outputs:
+  audit_report: Complete security audit report
+  vulnerabilities: List of identified vulnerabilities
+  risk_matrix: Risk assessment matrix
+
+steps:
+  - id: threat_modeling
+    name: Threat Modeling
+    step_type: debate
+    description: Multi-agent threat modeling session
+    config:
+      topic: "Identify potential threats and attack vectors for: {audit_target}"
+      agents:
+        - security_architect
+        - penetration_tester
+        - threat_analyst
+      rounds: 2
+    visual:
+      position: {x: 100, y: 100}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - parallel_assessment
+
+  - id: parallel_assessment
+    name: Parallel Security Assessment
+    step_type: parallel
+    description: Concurrent security assessments
+    config:
+      parallel_steps:
+        - code_vulnerability_scan
+        - dependency_audit
+        - config_review
+        - auth_assessment
+      max_concurrent: 4
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - vulnerability_analysis
+
+  - id: code_vulnerability_scan
+    name: Code Vulnerability Scan
+    step_type: agent
+    description: Static application security testing (SAST)
+    config:
+      agent_type: security
+      prompt_template: |
+        Perform SAST on the codebase:
+
+        Target: {audit_target}
+
+        Scan for:
+        - SQL injection points
+        - XSS vulnerabilities
+        - Command injection
+        - Path traversal
+        - Insecure deserialization
+        - Hardcoded secrets
+        - Cryptographic weaknesses
+    visual:
+      position: {x: -150, y: 350}
+      category: agent
+      color: "#f56565"
+
+  - id: dependency_audit
+    name: Dependency Audit
+    step_type: agent
+    description: Software composition analysis (SCA)
+    config:
+      agent_type: security
+      prompt_template: |
+        Audit dependencies for known vulnerabilities:
+
+        Target: {audit_target}
+
+        Check:
+        - CVE database matches
+        - Outdated dependencies
+        - License compliance
+        - Transitive dependencies
+        - Supply chain risks
+    visual:
+      position: {x: 0, y: 350}
+      category: agent
+      color: "#f6ad55"
+
+  - id: config_review
+    name: Configuration Review
+    step_type: agent
+    description: Security configuration assessment
+    config:
+      agent_type: security
+      prompt_template: |
+        Review security configurations:
+
+        Target: {audit_target}
+
+        Check:
+        - Security headers
+        - TLS configuration
+        - CORS settings
+        - Cookie security
+        - Environment variable handling
+        - API security settings
+    visual:
+      position: {x: 150, y: 350}
+      category: agent
+      color: "#ed8936"
+
+  - id: auth_assessment
+    name: Authentication Assessment
+    step_type: agent
+    description: Authentication and authorization review
+    config:
+      agent_type: security
+      prompt_template: |
+        Assess authentication and authorization:
+
+        Target: {audit_target}
+
+        Evaluate:
+        - Authentication mechanisms
+        - Session management
+        - Password policies
+        - MFA implementation
+        - OAuth/OIDC configuration
+        - RBAC/ABAC implementation
+        - Privilege escalation vectors
+    visual:
+      position: {x: 300, y: 350}
+      category: agent
+      color: "#f56565"
+
+  - id: vulnerability_analysis
+    name: Vulnerability Analysis
+    step_type: debate
+    description: Analyze and prioritize vulnerabilities
+    config:
+      topic: "Analyze vulnerabilities and determine risk levels"
+      agents:
+        - security_analyst
+        - risk_assessor
+        - remediation_specialist
+      rounds: 2
+      context:
+        - "{step.threat_modeling}"
+        - "{step.code_vulnerability_scan}"
+        - "{step.dependency_audit}"
+        - "{step.config_review}"
+        - "{step.auth_assessment}"
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - risk_classification
+
+  - id: risk_classification
+    name: Risk Classification
+    step_type: decision
+    description: Classify overall security risk level
+    config:
+      conditions:
+        - name: critical_vulnerabilities
+          expression: "any(v.get('cvss_score', 0) >= 9.0 for v in step.vulnerability_analysis.get('vulnerabilities', []))"
+          next_step: critical_response
+        - name: high_risk
+          expression: "len([v for v in step.vulnerability_analysis.get('vulnerabilities', []) if v.get('cvss_score', 0) >= 7.0]) >= 3"
+          next_step: urgent_remediation
+        - name: medium_risk
+          expression: "len(step.vulnerability_analysis.get('vulnerabilities', [])) > 0"
+          next_step: standard_remediation
+      default_branch: clean_report
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: critical_response
+    name: Critical Security Response
+    step_type: human_checkpoint
+    description: Immediate response for critical vulnerabilities
+    config:
+      title: CRITICAL SECURITY VULNERABILITY
+      description: Critical security vulnerabilities require immediate response
+      checklist:
+        - label: Security team notified
+          required: true
+        - label: Affected systems identified
+          required: true
+        - label: Containment measures implemented
+          required: true
+        - label: Remediation plan established
+          required: true
+        - label: Incident documentation initiated
+          required: true
+      timeout_seconds: 14400  # 4 hours
+      priority: critical
+    visual:
+      position: {x: 350, y: 800}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: urgent_remediation
+    name: Urgent Remediation
+    step_type: human_checkpoint
+    description: Urgent remediation planning for high-risk vulnerabilities
+    config:
+      title: High-Risk Vulnerabilities Identified
+      description: Multiple high-risk vulnerabilities require urgent remediation
+      checklist:
+        - label: Reviewed all high-risk findings
+          required: true
+        - label: Remediation timeline established
+          required: true
+        - label: Resources assigned
+          required: true
+      timeout_seconds: 86400  # 24 hours
+      priority: high
+    visual:
+      position: {x: 175, y: 800}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: standard_remediation
+    name: Standard Remediation
+    step_type: task
+    description: Create remediation plan for medium/low vulnerabilities
+    config:
+      task_type: transform
+      transform: |
+        {
+          'risk_level': 'medium',
+          'vulnerabilities': step.vulnerability_analysis.get('vulnerabilities', []),
+          'remediation_timeline': '30_days',
+          'requires_retest': True
+        }
+    visual:
+      position: {x: 0, y: 800}
+      category: task
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: clean_report
+    name: Clean Security Report
+    step_type: task
+    description: Document clean security assessment
+    config:
+      task_type: transform
+      transform: |
+        {
+          'risk_level': 'low',
+          'vulnerabilities': [],
+          'status': 'passed',
+          'next_audit_date': (datetime.now() + timedelta(days=90)).isoformat()
+        }
+    visual:
+      position: {x: -175, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Audit Report
+    step_type: agent
+    description: Generate comprehensive security audit report
+    config:
+      agent_type: security
+      prompt_template: |
+        Generate Security Audit Report:
+
+        Target: {audit_target}
+        Scope: {audit_scope}
+
+        Findings:
+        - Threat Model: {step.threat_modeling}
+        - Code Scan: {step.code_vulnerability_scan}
+        - Dependencies: {step.dependency_audit}
+        - Configuration: {step.config_review}
+        - Authentication: {step.auth_assessment}
+        - Analysis: {step.vulnerability_analysis}
+
+        Include:
+        - Executive summary
+        - Methodology
+        - Findings by severity
+        - Risk matrix
+        - Remediation recommendations
+        - Compliance mapping
+    visual:
+      position: {x: 100, y: 950}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Archive Audit Report
+    step_type: memory_write
+    description: Archive security audit for compliance
+    config:
+      content: "{step.generate_report}"
+      source_type: AUDIT
+      domain: software/security_audit
+    visual:
+      position: {x: 100, y: 1100}
+      category: memory
+      color: "#9f7aea"

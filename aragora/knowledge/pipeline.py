@@ -7,6 +7,7 @@ Orchestrates the complete flow from document upload to queryable knowledge:
 3. Embedding (via Weaviate or in-memory)
 4. Fact extraction (via agents)
 5. Fact storage (via FactStore)
+6. Knowledge Mound integration (optional unified knowledge layer)
 
 Usage:
     from aragora.knowledge.pipeline import KnowledgePipeline
@@ -21,6 +22,28 @@ Usage:
     answer = await pipeline.query("What are the payment terms?")
 
     await pipeline.stop()
+
+With Knowledge Mound (unified enterprise storage):
+    from aragora.knowledge.pipeline import KnowledgePipeline, PipelineConfig
+    from aragora.knowledge.mound import MoundConfig, MoundBackend
+
+    config = PipelineConfig(
+        workspace_id="enterprise",
+        use_knowledge_mound=True,
+        mound_config=MoundConfig(
+            backend=MoundBackend.HYBRID,
+            postgres_url="postgresql://user:pass@host/db",
+            redis_url="redis://localhost:6379",
+        ),
+    )
+    pipeline = KnowledgePipeline(config)
+    await pipeline.start()
+
+    # Documents and facts are automatically synced to Knowledge Mound
+    result = await pipeline.process_document(content, "contract.pdf")
+
+    # Federated query across all knowledge sources
+    answer = await pipeline.query("What are the payment terms?")
 """
 
 from __future__ import annotations
@@ -46,6 +69,23 @@ from aragora.knowledge.embeddings import (
 from aragora.knowledge.fact_store import FactStore, InMemoryFactStore
 from aragora.knowledge.query_engine import DatasetQueryEngine, QueryOptions, SimpleQueryEngine
 from aragora.knowledge.types import Fact, QueryResult, ValidationStatus
+
+# Optional Knowledge Mound imports
+try:
+    from aragora.knowledge.mound import (
+        KnowledgeMound,
+        MoundConfig,
+        MoundBackend,
+        IngestionRequest,
+        KnowledgeSource,
+        ConfidenceLevel,
+    )
+    MOUND_AVAILABLE = True
+except ImportError:
+    MOUND_AVAILABLE = False
+    KnowledgeMound = None  # type: ignore
+    MoundConfig = None  # type: ignore
+    MoundBackend = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +123,10 @@ class PipelineConfig:
 
     # Storage
     fact_db_path: Optional[Path] = None
+
+    # Knowledge Mound integration
+    use_knowledge_mound: bool = False
+    mound_config: Optional[Any] = None  # MoundConfig if available
 
     # Concurrency
     max_concurrent_embeddings: int = 10
@@ -139,6 +183,7 @@ class KnowledgePipeline:
             Union[WeaviateEmbeddingService, InMemoryEmbeddingService]
         ] = None,
         agents: Optional[list] = None,
+        knowledge_mound: Optional[Any] = None,  # KnowledgeMound if available
     ):
         """
         Initialize the knowledge pipeline.
@@ -148,6 +193,7 @@ class KnowledgePipeline:
             fact_store: Optional pre-configured fact store
             embedding_service: Optional pre-configured embedding service
             agents: Optional list of agents for fact extraction
+            knowledge_mound: Optional pre-configured KnowledgeMound for unified storage
         """
         self.config = config or PipelineConfig()
 
@@ -155,7 +201,8 @@ class KnowledgePipeline:
         self._fact_store = fact_store
         self._embedding_service = embedding_service
         self._agents = agents or []
-        self._query_engine: Optional[DatasetQueryEngine] = None
+        self._query_engine: Optional[Union[DatasetQueryEngine, SimpleQueryEngine]] = None
+        self._knowledge_mound = knowledge_mound
 
         # Parser
         self._parser: Optional[Any] = None
@@ -167,6 +214,7 @@ class KnowledgePipeline:
             "chunks_embedded": 0,
             "facts_extracted": 0,
             "queries_answered": 0,
+            "mound_synced": 0,
         }
 
         # Callbacks
@@ -216,6 +264,20 @@ class KnowledgePipeline:
             else:
                 self._embedding_service = InMemoryEmbeddingService()
 
+        # Initialize Knowledge Mound if configured
+        if self.config.use_knowledge_mound and MOUND_AVAILABLE and self._knowledge_mound is None:
+            try:
+                mound_config = self.config.mound_config or MoundConfig()
+                self._knowledge_mound = KnowledgeMound(
+                    config=mound_config,
+                    workspace_id=self.config.workspace_id,
+                )
+                await self._knowledge_mound.initialize()
+                logger.info("Knowledge Mound initialized for pipeline")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Knowledge Mound: {e}")
+                self._knowledge_mound = None
+
         # Initialize parser
         if UNSTRUCTURED_AVAILABLE and UnstructuredParser:
             self._parser = UnstructuredParser()
@@ -242,6 +304,13 @@ class KnowledgePipeline:
         if self._embedding_service:
             try:
                 self._embedding_service.close()
+            except Exception:
+                pass
+
+        # Cleanup Knowledge Mound
+        if self._knowledge_mound:
+            try:
+                await self._knowledge_mound.close()
             except Exception:
                 pass
 
@@ -287,7 +356,7 @@ class KnowledgePipeline:
             self._report_progress(document_id, 0.5, "Embedding chunks...")
             embedded_count = await self._embed_chunks(chunks, document_id)
 
-            # Step 4: Extract facts (90%)
+            # Step 4: Extract facts (70%)
             facts = []
             should_extract = (
                 extract_facts if extract_facts is not None else self.config.extract_facts
@@ -295,6 +364,12 @@ class KnowledgePipeline:
             if should_extract and self._agents:
                 self._report_progress(document_id, 0.7, "Extracting facts...")
                 facts = await self._extract_facts(document, chunks)
+
+            # Step 5: Sync to Knowledge Mound (90%)
+            mound_synced = 0
+            if self._knowledge_mound and MOUND_AVAILABLE:
+                self._report_progress(document_id, 0.85, "Syncing to Knowledge Mound...")
+                mound_synced = await self._sync_to_mound(document, chunks, facts, tags)
 
             # Finalize
             self._report_progress(document_id, 1.0, "Processing complete")
@@ -305,6 +380,7 @@ class KnowledgePipeline:
             self._stats["documents_processed"] += 1
             self._stats["chunks_embedded"] += embedded_count
             self._stats["facts_extracted"] += len(facts)
+            self._stats["mound_synced"] += mound_synced
 
             return ProcessingResult(
                 document_id=document_id,
@@ -481,7 +557,7 @@ class KnowledgePipeline:
         # Take first N chunks for context
         context_chunks = chunks[:5]
         chunk_texts = "\n\n".join(
-            f"[Chunk {c.chunk_index}]: {c.text[:500]}..." for c in context_chunks
+            f"[Chunk {c.sequence}]: {c.content[:500]}..." for c in context_chunks
         )
 
         prompt = f"""Analyze the following document excerpts and extract specific factual statements.
@@ -519,10 +595,98 @@ Include dates, numbers, names, and specific claims where possible."""
 
         return facts
 
+    async def _sync_to_mound(
+        self,
+        document: IngestedDocument,
+        chunks: list[DocumentChunk],
+        facts: list[Fact],
+        tags: Optional[list[str]] = None,
+    ) -> int:
+        """
+        Sync document, chunks, and facts to the Knowledge Mound.
+
+        Args:
+            document: Ingested document
+            chunks: Document chunks
+            facts: Extracted facts
+            tags: Optional tags
+
+        Returns:
+            Number of items synced
+        """
+        if not self._knowledge_mound or not MOUND_AVAILABLE:
+            return 0
+
+        synced = 0
+        try:
+            # Store the document as a knowledge item
+            doc_request = IngestionRequest(
+                content=document.text or "",
+                source=KnowledgeSource.DOCUMENT,
+                workspace_id=self.config.workspace_id,
+                confidence=ConfidenceLevel.HIGH,
+                metadata={
+                    "document_id": document.id,
+                    "filename": document.filename,
+                    "content_type": document.content_type,
+                    "file_size": document.file_size,
+                    "chunk_count": len(chunks),
+                    "tags": tags or [],
+                },
+            )
+            result = await self._knowledge_mound.store(doc_request)
+            if result.success:
+                synced += 1
+
+            # Store each chunk as a knowledge item linked to the document
+            for chunk in chunks[:50]:  # Limit chunks to avoid overload
+                chunk_request = IngestionRequest(
+                    content=chunk.content,
+                    source=KnowledgeSource.DOCUMENT,
+                    workspace_id=self.config.workspace_id,
+                    confidence=ConfidenceLevel.HIGH,
+                    metadata={
+                        "chunk_id": chunk.id,
+                        "document_id": document.id,
+                        "sequence": chunk.sequence,
+                        "token_count": chunk.token_count,
+                        "parent_node_id": result.node_id if result.success else None,
+                    },
+                )
+                chunk_result = await self._knowledge_mound.store(chunk_request)
+                if chunk_result.success:
+                    synced += 1
+
+            # Store each fact as a knowledge item
+            for fact in facts:
+                fact_request = IngestionRequest(
+                    content=fact.statement,
+                    source=KnowledgeSource.EXTRACTION,
+                    workspace_id=self.config.workspace_id,
+                    confidence=ConfidenceLevel.from_score(fact.confidence),
+                    metadata={
+                        "fact_id": fact.id,
+                        "document_id": document.id,
+                        "validation_status": fact.validation_status.value if fact.validation_status else "unverified",
+                        "source_documents": fact.source_documents,
+                    },
+                )
+                fact_result = await self._knowledge_mound.store(fact_request)
+                if fact_result.success:
+                    synced += 1
+
+            logger.debug(f"Synced {synced} items to Knowledge Mound for document {document.id}")
+
+        except Exception as e:
+            logger.warning(f"Failed to sync to Knowledge Mound: {e}")
+
+        return synced
+
     async def query(
         self,
         question: str,
         options: Optional[QueryOptions] = None,
+        use_mound: bool = True,
     ) -> QueryResult:
         """
         Query the knowledge base.
@@ -530,6 +694,7 @@ Include dates, numbers, names, and specific claims where possible."""
         Args:
             question: Natural language question
             options: Query options
+            use_mound: Whether to include Knowledge Mound in the query (if available)
 
         Returns:
             QueryResult with answer and supporting facts
@@ -540,10 +705,63 @@ Include dates, numbers, names, and specific claims where possible."""
         if not self._query_engine:
             raise RuntimeError("Query engine not initialized")
 
+        # Standard query through query engine
         result = await self._query_engine.query(question, self.config.workspace_id, options)
+
+        # Augment with Knowledge Mound results if available
+        if use_mound and self._knowledge_mound and MOUND_AVAILABLE:
+            try:
+                mound_result = await self._knowledge_mound.query(
+                    query=question,
+                    workspace_id=self.config.workspace_id,
+                    limit=10,
+                )
+                # Merge mound results into the answer context
+                if mound_result.items and hasattr(result, "context"):
+                    mound_context = "\n".join(
+                        f"[Knowledge Mound] {item.content[:200]}..."
+                        for item in mound_result.items[:3]
+                    )
+                    if result.context:
+                        result.context = f"{result.context}\n\n{mound_context}"
+                    else:
+                        result.context = mound_context
+            except Exception as e:
+                logger.debug(f"Knowledge Mound query augmentation skipped: {e}")
 
         self._stats["queries_answered"] += 1
         return result
+
+    async def query_mound(
+        self,
+        query: str,
+        limit: int = 20,
+        sources: Optional[list[str]] = None,
+    ) -> Any:
+        """
+        Query the Knowledge Mound directly for unified cross-source search.
+
+        Args:
+            query: Search query
+            limit: Maximum results
+            sources: Optional source filters (e.g., ["document", "debate", "consensus"])
+
+        Returns:
+            QueryResult from Knowledge Mound, or None if not available
+        """
+        if not self._running:
+            await self.start()
+
+        if not self._knowledge_mound or not MOUND_AVAILABLE:
+            logger.warning("Knowledge Mound not available for direct query")
+            return None
+
+        return await self._knowledge_mound.query(
+            query=query,
+            workspace_id=self.config.workspace_id,
+            sources=sources or ["all"],
+            limit=limit,
+        )
 
     async def search(
         self,
@@ -614,13 +832,91 @@ Include dates, numbers, names, and specific claims where possible."""
         if self._fact_store:
             fact_stats = self._fact_store.get_statistics(self.config.workspace_id)
 
+        mound_stats = {}
+        if self._knowledge_mound:
+            try:
+                # Sync call - stats are usually lightweight
+                mound_stats = {
+                    "enabled": True,
+                    "synced_items": self._stats.get("mound_synced", 0),
+                }
+            except Exception:
+                mound_stats = {"enabled": True, "error": "stats unavailable"}
+        else:
+            mound_stats = {"enabled": False}
+
         return {
             "running": self._running,
             "workspace_id": self.config.workspace_id,
             "pipeline_stats": self._stats,
             "embedding_stats": embedding_stats,
             "fact_stats": fact_stats,
+            "mound_stats": mound_stats,
         }
+
+
+    async def get_stale_knowledge(
+        self,
+        threshold: float = 0.5,
+        limit: int = 50,
+    ) -> list[Any]:
+        """
+        Get stale knowledge items that may need revalidation.
+
+        Args:
+            threshold: Minimum staleness score (0.0 to 1.0)
+            limit: Maximum items to return
+
+        Returns:
+            List of StalenessCheck results from Knowledge Mound
+        """
+        if not self._knowledge_mound or not MOUND_AVAILABLE:
+            return []
+
+        try:
+            return await self._knowledge_mound.get_stale_knowledge(
+                threshold=threshold,
+                limit=limit,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to get stale knowledge: {e}")
+            return []
+
+    async def get_culture_profile(self) -> Any:
+        """
+        Get the organizational culture profile from observed debates.
+
+        Returns:
+            CultureProfile from Knowledge Mound, or None if not available
+        """
+        if not self._knowledge_mound or not MOUND_AVAILABLE:
+            return None
+
+        try:
+            return await self._knowledge_mound.get_culture_profile()
+        except Exception as e:
+            logger.warning(f"Failed to get culture profile: {e}")
+            return None
+
+    async def observe_debate(self, debate_result: Any) -> None:
+        """
+        Observe a debate result to accumulate cultural patterns.
+
+        Args:
+            debate_result: Result from Arena.run() or similar debate execution
+        """
+        if not self._knowledge_mound or not MOUND_AVAILABLE:
+            return
+
+        try:
+            await self._knowledge_mound.observe_debate(debate_result)
+        except Exception as e:
+            logger.warning(f"Failed to observe debate: {e}")
+
+    @property
+    def knowledge_mound(self) -> Any:
+        """Get the Knowledge Mound instance (if available)."""
+        return self._knowledge_mound
 
 
 # Convenience function
@@ -628,6 +924,8 @@ async def create_pipeline(
     workspace_id: str,
     use_weaviate: bool = False,
     weaviate_url: str = "http://localhost:8080",
+    use_knowledge_mound: bool = False,
+    mound_config: Optional[Any] = None,
 ) -> KnowledgePipeline:
     """
     Create and start a knowledge pipeline.
@@ -636,6 +934,8 @@ async def create_pipeline(
         workspace_id: Workspace identifier
         use_weaviate: Whether to use Weaviate for embeddings
         weaviate_url: Weaviate server URL
+        use_knowledge_mound: Whether to enable Knowledge Mound integration
+        mound_config: Optional MoundConfig for Knowledge Mound
 
     Returns:
         Started KnowledgePipeline
@@ -644,6 +944,8 @@ async def create_pipeline(
         workspace_id=workspace_id,
         use_weaviate=use_weaviate,
         weaviate_url=weaviate_url,
+        use_knowledge_mound=use_knowledge_mound,
+        mound_config=mound_config,
     )
     pipeline = KnowledgePipeline(config)
     await pipeline.start()

@@ -1,0 +1,85 @@
+# Standard Multi-Agent Debate Workflow
+#
+# Executes a multi-agent debate with synthesis and optional human review.
+# Agents discuss a topic, critique each other, and reach consensus.
+#
+# Inputs:
+#   - topic: The debate topic or question
+#   - workspace_id: Workspace for memory storage (optional)
+#
+# Outputs:
+#   - consensus: The agreed-upon conclusion
+#   - synthesis: Combined insights from all agents
+#   - votes: Agent voting results
+
+id: debate_workflow
+name: "Multi-Agent Debate"
+description: "Standard debate workflow with multiple AI agents discussing a topic"
+version: "1.0"
+
+metadata:
+  category: "debate"
+  tags: ["multi-agent", "consensus", "synthesis"]
+  estimated_duration_minutes: 5
+
+steps:
+  - id: setup_context
+    type: memory
+    config:
+      action: "read"
+      keys: ["previous_debates", "domain_knowledge"]
+      fallback_empty: true
+    next: run_debate
+
+  - id: run_debate
+    type: debate
+    config:
+      topic: "{topic}"
+      agents: ["claude", "gpt4", "gemini"]
+      rounds: 3
+      topology: "round_robin"
+      consensus_mechanism: "weighted"
+      enable_critique: true
+      enable_synthesis: true
+      memory_enabled: true
+      timeout_seconds: 120
+    next: check_consensus
+
+  - id: check_consensus
+    type: decision
+    config:
+      expression: "step_outputs.run_debate.consensus_reached"
+      on_true: store_results
+      on_false: extend_debate
+    next: store_results
+
+  - id: extend_debate
+    type: debate
+    config:
+      topic: "Continue the discussion: {topic}"
+      agents: ["claude", "gpt4"]
+      rounds: 2
+      consensus_mechanism: "unanimous"
+      timeout_seconds: 60
+    next: store_results
+
+  - id: store_results
+    type: memory
+    config:
+      action: "write"
+      data:
+        debate_result: "{step_outputs.run_debate}"
+        timestamp: "{now}"
+      target: "knowledge_mound"
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "run_debate.consensus"
+        - "run_debate.synthesis"
+        - "run_debate.votes"
+
+entry_point: setup_context

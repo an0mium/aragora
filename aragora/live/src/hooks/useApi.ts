@@ -116,14 +116,14 @@ export function useApi<T = unknown>(
   );
 
   const get = useCallback(
-    (endpoint: string, retryConfig?: RetryConfig) => {
+    (endpoint: string, retryConfig?: RetryConfig): Promise<T> => {
       return request(endpoint, { method: 'GET' }, retryConfig);
     },
     [request]
   );
 
   const post = useCallback(
-    (endpoint: string, body?: unknown, retryConfig?: RetryConfig) => {
+    (endpoint: string, body?: unknown, retryConfig?: RetryConfig): Promise<T> => {
       return request(
         endpoint,
         {
@@ -137,7 +137,7 @@ export function useApi<T = unknown>(
   );
 
   const put = useCallback(
-    (endpoint: string, body?: unknown, retryConfig?: RetryConfig) => {
+    (endpoint: string, body?: unknown, retryConfig?: RetryConfig): Promise<T> => {
       return request(
         endpoint,
         {

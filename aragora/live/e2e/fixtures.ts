@@ -115,6 +115,8 @@ export const selectors = {
     agents: '[data-testid="nav-agents"]',
     plugins: '[data-testid="nav-plugins"]',
     settings: '[data-testid="nav-settings"]',
+    workflows: '[data-testid="nav-workflows"]',
+    connectors: '[data-testid="nav-connectors"]',
   },
   // Debate creation
   debateInput: {
@@ -140,6 +142,34 @@ export const selectors = {
     hero: '[data-testid="hero-section"]',
     cta: '[data-testid="cta-button"]',
     features: '[data-testid="features-section"]',
+  },
+  // Workflow builder
+  workflow: {
+    canvas: '[data-testid="workflow-canvas"]',
+    nodePalette: '[data-testid="node-palette"]',
+    propertyEditor: '[data-testid="property-editor"]',
+    saveButton: '[data-testid="save-workflow"]',
+    clearButton: '[data-testid="clear-canvas"]',
+    templateBrowser: '[data-testid="template-browser"]',
+  },
+  // Connectors
+  connectors: {
+    list: '[data-testid="connector-list"]',
+    card: '[data-testid="connector-card"]',
+    addButton: '[data-testid="add-connector"]',
+    syncButton: '[data-testid="sync-button"]',
+    deleteButton: '[data-testid="delete-connector"]',
+    statusBadge: '[data-testid="connector-status"]',
+  },
+  // Visualizations
+  visualizations: {
+    heatmap: '[data-testid="heatmap"]',
+    heatmapCell: '[data-testid="heatmap-cell"]',
+    beliefGraph: '[data-testid="belief-graph"]',
+    cruxPanel: '[data-testid="crux-panel"]',
+    cruxCard: '[data-testid="crux-card"]',
+    graphNode: '[data-testid="graph-node"]',
+    graphEdge: '[data-testid="graph-edge"]',
   },
 };
 
@@ -195,3 +225,63 @@ export const mockAgents = [
   { name: 'gpt', provider: 'openai', status: 'available', elo: 1480 },
   { name: 'gemini', provider: 'google', status: 'available', elo: 1460 },
 ];
+
+// Mock workflow templates
+export const mockWorkflowTemplates = [
+  {
+    id: 'legal-contract-review',
+    name: 'Contract Review',
+    description: 'Automated contract analysis workflow',
+    industry: 'legal',
+    steps: ['extract', 'analyze', 'review', 'approve'],
+  },
+  {
+    id: 'code-security-audit',
+    name: 'Security Audit',
+    description: 'Code security analysis pipeline',
+    industry: 'code',
+    steps: ['scan', 'analyze', 'debate', 'report'],
+  },
+];
+
+// Mock connectors
+export const mockConnectors = [
+  {
+    id: 'conn-1',
+    name: 'Production GitHub',
+    type: 'github',
+    status: 'connected',
+    last_sync: new Date().toISOString(),
+    documents_indexed: 1500,
+  },
+  {
+    id: 'conn-2',
+    name: 'SharePoint Docs',
+    type: 'sharepoint',
+    status: 'syncing',
+    last_sync: new Date(Date.now() - 3600000).toISOString(),
+    documents_indexed: 892,
+  },
+];
+
+// Mock gauntlet heatmap data
+export const mockHeatmapData = {
+  categories: ['Input Validation', 'Logic Errors', 'Security'],
+  cells: [
+    { category: 'Input Validation', severity: 'high', count: 2 },
+    { category: 'Security', severity: 'critical', count: 1 },
+  ],
+  total_findings: 3,
+};
+
+// Mock belief network data
+export const mockBeliefNetwork = {
+  nodes: [
+    { id: 'node-1', statement: 'Test claim', author: 'claude', centrality: 0.8, is_crux: true },
+    { id: 'node-2', statement: 'Supporting claim', author: 'gpt4', centrality: 0.6 },
+  ],
+  links: [
+    { source: 'node-1', target: 'node-2', weight: 0.8, type: 'supports' },
+  ],
+  metadata: { debate_id: 'test', total_claims: 2, crux_count: 1 },
+};

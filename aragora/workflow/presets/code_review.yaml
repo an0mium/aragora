@@ -1,0 +1,144 @@
+# Code Review Workflow
+#
+# Multi-perspective code review with security, performance, and style analysis.
+# Agents review code from different perspectives and synthesize findings.
+#
+# Inputs:
+#   - code: Code to review (or file_path)
+#   - file_path: Path to code file (alternative to code)
+#   - context: Additional context about the code
+#
+# Outputs:
+#   - security_findings: Security issues found
+#   - performance_findings: Performance concerns
+#   - style_findings: Code style issues
+#   - synthesis: Combined review summary
+#   - approval: Whether code is approved
+
+id: code_review
+name: "Multi-Perspective Code Review"
+description: "Comprehensive code review with security, performance, and style analysis"
+version: "1.0"
+
+metadata:
+  category: "development"
+  tags: ["code-review", "security", "quality"]
+  estimated_duration_minutes: 5
+
+steps:
+  - id: prepare_code
+    type: task
+    config:
+      action: "prepare_input"
+      code_key: "code"
+      file_path_key: "file_path"
+    next: parallel_review
+
+  - id: parallel_review
+    type: parallel
+    config:
+      steps:
+        - id: security_review
+          type: task
+          config:
+            agent: "claude"
+            role: "security_expert"
+            prompt: |
+              Review this code for security vulnerabilities.
+              Focus on: injection, auth, data exposure, input validation.
+
+              Code:
+              {step_outputs.prepare_code.content}
+
+              Context: {context}
+
+        - id: performance_review
+          type: task
+          config:
+            agent: "gpt4"
+            role: "performance_expert"
+            prompt: |
+              Review this code for performance issues.
+              Focus on: complexity, memory, I/O, algorithms.
+
+              Code:
+              {step_outputs.prepare_code.content}
+
+              Context: {context}
+
+        - id: style_review
+          type: task
+          config:
+            agent: "claude"
+            role: "code_quality_expert"
+            prompt: |
+              Review this code for style and maintainability.
+              Focus on: naming, structure, documentation, patterns.
+
+              Code:
+              {step_outputs.prepare_code.content}
+
+              Context: {context}
+    next: synthesize_reviews
+
+  - id: synthesize_reviews
+    type: debate
+    config:
+      topic: |
+        Synthesize the code review findings and provide a final assessment.
+
+        Security findings: {step_outputs.parallel_review.security_review}
+        Performance findings: {step_outputs.parallel_review.performance_review}
+        Style findings: {step_outputs.parallel_review.style_review}
+      agents: ["claude"]
+      rounds: 1
+      enable_synthesis: true
+    next: security_validation
+
+  - id: security_validation
+    type: gauntlet
+    config:
+      input_key: "step_outputs.prepare_code.content"
+      attack_categories: ["prompt_injection", "data_extraction"]
+      severity_threshold: "high"
+      require_passing: false
+    next: determine_approval
+
+  - id: determine_approval
+    type: decision
+    config:
+      expression: |
+        step_outputs.security_validation.passed and
+        step_outputs.synthesize_reviews.severity != 'critical'
+      on_true: approve
+      on_false: request_changes
+    next: complete
+
+  - id: approve
+    type: task
+    config:
+      action: "set_status"
+      status: "approved"
+      message: "Code review passed"
+    next: complete
+
+  - id: request_changes
+    type: task
+    config:
+      action: "set_status"
+      status: "changes_requested"
+      message: "Code review found issues requiring attention"
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "security_findings"
+        - "performance_findings"
+        - "style_findings"
+        - "synthesis"
+        - "approval_status"
+
+entry_point: prepare_code

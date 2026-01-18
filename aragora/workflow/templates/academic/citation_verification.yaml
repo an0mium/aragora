@@ -1,0 +1,285 @@
+id: template_academic_citation_verification
+name: Citation Verification
+description: Multi-agent verification of academic citations for accuracy, format, and source validity
+version: "1.0.0"
+category: academic
+tags:
+  - academic
+  - citations
+  - verification
+  - research
+  - bibliography
+icon: academic-cap
+is_template: true
+
+inputs:
+  document: Academic document with citations
+  citation_style: Citation style (APA, MLA, Chicago, IEEE, etc.)
+  verification_depth: Depth of verification (basic, standard, thorough)
+
+outputs:
+  verification_report: Complete verification report
+  citation_issues: List of citation issues
+  corrected_bibliography: Corrected bibliography (if applicable)
+
+steps:
+  - id: extract_citations
+    name: Extract Citations
+    step_type: agent
+    description: Extract all citations and references from document
+    config:
+      agent_type: academic
+      prompt_template: |
+        Extract all citations from this academic document:
+
+        {document}
+
+        For each citation, identify:
+        - In-text citation format
+        - Corresponding reference entry
+        - Citation type (book, journal, website, etc.)
+        - Key metadata (author, year, title, source)
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - parallel_verification
+
+  - id: parallel_verification
+    name: Parallel Verification
+    step_type: parallel
+    description: Concurrent verification of different citation aspects
+    config:
+      parallel_steps:
+        - format_check
+        - source_validation
+        - accuracy_check
+      max_concurrent: 3
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - synthesis
+
+  - id: format_check
+    name: Format Verification
+    step_type: agent
+    description: Verify citation format compliance
+    config:
+      agent_type: academic
+      prompt_template: |
+        Verify citation format against {citation_style} style:
+
+        Citations: {step.extract_citations}
+
+        Check:
+        - Author name formatting
+        - Date formatting
+        - Title capitalization
+        - Source formatting
+        - Page number formatting
+        - DOI/URL formatting
+        - Punctuation and spacing
+    visual:
+      position: {x: -100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: source_validation
+    name: Source Validation
+    step_type: agent
+    description: Validate source existence and accessibility
+    config:
+      agent_type: academic
+      prompt_template: |
+        Validate source existence and accessibility:
+
+        Citations: {step.extract_citations}
+
+        For each source:
+        - Verify publication exists
+        - Check DOI validity (if provided)
+        - Validate URL accessibility (if provided)
+        - Confirm author information
+        - Verify publication date
+        - Flag potentially predatory journals
+    visual:
+      position: {x: 100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: accuracy_check
+    name: Accuracy Verification
+    step_type: agent
+    description: Verify citation accuracy against source
+    config:
+      agent_type: academic
+      prompt_template: |
+        Verify citation accuracy:
+
+        Citations: {step.extract_citations}
+
+        Check:
+        - Quote accuracy (for direct quotes)
+        - Page number accuracy
+        - Author name spelling
+        - Title accuracy
+        - Publication year accuracy
+        - In-text citation matches reference
+    visual:
+      position: {x: 300, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: synthesis
+    name: Verification Synthesis
+    step_type: debate
+    description: Synthesize verification findings
+    config:
+      topic: "Synthesize citation verification findings and assess overall quality"
+      agents:
+        - academic_reviewer
+        - librarian
+        - quality_analyst
+      rounds: 2
+      context:
+        - "{step.extract_citations}"
+        - "{step.format_check}"
+        - "{step.source_validation}"
+        - "{step.accuracy_check}"
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - quality_decision
+
+  - id: quality_decision
+    name: Quality Assessment
+    step_type: decision
+    description: Assess overall citation quality
+    config:
+      conditions:
+        - name: major_issues
+          expression: "len([i for i in step.synthesis.get('issues', []) if i.get('severity') == 'major']) > 5"
+          next_step: comprehensive_review
+        - name: moderate_issues
+          expression: "len(step.synthesis.get('issues', [])) > 0"
+          next_step: targeted_review
+      default_branch: approved
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: comprehensive_review
+    name: Comprehensive Review Required
+    step_type: human_checkpoint
+    description: Major citation issues require comprehensive review
+    config:
+      title: Major Citation Issues Identified
+      description: Significant citation problems require manual review and correction
+      checklist:
+        - label: Reviewed all major issues
+          required: true
+        - label: Verified source accessibility
+          required: true
+        - label: Corrected format errors
+          required: true
+        - label: Validated quote accuracy
+          required: true
+      timeout_seconds: 259200  # 72 hours
+    visual:
+      position: {x: 250, y: 800}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: targeted_review
+    name: Targeted Review
+    step_type: human_checkpoint
+    description: Review specific citation issues
+    config:
+      title: Citation Issues for Review
+      description: Some citation issues identified for targeted review
+      checklist:
+        - label: Reviewed flagged citations
+          required: true
+        - label: Applied corrections
+          required: true
+      timeout_seconds: 86400  # 24 hours
+    visual:
+      position: {x: 100, y: 800}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: approved
+    name: Citations Verified
+    step_type: task
+    description: All citations verified successfully
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'verified',
+          'citation_count': len(step.extract_citations.get('citations', [])),
+          'format_compliance': step.format_check.get('compliance_score', 0),
+          'sources_validated': step.source_validation.get('validated_count', 0),
+          'verification_date': datetime.now().isoformat()
+        }
+    visual:
+      position: {x: -50, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Verification Report
+    step_type: agent
+    description: Generate comprehensive citation verification report
+    config:
+      agent_type: academic
+      prompt_template: |
+        Generate Citation Verification Report:
+
+        Citation Style: {citation_style}
+        Verification Depth: {verification_depth}
+
+        Findings:
+        - Extracted Citations: {step.extract_citations}
+        - Format Check: {step.format_check}
+        - Source Validation: {step.source_validation}
+        - Accuracy Check: {step.accuracy_check}
+        - Synthesis: {step.synthesis}
+
+        Include:
+        - Summary of findings
+        - Issues by category
+        - Corrected citations (where applicable)
+        - Recommendations
+    visual:
+      position: {x: 100, y: 950}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Archive Verification
+    step_type: memory_write
+    description: Archive verification report
+    config:
+      content: "{step.generate_report}"
+      source_type: REVIEW
+      domain: academic/citations
+    visual:
+      position: {x: 100, y: 1100}
+      category: memory
+      color: "#9f7aea"

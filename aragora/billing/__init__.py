@@ -45,6 +45,17 @@ from aragora.billing.usage import (
     UsageSummary,
     UsageTracker,
 )
+from aragora.billing.cost_tracker import (
+    Budget,
+    BudgetAlert,
+    BudgetAlertLevel,
+    CostGranularity,
+    CostReport,
+    CostTracker,
+    TokenUsage,
+    get_cost_tracker,
+    record_usage,
+)
 
 __all__ = [
     # Models
@@ -82,4 +93,14 @@ __all__ = [
     "BillingNotifier",
     "NotificationResult",
     "get_billing_notifier",
+    # Cost Tracking
+    "CostTracker",
+    "TokenUsage",
+    "Budget",
+    "BudgetAlert",
+    "BudgetAlertLevel",
+    "CostReport",
+    "CostGranularity",
+    "get_cost_tracker",
+    "record_usage",
 ]

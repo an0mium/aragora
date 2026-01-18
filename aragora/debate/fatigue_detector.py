@@ -200,7 +200,7 @@ class FatigueDetector:
 
         # Compare with recent history
         recent_responses = history[-5:]  # Last 5 responses
-        total_overlap = 0
+        total_overlap: float = 0.0
         for prev in recent_responses:
             # Reconstruct previous response from stored data
             prev_text = prev.get("text", "")

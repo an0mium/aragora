@@ -91,3 +91,62 @@ export {
   selectGlobalLoading,
   selectKeyboardShortcutsEnabled,
 } from './uiStore';
+
+// Workflow builder store - workflow editor state
+export {
+  useWorkflowBuilderStore,
+  // Types
+  type StepType,
+  type NodeCategory,
+  type Position,
+  type StepDefinition,
+  type TransitionRule,
+  type WorkflowDefinition,
+  type WorkflowTemplate,
+  type WorkflowSimulationResult,
+  // Selectors
+  selectCurrentWorkflow,
+  selectCanvas,
+  selectConfigPanel,
+  selectNodePalette,
+  selectIsDirty,
+  selectIsSaving,
+  selectIsLoading,
+  selectValidationErrors,
+  selectWorkflows,
+  selectTemplates,
+  selectExecutionPreview,
+  selectCanUndo,
+  selectCanRedo,
+} from './workflowBuilderStore';
+
+// Knowledge explorer store - knowledge mound exploration state
+export {
+  useKnowledgeExplorerStore,
+  // Types
+  type NodeType,
+  type RelationshipType,
+  type MemoryTier,
+  type SortField,
+  type ProvenanceInfo,
+  type KnowledgeNode,
+  type KnowledgeRelationship,
+  type GraphNode,
+  type GraphEdge,
+  type NodeFilters,
+  type QueryResult,
+  type GraphResult,
+  type MoundStats,
+  // Selectors
+  selectQuery,
+  selectBrowser,
+  selectGraph,
+  selectDetailPanel,
+  selectRelationshipEditor,
+  selectNodeEditor,
+  selectStats,
+  selectActiveTab,
+  selectBrowserFiltersActive,
+  selectGraphHasData,
+  selectIsAnyPanelOpen,
+} from './knowledgeExplorerStore';

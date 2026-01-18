@@ -10,6 +10,14 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { AgentWorkflowVisualization } from '@/components/AgentWorkflowVisualization';
 import { useControlPlaneWebSocket } from '@/hooks/useControlPlaneWebSocket';
 
+// Control Plane Components
+import {
+  AgentCatalog,
+  WorkflowBuilder,
+  KnowledgeExplorer,
+  ExecutionMonitor,
+} from '@/components/control-plane';
+
 interface Agent {
   id: string;
   name: string;
@@ -42,7 +50,7 @@ interface SystemMetrics {
   tokens_used_today: number;
 }
 
-type TabId = 'overview' | 'agents' | 'queue' | 'settings';
+type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'executions' | 'queue' | 'settings';
 
 export default function ControlPlanePage() {
   const { config: backendConfig } = useBackend();
@@ -52,6 +60,7 @@ export default function ControlPlanePage() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   // Fetch agents
   const fetchAgents = useCallback(async () => {
@@ -60,14 +69,17 @@ export default function ControlPlanePage() {
       if (!response.ok) throw new Error('Failed to fetch agents');
       const data = await response.json();
       setAgents(data.agents || []);
+      return true; // Success
     } catch {
       // Use mock data if endpoint not available
+      console.warn('[Control Plane] Using mock agent data - backend unavailable');
       setAgents([
         { id: 'claude', name: 'Claude', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 45, tokens_used: 125000 },
         { id: 'gemini', name: 'Gemini', model: 'gemini-3-pro', status: 'working', current_task: 'Document audit scan', requests_today: 32, tokens_used: 890000 },
         { id: 'gpt4', name: 'GPT-4', model: 'gpt-4-turbo', status: 'idle', requests_today: 28, tokens_used: 78000 },
         { id: 'codex', name: 'Codex', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 15, tokens_used: 45000 },
       ]);
+      return false; // Used mock
     }
   }, [backendConfig.api]);
 
@@ -78,13 +90,16 @@ export default function ControlPlanePage() {
       if (!response.ok) throw new Error('Failed to fetch jobs');
       const data = await response.json();
       setJobs(data.jobs || []);
+      return true; // Success
     } catch {
       // Use mock data if endpoint not available
+      console.warn('[Control Plane] Using mock job data - backend unavailable');
       setJobs([
         { id: 'job1', type: 'audit', name: 'Security Audit - Q1 Contracts', status: 'running', progress: 0.45, started_at: new Date().toISOString(), document_count: 12, agents_assigned: ['gemini', 'claude'] },
         { id: 'job2', type: 'document_processing', name: 'Batch Import - Legal Docs', status: 'queued', progress: 0, document_count: 48, agents_assigned: [] },
         { id: 'job3', type: 'audit', name: 'Compliance Check - HR Policies', status: 'completed', progress: 1, document_count: 5, agents_assigned: ['gemini'] },
       ]);
+      return false; // Used mock
     }
   }, [backendConfig.api]);
 
@@ -95,8 +110,10 @@ export default function ControlPlanePage() {
       if (!response.ok) throw new Error('Failed to fetch metrics');
       const data = await response.json();
       setMetrics(data);
+      return true; // Success
     } catch {
       // Use mock data
+      console.warn('[Control Plane] Using mock metrics - backend unavailable');
       setMetrics({
         active_jobs: 1,
         queued_jobs: 2,
@@ -106,27 +123,34 @@ export default function ControlPlanePage() {
         audits_completed_today: 4,
         tokens_used_today: 1138000,
       });
+      return false; // Used mock
     } finally {
       setLoading(false);
     }
   }, [backendConfig.api]);
 
-  useEffect(() => {
-    fetchAgents();
-    fetchJobs();
-    fetchMetrics();
+  // Track mock data usage
+  const fetchAllData = useCallback(async () => {
+    const [agentsOk, jobsOk, metricsOk] = await Promise.all([
+      fetchAgents(),
+      fetchJobs(),
+      fetchMetrics(),
+    ]);
+    setUsingMockData(!agentsOk || !jobsOk || !metricsOk);
   }, [fetchAgents, fetchJobs, fetchMetrics]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Auto-refresh
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
-      fetchAgents();
-      fetchJobs();
-      fetchMetrics();
+      fetchAllData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchAgents, fetchJobs, fetchMetrics]);
+  }, [autoRefresh, fetchAllData]);
 
   const pauseJob = async (jobId: string) => {
     try {
@@ -185,6 +209,9 @@ export default function ControlPlanePage() {
   const tabs = [
     { id: 'overview' as TabId, label: 'OVERVIEW' },
     { id: 'agents' as TabId, label: 'AGENTS', count: agents.length },
+    { id: 'workflows' as TabId, label: 'WORKFLOWS' },
+    { id: 'knowledge' as TabId, label: 'KNOWLEDGE' },
+    { id: 'executions' as TabId, label: 'EXECUTIONS' },
     { id: 'queue' as TabId, label: 'QUEUE', count: jobs.filter(j => j.status === 'running' || j.status === 'queued').length },
     { id: 'settings' as TabId, label: 'SETTINGS' },
   ];
@@ -373,52 +400,49 @@ export default function ControlPlanePage() {
                   </div>
                 )}
 
-                {/* Agents Tab */}
+                {/* Agents Tab - Enhanced with AgentCatalog */}
                 {activeTab === 'agents' && (
-                  <div className="space-y-4">
-                    {agents.map(agent => (
-                      <div key={agent.id} className="card p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-3 h-3 rounded-full ${
-                              agent.status === 'working' ? 'bg-acid-cyan animate-pulse' :
-                              agent.status === 'idle' ? 'bg-success' :
-                              agent.status === 'rate_limited' ? 'bg-acid-yellow' :
-                              'bg-crimson'
-                            }`} />
-                            <div>
-                              <div className="font-mono font-medium">{agent.name}</div>
-                              <div className="text-xs text-text-muted font-mono">{agent.model}</div>
-                            </div>
-                          </div>
-                          <span className={`text-xs font-mono uppercase ${getStatusColor(agent.status)}`}>
-                            {agent.status}
-                          </span>
-                        </div>
+                  <AgentCatalog
+                    onSelectAgent={(agent) => {
+                      console.log('Agent selected:', agent.name);
+                    }}
+                    onConfigureAgent={(agent) => {
+                      console.log('Configure agent:', agent.name);
+                    }}
+                  />
+                )}
 
-                        {agent.current_task && (
-                          <div className="mt-3 p-2 bg-surface rounded text-sm font-mono text-acid-cyan">
-                            {agent.current_task}
-                          </div>
-                        )}
-
-                        <div className="mt-3 grid grid-cols-3 gap-4 text-xs font-mono">
-                          <div>
-                            <div className="text-text-muted">Requests Today</div>
-                            <div>{agent.requests_today}</div>
-                          </div>
-                          <div>
-                            <div className="text-text-muted">Tokens Used</div>
-                            <div>{formatTokens(agent.tokens_used)}</div>
-                          </div>
-                          <div>
-                            <div className="text-text-muted">Last Active</div>
-                            <div>{agent.last_active ? new Date(agent.last_active).toLocaleTimeString() : '-'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                {/* Workflows Tab */}
+                {activeTab === 'workflows' && (
+                  <div className="h-[calc(100vh-280px)]">
+                    <WorkflowBuilder
+                      onSave={() => {
+                        console.log('Workflow saved');
+                      }}
+                      onExecute={(executionId) => {
+                        console.log('Workflow execution started:', executionId);
+                        setActiveTab('executions');
+                      }}
+                    />
                   </div>
+                )}
+
+                {/* Knowledge Tab */}
+                {activeTab === 'knowledge' && (
+                  <KnowledgeExplorer
+                    onSelectNode={(node) => {
+                      console.log('Knowledge node selected:', node.id);
+                    }}
+                  />
+                )}
+
+                {/* Executions Tab */}
+                {activeTab === 'executions' && (
+                  <ExecutionMonitor
+                    onSelectExecution={(execution) => {
+                      console.log('Execution selected:', execution.id);
+                    }}
+                  />
                 )}
 
                 {/* Queue Tab */}

@@ -512,6 +512,8 @@ _DB_PATH_DEFAULTS = {
     "DB_PERSONAS_PATH": ("ARAGORA_DB_PERSONAS", "agent_personas.db"),
     "DB_POSITIONS_PATH": ("ARAGORA_DB_POSITIONS", "grounded_positions.db"),
     "DB_GENESIS_PATH": ("ARAGORA_DB_GENESIS", "genesis.db"),
+    "DB_KNOWLEDGE_PATH": ("ARAGORA_DB_KNOWLEDGE", "knowledge"),
+    "DB_CULTURE_PATH": ("ARAGORA_DB_CULTURE", "culture.db"),
 }
 
 # Keep constants for backwards compatibility but with deprecation on import
@@ -525,6 +527,8 @@ DB_LAB_PATH = _env_str("ARAGORA_DB_LAB", "persona_lab.db")
 DB_PERSONAS_PATH = _env_str("ARAGORA_DB_PERSONAS", "agent_personas.db")
 DB_POSITIONS_PATH = _env_str("ARAGORA_DB_POSITIONS", "grounded_positions.db")
 DB_GENESIS_PATH = _env_str("ARAGORA_DB_GENESIS", "genesis.db")
+DB_KNOWLEDGE_PATH = Path(_env_str("ARAGORA_DB_KNOWLEDGE", "knowledge"))
+DB_CULTURE_PATH = _env_str("ARAGORA_DB_CULTURE", "culture.db")
 
 # === Evidence Collection ===
 MAX_SNIPPETS_PER_CONNECTOR = _env_int("ARAGORA_MAX_SNIPPETS_CONNECTOR", 3)

@@ -552,11 +552,12 @@ class NomicIntegration:
             return None
 
         # Find most important contested claim
+        centralities: dict[str, float]
         if self._belief_network:
             centralities = self._belief_network._compute_centralities()
             pivot_node = max(contested_claims, key=lambda n: centralities.get(n.claim_id, 0))
         else:
-            centralities: dict[str, float] = {}
+            centralities = {}
             pivot_node = contested_claims[0]
 
         # Create pivot claim with correct PivotClaim fields

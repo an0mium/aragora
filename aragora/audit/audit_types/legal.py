@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, TypedDict
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import (
@@ -23,6 +23,16 @@ from ..document_auditor import (
     AuditType,
     FindingSeverity,
 )
+
+
+class RequiredClauseDict(TypedDict):
+    """Type definition for required clause entries."""
+
+    name: str
+    keywords: list[str]
+    severity: FindingSeverity
+    description: str
+    recommendation: str
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +223,7 @@ class LegalAuditor(BaseAuditor):
     ]
 
     # Missing clause detection
-    REQUIRED_CLAUSES = [
+    REQUIRED_CLAUSES: list[RequiredClauseDict] = [
         {
             "name": "Limitation of Liability",
             "keywords": ["limitation of liability", "liability cap", "aggregate liability"],

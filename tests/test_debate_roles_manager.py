@@ -358,13 +358,13 @@ class TestGetAgreementIntensityGuidance:
         """Test adversarial guidance for intensity 0-1."""
         roles_manager.protocol.agreement_intensity = 1
         result = roles_manager._get_agreement_intensity_guidance()
-        assert "strongly disagree" in result
+        assert "ADVERSARIAL" in result
 
     def test_low_intensity(self, roles_manager):
         """Test skeptical guidance for intensity 2-3."""
         roles_manager.protocol.agreement_intensity = 3
         result = roles_manager._get_agreement_intensity_guidance()
-        assert "skepticism" in result
+        assert "challenge" in result
 
     def test_medium_intensity(self, roles_manager):
         """Test balanced guidance for intensity 4-6."""
@@ -382,7 +382,7 @@ class TestGetAgreementIntensityGuidance:
         """Test synthesis guidance for intensity 9-10."""
         roles_manager.protocol.agreement_intensity = 10
         result = roles_manager._get_agreement_intensity_guidance()
-        assert "collaborative" in result
+        assert "COLLABORATIVE" in result
 
 
 # ============================================================================
@@ -403,20 +403,23 @@ class TestGetStanceGuidance:
 
     def test_fallback_affirmative(self, roles_manager, mock_agents):
         """Test fallback guidance for affirmative stance."""
+        roles_manager.protocol.asymmetric_stances = True
         mock_agents[0].stance = "affirmative"
         result = roles_manager.get_stance_guidance(mock_agents[0])
 
-        assert "IN FAVOR" in result
+        assert "DEFEND" in result or "SUPPORT" in result
 
     def test_fallback_negative(self, roles_manager, mock_agents):
         """Test fallback guidance for negative stance."""
+        roles_manager.protocol.asymmetric_stances = True
         mock_agents[0].stance = "negative"
         result = roles_manager.get_stance_guidance(mock_agents[0])
 
-        assert "AGAINST" in result
+        assert "CHALLENGE" in result or "CRITIQUE" in result
 
     def test_fallback_neutral(self, roles_manager, mock_agents):
         """Test fallback guidance for neutral stance."""
+        roles_manager.protocol.asymmetric_stances = True
         mock_agents[0].stance = "neutral"
         result = roles_manager.get_stance_guidance(mock_agents[0])
 
@@ -440,14 +443,16 @@ class TestRotateRolesForRound:
         assert roles_manager.current_role_assignments == {}
 
     def test_with_role_rotator(self, roles_manager, mock_agents):
-        """Test calls role_rotator.rotate when available."""
+        """Test calls role_rotator.get_assignments when available."""
         mock_rotator = MagicMock()
-        mock_rotator.rotate = MagicMock(return_value={"claude": "assignment"})
+        mock_rotator.get_assignments = MagicMock(return_value={"claude": "assignment"})
         roles_manager.role_rotator = mock_rotator
 
         roles_manager.rotate_roles_for_round(1)
 
-        mock_rotator.rotate.assert_called_once_with(mock_agents, 1)
+        agent_names = [a.name for a in mock_agents]
+        total_rounds = roles_manager.protocol.rounds
+        mock_rotator.get_assignments.assert_called_once_with(agent_names, 1, total_rounds)
         assert roles_manager.current_role_assignments == {"claude": "assignment"}
 
 
@@ -468,14 +473,17 @@ class TestMatchRolesForTask:
         assert result == {}
 
     def test_with_role_matcher(self, roles_manager, mock_agents):
-        """Test calls role_matcher.match when available."""
+        """Test calls role_matcher.match_roles when available."""
+        mock_result = MagicMock()
+        mock_result.assignments = {"claude": "matched_role"}
         mock_matcher = MagicMock()
-        mock_matcher.match = MagicMock(return_value={"claude": "matched_role"})
+        mock_matcher.match_roles = MagicMock(return_value=mock_result)
         roles_manager.role_matcher = mock_matcher
 
         result = roles_manager.match_roles_for_task("Test task")
 
-        mock_matcher.match.assert_called_once_with(mock_agents, "Test task")
+        agent_names = [a.name for a in mock_agents]
+        mock_matcher.match_roles.assert_called_once_with(agent_names, 0, debate_domain="Test task")
         assert result == {"claude": "matched_role"}
         assert roles_manager.current_role_assignments == {"claude": "matched_role"}
 

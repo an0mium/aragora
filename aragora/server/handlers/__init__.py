@@ -55,6 +55,7 @@ from .features import EvidenceEnrichmentHandler  # Evidence enrichment for findi
 from .features import FolderUploadHandler  # Folder upload support
 from .features import FindingWorkflowHandler  # Finding workflow management
 from .features import SchedulerHandler  # Audit scheduling
+from .evaluation import EvaluationHandler
 from .evolution import EvolutionABTestingHandler  # Moved to evolution/
 from .evolution import EvolutionHandler  # Moved to evolution/
 from .features import FeaturesHandler  # Moved to features/
@@ -80,6 +81,8 @@ from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
 from .privacy import PrivacyHandler
+from .queue import QueueHandler
+from .verticals import VerticalsHandler
 from .workspace import WorkspaceHandler
 from .features import PluginsHandler  # Moved to features/
 from .agents import ProbesHandler  # Moved to agents/
@@ -95,6 +98,7 @@ from .admin import SystemHandler  # Moved to admin/
 from .tournaments import TournamentHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler
+from .workflows import WorkflowHandler
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 
 # List of all handler classes for automatic dispatch registration
@@ -139,6 +143,7 @@ ALL_HANDLERS = [
     CheckpointHandler,
     RoutingHandler,
     SelectionHandler,  # Selection plugin API
+    EvaluationHandler,  # LLM-as-Judge evaluation endpoints
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
     EvolutionHandler,
     PluginsHandler,
@@ -166,7 +171,10 @@ ALL_HANDLERS = [
     WebhookHandler,
     AdminHandler,
     PrivacyHandler,
+    QueueHandler,  # Job queue management API
+    VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
+    WorkflowHandler,  # Enterprise workflow engine API
 ]
 
 # Handler stability classifications
@@ -213,6 +221,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     # Promoted to Stable (Jan 2026) - comprehensive test coverage
     "GraphDebatesHandler": Stability.STABLE,  # 7 test files, 95+ tests
     "MatrixDebatesHandler": Stability.STABLE,  # Handler tests + integration
+    "EvaluationHandler": Stability.EXPERIMENTAL,  # LLM-as-Judge evaluation - new
     "EvolutionHandler": Stability.STABLE,  # 7 test files, 66+ tests
     "EvolutionABTestingHandler": Stability.STABLE,  # AB testing with evolution
     "LaboratoryHandler": Stability.STABLE,  # 3 test files, 70+ tests
@@ -246,6 +255,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
+    "WorkflowHandler": Stability.EXPERIMENTAL,  # Enterprise workflow engine API - Phase 2
+    "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
+    "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
 }
 
 
@@ -339,7 +351,10 @@ __all__ = [
     "WebhookHandler",
     "AdminHandler",
     "PrivacyHandler",
+    "QueueHandler",
+    "VerticalsHandler",
     "WorkspaceHandler",
+    "WorkflowHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",

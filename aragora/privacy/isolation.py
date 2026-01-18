@@ -2,12 +2,14 @@
 Data Isolation Manager.
 
 Ensures strict data isolation between workspaces/tenants.
+Integrates with RBAC for hierarchical permission enforcement.
 """
 
 from __future__ import annotations
 
 import logging
 import secrets
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -16,6 +18,92 @@ from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+# Context variable for threading isolation context through async calls
+_current_context: ContextVar["IsolationContext | None"] = ContextVar(
+    "isolation_context", default=None
+)
+
+
+def get_current_context() -> "IsolationContext | None":
+    """Get the current isolation context from the context variable."""
+    return _current_context.get()
+
+
+def set_current_context(ctx: "IsolationContext | None") -> None:
+    """Set the current isolation context in the context variable."""
+    _current_context.set(ctx)
+
+
+@dataclass
+class IsolationContext:
+    """
+    Context for threading isolation information through request handling.
+
+    This context is created at request entry and passed through all
+    service calls to ensure proper workspace/org isolation.
+    """
+
+    # Actor information
+    actor_id: str
+    actor_type: str = "user"  # "user", "service", "agent"
+
+    # Scope information
+    organization_id: str | None = None
+    workspace_id: str | None = None
+
+    # Request metadata
+    request_id: str = ""
+    correlation_id: str = ""
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+    # Cached permissions (populated by RBAC if available)
+    _cached_permissions: set = field(default_factory=set)
+
+    def with_workspace(self, workspace_id: str) -> "IsolationContext":
+        """Create a new context scoped to a specific workspace."""
+        return IsolationContext(
+            actor_id=self.actor_id,
+            actor_type=self.actor_type,
+            organization_id=self.organization_id,
+            workspace_id=workspace_id,
+            request_id=self.request_id,
+            correlation_id=self.correlation_id,
+            timestamp=self.timestamp,
+        )
+
+    def with_organization(self, organization_id: str) -> "IsolationContext":
+        """Create a new context scoped to a specific organization."""
+        return IsolationContext(
+            actor_id=self.actor_id,
+            actor_type=self.actor_type,
+            organization_id=organization_id,
+            workspace_id=self.workspace_id,
+            request_id=self.request_id,
+            correlation_id=self.correlation_id,
+            timestamp=self.timestamp,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for logging/serialization."""
+        return {
+            "actor_id": self.actor_id,
+            "actor_type": self.actor_type,
+            "organization_id": self.organization_id,
+            "workspace_id": self.workspace_id,
+            "request_id": self.request_id,
+            "correlation_id": self.correlation_id,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+    def __enter__(self) -> "IsolationContext":
+        """Enter context manager, setting this as the current context."""
+        set_current_context(self)
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit context manager, clearing the current context."""
+        set_current_context(None)
 
 
 class WorkspacePermission(str, Enum):
@@ -138,12 +226,155 @@ class DataIsolationManager:
     - Documents are only accessible within their workspace
     - Cross-workspace data leakage is prevented
     - Access is properly logged
+    - Integration with RBAC for hierarchical permissions
     """
 
     def __init__(self, config: IsolationConfig | None = None):
         self.config = config or IsolationConfig()
         self._workspaces: dict[str, Workspace] = {}
+        self._organizations: dict[str, dict[str, Any]] = {}  # org_id -> org data
         self._audit_log: list[dict] = []
+        self._rbac_enforcer: Any = None  # Lazy loaded
+
+    def _get_rbac_enforcer(self) -> Any:
+        """Get RBAC enforcer if available."""
+        if self._rbac_enforcer is None:
+            try:
+                from aragora.rbac import get_rbac_enforcer
+                self._rbac_enforcer = get_rbac_enforcer()
+            except ImportError:
+                logger.debug("RBAC module not available")
+        return self._rbac_enforcer
+
+    def create_context(
+        self,
+        actor_id: str,
+        organization_id: str | None = None,
+        workspace_id: str | None = None,
+        request_id: str = "",
+        actor_type: str = "user",
+    ) -> IsolationContext:
+        """
+        Create an IsolationContext for a request.
+
+        Args:
+            actor_id: ID of the actor making the request
+            organization_id: Organization scope (optional)
+            workspace_id: Workspace scope (optional)
+            request_id: Unique request identifier
+            actor_type: Type of actor ("user", "service", "agent")
+
+        Returns:
+            IsolationContext configured for the request
+        """
+        ctx = IsolationContext(
+            actor_id=actor_id,
+            actor_type=actor_type,
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            request_id=request_id or str(uuid4()),
+            correlation_id=str(uuid4()),
+        )
+
+        # Populate with RBAC permissions if available
+        rbac = self._get_rbac_enforcer()
+        if rbac:
+            try:
+                # Import here to avoid circular dependency
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Schedule for later if we're already in an async context
+                    pass
+                else:
+                    loop.run_until_complete(rbac.populate_context_permissions(ctx))
+            except Exception as e:
+                logger.debug(f"Could not populate RBAC permissions: {e}")
+
+        return ctx
+
+    async def create_organization(
+        self,
+        name: str,
+        created_by: str,
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new organization.
+
+        Args:
+            name: Organization display name
+            created_by: User ID creating the organization
+            settings: Optional organization settings
+
+        Returns:
+            Created organization data
+        """
+        org_id = str(uuid4())
+
+        org_data = {
+            "id": org_id,
+            "name": name,
+            "created_at": datetime.utcnow().isoformat(),
+            "created_by": created_by,
+            "settings": settings or {},
+            "workspace_count": 0,
+        }
+
+        self._organizations[org_id] = org_data
+
+        # Assign org_admin role to creator via RBAC
+        rbac = self._get_rbac_enforcer()
+        if rbac:
+            try:
+                from aragora.rbac import Scope
+                await rbac.assign_role(
+                    actor_id=created_by,
+                    role_id="role_org_admin",
+                    scope=Scope.ORGANIZATION,
+                    scope_id=org_id,
+                    assigned_by="system",
+                )
+            except Exception as e:
+                logger.warning(f"Could not assign org_admin role: {e}")
+
+        await self._log_access(
+            workspace_id="",
+            actor=created_by,
+            action="create_organization",
+            outcome="success",
+            details={"org_id": org_id, "name": name},
+        )
+
+        logger.info(f"Created organization {org_id}: {name}")
+
+        return org_data
+
+    async def get_organization(self, org_id: str) -> dict[str, Any] | None:
+        """Get organization by ID."""
+        return self._organizations.get(org_id)
+
+    async def list_organizations_for_actor(self, actor_id: str) -> list[dict[str, Any]]:
+        """List organizations accessible to an actor."""
+        accessible = []
+
+        rbac = self._get_rbac_enforcer()
+        if rbac:
+            try:
+                from aragora.rbac import Scope
+                assignments = await rbac.get_actor_roles(
+                    actor_id, scope=Scope.ORGANIZATION
+                )
+                org_ids = {a.scope_id for a in assignments}
+                accessible = [
+                    self._organizations[oid]
+                    for oid in org_ids
+                    if oid in self._organizations
+                ]
+            except Exception as e:
+                logger.debug(f"Could not get org assignments: {e}")
+
+        return accessible
 
     async def create_workspace(
         self,
@@ -439,7 +670,7 @@ class DataIsolationManager:
 
         # Use workspace's encryption key
         try:
-            from aragora.security.encryption import encrypt_data
+            from aragora.security.encryption import encrypt_data  # type: ignore[attr-defined]
 
             return encrypt_data(data, workspace.encryption_key_id)
         except ImportError:
@@ -466,7 +697,7 @@ class DataIsolationManager:
             return data
 
         try:
-            from aragora.security.encryption import decrypt_data
+            from aragora.security.encryption import decrypt_data  # type: ignore[attr-defined]
 
             return decrypt_data(data, workspace.encryption_key_id)
         except ImportError:
@@ -557,9 +788,12 @@ def get_isolation_manager(
 __all__ = [
     "DataIsolationManager",
     "IsolationConfig",
+    "IsolationContext",
     "Workspace",
     "WorkspacePermission",
     "WorkspaceMember",
     "AccessDeniedException",
     "get_isolation_manager",
+    "get_current_context",
+    "set_current_context",
 ]

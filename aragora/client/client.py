@@ -50,7 +50,18 @@ from .errors import (
     ValidationError,
 )
 from .transport import RateLimiter, RetryConfig
-from .resources import AgentsAPI, AuditAPI, DocumentsAPI, LeaderboardAPI, MemoryAPI, VerificationAPI
+from .resources import (
+    AgentsAPI,
+    AuditAPI,
+    ConsensusAPI,
+    DocumentsAPI,
+    LeaderboardAPI,
+    MemoryAPI,
+    PulseAPI,
+    SystemAPI,
+    TournamentsAPI,
+    VerificationAPI,
+)
 from .models import (
     ConsensusType,
     Debate,
@@ -924,6 +935,10 @@ class AragoraClient:
         - leaderboard: ELO rankings
         - gauntlet: Adversarial validation
         - replays: Debate replay viewing and export
+        - consensus: Consensus memory, settled topics, and dissent tracking
+        - pulse: Trending topics and debate suggestions
+        - system: System health, stats, and circuit breaker management
+        - tournaments: Agent tournament creation and management
 
     Usage:
         # Synchronous
@@ -999,6 +1014,18 @@ class AragoraClient:
 
         # Enterprise audit features (presets, workflow, quick audit)
         self.audit = AuditAPI(self)
+
+        # Consensus memory and dissent tracking
+        self.consensus = ConsensusAPI(self)
+
+        # Trending topics and debate suggestions
+        self.pulse = PulseAPI(self)
+
+        # System health and status
+        self.system = SystemAPI(self)
+
+        # Agent tournaments
+        self.tournaments = TournamentsAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""

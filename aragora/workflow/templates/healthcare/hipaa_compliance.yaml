@@ -1,0 +1,264 @@
+id: template_healthcare_hipaa_compliance
+name: HIPAA Compliance Assessment
+description: Comprehensive HIPAA compliance assessment for healthcare organizations
+version: "1.0.0"
+category: healthcare
+tags:
+  - healthcare
+  - hipaa
+  - compliance
+  - privacy
+  - security
+icon: shield-check
+is_template: true
+
+inputs:
+  assessment_scope: Scope of HIPAA assessment
+  organization_type: Type of covered entity or business associate
+  previous_findings: Previous assessment findings (optional)
+
+outputs:
+  compliance_report: HIPAA compliance assessment report
+  risk_register: Identified risks and vulnerabilities
+  remediation_plan: Recommended remediation actions
+
+steps:
+  - id: privacy_rule_assessment
+    name: Privacy Rule Assessment
+    step_type: agent
+    description: Assess compliance with HIPAA Privacy Rule
+    config:
+      agent_type: healthcare
+      prompt_template: |
+        Assess HIPAA Privacy Rule compliance:
+
+        Areas to evaluate:
+        - Notice of Privacy Practices
+        - Patient rights (access, amendment, accounting)
+        - Minimum necessary standard
+        - Uses and disclosures policies
+        - Authorization requirements
+        - Business associate agreements
+        - Breach notification procedures
+
+        Scope: {assessment_scope}
+        Organization type: {organization_type}
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - security_rule_assessment
+
+  - id: security_rule_assessment
+    name: Security Rule Assessment
+    step_type: agent
+    description: Assess compliance with HIPAA Security Rule
+    config:
+      agent_type: security
+      prompt_template: |
+        Assess HIPAA Security Rule compliance:
+
+        Administrative Safeguards:
+        - Security management process
+        - Assigned security responsibility
+        - Workforce security
+        - Information access management
+        - Security awareness training
+        - Security incident procedures
+        - Contingency plan
+        - Evaluation
+
+        Physical Safeguards:
+        - Facility access controls
+        - Workstation use and security
+        - Device and media controls
+
+        Technical Safeguards:
+        - Access control
+        - Audit controls
+        - Integrity controls
+        - Transmission security
+    visual:
+      position: {x: 100, y: 250}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - breach_assessment
+
+  - id: breach_assessment
+    name: Breach Notification Assessment
+    step_type: agent
+    description: Assess breach notification readiness
+    config:
+      agent_type: healthcare
+      prompt_template: |
+        Assess breach notification compliance:
+
+        - Breach identification procedures
+        - Risk assessment process
+        - Notification timelines
+        - Individual notification procedures
+        - HHS notification procedures
+        - Media notification (if applicable)
+        - Documentation requirements
+    visual:
+      position: {x: 100, y: 400}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - risk_analysis
+
+  - id: risk_analysis
+    name: Risk Analysis
+    step_type: debate
+    description: Multi-agent risk analysis and prioritization
+    config:
+      topic: "Analyze HIPAA compliance risks and prioritize remediation"
+      agents:
+        - compliance_officer
+        - security_analyst
+        - privacy_officer
+      rounds: 2
+      context:
+        - "{step.privacy_rule_assessment}"
+        - "{step.security_rule_assessment}"
+        - "{step.breach_assessment}"
+    visual:
+      position: {x: 100, y: 550}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - compliance_decision
+
+  - id: compliance_decision
+    name: Compliance Status Decision
+    step_type: decision
+    description: Determine overall compliance status
+    config:
+      conditions:
+        - name: critical_gaps
+          expression: "any(r.get('severity') == 'critical' for r in step.risk_analysis.get('risks', []))"
+          next_step: urgent_remediation
+        - name: significant_gaps
+          expression: "len([r for r in step.risk_analysis.get('risks', []) if r.get('severity') == 'high']) > 5"
+          next_step: remediation_planning
+      default_branch: compliance_maintenance
+    visual:
+      position: {x: 100, y: 700}
+      category: control
+      color: "#ed8936"
+
+  - id: urgent_remediation
+    name: Urgent Remediation Required
+    step_type: human_checkpoint
+    description: Critical compliance gaps requiring urgent attention
+    config:
+      title: CRITICAL - HIPAA Compliance Gaps
+      description: Critical HIPAA compliance gaps identified requiring immediate remediation
+      checklist:
+        - label: Reviewed all critical findings
+          required: true
+        - label: Identified immediate containment actions
+          required: true
+        - label: Established remediation timeline
+          required: true
+        - label: Assigned remediation ownership
+          required: true
+        - label: Documented risk acceptance (if applicable)
+          required: false
+      timeout_seconds: 86400  # 24 hours
+      priority: urgent
+    visual:
+      position: {x: 300, y: 850}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: remediation_planning
+    name: Remediation Planning
+    step_type: human_checkpoint
+    description: Plan remediation for significant compliance gaps
+    config:
+      title: Remediation Planning Required
+      description: Significant compliance gaps require remediation planning
+      checklist:
+        - label: Reviewed high-severity findings
+          required: true
+        - label: Created remediation roadmap
+          required: true
+        - label: Allocated resources
+          required: true
+      timeout_seconds: 604800  # 7 days
+    visual:
+      position: {x: 100, y: 850}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: compliance_maintenance
+    name: Compliance Maintenance
+    step_type: task
+    description: Document ongoing compliance status
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'compliant',
+          'assessment_date': datetime.now().isoformat(),
+          'next_assessment_due': (datetime.now() + timedelta(days=365)).isoformat(),
+          'risk_summary': step.risk_analysis.get('summary', {}),
+          'recommendations': step.risk_analysis.get('recommendations', [])
+        }
+    visual:
+      position: {x: -100, y: 850}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Compliance Report
+    step_type: agent
+    description: Generate comprehensive HIPAA compliance report
+    config:
+      agent_type: healthcare
+      prompt_template: |
+        Generate HIPAA Compliance Assessment Report:
+
+        Organization: {organization_type}
+        Scope: {assessment_scope}
+
+        Findings:
+        - Privacy Rule: {step.privacy_rule_assessment}
+        - Security Rule: {step.security_rule_assessment}
+        - Breach Notification: {step.breach_assessment}
+        - Risk Analysis: {step.risk_analysis}
+
+        Include:
+        - Executive summary
+        - Compliance status by rule
+        - Risk register with severity ratings
+        - Remediation roadmap
+        - Next assessment timeline
+    visual:
+      position: {x: 100, y: 1000}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Archive Assessment
+    step_type: memory_write
+    description: Archive compliance assessment for audit trail
+    config:
+      content: "{step.generate_report}"
+      source_type: AUDIT
+      domain: healthcare/hipaa_compliance
+    visual:
+      position: {x: 100, y: 1150}
+      category: memory
+      color: "#9f7aea"

@@ -11,6 +11,11 @@ Domain-specific auditors:
 - LegalAuditor: Contract analysis, obligations, risk clauses
 - AccountingAuditor: Financial irregularities, SOX, reconciliation
 - SoftwareAuditor: SAST patterns, secrets, licenses, dependencies
+
+Enterprise vertical auditors:
+- HealthcareAuditor: HIPAA, PHI detection, clinical documentation
+- RegulatoryAuditor: SOX, GDPR, PCI-DSS, industry compliance
+- AcademicAuditor: Citation verification, plagiarism detection
 """
 
 from aragora.audit.audit_types.security import SecurityAuditor
@@ -20,6 +25,11 @@ from aragora.audit.audit_types.quality import QualityAuditor
 from aragora.audit.audit_types.legal import LegalAuditor
 from aragora.audit.audit_types.accounting import AccountingAuditor
 from aragora.audit.audit_types.software import SoftwareAuditor
+
+# Enterprise vertical auditors
+from aragora.audit.audit_types.healthcare import HealthcareAuditor, PHIDetector
+from aragora.audit.audit_types.regulatory import RegulatoryAuditor, RegulatoryFramework, GDPRDataMapper
+from aragora.audit.audit_types.academic import AcademicAuditor, CitationExtractor, CitationStyle
 
 
 def register_all_auditors() -> None:
@@ -37,6 +47,11 @@ def register_all_auditors() -> None:
     audit_registry.register(AccountingAuditor())
     audit_registry.register(SoftwareAuditor())
 
+    # Enterprise vertical auditors
+    audit_registry.register(HealthcareAuditor())
+    audit_registry.register(RegulatoryAuditor())
+    audit_registry.register(AcademicAuditor())
+
 
 __all__ = [
     # Core auditors
@@ -48,6 +63,15 @@ __all__ = [
     "LegalAuditor",
     "AccountingAuditor",
     "SoftwareAuditor",
+    # Enterprise vertical auditors
+    "HealthcareAuditor",
+    "PHIDetector",
+    "RegulatoryAuditor",
+    "RegulatoryFramework",
+    "GDPRDataMapper",
+    "AcademicAuditor",
+    "CitationExtractor",
+    "CitationStyle",
     # Registration
     "register_all_auditors",
 ]

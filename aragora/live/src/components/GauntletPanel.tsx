@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+
+// Lazy load the heatmap component
+const GauntletHeatmap = dynamic(() => import('./GauntletHeatmap'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-4 text-center text-text-muted text-sm font-mono">
+      Loading heatmap...
+    </div>
+  ),
+});
 
 interface GauntletResult {
   gauntlet_id: string;
@@ -203,8 +214,14 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                   </div>
                 </div>
 
-                {expandedId === result.gauntlet_id && expandedDetails && (
+                {expandedId === result.gauntlet_id && (
                   <div className="bg-bg border-t border-border p-4">
+                    {/* Inline Heatmap */}
+                    <div className="mb-4">
+                      <GauntletHeatmap gauntletId={result.gauntlet_id} apiBase={apiBase} />
+                    </div>
+
+                    {/* Action buttons */}
                     <div className="flex items-center gap-2 pt-3 border-t border-border">
                       <a
                         href={`${apiBase}/api/gauntlet/${result.gauntlet_id}/receipt?format=html`}
@@ -220,7 +237,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                         rel="noopener noreferrer"
                         className="px-3 py-1 text-xs font-mono bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 transition-colors"
                       >
-                        🔥 HEATMAP
+                        🔥 EXPORT SVG
                       </a>
                     </div>
                   </div>

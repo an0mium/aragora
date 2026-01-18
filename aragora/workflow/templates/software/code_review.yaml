@@ -1,0 +1,306 @@
+id: template_software_code_review
+name: Comprehensive Code Review
+description: Multi-agent code review with security analysis, best practices, and performance assessment
+version: "1.0.0"
+category: code
+tags:
+  - software
+  - code-review
+  - security
+  - quality
+  - best-practices
+icon: code
+is_template: true
+
+inputs:
+  code_diff: Code changes to review
+  context: Additional context (PR description, related issues)
+  review_focus: Focus areas (security, performance, maintainability)
+
+outputs:
+  review_summary: Complete review summary
+  issues: List of identified issues
+  approval_status: Approval recommendation
+
+steps:
+  - id: static_analysis
+    name: Static Analysis
+    step_type: agent
+    description: Perform static code analysis
+    config:
+      agent_type: software
+      prompt_template: |
+        Perform static analysis on this code:
+
+        {code_diff}
+
+        Check for:
+        - Syntax errors and code smells
+        - Type safety issues
+        - Unused variables and imports
+        - Code duplication
+        - Complexity metrics
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - parallel_review
+
+  - id: parallel_review
+    name: Parallel Review
+    step_type: parallel
+    description: Concurrent specialized reviews
+    config:
+      parallel_steps:
+        - security_review
+        - performance_review
+        - maintainability_review
+      max_concurrent: 3
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - synthesis_debate
+
+  - id: security_review
+    name: Security Review
+    step_type: agent
+    description: Security-focused code review
+    config:
+      agent_type: security
+      prompt_template: |
+        Review code for security vulnerabilities:
+
+        {code_diff}
+
+        Check for OWASP Top 10:
+        - Injection vulnerabilities (SQL, Command, LDAP)
+        - Broken authentication
+        - Sensitive data exposure
+        - XXE vulnerabilities
+        - Broken access control
+        - Security misconfiguration
+        - XSS vulnerabilities
+        - Insecure deserialization
+        - Using components with known vulnerabilities
+        - Insufficient logging
+    visual:
+      position: {x: -100, y: 350}
+      category: agent
+      color: "#f56565"
+
+  - id: performance_review
+    name: Performance Review
+    step_type: agent
+    description: Performance-focused code review
+    config:
+      agent_type: software
+      prompt_template: |
+        Review code for performance issues:
+
+        {code_diff}
+
+        Check for:
+        - Algorithm complexity (Big O)
+        - Memory allocation patterns
+        - Database query efficiency
+        - Caching opportunities
+        - Async/await usage
+        - Resource leaks
+        - N+1 query problems
+    visual:
+      position: {x: 100, y: 350}
+      category: agent
+      color: "#ed8936"
+
+  - id: maintainability_review
+    name: Maintainability Review
+    step_type: agent
+    description: Maintainability and readability review
+    config:
+      agent_type: software
+      prompt_template: |
+        Review code for maintainability:
+
+        {code_diff}
+
+        Check for:
+        - SOLID principles adherence
+        - DRY violations
+        - Naming conventions
+        - Code organization
+        - Documentation completeness
+        - Test coverage
+        - Error handling patterns
+    visual:
+      position: {x: 300, y: 350}
+      category: agent
+      color: "#48bb78"
+
+  - id: synthesis_debate
+    name: Review Synthesis
+    step_type: debate
+    description: Multi-agent synthesis of all review findings
+    config:
+      topic: "Synthesize code review findings and determine approval status"
+      agents:
+        - senior_developer
+        - security_specialist
+        - tech_lead
+      rounds: 2
+      context:
+        - "{step.static_analysis}"
+        - "{step.security_review}"
+        - "{step.performance_review}"
+        - "{step.maintainability_review}"
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - approval_decision
+
+  - id: approval_decision
+    name: Approval Decision
+    step_type: decision
+    description: Determine review outcome
+    config:
+      conditions:
+        - name: security_blocker
+          expression: "any(i.get('severity') == 'critical' and i.get('category') == 'security' for i in step.synthesis_debate.get('issues', []))"
+          next_step: security_remediation
+        - name: major_issues
+          expression: "len([i for i in step.synthesis_debate.get('issues', []) if i.get('severity') in ['critical', 'high']]) > 0"
+          next_step: request_changes
+        - name: minor_issues
+          expression: "len(step.synthesis_debate.get('issues', [])) > 0"
+          next_step: approve_with_comments
+      default_branch: approve
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: security_remediation
+    name: Security Remediation Required
+    step_type: human_checkpoint
+    description: Security issues require remediation before merge
+    config:
+      title: SECURITY BLOCKER - Remediation Required
+      description: Critical security vulnerabilities must be fixed before merge
+      checklist:
+        - label: All security issues addressed
+          required: true
+        - label: Security review passed
+          required: true
+        - label: No new vulnerabilities introduced
+          required: true
+      timeout_seconds: 172800  # 48 hours
+      priority: urgent
+    visual:
+      position: {x: 350, y: 800}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_summary
+
+  - id: request_changes
+    name: Request Changes
+    step_type: task
+    description: Request changes for major issues
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'changes_requested',
+          'blocking_issues': [i for i in step.synthesis_debate.get('issues', []) if i.get('severity') in ['critical', 'high']],
+          'requires_re_review': True
+        }
+    visual:
+      position: {x: 175, y: 800}
+      category: task
+      color: "#f6ad55"
+    next_steps:
+      - generate_summary
+
+  - id: approve_with_comments
+    name: Approve with Comments
+    step_type: task
+    description: Approve with minor suggestions
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'approved_with_comments',
+          'suggestions': step.synthesis_debate.get('issues', []),
+          'can_merge': True
+        }
+    visual:
+      position: {x: 0, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_summary
+
+  - id: approve
+    name: Approve
+    step_type: task
+    description: Approve code changes
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'approved',
+          'can_merge': True,
+          'review_quality_score': step.synthesis_debate.get('quality_score', 0)
+        }
+    visual:
+      position: {x: -175, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_summary
+
+  - id: generate_summary
+    name: Generate Review Summary
+    step_type: agent
+    description: Generate comprehensive review summary
+    config:
+      agent_type: software
+      prompt_template: |
+        Generate Code Review Summary:
+
+        Static Analysis: {step.static_analysis}
+        Security: {step.security_review}
+        Performance: {step.performance_review}
+        Maintainability: {step.maintainability_review}
+        Synthesis: {step.synthesis_debate}
+
+        Include:
+        - Overall assessment
+        - Key findings by category
+        - Required changes (if any)
+        - Suggestions for improvement
+        - Approval status
+    visual:
+      position: {x: 100, y: 950}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_review
+
+  - id: store_review
+    name: Store Review
+    step_type: memory_write
+    description: Archive code review for learning
+    config:
+      content: "{step.generate_summary}"
+      source_type: REVIEW
+      domain: software/code_review
+    visual:
+      position: {x: 100, y: 1100}
+      category: memory
+      color: "#9f7aea"

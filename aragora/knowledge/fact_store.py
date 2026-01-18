@@ -22,49 +22,9 @@ from aragora.knowledge.types import (
     ValidationStatus,
 )
 from aragora.storage.base_store import SQLiteStore
+from aragora.storage.fts_utils import sanitize_fts_query
 
 logger = logging.getLogger(__name__)
-
-# FTS query limits
-MAX_FTS_QUERY_LENGTH = 500
-MAX_FTS_TERMS = 20
-FTS_SPECIAL_CHARS = set('"*(){}[]^:?-+~')
-
-
-def sanitize_fts_query(
-    query: str,
-    max_length: int = MAX_FTS_QUERY_LENGTH,
-    max_terms: int = MAX_FTS_TERMS,
-) -> str:
-    """Sanitize and limit FTS query complexity.
-
-    Args:
-        query: Raw search query
-        max_length: Maximum query length
-        max_terms: Maximum number of terms
-
-    Returns:
-        Sanitized query safe for FTS5
-    """
-    if not query or not query.strip():
-        return ""
-
-    query = query[:max_length]
-
-    sanitized = []
-    for char in query:
-        if char in FTS_SPECIAL_CHARS:
-            if char == "*":
-                sanitized.append(char)
-        else:
-            sanitized.append(char)
-    query = "".join(sanitized)
-
-    terms = query.split()
-    if len(terms) > max_terms:
-        terms = terms[:max_terms]
-
-    return " ".join(terms)
 
 
 class FactStore(SQLiteStore):

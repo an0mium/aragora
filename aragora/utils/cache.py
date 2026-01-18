@@ -28,20 +28,59 @@ from collections import OrderedDict
 from functools import wraps
 from typing import Any, Awaitable, Callable, Generic, Optional, Protocol, TypeVar, cast
 
-from aragora.config import CACHE_TTL_METHOD, CACHE_TTL_QUERY
+from aragora.config import (
+    CACHE_TTL_AGENT_FLIPS,
+    CACHE_TTL_AGENT_H2H,
+    CACHE_TTL_AGENT_PROFILE,
+    CACHE_TTL_AGENT_REPUTATION,
+    CACHE_TTL_ALL_REPUTATIONS,
+    CACHE_TTL_ANALYTICS,
+    CACHE_TTL_ANALYTICS_DEBATES,
+    CACHE_TTL_ANALYTICS_MEMORY,
+    CACHE_TTL_ANALYTICS_RANKING,
+    CACHE_TTL_ARCHIVE_STATS,
+    CACHE_TTL_CALIBRATION_LB,
+    CACHE_TTL_CONSENSUS,
+    CACHE_TTL_CONSENSUS_SETTLED,
+    CACHE_TTL_CONSENSUS_SIMILAR,
+    CACHE_TTL_CONSENSUS_STATS,
+    CACHE_TTL_CONTRARIAN_VIEWS,
+    CACHE_TTL_CRITIQUE_PATTERNS,
+    CACHE_TTL_CRITIQUE_STATS,
+    CACHE_TTL_DASHBOARD_DEBATES,
+    CACHE_TTL_EMBEDDINGS,
+    CACHE_TTL_FLIPS_RECENT,
+    CACHE_TTL_FLIPS_SUMMARY,
+    CACHE_TTL_LB_INTROSPECTION,
+    CACHE_TTL_LB_MATCHES,
+    CACHE_TTL_LB_RANKINGS,
+    CACHE_TTL_LB_REPUTATION,
+    CACHE_TTL_LB_STATS,
+    CACHE_TTL_LB_TEAMS,
+    CACHE_TTL_LEADERBOARD,
+    CACHE_TTL_LEARNING_EVOLUTION,
+    CACHE_TTL_META_LEARNING,
+    CACHE_TTL_METHOD,
+    CACHE_TTL_QUERY,
+    CACHE_TTL_RECENT_DISSENTS,
+    CACHE_TTL_RECENT_MATCHES,
+    CACHE_TTL_REPLAYS_LIST,
+    CACHE_TTL_RISK_WARNINGS,
+)
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
 
 
-class CachedCallable(Protocol[T]):
+class CachedCallable(Protocol[T_co]):
     """Protocol for callable with cache attributes attached."""
 
     cache: TTLCache[Any]
     cache_key_prefix: str
 
-    def __call__(self, *args: Any, **kwargs: Any) -> T: ...
+    def __call__(self, *args: Any, **kwargs: Any) -> T_co: ...
 
 
 class TTLCache(Generic[T]):
@@ -443,3 +482,410 @@ def invalidate_cache(data_source: str) -> int:
 def get_handler_cache() -> TTLCache[Any]:
     """Get the global handler cache instance."""
     return _handler_cache
+
+
+# =============================================================================
+# Unified CacheManager with TTL Presets
+# =============================================================================
+
+
+class CachePreset:
+    """Named cache preset with preconfigured TTL and maxsize."""
+
+    def __init__(
+        self,
+        name: str,
+        ttl_seconds: float,
+        maxsize: int = 128,
+        description: str = "",
+    ):
+        self.name = name
+        self.ttl_seconds = ttl_seconds
+        self.maxsize = maxsize
+        self.description = description
+        self._cache: Optional[TTLCache[Any]] = None
+
+    @property
+    def cache(self) -> TTLCache[Any]:
+        """Lazily create the cache on first access."""
+        if self._cache is None:
+            self._cache = TTLCache(maxsize=self.maxsize, ttl_seconds=self.ttl_seconds)
+        return self._cache
+
+    def get(self, key: str) -> Optional[Any]:
+        """Get value from cache."""
+        return self.cache.get(key)
+
+    def set(self, key: str, value: Any) -> None:
+        """Set value in cache."""
+        self.cache.set(key, value)
+
+    def invalidate(self, key: str) -> bool:
+        """Invalidate a specific key."""
+        return self.cache.invalidate(key)
+
+    def clear(self) -> int:
+        """Clear all entries."""
+        return self.cache.clear()
+
+    def clear_prefix(self, prefix: str) -> int:
+        """Clear entries with matching prefix."""
+        return self.cache.clear_prefix(prefix)
+
+    @property
+    def stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        if self._cache is None:
+            return {
+                "name": self.name,
+                "size": 0,
+                "maxsize": self.maxsize,
+                "ttl_seconds": self.ttl_seconds,
+                "hits": 0,
+                "misses": 0,
+                "hit_rate": 0.0,
+                "initialized": False,
+            }
+        stats = self._cache.stats
+        stats["name"] = self.name
+        stats["initialized"] = True
+        return stats
+
+
+class CacheManager:
+    """
+    Unified cache manager with domain-specific presets.
+
+    Provides named cache presets configured from centralized TTL constants,
+    with a registry for observability and coordinated invalidation.
+
+    Usage:
+        manager = CacheManager.get_instance()
+
+        # Get a domain-specific cache
+        agent_cache = manager.get_preset("agent_profile")
+        agent_cache.set("agent:claude", profile_data)
+        profile = agent_cache.get("agent:claude")
+
+        # Use decorator with preset
+        @manager.cached("consensus")
+        def get_consensus_data(debate_id: str) -> dict:
+            ...
+
+        # Get all stats for monitoring
+        all_stats = manager.get_all_stats()
+    """
+
+    _instance: Optional["CacheManager"] = None
+    _lock = threading.Lock()
+
+    # Domain-grouped preset configurations
+    PRESET_CONFIGS: dict[str, tuple[float, int, str]] = {
+        # Agent data (TTL, maxsize, description)
+        "agent_profile": (CACHE_TTL_AGENT_PROFILE, 200, "Agent profile data"),
+        "agent_h2h": (CACHE_TTL_AGENT_H2H, 500, "Agent head-to-head records"),
+        "agent_flips": (CACHE_TTL_AGENT_FLIPS, 200, "Agent position flips"),
+        "agent_reputation": (CACHE_TTL_AGENT_REPUTATION, 200, "Agent reputation scores"),
+        "all_reputations": (CACHE_TTL_ALL_REPUTATIONS, 50, "All agent reputations"),
+        # Leaderboard & rankings
+        "leaderboard": (CACHE_TTL_LEADERBOARD, 50, "Main leaderboard"),
+        "lb_rankings": (CACHE_TTL_LB_RANKINGS, 100, "Leaderboard rankings"),
+        "lb_matches": (CACHE_TTL_LB_MATCHES, 200, "Leaderboard matches"),
+        "lb_reputation": (CACHE_TTL_LB_REPUTATION, 100, "Leaderboard reputation"),
+        "lb_teams": (CACHE_TTL_LB_TEAMS, 50, "Leaderboard teams"),
+        "lb_stats": (CACHE_TTL_LB_STATS, 50, "Leaderboard statistics"),
+        "lb_introspection": (CACHE_TTL_LB_INTROSPECTION, 100, "Leaderboard introspection"),
+        "calibration_lb": (CACHE_TTL_CALIBRATION_LB, 50, "Calibration leaderboard"),
+        "recent_matches": (CACHE_TTL_RECENT_MATCHES, 100, "Recent match history"),
+        "flips_recent": (CACHE_TTL_FLIPS_RECENT, 100, "Recent position flips"),
+        "flips_summary": (CACHE_TTL_FLIPS_SUMMARY, 50, "Flip statistics summary"),
+        # Analytics
+        "analytics": (CACHE_TTL_ANALYTICS, 100, "General analytics"),
+        "analytics_ranking": (CACHE_TTL_ANALYTICS_RANKING, 100, "Ranking analytics"),
+        "analytics_debates": (CACHE_TTL_ANALYTICS_DEBATES, 100, "Debate analytics"),
+        "analytics_memory": (CACHE_TTL_ANALYTICS_MEMORY, 50, "Memory analytics"),
+        "archive_stats": (CACHE_TTL_ARCHIVE_STATS, 50, "Archive statistics"),
+        # Consensus
+        "consensus": (CACHE_TTL_CONSENSUS, 200, "Consensus data"),
+        "consensus_similar": (CACHE_TTL_CONSENSUS_SIMILAR, 200, "Similar consensus"),
+        "consensus_settled": (CACHE_TTL_CONSENSUS_SETTLED, 100, "Settled consensus"),
+        "consensus_stats": (CACHE_TTL_CONSENSUS_STATS, 50, "Consensus statistics"),
+        "recent_dissents": (CACHE_TTL_RECENT_DISSENTS, 100, "Recent dissent records"),
+        "contrarian_views": (CACHE_TTL_CONTRARIAN_VIEWS, 100, "Contrarian view data"),
+        "risk_warnings": (CACHE_TTL_RISK_WARNINGS, 100, "Risk warning data"),
+        # Memory & learning
+        "replays_list": (CACHE_TTL_REPLAYS_LIST, 50, "Replay list data"),
+        "learning_evolution": (CACHE_TTL_LEARNING_EVOLUTION, 100, "Learning evolution"),
+        "meta_learning": (CACHE_TTL_META_LEARNING, 100, "Meta-learning patterns"),
+        "critique_patterns": (CACHE_TTL_CRITIQUE_PATTERNS, 100, "Critique patterns"),
+        "critique_stats": (CACHE_TTL_CRITIQUE_STATS, 50, "Critique statistics"),
+        # Dashboard
+        "dashboard_debates": (CACHE_TTL_DASHBOARD_DEBATES, 50, "Dashboard debate list"),
+        # Embeddings & vectors
+        "embeddings": (CACHE_TTL_EMBEDDINGS, 1000, "Vector embeddings"),
+        # Generic
+        "method": (CACHE_TTL_METHOD, 1000, "Method-level caching"),
+        "query": (CACHE_TTL_QUERY, 500, "Query result caching"),
+    }
+
+    # Domain groupings for bulk invalidation
+    DOMAIN_PRESETS: dict[str, list[str]] = {
+        "agent": ["agent_profile", "agent_h2h", "agent_flips", "agent_reputation", "all_reputations"],
+        "leaderboard": [
+            "leaderboard",
+            "lb_rankings",
+            "lb_matches",
+            "lb_reputation",
+            "lb_teams",
+            "lb_stats",
+            "lb_introspection",
+            "calibration_lb",
+            "recent_matches",
+            "flips_recent",
+            "flips_summary",
+        ],
+        "analytics": ["analytics", "analytics_ranking", "analytics_debates", "analytics_memory", "archive_stats"],
+        "consensus": [
+            "consensus",
+            "consensus_similar",
+            "consensus_settled",
+            "consensus_stats",
+            "recent_dissents",
+            "contrarian_views",
+            "risk_warnings",
+        ],
+        "memory": ["replays_list", "learning_evolution", "meta_learning", "critique_patterns", "critique_stats"],
+        "dashboard": ["dashboard_debates"],
+        "embeddings": ["embeddings"],
+    }
+
+    def __init__(self):
+        self._presets: dict[str, CachePreset] = {}
+        self._initialized = False
+        self._init_lock = threading.Lock()
+
+    @classmethod
+    def get_instance(cls) -> "CacheManager":
+        """Get the singleton instance of CacheManager."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    def _ensure_initialized(self) -> None:
+        """Initialize presets lazily on first access."""
+        if self._initialized:
+            return
+        with self._init_lock:
+            if self._initialized:
+                return
+            for name, (ttl, maxsize, desc) in self.PRESET_CONFIGS.items():
+                self._presets[name] = CachePreset(name, ttl, maxsize, desc)
+            self._initialized = True
+            logger.debug(f"CacheManager initialized with {len(self._presets)} presets")
+
+    def get_preset(self, name: str) -> CachePreset:
+        """
+        Get a named cache preset.
+
+        Args:
+            name: Preset name (e.g., "agent_profile", "consensus", "embeddings")
+
+        Returns:
+            CachePreset with preconfigured TTL and maxsize
+
+        Raises:
+            KeyError: If preset name is not recognized
+        """
+        self._ensure_initialized()
+        if name not in self._presets:
+            available = ", ".join(sorted(self._presets.keys()))
+            raise KeyError(f"Unknown cache preset '{name}'. Available: {available}")
+        return self._presets[name]
+
+    def get_or_create_preset(
+        self,
+        name: str,
+        ttl_seconds: float = 300.0,
+        maxsize: int = 128,
+        description: str = "",
+    ) -> CachePreset:
+        """
+        Get existing preset or create a new one.
+
+        Useful for custom presets not in the default configuration.
+        """
+        self._ensure_initialized()
+        if name not in self._presets:
+            self._presets[name] = CachePreset(name, ttl_seconds, maxsize, description)
+            logger.debug(f"Created custom cache preset: {name}")
+        return self._presets[name]
+
+    def invalidate_domain(self, domain: str) -> dict[str, int]:
+        """
+        Invalidate all caches in a domain.
+
+        Args:
+            domain: Domain name (e.g., "agent", "consensus", "analytics")
+
+        Returns:
+            Dict mapping preset names to number of entries cleared
+        """
+        self._ensure_initialized()
+        preset_names = self.DOMAIN_PRESETS.get(domain, [domain])
+        results = {}
+
+        for name in preset_names:
+            if name in self._presets:
+                cleared = self._presets[name].clear()
+                results[name] = cleared
+                if cleared > 0:
+                    logger.debug(f"Invalidated {cleared} entries from {name} cache")
+
+        total = sum(results.values())
+        if total > 0:
+            logger.info(f"Domain '{domain}' invalidation: {total} total entries cleared")
+
+        return results
+
+    def invalidate_all(self) -> dict[str, int]:
+        """Clear all caches and return counts."""
+        self._ensure_initialized()
+        results = {}
+        for name, preset in self._presets.items():
+            results[name] = preset.clear()
+        total = sum(results.values())
+        logger.info(f"All caches invalidated: {total} entries cleared")
+        return results
+
+    def get_all_stats(self) -> dict[str, dict[str, Any]]:
+        """Get statistics for all presets."""
+        self._ensure_initialized()
+        return {name: preset.stats for name, preset in self._presets.items()}
+
+    def get_domain_stats(self, domain: str) -> dict[str, dict[str, Any]]:
+        """Get statistics for all presets in a domain."""
+        self._ensure_initialized()
+        preset_names = self.DOMAIN_PRESETS.get(domain, [])
+        return {name: self._presets[name].stats for name in preset_names if name in self._presets}
+
+    def get_summary_stats(self) -> dict[str, Any]:
+        """Get summary statistics across all caches."""
+        self._ensure_initialized()
+        all_stats = self.get_all_stats()
+
+        total_size = 0
+        total_maxsize = 0
+        total_hits = 0
+        total_misses = 0
+        initialized_count = 0
+
+        for stats in all_stats.values():
+            total_size += stats.get("size", 0)
+            total_maxsize += stats.get("maxsize", 0)
+            total_hits += stats.get("hits", 0)
+            total_misses += stats.get("misses", 0)
+            if stats.get("initialized", False):
+                initialized_count += 1
+
+        total_requests = total_hits + total_misses
+        return {
+            "preset_count": len(self._presets),
+            "initialized_count": initialized_count,
+            "total_size": total_size,
+            "total_maxsize": total_maxsize,
+            "total_hits": total_hits,
+            "total_misses": total_misses,
+            "overall_hit_rate": total_hits / total_requests if total_requests > 0 else 0.0,
+        }
+
+    def cached(
+        self,
+        preset_name: str,
+        key_prefix: str = "",
+        skip_first: bool = True,
+    ):
+        """
+        Decorator for caching function results using a named preset.
+
+        Args:
+            preset_name: Name of the cache preset to use
+            key_prefix: Optional prefix for cache keys
+            skip_first: If True, skip first arg (self) when building cache key
+
+        Example:
+            manager = CacheManager.get_instance()
+
+            @manager.cached("consensus")
+            def get_consensus(self, debate_id: str) -> dict:
+                ...
+        """
+        preset = self.get_preset(preset_name)
+
+        def decorator(func: Callable[..., T]) -> Callable[..., T]:
+            @wraps(func)
+            def wrapper(*args, **kwargs) -> T:
+                cache_args = args[1:] if skip_first and args else args
+                cache_key = f"{key_prefix}:{func.__name__}:{cache_args}:{sorted(kwargs.items())}"
+
+                cached_value = preset.get(cache_key)
+                if cached_value is not None:
+                    return cached_value
+
+                result = func(*args, **kwargs)
+                preset.set(cache_key, result)
+                return result
+
+            return wrapper
+
+        return decorator
+
+    def async_cached(
+        self,
+        preset_name: str,
+        key_prefix: str = "",
+        skip_first: bool = True,
+    ):
+        """
+        Async decorator for caching coroutine results using a named preset.
+
+        Args:
+            preset_name: Name of the cache preset to use
+            key_prefix: Optional prefix for cache keys
+            skip_first: If True, skip first arg (self) when building cache key
+        """
+        preset = self.get_preset(preset_name)
+
+        def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+            @wraps(func)
+            async def wrapper(*args, **kwargs) -> T:
+                cache_args = args[1:] if skip_first and args else args
+                cache_key = f"{key_prefix}:{func.__name__}:{cache_args}:{sorted(kwargs.items())}"
+
+                cached_value = preset.get(cache_key)
+                if cached_value is not None:
+                    return cached_value
+
+                result = await func(*args, **kwargs)
+                preset.set(cache_key, result)
+                return result
+
+            return cast(Callable[..., Awaitable[T]], wrapper)
+
+        return decorator
+
+    def list_presets(self) -> list[str]:
+        """List all available preset names."""
+        self._ensure_initialized()
+        return sorted(self._presets.keys())
+
+    def list_domains(self) -> list[str]:
+        """List all available domain names."""
+        return sorted(self.DOMAIN_PRESETS.keys())
+
+
+# Convenience function for getting the global CacheManager
+def get_cache_manager() -> CacheManager:
+    """Get the global CacheManager singleton."""
+    return CacheManager.get_instance()

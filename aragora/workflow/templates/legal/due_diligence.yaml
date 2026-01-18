@@ -1,0 +1,295 @@
+id: template_legal_due_diligence
+name: Legal Due Diligence
+description: Comprehensive due diligence workflow for M&A, investments, and major transactions
+version: "1.0.0"
+category: legal
+tags:
+  - legal
+  - due-diligence
+  - m&a
+  - compliance
+  - investigation
+icon: search-circle
+is_template: true
+
+inputs:
+  target_entity: Entity or transaction to investigate
+  scope: Scope of due diligence (full, limited, specific areas)
+  deadline: Due diligence deadline
+
+outputs:
+  report: Comprehensive due diligence report
+  red_flags: List of identified issues
+  risk_matrix: Risk assessment matrix
+
+steps:
+  - id: gather_documents
+    name: Document Collection
+    step_type: agent
+    description: Identify and request necessary documents
+    config:
+      agent_type: legal
+      prompt_template: |
+        Create a document request list for due diligence on: {target_entity}
+        Scope: {scope}
+
+        Categories to cover:
+        - Corporate documents and governance
+        - Financial statements and records
+        - Material contracts and agreements
+        - Intellectual property
+        - Litigation and legal matters
+        - Regulatory compliance
+        - Employment and labor matters
+        - Real estate and assets
+        - Environmental matters
+        - Insurance coverage
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - parallel_review
+
+  - id: parallel_review
+    name: Parallel Document Review
+    step_type: parallel
+    description: Concurrent review of different document categories
+    config:
+      parallel_steps:
+        - corporate_review
+        - financial_review
+        - contract_review
+        - ip_review
+        - litigation_review
+        - compliance_review
+      max_concurrent: 6
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - synthesize_findings
+
+  - id: corporate_review
+    name: Corporate Document Review
+    step_type: agent
+    description: Review corporate governance and structure
+    config:
+      agent_type: legal
+      prompt_template: |
+        Review corporate documents for red flags:
+        - Charter documents and bylaws
+        - Board minutes and resolutions
+        - Shareholder agreements
+        - Organizational structure
+    visual:
+      position: {x: -200, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: financial_review
+    name: Financial Review
+    step_type: agent
+    description: Review financial documents and records
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Review financial documents:
+        - Audited financial statements
+        - Tax returns and filings
+        - Debt obligations
+        - Off-balance sheet items
+    visual:
+      position: {x: -50, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: contract_review
+    name: Material Contracts Review
+    step_type: agent
+    description: Review material contracts and agreements
+    config:
+      agent_type: legal
+      prompt_template: |
+        Review material contracts for:
+        - Change of control provisions
+        - Assignment restrictions
+        - Termination rights
+        - Material obligations
+    visual:
+      position: {x: 100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: ip_review
+    name: IP Review
+    step_type: agent
+    description: Review intellectual property portfolio
+    config:
+      agent_type: legal
+      prompt_template: |
+        Review IP portfolio:
+        - Patent registrations and status
+        - Trademark registrations
+        - Licensing agreements
+        - IP litigation history
+    visual:
+      position: {x: 250, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: litigation_review
+    name: Litigation Review
+    step_type: agent
+    description: Review litigation history and pending matters
+    config:
+      agent_type: legal
+      prompt_template: |
+        Review litigation matters:
+        - Pending litigation
+        - Threatened claims
+        - Judgment liens
+        - Settlement history
+    visual:
+      position: {x: 400, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: compliance_review
+    name: Compliance Review
+    step_type: agent
+    description: Review regulatory compliance status
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Review compliance status:
+        - Regulatory licenses and permits
+        - Compliance history
+        - Pending investigations
+        - Environmental compliance
+    visual:
+      position: {x: 550, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: synthesize_findings
+    name: Synthesize Findings
+    step_type: debate
+    description: Multi-agent synthesis of all findings into comprehensive report
+    config:
+      topic: "Synthesize due diligence findings and identify key risks"
+      agents:
+        - legal_analyst
+        - financial_analyst
+        - risk_assessor
+      rounds: 2
+      consensus: synthesis
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - risk_categorization
+
+  - id: risk_categorization
+    name: Risk Categorization
+    step_type: decision
+    description: Categorize overall risk level
+    config:
+      conditions:
+        - name: deal_breaker
+          expression: "any(f.get('severity') == 'critical' for f in step.synthesize_findings.get('red_flags', []))"
+          next_step: escalate_critical
+        - name: significant_issues
+          expression: "len([f for f in step.synthesize_findings.get('red_flags', []) if f.get('severity') == 'high']) > 3"
+          next_step: detailed_review
+      default_branch: generate_report
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: escalate_critical
+    name: Escalate Critical Issues
+    step_type: human_checkpoint
+    description: Immediate escalation for deal-breaker issues
+    config:
+      title: CRITICAL - Deal-Breaker Issues Identified
+      description: Critical issues have been identified that may affect transaction viability
+      checklist:
+        - label: Reviewed all critical findings
+          required: true
+        - label: Assessed impact on transaction
+          required: true
+        - label: Determined go/no-go recommendation
+          required: true
+      timeout_seconds: 43200  # 12 hours
+      priority: urgent
+    visual:
+      position: {x: 300, y: 750}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: detailed_review
+    name: Detailed Issue Review
+    step_type: human_checkpoint
+    description: Detailed review of significant issues
+    config:
+      title: Significant Issues Require Review
+      description: Multiple high-severity issues require detailed human review
+      checklist:
+        - label: Reviewed high-severity findings
+          required: true
+        - label: Assessed mitigation options
+          required: true
+      timeout_seconds: 86400  # 24 hours
+    visual:
+      position: {x: 100, y: 750}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Report
+    step_type: agent
+    description: Generate comprehensive due diligence report
+    config:
+      agent_type: legal
+      prompt_template: |
+        Generate comprehensive due diligence report:
+
+        Target: {target_entity}
+
+        Findings:
+        {step.synthesize_findings}
+
+        Include:
+        - Executive summary
+        - Key findings by category
+        - Risk matrix
+        - Recommendations
+        - Required follow-up items
+    visual:
+      position: {x: 100, y: 900}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Store Report
+    step_type: memory_write
+    description: Archive due diligence report
+    config:
+      content: "{step.generate_report}"
+      source_type: AUDIT
+      domain: legal/due_diligence
+    visual:
+      position: {x: 100, y: 1050}
+      category: memory
+      color: "#9f7aea"

@@ -1,0 +1,107 @@
+# Knowledge Pipeline Document Ingestion Workflow
+#
+# Processes documents from various sources into the Knowledge Mound.
+# Supports local files, URLs, and external connectors.
+#
+# Inputs:
+#   - sources: List of document sources (paths, URLs, connector IDs)
+#   - workspace_id: Target workspace for storage
+#
+# Outputs:
+#   - documents_processed: Number of documents ingested
+#   - facts_extracted: Number of facts extracted
+#   - chunks_created: Number of chunks created
+
+id: knowledge_pipeline
+name: "Document Ingestion Pipeline"
+description: "Process and ingest documents into the Knowledge Mound"
+version: "1.0"
+
+metadata:
+  category: "knowledge"
+  tags: ["ingestion", "documents", "embeddings"]
+  estimated_duration_minutes: 10
+
+steps:
+  - id: validate_sources
+    type: task
+    config:
+      action: "validate_inputs"
+      required: ["sources"]
+      validate:
+        sources: "non_empty_list"
+    next: ingest_documents
+
+  - id: ingest_documents
+    type: knowledge_pipeline
+    config:
+      sources: "{sources}"
+      workspace_id: "{workspace_id}"
+      chunk_strategy: "semantic"
+      chunk_size: 512
+      chunk_overlap: 64
+      embedding_model: "text-embedding-3-small"
+      use_knowledge_mound: true
+      extract_facts: true
+      timeout_seconds: 600
+    next: verify_ingestion
+
+  - id: verify_ingestion
+    type: decision
+    config:
+      expression: "step_outputs.ingest_documents.success"
+      on_true: extract_insights
+      on_false: handle_error
+    next: extract_insights
+
+  - id: handle_error
+    type: task
+    config:
+      action: "log_error"
+      message: "Document ingestion failed"
+      include: "{step_outputs.ingest_documents.errors}"
+    next: partial_success
+
+  - id: extract_insights
+    type: debate
+    config:
+      topic: "Summarize key insights from the ingested documents"
+      agents: ["claude"]
+      rounds: 1
+      consensus_mechanism: "single"
+      enable_synthesis: true
+    next: store_summary
+
+  - id: store_summary
+    type: memory
+    config:
+      action: "write"
+      data:
+        ingestion_summary: "{step_outputs.extract_insights.synthesis}"
+        documents_count: "{step_outputs.ingest_documents.documents_processed}"
+        timestamp: "{now}"
+      target: "knowledge_mound"
+    next: complete
+
+  - id: partial_success
+    type: memory
+    config:
+      action: "write"
+      data:
+        ingestion_partial: true
+        documents_count: "{step_outputs.ingest_documents.documents_processed}"
+        errors: "{step_outputs.ingest_documents.errors}"
+        timestamp: "{now}"
+      target: "knowledge_mound"
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "documents_processed"
+        - "chunks_created"
+        - "facts_extracted"
+
+entry_point: validate_sources

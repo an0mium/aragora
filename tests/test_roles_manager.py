@@ -1,5 +1,5 @@
 """
-Tests for RolesManager in debate phases.
+Tests for RolesManager in debate.
 
 Tests role assignment, stance assignment, and agreement intensity guidance.
 """
@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from unittest.mock import MagicMock
 
-from aragora.debate.phases.roles_manager import RolesManager
+from aragora.debate.roles_manager import RolesManager
 
 
 # =============================================================================
@@ -35,6 +35,12 @@ class MockProtocol:
     asymmetric_stances: bool = False
     rotate_stances: bool = False
     agreement_intensity: int = 5
+    # Additional attributes required by root RolesManager
+    role_matching: bool = False
+    role_matching_config: Optional[object] = None
+    role_rotation: bool = False
+    role_rotation_config: Optional[object] = None
+    rounds: int = 3
 
 
 @pytest.fixture
@@ -75,12 +81,12 @@ class TestRolesManagerInit:
 
     def test_init_stores_protocol(self, protocol, three_agents):
         """Should store protocol reference."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         assert manager.protocol is protocol
 
     def test_init_stores_agents(self, protocol, three_agents):
         """Should store agents list."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         assert manager.agents == three_agents
 
 
@@ -94,19 +100,19 @@ class TestAssignRoles:
 
     def test_assigns_proposer_first(self, protocol, three_agents):
         """First agent should be proposer."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_roles()
         assert three_agents[0].role == "proposer"
 
     def test_assigns_synthesizer_last(self, protocol, three_agents):
         """Last agent should be synthesizer."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_roles()
         assert three_agents[-1].role == "synthesizer"
 
     def test_assigns_critic_middle(self, protocol, three_agents):
         """Middle agents should be critics."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_roles()
         assert three_agents[1].role == "critic"
 
@@ -117,7 +123,7 @@ class TestAssignRoles:
             MockAgent(name="a2", role="critic"),
             MockAgent(name="a3", role="synthesizer"),
         ]
-        manager = RolesManager(protocol, agents)
+        manager = RolesManager(agents, protocol)
         manager.assign_roles()
         # Should keep existing roles
         assert agents[0].role == "proposer"
@@ -127,7 +133,7 @@ class TestAssignRoles:
     def test_multiple_proposers_with_high_count(self, five_agents):
         """Should assign multiple proposers when proposer_count > 1."""
         protocol = MockProtocol(proposer_count=2)
-        manager = RolesManager(protocol, five_agents)
+        manager = RolesManager(five_agents, protocol)
         manager.assign_roles()
 
         proposers = [a for a in five_agents if a.role == "proposer"]
@@ -138,7 +144,7 @@ class TestAssignRoles:
     def test_safety_bounds_max_proposers(self, three_agents):
         """Should cap proposers to ensure at least 1 critic and 1 synthesizer."""
         protocol = MockProtocol(proposer_count=10)  # Requesting more than possible
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_roles()
 
         # With 3 agents, max 1 proposer to ensure critic + synthesizer
@@ -154,7 +160,7 @@ class TestAssignRoles:
         """With 2 agents, should have proposer and synthesizer."""
         agents = [MockAgent(name="a1"), MockAgent(name="a2")]
         protocol = MockProtocol(proposer_count=1)
-        manager = RolesManager(protocol, agents)
+        manager = RolesManager(agents, protocol)
         manager.assign_roles()
 
         assert agents[0].role == "proposer"
@@ -164,7 +170,7 @@ class TestAssignRoles:
         """Single agent should be proposer."""
         agents = [MockAgent(name="solo")]
         protocol = MockProtocol()
-        manager = RolesManager(protocol, agents)
+        manager = RolesManager(agents, protocol)
         manager.assign_roles()
 
         assert agents[0].role == "proposer"
@@ -181,7 +187,7 @@ class TestAssignStances:
     def test_no_stances_when_disabled(self, protocol, three_agents):
         """Should not assign stances when asymmetric_stances is False."""
         protocol.asymmetric_stances = False
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_stances()
 
         for agent in three_agents:
@@ -190,7 +196,7 @@ class TestAssignStances:
     def test_assigns_stances_when_enabled(self, three_agents):
         """Should assign stances when asymmetric_stances is True."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_stances()
 
         stances = [a.stance for a in three_agents]
@@ -201,7 +207,7 @@ class TestAssignStances:
     def test_stance_rotation(self, three_agents):
         """Stances should rotate when rotate_stances is enabled."""
         protocol = MockProtocol(asymmetric_stances=True, rotate_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         # Round 0
         manager.assign_stances(round_num=0)
@@ -217,7 +223,7 @@ class TestAssignStances:
     def test_no_rotation_when_disabled(self, three_agents):
         """Stances should stay same when rotate_stances is False."""
         protocol = MockProtocol(asymmetric_stances=True, rotate_stances=False)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         # Round 0
         manager.assign_stances(round_num=0)
@@ -242,7 +248,7 @@ class TestAgreementIntensity:
     def test_adversarial_mode_low_intensity(self, three_agents):
         """Low intensity (0-3) should produce adversarial guidance."""
         protocol = MockProtocol(agreement_intensity=2)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         guidance = manager.get_agreement_intensity_guidance()
         assert "ADVERSARIAL" in guidance
@@ -251,7 +257,7 @@ class TestAgreementIntensity:
     def test_collaborative_mode_high_intensity(self, three_agents):
         """High intensity (7-10) should produce collaborative guidance."""
         protocol = MockProtocol(agreement_intensity=8)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         guidance = manager.get_agreement_intensity_guidance()
         assert "COLLABORATIVE" in guidance
@@ -260,7 +266,7 @@ class TestAgreementIntensity:
     def test_balanced_mode_medium_intensity(self, three_agents):
         """Medium intensity (4-6) should produce balanced guidance."""
         protocol = MockProtocol(agreement_intensity=5)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         guidance = manager.get_agreement_intensity_guidance()
         assert "BALANCED" in guidance
@@ -269,7 +275,7 @@ class TestAgreementIntensity:
     def test_boundary_value_intensity_3(self, three_agents):
         """Intensity 3 should be adversarial (boundary)."""
         protocol = MockProtocol(agreement_intensity=3)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         guidance = manager.get_agreement_intensity_guidance()
         assert "ADVERSARIAL" in guidance
@@ -277,7 +283,7 @@ class TestAgreementIntensity:
     def test_boundary_value_intensity_7(self, three_agents):
         """Intensity 7 should be collaborative (boundary)."""
         protocol = MockProtocol(agreement_intensity=7)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         guidance = manager.get_agreement_intensity_guidance()
         assert "COLLABORATIVE" in guidance
@@ -286,7 +292,7 @@ class TestAgreementIntensity:
         """apply_agreement_intensity should modify agent system prompts."""
         protocol = MockProtocol(agreement_intensity=2)
         three_agents[0].system_prompt = "Base prompt"
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         manager.apply_agreement_intensity()
 
@@ -296,7 +302,7 @@ class TestAgreementIntensity:
     def test_apply_agreement_intensity_sets_prompt_if_none(self, three_agents):
         """Should set prompt even if agent has no system_prompt."""
         protocol = MockProtocol(agreement_intensity=8)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         manager.apply_agreement_intensity()
 
@@ -315,7 +321,7 @@ class TestStanceGuidance:
     def test_affirmative_stance_guidance(self, three_agents):
         """Should generate affirmative stance guidance."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         three_agents[0].stance = "affirmative"
 
         guidance = manager.get_stance_guidance(three_agents[0])
@@ -326,7 +332,7 @@ class TestStanceGuidance:
     def test_negative_stance_guidance(self, three_agents):
         """Should generate negative stance guidance."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         three_agents[0].stance = "negative"
 
         guidance = manager.get_stance_guidance(three_agents[0])
@@ -337,7 +343,7 @@ class TestStanceGuidance:
     def test_neutral_stance_guidance(self, three_agents):
         """Should generate neutral stance guidance."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         three_agents[0].stance = "neutral"
 
         guidance = manager.get_stance_guidance(three_agents[0])
@@ -348,7 +354,7 @@ class TestStanceGuidance:
     def test_no_guidance_when_stances_disabled(self, three_agents):
         """Should return empty guidance when asymmetric_stances is False."""
         protocol = MockProtocol(asymmetric_stances=False)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         three_agents[0].stance = "affirmative"
 
         guidance = manager.get_stance_guidance(three_agents[0])
@@ -358,7 +364,7 @@ class TestStanceGuidance:
     def test_no_guidance_when_no_stance(self, three_agents):
         """Should return empty guidance when agent has no stance."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         # three_agents[0].stance is None
 
         guidance = manager.get_stance_guidance(three_agents[0])
@@ -376,7 +382,7 @@ class TestRoleSummary:
 
     def test_get_role_summary(self, protocol, three_agents):
         """Should return correct role summary."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_roles()
 
         summary = manager.get_role_summary()
@@ -391,7 +397,7 @@ class TestRoleSummary:
     def test_role_summary_handles_unknown_roles(self, protocol):
         """Should handle unknown roles gracefully."""
         agents = [MockAgent(name="a1", role="custom_role")]
-        manager = RolesManager(protocol, agents)
+        manager = RolesManager(agents, protocol)
 
         summary = manager.get_role_summary()
 
@@ -405,7 +411,7 @@ class TestStanceSummary:
     def test_get_stance_summary(self, three_agents):
         """Should return correct stance summary."""
         protocol = MockProtocol(asymmetric_stances=True)
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
         manager.assign_stances()
 
         summary = manager.get_stance_summary()
@@ -422,7 +428,7 @@ class TestStanceSummary:
 
     def test_stance_summary_with_no_stances(self, protocol, three_agents):
         """Should return empty lists when no stances assigned."""
-        manager = RolesManager(protocol, three_agents)
+        manager = RolesManager(three_agents, protocol)
 
         summary = manager.get_stance_summary()
 

@@ -1,0 +1,184 @@
+# Nomic Self-Improvement Cycle Workflow
+#
+# Executes a full self-improvement cycle with human checkpoints.
+# Based on the 6-phase nomic loop: context, debate, design, implement, verify, commit.
+#
+# Inputs:
+#   - workspace_id: Workspace for knowledge storage
+#   - focus_area: Optional focus area for improvements (e.g., "performance", "security")
+#
+# Outputs:
+#   - improvements_proposed: List of proposed improvements
+#   - changes_implemented: List of implemented changes
+#   - verification_results: Test and validation results
+
+id: nomic_self_improvement
+name: "Nomic Self-Improvement Cycle"
+description: "Full self-improvement cycle with human checkpoints for safe code changes"
+version: "1.0"
+
+metadata:
+  category: "nomic"
+  tags: ["self-improvement", "code-generation", "human-in-loop"]
+  estimated_duration_minutes: 30
+  requires_approval: true
+
+steps:
+  - id: context_gathering
+    type: nomic
+    config:
+      phases: ["context"]
+      workspace_id: "{workspace_id}"
+      timeout_seconds: 120
+    next: debate_phase
+
+  - id: debate_phase
+    type: debate
+    config:
+      topic: "Propose improvements for: {focus_area}"
+      agents: ["claude", "gpt4", "gemini"]
+      rounds: 3
+      consensus_mechanism: "weighted"
+      enable_critique: true
+    next: human_review_proposals
+
+  - id: human_review_proposals
+    type: human_checkpoint
+    config:
+      prompt: |
+        Review the proposed improvements before proceeding to design phase.
+
+        Proposed improvements:
+        {step_outputs.debate_phase.synthesis}
+
+        Do you approve these proposals?
+      timeout_hours: 24
+      auto_approve: false
+      checklist:
+        - "Proposals are well-defined"
+        - "Scope is appropriate"
+        - "No security concerns"
+    next: design_phase
+    on_reject: abort
+
+  - id: design_phase
+    type: nomic
+    config:
+      phases: ["design"]
+      workspace_id: "{workspace_id}"
+      require_approval: true
+      max_scope: 3
+    next: human_review_design
+
+  - id: human_review_design
+    type: human_checkpoint
+    config:
+      prompt: |
+        Review the implementation design before code generation.
+
+        Design:
+        {step_outputs.design_phase.results}
+
+        Do you approve this design for implementation?
+      timeout_hours: 24
+      auto_approve: false
+      checklist:
+        - "Design is sound"
+        - "No breaking changes"
+        - "Test coverage planned"
+    next: implementation
+    on_reject: revise_design
+
+  - id: revise_design
+    type: nomic
+    config:
+      phases: ["design"]
+      workspace_id: "{workspace_id}"
+      require_approval: true
+      context: "Revise design based on feedback"
+    next: human_review_design
+
+  - id: implementation
+    type: nomic
+    config:
+      phases: ["implement"]
+      workspace_id: "{workspace_id}"
+      enable_code_execution: true
+      require_approval: true
+      timeout_seconds: 300
+    next: validation
+
+  - id: validation
+    type: gauntlet
+    config:
+      input_key: "step_outputs.implementation.code"
+      attack_categories: ["prompt_injection", "safety"]
+      probe_categories: ["consistency", "boundaries"]
+      require_passing: true
+      severity_threshold: "medium"
+    next: verify_phase
+
+  - id: verify_phase
+    type: nomic
+    config:
+      phases: ["verify"]
+      workspace_id: "{workspace_id}"
+      timeout_seconds: 180
+    next: human_final_review
+
+  - id: human_final_review
+    type: human_checkpoint
+    config:
+      prompt: |
+        Final review before committing changes.
+
+        Changes:
+        {step_outputs.implementation.results}
+
+        Verification:
+        {step_outputs.verify_phase.results}
+
+        Do you approve committing these changes?
+      timeout_hours: 24
+      auto_approve: false
+      checklist:
+        - "All tests pass"
+        - "No regressions"
+        - "Documentation updated"
+    next: commit_phase
+    on_reject: abort
+
+  - id: commit_phase
+    type: nomic
+    config:
+      phases: ["commit"]
+      workspace_id: "{workspace_id}"
+      require_approval: true
+    next: store_results
+
+  - id: store_results
+    type: memory
+    config:
+      action: "write"
+      data:
+        cycle_result: "{step_outputs}"
+        timestamp: "{now}"
+      target: "knowledge_mound"
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "improvements_proposed"
+        - "changes_implemented"
+        - "verification_results"
+
+  - id: abort
+    type: task
+    config:
+      action: "abort_workflow"
+      reason: "Human review rejected changes"
+
+entry_point: context_gathering

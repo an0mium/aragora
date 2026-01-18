@@ -161,25 +161,24 @@ class RolesManager:
         if intensity is None:
             return ""  # No agreement intensity guidance when not set
 
-        if intensity <= 1:
-            return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
-find flaws in every argument, and maintain your original position unless presented
-with irrefutable evidence. Be adversarial but constructive."""
-        elif intensity <= 3:
-            return """IMPORTANT: Approach others' arguments with healthy skepticism. Be critical of
-proposals and require strong evidence before changing your position. Point out
-weaknesses even if you partially agree."""
-        elif intensity <= 6:
-            return """Evaluate arguments on their merits. Agree when others make valid points,
-disagree when you see genuine flaws. Let the quality of reasoning guide your response."""
-        elif intensity <= 8:
-            return """Look for common ground with other agents. Acknowledge valid points in others'
-arguments and try to build on them. Seek synthesis where possible while maintaining
-your own reasoned perspective."""
-        else:  # 9-10
-            return """Actively seek to incorporate other agents' perspectives. Find value in all
-proposals and work toward collaborative synthesis. Prioritize finding agreement
-and building on others' ideas."""
+        if intensity <= 3:
+            return """DEBATE MODE: ADVERSARIAL
+You should strongly challenge and question other agents' positions.
+Look for weaknesses, contradictions, and unsupported claims.
+Push back on assertions that lack evidence.
+Your role is to stress-test ideas through rigorous critique."""
+        elif intensity >= 7:
+            return """DEBATE MODE: COLLABORATIVE
+You should seek common ground and synthesize different perspectives.
+Build upon others' ideas constructively.
+Focus on finding points of agreement while addressing differences.
+Your role is to help the group converge on the best solution."""
+        else:  # 4-6
+            return """DEBATE MODE: BALANCED
+Evaluate arguments on their merits objectively.
+Acknowledge good points while also noting weaknesses.
+Neither automatically agree nor disagree - let evidence guide you.
+Your role is to contribute fair and reasoned analysis."""
 
     def get_stance_guidance(self, agent: "Agent") -> str:
         """Generate prompt guidance based on agent's debate stance.
@@ -190,17 +189,46 @@ and building on others' ideas."""
         Returns:
             Stance-specific guidance string
         """
+        # Use prompt builder if available
         if self.prompt_builder:
             return self.prompt_builder.get_stance_guidance(agent)
 
-        # Fallback if no prompt builder
-        stance = getattr(agent, "stance", "neutral")
+        # Check if asymmetric stances are enabled
+        if not getattr(self.protocol, "asymmetric_stances", False):
+            return ""
+
+        stance = getattr(agent, "stance", None)
+        if not stance:
+            return ""
+
         if stance == "affirmative":
-            return "You are arguing IN FAVOR of the proposition. Defend and support it."
+            return """DEBATE STANCE: AFFIRMATIVE
+You are assigned to DEFEND and SUPPORT proposals. Your role is to:
+- Find strengths and merits in arguments
+- Build upon existing ideas
+- Advocate for the proposal's value
+- Counter criticisms constructively
+Even if you personally disagree, argue the affirmative position."""
+
         elif stance == "negative":
-            return "You are arguing AGAINST the proposition. Challenge and critique it."
-        else:
-            return "You are a NEUTRAL evaluator. Consider all perspectives fairly."
+            return """DEBATE STANCE: NEGATIVE
+You are assigned to CHALLENGE and CRITIQUE proposals. Your role is to:
+- Identify weaknesses and potential problems
+- Question assumptions and evidence
+- Present counterarguments
+- Play devil's advocate
+Even if you personally agree, argue the negative position."""
+
+        elif stance == "neutral":
+            return """DEBATE STANCE: NEUTRAL
+You are assigned to EVALUATE objectively. Your role is to:
+- Weigh both sides fairly
+- Identify the strongest arguments from each position
+- Note where consensus exists vs disagreement
+- Provide balanced analysis
+Do not advocate - analyze impartially."""
+
+        return ""
 
     def rotate_roles_for_round(self, round_num: int) -> None:
         """Rotate cognitive roles for a new debate round.
@@ -277,6 +305,62 @@ and building on others' ideas."""
 
         assignment = self.current_role_assignments[agent.name]
         return self.role_rotator.format_role_context(assignment)
+
+    # =========================================================================
+    # Convenience aliases and summary methods
+    # =========================================================================
+
+    def assign_roles(self) -> None:
+        """Alias for assign_initial_roles() for API compatibility."""
+        self.assign_initial_roles()
+
+    def get_agreement_intensity_guidance(self) -> str:
+        """Public wrapper for _get_agreement_intensity_guidance().
+
+        Returns:
+            Agreement intensity guidance string
+        """
+        return self._get_agreement_intensity_guidance()
+
+    def get_role_summary(self) -> dict[str, list[str]]:
+        """Get summary of current role assignments.
+
+        Returns:
+            Dict mapping role -> list of agent names
+        """
+        summary: dict[str, list[str]] = {
+            "proposer": [],
+            "critic": [],
+            "synthesizer": [],
+        }
+
+        for agent in self.agents:
+            role = getattr(agent, "role", "unknown")
+            if role in summary:
+                summary[role].append(agent.name)
+            else:
+                summary.setdefault(role, []).append(agent.name)
+
+        return summary
+
+    def get_stance_summary(self) -> dict[str, list[str]]:
+        """Get summary of current stance assignments.
+
+        Returns:
+            Dict mapping stance -> list of agent names
+        """
+        summary: dict[str, list[str]] = {
+            "affirmative": [],
+            "negative": [],
+            "neutral": [],
+        }
+
+        for agent in self.agents:
+            stance = getattr(agent, "stance", None)
+            if stance in summary:
+                summary[stance].append(agent.name)
+
+        return summary
 
 
 __all__ = ["RolesManager"]

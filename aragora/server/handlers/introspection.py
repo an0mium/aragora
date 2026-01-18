@@ -152,10 +152,12 @@ class IntrospectionHandler(BaseHandler):
                     try:
                         reputation = memory.get_agent_reputation(agent)  # type: ignore[union-attr]
                         if reputation:
-                            agent_info["reputation_score"] = getattr(reputation, "score", 0.5)
+                            agent_info["reputation_score"] = getattr(
+                                reputation, "score", 0.5
+                            )  # type: ignore[arg-type]
                             agent_info["total_critiques"] = getattr(
                                 reputation, "total_critiques", 0
-                            )
+                            )  # type: ignore[arg-type]
                     except Exception as e:
                         logger.debug(f"Failed to get reputation for {agent}: {e}")
 

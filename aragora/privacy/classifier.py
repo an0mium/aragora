@@ -390,7 +390,7 @@ Example: confidential:0.85"""
         Returns:
             Recommended policy settings
         """
-        policies = {
+        policies: dict[SensitivityLevel, dict[str, Any]] = {
             SensitivityLevel.PUBLIC: {
                 "encryption_required": False,
                 "access_logging": False,

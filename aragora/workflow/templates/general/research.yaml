@@ -1,0 +1,261 @@
+id: template_general_research
+name: Multi-Agent Research
+description: Collaborative multi-agent research workflow with synthesis and verification
+version: "1.0.0"
+category: general
+tags:
+  - research
+  - multi-agent
+  - synthesis
+  - analysis
+icon: search
+is_template: true
+
+inputs:
+  research_question: The research question or topic to investigate
+  scope: Scope and boundaries of research
+  depth: Research depth (quick, standard, comprehensive)
+
+outputs:
+  research_report: Comprehensive research report
+  findings: Key research findings
+  sources: Verified sources
+
+steps:
+  - id: scope_definition
+    name: Define Research Scope
+    step_type: agent
+    description: Define and clarify research scope
+    config:
+      agent_type: claude
+      prompt_template: |
+        Clarify and define the research scope:
+
+        Research Question: {research_question}
+        Requested Scope: {scope}
+        Depth: {depth}
+
+        Define:
+        - Key aspects to investigate
+        - Boundaries and exclusions
+        - Success criteria
+        - Expected deliverables
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - parallel_research
+
+  - id: parallel_research
+    name: Parallel Research Tracks
+    step_type: parallel
+    description: Concurrent research from multiple perspectives
+    config:
+      parallel_steps:
+        - factual_research
+        - analytical_research
+        - critical_research
+      max_concurrent: 3
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - synthesis_debate
+
+  - id: factual_research
+    name: Factual Research
+    step_type: agent
+    description: Gather factual information and data
+    config:
+      agent_type: claude
+      prompt_template: |
+        Conduct factual research on: {research_question}
+        Scope: {step.scope_definition}
+
+        Gather:
+        - Established facts and data
+        - Statistics and metrics
+        - Historical context
+        - Current state
+        - Verified sources
+    visual:
+      position: {x: -100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: analytical_research
+    name: Analytical Research
+    step_type: agent
+    description: Analyze patterns, trends, and implications
+    config:
+      agent_type: claude
+      prompt_template: |
+        Analyze research topic: {research_question}
+        Scope: {step.scope_definition}
+
+        Analyze:
+        - Trends and patterns
+        - Cause and effect relationships
+        - Comparative analysis
+        - Future projections
+        - Implications
+    visual:
+      position: {x: 100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: critical_research
+    name: Critical Research
+    step_type: agent
+    description: Critical evaluation and counterarguments
+    config:
+      agent_type: claude
+      prompt_template: |
+        Critically evaluate: {research_question}
+        Scope: {step.scope_definition}
+
+        Evaluate:
+        - Counterarguments and limitations
+        - Potential biases
+        - Alternative perspectives
+        - Gaps in current understanding
+        - Areas of uncertainty
+    visual:
+      position: {x: 300, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: synthesis_debate
+    name: Research Synthesis
+    step_type: debate
+    description: Multi-agent synthesis of research findings
+    config:
+      topic: "Synthesize research findings on: {research_question}"
+      agents:
+        - researcher
+        - analyst
+        - critic
+      rounds: 3
+      consensus: synthesis
+      context:
+        - "{step.factual_research}"
+        - "{step.analytical_research}"
+        - "{step.critical_research}"
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - quality_assessment
+
+  - id: quality_assessment
+    name: Quality Assessment
+    step_type: decision
+    description: Assess research quality and completeness
+    config:
+      conditions:
+        - name: needs_deeper_research
+          expression: "step.synthesis_debate.get('confidence', 0) < 0.6 or len(step.synthesis_debate.get('gaps', [])) > 3"
+          next_step: deeper_research
+        - name: needs_verification
+          expression: "step.synthesis_debate.get('requires_verification', False)"
+          next_step: human_verification
+      default_branch: generate_report
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: deeper_research
+    name: Deeper Research Required
+    step_type: agent
+    description: Additional research on identified gaps
+    config:
+      agent_type: claude
+      prompt_template: |
+        Conduct deeper research on identified gaps:
+
+        Original question: {research_question}
+        Gaps identified: {step.synthesis_debate.gaps}
+        Low confidence areas: {step.synthesis_debate.low_confidence_areas}
+
+        Focus on:
+        - Filling knowledge gaps
+        - Finding additional sources
+        - Addressing uncertainties
+    visual:
+      position: {x: 300, y: 800}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - generate_report
+
+  - id: human_verification
+    name: Human Verification
+    step_type: human_checkpoint
+    description: Human verification of critical findings
+    config:
+      title: Research Verification Required
+      description: Key findings require human verification before finalization
+      checklist:
+        - label: Verified primary sources
+          required: true
+        - label: Confirmed critical claims
+          required: true
+        - label: Reviewed for accuracy
+          required: true
+      timeout_seconds: 172800  # 48 hours
+    visual:
+      position: {x: 100, y: 800}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Research Report
+    step_type: agent
+    description: Generate comprehensive research report
+    config:
+      agent_type: claude
+      prompt_template: |
+        Generate Research Report:
+
+        Question: {research_question}
+        Scope: {step.scope_definition}
+
+        Findings:
+        - Factual: {step.factual_research}
+        - Analytical: {step.analytical_research}
+        - Critical: {step.critical_research}
+        - Synthesis: {step.synthesis_debate}
+
+        Include:
+        - Executive summary
+        - Key findings
+        - Analysis and insights
+        - Limitations and gaps
+        - Recommendations
+        - Sources and methodology
+    visual:
+      position: {x: 100, y: 950}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_research
+
+  - id: store_research
+    name: Archive Research
+    step_type: memory_write
+    description: Archive research for future reference
+    config:
+      content: "{step.generate_report}"
+      source_type: RESEARCH
+      domain: general/research
+    visual:
+      position: {x: 100, y: 1100}
+      category: memory
+      color: "#9f7aea"

@@ -25,12 +25,15 @@ Usage:
 import logging
 import os
 from functools import wraps
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, Callable, Literal, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
 # Type variable for generic function signatures
 F = TypeVar("F", bound=Callable[..., Any])
+
+# Sentry log level type
+SentryLevel = Literal["fatal", "critical", "error", "warning", "info", "debug"]
 
 # Global state
 _initialized = False
@@ -132,7 +135,7 @@ def init_monitoring() -> bool:
             # Attach stack trace to log messages
             attach_stacktrace=True,
             # Sanitize events before sending
-            before_send=_before_send,
+            before_send=_before_send,  # type: ignore[arg-type]
             # Filter out health check transactions
             before_send_transaction=_filter_health_checks,
             # Enable source context
@@ -198,7 +201,7 @@ def capture_exception(
 
 def capture_message(
     message: str,
-    level: str = "info",
+    level: SentryLevel = "info",
     context: dict[str, Any] | None = None,
 ) -> str | None:
     """Capture a message for error monitoring.

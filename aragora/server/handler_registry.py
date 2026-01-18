@@ -98,6 +98,7 @@ OrganizationsHandler: HandlerType = None
 OAuthHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
 FormalVerificationHandler: HandlerType = None
+EvaluationHandler: HandlerType = None
 EvidenceHandler: HandlerType = None
 FolderUploadHandler: HandlerType = None
 WebhookHandler: HandlerType = None
@@ -159,6 +160,9 @@ try:
     )
     from aragora.server.handlers import (
         DocumentBatchHandler as _DocumentBatchHandler,
+    )
+    from aragora.server.handlers import (
+        EvaluationHandler as _EvaluationHandler,
     )
     from aragora.server.handlers import (
         EvidenceHandler as _EvidenceHandler,
@@ -335,6 +339,7 @@ try:
     OAuthHandler = _OAuthHandler
     ReviewsHandler = _ReviewsHandler
     FormalVerificationHandler = _FormalVerificationHandler
+    EvaluationHandler = _EvaluationHandler
     EvidenceHandler = _EvidenceHandler
     FolderUploadHandler = _FolderUploadHandler
     WebhookHandler = _WebhookHandler
@@ -403,6 +408,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_oauth_handler", OAuthHandler),
     ("_reviews_handler", ReviewsHandler),
     ("_formal_verification_handler", FormalVerificationHandler),
+    ("_evaluation_handler", EvaluationHandler),
     ("_evidence_handler", EvidenceHandler),
     ("_folder_upload_handler", FolderUploadHandler),
     ("_webhook_handler", WebhookHandler),

@@ -33,6 +33,8 @@ const mainNavItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
+  { label: 'Workflows', href: '/workflows', icon: '>' },
+  { label: 'Connectors', href: '/connectors', icon: '<' },
   { label: 'Templates', href: '/templates', icon: '[' },
   { label: 'Analytics', href: '/analytics', icon: '~' },
   { label: 'Memory', href: '/memory', icon: '=' },

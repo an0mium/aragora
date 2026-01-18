@@ -1,0 +1,308 @@
+id: template_accounting_financial_audit
+name: Financial Statement Audit
+description: Multi-agent audit of financial statements for accuracy, compliance, and material misstatements
+version: "1.0.0"
+category: finance
+tags:
+  - accounting
+  - audit
+  - financial-statements
+  - sox
+  - compliance
+icon: calculator
+is_template: true
+
+inputs:
+  financial_statements: Financial statements to audit
+  period: Audit period
+  audit_type: Type of audit (external, internal, compliance)
+  materiality_threshold: Materiality threshold amount
+
+outputs:
+  audit_report: Complete audit report
+  findings: List of audit findings
+  opinion: Audit opinion
+
+steps:
+  - id: preliminary_review
+    name: Preliminary Analytical Review
+    step_type: agent
+    description: Initial analytical procedures and risk assessment
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Perform preliminary analytical review:
+
+        Financial Statements: {financial_statements}
+        Period: {period}
+        Materiality: {materiality_threshold}
+
+        Analyze:
+        - Year-over-year variances
+        - Ratio analysis
+        - Industry benchmarks
+        - Unusual patterns or trends
+        - Areas of potential risk
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - control_testing
+
+  - id: control_testing
+    name: Internal Control Testing
+    step_type: debate
+    description: Multi-agent assessment of internal controls
+    config:
+      topic: "Evaluate internal controls over financial reporting"
+      agents:
+        - internal_auditor
+        - compliance_analyst
+        - fraud_specialist
+      rounds: 2
+      context:
+        - "{step.preliminary_review}"
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - substantive_testing
+
+  - id: substantive_testing
+    name: Substantive Testing
+    step_type: parallel
+    description: Parallel substantive testing of account balances
+    config:
+      parallel_steps:
+        - revenue_testing
+        - expense_testing
+        - asset_testing
+        - liability_testing
+      max_concurrent: 4
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 400}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - findings_synthesis
+
+  - id: revenue_testing
+    name: Revenue Testing
+    step_type: agent
+    description: Substantive testing of revenue accounts
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Test revenue recognition:
+        - Cutoff testing
+        - Contract review
+        - Revenue classification
+        - Related party transactions
+    visual:
+      position: {x: -150, y: 500}
+      category: agent
+      color: "#4299e1"
+
+  - id: expense_testing
+    name: Expense Testing
+    step_type: agent
+    description: Substantive testing of expense accounts
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Test expense accounts:
+        - Accrual completeness
+        - Classification accuracy
+        - Period cutoff
+        - Unusual expenses
+    visual:
+      position: {x: 0, y: 500}
+      category: agent
+      color: "#4299e1"
+
+  - id: asset_testing
+    name: Asset Testing
+    step_type: agent
+    description: Substantive testing of asset accounts
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Test asset balances:
+        - Existence and valuation
+        - Depreciation accuracy
+        - Impairment assessment
+        - Capitalization policies
+    visual:
+      position: {x: 150, y: 500}
+      category: agent
+      color: "#4299e1"
+
+  - id: liability_testing
+    name: Liability Testing
+    step_type: agent
+    description: Substantive testing of liability accounts
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Test liability balances:
+        - Completeness testing
+        - Contingent liabilities
+        - Debt covenant compliance
+        - Off-balance sheet items
+    visual:
+      position: {x: 300, y: 500}
+      category: agent
+      color: "#4299e1"
+
+  - id: findings_synthesis
+    name: Synthesize Findings
+    step_type: debate
+    description: Multi-agent synthesis of all audit findings
+    config:
+      topic: "Synthesize audit findings and assess materiality"
+      agents:
+        - senior_auditor
+        - technical_accountant
+        - quality_reviewer
+      rounds: 2
+    visual:
+      position: {x: 100, y: 650}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - materiality_assessment
+
+  - id: materiality_assessment
+    name: Materiality Assessment
+    step_type: decision
+    description: Assess materiality of findings
+    config:
+      conditions:
+        - name: material_misstatement
+          expression: "any(f.get('amount', 0) > inputs.get('materiality_threshold', float('inf')) for f in step.findings_synthesis.get('findings', []))"
+          next_step: partner_review
+        - name: significant_deficiency
+          expression: "any(f.get('severity') == 'significant' for f in step.control_testing.get('deficiencies', []))"
+          next_step: manager_review
+      default_branch: clean_opinion
+    visual:
+      position: {x: 100, y: 800}
+      category: control
+      color: "#ed8936"
+
+  - id: partner_review
+    name: Partner Review
+    step_type: human_checkpoint
+    description: Engagement partner review of material findings
+    config:
+      title: Material Findings - Partner Review Required
+      description: Material misstatements or deficiencies require partner review
+      checklist:
+        - label: Reviewed all material findings
+          required: true
+        - label: Assessed impact on opinion
+          required: true
+        - label: Discussed with management
+          required: true
+        - label: Documented resolution or adjustment
+          required: true
+        - label: Determined appropriate opinion
+          required: true
+      timeout_seconds: 172800  # 48 hours
+      priority: high
+    visual:
+      position: {x: 300, y: 950}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: manager_review
+    name: Manager Review
+    step_type: human_checkpoint
+    description: Audit manager review of significant findings
+    config:
+      title: Significant Findings - Manager Review
+      description: Significant deficiencies require manager review
+      checklist:
+        - label: Reviewed significant deficiencies
+          required: true
+        - label: Assessed impact on controls
+          required: true
+        - label: Determined reporting requirements
+          required: true
+      timeout_seconds: 86400  # 24 hours
+    visual:
+      position: {x: 100, y: 950}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: clean_opinion
+    name: Issue Clean Opinion
+    step_type: task
+    description: Prepare unqualified opinion
+    config:
+      task_type: transform
+      transform: |
+        {
+          'opinion_type': 'unqualified',
+          'material_misstatements': False,
+          'control_deficiencies': 'none_significant',
+          'audit_date': datetime.now().isoformat()
+        }
+    visual:
+      position: {x: -100, y: 950}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Audit Report
+    step_type: agent
+    description: Generate comprehensive audit report
+    config:
+      agent_type: accounting
+      prompt_template: |
+        Generate Audit Report:
+
+        Period: {period}
+        Audit Type: {audit_type}
+
+        Findings:
+        - Preliminary Review: {step.preliminary_review}
+        - Control Testing: {step.control_testing}
+        - Substantive Testing: {step.findings_synthesis}
+        - Materiality Assessment: {step.materiality_assessment}
+
+        Include:
+        - Independent Auditor's Report
+        - Opinion paragraph
+        - Basis for opinion
+        - Key audit matters (if applicable)
+        - Management's responsibility
+        - Auditor's responsibility
+    visual:
+      position: {x: 100, y: 1100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Archive Audit
+    step_type: memory_write
+    description: Archive audit workpapers and report
+    config:
+      content: "{step.generate_report}"
+      source_type: AUDIT
+      domain: accounting/financial_audit
+    visual:
+      position: {x: 100, y: 1250}
+      category: memory
+      color: "#9f7aea"

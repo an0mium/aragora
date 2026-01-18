@@ -130,6 +130,52 @@ class ContinuumMemoryEntry:
         config = TIER_CONFIGS[self.tier]
         return self.stability_score > config.demotion_threshold and self.update_count > 10
 
+    # Cross-reference support for Knowledge Mound integration
+
+    @property
+    def cross_references(self) -> List[str]:
+        """Get list of cross-reference IDs linked to this entry."""
+        return self.metadata.get("cross_references", [])
+
+    @cross_references.setter
+    def cross_references(self, refs: List[str]) -> None:
+        """Set cross-reference IDs for this entry."""
+        self.metadata["cross_references"] = refs
+
+    def add_cross_reference(self, ref_id: str) -> None:
+        """Add a cross-reference to another knowledge item."""
+        refs = self.cross_references
+        if ref_id not in refs:
+            refs.append(ref_id)
+            self.cross_references = refs
+
+    def remove_cross_reference(self, ref_id: str) -> None:
+        """Remove a cross-reference from this entry."""
+        refs = self.cross_references
+        if ref_id in refs:
+            refs.remove(ref_id)
+            self.cross_references = refs
+
+    @property
+    def knowledge_mound_id(self) -> str:
+        """Get the Knowledge Mound ID for this entry."""
+        return f"cm_{self.id}"
+
+    @property
+    def tags(self) -> List[str]:
+        """Get tags associated with this entry."""
+        return self.metadata.get("tags", [])
+
+    @tags.setter
+    def tags(self, tag_list: List[str]) -> None:
+        """Set tags for this entry."""
+        self.metadata["tags"] = tag_list
+
+    @property
+    def last_updated(self) -> str:
+        """Alias for updated_at for Knowledge Mound compatibility."""
+        return self.updated_at
+
 
 class AwaitableList(list):
     """List wrapper that can be awaited for async compatibility."""

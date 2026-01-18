@@ -38,7 +38,7 @@ from aragora.debate.phases.feedback_phase import FeedbackPhase
 from aragora.debate.phases.judgment import JudgmentPhase
 from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
 from aragora.debate.phases.proposal_phase import ProposalPhase
-from aragora.debate.phases.roles_manager import RolesManager
+from aragora.debate.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
 from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.debate.phases.vote_aggregator import AggregatedVotes, VoteAggregator

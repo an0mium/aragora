@@ -1,7 +1,18 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { API_BASE_URL } from '@/config';
+
+// Lazy load the graph component
+const BeliefNetworkGraph = dynamic(() => import('./BeliefNetworkGraph'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-4 text-center text-text-muted text-sm font-mono">
+      Loading graph...
+    </div>
+  ),
+});
 
 interface Crux {
   claim_id: string;
@@ -38,7 +49,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
   const [loadBearingClaims, setLoadBearingClaims] = useState<LoadBearingClaim[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'cruxes' | 'load-bearing'>('cruxes');
+  const [activeTab, setActiveTab] = useState<'cruxes' | 'load-bearing' | 'graph'>('cruxes');
 
   const fetchCruxData = useCallback(async (id: string) => {
     if (!id.trim()) {
@@ -127,7 +138,7 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
       )}
 
       {/* Tab Navigation */}
-      {(cruxes.length > 0 || loadBearingClaims.length > 0) && (
+      {(cruxes.length > 0 || loadBearingClaims.length > 0 || debateId) && (
         <div className="flex space-x-1 bg-bg border border-border rounded p-1 mb-4">
           <button
             onClick={() => setActiveTab('cruxes')}
@@ -148,6 +159,16 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
             }`}
           >
             LOAD-BEARING ({loadBearingClaims.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('graph')}
+            className={`px-3 py-1 rounded text-sm font-mono transition-colors flex-1 ${
+              activeTab === 'graph'
+                ? 'bg-acid-green text-bg font-medium'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            GRAPH
           </button>
         </div>
       )}
@@ -241,6 +262,19 @@ export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BAS
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Graph Tab */}
+      {activeTab === 'graph' && (
+        <div>
+          {debateId ? (
+            <BeliefNetworkGraph debateId={debateId} apiBase={apiBase} />
+          ) : (
+            <div className="text-center text-text-muted py-8 font-mono text-sm">
+              Enter a debate ID and click ANALYZE to view the belief network graph.
+            </div>
+          )}
         </div>
       )}
 

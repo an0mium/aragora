@@ -31,3 +31,6 @@ export function useToastContext(): ToastContextType {
   }
   return context;
 }
+
+// Alias for backward compatibility
+export { useToastContext as useToast };

@@ -74,6 +74,20 @@ from aragora.knowledge.integration import (
     queue_document_processing,
     shutdown_pipeline,
 )
+# Import main KnowledgeMound from mound_core.py
+from aragora.knowledge.mound_core import (
+    KnowledgeMound,
+    KnowledgeNode,
+    ProvenanceChain,
+    ProvenanceType,
+)
+# Import unified query interface
+from aragora.knowledge.unified import (
+    UnifiedKnowledgeStore,
+    UnifiedStoreConfig,
+    KnowledgeSource,
+    KnowledgeItem,
+)
 
 __all__ = [
     # Core types
@@ -118,4 +132,14 @@ __all__ = [
     "process_uploaded_document",
     "queue_document_processing",
     "shutdown_pipeline",
+    # Knowledge Mound
+    "KnowledgeMound",
+    "KnowledgeNode",
+    "ProvenanceChain",
+    "ProvenanceType",
+    # Unified Knowledge Store
+    "UnifiedKnowledgeStore",
+    "UnifiedStoreConfig",
+    "KnowledgeSource",
+    "KnowledgeItem",
 ]

@@ -549,13 +549,22 @@ class EncryptionService:
         plaintext = self.decrypt(encrypted, associated_data)
         return self.encrypt(plaintext, associated_data, new_key_id)
 
-    def _get_key(self, key_id: Optional[str] = None) -> EncryptionKey:
+    def _get_key(self, key_id: Optional[str] = None, version: Optional[int] = None) -> EncryptionKey:
         """Get a key by ID or the active key."""
         if key_id is None:
             key_id = self._active_key_id
 
         if key_id is None:
             raise ValueError("No encryption key available")
+
+        # If a specific version is requested, try the versioned key ID first
+        if version is not None:
+            versioned_id = f"{key_id}_v{version}"
+            versioned_key = self._keys.get(versioned_id)
+            if versioned_key is not None:
+                if versioned_key.is_expired:
+                    raise ValueError(f"Key expired: {versioned_id}")
+                return versioned_key
 
         key = self._keys.get(key_id)
         if key is None:

@@ -1,0 +1,197 @@
+id: template_legal_contract_review
+name: Contract Review
+description: Multi-agent review of contract documents with legal analysis, risk assessment, and compliance verification
+version: "1.0.0"
+category: legal
+tags:
+  - legal
+  - contracts
+  - review
+  - compliance
+  - risk-assessment
+icon: document-text
+is_template: true
+
+inputs:
+  document: Contract document to review
+  jurisdiction: Applicable jurisdiction (optional)
+  contract_type: Type of contract (optional)
+
+outputs:
+  analysis: Complete contract analysis
+  risk_score: Risk assessment score
+  recommendations: List of recommendations
+
+steps:
+  - id: extract_terms
+    name: Extract Key Terms
+    step_type: agent
+    description: Extract important terms, clauses, and obligations from the contract
+    config:
+      agent_type: legal
+      prompt_template: |
+        Extract and categorize key terms from this contract:
+        - Parties and their obligations
+        - Payment terms and conditions
+        - Termination clauses
+        - Indemnification provisions
+        - Liability limitations
+        - Confidentiality requirements
+        - Governing law and dispute resolution
+
+        Contract: {document}
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - legal_debate
+
+  - id: legal_debate
+    name: Legal Analysis Debate
+    step_type: debate
+    description: Multi-agent debate on legal implications and potential issues
+    config:
+      topic: "Analyze legal implications and potential issues: {step.extract_terms}"
+      agents:
+        - legal_analyst
+        - risk_assessor
+        - compliance_officer
+      rounds: 3
+      consensus: qualified_majority
+    visual:
+      position: {x: 100, y: 250}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - risk_assessment
+
+  - id: risk_assessment
+    name: Risk Assessment
+    step_type: decision
+    description: Evaluate risk level and route accordingly
+    config:
+      conditions:
+        - name: high_risk
+          expression: "step.legal_debate.get('consensus', {}).get('risk_level', 0) > 0.7"
+          next_step: human_review
+        - name: medium_risk
+          expression: "step.legal_debate.get('consensus', {}).get('risk_level', 0) > 0.4"
+          next_step: senior_review
+      default_branch: auto_approve
+    visual:
+      position: {x: 100, y: 400}
+      category: control
+      color: "#ed8936"
+
+  - id: human_review
+    name: Human Legal Review
+    step_type: human_checkpoint
+    description: Senior legal counsel review for high-risk contracts
+    config:
+      title: High-Risk Contract Review Required
+      description: This contract has been flagged as high-risk and requires human legal review
+      checklist:
+        - label: Reviewed all identified risk factors
+          required: true
+        - label: Verified compliance with company policies
+          required: true
+        - label: Assessed indemnification exposure
+          required: true
+        - label: Reviewed termination provisions
+          required: true
+        - label: Confirmed governing law acceptability
+          required: true
+      timeout_seconds: 172800  # 48 hours
+      escalation_contacts:
+        - role: General Counsel
+    visual:
+      position: {x: 300, y: 550}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - store_result
+
+  - id: senior_review
+    name: Senior Review
+    step_type: human_checkpoint
+    description: Senior review for medium-risk contracts
+    config:
+      title: Senior Review Required
+      description: Medium-risk contract requires senior review
+      checklist:
+        - label: Reviewed risk assessment
+          required: true
+        - label: Confirmed acceptable terms
+          required: true
+      timeout_seconds: 86400  # 24 hours
+    visual:
+      position: {x: 100, y: 550}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - store_result
+
+  - id: auto_approve
+    name: Auto-Approve
+    step_type: task
+    description: Automatically approve low-risk contracts
+    config:
+      task_type: transform
+      transform: |
+        {
+          'approved': True,
+          'method': 'auto',
+          'risk_level': 'low',
+          'analysis': outputs.get('legal_debate', {}),
+          'terms': outputs.get('extract_terms', {})
+        }
+    visual:
+      position: {x: -100, y: 550}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - store_result
+
+  - id: store_result
+    name: Store Analysis
+    step_type: memory_write
+    description: Store contract analysis in Knowledge Mound for future reference
+    config:
+      content: |
+        Contract Analysis:
+        - Key Terms: {step.extract_terms}
+        - Legal Analysis: {step.legal_debate.synthesis}
+        - Risk Assessment: {step.risk_assessment}
+      source_type: CONSENSUS
+      domain: legal/contracts
+    visual:
+      position: {x: 100, y: 700}
+      category: memory
+      color: "#9f7aea"
+
+transitions:
+  - id: to_high_risk
+    from_step: risk_assessment
+    to_step: human_review
+    condition: "step_output.get('decision') == 'human_review'"
+    label: High Risk
+    visual:
+      edge_type: conditional
+      color: "#f56565"
+  - id: to_medium_risk
+    from_step: risk_assessment
+    to_step: senior_review
+    condition: "step_output.get('decision') == 'senior_review'"
+    label: Medium Risk
+    visual:
+      edge_type: conditional
+      color: "#f6ad55"
+  - id: to_auto_approve
+    from_step: risk_assessment
+    to_step: auto_approve
+    condition: "step_output.get('decision') == 'auto_approve'"
+    label: Low Risk
+    visual:
+      edge_type: conditional
+      color: "#48bb78"

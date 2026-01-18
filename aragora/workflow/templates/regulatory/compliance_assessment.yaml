@@ -1,0 +1,347 @@
+id: template_regulatory_compliance_assessment
+name: Regulatory Compliance Assessment
+description: Multi-framework compliance assessment for regulatory requirements (GDPR, SOX, PCI-DSS, etc.)
+version: "1.0.0"
+category: compliance
+tags:
+  - regulatory
+  - compliance
+  - gdpr
+  - sox
+  - pci-dss
+  - audit
+icon: clipboard-list
+is_template: true
+
+inputs:
+  organization: Organization to assess
+  frameworks: List of compliance frameworks to assess
+  assessment_scope: Scope of assessment
+  previous_findings: Previous assessment findings (optional)
+
+outputs:
+  compliance_report: Comprehensive compliance report
+  gap_analysis: Gap analysis by framework
+  remediation_roadmap: Prioritized remediation roadmap
+
+steps:
+  - id: framework_mapping
+    name: Framework Requirements Mapping
+    step_type: agent
+    description: Map applicable requirements from selected frameworks
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Map compliance requirements for:
+
+        Organization: {organization}
+        Frameworks: {frameworks}
+        Scope: {assessment_scope}
+
+        For each framework, identify:
+        - Applicable controls and requirements
+        - Control objectives
+        - Evidence requirements
+        - Common controls across frameworks
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - parallel_assessment
+
+  - id: parallel_assessment
+    name: Parallel Framework Assessment
+    step_type: parallel
+    description: Concurrent assessment of different control domains
+    config:
+      parallel_steps:
+        - governance_assessment
+        - data_protection_assessment
+        - access_control_assessment
+        - incident_response_assessment
+        - third_party_assessment
+      max_concurrent: 5
+      fail_strategy: continue
+    visual:
+      position: {x: 100, y: 250}
+      category: control
+      color: "#ed8936"
+    next_steps:
+      - gap_analysis
+
+  - id: governance_assessment
+    name: Governance Assessment
+    step_type: agent
+    description: Assess governance and policy controls
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Assess governance controls:
+        - Information security policy
+        - Organizational structure
+        - Risk management program
+        - Compliance management
+        - Management commitment
+    visual:
+      position: {x: -200, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: data_protection_assessment
+    name: Data Protection Assessment
+    step_type: agent
+    description: Assess data protection controls
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Assess data protection controls:
+        - Data classification
+        - Data lifecycle management
+        - Encryption (at rest and in transit)
+        - Data retention and disposal
+        - Cross-border data transfers
+        - Data subject rights (GDPR)
+    visual:
+      position: {x: -50, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: access_control_assessment
+    name: Access Control Assessment
+    step_type: agent
+    description: Assess access control mechanisms
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Assess access controls:
+        - Identity management
+        - Authentication mechanisms
+        - Authorization models
+        - Privileged access management
+        - Access reviews
+        - Separation of duties
+    visual:
+      position: {x: 100, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: incident_response_assessment
+    name: Incident Response Assessment
+    step_type: agent
+    description: Assess incident response capabilities
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Assess incident response:
+        - Incident response plan
+        - Detection capabilities
+        - Response procedures
+        - Communication protocols
+        - Breach notification (regulatory)
+        - Post-incident review
+    visual:
+      position: {x: 250, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: third_party_assessment
+    name: Third-Party Risk Assessment
+    step_type: agent
+    description: Assess third-party risk management
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Assess third-party management:
+        - Vendor due diligence
+        - Contract requirements
+        - Ongoing monitoring
+        - Subprocessor management
+        - Data sharing agreements
+    visual:
+      position: {x: 400, y: 350}
+      category: agent
+      color: "#4299e1"
+
+  - id: gap_analysis
+    name: Gap Analysis
+    step_type: debate
+    description: Multi-agent gap analysis and prioritization
+    config:
+      topic: "Analyze compliance gaps and prioritize remediation"
+      agents:
+        - compliance_officer
+        - risk_analyst
+        - legal_counsel
+      rounds: 2
+      context:
+        - "{step.framework_mapping}"
+        - "{step.governance_assessment}"
+        - "{step.data_protection_assessment}"
+        - "{step.access_control_assessment}"
+        - "{step.incident_response_assessment}"
+        - "{step.third_party_assessment}"
+    visual:
+      position: {x: 100, y: 500}
+      category: debate
+      color: "#38b2ac"
+    next_steps:
+      - compliance_status
+
+  - id: compliance_status
+    name: Compliance Status Decision
+    step_type: decision
+    description: Determine overall compliance status
+    config:
+      conditions:
+        - name: non_compliant
+          expression: "any(g.get('severity') == 'critical' for g in step.gap_analysis.get('gaps', []))"
+          next_step: urgent_remediation
+        - name: partial_compliance
+          expression: "len([g for g in step.gap_analysis.get('gaps', []) if g.get('severity') == 'high']) > 5"
+          next_step: remediation_planning
+        - name: minor_gaps
+          expression: "len(step.gap_analysis.get('gaps', [])) > 0"
+          next_step: continuous_improvement
+      default_branch: compliant
+    visual:
+      position: {x: 100, y: 650}
+      category: control
+      color: "#ed8936"
+
+  - id: urgent_remediation
+    name: Urgent Remediation Required
+    step_type: human_checkpoint
+    description: Critical compliance gaps requiring urgent attention
+    config:
+      title: CRITICAL - Compliance Gaps Identified
+      description: Critical regulatory compliance gaps require immediate remediation
+      checklist:
+        - label: Leadership briefed
+          required: true
+        - label: Regulatory notification assessed
+          required: true
+        - label: Immediate remediation actions identified
+          required: true
+        - label: Timeline established
+          required: true
+        - label: Resources allocated
+          required: true
+      timeout_seconds: 86400  # 24 hours
+      priority: critical
+    visual:
+      position: {x: 350, y: 800}
+      category: human
+      color: "#f56565"
+    next_steps:
+      - generate_report
+
+  - id: remediation_planning
+    name: Remediation Planning
+    step_type: human_checkpoint
+    description: Plan remediation for significant gaps
+    config:
+      title: Compliance Remediation Planning
+      description: Significant compliance gaps require remediation planning
+      checklist:
+        - label: Gap priorities confirmed
+          required: true
+        - label: Remediation roadmap created
+          required: true
+        - label: Resource requirements identified
+          required: true
+        - label: Timeline approved
+          required: true
+      timeout_seconds: 604800  # 7 days
+    visual:
+      position: {x: 175, y: 800}
+      category: human
+      color: "#f6ad55"
+    next_steps:
+      - generate_report
+
+  - id: continuous_improvement
+    name: Continuous Improvement
+    step_type: task
+    description: Document minor gaps for continuous improvement
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'substantially_compliant',
+          'minor_gaps': step.gap_analysis.get('gaps', []),
+          'improvement_plan': 'quarterly_review',
+          'next_assessment': (datetime.now() + timedelta(days=180)).isoformat()
+        }
+    visual:
+      position: {x: 0, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: compliant
+    name: Full Compliance
+    step_type: task
+    description: Document full compliance status
+    config:
+      task_type: transform
+      transform: |
+        {
+          'status': 'compliant',
+          'frameworks': inputs.get('frameworks', []),
+          'assessment_date': datetime.now().isoformat(),
+          'next_assessment': (datetime.now() + timedelta(days=365)).isoformat(),
+          'certification_ready': True
+        }
+    visual:
+      position: {x: -175, y: 800}
+      category: task
+      color: "#48bb78"
+    next_steps:
+      - generate_report
+
+  - id: generate_report
+    name: Generate Compliance Report
+    step_type: agent
+    description: Generate comprehensive compliance assessment report
+    config:
+      agent_type: regulatory
+      prompt_template: |
+        Generate Compliance Assessment Report:
+
+        Organization: {organization}
+        Frameworks: {frameworks}
+        Scope: {assessment_scope}
+
+        Findings:
+        - Framework Mapping: {step.framework_mapping}
+        - Gap Analysis: {step.gap_analysis}
+        - Status: {step.compliance_status}
+
+        Include:
+        - Executive summary
+        - Compliance status by framework
+        - Gap analysis with severity ratings
+        - Remediation roadmap
+        - Resource requirements
+        - Timeline recommendations
+    visual:
+      position: {x: 100, y: 950}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - store_report
+
+  - id: store_report
+    name: Archive Assessment
+    step_type: memory_write
+    description: Archive compliance assessment for audit trail
+    config:
+      content: "{step.generate_report}"
+      source_type: AUDIT
+      domain: regulatory/compliance
+    visual:
+      position: {x: 100, y: 1100}
+      category: memory
+      color: "#9f7aea"

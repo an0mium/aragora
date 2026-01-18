@@ -177,6 +177,7 @@ class TestFormalProofResult:
             language=FormalLanguage.Z3_SMT,
         )
         d = result.to_dict()
+        # Base keys always present
         expected_keys = {
             "status",
             "language",
@@ -188,6 +189,12 @@ class TestFormalProofResult:
             "error_message",
             "prover_version",
             "timestamp",
+            # LLM-translated proof fields (always present)
+            "translation_confidence",
+            "is_high_confidence",
+            "semantic_match_verified",
+            # Note: original_claim and confidence_warning are conditional
+            # (only present when non-empty)
         }
         assert set(d.keys()) == expected_keys
 

@@ -70,10 +70,12 @@ from .legacy import (  # noqa: F401
     CROSS_EXAMINATION_DEPTH,
     DB_CALIBRATION_PATH,
     DB_CONSENSUS_PATH,
+    DB_CULTURE_PATH,
     # Database Paths (legacy)
     DB_ELO_PATH,
     DB_GENESIS_PATH,
     DB_INSIGHTS_PATH,
+    DB_KNOWLEDGE_PATH,
     DB_LAB_PATH,
     DB_MEMORY_PATH,
     DB_MODE,

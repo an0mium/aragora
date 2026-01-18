@@ -3,6 +3,7 @@ Knowledge Base endpoint handlers.
 
 Provides API endpoints for the enterprise document auditing knowledge base:
 
+Facts API (FactStore):
 - POST /api/knowledge/query - Natural language query against dataset
 - GET /api/knowledge/facts - List facts with filtering
 - GET /api/knowledge/facts/:id - Get specific fact
@@ -15,6 +16,16 @@ Provides API endpoints for the enterprise document auditing knowledge base:
 - POST /api/knowledge/facts/relations - Add relation between facts
 - GET /api/knowledge/search - Search chunks via embeddings
 - GET /api/knowledge/stats - Get knowledge base statistics
+
+Knowledge Mound API (unified knowledge storage):
+- POST /api/knowledge/mound/query - Semantic query against knowledge mound
+- POST /api/knowledge/mound/nodes - Add a knowledge node
+- GET /api/knowledge/mound/nodes/:id - Get specific node
+- GET /api/knowledge/mound/nodes - List/filter nodes
+- POST /api/knowledge/mound/relationships - Add relationship between nodes
+- GET /api/knowledge/mound/graph/:id - Get graph traversal from node
+- GET /api/knowledge/mound/stats - Get mound statistics
+- POST /api/knowledge/mound/index/repository - Index a repository
 """
 
 from __future__ import annotations
@@ -574,3 +585,487 @@ class KnowledgeHandler(BaseHandler):
                 **stats,
             }
         )
+
+
+class KnowledgeMoundHandler(BaseHandler):
+    """Handler for Knowledge Mound API endpoints (unified knowledge storage).
+
+    Extended endpoints for Phase A1:
+    - Culture management (get profile, add documents, promote knowledge)
+    - Staleness detection and revalidation
+    - Sync with legacy memory systems (ContinuumMemory, ConsensusMemory, FactStore)
+    - Enhanced graph traversal (lineage, related nodes)
+    """
+
+    ROUTES = [
+        "/api/knowledge/mound/query",
+        "/api/knowledge/mound/nodes",
+        "/api/knowledge/mound/relationships",
+        "/api/knowledge/mound/stats",
+        "/api/knowledge/mound/culture",
+        "/api/knowledge/mound/culture/*",
+        "/api/knowledge/mound/stale",
+        "/api/knowledge/mound/revalidate/*",
+        "/api/knowledge/mound/schedule-revalidation",
+        "/api/knowledge/mound/sync/*",
+        "/api/knowledge/mound/graph/*/lineage",
+        "/api/knowledge/mound/graph/*/related",
+    ]
+
+    def __init__(self, server_context: dict):
+        """Initialize knowledge mound handler."""
+        super().__init__(server_context)
+        self._mound = None
+        self._mound_initialized = False
+
+    def _get_mound(self):
+        """Get or create Knowledge Mound instance."""
+        if self._mound is None:
+            import asyncio
+            from aragora.knowledge.mound import KnowledgeMound
+
+            self._mound = KnowledgeMound(workspace_id="default")
+            # Initialize synchronously for handler use
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(self._mound.initialize())
+                loop.close()
+                self._mound_initialized = True
+            except Exception as e:
+                logger.error(f"Failed to initialize Knowledge Mound: {e}")
+                self._mound = None
+        return self._mound
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/knowledge/mound/")
+
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Route knowledge mound requests to appropriate methods."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _knowledge_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for mound endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Semantic query
+        if path == "/api/knowledge/mound/query":
+            return self._handle_mound_query(handler)
+
+        # Nodes listing/creation
+        if path == "/api/knowledge/mound/nodes":
+            method = getattr(handler, "command", "GET")
+            if method == "POST":
+                return self._handle_create_node(handler)
+            return self._handle_list_nodes(query_params)
+
+        # Relationships
+        if path == "/api/knowledge/mound/relationships":
+            return self._handle_create_relationship(handler)
+
+        # Statistics
+        if path == "/api/knowledge/mound/stats":
+            return self._handle_mound_stats(query_params)
+
+        # Dynamic routes
+        if path.startswith("/api/knowledge/mound/nodes/"):
+            return self._handle_node_routes(path, query_params, handler)
+
+        if path.startswith("/api/knowledge/mound/graph/"):
+            # Check for lineage or related sub-routes
+            if "/lineage" in path:
+                return self._handle_graph_lineage(path, query_params)
+            if "/related" in path:
+                return self._handle_graph_related(path, query_params)
+            return self._handle_graph_traversal(path, query_params)
+
+        if path == "/api/knowledge/mound/index/repository":
+            return self._handle_index_repository(handler)
+
+        # Culture endpoints
+        if path == "/api/knowledge/mound/culture":
+            return self._handle_get_culture(query_params)
+
+        if path == "/api/knowledge/mound/culture/documents":
+            return self._handle_add_culture_document(handler)
+
+        if path == "/api/knowledge/mound/culture/promote":
+            return self._handle_promote_to_culture(handler)
+
+        # Staleness endpoints
+        if path == "/api/knowledge/mound/stale":
+            return self._handle_get_stale(query_params)
+
+        if path.startswith("/api/knowledge/mound/revalidate/"):
+            node_id = path.split("/")[-1]
+            return self._handle_revalidate_node(node_id, handler)
+
+        if path == "/api/knowledge/mound/schedule-revalidation":
+            return self._handle_schedule_revalidation(handler)
+
+        # Sync endpoints
+        if path == "/api/knowledge/mound/sync/continuum":
+            return self._handle_sync_continuum(handler)
+
+        if path == "/api/knowledge/mound/sync/consensus":
+            return self._handle_sync_consensus(handler)
+
+        if path == "/api/knowledge/mound/sync/facts":
+            return self._handle_sync_facts(handler)
+
+        return None
+
+    def _handle_node_routes(
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle /api/knowledge/mound/nodes/:id routes."""
+        parts = path.strip("/").split("/")
+        if len(parts) >= 5:
+            node_id = parts[4]
+            return self._handle_get_node(node_id)
+        return error_response("Invalid node path", 400)
+
+    @handle_errors("mound query")
+    def _handle_mound_query(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/query - Semantic query."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                data = {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        query = data.get("query", "")
+        if not query:
+            return error_response("Query is required", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+        limit = data.get("limit", 10)
+        node_types = data.get("node_types")
+        min_confidence = data.get("min_confidence", 0.0)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                mound.query_semantic(
+                    query=query,
+                    limit=limit,
+                    node_types=node_types,
+                    min_confidence=min_confidence,
+                    workspace_id=workspace_id,
+                )
+            )
+            loop.close()
+        except Exception as e:
+            logger.error(f"Mound query failed: {e}")
+            return error_response(f"Query failed: {e}", 500)
+
+        return json_response({
+            "query": result.query,
+            "nodes": [n.to_dict() for n in result.nodes],
+            "total_count": result.total_count,
+            "processing_time_ms": result.processing_time_ms,
+        })
+
+    @handle_errors("create node")
+    def _handle_create_node(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/nodes - Create knowledge node."""
+        import asyncio
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        content = data.get("content", "")
+        if not content:
+            return error_response("Content is required", 400)
+
+        node_type = data.get("node_type", "fact")
+        if node_type not in ("fact", "claim", "memory", "evidence", "consensus", "entity"):
+            return error_response(f"Invalid node_type: {node_type}", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+
+        # Build provenance if provided
+        provenance = None
+        if data.get("source"):
+            source = data["source"]
+            try:
+                provenance = ProvenanceChain(
+                    source_type=ProvenanceType(source.get("type", "user")),
+                    source_id=source.get("id", ""),
+                    user_id=source.get("user_id"),
+                    agent_id=source.get("agent_id"),
+                    debate_id=source.get("debate_id"),
+                    document_id=source.get("document_id"),
+                )
+            except ValueError as e:
+                return error_response(f"Invalid source type: {e}", 400)
+
+        node = KnowledgeNode(
+            node_type=node_type,
+            content=content,
+            confidence=data.get("confidence", 0.5),
+            provenance=provenance,
+            tier=MemoryTier(data.get("tier", "slow")),
+            workspace_id=workspace_id,
+            topics=data.get("topics", []),
+            metadata=data.get("metadata", {}),
+        )
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            node_id = loop.run_until_complete(mound.add_node(node))
+            # Fetch the saved node
+            saved_node = loop.run_until_complete(mound.get_node(node_id))
+            loop.close()
+        except Exception as e:
+            logger.error(f"Failed to create node: {e}")
+            return error_response(f"Failed to create node: {e}", 500)
+
+        return json_response(saved_node.to_dict() if saved_node else {"id": node_id}, status=201)
+
+    @handle_errors("get node")
+    def _handle_get_node(self, node_id: str) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/nodes/:id - Get specific node."""
+        import asyncio
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            node = loop.run_until_complete(mound.get_node(node_id))
+            loop.close()
+        except Exception as e:
+            logger.error(f"Failed to get node: {e}")
+            return error_response(f"Failed to get node: {e}", 500)
+
+        if not node:
+            return error_response(f"Node not found: {node_id}", 404)
+
+        return json_response(node.to_dict())
+
+    @handle_errors("list nodes")
+    def _handle_list_nodes(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/nodes - List/filter nodes."""
+        import asyncio
+        from aragora.memory.tier_manager import MemoryTier
+
+        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
+        node_types_str = get_bounded_string_param(query_params, "node_types", None, max_length=200)
+        node_types = node_types_str.split(",") if node_types_str else None
+        min_confidence = get_bounded_float_param(query_params, "min_confidence", 0.0, min_val=0.0, max_val=1.0)
+        tier_str = get_bounded_string_param(query_params, "tier", None, max_length=20)
+        tier = MemoryTier(tier_str) if tier_str else None
+        limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
+        offset = get_clamped_int_param(query_params, "offset", 0, min_val=0, max_val=10000)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            nodes = loop.run_until_complete(
+                mound.query_nodes(
+                    workspace_id=workspace_id,
+                    node_types=node_types,
+                    min_confidence=min_confidence,
+                    tier=tier,
+                    limit=limit,
+                    offset=offset,
+                )
+            )
+            loop.close()
+        except Exception as e:
+            logger.error(f"Failed to list nodes: {e}")
+            return error_response(f"Failed to list nodes: {e}", 500)
+
+        return json_response({
+            "nodes": [n.to_dict() for n in nodes],
+            "count": len(nodes),
+            "limit": limit,
+            "offset": offset,
+        })
+
+    @handle_errors("create relationship")
+    def _handle_create_relationship(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/relationships - Add relationship."""
+        import asyncio
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        from_node_id = data.get("from_node_id")
+        to_node_id = data.get("to_node_id")
+        relationship_type = data.get("relationship_type")
+
+        if not from_node_id:
+            return error_response("from_node_id is required", 400)
+        if not to_node_id:
+            return error_response("to_node_id is required", 400)
+        if not relationship_type:
+            return error_response("relationship_type is required", 400)
+
+        valid_types = ("supports", "contradicts", "derived_from", "related_to", "supersedes")
+        if relationship_type not in valid_types:
+            return error_response(f"Invalid relationship_type. Must be one of: {valid_types}", 400)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            rel_id = loop.run_until_complete(
+                mound.add_relationship(
+                    from_node_id=from_node_id,
+                    to_node_id=to_node_id,
+                    relationship_type=relationship_type,
+                    strength=data.get("strength", 1.0),
+                    created_by=data.get("created_by", ""),
+                    metadata=data.get("metadata"),
+                )
+            )
+            loop.close()
+        except Exception as e:
+            logger.error(f"Failed to create relationship: {e}")
+            return error_response(f"Failed to create relationship: {e}", 500)
+
+        return json_response({
+            "id": rel_id,
+            "from_node_id": from_node_id,
+            "to_node_id": to_node_id,
+            "relationship_type": relationship_type,
+        }, status=201)
+
+    @handle_errors("graph traversal")
+    def _handle_graph_traversal(self, path: str, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/graph/:id - Graph traversal."""
+        import asyncio
+
+        parts = path.strip("/").split("/")
+        if len(parts) < 5:
+            return error_response("Node ID required", 400)
+
+        node_id = parts[4]
+        relationship_type = get_bounded_string_param(query_params, "relationship_type", None, max_length=50)
+        depth = get_clamped_int_param(query_params, "depth", 2, min_val=1, max_val=5)
+        direction = get_bounded_string_param(query_params, "direction", "outgoing", max_length=20)
+
+        if direction not in ("outgoing", "incoming", "both"):
+            return error_response("direction must be 'outgoing', 'incoming', or 'both'", 400)
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            nodes = loop.run_until_complete(
+                mound.query_graph(
+                    start_node_id=node_id,
+                    relationship_type=relationship_type,
+                    depth=depth,
+                    direction=direction,
+                )
+            )
+            loop.close()
+        except Exception as e:
+            logger.error(f"Graph traversal failed: {e}")
+            return error_response(f"Graph traversal failed: {e}", 500)
+
+        return json_response({
+            "start_node_id": node_id,
+            "depth": depth,
+            "direction": direction,
+            "relationship_type": relationship_type,
+            "nodes": [n.to_dict() for n in nodes],
+            "count": len(nodes),
+        })
+
+    @handle_errors("mound stats")
+    def _handle_mound_stats(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/stats - Get mound statistics."""
+        import asyncio
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            stats = loop.run_until_complete(mound.get_stats())
+            loop.close()
+        except Exception as e:
+            logger.error(f"Failed to get stats: {e}")
+            return error_response(f"Failed to get stats: {e}", 500)
+
+        return json_response(stats)
+
+    @handle_errors("index repository")
+    def _handle_index_repository(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/index/repository - Index a repository."""
+        # This is a placeholder - full implementation would use RepositoryCrawler
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+                data = json.loads(body.decode("utf-8"))
+            else:
+                return error_response("Request body required", 400)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        repo_path = data.get("repo_path")
+        if not repo_path:
+            return error_response("repo_path is required", 400)
+
+        workspace_id = data.get("workspace_id", "default")
+
+        # TODO: Implement actual repository crawling with RepositoryCrawler
+        # For now, return a placeholder response
+        return json_response({
+            "status": "accepted",
+            "message": "Repository indexing not yet implemented",
+            "repo_path": repo_path,
+            "workspace_id": workspace_id,
+        }, status=202)
