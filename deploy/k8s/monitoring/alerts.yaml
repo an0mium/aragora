@@ -1,0 +1,267 @@
+# Prometheus Alerting Rules for Aragora Platform
+# Deploy to Prometheus via PrometheusRule CRD or alerting rules file
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aragora-alerts
+  namespace: aragora
+  labels:
+    app: aragora
+    prometheus: main
+spec:
+  groups:
+    # =========================================================================
+    # RLM Compression Alerts
+    # =========================================================================
+    - name: aragora.rlm
+      interval: 30s
+      rules:
+        - alert: RLMCompressionRatioHigh
+          expr: |
+            histogram_quantile(0.5, sum(rate(aragora_rlm_compression_ratio_bucket[15m])) by (le)) > 0.7
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "RLM compression ratio above target"
+            description: "Median compression ratio is {{ $value | humanizePercentage }}, target is <50%"
+            runbook_url: "https://docs.aragora.io/runbooks/rlm-compression"
+
+        - alert: RLMCompressionFailures
+          expr: |
+            sum(rate(aragora_rlm_compressions_total{status="failure"}[5m]))
+            / sum(rate(aragora_rlm_compressions_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "High RLM compression failure rate"
+            description: "{{ $value | humanizePercentage }} of compression operations are failing"
+            runbook_url: "https://docs.aragora.io/runbooks/rlm-failures"
+
+        - alert: RLMCompressionSlow
+          expr: |
+            histogram_quantile(0.99, sum(rate(aragora_rlm_compression_duration_seconds_bucket[5m])) by (le)) > 5
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "RLM compression p99 latency high"
+            description: "p99 compression duration is {{ $value | humanizeDuration }}"
+            runbook_url: "https://docs.aragora.io/runbooks/rlm-performance"
+
+        - alert: RLMCacheHitRateLow
+          expr: |
+            sum(rate(aragora_rlm_cache_hits_total[15m]))
+            / (sum(rate(aragora_rlm_cache_hits_total[15m])) + sum(rate(aragora_rlm_cache_misses_total[15m]))) < 0.5
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "RLM cache hit rate below 50%"
+            description: "Cache hit rate is {{ $value | humanizePercentage }}"
+            runbook_url: "https://docs.aragora.io/runbooks/rlm-cache"
+
+        - alert: RLMMemoryHigh
+          expr: |
+            aragora_rlm_memory_bytes > 500 * 1024 * 1024
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "RLM context cache memory usage high"
+            description: "RLM memory usage is {{ $value | humanize1024 }}B"
+            runbook_url: "https://docs.aragora.io/runbooks/rlm-memory"
+
+    # =========================================================================
+    # Connector Sync Alerts
+    # =========================================================================
+    - name: aragora.connectors
+      interval: 30s
+      rules:
+        - alert: ConnectorSyncFailureRate
+          expr: |
+            sum(rate(aragora_connector_syncs_total{status="failure"}[15m])) by (connector_type)
+            / sum(rate(aragora_connector_syncs_total[15m])) by (connector_type) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }} sync failure rate high"
+            description: "{{ $value | humanizePercentage }} of syncs are failing for {{ $labels.connector_type }}"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-failures"
+
+        - alert: ConnectorSyncSlow
+          expr: |
+            histogram_quantile(0.99, sum(rate(aragora_connector_sync_duration_seconds_bucket[15m])) by (le, connector_type)) > 300
+          for: 15m
+          labels:
+            severity: warning
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }} sync duration high"
+            description: "p99 sync duration is {{ $value | humanizeDuration }} for {{ $labels.connector_type }}"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-performance"
+
+        - alert: ConnectorUnhealthy
+          expr: |
+            aragora_connector_health == 0
+          for: 5m
+          labels:
+            severity: critical
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }}/{{ $labels.connector_id }} unhealthy"
+            description: "Connector has been unhealthy for 5 minutes"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-health"
+
+        - alert: ConnectorRateLimited
+          expr: |
+            sum(increase(aragora_connector_rate_limits_total[15m])) by (connector_type) > 10
+          for: 5m
+          labels:
+            severity: warning
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }} being rate limited"
+            description: "{{ $value }} rate limit responses in the last 15 minutes"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-rate-limits"
+
+        - alert: ConnectorAuthFailures
+          expr: |
+            sum(increase(aragora_connector_auth_failures_total[15m])) by (connector_type, connector_id) > 3
+          for: 5m
+          labels:
+            severity: critical
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }}/{{ $labels.connector_id }} auth failures"
+            description: "{{ $value }} authentication failures in the last 15 minutes"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-auth"
+
+        - alert: ConnectorNoRecentSync
+          expr: |
+            time() - aragora_connector_last_sync_timestamp > 86400
+          for: 1h
+          labels:
+            severity: warning
+            team: integrations
+          annotations:
+            summary: "Connector {{ $labels.connector_type }}/{{ $labels.connector_id }} no recent sync"
+            description: "Last sync was {{ $value | humanizeDuration }} ago"
+            runbook_url: "https://docs.aragora.io/runbooks/connector-stale"
+
+    # =========================================================================
+    # Platform Health Alerts
+    # =========================================================================
+    - name: aragora.platform
+      interval: 30s
+      rules:
+        - alert: HighRequestLatency
+          expr: |
+            histogram_quantile(0.99, sum(rate(aragora_request_latency_seconds_bucket[5m])) by (le, endpoint)) > 2
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High request latency for {{ $labels.endpoint }}"
+            description: "p99 latency is {{ $value | humanizeDuration }}"
+            runbook_url: "https://docs.aragora.io/runbooks/latency"
+
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(aragora_requests_total{status=~"5.."}[5m]))
+            / sum(rate(aragora_requests_total[5m])) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "High 5xx error rate"
+            description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors"
+            runbook_url: "https://docs.aragora.io/runbooks/errors"
+
+        - alert: AgentCallFailures
+          expr: |
+            sum(rate(aragora_agent_calls_total{status="failure"}[5m])) by (agent)
+            / sum(rate(aragora_agent_calls_total[5m])) by (agent) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High failure rate for agent {{ $labels.agent }}"
+            description: "{{ $value | humanizePercentage }} of calls to {{ $labels.agent }} are failing"
+            runbook_url: "https://docs.aragora.io/runbooks/agent-failures"
+
+        - alert: NoActiveDebates
+          expr: |
+            aragora_active_debates == 0
+          for: 1h
+          labels:
+            severity: info
+            team: platform
+          annotations:
+            summary: "No active debates for 1 hour"
+            description: "Platform has had no active debates, may indicate upstream issues"
+
+    # =========================================================================
+    # SLO Alerts (Error Budget)
+    # =========================================================================
+    - name: aragora.slo
+      interval: 1m
+      rules:
+        - alert: SLODebateLatencyBudgetBurn
+          expr: |
+            (
+              sum(rate(aragora_request_latency_seconds_bucket{le="2", endpoint=~"/api/debates.*"}[1h]))
+              / sum(rate(aragora_request_latency_seconds_count{endpoint=~"/api/debates.*"}[1h]))
+            ) < 0.99
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            slo: debate-latency
+          annotations:
+            summary: "Debate API latency SLO at risk"
+            description: "Only {{ $value | humanizePercentage }} of requests are under 2s (SLO: 99%)"
+            runbook_url: "https://docs.aragora.io/runbooks/slo-latency"
+
+        - alert: SLOConnectorAvailabilityBudgetBurn
+          expr: |
+            (
+              sum(rate(aragora_connector_syncs_total{status="success"}[1h]))
+              / sum(rate(aragora_connector_syncs_total[1h]))
+            ) < 0.99
+          for: 10m
+          labels:
+            severity: warning
+            team: integrations
+            slo: connector-availability
+          annotations:
+            summary: "Connector availability SLO at risk"
+            description: "Connector success rate is {{ $value | humanizePercentage }} (SLO: 99%)"
+            runbook_url: "https://docs.aragora.io/runbooks/slo-connectors"
+
+        - alert: SLORLMCompressionBudgetBurn
+          expr: |
+            (
+              histogram_quantile(0.5, sum(rate(aragora_rlm_compression_ratio_bucket[1h])) by (le))
+            ) > 0.5
+          for: 30m
+          labels:
+            severity: warning
+            team: platform
+            slo: rlm-efficiency
+          annotations:
+            summary: "RLM compression efficiency SLO at risk"
+            description: "Median compression ratio is {{ $value | humanizePercentage }} (SLO: <50%)"
+            runbook_url: "https://docs.aragora.io/runbooks/slo-rlm"
