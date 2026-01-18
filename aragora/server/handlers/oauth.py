@@ -48,19 +48,9 @@ _oauth_limiter = RateLimiter(requests_per_minute=20)
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
     try:
-        from aragora.config.secrets import get_secret, get_secret_manager
-        # Debug: check if secrets were loaded
-        manager = get_secret_manager()
-        if not manager._initialized:
-            manager._initialize()
-        cached_count = len(manager._cached_secrets)
-        logger.debug(f"Secrets manager: initialized={manager._initialized}, cached={cached_count}")
-        result = get_secret(name, default) or default
-        return result
+        from aragora.config.secrets import get_secret
+        return get_secret(name, default) or default
     except ImportError:
-        return os.environ.get(name, default)
-    except Exception as e:
-        logger.error(f"Error getting secret {name}: {e}")
         return os.environ.get(name, default)
 
 
@@ -965,21 +955,7 @@ class OAuthHandler(BaseHandler):
         """List configured OAuth providers."""
         providers = []
 
-        # Debug: Log what's happening with secrets
-        google_id = _get_google_client_id()
-        github_id = _get_github_client_id()
-
-        # Log config state for debugging
-        use_aws = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "not_set")
-        env_mode = os.environ.get("ARAGORA_ENV", "not_set")
-        logger.info(
-            f"OAuth providers check: google_id={'set' if google_id else 'empty'}, "
-            f"github_id={'set' if github_id else 'empty'}, "
-            f"use_aws={use_aws}, env={env_mode}"
-        )
-
-        # Call functions at runtime to get current config from Secrets Manager
-        if google_id:
+        if _get_google_client_id():
             providers.append(
                 {
                     "id": "google",
@@ -989,7 +965,7 @@ class OAuthHandler(BaseHandler):
                 }
             )
 
-        if github_id:
+        if _get_github_client_id():
             providers.append(
                 {
                     "id": "github",
@@ -999,54 +975,7 @@ class OAuthHandler(BaseHandler):
                 }
             )
 
-        # Temporary debug info
-        try:
-            from aragora.config.secrets import get_secret_manager
-            manager = get_secret_manager()
-            cached_secrets_count = len(manager._cached_secrets)
-            aws_client_ok = manager._get_aws_client() is not None
-
-            # Try to load secrets and capture any error
-            load_error = None
-            raw_response = None
-            if aws_client_ok and cached_secrets_count == 0:
-                try:
-                    # Direct AWS call for debugging
-                    client = manager._get_aws_client()
-                    response = client.get_secret_value(SecretId=manager.config.secret_name)
-                    raw_response = f"Keys: {list(json.loads(response.get('SecretString', '{}')).keys())}"
-                    secrets = manager._load_from_aws()
-                    cached_secrets_count = len(secrets)
-                except Exception as load_e:
-                    load_error = f"{type(load_e).__name__}: {load_e}"
-        except Exception as e:
-            cached_secrets_count = -1
-            aws_client_ok = False
-            load_error = str(e)
-            raw_response = None
-            logger.error(f"Debug error: {e}")
-
-        # Get config state from manager
-        try:
-            config_use_aws = manager.config.use_aws
-            config_secret_name = manager.config.secret_name
-        except Exception:
-            config_use_aws = "error"
-            config_secret_name = "error"
-
-        debug_info = {
-            "google_id_set": bool(google_id),
-            "github_id_set": bool(github_id),
-            "env_use_aws": use_aws,
-            "config_use_aws": config_use_aws,
-            "config_secret_name": config_secret_name,
-            "env": env_mode,
-            "cached_secrets_count": cached_secrets_count,
-            "aws_client_ok": aws_client_ok,
-            "load_error": load_error,
-            "raw_response": raw_response,
-        }
-        return json_response({"providers": providers, "_debug": debug_info})
+        return json_response({"providers": providers})
 
     @handle_errors("get user OAuth providers")
     def _handle_get_user_providers(self, handler) -> HandlerResult:

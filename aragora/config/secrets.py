@@ -127,17 +127,12 @@ class SecretManager:
 
     def _load_from_aws(self) -> dict[str, str]:
         """Load secrets from AWS Secrets Manager."""
-        logger.info(
-            f"Loading secrets: use_aws={self.config.use_aws}, "
-            f"secret_name={self.config.secret_name}, region={self.config.aws_region}"
-        )
         if not self.config.use_aws:
-            logger.info("AWS Secrets Manager disabled (use_aws=False)")
             return {}
 
         client = self._get_aws_client()
         if client is None:
-            logger.warning("Failed to create AWS client")
+            logger.warning("Failed to create AWS Secrets Manager client")
             return {}
 
         try:
