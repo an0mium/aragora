@@ -23,8 +23,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from aragora.server.metrics import (
+    track_vector_index_batch,
+    track_vector_operation,
+    track_vector_search_results,
+)
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeNode, NodeType
@@ -293,6 +300,9 @@ class KnowledgeVectorStore:
         if len(nodes) != len(embeddings):
             raise ValueError("Number of nodes must match number of embeddings")
 
+        # Track total batch size
+        track_vector_index_batch(len(nodes), "weaviate")
+
         uuids = []
         total = len(nodes)
 
@@ -301,7 +311,8 @@ class KnowledgeVectorStore:
             batch_nodes = nodes[i : i + self.config.batch_size]
             batch_embeddings = embeddings[i : i + self.config.batch_size]
 
-            with self._collection.batch.dynamic() as batch:
+            with track_vector_operation("index_batch", "weaviate"), \
+                 self._collection.batch.dynamic() as batch:
                 for node, embedding in zip(batch_nodes, batch_embeddings):
                     properties = {
                         "node_id": node.id,
@@ -360,6 +371,23 @@ class KnowledgeVectorStore:
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
 
+        with track_vector_operation("search_semantic", "weaviate"):
+            results = await self._search_semantic_impl(
+                embedding, limit, node_types, min_confidence, min_score, workspace_id
+            )
+            track_vector_search_results(len(results), "weaviate", "semantic")
+            return results
+
+    async def _search_semantic_impl(
+        self,
+        embedding: list[float],
+        limit: int,
+        node_types: Optional[list[str]],
+        min_confidence: float,
+        min_score: float,
+        workspace_id: Optional[str],
+    ) -> list[KnowledgeSearchResult]:
+        """Internal implementation of semantic search."""
         # Build filters
         filters = []
         ws = workspace_id or self.workspace_id
@@ -441,6 +469,22 @@ class KnowledgeVectorStore:
         if not self.is_connected:
             raise RuntimeError("Not connected to Weaviate")
 
+        with track_vector_operation("search_keyword", "weaviate"):
+            results = await self._search_keyword_impl(
+                query, limit, node_types, min_confidence, workspace_id
+            )
+            track_vector_search_results(len(results), "weaviate", "keyword")
+            return results
+
+    async def _search_keyword_impl(
+        self,
+        query: str,
+        limit: int,
+        node_types: Optional[list[str]],
+        min_confidence: float,
+        workspace_id: Optional[str],
+    ) -> list[KnowledgeSearchResult]:
+        """Internal implementation of keyword search."""
         # Build filters
         filters = []
         ws = workspace_id or self.workspace_id
