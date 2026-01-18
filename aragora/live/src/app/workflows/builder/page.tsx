@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useToastContext } from '@/context/ToastContext';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 import type { WorkflowNode, WorkflowEdge, WorkflowTemplate, WorkflowStepType, WorkflowNodeData } from '@/components/workflow-builder/types';
 
 // Dynamic import for WorkflowCanvas to avoid SSR issues with React Flow
@@ -151,7 +152,7 @@ export default function WorkflowBuilderPage() {
         };
 
         // Save to API (placeholder - would need backend endpoint)
-        console.log('Saving workflow:', workflow);
+        logger.debug('Saving workflow:', workflow);
 
         showToast('Workflow saved successfully', 'success');
       } catch (error) {

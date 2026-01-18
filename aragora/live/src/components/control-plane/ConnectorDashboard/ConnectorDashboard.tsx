@@ -7,6 +7,7 @@ import { useBackend } from '@/components/BackendSelector';
 import { ConnectorCard, type ConnectorInfo, type ConnectorType, type ConnectorStatus } from './ConnectorCard';
 import { ConnectorConfigModal } from './ConnectorConfigModal';
 import { SyncStatusWidget, type SyncHistoryItem } from './SyncStatusWidget';
+import { logger } from '@/utils/logger';
 
 export type ConnectorFilter = 'all' | 'connected' | 'disconnected' | 'error';
 export type DashboardTab = 'connectors' | 'sync-status' | 'scheduled';
@@ -267,7 +268,7 @@ export function ConnectorDashboard({
         await api.post(`/api/connectors/${connector.id}/sync`);
         loadConnectors();
       } catch (err) {
-        console.error('Failed to start sync:', err);
+        logger.error('Failed to start sync:', err);
       }
     },
     [api, loadConnectors]
@@ -284,7 +285,7 @@ export function ConnectorDashboard({
         await api.delete(`/api/connectors/${connector.id}`);
         loadConnectors();
       } catch (err) {
-        console.error('Failed to disconnect:', err);
+        logger.error('Failed to disconnect:', err);
       }
     },
     [api, loadConnectors]
@@ -315,7 +316,7 @@ export function ConnectorDashboard({
         await api.post(`/api/connectors/sync/${syncId}/cancel`);
         loadConnectors();
       } catch (err) {
-        console.error('Failed to cancel sync:', err);
+        logger.error('Failed to cancel sync:', err);
       }
     },
     [api, loadConnectors]
@@ -328,7 +329,7 @@ export function ConnectorDashboard({
         await api.post(`/api/connectors/${connectorId}/sync`);
         loadConnectors();
       } catch (err) {
-        console.error('Failed to retry sync:', err);
+        logger.error('Failed to retry sync:', err);
       }
     },
     [api, loadConnectors]

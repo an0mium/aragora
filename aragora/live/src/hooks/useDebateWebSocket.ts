@@ -401,12 +401,12 @@ export function useDebateWebSocket({
     if (process.env.NODE_ENV === 'development') {
       const eventInfo = data.agent ? ` from ${data.agent}` : '';
       const seqInfo = data.seq ? ` (seq=${data.seq})` : '';
-      console.debug(`[WS] Event: ${data.type}${eventInfo}${seqInfo}`);
+      logger.debug(`[WS] Event: ${data.type}${eventInfo}${seqInfo}`);
     }
 
     // Enhanced logging for debate completion events
     if (data.type === 'consensus' || data.type === 'debate_end') {
-      console.log(`[WS] DEBATE COMPLETION: ${data.type}`, data);
+      logger.debug(`[WS] DEBATE COMPLETION: ${data.type}`, data);
     }
 
     // Track sequence numbers for gap detection
@@ -625,7 +625,7 @@ export function useDebateWebSocket({
       const taskId = (data.task_id as string) || '';  // Extract task_id for concurrent outputs
       if (agent) {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[WS] TOKEN_START: ${agent} (task=${taskId || 'default'})`);
+          logger.debug(`[WS] TOKEN_START: ${agent} (task=${taskId || 'default'})`);
         }
         const streamKey = makeStreamingKey(agent, taskId);
         setStreamingMessages(prev => {
@@ -731,7 +731,7 @@ export function useDebateWebSocket({
             // Log completion stats in development
             if (process.env.NODE_ENV === 'development') {
               const duration = Date.now() - existing.startTime;
-              console.log(`[WS] TOKEN_END: ${agent} - ${finalContent.length} chars in ${duration}ms`);
+              logger.debug(`[WS] TOKEN_END: ${agent} - ${finalContent.length} chars in ${duration}ms`);
             }
 
             if (finalContent) {
@@ -980,7 +980,7 @@ export function useDebateWebSocket({
     // Quick preview events (shown in first 5 seconds)
     else if (data.type === 'quick_classification') {
       // Always log classification for debugging (visible in browser console)
-      console.log('[WS] QUICK_CLASSIFICATION received:', {
+      logger.debug('[WS] QUICK_CLASSIFICATION received:', {
         question_type: (eventData as Record<string, unknown>)?.question_type,
         domain: (eventData as Record<string, unknown>)?.domain,
         complexity: (eventData as Record<string, unknown>)?.complexity,
@@ -1003,7 +1003,7 @@ export function useDebateWebSocket({
       };
       addStreamEvent(event);
       if (process.env.NODE_ENV === 'development') {
-        console.log('[WS] AGENT_PREVIEW:', eventData);
+        logger.debug('[WS] AGENT_PREVIEW:', eventData);
       }
     }
 
@@ -1015,7 +1015,7 @@ export function useDebateWebSocket({
       };
       addStreamEvent(event);
       if (process.env.NODE_ENV === 'development') {
-        console.log('[WS] CONTEXT_PREVIEW:', eventData);
+        logger.debug('[WS] CONTEXT_PREVIEW:', eventData);
       }
     }
 
@@ -1050,7 +1050,7 @@ export function useDebateWebSocket({
         // Diagnostic logging: count token_delta events in batch
         if (process.env.NODE_ENV === 'development' && parsed.length > 10) {
           const tokenDeltas = parsed.filter((e: Record<string, unknown>) => e.type === 'token_delta').length;
-          console.log(`[WS] BATCH: ${parsed.length} events (${tokenDeltas} token_deltas)`);
+          logger.debug(`[WS] BATCH: ${parsed.length} events (${tokenDeltas} token_deltas)`);
         }
         for (const evt of parsed) {
           processEvent(evt as Record<string, unknown>);
@@ -1109,7 +1109,7 @@ export function useDebateWebSocket({
     ws.onopen = () => {
       logger.debug('[WebSocket] Connected');
       if (process.env.NODE_ENV === 'development') {
-        console.log(`[WS] Connected to debate ${debateId}`);
+        logger.debug(`[WS] Connected to debate ${debateId}`);
       }
       setStatus('streaming');
       setError(null);

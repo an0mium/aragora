@@ -7,6 +7,7 @@ import { useApi } from '@/hooks/useApi';
 import { useBackend } from '@/components/BackendSelector';
 import { TemplateCard, type WorkflowTemplate, type WorkflowCategory } from './TemplateCard';
 import { TemplatePreview } from './TemplatePreview';
+import { logger } from '@/utils/logger';
 
 export type TemplateFilter = 'all' | WorkflowCategory;
 export type TemplateSort = 'name' | 'category' | 'complexity' | 'steps';
@@ -250,7 +251,7 @@ export function TemplateGallery({
       }
     } catch {
       // Use mock data if API fails
-      console.warn('Using mock template data');
+      logger.warn('Using mock template data');
     } finally {
       setLoading(false);
     }
