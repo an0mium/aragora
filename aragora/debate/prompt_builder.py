@@ -968,9 +968,20 @@ The system will provide relevant details from the full history."""
         if flip_context:
             flip_section = f"\n\n{flip_context}"
 
-        # Include historical context if available (capped at 800 chars)
+        # Include historical context if available
+        # Prefer RLM abstract for semantic compression over simple truncation
         historical_section = ""
-        if self._historical_context_cache:
+        if self._rlm_context:
+            # Use RLM abstract which preserves semantic content
+            rlm_abstract = self.get_rlm_abstract(max_chars=800)
+            if rlm_abstract:
+                historical_section = f"\n\n## Prior Context (Compressed)\n{rlm_abstract}"
+                # Add hint about drill-down capability
+                rlm_hint = self.get_rlm_context_hint()
+                if rlm_hint:
+                    historical_section += f"\n{rlm_hint}"
+        elif self._historical_context_cache:
+            # Fallback to simple truncation if RLM not available
             historical = self._historical_context_cache[:800]
             historical_section = f"\n\n{historical}"
 
