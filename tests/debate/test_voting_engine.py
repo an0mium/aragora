@@ -530,42 +530,44 @@ class TestVotingEngineCounting:
 
     def test_count_votes_majority(self):
         """Test counting with majority vote."""
-        engine = VotingEngine()
+        # Disable vote grouping to test pure counting logic
+        protocol = MockProtocol(vote_grouping=False)
+        engine = VotingEngine(protocol=protocol)
 
-        # Use completely unrelated choices to avoid semantic grouping
         votes = [
-            MockVote("agent-1", "Python is the best language"),
-            MockVote("agent-2", "Python is the best language"),
-            MockVote("agent-3", "Cats make excellent pets"),
+            MockVote("agent-1", "Option A"),
+            MockVote("agent-2", "Option A"),
+            MockVote("agent-3", "Option B"),
         ]
 
         result = engine.count_votes(votes)
 
-        assert result.winner == "Python is the best language"
-        assert result.vote_counts["Python is the best language"] > result.vote_counts["Cats make excellent pets"]
+        assert result.winner == "Option A"
+        assert result.vote_counts["Option A"] > result.vote_counts["Option B"]
 
     def test_count_votes_with_weights(self):
         """Test counting with weighted votes."""
         reputation_fn = lambda name: 2.0 if name == "agent-2" else 1.0
 
-        engine = VotingEngine()
+        # Disable vote grouping to test pure weighting logic
+        protocol = MockProtocol(vote_grouping=False)
+        engine = VotingEngine(protocol=protocol)
         calc = VoteWeightCalculator(reputation_source=reputation_fn)
         engine.set_weight_calculator(calc)
 
-        # Use completely unrelated choices to avoid semantic grouping
         votes = [
-            MockVote("agent-1", "The sky is blue today"),
-            MockVote("agent-2", "Pizza tastes delicious"),  # Weight 2.0
-            MockVote("agent-3", "The sky is blue today"),
+            MockVote("agent-1", "Option A"),
+            MockVote("agent-2", "Option B"),  # Weight 2.0
+            MockVote("agent-3", "Option A"),
         ]
 
         result = engine.count_votes(votes)
 
-        # agent-1 (1.0) + agent-3 (1.0) = 2.0 for "sky is blue"
-        # agent-2 (2.0) = 2.0 for "pizza"
+        # agent-1 (1.0) + agent-3 (1.0) = 2.0 for A
+        # agent-2 (2.0) = 2.0 for B
         # Tie, but first counted wins
-        assert result.vote_counts["The sky is blue today"] == 2.0
-        assert result.vote_counts["Pizza tastes delicious"] == 2.0
+        assert result.vote_counts["Option A"] == 2.0
+        assert result.vote_counts["Option B"] == 2.0
 
     def test_count_votes_with_user_votes(self):
         """Test counting with user votes."""
