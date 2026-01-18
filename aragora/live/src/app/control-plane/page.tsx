@@ -84,9 +84,8 @@ export default function ControlPlanePage() {
   } = useControlPlaneWebSocket({
     enabled: useWebSocket,
     autoReconnect: true,
-    onFindingDetected: (finding) => {
+    onFindingDetected: (_finding) => {
       // Could show a toast notification here
-      console.log('New finding detected:', finding.title);
     },
   });
 
@@ -133,7 +132,6 @@ export default function ControlPlanePage() {
       return true; // Success
     } catch {
       // Use mock data if endpoint not available
-      console.warn('[Control Plane] Using mock agent data - backend unavailable');
       setAgents([
         { id: 'claude', name: 'Claude', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 45, tokens_used: 125000 },
         { id: 'gemini', name: 'Gemini', model: 'gemini-3-pro', status: 'working', current_task: 'Document audit scan', requests_today: 32, tokens_used: 890000 },
@@ -154,7 +152,6 @@ export default function ControlPlanePage() {
       return true; // Success
     } catch {
       // Use mock data if endpoint not available
-      console.warn('[Control Plane] Using mock job data - backend unavailable');
       setJobs([
         { id: 'job1', type: 'audit', name: 'Security Audit - Q1 Contracts', status: 'running', progress: 0.45, started_at: new Date().toISOString(), document_count: 12, agents_assigned: ['gemini', 'claude'] },
         { id: 'job2', type: 'document_processing', name: 'Batch Import - Legal Docs', status: 'queued', progress: 0, document_count: 48, agents_assigned: [] },
@@ -174,7 +171,6 @@ export default function ControlPlanePage() {
       return true; // Success
     } catch {
       // Use mock data
-      console.warn('[Control Plane] Using mock metrics - backend unavailable');
       setMetrics({
         active_jobs: 1,
         queued_jobs: 2,
@@ -416,9 +412,8 @@ export default function ControlPlanePage() {
                         }))}
                         width={850}
                         height={350}
-                        onAgentClick={(agent) => {
+                        onAgentClick={(_agent) => {
                           // Could navigate to agent detail or show modal
-                          console.log('Agent clicked:', agent.name);
                         }}
                       />
                     </div>
@@ -487,11 +482,11 @@ export default function ControlPlanePage() {
                 {/* Agents Tab - Enhanced with AgentCatalog */}
                 {activeTab === 'agents' && (
                   <AgentCatalog
-                    onSelectAgent={(agent) => {
-                      console.log('Agent selected:', agent.name);
+                    onSelectAgent={(_agent) => {
+                      // Agent selection handler
                     }}
-                    onConfigureAgent={(agent) => {
-                      console.log('Configure agent:', agent.name);
+                    onConfigureAgent={(_agent) => {
+                      // Agent configuration handler
                     }}
                   />
                 )}
@@ -501,10 +496,9 @@ export default function ControlPlanePage() {
                   <div className="h-[calc(100vh-280px)]">
                     <WorkflowBuilder
                       onSave={() => {
-                        console.log('Workflow saved');
+                        // Workflow saved
                       }}
-                      onExecute={(executionId) => {
-                        console.log('Workflow execution started:', executionId);
+                      onExecute={(_executionId) => {
                         setActiveTab('executions');
                       }}
                     />
@@ -514,8 +508,8 @@ export default function ControlPlanePage() {
                 {/* Knowledge Tab */}
                 {activeTab === 'knowledge' && (
                   <KnowledgeExplorer
-                    onSelectNode={(node) => {
-                      console.log('Knowledge node selected:', node.id);
+                    onSelectNode={(_node) => {
+                      // Knowledge node selection handler
                     }}
                   />
                 )}
@@ -523,8 +517,8 @@ export default function ControlPlanePage() {
                 {/* Connectors Tab */}
                 {activeTab === 'connectors' && (
                   <ConnectorDashboard
-                    onSelectConnector={(connector) => {
-                      console.log('Connector selected:', connector.name);
+                    onSelectConnector={(_connector) => {
+                      // Connector selection handler
                     }}
                   />
                 )}
@@ -532,8 +526,8 @@ export default function ControlPlanePage() {
                 {/* Executions Tab */}
                 {activeTab === 'executions' && (
                   <ExecutionMonitor
-                    onSelectExecution={(execution) => {
-                      console.log('Execution selected:', execution.id);
+                    onSelectExecution={(_execution) => {
+                      // Execution selection handler
                     }}
                   />
                 )}
@@ -635,8 +629,8 @@ export default function ControlPlanePage() {
                 {activeTab === 'verticals' && (
                   <div className="space-y-6">
                     <VerticalSelector
-                      onSelect={(vertical) => {
-                        console.log('Vertical selected:', vertical.id);
+                      onSelect={(_vertical) => {
+                        // Vertical selection handler
                       }}
                     />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -658,11 +652,11 @@ export default function ControlPlanePage() {
                 {/* Workspace Tab */}
                 {activeTab === 'workspace' && (
                   <WorkspaceManager
-                    onWorkspaceSelect={(workspace) => {
-                      console.log('Workspace selected:', workspace.id);
+                    onWorkspaceSelect={(_workspace) => {
+                      // Workspace selection handler
                     }}
-                    onWorkspaceUpdate={(workspace) => {
-                      console.log('Workspace updated:', workspace.id);
+                    onWorkspaceUpdate={(_workspace) => {
+                      // Workspace update handler
                     }}
                   />
                 )}

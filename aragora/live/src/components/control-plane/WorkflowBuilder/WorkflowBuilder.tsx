@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useWorkflowBuilder } from '@/hooks/useWorkflowBuilder';
 import { useWorkflowBuilderStore } from '@/store/workflowBuilderStore';
+import { logger } from '@/utils/logger';
 import { NodePalette } from './NodePalette';
 import { WorkflowToolbar } from './WorkflowToolbar';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -106,7 +107,7 @@ export function WorkflowBuilder({
       const executionId = await executeWorkflow();
       onExecute?.(executionId);
     } catch (error) {
-      console.error('Failed to execute workflow:', error);
+      logger.error('Failed to execute workflow:', error);
     }
   }, [executeWorkflow, onExecute]);
 
