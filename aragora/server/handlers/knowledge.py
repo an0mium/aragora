@@ -1032,7 +1032,6 @@ class KnowledgeMoundHandler(BaseHandler):
     @handle_errors("index repository")
     def _handle_index_repository(self, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/index/repository - Index a repository."""
-        # This is a placeholder - full implementation would use RepositoryCrawler
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 0:
@@ -1049,14 +1048,65 @@ class KnowledgeMoundHandler(BaseHandler):
 
         workspace_id = data.get("workspace_id", "default")
 
-        # TODO: Implement actual repository crawling with RepositoryCrawler
-        # For now, return a placeholder response
-        return json_response({
-            "status": "accepted",
-            "message": "Repository indexing not yet implemented",
-            "repo_path": repo_path,
-            "workspace_id": workspace_id,
-        }, status=202)
+        # Get Knowledge Mound
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        try:
+            from aragora.connectors.repository_crawler import (
+                CrawlConfig,
+                RepositoryCrawler,
+            )
+
+            # Build crawl config from request
+            config = CrawlConfig(
+                include_patterns=data.get("include_patterns", ["*", "**/*"]),
+                exclude_patterns=data.get("exclude_patterns", [
+                    "**/node_modules/**",
+                    "**/.git/**",
+                    "**/venv/**",
+                    "**/__pycache__/**",
+                    "**/.venv/**",
+                    "**/dist/**",
+                    "**/build/**",
+                ]),
+                max_file_size_bytes=data.get("max_file_size_bytes", 1_000_000),
+                max_files=data.get("max_files", 10_000),
+                extract_symbols=data.get("extract_symbols", True),
+                extract_dependencies=data.get("extract_dependencies", True),
+                extract_docstrings=data.get("extract_docstrings", True),
+            )
+
+            # Create crawler and run
+            crawler = RepositoryCrawler(config=config, workspace_id=workspace_id)
+            crawl_result = _run_async(crawler.crawl(repo_path, incremental=data.get("incremental", True)))
+
+            # Index to Knowledge Mound
+            nodes_created = _run_async(crawler.index_to_mound(crawl_result, mound))
+
+            return json_response({
+                "status": "completed",
+                "repository": crawl_result.repository_name,
+                "repository_path": crawl_result.repository_path,
+                "workspace_id": workspace_id,
+                "total_files": crawl_result.total_files,
+                "total_lines": crawl_result.total_lines,
+                "total_bytes": crawl_result.total_bytes,
+                "nodes_created": nodes_created,
+                "file_type_counts": crawl_result.file_type_counts,
+                "symbol_counts": crawl_result.symbol_counts,
+                "crawl_duration_ms": crawl_result.crawl_duration_ms,
+                "errors": crawl_result.errors[:10] if crawl_result.errors else [],
+                "warnings": crawl_result.warnings[:10] if crawl_result.warnings else [],
+                "git_info": crawl_result.git_info,
+            })
+
+        except FileNotFoundError as e:
+            return error_response(f"Repository not found: {e}", 404)
+        except Exception as e:
+            logger.error(f"Failed to index repository: {e}")
+            return error_response(f"Failed to index repository: {e}", 500)
 
     # =========================================================================
     # Culture Management Endpoints (Phase A1)
