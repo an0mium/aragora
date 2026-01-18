@@ -576,7 +576,7 @@ class S3ObjectLockBackend(AuditLogBackend):
         self._client: Any = None
         self._sequence_cache: dict[int, str] = {}  # sequence -> object_key
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get or create S3 client."""
         if self._client is None:
             try:
@@ -1375,7 +1375,7 @@ def get_audit_log() -> ImmutableAuditLog:
 def init_audit_log(
     backend: AuditBackend = AuditBackend.LOCAL,
     signing_key: Optional[bytes] = None,
-    **backend_kwargs,
+    **backend_kwargs: Any,
 ) -> ImmutableAuditLog:
     """
     Initialize the global audit log with specific configuration.

@@ -218,6 +218,7 @@ __all__ = [
     "PERMISSION_MATRIX",
     "error_response",
     "json_response",
+    "HandlerResult",
     "handle_errors",
     "auto_error_response",
     "log_request",

@@ -203,7 +203,7 @@ class SensitivityClassifier:
     def __init__(self, config: ClassificationConfig | None = None):
         self.config = config or ClassificationConfig()
         self._indicators = self.DEFAULT_INDICATORS + self.config.custom_indicators
-        self._compiled_patterns: dict[str, re.Pattern] = {}
+        self._compiled_patterns: dict[str, re.Pattern[str]] = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
