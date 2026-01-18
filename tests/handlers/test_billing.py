@@ -1535,7 +1535,9 @@ class TestStripeWebhook:
 
                     # Verify org was downgraded
                     org = user_store.get_organization_by_id("org_1")
-                    assert org.tier.value == "free"
+                    # Tier might be SubscriptionTier enum or have .value
+                    tier_value = org.tier.value if hasattr(org.tier, "value") else str(org.tier)
+                    assert tier_value == "free"
                     assert org.stripe_subscription_id is None
 
     def test_webhook_invoice_paid_resets_usage(self, billing_handler, user_store):

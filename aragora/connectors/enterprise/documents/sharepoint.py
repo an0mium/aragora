@@ -19,7 +19,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
 
@@ -197,9 +197,8 @@ class SharePointConnector(EnterpriseConnector):
 
                 self._access_token = data["access_token"]
                 expires_in = data.get("expires_in", 3600)
-                self._token_expires = now.replace(
-                    second=now.second + expires_in - 300  # 5 min buffer
-                )
+                # Add buffer before expiry (5 minutes)
+                self._token_expires = now + timedelta(seconds=expires_in - 300)
 
                 return self._access_token
 

@@ -89,6 +89,8 @@ class NotionConnector(EnterpriseConnector):
         include_archived: bool = False,
         include_databases: bool = True,
         max_depth: int = 5,
+        recursive_pages: bool = True,
+        inline_child_content: bool = False,
         **kwargs,
     ):
         """
@@ -99,6 +101,10 @@ class NotionConnector(EnterpriseConnector):
             include_archived: Whether to include archived pages
             include_databases: Whether to crawl database entries
             max_depth: Maximum depth for nested page traversal
+            recursive_pages: Whether to recursively discover and sync child pages
+                            that might not be returned by search API
+            inline_child_content: Whether to include child page content inline
+                                 within parent page content
         """
         connector_id = f"notion_{workspace_name.lower().replace(' ', '_')}"
         super().__init__(connector_id=connector_id, **kwargs)
@@ -107,10 +113,13 @@ class NotionConnector(EnterpriseConnector):
         self.include_archived = include_archived
         self.include_databases = include_databases
         self.max_depth = max_depth
+        self.recursive_pages = recursive_pages
+        self.inline_child_content = inline_child_content
 
         # Cache
         self._pages_cache: Dict[str, NotionPage] = {}
         self._databases_cache: Dict[str, NotionDatabase] = {}
+        self._synced_page_ids: set[str] = set()  # Track synced pages to avoid duplicates
 
     @property
     def source_type(self) -> SourceType:
@@ -248,8 +257,23 @@ class NotionConnector(EnterpriseConnector):
 
         return results, next_cursor
 
-    async def _get_page_content(self, page_id: str, depth: int = 0) -> str:
-        """Get full content of a page by extracting all blocks."""
+    async def _get_page_content(
+        self,
+        page_id: str,
+        depth: int = 0,
+        include_child_pages: bool = False,
+    ) -> str:
+        """
+        Get full content of a page by extracting all blocks.
+
+        Args:
+            page_id: The page ID to fetch content from
+            depth: Current recursion depth (for max_depth limit)
+            include_child_pages: If True, recursively include child page content inline
+
+        Returns:
+            Extracted text content from all blocks
+        """
         if depth >= self.max_depth:
             return ""
 
@@ -260,13 +284,29 @@ class NotionConnector(EnterpriseConnector):
             blocks, cursor = await self._get_block_children(page_id, cursor)
 
             for block in blocks:
-                block_content = self._extract_block_content(block)
-                if block_content:
-                    content_parts.append(block_content)
+                block_type = block.get("type", "")
 
-                # Recursively get nested blocks
-                if block.get("has_children"):
-                    nested_content = await self._get_page_content(block["id"], depth + 1)
+                # Handle child pages with optional inline expansion
+                if block_type == "child_page" and include_child_pages:
+                    child_id = block.get("id", "")
+                    child_title = block.get("child_page", {}).get("title", "Untitled")
+                    content_parts.append(f"\n## [Child Page: {child_title}]\n")
+                    child_content = await self._get_page_content(
+                        child_id, depth + 1, include_child_pages=True
+                    )
+                    if child_content:
+                        content_parts.append(child_content)
+                    content_parts.append(f"\n[End of {child_title}]\n")
+                else:
+                    block_content = self._extract_block_content(block)
+                    if block_content:
+                        content_parts.append(block_content)
+
+                # Recursively get nested blocks (not child pages, just nested content)
+                if block.get("has_children") and block_type not in ["child_page", "child_database"]:
+                    nested_content = await self._get_page_content(
+                        block["id"], depth + 1, include_child_pages=include_child_pages
+                    )
                     if nested_content:
                         content_parts.append(nested_content)
 
@@ -274,6 +314,52 @@ class NotionConnector(EnterpriseConnector):
                 break
 
         return "\n".join(content_parts)
+
+    async def _discover_child_pages(
+        self,
+        page_id: str,
+        depth: int = 0,
+    ) -> AsyncIterator[tuple[str, str, int]]:
+        """
+        Recursively discover all child pages within a page.
+
+        Yields:
+            Tuples of (child_page_id, child_title, depth_level)
+        """
+        if depth >= self.max_depth:
+            return
+
+        cursor = None
+
+        while True:
+            blocks, cursor = await self._get_block_children(page_id, cursor)
+
+            for block in blocks:
+                block_type = block.get("type", "")
+
+                if block_type == "child_page":
+                    child_id = block.get("id", "")
+                    child_title = block.get("child_page", {}).get("title", "Untitled")
+                    yield (child_id, child_title, depth)
+
+                    # Recursively find children of this child page
+                    async for nested in self._discover_child_pages(child_id, depth + 1):
+                        yield nested
+
+                elif block_type == "child_database":
+                    # Child databases are also discoverable
+                    db_id = block.get("id", "")
+                    db_title = block.get("child_database", {}).get("title", "Untitled Database")
+                    # We mark these with a special prefix in the title
+                    yield (db_id, f"[DB] {db_title}", depth)
+
+                # Check nested blocks for child pages (e.g., toggles can contain child pages)
+                elif block.get("has_children"):
+                    async for nested in self._discover_child_pages(block["id"], depth):
+                        yield nested
+
+            if not cursor:
+                break
 
     def _parse_page(self, data: Dict[str, Any]) -> NotionPage:
         """Parse page data into NotionPage."""
@@ -443,6 +529,40 @@ class NotionConnector(EnterpriseConnector):
             caption = self._rich_text_to_string(block_data.get("caption", []))
             return f"[{block_type.title()}: {caption or url}]"
 
+        # Child page/database - return placeholder with ID for later recursion
+        elif block_type == "child_page":
+            title = block_data.get("title", "Untitled")
+            return f"[Child Page: {title}]"
+
+        elif block_type == "child_database":
+            title = block_data.get("title", "Untitled")
+            return f"[Child Database: {title}]"
+
+        # Synced block
+        elif block_type == "synced_block":
+            # Synced blocks reference content from another block
+            synced_from = block_data.get("synced_from")
+            if synced_from:
+                return f"[Synced from: {synced_from.get('block_id', 'unknown')}]"
+            return ""
+
+        # Column and column_list
+        elif block_type in ["column", "column_list"]:
+            # Content comes from nested blocks, which are handled by has_children
+            return ""
+
+        # Table blocks
+        elif block_type == "table":
+            return "[Table]"
+
+        elif block_type == "table_row":
+            cells = block_data.get("cells", [])
+            row_parts = []
+            for cell in cells:
+                cell_text = self._rich_text_to_string(cell)
+                row_parts.append(cell_text)
+            return " | ".join(row_parts)
+
         return ""
 
     def _extract_database_entry_content(
@@ -501,7 +621,16 @@ class NotionConnector(EnterpriseConnector):
     ) -> AsyncIterator[SyncItem]:
         """
         Yield Notion pages and database entries for syncing.
+
+        Features:
+        - Searches all pages accessible via the integration
+        - Optionally discovers child pages recursively (recursive_pages=True)
+        - Optionally inlines child page content (inline_child_content=True)
+        - Tracks synced pages to avoid duplicates
         """
+        # Reset synced page tracking for this sync
+        self._synced_page_ids.clear()
+
         # Parse last sync timestamp from cursor
         modified_since = None
         if state.cursor:
@@ -512,6 +641,7 @@ class NotionConnector(EnterpriseConnector):
 
         items_yielded = 0
         cursor = None
+        pages_for_recursion: list[str] = []  # Track pages to check for child pages
 
         # Search for all pages
         while True:
@@ -527,12 +657,19 @@ class NotionConnector(EnterpriseConnector):
                 if page.archived and not self.include_archived:
                     continue
 
+                # Skip if already synced (shouldn't happen in search, but safety check)
+                if page.id in self._synced_page_ids:
+                    continue
+
                 # Skip if not modified since last sync
                 if modified_since and page.last_edited_at and page.last_edited_at < modified_since:
                     continue
 
-                # Get full content
-                content = await self._get_page_content(page.id)
+                # Get full content (with optional inline child pages)
+                content = await self._get_page_content(
+                    page.id,
+                    include_child_pages=self.inline_child_content,
+                )
                 page.content = content
 
                 full_content = f"# {page.title}\n\n{content}"
@@ -557,7 +694,12 @@ class NotionConnector(EnterpriseConnector):
                     },
                 )
 
+                self._synced_page_ids.add(page.id)
                 items_yielded += 1
+
+                # Track pages for recursive child discovery
+                if self.recursive_pages:
+                    pages_for_recursion.append(page.id)
 
                 # Update cursor
                 if page.last_edited_at:
@@ -571,6 +713,82 @@ class NotionConnector(EnterpriseConnector):
 
             if not cursor:
                 break
+
+        # Recursive child page discovery
+        # This finds child pages that might not be returned by search API
+        # (e.g., pages created inside other pages that aren't explicitly shared)
+        if self.recursive_pages and pages_for_recursion:
+            logger.debug(
+                f"[{self.name}] Discovering child pages from {len(pages_for_recursion)} parent pages"
+            )
+
+            for parent_id in pages_for_recursion:
+                async for child_id, child_title, depth in self._discover_child_pages(parent_id):
+                    # Skip already synced pages
+                    if child_id in self._synced_page_ids:
+                        continue
+
+                    # Skip database children (handled separately)
+                    if child_title.startswith("[DB] "):
+                        continue
+
+                    # Fetch the child page
+                    child_page = await self._get_page(child_id)
+                    if not child_page:
+                        continue
+
+                    if child_page.archived and not self.include_archived:
+                        continue
+
+                    if (
+                        modified_since
+                        and child_page.last_edited_at
+                        and child_page.last_edited_at < modified_since
+                    ):
+                        continue
+
+                    # Get content
+                    content = await self._get_page_content(
+                        child_page.id,
+                        include_child_pages=self.inline_child_content,
+                    )
+                    child_page.content = content
+
+                    full_content = f"# {child_page.title}\n\n{content}"
+
+                    yield SyncItem(
+                        id=f"notion-page-{child_page.id}",
+                        content=full_content[:50000],
+                        source_type="document",
+                        source_id=f"notion/page/{child_page.id}",
+                        title=child_page.title,
+                        url=child_page.url,
+                        author=child_page.last_edited_by or child_page.created_by,
+                        created_at=child_page.created_at,
+                        updated_at=child_page.last_edited_at,
+                        domain="enterprise/notion",
+                        confidence=0.85,
+                        metadata={
+                            "page_id": child_page.id,
+                            "parent_type": child_page.parent_type,
+                            "parent_id": child_page.parent_id,
+                            "archived": child_page.archived,
+                            "discovered_from": parent_id,
+                            "nesting_depth": depth,
+                        },
+                    )
+
+                    self._synced_page_ids.add(child_page.id)
+                    items_yielded += 1
+
+                    if child_page.last_edited_at:
+                        current = state.cursor
+                        new_ts = child_page.last_edited_at.isoformat()
+                        if not current or new_ts > current:
+                            state.cursor = new_ts
+
+                    if items_yielded >= batch_size:
+                        await asyncio.sleep(0)
 
         # Search for databases and their entries
         if self.include_databases:
