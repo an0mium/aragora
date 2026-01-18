@@ -394,6 +394,16 @@ class OAuthHandler(BaseHandler):
         if path == "/api/auth/oauth/providers" and method == "GET":
             return self._handle_list_providers(handler)
 
+        # Debug endpoint (temporary)
+        if path == "/api/auth/oauth/debug" and method == "GET":
+            return json_response({
+                "allowed_hosts": list(_get_allowed_redirect_hosts()),
+                "is_production": _is_production(),
+                "oauth_success_url": _get_oauth_success_url(),
+                "google_redirect_uri": _get_google_redirect_uri(),
+                "github_redirect_uri": _get_github_redirect_uri(),
+            })
+
         if path == "/api/user/oauth-providers" and method == "GET":
             return self._handle_get_user_providers(handler)
 
