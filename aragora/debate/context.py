@@ -152,6 +152,19 @@ class DebateContext:
     evidence_pack: Any = None
     """Collected evidence pack from EvidenceCollector."""
 
+    rlm_context: Any = None
+    """Hierarchical RLM context from HierarchicalCompressor.
+
+    When RLM compression is enabled, this holds a RLMContext object
+    that provides drill-down access to different abstraction levels
+    (ABSTRACT, SUMMARY, DETAILED, FULL) of the accumulated context.
+
+    See aragora.rlm.types.RLMContext for the interface.
+    """
+
+    use_compressed_context: bool = False
+    """When True, use RLM summary level in prompts instead of full context."""
+
     ratings_cache: dict[str, Any] = field(default_factory=dict)
     """Batch-fetched AgentRating objects by agent name."""
 
