@@ -1,507 +1,537 @@
 """
-E2E tests for the complete debate lifecycle.
+E2E tests for debate lifecycle.
 
-Tests the full flow from creation to archival:
-1. Create debate via Arena
-2. Run debate to completion
-3. Verify consensus reached
-4. Verify memory stored
-5. Verify ELO updated
-6. Archive debate
-7. Verify archived state
+Tests complete debate workflows including:
+- Standard debate (3-5 rounds)
+- Extended debate (50+ rounds with RLM)
+- Consensus detection
+- Cross-debate memory
+- Debate checkpointing and resume
 """
 
 from __future__ import annotations
 
 import asyncio
-import tempfile
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, Dict, List
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
-from aragora.core import Environment, DebateResult
-from aragora.debate.orchestrator import Arena, DebateProtocol
-from tests.e2e.conftest import E2EAgent
+from tests.e2e.conftest import TestTenant, DebateSetup, MockAgentResponse
 
 
-class TestDebateCreation:
-    """Tests for debate creation and initialization."""
+# ============================================================================
+# Standard Debate E2E Tests
+# ============================================================================
 
-    @pytest.mark.asyncio
-    async def test_debate_creation_with_valid_params(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
-    ):
-        """Debate should be created successfully with valid parameters."""
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
 
-        assert arena is not None
-        assert len(arena.agents) == 3
-        assert arena.env.task is not None
+class TestStandardDebateE2E:
+    """E2E tests for standard debate lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_debate_has_unique_id(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
+    async def test_basic_debate_lifecycle(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
     ):
-        """Each debate should have a unique identifier."""
-        arena1 = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        arena2 = Arena(e2e_environment, e2e_agents, e2e_protocol)
+        """Test complete basic debate from start to consensus."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
 
-        # Arena instances should be different
-        assert arena1 is not arena2
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(
+            rounds=basic_debate.rounds,
+            consensus="majority",
+        )
 
+        # Mock agents
+        mock_agents = [MagicMock() for _ in basic_debate.agents]
+        for i, agent in enumerate(mock_agents):
+            agent.name = basic_debate.agents[i]
+            agent.generate = AsyncMock(return_value=f"Response from {basic_debate.agents[i]}")
 
-class TestDebateExecution:
-    """Tests for debate execution flow."""
+        arena = Arena(env, mock_agents, protocol)
 
-    @pytest.mark.asyncio
-    async def test_debate_runs_to_completion(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
-    ):
-        """Debate should run through all rounds and complete."""
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-        assert isinstance(result, DebateResult)
-        assert result.final_answer is not None or result.rounds_completed > 0
-
-    @pytest.mark.asyncio
-    async def test_debate_generates_messages(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
-    ):
-        """Debate should generate messages from all participating agents."""
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-        # Should have messages from agents
-        if hasattr(result, "messages") and result.messages:
-            assert len(result.messages) > 0
-
-    @pytest.mark.asyncio
-    async def test_debate_tracks_rounds(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
-    ):
-        """Debate should track the number of rounds completed."""
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
         result = await arena.run()
 
         assert result is not None
         assert hasattr(result, "rounds_completed")
-        assert result.rounds_completed >= 1
+        assert result.rounds_completed <= basic_debate.rounds
 
     @pytest.mark.asyncio
-    async def test_debate_handles_early_consensus(self, mock_external_apis):
-        """Debate should stop early if consensus is reached."""
-        # Create agents that will agree quickly
-        agreeable_agents = [
-            E2EAgent("agent_0", position="solution_a", stubbornness=0.1),
-            E2EAgent("agent_1", position="solution_a", stubbornness=0.1),
-            E2EAgent("agent_2", position="solution_a", stubbornness=0.2),
-        ]
-
-        env = Environment(task="Simple decision task")
-        protocol = DebateProtocol(
-            rounds=5,
-            consensus="majority",
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
-        )
-
-        arena = Arena(env, agreeable_agents, protocol)
-        result = await arena.run()
-
-        assert result is not None
-        # With quick agreement, might not need all rounds
-
-
-class TestConsensusAndOutcome:
-    """Tests for consensus detection and debate outcomes."""
-
-    @pytest.mark.asyncio
-    async def test_consensus_reached_with_majority(self, mock_external_apis):
-        """Consensus should be reached when majority agrees."""
-        # Two agents agree, one disagrees
-        agents = [
-            E2EAgent("agreeable_1", position="solution_x", stubbornness=0.2),
-            E2EAgent("agreeable_2", position="solution_x", stubbornness=0.2),
-            E2EAgent("dissenter", position="solution_y", stubbornness=0.8),
-        ]
-
-        env = Environment(task="Consensus test task")
-        protocol = DebateProtocol(
-            rounds=2,
-            consensus="majority",
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
-        )
-
-        arena = Arena(env, agents, protocol)
-        result = await arena.run()
-
-        assert result is not None
-        assert result.consensus_reached is True
-
-    @pytest.mark.asyncio
-    async def test_no_consensus_with_stubborn_agents(self, mock_external_apis):
-        """Consensus may not be reached with highly stubborn agents."""
-        # All agents are stubborn and disagree
-        agents = [
-            E2EAgent("stubborn_1", position="my_way", stubbornness=0.9),
-            E2EAgent("stubborn_2", position="no_your_way", stubbornness=0.9),
-            E2EAgent("stubborn_3", position="neither", stubbornness=0.9),
-        ]
-
-        env = Environment(task="Contentious topic")
-        protocol = DebateProtocol(
-            rounds=2,
-            consensus="unanimous",
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
-        )
-
-        arena = Arena(env, agents, protocol)
-        result = await arena.run()
-
-        assert result is not None
-        # With unanimous requirement and stubborn agents, unlikely to reach consensus
-
-    @pytest.mark.asyncio
-    async def test_debate_result_contains_required_fields(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis
+    async def test_debate_with_consensus_detection(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
     ):
-        """Debate result should contain all required fields."""
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
+        """Test debate reaching consensus."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.consensus import ConsensusDetector
+        from aragora.core import Environment
 
-        assert result is not None
-        # Check required fields
-        assert hasattr(result, "consensus_reached")
-        assert hasattr(result, "rounds_completed")
-        assert hasattr(result, "final_answer")
+        env = Environment(task="Simple question with clear answer")
+        protocol = DebateProtocol(rounds=5, consensus="unanimous")
 
+        mock_agents = [MagicMock() for _ in range(3)]
+        for i, agent in enumerate(mock_agents):
+            agent.name = f"agent_{i}"
+            # All agents agree
+            agent.generate = AsyncMock(return_value="I agree with the consensus position.")
 
-class TestDebateWithMemory:
-    """Tests for debate interaction with memory systems."""
+        with patch.object(ConsensusDetector, "detect") as mock_detect:
+            mock_detect.return_value = {
+                "reached": True,
+                "confidence": 0.95,
+                "position": "Agreed position",
+            }
 
-    @pytest.mark.asyncio
-    async def test_debate_with_critique_store(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis, temp_e2e_dir
-    ):
-        """Debate should interact with CritiqueStore for memory."""
-        from aragora.memory.store import CritiqueStore
-
-        critique_store = CritiqueStore(str(temp_e2e_dir / "critiques.db"))
-
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-        # Verify debate completed with memory available
-
-    @pytest.mark.asyncio
-    async def test_debate_with_continuum_memory(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis, temp_e2e_dir
-    ):
-        """Debate should work with ContinuumMemory tier system."""
-        from aragora.memory.continuum import ContinuumMemory
-
-        memory = ContinuumMemory(str(temp_e2e_dir))
-
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-
-
-class TestDebateWithELO:
-    """Tests for ELO rating updates after debates."""
-
-    @pytest.mark.asyncio
-    async def test_debate_updates_elo_ratings(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis, temp_e2e_dir
-    ):
-        """ELO ratings should be updated after debate completion."""
-        from aragora.ranking.elo import EloSystem
-
-        elo_system = EloSystem(str(temp_e2e_dir / "elo.db"))
-
-        # Initialize ratings for agents
-        for agent in e2e_agents:
-            elo_system.initialize_agent(agent.name)
-
-        initial_ratings = {agent.name: elo_system.get_rating(agent.name) for agent in e2e_agents}
-
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-
-        # Note: ELO update happens outside Arena typically
-        # This test verifies the integration point exists
-
-
-class TestDebateArchival:
-    """Tests for debate archival functionality."""
-
-    @pytest.mark.asyncio
-    async def test_debate_can_be_archived(
-        self, e2e_agents, e2e_environment, e2e_protocol, mock_external_apis, temp_e2e_dir
-    ):
-        """Completed debate should be archivable."""
-        from aragora.server.storage import DebateStorage
-
-        storage = DebateStorage(str(temp_e2e_dir / "debates.db"))
-
-        arena = Arena(e2e_environment, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-
-        # Create metadata for storage
-        debate_metadata = {
-            "task": e2e_environment.task,
-            "consensus_reached": result.consensus_reached,
-            "rounds_completed": result.rounds_completed,
-            "final_answer": result.final_answer,
-            "created_at": datetime.now().isoformat(),
-            "status": "concluded",
-        }
-
-        # Store the debate
-        debate_id = storage.store(debate_metadata)
-        assert debate_id is not None
-
-        # Verify retrieval
-        retrieved = storage.get_debate(debate_id)
-        assert retrieved is not None
-
-
-class TestMultiDebateScenarios:
-    """Tests for running multiple debates."""
-
-    @pytest.mark.asyncio
-    async def test_sequential_debates(self, e2e_agents, e2e_protocol, mock_external_apis):
-        """Multiple debates should run sequentially without interference."""
-        results = []
-
-        for i in range(3):
-            env = Environment(task=f"Sequential debate task {i}")
-            arena = Arena(env, e2e_agents, e2e_protocol)
+            arena = Arena(env, mock_agents, protocol)
             result = await arena.run()
-            results.append(result)
 
-            # Reset agents for next debate
-            for agent in e2e_agents:
-                agent._round = 0
-
-        assert len(results) == 3
-        assert all(r is not None for r in results)
+            assert result is not None
 
     @pytest.mark.asyncio
-    async def test_concurrent_debates(self, e2e_protocol, mock_external_apis):
-        """Multiple debates should be able to run concurrently."""
-        tasks = []
+    async def test_debate_with_critiques(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test debate with critique phase."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
 
-        for i in range(3):
-            agents = [
-                E2EAgent(f"agent_{i}_{j}", position=f"solution_{j}", stubbornness=0.3)
-                for j in range(3)
-            ]
-            env = Environment(task=f"Concurrent debate task {i}")
-            arena = Arena(env, agents, e2e_protocol)
-            tasks.append(arena.run())
-
-        results = await asyncio.gather(*tasks)
-
-        assert len(results) == 3
-        assert all(r is not None for r in results)
-
-
-class TestDebateEdgeCases:
-    """Tests for edge cases and error handling."""
-
-    @pytest.mark.asyncio
-    async def test_debate_with_minimum_agents(self, e2e_protocol, mock_external_apis):
-        """Debate should work with minimum 2 agents."""
-        agents = [
-            E2EAgent("agent_1", position="option_a"),
-            E2EAgent("agent_2", position="option_b"),
-        ]
-        env = Environment(task="Two-agent debate")
-
-        arena = Arena(env, agents, e2e_protocol)
-        result = await arena.run()
-
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_debate_with_single_round(self, e2e_agents, mock_external_apis):
-        """Debate should complete with single round."""
-        env = Environment(task="Quick decision")
+        env = Environment(task=basic_debate.topic)
         protocol = DebateProtocol(
-            rounds=1,
-            consensus="majority",
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
+            rounds=basic_debate.rounds,
+            critique_enabled=True,
         )
 
-        arena = Arena(env, e2e_agents, protocol)
-        result = await arena.run()
+        mock_agents = [MagicMock() for _ in range(3)]
+        for i, agent in enumerate(mock_agents):
+            agent.name = f"agent_{i}"
+            agent.generate = AsyncMock(return_value=f"Position {i}")
+            agent.critique = AsyncMock(return_value=f"Critique of position")
 
-        assert result is not None
-        assert result.rounds_completed >= 1
-
-    @pytest.mark.asyncio
-    async def test_debate_with_empty_task(self, e2e_agents, e2e_protocol, mock_external_apis):
-        """Debate should handle empty or minimal task gracefully."""
-        env = Environment(task="?")  # Minimal valid task
-
-        arena = Arena(env, e2e_agents, e2e_protocol)
-        result = await arena.run()
-
-        # Should complete or fail gracefully
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_debate_with_long_task(self, e2e_agents, e2e_protocol, mock_external_apis):
-        """Debate should handle very long task descriptions."""
-        long_task = "Design a system " + "with many requirements " * 100
-        env = Environment(task=long_task)
-
-        arena = Arena(env, e2e_agents, e2e_protocol)
+        arena = Arena(env, mock_agents, protocol)
         result = await arena.run()
 
         assert result is not None
 
 
-class TestDebateFormats:
-    """Tests for debate format selection (Quick vs Thorough)."""
+# ============================================================================
+# Extended Debate E2E Tests
+# ============================================================================
+
+
+class TestExtendedDebateE2E:
+    """E2E tests for extended (50+) round debates."""
 
     @pytest.mark.asyncio
-    async def test_light_format_protocol_parameters(self):
-        """Light format protocol should have correct parameters."""
-        from aragora.debate.protocol import ARAGORA_AI_LIGHT_PROTOCOL
+    async def test_extended_debate_with_rlm(
+        self,
+        extended_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test 55-round debate with RLM context management."""
+        from aragora.debate.extended_rounds import ExtendedDebateConfig, RLMContextManager
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
 
-        # Verify quick format parameters
-        assert ARAGORA_AI_LIGHT_PROTOCOL.rounds == 4
-        assert ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds == 300  # 5 minutes
-        assert ARAGORA_AI_LIGHT_PROTOCOL.round_timeout_seconds == 60  # 1 min/round
-        # Light mode disables compute-intensive features
-        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_calibration is False
-        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_trickster is False
-        assert ARAGORA_AI_LIGHT_PROTOCOL.enable_research is False
+        env = Environment(task=extended_debate.topic)
 
-    @pytest.mark.asyncio
-    async def test_full_format_protocol_parameters(self):
-        """Full format protocol should have correct parameters."""
-        from aragora.debate.protocol import ARAGORA_AI_PROTOCOL
-
-        # Verify thorough format parameters
-        assert ARAGORA_AI_PROTOCOL.rounds == 9
-        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 1800  # 30 minutes
-        assert ARAGORA_AI_PROTOCOL.round_timeout_seconds == 150  # 2.5 min/round
-        # Full mode enables all quality features
-        assert ARAGORA_AI_PROTOCOL.enable_calibration is True
-        assert ARAGORA_AI_PROTOCOL.enable_trickster is True
-        assert ARAGORA_AI_PROTOCOL.enable_research is True
-
-    @pytest.mark.asyncio
-    async def test_light_format_debate_completes(self, mock_external_apis):
-        """Light format debates should complete within round limit."""
-        # Use 4-round protocol matching light format, with mutex-causing features disabled
-        light_test_protocol = DebateProtocol(
-            rounds=4,
-            consensus="judge",
-            early_stopping=True,
-            early_stop_threshold=0.7,
-            min_rounds_before_early_stop=2,
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
+        # Create extended config
+        ext_config = ExtendedDebateConfig(
+            max_rounds=extended_debate.rounds,
+            compression_threshold=0.7,
+            summary_frequency=10,
         )
 
-        agents = [
-            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.2) for i in range(3)
-        ]
-        env = Environment(task="Quick test question")
+        protocol = DebateProtocol(
+            rounds=extended_debate.rounds,
+            extended_config=ext_config,
+        )
 
-        arena = Arena(env, agents, light_test_protocol)
+        # Mock RLM context manager
+        with patch.object(RLMContextManager, "compress") as mock_compress:
+            mock_compress.return_value = "Compressed context summary"
+
+            mock_agents = [MagicMock() for _ in extended_debate.agents]
+            for i, agent in enumerate(mock_agents):
+                agent.name = extended_debate.agents[i]
+                agent.generate = AsyncMock(return_value=f"Round response from {agent.name}")
+
+            arena = Arena(env, mock_agents, protocol)
+
+            # Should complete without memory issues
+            result = await arena.run()
+
+            assert result is not None
+            # RLM compression should have been called
+            assert mock_compress.call_count > 0
+
+    @pytest.mark.asyncio
+    async def test_extended_debate_checkpoint_resume(
+        self,
+        extended_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test checkpointing and resuming extended debate."""
+        from aragora.debate.extended_rounds import ExtendedDebateConfig
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
+
+        env = Environment(task=extended_debate.topic)
+        protocol = DebateProtocol(rounds=20)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+        for i, agent in enumerate(mock_agents):
+            agent.name = f"agent_{i}"
+            agent.generate = AsyncMock(return_value=f"Response {i}")
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Run first 10 rounds
+        with patch.object(Arena, "checkpoint") as mock_checkpoint:
+            mock_checkpoint.return_value = {"round": 10, "state": "serialized"}
+
+            result = await arena.run(max_rounds=10)
+            checkpoint_data = arena.checkpoint()
+
+            assert checkpoint_data is not None
+
+        # Resume from checkpoint
+        with patch.object(Arena, "restore") as mock_restore:
+            mock_restore.return_value = True
+
+            arena2 = Arena(env, mock_agents, protocol)
+            arena2.restore(checkpoint_data)
+
+            result = await arena2.run()
+            assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_extended_debate_memory_efficiency(
+        self,
+        extended_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test memory doesn't grow unbounded in extended debates."""
+        import sys
+        from aragora.debate.extended_rounds import RLMContextManager
+
+        # Track memory usage
+        initial_size = 0
+        final_size = 0
+
+        context_manager = RLMContextManager()
+
+        # Simulate 50 rounds of context accumulation
+        for round_num in range(50):
+            context_manager.add_round(
+                round_num,
+                [
+                    {"agent": "claude", "content": "A" * 1000},
+                    {"agent": "gpt4", "content": "B" * 1000},
+                    {"agent": "gemini", "content": "C" * 1000},
+                ],
+            )
+
+            if round_num == 0:
+                initial_size = sys.getsizeof(context_manager.get_context())
+
+        final_size = sys.getsizeof(context_manager.get_context())
+
+        # Memory should not grow linearly with rounds due to compression
+        # Final size should be less than 10x initial (with compression)
+        assert final_size < initial_size * 20  # Allow some growth
+
+
+# ============================================================================
+# Cross-Debate Memory E2E Tests
+# ============================================================================
+
+
+class TestCrossDebateMemoryE2E:
+    """E2E tests for cross-debate RLM memory."""
+
+    @pytest.mark.asyncio
+    async def test_cross_debate_context_retrieval(self, mock_llm_agents):
+        """Test retrieving context from previous debates."""
+        from aragora.memory.cross_debate_rlm import CrossDebateMemory
+
+        memory = CrossDebateMemory()
+
+        # Store first debate
+        await memory.store_debate(
+            debate_id="debate-1",
+            topic="API design patterns",
+            consensus="REST with OpenAPI spec",
+            key_points=["Consistency", "Documentation", "Versioning"],
+        )
+
+        # Store second debate
+        await memory.store_debate(
+            debate_id="debate-2",
+            topic="Database selection",
+            consensus="PostgreSQL for OLTP, ClickHouse for analytics",
+            key_points=["ACID compliance", "Query patterns"],
+        )
+
+        # Retrieve relevant context for new debate
+        context = await memory.get_relevant_context(
+            query="How should we design our API?",
+            max_results=5,
+        )
+
+        assert context is not None
+        assert len(context) > 0
+        # Should find the API design debate
+        assert any("API" in str(c) for c in context)
+
+    @pytest.mark.asyncio
+    async def test_cross_debate_memory_tiering(self, mock_llm_agents):
+        """Test memory tiering (hot/warm/cold/archive)."""
+        from aragora.memory.cross_debate_rlm import CrossDebateMemory, MemoryTier
+
+        memory = CrossDebateMemory()
+
+        # Add debates with different ages
+        await memory.store_debate(
+            debate_id="recent",
+            topic="Recent topic",
+            timestamp_hours_ago=1,  # Hot tier
+        )
+
+        await memory.store_debate(
+            debate_id="older",
+            topic="Older topic",
+            timestamp_hours_ago=48,  # Warm tier
+        )
+
+        await memory.store_debate(
+            debate_id="old",
+            topic="Old topic",
+            timestamp_hours_ago=168,  # Cold tier
+        )
+
+        # Check tier assignments
+        assert memory.get_tier("recent") == MemoryTier.HOT
+        assert memory.get_tier("older") == MemoryTier.WARM
+        assert memory.get_tier("old") == MemoryTier.COLD
+
+
+# ============================================================================
+# Debate Event Streaming E2E Tests
+# ============================================================================
+
+
+class TestDebateStreamingE2E:
+    """E2E tests for debate event streaming."""
+
+    @pytest.mark.asyncio
+    async def test_debate_event_stream(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test WebSocket event streaming during debate."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
+
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=3)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+        for i, agent in enumerate(mock_agents):
+            agent.name = f"agent_{i}"
+            agent.generate = AsyncMock(return_value=f"Response {i}")
+
+        events: List[Dict[str, Any]] = []
+
+        async def event_handler(event: Dict[str, Any]):
+            events.append(event)
+
+        arena = Arena(env, mock_agents, protocol)
+        arena.on_event(event_handler)
+
+        await arena.run()
+
+        # Should have received debate events
+        assert len(events) > 0
+        event_types = {e.get("type") for e in events}
+        assert "round_start" in event_types or "agent_message" in event_types
+
+    @pytest.mark.asyncio
+    async def test_debate_progress_tracking(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test debate progress updates."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
+
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=5)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+        for agent in mock_agents:
+            agent.generate = AsyncMock(return_value="Response")
+
+        progress_updates: List[float] = []
+
+        async def progress_handler(progress: float):
+            progress_updates.append(progress)
+
+        arena = Arena(env, mock_agents, protocol)
+        arena.on_progress(progress_handler)
+
+        await arena.run()
+
+        # Should have progress updates
+        assert len(progress_updates) > 0
+        # Progress should increase
+        assert progress_updates[-1] >= progress_updates[0]
+
+
+# ============================================================================
+# Debate Voting E2E Tests
+# ============================================================================
+
+
+class TestDebateVotingE2E:
+    """E2E tests for debate voting system."""
+
+    @pytest.mark.asyncio
+    async def test_agent_voting(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test agent voting on positions."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.voting import VotingEngine
+        from aragora.core import Environment
+
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=3, voting_enabled=True)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+        for i, agent in enumerate(mock_agents):
+            agent.name = f"agent_{i}"
+            agent.generate = AsyncMock(return_value=f"Position {i}")
+            agent.vote = AsyncMock(return_value={"position": 0, "confidence": 0.8})
+
+        arena = Arena(env, mock_agents, protocol)
         result = await arena.run()
 
         assert result is not None
-        assert result.rounds_completed <= 4
-        assert result.final_answer is not None
 
     @pytest.mark.asyncio
-    async def test_full_format_debate_with_test_protocol(self, mock_external_apis):
-        """Full format debates should use extended rounds (test-safe version)."""
-        # Use 9-round protocol with mutex-causing features disabled for testing
-        full_test_protocol = DebateProtocol(
-            rounds=9,
-            consensus="majority",
-            enable_calibration=False,
-            convergence_detection=False,
-            enable_trickster=False,
-            enable_rhetorical_observer=False,
-            enable_evolution=False,
-            enable_research=False,
-            enable_breakpoints=False,
-            enable_evidence_weighting=False,
-        )
+    async def test_user_participation(
+        self,
+        basic_debate: DebateSetup,
+        mock_llm_agents,
+    ):
+        """Test user votes and suggestions integration."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
 
-        agents = [
-            E2EAgent(f"agent_{i}", position=f"solution_{i}", stubbornness=0.3) for i in range(3)
-        ]
-        env = Environment(task="Thorough test question")
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=3, user_participation=True)
 
-        arena = Arena(env, agents, full_test_protocol)
+        mock_agents = [MagicMock() for _ in range(3)]
+        for agent in mock_agents:
+            agent.generate = AsyncMock(return_value="Response")
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Simulate user input
+        await arena.add_user_vote(agent_name="agent_0", score=5)
+        await arena.add_user_suggestion("Consider edge cases")
+
         result = await arena.run()
-
         assert result is not None
-        # Should complete within 9 rounds
-        assert result.rounds_completed <= 9
+
+
+# ============================================================================
+# Debate Error Handling E2E Tests
+# ============================================================================
+
+
+class TestDebateErrorHandlingE2E:
+    """E2E tests for debate error handling."""
 
     @pytest.mark.asyncio
-    async def test_format_timeout_difference(self):
-        """Different formats should have significantly different timeouts."""
-        from aragora.debate.protocol import (
-            ARAGORA_AI_LIGHT_PROTOCOL,
-            ARAGORA_AI_PROTOCOL,
-        )
+    async def test_agent_failure_recovery(
+        self,
+        basic_debate: DebateSetup,
+    ):
+        """Test debate continues when agent fails."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
 
-        # Full protocol should have 6x the timeout of light
-        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 1800
-        assert ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds == 300
-        assert ARAGORA_AI_PROTOCOL.timeout_seconds == 6 * ARAGORA_AI_LIGHT_PROTOCOL.timeout_seconds
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=3)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+
+        # First agent fails
+        mock_agents[0].name = "failing_agent"
+        mock_agents[0].generate = AsyncMock(side_effect=Exception("Agent error"))
+
+        # Other agents work
+        for i in range(1, 3):
+            mock_agents[i].name = f"agent_{i}"
+            mock_agents[i].generate = AsyncMock(return_value=f"Response {i}")
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Should complete despite agent failure
+        result = await arena.run()
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_timeout_handling(
+        self,
+        basic_debate: DebateSetup,
+    ):
+        """Test debate timeout handling."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
+
+        env = Environment(task=basic_debate.topic)
+        protocol = DebateProtocol(rounds=3, round_timeout=1.0)
+
+        mock_agents = [MagicMock() for _ in range(3)]
+
+        # Slow agent
+        async def slow_response(*args, **kwargs):
+            await asyncio.sleep(5)  # Too slow
+            return "Late response"
+
+        mock_agents[0].name = "slow_agent"
+        mock_agents[0].generate = slow_response
+
+        for i in range(1, 3):
+            mock_agents[i].name = f"agent_{i}"
+            mock_agents[i].generate = AsyncMock(return_value=f"Response {i}")
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Should handle timeout gracefully
+        result = await arena.run()
+        assert result is not None

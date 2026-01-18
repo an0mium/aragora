@@ -1,13 +1,12 @@
 """
-E2E test fixtures for Aragora.
+Shared fixtures for E2E tests.
 
-Provides fixtures for full end-to-end testing of the complete
-debate lifecycle including:
-- Debate creation via API
-- Debate execution with real-ish agents
-- Memory persistence
-- ELO updates
-- Archival
+Provides:
+- Server fixtures (test client, async client)
+- Database fixtures (test database, cleanup)
+- Tenant fixtures (test tenants, isolation verification)
+- Connector fixtures (mock external services)
+- Debate fixtures (agent mocks, debate setup)
 """
 
 from __future__ import annotations
@@ -15,197 +14,307 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-from pathlib import Path
-from typing import Generator, Optional
-from unittest.mock import AsyncMock, patch
+import uuid
+from contextlib import asynccontextmanager, contextmanager
+from dataclasses import dataclass, field
+from typing import Any, AsyncGenerator, Dict, Generator, List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 
-@pytest.fixture(autouse=True)
-def use_jaccard_similarity():
-    """Use simple Jaccard similarity backend to avoid sentence-transformer mutex issues.
-
-    The sentence-transformers library can cause mutex deadlocks when
-    multiple tests run concurrently. Using Jaccard backend avoids this
-    while still testing vote grouping logic.
-    """
-    old_value = os.environ.get("ARAGORA_SIMILARITY_BACKEND")
-    os.environ["ARAGORA_SIMILARITY_BACKEND"] = "jaccard"
-    yield
-    if old_value is not None:
-        os.environ["ARAGORA_SIMILARITY_BACKEND"] = old_value
-    else:
-        os.environ.pop("ARAGORA_SIMILARITY_BACKEND", None)
+# ============================================================================
+# Configuration
+# ============================================================================
 
 
-from aragora.core import Agent, Vote, Critique, Environment
-from aragora.debate.orchestrator import Arena, DebateProtocol
+@dataclass
+class E2EConfig:
+    """E2E test configuration."""
+
+    test_port: int = 18080
+    test_host: str = "127.0.0.1"
+    use_temp_db: bool = True
+    db_url: Optional[str] = None
+    request_timeout: float = 30.0
+    debate_timeout: float = 120.0
+    sync_timeout: float = 60.0
+    mock_external_apis: bool = True
+    mock_llm_responses: bool = True
 
 
-def pytest_collection_modifyitems(items):
-    """Automatically add e2e marker to all tests in this directory."""
-    for item in items:
-        if "/e2e/" in str(item.fspath):
-            item.add_marker(pytest.mark.e2e)
+@pytest.fixture(scope="session")
+def e2e_config() -> E2EConfig:
+    """Provide E2E configuration."""
+    return E2EConfig(
+        test_port=int(os.environ.get("E2E_TEST_PORT", "18080")),
+        mock_external_apis=os.environ.get("E2E_REAL_APIS", "false").lower() != "true",
+        mock_llm_responses=os.environ.get("E2E_REAL_LLM", "false").lower() != "true",
+    )
 
 
-class E2EAgent(Agent):
-    """
-    Agent for E2E testing that simulates realistic debate behavior.
-
-    Unlike MockAgent, this agent provides more realistic responses
-    that evolve over rounds, simulating actual debate dynamics.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        position: str = "neutral",
-        personality: str = "analytical",
-        stubbornness: float = 0.5,
-    ):
-        super().__init__(name, model="e2e-test", role="proposer")
-        self.position = position
-        self.personality = personality
-        self.stubbornness = stubbornness
-        self._round = 0
-        self._proposals: dict[str, str] = {}
-
-    async def generate(self, prompt: str, context: list | None = None) -> str:
-        self._round += 1
-
-        # Generate response based on personality and round
-        if self.personality == "analytical":
-            return f"[Round {self._round}] After careful analysis, I propose: {self.position}. This approach balances trade-offs effectively."
-        elif self.personality == "creative":
-            return f"[Round {self._round}] Here's an innovative approach: {self.position}. We should explore unconventional solutions."
-        else:
-            return f"[Round {self._round}] My position: {self.position}."
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list | None = None,
-        target_agent: str | None = None,
-    ) -> Critique:
-        # Record proposals for voting
-        self._proposals[self.name] = proposal
-
-        # Use provided target_agent or fallback to "target"
-        target = target_agent or "target"
-
-        # Generate critique based on stubbornness
-        if self.stubbornness > 0.7:
-            return Critique(
-                agent=self.name,
-                target_agent=target,
-                target_content=proposal[:100],
-                issues=["The approach has fundamental flaws"],
-                suggestions=["Consider my alternative"],
-                severity=0.7,
-                reasoning="Strong disagreement",
-            )
-        else:
-            return Critique(
-                agent=self.name,
-                target_agent=target,
-                target_content=proposal[:100],
-                issues=["Minor improvements possible"],
-                suggestions=["Consider edge cases"],
-                severity=0.3,
-                reasoning="Generally acceptable",
-            )
-
-    async def vote(self, proposals: dict, task: str) -> Vote:
-        # Vote based on stubbornness - stubborn agents vote for themselves
-        if self.stubbornness > 0.6 and self.name in proposals:
-            choice = self.name
-            confidence = self.stubbornness
-        else:
-            # Prefer proposals that align with our position for majority convergence
-            position = self.position.lower()
-            aligned = [
-                agent
-                for agent, proposal in proposals.items()
-                if position and position in str(proposal).lower()
-            ]
-            if aligned:
-                choice = aligned[0]
-            else:
-                # Fallback to first non-self proposal
-                other_choices = [k for k in proposals.keys() if k != self.name]
-                choice = other_choices[0] if other_choices else self.name
-            confidence = 0.7
-
-        return Vote(
-            agent=self.name,
-            choice=choice,
-            reasoning=f"Supporting {choice}'s approach",
-            confidence=confidence,
-            continue_debate=self._round < 3,
-        )
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an event loop for the test session."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
-@pytest.fixture
-def temp_e2e_dir():
-    """Create a temporary directory for E2E test data."""
-    with tempfile.TemporaryDirectory(prefix="aragora_e2e_") as tmpdir:
-        yield Path(tmpdir)
+# ============================================================================
+# Test Client
+# ============================================================================
+
+
+@dataclass
+class TestClient:
+    """HTTP test client for E2E tests."""
+
+    base_url: str
+
+    async def get(self, path: str, headers: Optional[Dict[str, str]] = None,
+                  params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            url = f"{self.base_url}{path}"
+            async with session.get(url, headers=headers, params=params) as response:
+                return {
+                    "status": response.status,
+                    "headers": dict(response.headers),
+                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "text": await response.text(),
+                }
+
+    async def post(self, path: str, json: Optional[Dict[str, Any]] = None,
+                   headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            url = f"{self.base_url}{path}"
+            async with session.post(url, json=json, headers=headers) as response:
+                return {
+                    "status": response.status,
+                    "headers": dict(response.headers),
+                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "text": await response.text(),
+                }
+
+    async def put(self, path: str, json: Optional[Dict[str, Any]] = None,
+                  headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            url = f"{self.base_url}{path}"
+            async with session.put(url, json=json, headers=headers) as response:
+                return {
+                    "status": response.status,
+                    "headers": dict(response.headers),
+                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "text": await response.text(),
+                }
+
+    async def delete(self, path: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            url = f"{self.base_url}{path}"
+            async with session.delete(url, headers=headers) as response:
+                return {
+                    "status": response.status,
+                    "headers": dict(response.headers),
+                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "text": await response.text(),
+                }
+
+
+@pytest_asyncio.fixture
+async def test_client(e2e_config: E2EConfig) -> AsyncGenerator[TestClient, None]:
+    """Provide test HTTP client."""
+    client = TestClient(base_url=f"http://{e2e_config.test_host}:{e2e_config.test_port}")
+    yield client
+
+
+# ============================================================================
+# Tenant Fixtures
+# ============================================================================
+
+
+@dataclass
+class TestTenant:
+    """Test tenant for isolation testing."""
+
+    id: str
+    name: str
+    api_key: str
+    tier: str = "standard"
+
+    @property
+    def auth_headers(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_key}", "X-Tenant-ID": self.id}
 
 
 @pytest.fixture
-def e2e_agents():
-    """Create a set of E2E agents with different personalities."""
+def tenant_a() -> TestTenant:
+    return TestTenant(
+        id=f"tenant-a-{uuid.uuid4().hex[:8]}",
+        name="Acme Corp",
+        api_key=f"ak_test_a_{uuid.uuid4().hex}",
+        tier="enterprise",
+    )
+
+
+@pytest.fixture
+def tenant_b() -> TestTenant:
+    return TestTenant(
+        id=f"tenant-b-{uuid.uuid4().hex[:8]}",
+        name="Globex Inc",
+        api_key=f"ak_test_b_{uuid.uuid4().hex}",
+        tier="standard",
+    )
+
+
+@pytest.fixture
+def isolated_tenants(tenant_a: TestTenant, tenant_b: TestTenant) -> List[TestTenant]:
+    return [tenant_a, tenant_b]
+
+
+# ============================================================================
+# Connector Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def mock_github_api():
+    responses = {
+        "repos": [{"id": 1, "name": "repo-1", "full_name": "org/repo-1"}],
+        "contents": [{"name": "README.md", "path": "README.md", "type": "file"}],
+    }
+    with patch("aragora.connectors.enterprise.git.github.GitHubClient") as mock:
+        instance = MagicMock()
+        instance.get_repos = AsyncMock(return_value=responses["repos"])
+        instance.get_contents = AsyncMock(return_value=responses["contents"])
+        mock.return_value = instance
+        yield mock
+
+
+@pytest.fixture
+def mock_slack_api():
+    responses = {
+        "channels": [{"id": "C001", "name": "general", "is_channel": True}],
+        "messages": [{"ts": "1234567890.123456", "text": "Hello!", "user": "U001"}],
+    }
+    with patch("aragora.connectors.enterprise.collaboration.slack.SlackClient") as mock:
+        instance = MagicMock()
+        instance.list_channels = AsyncMock(return_value=responses["channels"])
+        instance.get_messages = AsyncMock(return_value=responses["messages"])
+        mock.return_value = instance
+        yield mock
+
+
+# ============================================================================
+# Agent Fixtures
+# ============================================================================
+
+
+@dataclass
+class MockAgentResponse:
+    content: str
+    model: str = "mock-model"
+    usage: Dict[str, int] = field(default_factory=lambda: {"prompt_tokens": 100, "completion_tokens": 50})
+
+
+@pytest.fixture
+def mock_llm_agents():
+    responses = [
+        MockAgentResponse(content="Thoughtful response to the debate topic.", model="claude-3-opus"),
+        MockAgentResponse(content="Counter-argument with evidence.", model="gpt-4"),
+        MockAgentResponse(content="Finding common ground.", model="gemini-pro"),
+    ]
+    response_idx = [0]
+
+    def get_next(*args, **kwargs):
+        idx = response_idx[0] % len(responses)
+        response_idx[0] += 1
+        return responses[idx]
+
+    with patch("aragora.agents.cli_agents.call_agent") as mock:
+        mock.side_effect = get_next
+        yield mock
+
+
+# ============================================================================
+# Debate Fixtures
+# ============================================================================
+
+
+@dataclass
+class DebateSetup:
+    topic: str
+    agents: List[str]
+    rounds: int
+    protocol: str = "structured"
+    consensus_threshold: float = 0.7
+
+    def to_config(self) -> Dict[str, Any]:
+        return {
+            "topic": self.topic,
+            "agents": self.agents,
+            "protocol": {"type": self.protocol, "rounds": self.rounds,
+                        "consensus": {"type": "majority", "threshold": self.consensus_threshold}},
+        }
+
+
+@pytest.fixture
+def basic_debate() -> DebateSetup:
+    return DebateSetup(
+        topic="Should we adopt microservices architecture?",
+        agents=["claude", "gpt4", "gemini"],
+        rounds=3,
+    )
+
+
+@pytest.fixture
+def extended_debate() -> DebateSetup:
+    return DebateSetup(
+        topic="Optimal approach to distributed system design?",
+        agents=["claude", "gpt4", "gemini", "mistral"],
+        rounds=55,
+        protocol="extended",
+        consensus_threshold=0.8,
+    )
+
+
+# ============================================================================
+# Knowledge Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def sample_facts() -> List[Dict[str, Any]]:
     return [
-        E2EAgent(
-            "analyst", position="systematic_approach", personality="analytical", stubbornness=0.3
-        ),
-        E2EAgent(
-            "innovator", position="creative_solution", personality="creative", stubbornness=0.4
-        ),
-        E2EAgent(
-            "pragmatist", position="practical_approach", personality="neutral", stubbornness=0.5
-        ),
+        {"content": "Python is a programming language.", "source": "e2e_test", "confidence": 0.99},
+        {"content": "Machine learning requires data.", "source": "e2e_test", "confidence": 0.95},
+        {"content": "APIs enable system integration.", "source": "e2e_test", "confidence": 0.97},
     ]
 
 
-@pytest.fixture
-def e2e_environment():
-    """Create an environment for E2E testing."""
-    return Environment(
-        task="Design a scalable microservices architecture for a real-time collaboration platform",
-        context="The platform needs to support 10,000 concurrent users with sub-100ms latency.",
-    )
+# ============================================================================
+# Utilities
+# ============================================================================
 
 
 @pytest.fixture
-def e2e_protocol():
-    """Create a minimal debate protocol for E2E testing.
+def unique_id() -> str:
+    return uuid.uuid4().hex[:12]
 
-    Disables all database/embedding-dependent features to prevent
-    SQLite mutex deadlock when multiple tests run concurrently.
-    E2E tests focus on debate flow, not individual subsystem features.
-    """
-    return DebateProtocol(
-        rounds=3,
-        consensus="majority",
-        # Disable all DB/embedding-dependent features to prevent mutex deadlock
-        enable_calibration=False,
-        convergence_detection=False,
-        enable_trickster=False,
-        enable_rhetorical_observer=False,
-        enable_evolution=False,
-        enable_research=False,
-        enable_breakpoints=False,
-        enable_evidence_weighting=False,
-    )
+
+@contextmanager
+def assert_timing(max_seconds: float):
+    import time
+    start = time.monotonic()
+    yield
+    elapsed = time.monotonic() - start
+    assert elapsed <= max_seconds, f"Operation took {elapsed:.2f}s, expected <= {max_seconds}s"
 
 
 @pytest.fixture
-def mock_external_apis():
-    """Mock external API calls for E2E tests."""
-    with patch.object(Arena, "_gather_trending_context", new_callable=AsyncMock) as mock:
-        mock.return_value = None
-        yield mock
+def timing_context():
+    return assert_timing
