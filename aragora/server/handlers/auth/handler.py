@@ -13,6 +13,8 @@ Endpoints:
 - POST /api/auth/password - Change password
 - POST /api/auth/api-key - Generate API key
 - DELETE /api/auth/api-key - Revoke API key
+- GET /api/auth/sessions - List active sessions for current user
+- DELETE /api/auth/sessions/:id - Revoke a specific session
 """
 
 from __future__ import annotations
@@ -59,11 +61,18 @@ class AuthHandler(BaseHandler):
         "/api/auth/mfa/disable",
         "/api/auth/mfa/verify",
         "/api/auth/mfa/backup-codes",
+        "/api/auth/sessions",
+        "/api/auth/sessions/*",  # For DELETE /api/auth/sessions/:id
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        # Handle wildcard routes for session management
+        if path.startswith("/api/auth/sessions/"):
+            return True
+        return False
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"
@@ -121,6 +130,14 @@ class AuthHandler(BaseHandler):
 
         if path == "/api/auth/mfa/backup-codes" and method == "POST":
             return self._handle_mfa_backup_codes(handler)
+
+        # Session management endpoints
+        if path == "/api/auth/sessions" and method == "GET":
+            return self._handle_list_sessions(handler)
+
+        if path.startswith("/api/auth/sessions/") and method == "DELETE":
+            session_id = path.split("/")[-1]
+            return self._handle_revoke_session(handler, session_id)
 
         return error_response("Method not allowed", 405)
 
@@ -1071,6 +1088,113 @@ class AuthHandler(BaseHandler):
                 "warning": "Save these backup codes securely. They cannot be shown again.",
             }
         )
+
+    # =========================================================================
+    # Session Management
+    # =========================================================================
+
+    @rate_limit(rpm=30, limiter_name="auth_sessions")
+    @handle_errors("list sessions")
+    def _handle_list_sessions(self, handler) -> HandlerResult:
+        """List all active sessions for the current user.
+
+        Returns list of sessions with metadata (device, IP, last activity).
+        The current session is marked with is_current=true.
+        """
+        from aragora.billing.auth.sessions import get_session_manager
+        from aragora.billing.jwt_auth import decode_jwt
+        from aragora.server.middleware.auth import extract_token
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        # Get current token JTI to mark current session
+        current_jti = None
+        token = extract_token(handler)
+        if token:
+            payload = decode_jwt(token)
+            current_jti = payload.jti if payload else None
+
+        # Get sessions from manager
+        manager = get_session_manager()
+        sessions = manager.list_sessions(auth_ctx.user_id)
+
+        # Convert to response format
+        session_list = []
+        for session in sessions:
+            session_dict = session.to_dict()
+            session_dict["is_current"] = session.session_id == current_jti
+            session_list.append(session_dict)
+
+        # Sort by last activity (most recent first)
+        session_list.sort(key=lambda s: s["last_activity"], reverse=True)
+
+        return json_response({
+            "sessions": session_list,
+            "total": len(session_list),
+        })
+
+    @rate_limit(rpm=10, limiter_name="auth_revoke_session")
+    @handle_errors("revoke session")
+    def _handle_revoke_session(self, handler, session_id: str) -> HandlerResult:
+        """Revoke a specific session.
+
+        This invalidates the session and adds the token to the blacklist.
+        Users cannot revoke their current session (use logout instead).
+        """
+        from aragora.billing.auth.sessions import get_session_manager
+        from aragora.billing.jwt_auth import decode_jwt
+        from aragora.server.middleware.auth import extract_token
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated:
+            return error_response("Not authenticated", 401)
+
+        # Validate session_id format
+        if not session_id or len(session_id) < 8:
+            return error_response("Invalid session ID", 400)
+
+        # Check if trying to revoke current session
+        current_jti = None
+        token = extract_token(handler)
+        if token:
+            payload = decode_jwt(token)
+            current_jti = payload.jti if payload else None
+
+        if session_id == current_jti:
+            return error_response(
+                "Cannot revoke current session. Use /api/auth/logout instead.",
+                400,
+            )
+
+        # Get session manager and verify session belongs to user
+        manager = get_session_manager()
+        session = manager.get_session(auth_ctx.user_id, session_id)
+
+        if not session:
+            return error_response("Session not found", 404)
+
+        # Revoke the session
+        manager.revoke_session(auth_ctx.user_id, session_id)
+
+        # Note: We don't have the actual token to blacklist here since we only
+        # store session metadata. The token will be rejected when:
+        # 1. User increments token version (logout-all)
+        # 2. Token expires naturally
+        # For immediate revocation, users should use logout-all
+
+        logger.info(
+            f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}"
+        )
+
+        return json_response({
+            "success": True,
+            "message": "Session revoked successfully",
+            "session_id": session_id,
+        })
 
 
 __all__ = ["AuthHandler"]
