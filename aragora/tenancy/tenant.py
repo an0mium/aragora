@@ -290,3 +290,119 @@ class Tenant:
             "current_month_debates": self.current_month_debates,
             "storage_used": self.storage_used,
         }
+
+
+class TenantSuspendedError(Exception):
+    """Raised when a suspended tenant attempts to perform an action."""
+
+    def __init__(self, tenant_id: str, reason: str = ""):
+        self.tenant_id = tenant_id
+        self.reason = reason
+        message = f"Tenant {tenant_id} is suspended"
+        if reason:
+            message += f": {reason}"
+        super().__init__(message)
+
+
+class TenantManager:
+    """Manager for tenant lifecycle and validation.
+
+    Provides centralized tenant registration, validation, and suspension
+    management for multi-tenant deployments.
+    """
+
+    def __init__(self):
+        self._tenants: dict[str, Tenant] = {}
+        self._api_key_index: dict[str, str] = {}  # hash -> tenant_id
+
+    def register_tenant(self, tenant: Tenant) -> None:
+        """Register a tenant in the manager."""
+        self._tenants[tenant.id] = tenant
+        if tenant.api_key_hash:
+            self._api_key_index[tenant.api_key_hash] = tenant.id
+
+    def unregister_tenant(self, tenant_id: str) -> Optional[Tenant]:
+        """Remove a tenant from the manager."""
+        tenant = self._tenants.pop(tenant_id, None)
+        if tenant and tenant.api_key_hash:
+            self._api_key_index.pop(tenant.api_key_hash, None)
+        return tenant
+
+    def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
+        """Get a tenant by ID."""
+        return self._tenants.get(tenant_id)
+
+    async def validate_api_key(self, api_key: str) -> Optional[Tenant]:
+        """Validate an API key and return the associated tenant.
+
+        Returns None if the key is invalid or tenant not found.
+        Raises TenantSuspendedError if tenant is suspended.
+        """
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        tenant_id = self._api_key_index.get(key_hash)
+
+        if not tenant_id:
+            # Fallback: check all tenants (slower but handles unindexed keys)
+            for tenant in self._tenants.values():
+                if tenant.verify_api_key(api_key):
+                    # Index for future lookups
+                    self._api_key_index[key_hash] = tenant.id
+                    if tenant.status == TenantStatus.SUSPENDED:
+                        raise TenantSuspendedError(tenant.id)
+                    return tenant if tenant.is_active() else None
+            return None
+
+        tenant = self._tenants.get(tenant_id)
+        if not tenant:
+            return None
+
+        if tenant.status == TenantStatus.SUSPENDED:
+            raise TenantSuspendedError(tenant.id)
+
+        return tenant if tenant.is_active() else None
+
+    async def suspend_tenant(self, tenant_id: str, reason: str = "") -> bool:
+        """Suspend a tenant account.
+
+        Returns True if suspension was successful, False if tenant not found.
+        """
+        tenant = self._tenants.get(tenant_id)
+        if not tenant:
+            return False
+
+        tenant.status = TenantStatus.SUSPENDED
+        tenant.updated_at = datetime.now()
+        return True
+
+    async def activate_tenant(self, tenant_id: str) -> bool:
+        """Reactivate a suspended tenant.
+
+        Returns True if activation was successful, False if tenant not found.
+        """
+        tenant = self._tenants.get(tenant_id)
+        if not tenant:
+            return False
+
+        tenant.status = TenantStatus.ACTIVE
+        tenant.updated_at = datetime.now()
+        return True
+
+    def list_tenants(
+        self,
+        status: Optional[TenantStatus] = None,
+        tier: Optional[TenantTier] = None,
+    ) -> list[Tenant]:
+        """List tenants with optional filtering."""
+        tenants = list(self._tenants.values())
+
+        if status:
+            tenants = [t for t in tenants if t.status == status]
+        if tier:
+            tenants = [t for t in tenants if t.tier == tier]
+
+        return tenants
+
+    @property
+    def count(self) -> int:
+        """Number of registered tenants."""
+        return len(self._tenants)

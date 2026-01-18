@@ -354,3 +354,31 @@ class TenantContextStack:
         """Clear the stack."""
         self._stack.clear()
         set_tenant_id(None)
+
+
+# Audit backend management
+# Used for tenant-aware audit logging
+
+_audit_backend: ContextVar[Optional[Any]] = ContextVar(
+    "audit_backend", default=None
+)
+
+
+def get_audit_backend() -> Optional[Any]:
+    """
+    Get the configured audit backend.
+
+    Returns:
+        The audit backend instance, or None if not configured.
+    """
+    return _audit_backend.get()
+
+
+def set_audit_backend(backend: Optional[Any]) -> None:
+    """
+    Set the audit backend.
+
+    Args:
+        backend: The audit backend instance to use, or None to clear.
+    """
+    _audit_backend.set(backend)

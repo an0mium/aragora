@@ -58,6 +58,10 @@ class IsolationViolation(Exception):
         super().__init__(message)
 
 
+# Alias for backwards compatibility with tests
+TenantIsolationError = IsolationViolation
+
+
 @dataclass
 class TenantIsolationConfig:
     """Configuration for tenant isolation."""
@@ -182,6 +186,17 @@ class TenantDataIsolation:
 
         # Merge tenant filter with existing query
         return {**query, **tenant_filter}
+
+    # Alias for backwards compatibility with tests
+    def apply_tenant_filter(
+        self,
+        base_sql: str,
+        resource_type: str = "default",
+        tenant_id: Optional[str] = None,
+        table_alias: Optional[str] = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Alias for filter_sql for backwards compatibility."""
+        return self.filter_sql(base_sql, resource_type, tenant_id, table_alias)
 
     def filter_sql(
         self,

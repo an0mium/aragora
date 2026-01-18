@@ -17,13 +17,16 @@ Usage:
 
 from aragora.tenancy.context import (
     TenantContext,
+    get_audit_backend,
     get_current_tenant,
     require_tenant,
+    set_audit_backend,
     set_tenant,
 )
 from aragora.tenancy.isolation import (
     TenantDataIsolation,
     TenantIsolationConfig,
+    TenantIsolationError,
 )
 from aragora.tenancy.quotas import (
     QuotaConfig,
@@ -33,19 +36,24 @@ from aragora.tenancy.quotas import (
 from aragora.tenancy.tenant import (
     Tenant,
     TenantConfig,
+    TenantManager,
     TenantStatus,
+    TenantSuspendedError,
     TenantTier,
 )
 
 __all__ = [
     # Context
     "TenantContext",
+    "get_audit_backend",
     "get_current_tenant",
     "require_tenant",
+    "set_audit_backend",
     "set_tenant",
     # Isolation
     "TenantDataIsolation",
     "TenantIsolationConfig",
+    "TenantIsolationError",
     # Quotas
     "QuotaConfig",
     "QuotaExceeded",
@@ -53,6 +61,8 @@ __all__ = [
     # Tenant
     "Tenant",
     "TenantConfig",
+    "TenantManager",
     "TenantStatus",
+    "TenantSuspendedError",
     "TenantTier",
 ]
