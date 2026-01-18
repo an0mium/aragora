@@ -1,7 +1,7 @@
 # Monitoring Setup Guide
 
-**Last Updated:** January 14, 2026
-**Version:** 1.0.0
+**Last Updated:** January 18, 2026
+**Version:** 1.1.0
 
 ---
 
@@ -446,6 +446,74 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets'
 # Check Grafana health
 curl -s http://localhost:3000/api/health
 ```
+
+---
+
+## Recent Changes to Monitor (January 2026)
+
+### Scheduler Task Handling (PR #13)
+
+The task scheduler now uses proper Redis Streams acknowledgment:
+
+**What Changed:**
+- Tasks are acknowledged with XACK + XDEL (previously was a no-op)
+- Failed tasks move to dead-letter queue after retry exhaustion
+- Capability-based rejections now properly requeue tasks
+
+**Metrics to Watch:**
+```bash
+# Check dead-letter queue size
+redis-cli XLEN aragora:tasks:dead_letter
+
+# Check pending tasks per priority
+redis-cli XLEN aragora:tasks:high
+redis-cli XLEN aragora:tasks:normal
+redis-cli XLEN aragora:tasks:low
+
+# Check pending entries list (tasks claimed but not acked)
+redis-cli XPENDING aragora:tasks:high aragora-workers
+```
+
+**Alerts to Configure:**
+- Dead-letter queue size > 10 (indicates recurring task failures)
+- Pending entries age > 5 minutes (indicates stuck workers)
+- Task rejection rate > 20% (indicates capability mismatch)
+
+### OAuth Authentication
+
+OAuth was added to production with Google and GitHub providers:
+
+**Health Checks:**
+```bash
+# Check OAuth providers endpoint
+curl -s https://api.aragora.ai/api/auth/oauth/providers
+
+# Should return: {"providers": [{"id": "google", ...}, {"id": "github", ...}]}
+```
+
+**Metrics to Watch:**
+- OAuth callback success/failure rates
+- State token expiration errors (indicates clock skew or slow users)
+- Redirect URL validation failures (indicates misconfiguration attempts)
+
+**Logs to Monitor:**
+```bash
+# OAuth errors in CloudWatch/logs
+journalctl -u aragora | grep -i "oauth\|auth"
+```
+
+### AWS Secrets Manager
+
+Production now loads secrets from AWS Secrets Manager:
+
+**Verify Configuration:**
+```bash
+# Check if secrets are loading (should show provider count > 0)
+curl -s https://api.aragora.ai/api/auth/oauth/providers | jq '.providers | length'
+```
+
+**IAM Permissions Required:**
+- `secretsmanager:GetSecretValue` on `arn:aws:secretsmanager:us-east-2:*:secret:aragora/production*`
 
 ---
 
