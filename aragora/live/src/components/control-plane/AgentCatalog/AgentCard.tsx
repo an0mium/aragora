@@ -13,6 +13,8 @@ export interface AgentInfo {
   current_task?: string;
   elo?: number;
   win_rate?: number;
+  calibration_score?: number;
+  brier_score?: number;
   expertise?: string[];
   tokens_used_today?: number;
   requests_today?: number;
@@ -25,6 +27,7 @@ export interface AgentCardProps {
   selected?: boolean;
   onSelect?: (agent: AgentInfo) => void;
   onConfigure?: (agent: AgentInfo) => void;
+  onViewCalibration?: (agent: AgentInfo) => void;
   compact?: boolean;
 }
 
@@ -52,6 +55,7 @@ export function AgentCard({
   selected = false,
   onSelect,
   onConfigure,
+  onViewCalibration,
   compact = false,
 }: AgentCardProps) {
   const colors = statusColors[agent.status];
@@ -67,6 +71,22 @@ export function AgentCard({
     },
     [agent, onConfigure]
   );
+
+  const handleViewCalibration = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onViewCalibration?.(agent);
+    },
+    [agent, onViewCalibration]
+  );
+
+  // Calibration score color (higher is better)
+  const getCalibrationColor = (score: number) => {
+    if (score >= 0.8) return 'text-green-400';
+    if (score >= 0.6) return 'text-acid-cyan';
+    if (score >= 0.4) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
   if (compact) {
     return (
@@ -160,18 +180,42 @@ export function AgentCard({
               </span>
             </div>
           )}
+
+          {/* Calibration score */}
+          {agent.calibration_score !== undefined && (
+            <div className="flex items-center gap-1">
+              <span className="text-text-muted">Cal:</span>
+              <span className={`font-mono ${getCalibrationColor(agent.calibration_score)}`}>
+                {Math.round(agent.calibration_score * 100)}%
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Configure button */}
-        {onConfigure && (
-          <button
-            onClick={handleConfigure}
-            className="text-text-muted hover:text-acid-green transition-colors"
-            title="Configure agent"
-          >
-            ⚙
-          </button>
-        )}
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          {/* Calibration button */}
+          {onViewCalibration && (
+            <button
+              onClick={handleViewCalibration}
+              className="text-text-muted hover:text-acid-cyan transition-colors"
+              title="View calibration curve"
+            >
+              📊
+            </button>
+          )}
+
+          {/* Configure button */}
+          {onConfigure && (
+            <button
+              onClick={handleConfigure}
+              className="text-text-muted hover:text-acid-green transition-colors"
+              title="Configure agent"
+            >
+              ⚙
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Expertise tags */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useApi } from '@/hooks/useApi';
 import { useBackend } from '@/components/BackendSelector';
@@ -37,6 +38,7 @@ export function AgentCatalog({
   enableRealtime = true,
   className = '',
 }: AgentCatalogProps) {
+  const router = useRouter();
   const { config: backendConfig } = useBackend();
   const api = useApi(backendConfig?.api);
 
@@ -146,23 +148,30 @@ export function AgentCatalog({
 
     try {
       // Load from multiple endpoints and merge
-      const [agentsResponse, leaderboardResponse] = await Promise.all([
+      const [agentsResponse, leaderboardResponse, calibrationResponse] = await Promise.all([
         api.get('/api/control-plane/agents').catch(() => ({ agents: [] })) as Promise<{ agents: AgentInfo[] }>,
         api.get('/api/leaderboard').catch(() => ({ leaderboard: [] })) as Promise<{ leaderboard: Array<{ name: string; elo: number; win_rate: number }> }>,
+        api.get('/api/calibration/leaderboard?limit=50').catch(() => ({ agents: [] })) as Promise<{ agents: Array<{ name: string; calibration_score: number; brier_score: number }> }>,
       ]);
 
-      // Merge leaderboard data
+      // Merge leaderboard and calibration data
       const agentList = agentsResponse.agents || [];
       const leaderboard = leaderboardResponse.leaderboard || [];
+      const calibration = calibrationResponse.agents || [];
 
       const enrichedAgents = agentList.map((agent) => {
         const stats = leaderboard.find(
           (l) => l.name.toLowerCase() === agent.name.toLowerCase()
         );
+        const calStats = calibration.find(
+          (c) => c.name.toLowerCase() === agent.name.toLowerCase()
+        );
         return {
           ...agent,
           elo: stats?.elo ?? agent.elo,
           win_rate: stats?.win_rate ?? agent.win_rate,
+          calibration_score: calStats?.calibration_score ?? agent.calibration_score,
+          brier_score: calStats?.brier_score ?? agent.brier_score,
         };
       });
 
@@ -204,6 +213,15 @@ export function AgentCatalog({
       onSelectAgent?.(agent);
     },
     [onSelectAgent]
+  );
+
+  // Handle view calibration
+  const handleViewCalibration = useCallback(
+    (agent: AgentInfo) => {
+      // Navigate to calibration page with agent pre-selected
+      router.push(`/calibration?agent=${encodeURIComponent(agent.name)}`);
+    },
+    [router]
   );
 
   // Count by status
@@ -314,6 +332,7 @@ export function AgentCatalog({
             selected={selectedAgentId === agent.id}
             onSelect={handleSelectAgent}
             onConfigure={onConfigureAgent}
+            onViewCalibration={handleViewCalibration}
             compact={compact}
           />
         ))}
