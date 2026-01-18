@@ -36,7 +36,7 @@ from aragora.documents.models import ChunkType, DocumentChunk
 logger = logging.getLogger(__name__)
 
 
-ChunkingStrategyType = Literal["semantic", "sliding", "recursive", "fixed"]
+ChunkingStrategyType = Literal["semantic", "sliding", "recursive", "fixed", "rlm"]
 
 
 @dataclass
@@ -730,12 +730,389 @@ class FixedSizeChunking(ChunkingStrategy):
         return overlap
 
 
+# RLM availability check
+try:
+    from aragora.rlm import HierarchicalCompressor, RLMConfig, AbstractionLevel
+    HAS_RLM = True
+except ImportError:
+    HAS_RLM = False
+    HierarchicalCompressor = None
+    RLMConfig = None
+    AbstractionLevel = None
+
+
+class RLMChunking(ChunkingStrategy):
+    """
+    RLM-based hierarchical chunking strategy.
+
+    Based on the "Recursive Language Models" paper (arXiv:2512.24601),
+    this strategy creates multi-level chunk hierarchies that enable
+    efficient navigation from summaries to details.
+
+    Best for:
+    - Very long documents (100K+ tokens)
+    - Documents that need to be queried at multiple detail levels
+    - Debate context that exceeds agent context windows
+
+    Creates three levels of chunks:
+    - Level 0 (FULL): Original chunks with full content
+    - Level 1 (SUMMARY): Compressed summaries of groups of chunks
+    - Level 2 (ABSTRACT): High-level overviews
+
+    Each chunk includes a `hierarchy_id` linking to parent summaries,
+    enabling drill-down retrieval.
+    """
+
+    def __init__(
+        self,
+        config: Optional[ChunkingConfig] = None,
+        rlm_config: Optional[Any] = None,
+        agent_call: Optional[Any] = None,
+    ):
+        super().__init__(config)
+        self._rlm_config = rlm_config
+        self._agent_call = agent_call
+        self._compressor = None
+
+        if HAS_RLM and HierarchicalCompressor:
+            config_obj = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
+            self._compressor = HierarchicalCompressor(
+                config=config_obj,
+                agent_call=agent_call,
+            )
+
+    @property
+    def strategy_name(self) -> str:
+        return "rlm"
+
+    def chunk(
+        self,
+        text: str,
+        document_id: str = "",
+        metadata: Optional[dict] = None,
+    ) -> list[DocumentChunk]:
+        """
+        Create hierarchical chunks using RLM compression.
+
+        Returns chunks at multiple abstraction levels, with hierarchy_id
+        metadata linking children to their parent summaries.
+        """
+        if not text.strip():
+            return []
+
+        # Fall back to semantic chunking if RLM not available
+        if not self._compressor:
+            logger.warning("RLM not available, falling back to semantic chunking")
+            fallback = SemanticChunking(self.config)
+            return fallback.chunk(text, document_id, metadata)
+
+        import asyncio
+
+        # Run compression synchronously
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        try:
+            compression_result = loop.run_until_complete(
+                self._compressor.compress(text, source_type="text", max_levels=3)
+            )
+        except Exception as e:
+            logger.error(f"RLM compression failed: {e}, falling back to semantic")
+            fallback = SemanticChunking(self.config)
+            return fallback.chunk(text, document_id, metadata)
+
+        context = compression_result.context
+        chunks = []
+        sequence = 0
+
+        # Process each level of the hierarchy
+        for level in [AbstractionLevel.FULL, AbstractionLevel.DETAILED,
+                      AbstractionLevel.SUMMARY, AbstractionLevel.ABSTRACT]:
+            if level not in context.levels:
+                continue
+
+            level_name = level.name.lower()
+
+            for node in context.levels[level]:
+                # Determine chunk type based on level
+                if level == AbstractionLevel.FULL:
+                    chunk_type = ChunkType.TEXT
+                elif level in (AbstractionLevel.DETAILED, AbstractionLevel.SUMMARY):
+                    chunk_type = ChunkType.SUMMARY
+                else:
+                    chunk_type = ChunkType.ABSTRACT
+
+                # Build metadata with hierarchy info
+                chunk_metadata = {
+                    **(metadata or {}),
+                    "hierarchy_level": level_name,
+                    "hierarchy_id": node.id,
+                    "parent_id": node.parent_id,
+                    "child_ids": node.child_ids,
+                    "key_topics": node.key_topics,
+                    "rlm_compressed": True,
+                }
+
+                chunk = DocumentChunk(
+                    id=f"{document_id}_{node.id}" if document_id else node.id,
+                    document_id=document_id,
+                    content=node.content,
+                    token_count=node.token_count,
+                    sequence=sequence,
+                    start_char=node.source_range[0],
+                    end_char=node.source_range[1],
+                    chunk_type=chunk_type,
+                    heading_context=f"[{level_name.upper()}]",
+                    metadata=chunk_metadata,
+                )
+                chunks.append(chunk)
+                sequence += 1
+
+        logger.info(
+            "RLM chunking created %d chunks at %d levels",
+            len(chunks),
+            len(context.levels),
+        )
+
+        return chunks
+
+
+class HierarchicalChunkNavigator:
+    """
+    Navigator for cross-level chunk hierarchy traversal.
+
+    Enables efficient drill-down from abstract summaries to detailed
+    content, and roll-up from details to summaries.
+
+    Usage:
+        navigator = HierarchicalChunkNavigator(rlm_chunks)
+
+        # Get all chunks at abstract level
+        abstracts = navigator.get_level("abstract")
+
+        # Drill down from an abstract chunk to its children
+        children = navigator.drill_down("chunk_abstract_123")
+
+        # Get full detail for a specific chunk
+        detailed = navigator.get_detailed("chunk_summary_456")
+
+        # Search across all levels
+        results = navigator.search("contract requirements")
+    """
+
+    def __init__(self, chunks: list[DocumentChunk]):
+        """
+        Initialize navigator with hierarchical chunks.
+
+        Args:
+            chunks: List of DocumentChunks created by RLMChunking
+        """
+        self._chunks = {c.id: c for c in chunks if c.id}
+        self._by_level: dict[str, list[DocumentChunk]] = {}
+        self._by_parent: dict[str, list[DocumentChunk]] = {}
+
+        # Index chunks by level and parent
+        for chunk in chunks:
+            level = chunk.metadata.get("hierarchy_level", "full")
+            if level not in self._by_level:
+                self._by_level[level] = []
+            self._by_level[level].append(chunk)
+
+            parent_id = chunk.metadata.get("parent_id")
+            if parent_id:
+                if parent_id not in self._by_parent:
+                    self._by_parent[parent_id] = []
+                self._by_parent[parent_id].append(chunk)
+
+    def get_level(self, level: str) -> list[DocumentChunk]:
+        """
+        Get all chunks at a specific abstraction level.
+
+        Args:
+            level: One of "full", "detailed", "summary", "abstract"
+
+        Returns:
+            List of chunks at that level
+        """
+        return self._by_level.get(level.lower(), [])
+
+    def drill_down(self, chunk_id: str) -> list[DocumentChunk]:
+        """
+        Get child chunks of a parent chunk.
+
+        Navigates from summary/abstract to more detailed children.
+
+        Args:
+            chunk_id: ID of parent chunk
+
+        Returns:
+            List of child chunks at the next detail level
+        """
+        return self._by_parent.get(chunk_id, [])
+
+    def roll_up(self, chunk_id: str) -> Optional[DocumentChunk]:
+        """
+        Get the parent summary of a detailed chunk.
+
+        Navigates from detailed content to parent summary.
+
+        Args:
+            chunk_id: ID of child chunk
+
+        Returns:
+            Parent chunk, or None if at top level
+        """
+        chunk = self._chunks.get(chunk_id)
+        if not chunk:
+            return None
+
+        parent_id = chunk.metadata.get("parent_id")
+        if parent_id:
+            return self._chunks.get(parent_id)
+        return None
+
+    def get_detailed(self, chunk_id: str, max_depth: int = 3) -> list[DocumentChunk]:
+        """
+        Recursively get all detailed descendants of a chunk.
+
+        Useful for getting full content under a summary.
+
+        Args:
+            chunk_id: ID of starting chunk
+            max_depth: Maximum recursion depth
+
+        Returns:
+            List of all descendant chunks
+        """
+        if max_depth <= 0:
+            return []
+
+        result = []
+        children = self.drill_down(chunk_id)
+
+        for child in children:
+            result.append(child)
+            if child.id:
+                result.extend(self.get_detailed(child.id, max_depth - 1))
+
+        return result
+
+    def get_path_to_root(self, chunk_id: str) -> list[DocumentChunk]:
+        """
+        Get the path from a chunk to the root (most abstract level).
+
+        Useful for understanding context of a detailed chunk.
+
+        Args:
+            chunk_id: ID of starting chunk
+
+        Returns:
+            List of chunks from detail to abstract
+        """
+        path = []
+        current = self._chunks.get(chunk_id)
+
+        while current:
+            path.append(current)
+            parent = self.roll_up(current.id) if current.id else None
+            current = parent
+
+        return path
+
+    def search(
+        self,
+        query: str,
+        level: Optional[str] = None,
+        limit: int = 10,
+    ) -> list[tuple[DocumentChunk, float]]:
+        """
+        Search chunks with simple keyword matching.
+
+        For production use, integrate with vector search.
+
+        Args:
+            query: Search query
+            level: Optional level filter
+            limit: Maximum results
+
+        Returns:
+            List of (chunk, score) tuples
+        """
+        query_terms = set(query.lower().split())
+        results: list[tuple[DocumentChunk, float]] = []
+
+        search_chunks = self._chunks.values()
+        if level:
+            search_chunks = self.get_level(level)
+
+        for chunk in search_chunks:
+            content_terms = set(chunk.content.lower().split())
+            matches = len(query_terms & content_terms)
+            if matches > 0:
+                score = matches / len(query_terms)
+                results.append((chunk, score))
+
+        # Sort by score descending
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:limit]
+
+    def get_context_for_query(
+        self,
+        query: str,
+        start_level: str = "summary",
+        include_children: bool = True,
+    ) -> str:
+        """
+        Get optimized context for a query.
+
+        Starts at the specified level, finds relevant chunks,
+        and optionally includes their detailed children.
+
+        Args:
+            query: Search query
+            start_level: Level to start search at
+            include_children: Whether to include child chunks
+
+        Returns:
+            Formatted context string
+        """
+        results = self.search(query, level=start_level, limit=3)
+
+        if not results:
+            # Try abstract level
+            results = self.search(query, level="abstract", limit=3)
+
+        if not results:
+            return ""
+
+        context_parts = []
+
+        for chunk, score in results:
+            context_parts.append(f"## [{chunk.metadata.get('hierarchy_level', 'unknown').upper()}] (relevance: {score:.0%})")
+            context_parts.append(chunk.content)
+
+            # Include children if requested and score is high
+            if include_children and score >= 0.5 and chunk.id:
+                children = self.drill_down(chunk.id)[:2]  # Limit children
+                for child in children:
+                    context_parts.append(f"\n### Details:")
+                    context_parts.append(child.content[:500] + "..." if len(child.content) > 500 else child.content)
+
+            context_parts.append("")
+
+        return "\n".join(context_parts)
+
+
 # Strategy registry
 CHUNKING_STRATEGIES: dict[ChunkingStrategyType, type[ChunkingStrategy]] = {
     "semantic": SemanticChunking,
     "sliding": SlidingWindowChunking,
     "recursive": RecursiveChunking,
     "fixed": FixedSizeChunking,
+    "rlm": RLMChunking,
 }
 
 
@@ -822,7 +1199,10 @@ __all__ = [
     "SlidingWindowChunking",
     "RecursiveChunking",
     "FixedSizeChunking",
+    "RLMChunking",
+    "HierarchicalChunkNavigator",
     "get_chunking_strategy",
     "auto_select_strategy",
     "CHUNKING_STRATEGIES",
+    "HAS_RLM",
 ]
