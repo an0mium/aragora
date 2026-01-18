@@ -67,7 +67,7 @@ from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
-from .knowledge import KnowledgeHandler
+from .knowledge import KnowledgeHandler, KnowledgeMoundHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
 from .memory import LearningHandler  # Moved to memory/
@@ -80,8 +80,11 @@ from .nomic import NomicHandler
 from .oauth import OAuthHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
+from .policy import PolicyHandler
 from .privacy import PrivacyHandler
 from .queue import QueueHandler
+from .repository import RepositoryHandler
+from .uncertainty import UncertaintyHandler
 from .verticals import VerticalsHandler
 from .workspace import WorkspaceHandler
 from .features import PluginsHandler  # Moved to features/
@@ -154,6 +157,7 @@ ALL_HANDLERS = [
     ProbesHandler,
     InsightsHandler,
     KnowledgeHandler,
+    KnowledgeMoundHandler,  # Extended Knowledge Mound API - Phase A1
     GalleryHandler,
     BreakpointsHandler,
     LearningHandler,
@@ -170,8 +174,11 @@ ALL_HANDLERS = [
     EvidenceHandler,
     WebhookHandler,
     AdminHandler,
+    PolicyHandler,  # Policy and compliance management API
     PrivacyHandler,
     QueueHandler,  # Job queue management API
+    RepositoryHandler,  # Repository indexing API - Phase A3
+    UncertaintyHandler,  # Uncertainty estimation API - Phase A1
     VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
     WorkflowHandler,  # Enterprise workflow engine API
@@ -231,6 +238,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
     "KnowledgeHandler": Stability.EXPERIMENTAL,  # Knowledge base API - new
+    "KnowledgeMoundHandler": Stability.EXPERIMENTAL,  # Knowledge Mound API - Phase A1
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
     # Promoted to Stable (Jan 2026) - from Preview
@@ -253,10 +261,13 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
+    "PolicyHandler": Stability.EXPERIMENTAL,  # Policy and compliance management - new
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
     "WorkflowHandler": Stability.EXPERIMENTAL,  # Enterprise workflow engine API - Phase 2
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
+    "RepositoryHandler": Stability.EXPERIMENTAL,  # Repository indexing API - Phase A3
+    "UncertaintyHandler": Stability.EXPERIMENTAL,  # Uncertainty estimation API - Phase A1
     "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
 }
 
@@ -332,6 +343,7 @@ __all__ = [
     "ProbesHandler",
     "InsightsHandler",
     "KnowledgeHandler",
+    "KnowledgeMoundHandler",
     "GalleryHandler",
     "BreakpointsHandler",
     "LearningHandler",
@@ -350,8 +362,11 @@ __all__ = [
     "EvidenceHandler",
     "WebhookHandler",
     "AdminHandler",
+    "PolicyHandler",
     "PrivacyHandler",
     "QueueHandler",
+    "RepositoryHandler",
+    "UncertaintyHandler",
     "VerticalsHandler",
     "WorkspaceHandler",
     "WorkflowHandler",
