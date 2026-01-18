@@ -626,6 +626,61 @@ See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation
 |----------|----------|-------------|---------|
 | `ARAGORA_DEBUG` | Optional | Enable debug logging | `false` |
 | `ARAGORA_LOG_LEVEL` | Optional | Log level (DEBUG/INFO/WARN/ERROR) | `INFO` |
+| `ARAGORA_LOG_FILE` | Optional | Log file path | - (stdout only) |
+| `ARAGORA_LOG_FORMAT` | Optional | Log format (`json`, `text`) | `text` |
+| `ARAGORA_LOG_TIMESTAMP` | Optional | Include timestamps in logs | `true` |
+| `ARAGORA_LOG_MAX_BYTES` | Optional | Max log file size before rotation | `10485760` (10MB) |
+| `ARAGORA_LOG_BACKUP_COUNT` | Optional | Number of rotated log files to keep | `5` |
+| `ARAGORA_DEV_MODE` | Optional | Enable development mode features | `false` |
+
+## Security & Encryption
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_ENCRYPTION_KEY` | Optional | Encryption key for sensitive data at rest | - |
+| `ARAGORA_AUDIT_SIGNING_KEY` | Optional | Key for signing audit log entries | - |
+| `ARAGORA_METRICS_TOKEN` | Optional | Auth token for metrics endpoint | - |
+| `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager secret name | - |
+
+## Knowledge System
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_KNOWLEDGE_AUTO_PROCESS` | Optional | Auto-process new knowledge entries | `true` |
+
+## Evolution & Prompt Settings
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_ALLOW_AUTO_EVOLVE` | Optional | Allow automatic prompt evolution | `false` |
+| `ARAGORA_ALLOW_PROMPT_EVOLVE` | Optional | Allow prompt modification during debates | `false` |
+| `ARAGORA_HYBRID_IMPLEMENT` | Optional | Enable hybrid implementation mode | `false` |
+| `ARAGORA_SKIP_GATES` | Optional | Skip safety gates (dev only) | `false` |
+
+## Cache Settings
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_CACHE_MAX_ENTRIES` | Optional | Max entries in LRU caches | `1000` |
+| `ARAGORA_CACHE_EVICT_PERCENT` | Optional | Percentage to evict when cache full | `10` |
+
+## CLI & Process Settings
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_MAX_CLI_SUBPROCESSES` | Optional | Max concurrent CLI agent subprocesses | `4` |
+| `ARAGORA_BIND_HOST` | Optional | Host to bind server to | `0.0.0.0` |
+| `ARAGORA_ORG_ID` | Optional | Default organization ID | - |
+| `ARAGORA_SCOPE_CHECK` | Optional | Enable scope validation | `true` |
+
+## Legacy Database Aliases
+
+These variables are legacy aliases maintained for backwards compatibility:
+
+| Variable | Alias For | Description |
+|----------|-----------|-------------|
+| `ARAGORA_SQL_CONNECTION` | `DATABASE_URL` | Legacy SQL connection string |
+| `ARAGORA_POSTGRES_DSN` | `DATABASE_URL` | Legacy Postgres DSN |
 
 ## Validation Rules
 
