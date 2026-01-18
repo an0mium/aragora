@@ -141,46 +141,68 @@ export default function ControlPlanePage() {
       timestamp: new Date(e.timestamp * 1000).toISOString(),
     }));
 
-  // Fetch agents
+  // Fetch agents from control plane API
   const fetchAgents = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.api}/api/agents`);
+      const response = await fetch(`${backendConfig.api}/api/control-plane/agents`);
       if (!response.ok) throw new Error('Failed to fetch agents');
       const data = await response.json();
-      setAgents(data.agents || []);
+      // Map control plane agent format to UI format
+      const mappedAgents = (data.agents || []).map((agent: Record<string, unknown>) => ({
+        id: agent.id || agent.agent_id,
+        name: agent.name || agent.id || agent.agent_id,
+        model: agent.model || 'unknown',
+        status: agent.status === 'ready' ? 'idle' : agent.status === 'busy' ? 'working' : agent.status,
+        current_task: agent.current_task,
+        requests_today: agent.requests_today || 0,
+        tokens_used: agent.tokens_used || 0,
+        last_active: agent.last_active || agent.last_heartbeat,
+      }));
+      setAgents(mappedAgents);
       return true; // Success
     } catch {
-      // Use mock data if endpoint not available
+      // Demo mode: use mock data if endpoint not available
       setAgents([
         { id: 'claude', name: 'Claude', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 45, tokens_used: 125000 },
         { id: 'gemini', name: 'Gemini', model: 'gemini-3-pro', status: 'working', current_task: 'Document audit scan', requests_today: 32, tokens_used: 890000 },
         { id: 'gpt4', name: 'GPT-4', model: 'gpt-4-turbo', status: 'idle', requests_today: 28, tokens_used: 78000 },
         { id: 'codex', name: 'Codex', model: 'claude-3.5-sonnet', status: 'idle', requests_today: 15, tokens_used: 45000 },
       ]);
-      return false; // Used mock
+      return false; // Used mock (demo mode)
     }
   }, [backendConfig.api]);
 
-  // Fetch jobs
+  // Fetch jobs from queue endpoint
   const fetchJobs = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/control-plane/queue`);
       if (!response.ok) throw new Error('Failed to fetch jobs');
       const data = await response.json();
-      setJobs(data.jobs || []);
+      // Map backend job format to UI format
+      const mappedJobs = (data.jobs || []).map((job: Record<string, unknown>) => ({
+        id: job.id,
+        type: job.type || 'task',
+        name: job.name || `${job.type} task`,
+        status: job.status === 'pending' ? 'queued' : job.status,
+        progress: job.progress || 0,
+        started_at: job.started_at,
+        document_count: job.document_count || 0,
+        agents_assigned: job.agents_assigned || [],
+      }));
+      setJobs(mappedJobs);
       return true; // Success
     } catch {
-      // Use mock data if endpoint not available
+      // Demo mode: use mock data if endpoint not available
       setJobs([
         { id: 'job1', type: 'audit', name: 'Security Audit - Q1 Contracts', status: 'running', progress: 0.45, started_at: new Date().toISOString(), document_count: 12, agents_assigned: ['gemini', 'claude'] },
         { id: 'job2', type: 'document_processing', name: 'Batch Import - Legal Docs', status: 'queued', progress: 0, document_count: 48, agents_assigned: [] },
         { id: 'job3', type: 'audit', name: 'Compliance Check - HR Policies', status: 'completed', progress: 1, document_count: 5, agents_assigned: ['gemini'] },
       ]);
-      return false; // Used mock
+      return false; // Used mock (demo mode)
     }
   }, [backendConfig.api]);
 
-  // Fetch metrics
+  // Fetch metrics from control plane API
   const fetchMetrics = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/control-plane/metrics`);
@@ -189,7 +211,7 @@ export default function ControlPlanePage() {
       setMetrics(data);
       return true; // Success
     } catch {
-      // Use mock data
+      // Demo mode: use mock data if endpoint not available
       setMetrics({
         active_jobs: 1,
         queued_jobs: 2,
@@ -199,7 +221,7 @@ export default function ControlPlanePage() {
         audits_completed_today: 4,
         tokens_used_today: 1138000,
       });
-      return false; // Used mock
+      return false; // Used mock (demo mode)
     } finally {
       setLoading(false);
     }
@@ -233,16 +255,19 @@ export default function ControlPlanePage() {
 
   const pauseJob = async (jobId: string) => {
     try {
-      await fetch(`${backendConfig.api}/api/control-plane/jobs/${jobId}/pause`, { method: 'POST' });
+      // Tasks can be cancelled, but not paused in current API
+      // For now, cancelling is the closest action
+      await fetch(`${backendConfig.api}/api/control-plane/tasks/${jobId}/cancel`, { method: 'POST' });
       fetchJobs();
     } catch {
-      // Handle error
+      // Handle error - demo mode will continue with mock data
     }
   };
 
   const resumeJob = async (jobId: string) => {
     try {
-      await fetch(`${backendConfig.api}/api/control-plane/jobs/${jobId}/resume`, { method: 'POST' });
+      // To "resume" we would resubmit the task - for now just refresh
+      // A true pause/resume would need additional API support
       fetchJobs();
     } catch {
       // Handle error
@@ -251,10 +276,10 @@ export default function ControlPlanePage() {
 
   const cancelJob = async (jobId: string) => {
     try {
-      await fetch(`${backendConfig.api}/api/control-plane/jobs/${jobId}/cancel`, { method: 'POST' });
+      await fetch(`${backendConfig.api}/api/control-plane/tasks/${jobId}/cancel`, { method: 'POST' });
       fetchJobs();
     } catch {
-      // Handle error
+      // Handle error - demo mode will continue with mock data
     }
   };
 

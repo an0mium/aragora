@@ -71,7 +71,7 @@ const AVAILABLE_CONNECTORS: Omit<ConnectorInfo, 'id' | 'status' | 'last_sync' | 
   {
     type: 'gdrive',
     name: 'Google Drive',
-    description: 'Sync documents from Google Drive (coming soon)',
+    description: 'Sync documents and files from Google Drive',
   },
 ];
 
