@@ -33,10 +33,38 @@ from aragora.server.handlers.base import BaseHandler
 logger = logging.getLogger(__name__)
 
 
-# In-memory storage (would use database in production)
+# Persistent storage
+try:
+    from aragora.connectors.enterprise.sync_store import (
+        SyncStore,
+        get_sync_store,
+        ConnectorConfig,
+        SyncJob,
+    )
+    HAS_SYNC_STORE = True
+except ImportError:
+    HAS_SYNC_STORE = False
+    logger.warning("sync_store not available, using in-memory fallback")
+
+# In-memory fallback storage (used when sync_store not available)
 _connectors: Dict[str, Dict[str, Any]] = {}
 _sync_jobs: Dict[str, Dict[str, Any]] = {}
 _sync_history: List[Dict[str, Any]] = []
+
+# Global store instance (lazily initialized)
+_store: Optional["SyncStore"] = None
+
+
+async def _get_store() -> Optional["SyncStore"]:
+    """Get the sync store, initializing if needed."""
+    global _store
+    if _store is None and HAS_SYNC_STORE:
+        try:
+            _store = await get_sync_store()
+            logger.info("Using persistent sync store")
+        except Exception as e:
+            logger.warning(f"Failed to initialize sync store: {e}, using in-memory")
+    return _store
 
 
 # Connector type metadata
@@ -172,7 +200,30 @@ class ConnectorsHandler(BaseHandler):
         type_filter = request.query.get("type")
         category_filter = request.query.get("category")
 
-        connectors = list(_connectors.values())
+        # Try persistent store first
+        store = await _get_store()
+        if store:
+            connector_configs = await store.list_connectors(
+                status=status_filter,
+                connector_type=type_filter,
+            )
+            connectors = [
+                {
+                    "id": c.id,
+                    "type": c.connector_type,
+                    "name": c.name,
+                    "status": c.status,
+                    "config": c.config,
+                    "created_at": c.created_at.isoformat(),
+                    "updated_at": c.updated_at.isoformat(),
+                    "items_synced": c.items_indexed,
+                    "last_sync": c.last_sync_at.isoformat() if c.last_sync_at else None,
+                    "error_message": c.error_message,
+                }
+                for c in connector_configs
+            ]
+        else:
+            connectors = list(_connectors.values())
 
         # Add active sync info
         for connector in connectors:
@@ -184,11 +235,7 @@ class ConnectorsHandler(BaseHandler):
                 connector["status"] = "syncing"
                 connector["sync_progress"] = active_sync.get("progress", 0)
 
-        # Apply filters
-        if status_filter:
-            connectors = [c for c in connectors if c["status"] == status_filter]
-        if type_filter:
-            connectors = [c for c in connectors if c["type"] == type_filter]
+        # Apply category filter (not handled by store)
         if category_filter:
             connectors = [
                 c for c in connectors if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter
@@ -199,7 +246,7 @@ class ConnectorsHandler(BaseHandler):
             {
                 "connectors": connectors,
                 "total": len(connectors),
-                "connected": sum(1 for c in connectors if c["status"] in ("connected", "syncing")),
+                "connected": sum(1 for c in connectors if c["status"] in ("connected", "syncing", "configured")),
                 "disconnected": sum(1 for c in connectors if c["status"] == "disconnected"),
                 "errors": sum(1 for c in connectors if c["status"] == "error"),
             },
@@ -207,19 +254,54 @@ class ConnectorsHandler(BaseHandler):
 
     async def _get_connector(self, request: Any, connector_id: str) -> Dict[str, Any]:
         """Get details for a specific connector."""
-        connector = _connectors.get(connector_id)
-        if not connector:
-            return self._error_response(404, f"Connector {connector_id} not found")
+        store = await _get_store()
+
+        if store:
+            config = await store.get_connector(connector_id)
+            if not config:
+                return self._error_response(404, f"Connector {connector_id} not found")
+
+            connector = {
+                "id": config.id,
+                "type": config.connector_type,
+                "name": config.name,
+                "status": config.status,
+                "config": config.config,
+                "created_at": config.created_at.isoformat(),
+                "updated_at": config.updated_at.isoformat(),
+                "items_synced": config.items_indexed,
+                "last_sync": config.last_sync_at.isoformat() if config.last_sync_at else None,
+                "error_message": config.error_message,
+            }
+
+            # Add recent sync history from store
+            history = await store.get_sync_history(connector_id, limit=5)
+            connector["recent_syncs"] = [
+                {
+                    "id": j.id,
+                    "status": j.status,
+                    "started_at": j.started_at.isoformat(),
+                    "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+                    "items_synced": j.items_synced,
+                    "items_failed": j.items_failed,
+                    "duration_seconds": j.duration_seconds,
+                }
+                for j in history
+            ]
+        else:
+            connector = _connectors.get(connector_id)
+            if not connector:
+                return self._error_response(404, f"Connector {connector_id} not found")
+
+            # Add recent sync history
+            connector["recent_syncs"] = [
+                s for s in _sync_history if s["connector_id"] == connector_id
+            ][-5:]
 
         # Add type metadata
         type_meta = CONNECTOR_TYPES.get(connector["type"], {})
         connector["type_name"] = type_meta.get("name", connector["type"])
         connector["category"] = type_meta.get("category", "unknown")
-
-        # Add recent sync history
-        connector["recent_syncs"] = [
-            s for s in _sync_history if s["connector_id"] == connector_id
-        ][-5:]
 
         return self._json_response(200, connector)
 
@@ -243,14 +325,27 @@ class ConnectorsHandler(BaseHandler):
         # Create connector
         connector_id = str(uuid4())
         type_meta = CONNECTOR_TYPES[connector_type]
+        name = body.get("name", type_meta["name"])
+        config = body.get("config", {})
 
+        # Save to persistent store if available
+        store = await _get_store()
+        if store:
+            await store.save_connector(
+                connector_id=connector_id,
+                connector_type=connector_type,
+                name=name,
+                config=config,
+            )
+
+        # Also keep in memory for active operations
         connector = {
             "id": connector_id,
             "type": connector_type,
-            "name": body.get("name", type_meta["name"]),
+            "name": name,
             "description": type_meta["description"],
-            "status": "disconnected",
-            "config": body.get("config", {}),
+            "status": "configured",
+            "config": config,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "items_synced": 0,
@@ -459,16 +554,34 @@ class ConnectorsHandler(BaseHandler):
         connector_id = request.query.get("connector_id")
         limit = int(request.query.get("limit", 50))
 
-        history = _sync_history.copy()
+        store = await _get_store()
+        if store:
+            jobs = await store.get_sync_history(connector_id, limit=limit)
+            history = [
+                {
+                    "id": j.id,
+                    "connector_id": j.connector_id,
+                    "status": j.status,
+                    "started_at": j.started_at.isoformat(),
+                    "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+                    "items_processed": j.items_synced,
+                    "items_failed": j.items_failed,
+                    "duration_seconds": j.duration_seconds,
+                    "error_message": j.error_message,
+                }
+                for j in jobs
+            ]
+        else:
+            history = _sync_history.copy()
 
-        if connector_id:
-            history = [h for h in history if h["connector_id"] == connector_id]
+            if connector_id:
+                history = [h for h in history if h["connector_id"] == connector_id]
 
-        # Sort by start time descending
-        history.sort(key=lambda x: x["started_at"], reverse=True)
+            # Sort by start time descending
+            history.sort(key=lambda x: x["started_at"], reverse=True)
 
-        # Apply limit
-        history = history[:limit]
+            # Apply limit
+            history = history[:limit]
 
         return self._json_response(
             200,
@@ -480,6 +593,39 @@ class ConnectorsHandler(BaseHandler):
 
     async def _get_stats(self, request: Any) -> Dict[str, Any]:
         """Get aggregate statistics for all connectors."""
+        store = await _get_store()
+
+        if store:
+            connector_configs = await store.list_connectors()
+            sync_stats = await store.get_sync_stats()
+
+            connectors = [
+                {"type": c.connector_type, "status": c.status, "items_synced": c.items_indexed}
+                for c in connector_configs
+            ]
+            total_items = sum(c.items_indexed for c in connector_configs)
+            connected = sum(1 for c in connector_configs if c.status in ("connected", "configured", "active"))
+            syncing = sum(1 for c in connector_configs if c.status == "active")
+            errors = sum(1 for c in connector_configs if c.status == "error")
+
+            return self._json_response(
+                200,
+                {
+                    "total_connectors": len(connectors),
+                    "connected": connected,
+                    "syncing": syncing,
+                    "errors": errors,
+                    "total_items_synced": total_items,
+                    "syncs_last_24h": sync_stats["total_syncs"],
+                    "successful_syncs_24h": sync_stats["successful_syncs"],
+                    "failed_syncs_24h": sync_stats["failed_syncs"],
+                    "active_syncs": sync_stats["active_syncs"],
+                    "avg_sync_duration": sync_stats["avg_duration_seconds"],
+                    "by_category": self._count_by_category(connectors),
+                },
+            )
+
+        # Fallback to in-memory
         connectors = list(_connectors.values())
 
         total_items = sum(c.get("items_synced", 0) for c in connectors)
