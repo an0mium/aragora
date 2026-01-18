@@ -1008,16 +1008,22 @@ class OAuthHandler(BaseHandler):
 
             # Try to load secrets and capture any error
             load_error = None
+            raw_response = None
             if aws_client_ok and cached_secrets_count == 0:
                 try:
+                    # Direct AWS call for debugging
+                    client = manager._get_aws_client()
+                    response = client.get_secret_value(SecretId=manager.config.secret_name)
+                    raw_response = f"Keys: {list(json.loads(response.get('SecretString', '{}')).keys())}"
                     secrets = manager._load_from_aws()
                     cached_secrets_count = len(secrets)
                 except Exception as load_e:
-                    load_error = str(load_e)
+                    load_error = f"{type(load_e).__name__}: {load_e}"
         except Exception as e:
             cached_secrets_count = -1
             aws_client_ok = False
             load_error = str(e)
+            raw_response = None
             logger.error(f"Debug error: {e}")
 
         # Get config state from manager
@@ -1038,6 +1044,7 @@ class OAuthHandler(BaseHandler):
             "cached_secrets_count": cached_secrets_count,
             "aws_client_ok": aws_client_ok,
             "load_error": load_error,
+            "raw_response": raw_response,
         }
         return json_response({"providers": providers, "_debug": debug_info})
 
