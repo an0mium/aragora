@@ -275,6 +275,27 @@ class OAuthUserInfo:
     email_verified: bool = False
 
 
+def _get_param(query_params: dict, name: str, default: str = None) -> str:
+    """
+    Safely extract a query parameter value.
+
+    Handler registry converts single-element lists to scalars, so we need to
+    handle both list and string formats.
+
+    Args:
+        query_params: Dict of query parameters
+        name: Parameter name to extract
+        default: Default value if not found
+
+    Returns:
+        Parameter value as string, or default if not found
+    """
+    value = query_params.get(name, default)
+    if isinstance(value, list):
+        return value[0] if value else default
+    return value
+
+
 def _validate_redirect_url(redirect_url: str) -> bool:
     """
     Validate that redirect URL is in the allowed hosts list and uses safe scheme.
@@ -353,7 +374,6 @@ class OAuthHandler(BaseHandler):
         "/api/auth/oauth/link",
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
-        "/api/auth/oauth/debug",  # Temporary debug endpoint
         "/api/user/oauth-providers",
     ]
 
@@ -395,16 +415,6 @@ class OAuthHandler(BaseHandler):
         if path == "/api/auth/oauth/providers" and method == "GET":
             return self._handle_list_providers(handler)
 
-        # Debug endpoint (temporary)
-        if path == "/api/auth/oauth/debug" and method == "GET":
-            return json_response({
-                "allowed_hosts": list(_get_allowed_redirect_hosts()),
-                "is_production": _is_production(),
-                "oauth_success_url": _get_oauth_success_url(),
-                "google_redirect_uri": _get_google_redirect_uri(),
-                "github_redirect_uri": _get_github_redirect_uri(),
-            })
-
         if path == "/api/user/oauth-providers" and method == "GET":
             return self._handle_get_user_providers(handler)
 
@@ -424,16 +434,11 @@ class OAuthHandler(BaseHandler):
 
         # Get optional redirect URL from query params
         oauth_success_url = _get_oauth_success_url()
-        redirect_url = query_params.get("redirect_url", [oauth_success_url])[0]
+        redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
         # Security: Validate redirect URL against allowlist to prevent open redirects
         if not _validate_redirect_url(redirect_url):
-            # Debug: show what we're validating
-            from urllib.parse import urlparse
-            parsed = urlparse(redirect_url)
-            host = parsed.hostname.lower() if parsed.hostname else "no-host"
-            allowed = list(_get_allowed_redirect_hosts())
-            return error_response(f"Invalid redirect URL. host={host}, allowed={allowed}, redirect_url={redirect_url}", 400)
+            return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
         # Check if this is for account linking (user already authenticated)
         user_id = None
@@ -473,14 +478,14 @@ class OAuthHandler(BaseHandler):
         """Handle Google OAuth callback with authorization code."""
 
         # Check for error from Google
-        error = query_params.get("error", [None])[0]
+        error = _get_param(query_params, "error")
         if error:
-            error_desc = query_params.get("error_description", [error])[0]
+            error_desc = _get_param(query_params, "error_description", error)
             logger.warning(f"Google OAuth error: {error} - {error_desc}")
             return self._redirect_with_error(f"OAuth error: {error_desc}")
 
         # Validate state
-        state = query_params.get("state", [None])[0]
+        state = _get_param(query_params, "state")
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
@@ -489,7 +494,7 @@ class OAuthHandler(BaseHandler):
             return self._redirect_with_error("Invalid or expired state")
 
         # Get authorization code
-        code = query_params.get("code", [None])[0]
+        code = _get_param(query_params, "code")
         if not code:
             return self._redirect_with_error("Missing authorization code")
 
@@ -623,7 +628,7 @@ class OAuthHandler(BaseHandler):
 
         # Get optional redirect URL from query params
         oauth_success_url = _get_oauth_success_url()
-        redirect_url = query_params.get("redirect_url", [oauth_success_url])[0]
+        redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
         # Security: Validate redirect URL against allowlist
         if not _validate_redirect_url(redirect_url):
@@ -664,14 +669,14 @@ class OAuthHandler(BaseHandler):
         """Handle GitHub OAuth callback with authorization code."""
 
         # Check for error from GitHub
-        error = query_params.get("error", [None])[0]
+        error = _get_param(query_params, "error")
         if error:
-            error_desc = query_params.get("error_description", [error])[0]
+            error_desc = _get_param(query_params, "error_description", error)
             logger.warning(f"GitHub OAuth error: {error} - {error_desc}")
             return self._redirect_with_error(f"OAuth error: {error_desc}")
 
         # Validate state
-        state = query_params.get("state", [None])[0]
+        state = _get_param(query_params, "state")
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
@@ -680,7 +685,7 @@ class OAuthHandler(BaseHandler):
             return self._redirect_with_error("Invalid or expired state")
 
         # Get authorization code
-        code = query_params.get("code", [None])[0]
+        code = _get_param(query_params, "code")
         if not code:
             return self._redirect_with_error("Missing authorization code")
 
