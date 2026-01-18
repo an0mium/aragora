@@ -150,28 +150,28 @@ def validate_oauth_config() -> list[str]:
 
     # If Google OAuth is enabled (client ID set), check required vars
     if GOOGLE_CLIENT_ID:
-        if not GOOGLE_CLIENT_SECRET:
+        if not _get_google_client_secret():
             missing.append("GOOGLE_OAUTH_CLIENT_SECRET")
-        if not GOOGLE_REDIRECT_URI:
+        if not _get_google_redirect_uri():
             missing.append("GOOGLE_OAUTH_REDIRECT_URI")
-        if not OAUTH_SUCCESS_URL:
-            missing.append("OAUTH_SUCCESS_URL")
-        if not OAUTH_ERROR_URL:
-            missing.append("OAUTH_ERROR_URL")
+        if not _get_oauth_success_url():
+            missing.append("_get_oauth_success_url()")
+        if not _get_oauth_error_url():
+            missing.append("_get_oauth_error_url()")
         if not ALLOWED_OAUTH_REDIRECT_HOSTS:
             missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
 
     # If GitHub OAuth is enabled (client ID set), check required vars
     if GITHUB_CLIENT_ID:
-        if not GITHUB_CLIENT_SECRET:
+        if not _get_github_client_secret():
             missing.append("GITHUB_OAUTH_CLIENT_SECRET")
-        if not GITHUB_REDIRECT_URI:
+        if not _get_github_redirect_uri():
             missing.append("GITHUB_OAUTH_REDIRECT_URI")
         # Shared URLs only need to be set once
-        if not OAUTH_SUCCESS_URL and "OAUTH_SUCCESS_URL" not in missing:
-            missing.append("OAUTH_SUCCESS_URL")
-        if not OAUTH_ERROR_URL and "OAUTH_ERROR_URL" not in missing:
-            missing.append("OAUTH_ERROR_URL")
+        if not _get_oauth_success_url() and "_get_oauth_success_url()" not in missing:
+            missing.append("_get_oauth_success_url()")
+        if not _get_oauth_error_url() and "_get_oauth_error_url()" not in missing:
+            missing.append("_get_oauth_error_url()")
         if not ALLOWED_OAUTH_REDIRECT_HOSTS and "OAUTH_ALLOWED_REDIRECT_HOSTS" not in missing:
             missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
 
@@ -306,12 +306,15 @@ def _validate_redirect_url(redirect_url: str) -> bool:
         # Normalize host for comparison
         host = host.lower()
 
+        # Get allowed hosts at runtime from Secrets Manager
+        allowed_hosts = _get_allowed_redirect_hosts()
+
         # Check against allowlist
-        if host in ALLOWED_OAUTH_REDIRECT_HOSTS:
+        if host in allowed_hosts:
             return True
 
         # Check if it's a subdomain of allowed hosts
-        for allowed in ALLOWED_OAUTH_REDIRECT_HOSTS:
+        for allowed in allowed_hosts:
             if host.endswith(f".{allowed}"):
                 return True
 
@@ -404,11 +407,13 @@ class OAuthHandler(BaseHandler):
     @log_request("Google OAuth start")
     def _handle_google_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to Google OAuth consent screen."""
-        if not GOOGLE_CLIENT_ID:
+        google_client_id = _get_google_client_id()
+        if not google_client_id:
             return error_response("Google OAuth not configured", 503)
 
         # Get optional redirect URL from query params
-        redirect_url = query_params.get("redirect_url", [OAUTH_SUCCESS_URL])[0]
+        oauth_success_url = _get_oauth_success_url()
+        redirect_url = query_params.get("redirect_url", [oauth_success_url])[0]
 
         # Security: Validate redirect URL against allowlist to prevent open redirects
         if not _validate_redirect_url(redirect_url):
@@ -428,8 +433,8 @@ class OAuthHandler(BaseHandler):
 
         # Build authorization URL
         params = {
-            "client_id": GOOGLE_CLIENT_ID,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "client_id": google_client_id,
+            "redirect_uri": _get_google_redirect_uri(),
             "response_type": "code",
             "scope": "openid email profile",
             "state": state,
@@ -532,7 +537,7 @@ class OAuthHandler(BaseHandler):
         logger.info(f"OAuth login: {user.email} via Google")
 
         # Redirect to frontend with tokens
-        redirect_url = state_data.get("redirect_url", OAUTH_SUCCESS_URL)
+        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _exchange_code_for_tokens(self, code: str) -> dict:
@@ -544,8 +549,8 @@ class OAuthHandler(BaseHandler):
             {
                 "code": code,
                 "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "client_secret": _get_google_client_secret(),
+                "redirect_uri": _get_google_redirect_uri(),
                 "grant_type": "authorization_code",
             }
         ).encode()
@@ -596,11 +601,13 @@ class OAuthHandler(BaseHandler):
     @log_request("GitHub OAuth start")
     def _handle_github_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to GitHub OAuth consent screen."""
-        if not GITHUB_CLIENT_ID:
+        github_client_id = _get_github_client_id()
+        if not github_client_id:
             return error_response("GitHub OAuth not configured", 503)
 
         # Get optional redirect URL from query params
-        redirect_url = query_params.get("redirect_url", [OAUTH_SUCCESS_URL])[0]
+        oauth_success_url = _get_oauth_success_url()
+        redirect_url = query_params.get("redirect_url", [oauth_success_url])[0]
 
         # Security: Validate redirect URL against allowlist
         if not _validate_redirect_url(redirect_url):
@@ -620,8 +627,8 @@ class OAuthHandler(BaseHandler):
 
         # Build authorization URL
         params = {
-            "client_id": GITHUB_CLIENT_ID,
-            "redirect_uri": GITHUB_REDIRECT_URI,
+            "client_id": github_client_id,
+            "redirect_uri": _get_github_redirect_uri(),
             "scope": "read:user user:email",
             "state": state,
         }
@@ -725,7 +732,7 @@ class OAuthHandler(BaseHandler):
         logger.info(f"OAuth login: {user.email} via GitHub")
 
         # Redirect to frontend with tokens
-        redirect_url = state_data.get("redirect_url", OAUTH_SUCCESS_URL)
+        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _exchange_github_code(self, code: str) -> dict:
@@ -737,8 +744,8 @@ class OAuthHandler(BaseHandler):
             {
                 "code": code,
                 "client_id": GITHUB_CLIENT_ID,
-                "client_secret": GITHUB_CLIENT_SECRET,
-                "redirect_uri": GITHUB_REDIRECT_URI,
+                "client_secret": _get_github_client_secret(),
+                "redirect_uri": _get_github_redirect_uri(),
             }
         ).encode()
 
@@ -902,7 +909,7 @@ class OAuthHandler(BaseHandler):
         if not success:
             logger.warning(f"OAuth linking fallback for user {user_id}")
 
-        redirect_url = state_data.get("redirect_url", OAUTH_SUCCESS_URL)
+        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
         return HandlerResult(
             status_code=302,
             content_type="text/html",
@@ -934,7 +941,7 @@ class OAuthHandler(BaseHandler):
         """Redirect to error page with error message."""
         from urllib.parse import quote
 
-        url = f"{OAUTH_ERROR_URL}?error={quote(error)}"
+        url = f"{_get_oauth_error_url()}?error={quote(error)}"
 
         return HandlerResult(
             status_code=302,
@@ -948,7 +955,8 @@ class OAuthHandler(BaseHandler):
         """List configured OAuth providers."""
         providers = []
 
-        if GOOGLE_CLIENT_ID:
+        # Call functions at runtime to get current config from Secrets Manager
+        if _get_google_client_id():
             providers.append(
                 {
                     "id": "google",
@@ -958,7 +966,7 @@ class OAuthHandler(BaseHandler):
                 }
             )
 
-        if GITHUB_CLIENT_ID:
+        if _get_github_client_id():
             providers.append(
                 {
                     "id": "github",
@@ -1008,7 +1016,7 @@ class OAuthHandler(BaseHandler):
             return error_response("Unsupported provider", 400)
 
         # Return the auth URL for the provider
-        redirect_url = body.get("redirect_url", OAUTH_SUCCESS_URL)
+        redirect_url = body.get("redirect_url", _get_oauth_success_url())
 
         # Validate redirect URL against allowlist (same as start flow)
         if not _validate_redirect_url(redirect_url):
@@ -1021,7 +1029,7 @@ class OAuthHandler(BaseHandler):
                 return error_response("Google OAuth not configured", 503)
             params = {
                 "client_id": GOOGLE_CLIENT_ID,
-                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "redirect_uri": _get_google_redirect_uri(),
                 "response_type": "code",
                 "scope": "openid email profile",
                 "state": state,
@@ -1036,7 +1044,7 @@ class OAuthHandler(BaseHandler):
                 return error_response("GitHub OAuth not configured", 503)
             params = {
                 "client_id": GITHUB_CLIENT_ID,
-                "redirect_uri": GITHUB_REDIRECT_URI,
+                "redirect_uri": _get_github_redirect_uri(),
                 "scope": "read:user user:email",
                 "state": state,
             }
