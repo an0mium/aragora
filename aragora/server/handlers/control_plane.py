@@ -263,7 +263,7 @@ class ControlPlaneHandler(BaseHandler):
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_heartbeat(agent_id, body)
+                return self._handle_heartbeat(agent_id, body, handler)
 
         # /api/control-plane/tasks
         if path == "/api/control-plane/tasks":
@@ -280,7 +280,7 @@ class ControlPlaneHandler(BaseHandler):
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_complete_task(task_id, body)
+                return self._handle_complete_task(task_id, body, handler)
 
         # /api/control-plane/tasks/:id/fail
         if path.endswith("/fail") and "/tasks/" in path:
@@ -290,21 +290,21 @@ class ControlPlaneHandler(BaseHandler):
                 body, err = self.read_json_body_validated(handler)
                 if err:
                     return err
-                return self._handle_fail_task(task_id, body)
+                return self._handle_fail_task(task_id, body, handler)
 
         # /api/control-plane/tasks/:id/cancel
         if path.endswith("/cancel") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 task_id = parts[-2]
-                return self._handle_cancel_task(task_id)
+                return self._handle_cancel_task(task_id, handler)
 
         # /api/control-plane/tasks/:id/claim
         if path.endswith("/claim") and "/tasks/" in path:
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_claim_task(body)
+            return self._handle_claim_task(body, handler)
 
         return None
 
@@ -345,9 +345,14 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(str(e), 500)
 
     def _handle_heartbeat(
-        self, agent_id: str, body: Dict[str, Any]
+        self, agent_id: str, body: Dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Handle agent heartbeat."""
+        # Require authentication for heartbeats
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -415,8 +420,13 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error submitting task: {e}")
             return error_response(str(e), 500)
 
-    def _handle_claim_task(self, body: Dict[str, Any]) -> HandlerResult:
+    def _handle_claim_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Claim a task for an agent."""
+        # Require authentication for claiming tasks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -446,9 +456,14 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(str(e), 500)
 
     def _handle_complete_task(
-        self, task_id: str, body: Dict[str, Any]
+        self, task_id: str, body: Dict[str, Any], handler: Any
     ) -> HandlerResult:
         """Mark task as completed."""
+        # Require authentication for completing tasks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -475,8 +490,13 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error completing task: {e}")
             return error_response(str(e), 500)
 
-    def _handle_fail_task(self, task_id: str, body: Dict[str, Any]) -> HandlerResult:
+    def _handle_fail_task(self, task_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Mark task as failed."""
+        # Require authentication for failing tasks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -505,8 +525,13 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error failing task: {e}")
             return error_response(str(e), 500)
 
-    def _handle_cancel_task(self, task_id: str) -> HandlerResult:
+    def _handle_cancel_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Cancel a task."""
+        # Require authentication for canceling tasks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
