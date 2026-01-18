@@ -390,3 +390,104 @@ class TestCoordinatorNotInitialized:
                     result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test Queue Endpoint
+# ===========================================================================
+
+
+class TestQueueEndpoint:
+    """Tests for GET /api/control-plane/queue endpoint."""
+
+    def test_can_handle_queue_endpoint(self, handler):
+        """Should handle /api/control-plane/queue."""
+        assert handler.can_handle("/api/control-plane/queue") is True
+
+    def test_queue_returns_jobs(self, handler, mock_http_handler, mock_coordinator):
+        """Should return pending and running tasks as jobs."""
+        import time
+
+        # Create mock tasks
+        mock_task_pending = MagicMock()
+        mock_task_pending.id = "task-1"
+        mock_task_pending.task_type = "audit"
+        mock_task_pending.status = MagicMock(value="pending")
+        mock_task_pending.priority = MagicMock(name="normal")
+        mock_task_pending.metadata = {"name": "Test Audit"}
+        mock_task_pending.payload = {"document_count": 5}
+        mock_task_pending.started_at = None
+        mock_task_pending.created_at = time.time()
+        mock_task_pending.assigned_agent = None
+
+        mock_task_running = MagicMock()
+        mock_task_running.id = "task-2"
+        mock_task_running.task_type = "analysis"
+        mock_task_running.status = MagicMock(value="running")
+        mock_task_running.priority = MagicMock(name="high")
+        mock_task_running.metadata = {"name": "Data Analysis", "progress": 0.6}
+        mock_task_running.payload = {"document_count": 10}
+        mock_task_running.started_at = time.time()
+        mock_task_running.created_at = time.time() - 60
+        mock_task_running.assigned_agent = "agent-1"
+
+        mock_coordinator._scheduler = MagicMock()
+        mock_coordinator._scheduler.list_by_status = AsyncMock(
+            side_effect=lambda status, limit: [mock_task_pending] if status.value == "pending" else [mock_task_running]
+        )
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            result = handler.handle("/api/control-plane/queue", {}, mock_http_handler)
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert "jobs" in body
+        assert len(body["jobs"]) == 2
+
+    def test_queue_returns_503_without_coordinator(self, handler, mock_http_handler):
+        """Should return 503 when coordinator not initialized."""
+        result = handler.handle("/api/control-plane/queue", {}, mock_http_handler)
+        assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test Metrics Endpoint
+# ===========================================================================
+
+
+class TestMetricsEndpoint:
+    """Tests for GET /api/control-plane/metrics endpoint."""
+
+    def test_can_handle_metrics_endpoint(self, handler):
+        """Should handle /api/control-plane/metrics."""
+        assert handler.can_handle("/api/control-plane/metrics") is True
+
+    def test_metrics_returns_dashboard_data(self, handler, mock_http_handler, mock_coordinator):
+        """Should return metrics for dashboard."""
+        mock_coordinator.get_stats = AsyncMock(return_value={
+            "scheduler": {
+                "by_status": {"running": 2, "pending": 5, "completed": 10},
+                "by_type": {"audit": 3, "document_processing": 4}
+            },
+            "registry": {
+                "total_agents": 4,
+                "available_agents": 3,
+                "by_status": {"ready": 3, "busy": 1}
+            }
+        })
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert "active_jobs" in body
+        assert "queued_jobs" in body
+        assert "agents_available" in body
+        assert body["active_jobs"] == 2
+        assert body["queued_jobs"] == 5
+
+    def test_metrics_returns_503_without_coordinator(self, handler, mock_http_handler):
+        """Should return 503 when coordinator not initialized."""
+        result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+        assert get_status(result) == 503

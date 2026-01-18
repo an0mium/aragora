@@ -532,16 +532,17 @@ class TestVotingEngineCounting:
         """Test counting with majority vote."""
         engine = VotingEngine()
 
+        # Use completely unrelated choices to avoid semantic grouping
         votes = [
-            MockVote("agent-1", "Option A"),
-            MockVote("agent-2", "Option A"),
-            MockVote("agent-3", "Option B"),
+            MockVote("agent-1", "Python is the best language"),
+            MockVote("agent-2", "Python is the best language"),
+            MockVote("agent-3", "Cats make excellent pets"),
         ]
 
         result = engine.count_votes(votes)
 
-        assert result.winner == "Option A"
-        assert result.vote_counts["Option A"] > result.vote_counts["Option B"]
+        assert result.winner == "Python is the best language"
+        assert result.vote_counts["Python is the best language"] > result.vote_counts["Cats make excellent pets"]
 
     def test_count_votes_with_weights(self):
         """Test counting with weighted votes."""
@@ -551,19 +552,20 @@ class TestVotingEngineCounting:
         calc = VoteWeightCalculator(reputation_source=reputation_fn)
         engine.set_weight_calculator(calc)
 
+        # Use completely unrelated choices to avoid semantic grouping
         votes = [
-            MockVote("agent-1", "Option A"),
-            MockVote("agent-2", "Option B"),  # Weight 2.0
-            MockVote("agent-3", "Option A"),
+            MockVote("agent-1", "The sky is blue today"),
+            MockVote("agent-2", "Pizza tastes delicious"),  # Weight 2.0
+            MockVote("agent-3", "The sky is blue today"),
         ]
 
         result = engine.count_votes(votes)
 
-        # agent-1 (1.0) + agent-3 (1.0) = 2.0 for A
-        # agent-2 (2.0) = 2.0 for B
+        # agent-1 (1.0) + agent-3 (1.0) = 2.0 for "sky is blue"
+        # agent-2 (2.0) = 2.0 for "pizza"
         # Tie, but first counted wins
-        assert result.vote_counts["Option A"] == 2.0
-        assert result.vote_counts["Option B"] == 2.0
+        assert result.vote_counts["The sky is blue today"] == 2.0
+        assert result.vote_counts["Pizza tastes delicious"] == 2.0
 
     def test_count_votes_with_user_votes(self):
         """Test counting with user votes."""
