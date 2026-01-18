@@ -171,21 +171,30 @@ class TestMistralGenerate:
 
         assert result is not None
 
-    @pytest.mark.skip(reason="Mock session setup needs investigation - connection pool changes")
     @pytest.mark.asyncio
     async def test_generate_records_token_usage(
         self, mock_env_with_api_keys, mock_mistral_response
     ):
         """Should record token usage from response."""
         from aragora.agents.api_agents.mistral import MistralAPIAgent
-        from tests.agents.api_agents.conftest import MockClientSession, MockResponse
 
         agent = MistralAPIAgent()
         agent.reset_token_usage()
 
-        mock_response = MockResponse(status=200, json_data=mock_mistral_response)
-        mock_session = MockClientSession([mock_response])
+        # Create mock response with async context manager
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=mock_mistral_response)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
 
+        # Create mock session - must be an async context manager itself
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        # create_client_session() returns the session object directly
         with patch(
             "aragora.agents.api_agents.openai_compatible.create_client_session",
             return_value=mock_session,

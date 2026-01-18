@@ -66,8 +66,8 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     timeout: int
 
     def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None:
-        """Record token usage (implemented by APIAgent base class)."""
-        ...
+        """Record token usage (delegates to APIAgent base class)."""
+        super()._record_token_usage(tokens_in, tokens_out)
 
     # Methods _build_context_prompt and _parse_critique inherited from CritiqueMixin (via APIAgent)
 

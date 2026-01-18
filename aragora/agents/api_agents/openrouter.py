@@ -780,6 +780,35 @@ class KimiLegacyAgent(APIAgent):
                     )
                 return content
 
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique a proposal using Kimi/Moonshot API."""
+        target_desc = f" from {target_agent}" if target_agent else ""
+        critique_prompt = f"""Critically analyze this proposal{target_desc}:
+
+Task: {task}
+Proposal: {proposal}
+
+Format your response as:
+ISSUES:
+- issue 1
+- issue 2
+
+SUGGESTIONS:
+- suggestion 1
+- suggestion 2
+
+SEVERITY: X.X
+REASONING: explanation"""
+
+        response = await self.generate(critique_prompt, context)
+        return self._parse_critique(response, target_agent or "proposal", proposal)
+
 
 # === Llama 4 Models ===
 
