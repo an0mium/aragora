@@ -175,12 +175,15 @@ function LaboratoryPanelComponent({ apiBase = DEFAULT_API_BASE, events = [] }: L
           <button
             onClick={fetchData}
             disabled={loading}
+            aria-label="Refresh laboratory data"
             className="text-xs font-mono text-text-muted hover:text-acid-green disabled:opacity-50"
           >
             [REFRESH]
           </button>
           <button
             onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse laboratory panel' : 'Expand laboratory panel'}
             className="text-xs font-mono text-text-muted hover:text-text"
           >
             [{expanded ? '-' : '+'}]

@@ -113,17 +113,17 @@ export function FolderUploadDialog({
 
     // Extract folder path from first file's webkitRelativePath
     const firstFile = files[0];
-    const relativePath = (firstFile as any).webkitRelativePath || '';
+    const relativePath = firstFile.webkitRelativePath || '';
     const folderName = relativePath.split('/')[0] || 'Selected Folder';
 
     setFolderPath(folderName);
 
     // Convert FileList to array of FolderFile
     const folderFiles: FolderFile[] = Array.from(files).map(file => ({
-      path: (file as any).webkitRelativePath || file.name,
+      path: file.webkitRelativePath || file.name,
       name: file.name,
       size: file.size,
-      webkitRelativePath: (file as any).webkitRelativePath,
+      webkitRelativePath: file.webkitRelativePath,
     }));
 
     setSelectedFiles(folderFiles);
@@ -284,7 +284,7 @@ export function FolderUploadDialog({
 
       for (let i = 0; i < input.files.length; i++) {
         const file = input.files[i];
-        const relativePath = (file as any).webkitRelativePath || file.name;
+        const relativePath = file.webkitRelativePath || file.name;
         if (includedPaths.has(relativePath)) {
           filesToUpload.push(file);
         }
@@ -387,7 +387,8 @@ export function FolderUploadDialog({
               <input
                 ref={folderInputRef}
                 type="file"
-                {...({ webkitdirectory: 'true', directory: 'true' } as any)}
+                webkitdirectory="true"
+                directory="true"
                 multiple
                 onChange={handleFolderSelect}
                 className="hidden"

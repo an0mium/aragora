@@ -119,10 +119,11 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Input Mode Toggle */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="group" aria-label="Input format selection">
         <button
           type="button"
           onClick={() => setInputMode('text')}
+          aria-pressed={inputMode === 'text'}
           className={`px-3 py-1 text-xs font-mono border ${
             inputMode === 'text'
               ? 'border-acid-green text-acid-green bg-acid-green/10'
@@ -134,6 +135,7 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
         <button
           type="button"
           onClick={() => setInputMode('json')}
+          aria-pressed={inputMode === 'json'}
           className={`px-3 py-1 text-xs font-mono border ${
             inputMode === 'json'
               ? 'border-acid-green text-acid-green bg-acid-green/10'

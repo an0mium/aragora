@@ -497,7 +497,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                     metadata={
                         "number": issue["number"],
                         "state": issue.get("state", ""),
-                        "labels": [l.get("name", "") for l in issue.get("labels", [])],
+                        "labels": [label.get("name", "") for label in issue.get("labels", [])],
                     },
                 )
 

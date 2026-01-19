@@ -191,6 +191,7 @@ function CapabilityProbePanelComponent({
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
+          aria-label="Collapse capability probes panel"
           className="panel-toggle hover:text-accent"
         >
           [COLLAPSE]
@@ -223,6 +224,8 @@ function CapabilityProbePanelComponent({
             <button
               key={probe.value}
               onClick={() => toggleProbeType(probe.value)}
+              aria-pressed={selectedProbes.includes(probe.value)}
+              aria-label={`${probe.label}: ${probe.description}`}
               className={`p-2 rounded border text-left text-sm ${
                 selectedProbes.includes(probe.value)
                   ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400'
@@ -230,7 +233,7 @@ function CapabilityProbePanelComponent({
               }`}
             >
               <div className="font-medium flex items-center gap-1">
-                <span>{probe.icon}</span> {probe.label}
+                <span aria-hidden="true">{probe.icon}</span> {probe.label}
               </div>
               <div className="text-xs opacity-70">{probe.description}</div>
             </button>
@@ -259,6 +262,7 @@ function CapabilityProbePanelComponent({
       <button
         onClick={runProbes}
         disabled={loading || !selectedAgent || selectedProbes.length === 0}
+        aria-busy={loading}
         className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-medium mb-4"
       >
         {loading ? 'Running Probes...' : 'Run Capability Probes'}

@@ -94,7 +94,12 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
   const requirementsNotMet = plugin.requirements_satisfied === false;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="plugin-modal-title"
+    >
       <div
         ref={modalRef}
         className="w-full max-w-2xl mx-4 border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10"
@@ -102,7 +107,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20 bg-bg/50">
           <div>
-            <h2 className="text-lg font-mono text-acid-green">
+            <h2 id="plugin-modal-title" className="text-lg font-mono text-acid-green">
               {'>'} RUN PLUGIN: {plugin.name}
             </h2>
             <p className="text-xs font-mono text-text-muted mt-1">
@@ -112,6 +117,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
           <button
             onClick={onClose}
             disabled={running}
+            aria-label="Close modal"
             className="text-text-muted hover:text-text transition-colors disabled:opacity-50 font-mono"
           >
             [X]
@@ -225,6 +231,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
             <button
               onClick={handleRun}
               disabled={running || requirementsNotMet}
+              aria-busy={running}
               className="px-4 py-2 text-xs font-mono bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
             >
               {running ? 'RUNNING...' : 'RUN PLUGIN'}

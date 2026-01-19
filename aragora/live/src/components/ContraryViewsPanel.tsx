@@ -84,6 +84,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
+          aria-label="Collapse contrary views panel"
           className="panel-toggle hover:text-acid-green transition-colors"
         >
           [COLLAPSE]

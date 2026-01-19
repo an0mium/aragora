@@ -26,6 +26,7 @@ export function ToggleSwitch({
       <button
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         onClick={onChange}
         disabled={disabled}
         className={`w-12 h-6 rounded-full transition-colors ${

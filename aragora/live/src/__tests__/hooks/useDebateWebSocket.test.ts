@@ -118,18 +118,19 @@ describe('useDebateWebSocket', () => {
       expect(getLatestWs().url).toBe('wss://custom.ws.url/ws');
     });
 
-    // Skip: Timing issue with fake timers and React state updates
-    it.skip('should set status to streaming on open', async () => {
+    it('should set status to streaming on open', async () => {
       const { result } = renderHook(() =>
         useDebateWebSocket({ debateId: 'test-debate-1' })
       );
 
-      await act(async () => {
+      act(() => {
         getLatestWs().simulateOpen();
       });
 
-      expect(result.current.status).toBe('streaming');
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => {
+        expect(result.current.status).toBe('streaming');
+        expect(result.current.isConnected).toBe(true);
+      });
     });
 
     it('should subscribe to debate on open', () => {
@@ -169,21 +170,26 @@ describe('useDebateWebSocket', () => {
       expect(result.current.error).toContain('Connection lost');
     });
 
-    // Skip: Timing issue with fake timers and React state updates
-    it.skip('should set status to complete on close when streaming', async () => {
+    it('should set status to complete on close when streaming', async () => {
       const { result } = renderHook(() =>
         useDebateWebSocket({ debateId: 'test-debate-1' })
       );
 
-      await act(async () => {
+      act(() => {
         getLatestWs().simulateOpen();
       });
 
-      await act(async () => {
+      await waitFor(() => {
+        expect(result.current.status).toBe('streaming');
+      });
+
+      act(() => {
         getLatestWs().simulateClose();
       });
 
-      expect(result.current.status).toBe('complete');
+      await waitFor(() => {
+        expect(result.current.status).toBe('complete');
+      });
     });
 
     it('should clean up WebSocket on unmount', () => {
@@ -223,18 +229,19 @@ describe('useDebateWebSocket', () => {
       expect(result.current.agents).toEqual(['Agent A', 'Agent B']);
     });
 
-    // Skip: Timing issue with fake timers and React state updates
-    it.skip('should handle debate_end event', async () => {
+    it('should handle debate_end event', async () => {
       const { result } = renderHook(() =>
         useDebateWebSocket({ debateId: 'test-debate-1' })
       );
 
-      await act(async () => {
+      act(() => {
         getLatestWs().simulateOpen();
         getLatestWs().simulateMessage({ type: 'debate_end' });
       });
 
-      expect(result.current.status).toBe('complete');
+      await waitFor(() => {
+        expect(result.current.status).toBe('complete');
+      });
     });
   });
 

@@ -253,7 +253,7 @@ class VerticalsHandler(BaseHandler):
                 except ValueError:
                     return error_response(
                         f"Invalid level: {level_filter}. "
-                        f"Valid values: {[l.value for l in ComplianceLevel]}",
+                        f"Valid values: {[lvl.value for lvl in ComplianceLevel]}",
                         400
                     )
 

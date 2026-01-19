@@ -88,7 +88,8 @@ export function LearningEvolution() {
   }
 
   // Process data for charts
-  const patternChartData = data.patterns.reduce((acc, item) => {
+  type PatternChartPoint = { date: string; [issueType: string]: string | number };
+  const patternChartData = data.patterns.reduce<PatternChartPoint[]>((acc, item) => {
     const existing = acc.find(d => d.date === item.date);
     if (existing) {
       existing[item.issue_type] = item.success_rate;
@@ -99,9 +100,10 @@ export function LearningEvolution() {
       });
     }
     return acc;
-  }, [] as any[]);
+  }, []);
 
-  const agentChartData = data.agents.reduce((acc, item) => {
+  type AgentChartPoint = { date: string; agent: string; reputation_score: number };
+  const agentChartData = data.agents.reduce<AgentChartPoint[]>((acc, item) => {
     const existing = acc.find(d => d.date === item.date && d.agent === item.agent);
     if (!existing) {
       acc.push({
@@ -111,7 +113,7 @@ export function LearningEvolution() {
       });
     }
     return acc;
-  }, [] as any[]);
+  }, []);
 
   const debateChartData = data.debates.map(item => ({
     ...item,
@@ -132,14 +134,14 @@ export function LearningEvolution() {
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-surface border border-border rounded p-1">
-        {[
+        {([
           { key: 'patterns', label: 'Pattern Success' },
           { key: 'agents', label: 'Agent Reputation' },
           { key: 'debates', label: 'Debate Outcomes' },
-        ].map((tab) => (
+        ] as const).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key)}
             className={`px-3 py-1 rounded text-sm transition-colors ${
               activeTab === tab.key
                 ? 'bg-accent text-bg font-medium'
