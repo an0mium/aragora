@@ -195,23 +195,32 @@ class RLMQuery:
 
 @dataclass
 class RLMResult:
-    """Result of an RLM query."""
+    """Result of an RLM query.
+
+    Supports Prime Intellect's iterative refinement protocol where the LLM
+    can signal incomplete answers via ready=False for progressive improvement.
+    """
 
     answer: str
 
+    # Iterative refinement (Prime Intellect alignment)
+    ready: bool = True  # Whether answer is complete (False = needs refinement)
+    iteration: int = 0  # Current refinement iteration (0 = first attempt)
+    refinement_history: list[str] = field(default_factory=list)  # Prior answers
+
     # Provenance
-    nodes_examined: list[str]  # Node IDs that contributed
-    levels_traversed: list[AbstractionLevel]
-    citations: list[dict[str, Any]]  # [{level, chunk, content}]
+    nodes_examined: list[str] = field(default_factory=list)  # Node IDs that contributed
+    levels_traversed: list[AbstractionLevel] = field(default_factory=list)
+    citations: list[dict[str, Any]] = field(default_factory=list)  # [{level, chunk, content}]
 
     # Stats
-    tokens_processed: int
-    sub_calls_made: int
-    time_seconds: float
+    tokens_processed: int = 0
+    sub_calls_made: int = 0
+    time_seconds: float = 0.0
 
     # Confidence
-    confidence: float
-    uncertainty_sources: list[str]  # What might be missing
+    confidence: float = 0.0
+    uncertainty_sources: list[str] = field(default_factory=list)  # What might be missing
 
 
 # Type aliases for callbacks

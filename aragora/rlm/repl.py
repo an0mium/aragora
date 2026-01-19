@@ -36,6 +36,11 @@ class REPLState:
     final_answer: Optional[str] = None
     final_var: Optional[str] = None
 
+    # Iterative refinement (Prime Intellect alignment)
+    ready: bool = True  # Whether answer is complete (False = needs refinement)
+    iteration: int = 0  # Current refinement iteration
+    feedback: Optional[str] = None  # Feedback from previous iteration
+
 
 class RLMEnvironment:
     """
@@ -49,10 +54,12 @@ class RLMEnvironment:
     - FINAL()/FINAL_VAR() return results
     """
 
-    # Maximum output length per execution
-    MAX_OUTPUT_CHARS = 2000
+    # Maximum output length per execution (Prime Intellect: 8192)
+    MAX_OUTPUT_CHARS = 8192
 
     # Safe builtins for the sandbox
+    # SECURITY: Do NOT add getattr, setattr, delattr, hasattr, callable, vars, dir
+    # These can be used to escape the sandbox via __globals__, __class__, etc.
     SAFE_BUILTINS = {
         "len": len,
         "str": str,
@@ -78,12 +85,21 @@ class RLMEnvironment:
         "abs": abs,
         "round": round,
         "print": print,
-        "type": type,
-        "isinstance": isinstance,
-        "hasattr": hasattr,
-        "getattr": getattr,
-        "callable": callable,
+        # SECURITY: type() is safe for checking types, but don't add isinstance
+        # as it could be used with type() to probe class hierarchies
+        # "type": type,  # Removed - can access __bases__
+        # "isinstance": isinstance,  # Removed - reveals class hierarchy
     }
+
+    # Dangerous names that should never appear in code (even as strings)
+    BLOCKED_DUNDER_NAMES = frozenset({
+        "__globals__", "__builtins__", "__code__", "__closure__",
+        "__class__", "__bases__", "__subclasses__", "__mro__",
+        "__dict__", "__module__", "__name__", "__qualname__",
+        "__func__", "__self__", "__wrapped__", "__annotations__",
+        "__init_subclass__", "__reduce__", "__reduce_ex__",
+        "__getattribute__", "__setattr__", "__delattr__",
+    })
 
     def __init__(
         self,
@@ -134,6 +150,8 @@ class RLMEnvironment:
         self.state.namespace["RLM_M"] = self._rlm_call
         self.state.namespace["FINAL"] = self._final
         self.state.namespace["FINAL_VAR"] = self._final_var
+        self.state.namespace["SET_READY"] = self._set_ready
+        self.state.namespace["FEEDBACK"] = self._get_feedback
 
         # String utilities
         self.state.namespace["truncate"] = self._truncate
@@ -278,13 +296,61 @@ class RLMEnvironment:
             call_record["error"] = str(e)
             return f"[ERROR: Sub-LM call failed: {e}]"
 
-    def _final(self, answer: str) -> None:
-        """Mark final answer (FINAL primitive from paper)."""
-        self.state.final_answer = str(answer)
+    def _final(self, answer: str, ready: bool = True) -> None:
+        """Mark final answer (FINAL primitive from paper).
 
-    def _final_var(self, var_name: str) -> None:
-        """Mark variable as final answer (FINAL_VAR primitive from paper)."""
+        Args:
+            answer: The final answer content
+            ready: Whether the answer is complete (Prime Intellect alignment).
+                   Set to False to signal that refinement is needed.
+        """
+        self.state.final_answer = str(answer)
+        self.state.ready = ready
+
+    def _final_var(self, var_name: str, ready: bool = True) -> None:
+        """Mark variable as final answer (FINAL_VAR primitive from paper).
+
+        Args:
+            var_name: Name of variable containing the answer
+            ready: Whether the answer is complete
+        """
         self.state.final_var = var_name
+        self.state.ready = ready
+
+    def _set_ready(self, ready: bool) -> None:
+        """Explicitly set readiness status (SET_READY primitive).
+
+        Use this to signal whether more refinement iterations are needed.
+
+        Args:
+            ready: True if answer is complete, False if refinement needed
+        """
+        self.state.ready = ready
+
+    def _get_feedback(self) -> Optional[str]:
+        """Get feedback from previous iteration (FEEDBACK primitive).
+
+        Returns feedback injected from previous refinement iteration,
+        or None if this is the first iteration.
+        """
+        return self.state.feedback
+
+    def set_iteration_context(self, iteration: int, feedback: Optional[str] = None) -> None:
+        """Set iteration context for refinement loop.
+
+        Called by bridge.query_with_refinement() between iterations.
+
+        Args:
+            iteration: Current iteration number (0-indexed)
+            feedback: Feedback from evaluating previous answer
+        """
+        self.state.iteration = iteration
+        self.state.feedback = feedback
+        # Reset ready flag for new iteration
+        self.state.ready = True
+        # Clear previous final answer
+        self.state.final_answer = None
+        self.state.final_var = None
 
     def _truncate(self, text: str, max_chars: int = 500) -> str:
         """Truncate text to max characters."""
@@ -362,11 +428,27 @@ class RLMEnvironment:
         return output, is_final
 
     def _validate_ast(self, tree: ast.AST) -> None:
-        """Validate AST for security concerns."""
+        """
+        Validate AST for security concerns.
+
+        SECURITY: This validation is critical to prevent sandbox escapes.
+        The sandbox can be escaped via:
+        - getattr(func, "__globals__") to access builtins
+        - obj.__class__.__bases__[0].__subclasses__() to find dangerous classes
+        - String literals containing dunder names passed to functions
+        """
+        # Dangerous function names that can escape the sandbox
+        DANGEROUS_FUNCS = frozenset({
+            "eval", "exec", "compile", "open", "__import__",
+            "getattr", "setattr", "delattr", "hasattr",
+            "callable", "vars", "dir", "globals", "locals",
+            "breakpoint", "input", "memoryview", "object",
+            "classmethod", "staticmethod", "property", "super",
+        })
+
         for node in ast.walk(tree):
-            # Block imports
+            # Block imports (except re)
             if isinstance(node, (ast.Import, ast.ImportFrom)):
-                # Allow only re module
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name != "re":
@@ -374,16 +456,49 @@ class RLMEnvironment:
                 elif node.module != "re":
                     raise SecurityError(f"Import not allowed: {node.module}")
 
-            # Block dangerous builtins
+            # Block dangerous function calls
             if isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name):
-                    if node.func.id in ("eval", "exec", "compile", "open", "__import__"):
+                    if node.func.id in DANGEROUS_FUNCS:
                         raise SecurityError(f"Function not allowed: {node.func.id}")
 
-            # Block attribute access to dangerous methods
+            # Block ALL attribute access to underscore-prefixed names
+            # This includes __class__, __globals__, _private, etc.
             if isinstance(node, ast.Attribute):
                 if node.attr.startswith("_"):
-                    raise SecurityError(f"Private attribute access not allowed: {node.attr}")
+                    raise SecurityError(
+                        f"Attribute access not allowed: {node.attr} "
+                        "(underscore-prefixed attributes are blocked)"
+                    )
+
+            # Block string literals containing dangerous dunder names
+            # Prevents: some_dict["__globals__"] or f-string tricks
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                value_lower = node.value.lower()
+                for blocked in self.BLOCKED_DUNDER_NAMES:
+                    if blocked in value_lower:
+                        raise SecurityError(
+                            f"String literal contains blocked name: {blocked}"
+                        )
+
+            # Block subscript access with dangerous string keys
+            if isinstance(node, ast.Subscript):
+                if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                    if node.slice.value in self.BLOCKED_DUNDER_NAMES:
+                        raise SecurityError(
+                            f"Subscript access to blocked name: {node.slice.value}"
+                        )
+
+            # Block f-strings that might construct dangerous names
+            if isinstance(node, ast.JoinedStr):
+                # F-strings could potentially build "__globals__" dynamically
+                # We allow them but they'll fail at runtime if they try to access blocked attrs
+                pass
+
+            # Block starred expressions in dangerous contexts
+            if isinstance(node, ast.Starred):
+                # Could be used for unpacking attacks
+                pass  # Allow for now, but monitor
 
     def get_result(self) -> RLMResult:
         """Get the final result after execution."""
@@ -405,12 +520,19 @@ class RLMEnvironment:
 
         return RLMResult(
             answer=answer,
+            # Iterative refinement (Prime Intellect alignment)
+            ready=self.state.ready,
+            iteration=self.state.iteration,
+            refinement_history=[],  # Managed by bridge.query_with_refinement()
+            # Provenance
             nodes_examined=list(set(nodes_examined)),
             levels_traversed=[],  # Would need more tracking
             citations=[],
+            # Stats
             tokens_processed=sum(len(output) // 4 for _, output in self.state.history),
             sub_calls_made=self.state.sub_call_count,
             time_seconds=0.0,  # Caller should track
+            # Confidence
             confidence=0.8 if self.state.final_answer else 0.5,
             uncertainty_sources=[],
         )
@@ -449,8 +571,17 @@ class RLMEnvironment:
 - `re` - Python re module for regex
 
 ### Finishing
-- `FINAL(answer)` - Return final answer
-- `FINAL_VAR(var_name)` - Return variable as final answer
+- `FINAL(answer, ready=True)` - Return final answer. Set `ready=False` to signal refinement needed.
+- `FINAL_VAR(var_name, ready=True)` - Return variable as final answer
+- `SET_READY(bool)` - Explicitly set readiness status
+- `FEEDBACK()` - Get feedback from previous iteration (returns None on first iteration)
+
+## Iterative Refinement
+
+When you're uncertain about your answer:
+1. Call `FINAL(partial_answer, ready=False)` to signal refinement is needed
+2. On next iteration, check `FEEDBACK()` for guidance on what to improve
+3. When confident, call `FINAL(answer, ready=True)` or just `FINAL(answer)`
 
 ## Strategy
 
@@ -458,7 +589,7 @@ class RLMEnvironment:
 2. Search for relevant sections
 3. Drill down into detailed content as needed
 4. Use RLM_M() for complex sub-queries
-5. Call FINAL() when you have the answer
+5. Call FINAL() when you have the answer (use ready=False if uncertain)
 
 ## Example
 
@@ -476,8 +607,16 @@ if results:
     details = drill_down(results[0]["id"])
     print(details)
 
-# Final answer
+# Check if we have feedback from a previous iteration
+feedback = FEEDBACK()
+if feedback:
+    print(f"Previous feedback: {{feedback}}")
+
+# Final answer (confident)
 FINAL("The authentication system uses JWT tokens...")
+
+# Or, if uncertain, request refinement
+# FINAL("Initial analysis suggests JWT...", ready=False)
 ```
 """
 
