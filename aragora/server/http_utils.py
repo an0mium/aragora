@@ -51,6 +51,12 @@ ALLOWED_QUERY_PARAMS = {
     "state": 500,  # OAuth state parameter
     "error": 200,  # OAuth error
     "error_description": 500,  # OAuth error description
+    # OAuth callback parameters (returned by Google/GitHub OAuth)
+    "scope": 500,  # OAuth scope returned in callback
+    "authuser": 10,  # Google authuser parameter
+    "prompt": 50,  # OAuth prompt parameter
+    "hd": 100,  # Google hosted domain
+    "session_state": 100,  # Session state from some OAuth providers
 }
 
 

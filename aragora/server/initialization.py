@@ -220,12 +220,15 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
         return None
 
     insights_path = nomic_dir / DB_INSIGHTS_PATH
-    if insights_path.exists():
+    try:
+        # Create parent directory if needed
+        insights_path.parent.mkdir(parents=True, exist_ok=True)
         store = InsightStore(str(insights_path))
-        logger.info("[init] InsightStore loaded for API access")
+        logger.info("[init] InsightStore loaded/created for API access")
         return store
-
-    return None
+    except Exception as e:
+        logger.warning(f"[init] InsightStore initialization failed: {e}")
+        return None
 
 
 def init_elo_system(nomic_dir: Path) -> Optional[Any]:
@@ -234,12 +237,15 @@ def init_elo_system(nomic_dir: Path) -> Optional[Any]:
         return None
 
     elo_path = get_db_path(DatabaseType.ELO, nomic_dir)
-    if elo_path.exists():
+    try:
+        # Create parent directory if needed - SQLiteStore will create the DB
+        elo_path.parent.mkdir(parents=True, exist_ok=True)
         system = EloSystem(str(elo_path))
-        logger.info("[init] EloSystem loaded for leaderboard API")
+        logger.info("[init] EloSystem loaded/created for leaderboard API")
         return system
-
-    return None
+    except Exception as e:
+        logger.warning(f"[init] EloSystem initialization failed: {e}")
+        return None
 
 
 def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
@@ -248,12 +254,15 @@ def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
         return None
 
     positions_path = get_db_path(DatabaseType.POSITIONS, nomic_dir)
-    if positions_path.exists():
+    try:
+        # Create parent directory if needed
+        positions_path.parent.mkdir(parents=True, exist_ok=True)
         detector = FlipDetector(str(positions_path))
-        logger.info("[init] FlipDetector loaded for position reversal API")
+        logger.info("[init] FlipDetector loaded/created for position reversal API")
         return detector
-
-    return None
+    except Exception as e:
+        logger.warning(f"[init] FlipDetector initialization failed: {e}")
+        return None
 
 
 def init_persona_manager(nomic_dir: Path) -> Optional[Any]:

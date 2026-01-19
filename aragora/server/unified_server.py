@@ -331,19 +331,47 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
         return content_length
 
-    # Paths exempt from authentication (health checks, probes, OAuth flow)
+    # Paths exempt from authentication (health checks, probes, OAuth flow, public read-only)
     AUTH_EXEMPT_PATHS = frozenset([
+        # Health checks (needed for load balancers, monitoring)
         "/healthz",
         "/readyz",
         "/api/health",
         "/api/health/detailed",
         "/api/health/deep",
+        # OAuth
         "/api/auth/oauth/providers",  # Login page needs to show available providers
+        # API documentation (public)
+        "/api/openapi",
+        "/api/openapi.json",
+        "/api/openapi.yaml",
+        "/api/postman.json",
+        "/api/docs",
+        "/api/docs/",
+        "/api/redoc",
+        "/api/redoc/",
+        # Read-only public endpoints
+        "/api/insights/recent",
+        "/api/flips/recent",
+        "/api/evidence",
+        "/api/evidence/statistics",
+        "/api/verification/status",
+        # Agent/ranking public data
+        "/api/leaderboard",
+        "/api/leaderboard-view",
+        "/api/agents",
     ])
 
-    # Path prefixes exempt from authentication (OAuth callbacks)
+    # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
     AUTH_EXEMPT_PREFIXES = (
         "/api/auth/oauth/",  # OAuth flow (login, callback)
+        "/api/agent/",  # Agent profiles (read-only)
+        "/api/routing/",  # Domain detection and routing (read-only)
+    )
+
+    # Path prefixes exempt ONLY for GET requests (read-only access)
+    AUTH_EXEMPT_GET_PREFIXES = (
+        "/api/evidence/",  # Evidence read-only access
     )
 
     def _check_rate_limit(self) -> bool:
@@ -360,6 +388,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         if parsed.path in self.AUTH_EXEMPT_PATHS:
             return True
         if any(parsed.path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
+            return True
+        # For GET-only exempt paths, check method
+        if self.command == "GET" and any(
+            parsed.path.startswith(prefix) for prefix in self.AUTH_EXEMPT_GET_PREFIXES
+        ):
             return True
 
         # Convert headers to dict
