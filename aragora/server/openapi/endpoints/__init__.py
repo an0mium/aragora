@@ -18,6 +18,9 @@ from aragora.server.openapi.endpoints.verification import VERIFICATION_ENDPOINTS
 from aragora.server.openapi.endpoints.documents import DOCUMENT_ENDPOINTS
 from aragora.server.openapi.endpoints.plugins import PLUGIN_ENDPOINTS
 from aragora.server.openapi.endpoints.additional import ADDITIONAL_ENDPOINTS
+from aragora.server.openapi.endpoints.oauth import OAUTH_ENDPOINTS
+from aragora.server.openapi.endpoints.workspace import WORKSPACE_ENDPOINTS
+from aragora.server.openapi.endpoints.workflows import WORKFLOW_ENDPOINTS
 
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
@@ -35,6 +38,9 @@ ALL_ENDPOINTS = {
     **DOCUMENT_ENDPOINTS,
     **PLUGIN_ENDPOINTS,
     **ADDITIONAL_ENDPOINTS,
+    **OAUTH_ENDPOINTS,
+    **WORKSPACE_ENDPOINTS,
+    **WORKFLOW_ENDPOINTS,
 }
 
 __all__ = [
@@ -52,5 +58,8 @@ __all__ = [
     "DOCUMENT_ENDPOINTS",
     "PLUGIN_ENDPOINTS",
     "ADDITIONAL_ENDPOINTS",
+    "OAUTH_ENDPOINTS",
+    "WORKSPACE_ENDPOINTS",
+    "WORKFLOW_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

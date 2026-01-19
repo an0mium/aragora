@@ -47,6 +47,7 @@ def _error_response(status: str, description: str) -> dict:
 STANDARD_ERRORS = {
     "400": _error_response("400", "Bad request"),
     "401": _error_response("401", "Unauthorized"),
+    "403": _error_response("403", "Forbidden"),
     "404": _error_response("404", "Not found"),
     "402": _error_response("402", "Quota exceeded"),
     "429": _error_response("429", "Rate limited"),
