@@ -533,7 +533,16 @@ class KnowledgeMound:
             def __init__(self, item: KnowledgeItem) -> None:
                 self.id = item.id
                 self.content = item.content
-                self.confidence = float(item.confidence.value) if hasattr(item.confidence, "value") else item.confidence
+                # ConfidenceLevel is a string enum (e.g., "medium"), map to numeric
+                if hasattr(item.confidence, "value"):
+                    conf_val = item.confidence.value
+                    # Map string confidence levels to numeric values
+                    conf_map = {"verified": 0.95, "high": 0.85, "medium": 0.7, "low": 0.4, "unverified": 0.2}
+                    self.confidence = conf_map.get(conf_val, 0.5)
+                elif isinstance(item.confidence, (int, float)):
+                    self.confidence = float(item.confidence)
+                else:
+                    self.confidence = 0.5
                 self.node_type = item.metadata.get("node_type", "fact")
 
         return NodeProxy(item)
@@ -776,18 +785,27 @@ class KnowledgeMound:
             for node in result.nodes:
                 if node.id not in node_ids:
                     node_ids.add(node.id)
+                    # KnowledgeItem uses 'source', not 'source_type'
+                    source = getattr(node, 'source', None) or getattr(node, 'source_type', None)
+                    source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
+                    confidence = getattr(node, 'confidence', 0.0)
+                    if hasattr(confidence, 'value'):
+                        confidence = confidence.value
                     nodes.append({
                         "id": node.id,
                         "label": (node.content[:100] if node.content else "")[:100],
-                        "type": node.source_type.value if hasattr(node.source_type, 'value') else str(node.source_type),
-                        "confidence": node.confidence,
+                        "type": source_str,
+                        "confidence": confidence,
                     })
             for edge in result.edges:
+                # KnowledgeLink uses 'relationship', not 'relationship_type'
+                rel_type = getattr(edge, 'relationship', None) or getattr(edge, 'relationship_type', None)
+                rel_type_str = rel_type.value if hasattr(rel_type, 'value') else str(rel_type) if rel_type else 'related'
                 links.append({
                     "source": edge.source_id,
                     "target": edge.target_id,
-                    "type": edge.relationship_type.value if hasattr(edge.relationship_type, 'value') else str(edge.relationship_type),
-                    "strength": edge.strength if hasattr(edge, 'strength') else 0.5,
+                    "type": rel_type_str,
+                    "strength": getattr(edge, 'strength', 0.5) or getattr(edge, 'confidence', 0.5) or 0.5,
                 })
         else:
             # Get all nodes up to limit using local query
@@ -936,8 +954,18 @@ class KnowledgeMound:
         # Build text content from knowledge items
         content_parts = []
         for item in items:
-            item_text = f"[{item.id}] ({item.source_type.value if item.source_type else 'unknown'})\n"
-            item_text += f"**Confidence**: {item.confidence:.0%}\n"
+            # KnowledgeItem uses 'source', not 'source_type'
+            source = getattr(item, 'source', None) or getattr(item, 'source_type', None)
+            source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
+            confidence = getattr(item, 'confidence', 0.0)
+            if hasattr(confidence, 'value'):
+                confidence_val = 0.5  # Default if it's an enum string
+            elif isinstance(confidence, (int, float)):
+                confidence_val = confidence
+            else:
+                confidence_val = 0.5
+            item_text = f"[{item.id}] ({source_str})\n"
+            item_text += f"**Confidence**: {confidence_val:.0%}\n"
             item_text += f"{item.content}\n"
             content_parts.append(item_text)
 
