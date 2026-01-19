@@ -271,7 +271,6 @@ class TestKnowledgeMoundIntegration:
             assert item is None
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Pre-existing bug: updated_at passed as string instead of datetime")
     async def test_update_node(self, mound_config):
         """Test updating a knowledge node."""
         from aragora.knowledge.mound import KnowledgeMound

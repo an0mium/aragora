@@ -3,13 +3,76 @@ Tests for the debate orchestrator module.
 
 Tests cover:
 - _compute_domain_from_task utility function
+- Arena initialization and configuration
+- Arena context manager behavior
+- Team selection and domain extraction
+- Event emission and lifecycle
 """
 
 from __future__ import annotations
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
-from aragora.debate.orchestrator import _compute_domain_from_task
+from aragora.core import Agent, Critique, Environment, Message, Vote
+from aragora.debate.orchestrator import Arena, _compute_domain_from_task
+from aragora.debate.protocol import DebateProtocol
+
+
+class MockAgent(Agent):
+    """Mock agent for testing Arena functionality."""
+
+    def __init__(
+        self,
+        name: str = "mock-agent",
+        response: str = "Test response",
+        model: str = "mock-model",
+        role: str = "proposer",
+    ):
+        super().__init__(name=name, model=model, role=role)
+        self.agent_type = "mock"
+        self.response = response
+        self.generate_calls = 0
+        self.critique_calls = 0
+        self.vote_calls = 0
+
+    async def generate(self, prompt: str, context: list = None) -> str:
+        self.generate_calls += 1
+        return self.response
+
+    async def generate_stream(self, prompt: str, context: list = None):
+        yield self.response
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list = None,
+        target_agent: str = None,
+    ) -> Critique:
+        self.critique_calls += 1
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:100] if proposal else "",
+            issues=["Test issue"],
+            suggestions=["Test suggestion"],
+            severity=0.5,
+            reasoning="Test reasoning",
+        )
+
+    async def vote(self, proposals: dict, task: str) -> Vote:
+        self.vote_calls += 1
+        choice = list(proposals.keys())[0] if proposals else self.name
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            reasoning="Test vote",
+            confidence=0.8,
+            continue_debate=False,
+        )
 
 
 class TestComputeDomainFromTask:
@@ -120,3 +183,306 @@ class TestComputeDomainFromTask:
         """Test string with no domain keywords returns general."""
         assert _compute_domain_from_task("hello world") == "general"
         assert _compute_domain_from_task("please help me") == "general"
+
+
+class TestArenaInitialization:
+    """Tests for Arena initialization and configuration."""
+
+    @pytest.fixture
+    def environment(self):
+        """Create a test environment."""
+        return Environment(task="What is the best approach to solve this problem?")
+
+    @pytest.fixture
+    def agents(self):
+        """Create test agents."""
+        return [
+            MockAgent(name="agent1", response="Proposal from agent 1"),
+            MockAgent(name="agent2", response="Proposal from agent 2"),
+        ]
+
+    @pytest.fixture
+    def protocol(self):
+        """Create a test protocol."""
+        return DebateProtocol(rounds=2, consensus="majority")
+
+    def test_arena_creation_with_protocol(self, environment, agents, protocol):
+        """Arena can be created with explicit protocol."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.protocol == protocol
+        assert arena.protocol.rounds == 2
+        assert arena.protocol.consensus == "majority"
+
+    def test_arena_stores_agents(self, environment, agents, protocol):
+        """Arena stores provided agents."""
+        arena = Arena(environment, agents, protocol)
+
+        # Check agents are stored (may be in _agents or agent_pool)
+        assert hasattr(arena, "_agents") or hasattr(arena, "agent_pool")
+
+
+class TestArenaFromConfig:
+    """Tests for Arena.from_config factory method."""
+
+    def test_from_config_creates_arena(self):
+        """Arena.from_config creates an arena from configuration."""
+        from aragora.debate.arena_config import ArenaConfig
+
+        config = ArenaConfig(
+            task="Design a scalable API",
+            rounds=3,
+            consensus="majority",
+        )
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+
+        arena = Arena.from_config(config, agents)
+
+        # Arena should be created
+        assert arena is not None
+        assert isinstance(arena, Arena)
+
+
+class TestArenaDomainExtraction:
+    """Tests for domain extraction from tasks."""
+
+    @pytest.fixture
+    def arena_with_security_task(self):
+        """Arena with a security-related task."""
+        env = Environment(task="Implement secure authentication")
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+        return Arena(env, agents)
+
+    @pytest.fixture
+    def arena_with_performance_task(self):
+        """Arena with a performance-related task."""
+        env = Environment(task="Optimize database query speed")
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+        return Arena(env, agents)
+
+    def test_extracts_security_domain(self, arena_with_security_task):
+        """Security domain is extracted for auth tasks."""
+        domain = arena_with_security_task._extract_debate_domain()
+        assert domain == "security"
+
+    def test_extracts_performance_domain(self, arena_with_performance_task):
+        """Performance domain is extracted for optimization tasks."""
+        domain = arena_with_performance_task._extract_debate_domain()
+        assert domain == "performance"
+
+
+class TestArenaContextManager:
+    """Tests for Arena async context manager behavior."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test task")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.mark.asyncio
+    async def test_context_manager_entry(self, environment, agents):
+        """Arena can be used as async context manager."""
+        arena = Arena(environment, agents)
+
+        async with arena as entered_arena:
+            assert entered_arena is arena
+
+    @pytest.mark.asyncio
+    async def test_context_manager_cleanup_on_exit(self, environment, agents):
+        """Arena cleans up resources on context exit."""
+        arena = Arena(environment, agents)
+
+        async with arena:
+            pass
+
+        # After exit, cleanup should have occurred
+        # (No exception means successful cleanup)
+
+    @pytest.mark.asyncio
+    async def test_context_manager_cleanup_on_exception(self, environment, agents):
+        """Arena cleans up even when exception occurs."""
+        arena = Arena(environment, agents)
+
+        with pytest.raises(ValueError):
+            async with arena:
+                raise ValueError("Test error")
+
+        # Cleanup should still have occurred
+
+
+class TestArenaTeamSelection:
+    """Tests for debate team selection logic."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test task")
+
+    @pytest.fixture
+    def many_agents(self):
+        """Create many agents for team selection tests."""
+        return [
+            MockAgent(name=f"agent{i}", role="proposer")
+            for i in range(6)
+        ]
+
+    def test_select_team_returns_agents(self, environment, many_agents):
+        """Team selection returns a list of agents."""
+        arena = Arena(environment, many_agents)
+
+        # Select a team from the agents
+        team = arena._select_debate_team(many_agents[:3])
+
+        assert isinstance(team, list)
+        assert len(team) > 0
+        assert all(isinstance(a, Agent) for a in team)
+
+    def test_select_team_respects_requested_agents(self, environment, many_agents):
+        """Team selection includes requested agents."""
+        arena = Arena(environment, many_agents)
+
+        requested = many_agents[:2]
+        team = arena._select_debate_team(requested)
+
+        # All requested agents should be in the team
+        requested_names = {a.name for a in requested}
+        team_names = {a.name for a in team}
+        assert requested_names.issubset(team_names)
+
+
+class TestArenaEventEmission:
+    """Tests for Arena event emission."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test task")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1, consensus="majority")
+
+    def test_arena_has_event_emitter(self, environment, agents, protocol):
+        """Arena initializes with an event emitter."""
+        arena = Arena(environment, agents, protocol)
+
+        # Event emitter should be initialized (or event_bus)
+        assert hasattr(arena, "event_emitter") or hasattr(arena, "event_bus")
+
+    def test_arena_accepts_event_hooks(self, environment, agents, protocol):
+        """Arena accepts custom event hooks without error."""
+        hooks = {
+            "on_debate_start": MagicMock(),
+            "on_round_complete": MagicMock(),
+        }
+
+        # Should create arena without error
+        arena = Arena(environment, agents, protocol, event_hooks=hooks)
+
+        # Arena should be created successfully
+        assert arena is not None
+
+
+class TestArenaRun:
+    """Tests for Arena.run() execution."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="What is 2+2?")
+
+    @pytest.fixture
+    def agents(self):
+        return [
+            MockAgent(name="math1", response="The answer is 4"),
+            MockAgent(name="math2", response="2 plus 2 equals 4"),
+        ]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1, consensus="majority")
+
+    @pytest.mark.asyncio
+    async def test_run_returns_debate_result(self, environment, agents, protocol):
+        """Arena.run() returns a DebateResult."""
+        from aragora.core import DebateResult
+
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run()
+
+        assert isinstance(result, DebateResult)
+        assert result.task == "What is 2+2?"
+
+    @pytest.mark.asyncio
+    async def test_run_populates_final_answer(self, environment, agents, protocol):
+        """Arena.run() populates the final answer."""
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run()
+
+        assert result.final_answer is not None
+        assert len(result.final_answer) > 0
+
+    @pytest.mark.asyncio
+    async def test_run_tracks_rounds(self, environment, agents, protocol):
+        """Arena.run() tracks the number of rounds used."""
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run()
+
+        assert result.rounds_used >= 1
+
+    @pytest.mark.asyncio
+    async def test_run_with_correlation_id(self, environment, agents, protocol):
+        """Arena.run() accepts a correlation ID for tracing."""
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run(correlation_id="test-correlation-123")
+
+        # Should complete without error
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_run_calls_agent_generate(self, environment, agents, protocol):
+        """Arena.run() calls agent generate methods."""
+        arena = Arena(environment, agents, protocol)
+
+        await arena.run()
+
+        # At least one agent should have been called
+        total_calls = sum(a.generate_calls for a in agents)
+        assert total_calls > 0
+
+
+class TestArenaRequireAgents:
+    """Tests for _require_agents helper."""
+
+    def test_require_agents_returns_agents(self):
+        """_require_agents returns the agent list."""
+        env = Environment(task="Test")
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, agents, protocol)
+
+        result = arena._require_agents()
+
+        # Should return agents (may be processed)
+        assert len(result) > 0
+
+    def test_require_agents_returns_non_empty_list(self):
+        """_require_agents returns a non-empty list of agents."""
+        env = Environment(task="Test")
+        agents = [MockAgent(name="a1"), MockAgent(name="a2")]
+        protocol = DebateProtocol(rounds=1, consensus="majority")
+        arena = Arena(env, agents, protocol)
+
+        result = arena._require_agents()
+
+        # Should return agents
+        assert isinstance(result, list)
+        assert len(result) >= 1

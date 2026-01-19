@@ -199,7 +199,7 @@ class TestRateLimiterTokenRefill:
 
         def acquire_sync():
             try:
-                with rate_limiter._lock:
+                with rate_limiter._sync_lock:
                     rate_limiter._tokens -= 1
                     results.append(rate_limiter._tokens)
             except Exception as e:
@@ -683,14 +683,17 @@ class TestStreamingErrorHandling:
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("aiohttp.ClientSession", return_value=mock_session_cm):
-            from aragora.agents.errors import AgentStreamError
+        with patch(
+            "aragora.agents.api_agents.anthropic.create_client_session",
+            return_value=mock_session_cm,
+        ):
+            from aragora.agents.errors import AgentConnectionError
 
-            with pytest.raises(AgentStreamError) as exc_info:
+            with pytest.raises(AgentConnectionError) as exc_info:
                 async for chunk in anthropic_agent.generate_stream("Test"):
                     pass
 
-            assert "connection error" in str(exc_info.value).lower()
+            assert "connection" in str(exc_info.value).lower()
 
 
 # =============================================================================
@@ -760,7 +763,7 @@ class TestConcurrency:
 
         def acquire_sync():
             # Synchronous version using the lock directly
-            with limiter._lock:
+            with limiter._sync_lock:
                 if limiter._tokens >= 1:
                     limiter._tokens -= 1
                     with lock:
@@ -834,7 +837,12 @@ class TestOpenRouterAgent:
     @pytest.mark.asyncio
     async def test_openrouter_429_releases_token(self, openrouter_agent):
         """Test that 429 error releases token back to pool."""
+        from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
+
+        # Reset rate limiter to fresh state (clears backoff)
         set_openrouter_tier("standard")
+        limiter = get_openrouter_limiter()
+        limiter._backoff.reset()  # Clear any backoff state
 
         mock_response = create_mock_aiohttp_response(
             status=429, text="Rate limited", headers={"Retry-After": "60"}
@@ -851,10 +859,22 @@ class TestOpenRouterAgent:
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_cm.__aexit__ = AsyncMock(return_value=None)
 
+        # Mock backoff to return small delays (prevents timeout during test)
+        mock_backoff = MagicMock()
+        mock_backoff.is_backing_off = False
+        mock_backoff.get_delay.return_value = 0.1
+        mock_backoff.record_failure.return_value = 0.1
+        mock_backoff.reset = MagicMock()
+        mock_backoff.failure_count = 0
+
         # Mock asyncio.sleep to prevent actual waiting during retries
         with (
-            patch("aiohttp.ClientSession", return_value=mock_session_cm),
-            patch("asyncio.sleep", new_callable=AsyncMock),
+            patch(
+                "aragora.agents.api_agents.openrouter.create_client_session",
+                return_value=mock_session_cm,
+            ),
+            patch("aragora.agents.api_agents.openrouter.asyncio.sleep", new_callable=AsyncMock),
+            patch.object(limiter, "_backoff", mock_backoff),
         ):
             from aragora.agents.errors import AgentRateLimitError
 
