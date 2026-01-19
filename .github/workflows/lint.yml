@@ -141,6 +141,9 @@ jobs:
         run: npm run lint
         # Phase 12: ESLint now blocking (was continue-on-error: true)
 
+      - name: Check API types are in sync
+        run: npm run check:types
+
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 15

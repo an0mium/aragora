@@ -629,9 +629,12 @@ class KiloCodeAgent(CLIAgent):
         return "\n\n".join(responses) if responses else output
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using kilocode CLI with codebase access."""
+        """Generate a response using kilocode CLI with codebase access.
+
+        For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
-        cmd = [
+        base_cmd = [
             "kilocode",
             "--auto",
             "--yolo",
@@ -642,10 +645,19 @@ class KiloCodeAgent(CLIAgent):
             self.mode,
             "-t",
             str(self.timeout),
-            full_prompt,
         ]
+        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
+            return await self._generate_with_fallback(
+                base_cmd + ["-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+                response_extractor=self._extract_kilocode_response,
+            )
         return await self._generate_with_fallback(
-            cmd,
+            base_cmd + [full_prompt],
             prompt,
             context,
             response_extractor=self._extract_kilocode_response,

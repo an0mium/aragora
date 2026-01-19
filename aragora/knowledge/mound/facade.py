@@ -413,7 +413,7 @@ class KnowledgeMound:
         """Update a knowledge node."""
         self._ensure_initialized()
 
-        updates["updated_at"] = datetime.now().isoformat()
+        updates["updated_at"] = datetime.now()
         await self._update_node(node_id, updates)
 
         # Invalidate cache

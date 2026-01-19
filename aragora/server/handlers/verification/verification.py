@@ -156,10 +156,60 @@ class VerificationHandler(BaseHandler):
             )
         )
 
-        # Build response
+        # Build response with user-friendly enhancements
         response = result.to_dict()
         response["claim"] = claim
         if claim_type:
             response["claim_type"] = claim_type
+
+        # Add user-friendly hints for failure cases
+        status = result.status.value if hasattr(result.status, "value") else str(result.status)
+
+        if status == "translation_failed":
+            response["hint"] = (
+                "The claim could not be translated to a formal logical statement. "
+                "Try rephrasing with explicit logical structure."
+            )
+            response["examples"] = [
+                "For all x, x + 0 = x",
+                "If A > B and B > C, then A > C",
+                "There exists a number greater than any given number",
+                "All prime numbers greater than 2 are odd",
+            ]
+            response["suggestions"] = [
+                "Use explicit quantifiers (for all, there exists)",
+                "Use clear logical connectives (and, or, implies, if-then)",
+                "Express mathematical relationships explicitly (equals, greater than)",
+                "Avoid ambiguous natural language",
+            ]
+
+        elif status == "not_supported":
+            response["hint"] = (
+                "This type of claim is not suitable for formal verification. "
+                "Formal verification works best with logical or mathematical statements."
+            )
+            response["supported_types"] = [
+                "Logical statements (implications, conjunctions)",
+                "Arithmetic equalities and inequalities",
+                "Quantified statements (for all, there exists)",
+                "Set membership and relations",
+            ]
+
+        elif status == "proof_failed":
+            response["hint"] = (
+                "The formal system found the claim to be false or unprovable. "
+                "Check your assumptions or try a weaker formulation."
+            )
+            if response.get("proof_text"):
+                response["counterexample_note"] = (
+                    "A counterexample was found, meaning the claim is false as stated."
+                )
+
+        elif status == "timeout":
+            response["hint"] = (
+                "The proof search exceeded the time limit. "
+                "Try a simpler claim or increase the timeout."
+            )
+            response["max_timeout"] = 120
 
         return json_response(response)

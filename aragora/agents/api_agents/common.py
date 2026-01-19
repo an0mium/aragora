@@ -28,7 +28,6 @@ from aragora.agents.errors import (
     AgentTimeoutError,
     handle_agent_errors,
 )
-from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS, get_api_key, get_settings
 from aragora.core import Agent, Critique, Message
 from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error_message
@@ -501,7 +500,6 @@ __all__ = [
     "AgentStreamError",
     "AgentTimeoutError",
     "handle_agent_errors",
-    "AgentRegistry",
     "DB_TIMEOUT_SECONDS",
     "get_api_key",
     "Agent",
