@@ -47,8 +47,13 @@ class MockProtocol:
 class MockSimilarityBackend:
     """Mock similarity backend for vote grouping."""
 
-    def __init__(self, similarity_matrix: Optional[dict] = None):
+    def __init__(
+        self,
+        similarity_matrix: Optional[dict] = None,
+        contradiction_pairs: Optional[set] = None,
+    ):
         self._matrix = similarity_matrix or {}
+        self._contradictions = contradiction_pairs or set()
 
     def compute_similarity(self, text1: str, text2: str) -> float:
         """Compute similarity between two texts."""
@@ -65,6 +70,12 @@ class MockSimilarityBackend:
             return 1.0
         # Default to low similarity
         return 0.3
+
+    def is_contradictory(self, text1: str, text2: str) -> bool:
+        """Check if two texts are contradictory."""
+        key = (text1, text2)
+        reverse_key = (text2, text1)
+        return key in self._contradictions or reverse_key in self._contradictions
 
 
 # =============================================================================
@@ -498,6 +509,82 @@ class TestVotingEngineGrouping:
 
         # Should not merge - similarity below threshold
         assert groups == {}
+
+    def test_group_similar_votes_skips_contradictions(self):
+        """Test that contradictory choices are NOT grouped even if textually similar."""
+        # High similarity but marked as contradictory
+        similarity_matrix = {
+            ("Accept the proposal", "Reject the proposal"): 0.95,  # Very similar text
+        }
+        contradiction_pairs = {("Accept the proposal", "Reject the proposal")}
+        backend = MockSimilarityBackend(similarity_matrix, contradiction_pairs)
+
+        protocol = MockProtocol(vote_grouping=True)
+        engine = VotingEngine(protocol=protocol, similarity_backend=backend)
+
+        votes = [
+            MockVote("agent-1", "Accept the proposal"),
+            MockVote("agent-2", "Reject the proposal"),
+        ]
+
+        groups = engine.group_similar_votes(votes)
+
+        # Should NOT merge - they are contradictory
+        assert groups == {}
+
+
+class TestContradictionDetection:
+    """Tests for semantic contradiction detection."""
+
+    def test_accept_reject_contradiction(self):
+        """Test that accept/reject pairs are detected as contradictions."""
+        from aragora.debate.similarity.backends import SimilarityBackend
+
+        # Use a concrete implementation to test the base class method
+        from aragora.debate.similarity.backends import JaccardBackend
+
+        backend = JaccardBackend()
+
+        assert backend.is_contradictory("Accept the proposal", "Reject the proposal")
+        assert backend.is_contradictory("Reject this idea", "Accept this idea")
+
+    def test_increase_decrease_contradiction(self):
+        """Test that increase/decrease pairs are detected."""
+        from aragora.debate.similarity.backends import JaccardBackend
+
+        backend = JaccardBackend()
+
+        assert backend.is_contradictory("Increase funding", "Decrease funding")
+        assert backend.is_contradictory("Decrease the budget", "Increase the budget")
+
+    def test_yes_no_contradiction(self):
+        """Test that yes/no pairs are detected."""
+        from aragora.debate.similarity.backends import JaccardBackend
+
+        backend = JaccardBackend()
+
+        assert backend.is_contradictory("Yes", "No")
+        assert backend.is_contradictory("Yes, proceed", "No, stop")
+
+    def test_option_labels_contradiction(self):
+        """Test that labeled options are detected as different choices."""
+        from aragora.debate.similarity.backends import JaccardBackend
+
+        backend = JaccardBackend()
+
+        assert backend.is_contradictory("Option A", "Option B")
+        assert backend.is_contradictory("Choice 1", "Choice 2")
+        assert not backend.is_contradictory("Option A", "Option A")
+
+    def test_non_contradictory_similar_text(self):
+        """Test that similar but non-contradictory texts are not flagged."""
+        from aragora.debate.similarity.backends import JaccardBackend
+
+        backend = JaccardBackend()
+
+        # These are similar paraphrases, not contradictions
+        assert not backend.is_contradictory("Use vector database", "Vector DB is best")
+        assert not backend.is_contradictory("Python is great", "Python works well")
 
 
 class TestVotingEngineCounting:

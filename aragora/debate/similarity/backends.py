@@ -49,6 +49,37 @@ def _normalize_backend_name(value: str) -> str | None:
 class SimilarityBackend(ABC):
     """Abstract base class for similarity computation backends."""
 
+    # Common contradiction word pairs (lowercase)
+    _CONTRADICTION_PAIRS: list[tuple[str, str]] = [
+        ("accept", "reject"),
+        ("agree", "disagree"),
+        ("approve", "disapprove"),
+        ("yes", "no"),
+        ("true", "false"),
+        ("increase", "decrease"),
+        ("raise", "lower"),
+        ("support", "oppose"),
+        ("allow", "deny"),
+        ("enable", "disable"),
+        ("include", "exclude"),
+        ("add", "remove"),
+        ("create", "delete"),
+        ("start", "stop"),
+        ("begin", "end"),
+        ("open", "close"),
+        ("for", "against"),
+        ("pro", "con"),
+        ("positive", "negative"),
+        ("good", "bad"),
+        ("better", "worse"),
+        ("more", "less"),
+        ("high", "low"),
+        ("up", "down"),
+        ("pass", "fail"),
+        ("win", "lose"),
+        ("keep", "discard"),
+    ]
+
     @abstractmethod
     def compute_similarity(self, text1: str, text2: str) -> float:
         """
@@ -62,6 +93,73 @@ class SimilarityBackend(ABC):
             Similarity score between 0.0 (completely different) and 1.0 (identical)
         """
         raise NotImplementedError("Subclasses must implement compute_similarity")
+
+    def is_contradictory(self, text1: str, text2: str) -> bool:
+        """
+        Check if two texts are semantically contradictory.
+
+        This prevents grouping choices that are textually similar but
+        semantically opposite (e.g., "Accept the proposal" vs "Reject the proposal").
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            True if the texts appear to be contradictory choices
+        """
+        if not text1 or not text2:
+            return False
+
+        t1_lower = text1.lower()
+        t2_lower = text2.lower()
+        t1_words = set(t1_lower.split())
+        t2_words = set(t2_lower.split())
+
+        # Check for labeled options (Option A vs Option B, Choice 1 vs Choice 2)
+        import re
+
+        option_pattern = r"^(option|choice|alternative|answer)\s*[a-z0-9]+$"
+        if re.match(option_pattern, t1_lower.strip()) and re.match(
+            option_pattern, t2_lower.strip()
+        ):
+            # Both are labeled options - they're different choices
+            return t1_lower.strip() != t2_lower.strip()
+
+        # Check for contradiction word pairs
+        for word1, word2 in self._CONTRADICTION_PAIRS:
+            # Check if one text has word1 and the other has word2
+            has_w1_in_t1 = word1 in t1_words or word1 in t1_lower
+            has_w2_in_t2 = word2 in t2_words or word2 in t2_lower
+            has_w1_in_t2 = word1 in t2_words or word1 in t2_lower
+            has_w2_in_t1 = word2 in t2_words or word2 in t1_lower
+
+            if (has_w1_in_t1 and has_w2_in_t2) or (has_w1_in_t2 and has_w2_in_t1):
+                # Found a contradiction pair - but verify the texts share context
+                # (e.g., both mention "proposal" or "funding")
+                shared_words = t1_words & t2_words
+                # Remove common stopwords
+                stopwords = {
+                    "the",
+                    "a",
+                    "an",
+                    "is",
+                    "are",
+                    "was",
+                    "were",
+                    "to",
+                    "of",
+                    "and",
+                    "or",
+                    "it",
+                    "this",
+                    "that",
+                }
+                meaningful_shared = shared_words - stopwords
+                if meaningful_shared or len(t1_words) <= 3 or len(t2_words) <= 3:
+                    return True
+
+        return False
 
     def compute_batch_similarity(self, texts: list[str]) -> float:
         """

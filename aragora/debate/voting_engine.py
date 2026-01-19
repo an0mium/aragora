@@ -391,6 +391,13 @@ class VotingEngine:
             # Check only remaining unassigned choices for similarity
             to_assign = []
             for other in list(unassigned):
+                # Skip contradictory choices (e.g., "Accept" vs "Reject")
+                if backend.is_contradictory(choice, other):
+                    logger.debug(
+                        f"vote_grouping_skip_contradiction: '{choice}' vs '{other}'"
+                    )
+                    continue
+
                 similarity = backend.compute_similarity(choice, other)
                 if similarity >= threshold:
                     groups[choice].append(other)
