@@ -51,6 +51,14 @@ interface KnowledgeStats {
   totalRelationships: number;
 }
 
+interface StaleItem {
+  node_id: string;
+  staleness_score: number;
+  reasons: string[];
+  last_validated_at: string | null;
+  recommended_action: string;
+}
+
 const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   continuum: { bg: 'bg-blue-900/30', text: 'text-blue-400' },
   consensus: { bg: 'bg-green-900/30', text: 'text-green-400' },
@@ -108,6 +116,14 @@ export default function KnowledgeMoundPage() {
   const [repoUrl, setRepoUrl] = useState('');
   const [indexing, setIndexing] = useState(false);
   const [indexingStatus, setIndexingStatus] = useState<string | null>(null);
+
+  // Staleness state
+  const [staleItems, setStaleItems] = useState<StaleItem[]>([]);
+  const [loadingStale, setLoadingStale] = useState(false);
+  const [showStalePanel, setShowStalePanel] = useState(false);
+
+  // Export state
+  const [exporting, setExporting] = useState(false);
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -292,6 +308,65 @@ export default function KnowledgeMoundPage() {
     }
   }, [repoUrl, fetchNodes, fetchStats]);
 
+  // Fetch stale items
+  const fetchStaleItems = useCallback(async () => {
+    setLoadingStale(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/stale`);
+      if (response.ok) {
+        const data = await response.json();
+        setStaleItems(data.stale_items || []);
+      } else {
+        setStaleItems([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch stale items:', err);
+      setStaleItems([]);
+    } finally {
+      setLoadingStale(false);
+    }
+  }, []);
+
+  // Export graph
+  const exportGraph = useCallback(async (format: 'd3' | 'graphml') => {
+    setExporting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/export/${format}`);
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let content: string;
+      let mimeType: string;
+      let filename: string;
+
+      if (format === 'graphml') {
+        content = data.graphml || data.content || JSON.stringify(data);
+        mimeType = 'application/xml';
+        filename = `knowledge-graph-${new Date().toISOString().slice(0, 10)}.graphml`;
+      } else {
+        content = JSON.stringify(data, null, 2);
+        mimeType = 'application/json';
+        filename = `knowledge-graph-${new Date().toISOString().slice(0, 10)}.json`;
+      }
+
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchNodes();
@@ -357,7 +432,7 @@ export default function KnowledgeMoundPage() {
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6">
           <button
             onClick={() => setShowAddFact(!showAddFact)}
             className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono rounded-lg hover:bg-acid-green/30 transition-colors"
@@ -370,7 +445,94 @@ export default function KnowledgeMoundPage() {
           >
             Index Repository
           </button>
+          <button
+            onClick={() => { setShowStalePanel(!showStalePanel); if (!showStalePanel) fetchStaleItems(); }}
+            className="px-4 py-2 bg-yellow-500/20 border border-yellow-500 text-yellow-400 font-mono rounded-lg hover:bg-yellow-500/30 transition-colors"
+          >
+            {showStalePanel ? 'Hide' : 'Check'} Staleness
+          </button>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => exportGraph('d3')}
+              disabled={exporting}
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-mono rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+            >
+              Export D3 JSON
+            </button>
+            <button
+              onClick={() => exportGraph('graphml')}
+              disabled={exporting}
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500 text-purple-400 font-mono rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+            >
+              Export GraphML
+            </button>
+          </div>
         </div>
+
+        {/* Staleness Panel */}
+        {showStalePanel && (
+          <div className="mb-6 p-4 bg-surface border border-yellow-500/30 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-mono text-yellow-400 uppercase">Stale Knowledge Items</h3>
+              <button
+                onClick={fetchStaleItems}
+                disabled={loadingStale}
+                className="text-xs font-mono text-yellow-400 hover:text-yellow-300 disabled:opacity-50"
+              >
+                {loadingStale ? 'Checking...' : 'Refresh'}
+              </button>
+            </div>
+
+            {loadingStale ? (
+              <div className="text-center py-4 text-text-muted font-mono">Checking for stale items...</div>
+            ) : staleItems.length === 0 ? (
+              <div className="text-center py-4 text-text-muted font-mono">
+                No stale knowledge items found. All items are fresh.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {staleItems.map((item) => {
+                  const stalenessLevel =
+                    item.staleness_score >= 0.8 ? 'expired' :
+                    item.staleness_score >= 0.5 ? 'stale' : 'aging';
+
+                  const stalenessColors = {
+                    expired: 'bg-red-900/30 text-red-400 border-red-500/30',
+                    stale: 'bg-yellow-900/30 text-yellow-400 border-yellow-500/30',
+                    aging: 'bg-blue-900/30 text-blue-400 border-blue-500/30',
+                  };
+
+                  return (
+                    <div
+                      key={item.node_id}
+                      className="p-3 bg-bg border border-border rounded-lg hover:border-yellow-500/50 cursor-pointer"
+                      onClick={() => {
+                        const node = nodes.find(n => n.id === item.node_id);
+                        if (node) setSelectedNode(node);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-xs text-text-muted">{item.node_id}</span>
+                        <span className={`px-2 py-0.5 text-xs font-mono rounded border ${stalenessColors[stalenessLevel]}`}>
+                          {stalenessLevel.toUpperCase()} ({Math.round(item.staleness_score * 100)}%)
+                        </span>
+                      </div>
+                      <div className="text-xs text-text-muted mb-2">
+                        {item.reasons.join(', ')}
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-text-muted">
+                          Last validated: {item.last_validated_at ? new Date(item.last_validated_at).toLocaleDateString() : 'Never'}
+                        </span>
+                        <span className="text-acid-cyan">{item.recommended_action}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Add Fact Form */}
         {showAddFact && (

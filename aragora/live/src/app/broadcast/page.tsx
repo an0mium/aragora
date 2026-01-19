@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { BackendSelector, useBackend } from '@/components/BackendSelector';
 
 interface Episode {
   id: string;
@@ -25,16 +26,53 @@ interface BroadcastStatus {
   pipeline_available: boolean;
 }
 
+interface Debate {
+  id: string;
+  slug?: string;
+  task: string;
+  status: string;
+  created_at: string;
+  agents?: string[];
+}
+
+interface GeneratorState {
+  isOpen: boolean;
+  selectedDebate: Debate | null;
+  customTitle: string;
+  customDescription: string;
+  generateVideo: boolean;
+  generating: boolean;
+  progress: string | null;
+  error: string | null;
+  result: { audio_url?: string; video_url?: string; duration_seconds?: number } | null;
+}
+
 export default function BroadcastPage() {
+  const { config } = useBackend();
+  const backendUrl = config.api;
+
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [status, setStatus] = useState<BroadcastStatus | null>(null);
+  const [debates, setDebates] = useState<Debate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
 
+  const [generator, setGenerator] = useState<GeneratorState>({
+    isOpen: false,
+    selectedDebate: null,
+    customTitle: '',
+    customDescription: '',
+    generateVideo: false,
+    generating: false,
+    progress: null,
+    error: null,
+    result: null,
+  });
+
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/broadcast/status');
+      const res = await fetch(`${backendUrl}/api/broadcast/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -42,12 +80,12 @@ export default function BroadcastPage() {
     } catch (e) {
       console.error('Failed to fetch broadcast status:', e);
     }
-  }, []);
+  }, [backendUrl]);
 
   const fetchEpisodes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/broadcast/episodes?limit=50');
+      const res = await fetch(`${backendUrl}/api/broadcast/episodes?limit=50`);
       if (res.ok) {
         const data = await res.json();
         setEpisodes(data.episodes || []);
@@ -62,7 +100,91 @@ export default function BroadcastPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [backendUrl]);
+
+  const fetchDebates = useCallback(async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/debates?status=completed&limit=100`);
+      if (res.ok) {
+        const data = await res.json();
+        setDebates(data.debates || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch debates:', e);
+    }
+  }, [backendUrl]);
+
+  const handleGenerateEpisode = async () => {
+    if (!generator.selectedDebate) return;
+
+    setGenerator((prev) => ({ ...prev, generating: true, progress: 'Starting generation...', error: null, result: null }));
+
+    try {
+      const params = new URLSearchParams();
+      if (generator.customTitle) params.set('title', generator.customTitle);
+      if (generator.customDescription) params.set('description', generator.customDescription);
+      if (generator.generateVideo) params.set('video', 'true');
+      params.set('rss', 'true');
+
+      setGenerator((prev) => ({ ...prev, progress: 'Generating audio...' }));
+
+      const res = await fetch(`${backendUrl}/api/debates/${generator.selectedDebate.id}/broadcast/full?${params}`, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Generation failed: ${res.status}`);
+      }
+
+      const result = await res.json();
+
+      if (result.success) {
+        setGenerator((prev) => ({
+          ...prev,
+          generating: false,
+          progress: null,
+          result: {
+            audio_url: result.audio_url,
+            video_url: result.video_url,
+            duration_seconds: result.duration_seconds,
+          },
+        }));
+        // Refresh episodes list
+        fetchEpisodes();
+      } else {
+        throw new Error(result.error || 'Generation failed');
+      }
+    } catch (e) {
+      setGenerator((prev) => ({
+        ...prev,
+        generating: false,
+        progress: null,
+        error: e instanceof Error ? e.message : 'Generation failed',
+      }));
+    }
+  };
+
+  const openGenerator = () => {
+    setGenerator({
+      isOpen: true,
+      selectedDebate: null,
+      customTitle: '',
+      customDescription: '',
+      generateVideo: false,
+      generating: false,
+      progress: null,
+      error: null,
+      result: null,
+    });
+    fetchDebates();
+  };
+
+  const closeGenerator = () => {
+    if (!generator.generating) {
+      setGenerator((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
 
   useEffect(() => {
     fetchStatus();
@@ -112,6 +234,7 @@ export default function BroadcastPage() {
               >
                 [DASHBOARD]
               </Link>
+              <BackendSelector compact />
               <ThemeToggle />
             </div>
           </div>
@@ -312,14 +435,15 @@ export default function BroadcastPage() {
                   </span>
                 </div>
                 <div className="p-4 space-y-2">
-                  <Link
-                    href="/debates"
-                    className="block w-full px-3 py-2 text-xs font-mono text-center border border-acid-green/40 hover:bg-acid-green/10 transition-colors"
+                  <button
+                    onClick={openGenerator}
+                    disabled={!status?.available}
+                    className="block w-full px-3 py-2 text-xs font-mono text-center border border-acid-green/40 hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     [+ GENERATE NEW EPISODE]
-                  </Link>
+                  </button>
                   <a
-                    href="/api/podcast/feed.xml"
+                    href={`${backendUrl}/api/podcast/feed.xml`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full px-3 py-2 text-xs font-mono text-center border border-acid-green/40 hover:bg-acid-green/10 transition-colors"
@@ -330,6 +454,163 @@ export default function BroadcastPage() {
               </div>
             </div>
           </div>
+
+          {/* Episode Generator Modal */}
+          {generator.isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+              <div className="w-full max-w-lg mx-4 border border-acid-green/30 bg-surface">
+                <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+                  <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+                    {'>'} EPISODE GENERATOR
+                  </span>
+                  <button
+                    onClick={closeGenerator}
+                    disabled={generator.generating}
+                    className="text-xs font-mono text-text-muted hover:text-text disabled:opacity-50"
+                  >
+                    [X]
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* Debate Selector */}
+                  <div>
+                    <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+                      Select Debate
+                    </label>
+                    <select
+                      value={generator.selectedDebate?.id || ''}
+                      onChange={(e) => {
+                        const debate = debates.find((d) => d.id === e.target.value);
+                        setGenerator((prev) => ({ ...prev, selectedDebate: debate || null }));
+                      }}
+                      disabled={generator.generating}
+                      className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-sm font-mono text-text focus:outline-none focus:border-acid-green disabled:opacity-50"
+                    >
+                      <option value="">-- Choose a completed debate --</option>
+                      {debates.map((debate) => (
+                        <option key={debate.id} value={debate.id}>
+                          {debate.task?.slice(0, 50) || debate.id} ({new Date(debate.created_at).toLocaleDateString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Custom Title */}
+                  <div>
+                    <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+                      Custom Title (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={generator.customTitle}
+                      onChange={(e) => setGenerator((prev) => ({ ...prev, customTitle: e.target.value }))}
+                      disabled={generator.generating}
+                      placeholder="Leave blank to auto-generate"
+                      className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-sm font-mono text-text focus:outline-none focus:border-acid-green disabled:opacity-50"
+                    />
+                  </div>
+
+                  {/* Custom Description */}
+                  <div>
+                    <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+                      Description (optional)
+                    </label>
+                    <textarea
+                      value={generator.customDescription}
+                      onChange={(e) => setGenerator((prev) => ({ ...prev, customDescription: e.target.value }))}
+                      disabled={generator.generating}
+                      placeholder="Episode description for podcast feed"
+                      rows={2}
+                      className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-sm font-mono text-text focus:outline-none focus:border-acid-green disabled:opacity-50 resize-none"
+                    />
+                  </div>
+
+                  {/* Options */}
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-xs font-mono text-text-muted cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={generator.generateVideo}
+                        onChange={(e) => setGenerator((prev) => ({ ...prev, generateVideo: e.target.checked }))}
+                        disabled={generator.generating}
+                        className="accent-acid-green"
+                      />
+                      Generate video (MP4)
+                    </label>
+                  </div>
+
+                  {/* TTS Info */}
+                  {status?.tts_backends && status.tts_backends.length > 0 && (
+                    <div className="text-xs font-mono text-text-muted">
+                      Available TTS: <span className="text-acid-cyan">{status.tts_backends.join(', ')}</span>
+                    </div>
+                  )}
+
+                  {/* Progress/Error/Result */}
+                  {generator.progress && (
+                    <div className="p-3 border border-acid-cyan/30 bg-acid-cyan/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-acid-cyan/40 border-t-acid-cyan rounded-full animate-spin" />
+                        <span className="text-xs font-mono text-acid-cyan">{generator.progress}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {generator.error && (
+                    <div className="p-3 border border-warning/30 bg-warning/5">
+                      <p className="text-xs font-mono text-warning">{'>'} {generator.error}</p>
+                    </div>
+                  )}
+
+                  {generator.result && (
+                    <div className="p-3 border border-acid-green/30 bg-acid-green/5 space-y-2">
+                      <p className="text-xs font-mono text-acid-green">{'>'} Episode generated successfully!</p>
+                      {generator.result.audio_url && (
+                        <a
+                          href={`${backendUrl}${generator.result.audio_url}`}
+                          className="block text-xs font-mono text-acid-cyan hover:underline"
+                        >
+                          [DOWNLOAD AUDIO]
+                        </a>
+                      )}
+                      {generator.result.video_url && (
+                        <a
+                          href={`${backendUrl}${generator.result.video_url}`}
+                          className="block text-xs font-mono text-acid-cyan hover:underline"
+                        >
+                          [DOWNLOAD VIDEO]
+                        </a>
+                      )}
+                      {generator.result.duration_seconds && (
+                        <p className="text-xs font-mono text-text-muted">
+                          Duration: {formatDuration(generator.result.duration_seconds)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleGenerateEpisode}
+                      disabled={!generator.selectedDebate || generator.generating}
+                      className="flex-1 px-4 py-2 text-xs font-mono bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generator.generating ? 'GENERATING...' : 'GENERATE EPISODE'}
+                    </button>
+                    <button
+                      onClick={closeGenerator}
+                      disabled={generator.generating}
+                      className="px-4 py-2 text-xs font-mono border border-acid-green/40 hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+                    >
+                      {generator.result ? 'CLOSE' : 'CANCEL'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Help Section */}
           <div className="mt-8">
