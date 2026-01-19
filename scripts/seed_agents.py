@@ -27,6 +27,19 @@ except ImportError:
     DEFAULT_ELO = 1500.0
     logger.warning("EloSystem not available, will create minimal database")
 
+# Try to import database configuration for path resolution
+try:
+    from aragora.persistence.db_config import (
+        DatabaseType,
+        get_db_path,
+        get_nomic_dir,
+        get_db_mode,
+    )
+    DB_CONFIG_AVAILABLE = True
+except ImportError:
+    DB_CONFIG_AVAILABLE = False
+    logger.warning("Database config not available, using legacy path")
+
 
 # Agent metadata with rich information
 # Format: (name, provider, metadata_dict)
@@ -385,7 +398,7 @@ def main():
         "--db-path",
         type=Path,
         default=None,
-        help="Path to ELO database (default: .nomic/elo.db)",
+        help="Path to ELO database (auto-detected based on ARAGORA_DB_MODE)",
     )
     parser.add_argument(
         "--force",
@@ -431,10 +444,18 @@ def main():
         return
 
     # Determine database path
-    base_dir = Path(__file__).parent.parent
     if args.db_path:
         db_path = args.db_path
+    elif DB_CONFIG_AVAILABLE:
+        # Use the database configuration to get the correct path
+        # This respects ARAGORA_DB_MODE (consolidated vs legacy)
+        nomic_dir = get_nomic_dir()
+        db_path = get_db_path(DatabaseType.ELO, nomic_dir)
+        mode = get_db_mode()
+        logger.info(f"Database mode: {mode.value}")
     else:
+        # Fallback to legacy path
+        base_dir = Path(__file__).parent.parent
         db_path = base_dir / ".nomic" / "elo.db"
 
     logger.info(f"Target database: {db_path}")
