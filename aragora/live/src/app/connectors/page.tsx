@@ -58,11 +58,13 @@ const connectorTypeColors: Record<string, string> = {
 function ConnectorCard({
   connector,
   onSync,
+  onEdit,
   onDelete,
   syncing,
 }: {
   connector: Connector;
   onSync: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   syncing: boolean;
 }) {
@@ -150,11 +152,170 @@ function ConnectorCard({
           {syncing ? 'SYNCING...' : 'SYNC NOW'}
         </button>
         <button
+          onClick={onEdit}
+          className="px-3 py-2 bg-blue-500/20 border border-blue-500/50 text-blue-400 font-mono text-sm hover:bg-blue-500/30 transition-colors rounded"
+        >
+          EDIT
+        </button>
+        <button
           onClick={onDelete}
           className="px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
         >
           DELETE
         </button>
+      </div>
+    </div>
+  );
+}
+
+function EditConnectorModal({
+  connector,
+  onClose,
+  onSave,
+}: {
+  connector: Connector;
+  onClose: () => void;
+  onSave: (updates: { schedule: Connector['schedule'] }) => void;
+}) {
+  const [intervalMinutes, setIntervalMinutes] = useState(
+    connector.schedule.interval_minutes || 60
+  );
+  const [cronExpression, setCronExpression] = useState(
+    connector.schedule.cron_expression || ''
+  );
+  const [enabled, setEnabled] = useState(connector.schedule.enabled);
+  const [useCron, setUseCron] = useState(!!connector.schedule.cron_expression);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      schedule: {
+        interval_minutes: useCron ? undefined : intervalMinutes,
+        cron_expression: useCron ? cronExpression : undefined,
+        enabled,
+      },
+    });
+  };
+
+  const connectorType = connector.type || connector.id.split(':')[0] || 'unknown';
+  const connectorId = connector.id.split(':').pop() || connector.id;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{connectorTypeIcons[connectorType] || '🔗'}</span>
+            <div>
+              <h2 className="text-lg font-mono font-bold text-text">Edit Connector</h2>
+              <span className="text-xs text-text-muted font-mono">{connectorId}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-text-muted hover:text-text">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4">
+          {/* Schedule Type Toggle */}
+          <div className="mb-4">
+            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+              Schedule Type
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUseCron(false)}
+                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-mono ${
+                  !useCron
+                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    : 'border-border text-text-muted hover:border-text'
+                }`}
+              >
+                Interval
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseCron(true)}
+                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-mono ${
+                  useCron
+                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    : 'border-border text-text-muted hover:border-text'
+                }`}
+              >
+                Cron Expression
+              </button>
+            </div>
+          </div>
+
+          {/* Interval or Cron Input */}
+          {useCron ? (
+            <div className="mb-4">
+              <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                Cron Expression
+              </label>
+              <input
+                type="text"
+                value={cronExpression}
+                onChange={(e) => setCronExpression(e.target.value)}
+                placeholder="0 * * * *"
+                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Example: 0 */6 * * * (every 6 hours)
+              </p>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                Interval (minutes)
+              </label>
+              <input
+                type="number"
+                value={intervalMinutes}
+                onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 60)}
+                min={1}
+                max={1440}
+                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Sync every {intervalMinutes} minutes
+              </p>
+            </div>
+          )}
+
+          {/* Enabled Toggle */}
+          <div className="mb-6">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="w-4 h-4 accent-acid-green"
+              />
+              <span className="text-sm font-mono text-text">
+                Enable automatic sync
+              </span>
+            </label>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -294,6 +455,7 @@ export default function ConnectorsPage() {
   const [history, setHistory] = useState<SyncHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingConnector, setEditingConnector] = useState<Connector | null>(null);
   const [syncingConnectors, setSyncingConnectors] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
@@ -391,6 +553,30 @@ export default function ConnectorsPage() {
       fetchData();
     } catch (error) {
       showToast('Failed to delete connector', 'error');
+    }
+  };
+
+  const handleUpdateConnector = async (
+    connectorId: string,
+    updates: { schedule: Connector['schedule'] }
+  ) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/connectors/${connectorId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to update connector');
+
+      showToast('Connector updated successfully', 'success');
+      setEditingConnector(null);
+      fetchData();
+    } catch (error) {
+      showToast('Failed to update connector', 'error');
     }
   };
 
@@ -506,6 +692,7 @@ export default function ConnectorsPage() {
                 key={connector.job_id}
                 connector={connector}
                 onSync={() => handleSync(connector.id)}
+                onEdit={() => setEditingConnector(connector)}
                 onDelete={() => handleDelete(connector.id)}
                 syncing={syncingConnectors.has(connector.id)}
               />
@@ -568,6 +755,15 @@ export default function ConnectorsPage() {
         <AddConnectorModal
           onClose={() => setShowAddModal(false)}
           onAdd={handleAddConnector}
+        />
+      )}
+
+      {/* Edit Connector Modal */}
+      {editingConnector && (
+        <EditConnectorModal
+          connector={editingConnector}
+          onClose={() => setEditingConnector(null)}
+          onSave={(updates) => handleUpdateConnector(editingConnector.id, updates)}
         />
       )}
     </main>

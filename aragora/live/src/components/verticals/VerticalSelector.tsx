@@ -72,14 +72,19 @@ interface VerticalSelectorProps {
   selectedVertical?: string;
   onSelect: (vertical: Vertical) => void;
   showDetails?: boolean;
+  verticals?: Vertical[];
 }
 
 export function VerticalSelector({
   selectedVertical,
   onSelect,
   showDetails = true,
+  verticals: externalVerticals,
 }: VerticalSelectorProps) {
   const [hoveredVertical, setHoveredVertical] = useState<string | null>(null);
+
+  // Use external verticals if provided, otherwise fall back to defaults
+  const verticals = externalVerticals && externalVerticals.length > 0 ? externalVerticals : VERTICALS;
 
   const handleSelect = useCallback(
     (vertical: Vertical) => {
@@ -88,9 +93,9 @@ export function VerticalSelector({
     [onSelect]
   );
 
-  const selectedData = VERTICALS.find((v) => v.id === selectedVertical);
+  const selectedData = verticals.find((v) => v.id === selectedVertical);
   const displayVertical = hoveredVertical
-    ? VERTICALS.find((v) => v.id === hoveredVertical)
+    ? verticals.find((v) => v.id === hoveredVertical)
     : selectedData;
 
   return (
@@ -107,7 +112,7 @@ export function VerticalSelector({
 
       {/* Vertical Grid */}
       <div className="p-4 grid grid-cols-5 gap-2">
-        {VERTICALS.map((vertical) => (
+        {verticals.map((vertical) => (
           <button
             key={vertical.id}
             onClick={() => handleSelect(vertical)}

@@ -709,13 +709,25 @@ export default function ControlPlanePage() {
                 {activeTab === 'verticals' && (
                   <div className="space-y-6">
                     <VerticalSelector
-                      onSelect={(_vertical) => {
-                        // Vertical selection handler
-                      }}
+                      selectedVertical={selectedVertical || undefined}
+                      onSelect={(vertical) => setSelectedVertical(vertical.id)}
+                      verticals={verticalsData.map(v => ({
+                        id: v.vertical_id,
+                        displayName: v.display_name,
+                        description: v.description,
+                        expertiseAreas: v.expertise_areas || [],
+                        complianceFrameworks: v.compliance_frameworks || [],
+                        defaultModel: v.default_model || 'claude-sonnet-4',
+                        icon: v.vertical_id === 'software' ? '💻' :
+                              v.vertical_id === 'legal' ? '⚖️' :
+                              v.vertical_id === 'healthcare' ? '🏥' :
+                              v.vertical_id === 'accounting' ? '📊' :
+                              v.vertical_id === 'research' ? '🔬' : '📋',
+                      }))}
                     />
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div className="h-[400px]">
-                        <VerticalKnowledgeExplorer />
+                        <VerticalKnowledgeExplorer selectedVertical={selectedVertical || undefined} />
                       </div>
                       <div className="h-[400px]">
                         <VerticalExecutionMonitor />
