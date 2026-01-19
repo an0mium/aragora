@@ -120,7 +120,7 @@ export function Sidebar() {
     <>
       {/* Backdrop overlay - solid in light mode, translucent with blur in dark mode */}
       <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 bg-black/70 dark:backdrop-blur-sm ${
+        className={`fixed inset-0 z-40 transition-opacity duration-300 bg-black/70 backdrop-blur-sm ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         data-theme-backdrop
@@ -133,7 +133,7 @@ export function Sidebar() {
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className={`fixed top-0 left-0 h-full w-72 bg-[var(--bg)] border-r border-acid-green/30 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 bg-bg border-r border-acid-green/30 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -181,7 +181,7 @@ export function Sidebar() {
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-acid-green/30 bg-background">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-acid-green/30 bg-bg">
           {isAuthenticated ? (
             <button
               onClick={handleLogout}
