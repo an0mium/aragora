@@ -82,10 +82,14 @@ class OpenRouterAgent(APIAgent):
     def __init__(
         self,
         name: str = "openrouter",
-        role: str = "analyst",
+        role: str = "proposer",  # Use valid debate role (not "analyst")
         model: str = "deepseek/deepseek-chat",
         system_prompt: str | None = None,
         timeout: int = 300,
+        # Generation parameters (used by SpecialistFactory and elsewhere)
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
     ):
         super().__init__(
             name=name,
@@ -94,8 +98,11 @@ class OpenRouterAgent(APIAgent):
             timeout=timeout,
             api_key=get_api_key("OPENROUTER_API_KEY"),
             base_url="https://openrouter.ai/api/v1",
+            temperature=temperature,
+            top_p=top_p,
         )
         self.agent_type = "openrouter"
+        self.max_tokens = max_tokens  # Store for use in API calls
         if system_prompt:
             self.system_prompt = system_prompt
         else:
