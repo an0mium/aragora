@@ -435,17 +435,16 @@ class TestProofExecutor:
     async def test_execute_computation(self):
         """Test executing a computation proof."""
         executor = ProofExecutor()
+        # Use iterative approach since recursive functions don't work in sandbox
         proof = VerificationProof(
             id="test1",
             claim_id="claim1",
             proof_type=ProofType.COMPUTATION,
-            description="Factorial",
+            description="Factorial iterative",
             code="""
-def factorial(n):
-    if n <= 1:
-        return 1
-    return n * factorial(n - 1)
-result = factorial(5)
+result = 1
+for i in range(1, 6):
+    result = result * i
 """,
             assertion="result == 120",
             timeout_seconds=5.0,

@@ -21,10 +21,6 @@ import pytest
 from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.reasoning.provenance import SourceType
 
-# Skip reason for tests that need implementation pattern rewrite
-NEEDS_REWRITE = pytest.mark.skip(
-    reason="Test mocks methods that don't exist in connector. Needs rewrite."
-)
 
 
 class TestMongoDBConnectorInitialization:
@@ -231,13 +227,13 @@ class TestMongoDBCollectionDiscovery:
             assert all(not c.startswith("system.") for c in collections)
 
 
-@NEEDS_REWRITE
 class TestMongoDBClientConnection:
     """Tests for client connection handling."""
 
     @pytest.mark.asyncio
     async def test_get_client_uses_credentials(self, mock_credentials):
         """Should build connection string from credentials."""
+        import sys
         from aragora.connectors.enterprise.database.mongodb import MongoDBConnector
 
         connector = MongoDBConnector(
@@ -247,15 +243,18 @@ class TestMongoDBClientConnection:
         )
         connector.credentials = mock_credentials
 
-        with patch("aragora.connectors.enterprise.database.mongodb.AsyncIOMotorClient") as mock_motor:
-            mock_motor.return_value = MagicMock()
+        # Create mock motor module
+        mock_motor_client = MagicMock()
+        mock_motor_asyncio = MagicMock()
+        mock_motor_asyncio.AsyncIOMotorClient = MagicMock(return_value=mock_motor_client)
 
+        with patch.dict(sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor_asyncio}):
             await connector._get_client()
 
-            # Should have called with connection string containing credentials
-            call_args = mock_motor.call_args
-            conn_str = call_args[0][0] if call_args[0] else call_args[1].get("host", "")
-            assert "test_user" in conn_str or "mongo.example.com" in conn_str
+            # Should have called with connection string containing host
+            call_args = mock_motor_asyncio.AsyncIOMotorClient.call_args
+            conn_str = call_args[0][0] if call_args[0] else ""
+            assert "mongo.example.com" in conn_str
 
     @pytest.mark.asyncio
     async def test_get_client_reuses_connection(self, mock_credentials):
@@ -274,15 +273,16 @@ class TestMongoDBClientConnection:
     @pytest.mark.asyncio
     async def test_get_client_handles_missing_motor(self, mock_credentials):
         """Should raise helpful error if motor not installed."""
+        import sys
         from aragora.connectors.enterprise.database.mongodb import MongoDBConnector
 
         connector = MongoDBConnector()
         connector.credentials = mock_credentials
 
-        with patch.dict("sys.modules", {"motor": None, "motor.motor_asyncio": None}):
-            with patch("aragora.connectors.enterprise.database.mongodb.AsyncIOMotorClient", side_effect=ImportError):
-                with pytest.raises(ImportError):
-                    await connector._get_client()
+        # Simulate motor not being installed
+        with patch.dict(sys.modules, {"motor": None, "motor.motor_asyncio": None}):
+            with pytest.raises(ImportError):
+                await connector._get_client()
 
 
 class TestMongoDBSyncItems:

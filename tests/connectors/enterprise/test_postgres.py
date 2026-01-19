@@ -25,10 +25,6 @@ from aragora.connectors.enterprise.database.postgres import (
     DEFAULT_TIMESTAMP_COLUMNS,
 )
 
-# Skip reason for tests that need implementation pattern rewrite
-NEEDS_REWRITE = pytest.mark.skip(
-    reason="Test mocks methods that don't exist in connector. Needs rewrite."
-)
 
 
 # =============================================================================
@@ -544,8 +540,16 @@ class TestSearch:
         mock_pool.acquire.return_value.__aexit__.return_value = None
         postgres_connector._pool = mock_pool
 
-        # Mock discover tables
-        with patch.object(postgres_connector, "_discover_tables", return_value=["documents"]):
+        # Clear configured tables to trigger _discover_tables call
+        postgres_connector.tables = []
+
+        # Mock discover tables (async method)
+        with patch.object(
+            postgres_connector,
+            "_discover_tables",
+            new_callable=AsyncMock,
+            return_value=["documents"],
+        ):
             results = await postgres_connector.search("matching", limit=5)
 
         assert len(results) == 1
@@ -576,7 +580,15 @@ class TestSearch:
         mock_pool.acquire.return_value.__aexit__.return_value = None
         postgres_connector._pool = mock_pool
 
-        with patch.object(postgres_connector, "_discover_tables", return_value=["users"]):
+        # Clear configured tables to trigger _discover_tables call
+        postgres_connector.tables = []
+
+        with patch.object(
+            postgres_connector,
+            "_discover_tables",
+            new_callable=AsyncMock,
+            return_value=["users"],
+        ):
             results = await postgres_connector.search("alice", limit=5)
 
         # Should have results from fallback ILIKE search
@@ -665,13 +677,18 @@ class TestListener:
     @pytest.mark.asyncio
     async def test_stop_listener(self, postgres_connector):
         """Test stopping listener."""
-        mock_task = AsyncMock()
-        mock_task.cancel = MagicMock()
-        postgres_connector._listener_task = mock_task
+        import asyncio
+
+        # Create a real task that can be cancelled and awaited
+        async def dummy_listener():
+            await asyncio.sleep(100)  # Will be cancelled
+
+        task = asyncio.create_task(dummy_listener())
+        postgres_connector._listener_task = task
 
         await postgres_connector.stop_listener()
 
-        mock_task.cancel.assert_called_once()
+        assert task.cancelled()
         assert postgres_connector._listener_task is None
 
 
