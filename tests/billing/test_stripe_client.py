@@ -194,11 +194,12 @@ class TestStripeFormEncoding:
     """Tests for Stripe form data encoding."""
 
     def test_encode_simple_data(self):
-        """Test encoding simple key-value pairs."""
+        """Test encoding simple key-value pairs (URL-encoded)."""
         client = StripeClient(api_key="sk_test_abc123")
         result = client._encode_form_data({"email": "test@example.com", "name": "Test"})
 
-        assert "email=test@example.com" in result
+        # @ is URL-encoded to %40 for form data safety
+        assert "email=test%40example.com" in result
         assert "name=Test" in result
 
     def test_encode_nested_data(self):
@@ -226,7 +227,8 @@ class TestStripeFormEncoding:
         client = StripeClient(api_key="sk_test_abc123")
         result = client._encode_form_data({"email": "test@example.com", "name": None})
 
-        assert "email=test@example.com" in result
+        # @ is URL-encoded to %40 for form data safety
+        assert "email=test%40example.com" in result
         assert "name" not in result
 
 

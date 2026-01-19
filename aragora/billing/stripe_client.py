@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from aragora.billing.models import SubscriptionTier
@@ -274,10 +275,15 @@ class StripeClient:
 
         Stripe uses bracket notation for nested objects:
         {"metadata": {"user_id": "123"}} -> "metadata[user_id]=123"
+
+        All keys and values are URL-encoded to handle special characters
+        (spaces, &, =, etc.) safely.
         """
         pairs = []
         for key, value in data.items():
-            full_key = f"{prefix}[{key}]" if prefix else key
+            # URL-encode the key part (brackets are safe for Stripe)
+            encoded_key = quote(str(key), safe="")
+            full_key = f"{prefix}[{encoded_key}]" if prefix else encoded_key
 
             if isinstance(value, dict):
                 pairs.append(self._encode_form_data(value, full_key))
@@ -286,9 +292,11 @@ class StripeClient:
                     if isinstance(item, dict):
                         pairs.append(self._encode_form_data(item, f"{full_key}[{i}]"))
                     else:
-                        pairs.append(f"{full_key}[{i}]={item}")
+                        # URL-encode list item values
+                        pairs.append(f"{full_key}[{i}]={quote(str(item), safe='')}")
             elif value is not None:
-                pairs.append(f"{full_key}={value}")
+                # URL-encode the value
+                pairs.append(f"{full_key}={quote(str(value), safe='')}")
 
         return "&".join(p for p in pairs if p)
 
