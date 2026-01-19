@@ -18,6 +18,7 @@ __all__ = [
     "get_local_fallback_providers",
     "build_fallback_chain_with_local",
     "is_local_llm_available",
+    "get_default_fallback_enabled",
 ]
 
 import logging
@@ -771,4 +772,25 @@ def is_local_llm_available() -> bool:
         return status.get("any_available", False)
     except Exception as e:
         logger.warning(f"Failed to check local LLM availability: {e}")
+        return False
+
+
+def get_default_fallback_enabled() -> bool:
+    """Get the default value for enable_fallback from config.
+
+    Returns False by default (opt-in) to prevent silent billing and
+    unexpected model behavior when OpenRouter fallback activates.
+
+    Set ARAGORA_OPENROUTER_FALLBACK_ENABLED=true to enable.
+
+    Returns:
+        True if fallback is enabled in settings, False otherwise
+    """
+    try:
+        from aragora.config.settings import get_settings
+
+        settings = get_settings()
+        return settings.agents.openrouter_fallback_enabled
+    except Exception:
+        # If settings can't be loaded, default to False (opt-in)
         return False

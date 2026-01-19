@@ -151,6 +151,14 @@ class AgentSettings(BaseSettings):
         description="Maximum characters per message",
     )
 
+    # OpenRouter fallback configuration
+    # IMPORTANT: This is opt-in to prevent silent billing and unexpected model behavior
+    openrouter_fallback_enabled: bool = Field(
+        default=False,
+        alias="ARAGORA_OPENROUTER_FALLBACK_ENABLED",
+        description="Enable OpenRouter fallback on quota/rate limit errors (requires OPENROUTER_API_KEY)",
+    )
+
     # Local LLM fallback configuration
     local_fallback_enabled: bool = Field(
         default=False,
