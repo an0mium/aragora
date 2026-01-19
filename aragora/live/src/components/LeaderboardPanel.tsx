@@ -1,77 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import Link from 'next/link';
 import { AgentMomentsModal } from './AgentMomentsModal';
 import { withErrorBoundary } from './PanelErrorBoundary';
-import {
-  LeaderboardSkeleton,
-  MatchesSkeleton,
-  StatsSkeleton,
-  IntrospectionListSkeleton,
-} from './Skeleton';
 import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
-
-interface AgentRanking {
-  name: string;
-  elo: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  win_rate: number;
-  games: number;
-  consistency?: number;  // 0-1 consistency score from FlipDetector
-  consistency_class?: string;  // "high" | "medium" | "low"
-}
-
-interface Match {
-  debate_id: string;
-  winner: string;
-  participants: string[];
-  domain: string;
-  elo_changes: Record<string, number>;
-  created_at: string;
-}
-
-interface AgentReputation {
-  agent: string;
-  score: number;
-  vote_weight: number;
-  proposal_acceptance_rate: number;
-  critique_value: number;
-  debates_participated: number;
-}
-
-interface TeamCombination {
-  agents: string[];
-  success_rate: number;
-  total_debates: number;
-  wins: number;
-}
-
-interface RankingStats {
-  mean_elo: number;
-  median_elo: number;
-  total_agents: number;
-  total_matches: number;
-  rating_distribution: Record<string, number>;
-  trending_up: string[];
-  trending_down: string[];
-}
-
-interface AgentIntrospection {
-  agent: string;
-  self_model: {
-    strengths: string[];
-    weaknesses: string[];
-    biases: string[];
-  };
-  confidence_calibration: number;
-  recent_performance_assessment: string;
-  improvement_focus: string[];
-  last_updated: string;
-}
+import {
+  RankingsTabPanel,
+  MatchesTabPanel,
+  StatsTabPanel,
+  MindsTabPanel,
+  ReputationTabPanel,
+  TeamsTabPanel,
+  type AgentRanking,
+  type Match,
+  type AgentReputation,
+  type TeamCombination,
+  type RankingStats,
+  type AgentIntrospection,
+} from './leaderboard';
 
 interface LeaderboardPanelProps {
   wsMessages?: StreamEvent[];
@@ -80,32 +27,6 @@ interface LeaderboardPanelProps {
 }
 
 const DEFAULT_API_BASE = API_BASE_URL;
-
-// Pure helper functions moved outside component to avoid recreation on each render
-const getEloColor = (elo: number): string => {
-  if (elo >= 1600) return 'text-green-400';
-  if (elo >= 1500) return 'text-yellow-400';
-  if (elo >= 1400) return 'text-orange-400';
-  return 'text-red-400';
-};
-
-const getConsistencyColor = (consistency: number): string => {
-  if (consistency >= 0.8) return 'text-green-400';
-  if (consistency >= 0.6) return 'text-yellow-400';
-  return 'text-red-400';
-};
-
-const getRankBadge = (rank: number): string => {
-  if (rank === 1) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-  if (rank === 2) return 'bg-zinc-400/20 text-zinc-300 border-zinc-400/30';
-  if (rank === 3) return 'bg-amber-600/20 text-amber-500 border-amber-600/30';
-  return 'bg-surface text-text-muted border-border';
-};
-
-const formatEloChange = (change: number): string => {
-  if (change > 0) return `+${change}`;
-  return String(change);
-};
 
 function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
   const [agents, setAgents] = useState<AgentRanking[]>([]);
@@ -464,418 +385,37 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
       {/* Rankings Tab */}
       {activeTab === 'rankings' && (
-        <div id="rankings-panel" role="tabpanel" aria-labelledby="rankings-tab" className="space-y-2 max-h-80 overflow-y-auto">
-          {loading && <LeaderboardSkeleton count={5} />}
-
-          {error && (
-            <div className="bg-red-900/30 border border-red-500/40 rounded p-3 mb-2">
-              <div className="text-red-300 text-sm font-medium mb-1">{error}</div>
-              {Object.keys(endpointErrors).length > 0 && (
-                <details className="text-xs">
-                  <summary className="cursor-pointer text-red-200 hover:text-red-100">
-                    Show details
-                  </summary>
-                  <ul className="mt-2 space-y-1 text-red-200">
-                    {Object.entries(endpointErrors).map(([endpoint, msg]) => (
-                      <li key={endpoint}>
-                        <span className="font-mono">{endpoint}:</span> {msg}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
-
-          {/* Per-tab endpoint error indicator */}
-          {endpointErrors[activeTab] && !error?.includes('All endpoints') && (
-            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded p-2 mb-2 text-xs text-yellow-400">
-              This tab&apos;s data is unavailable: {endpointErrors[activeTab]}
-            </div>
-          )}
-
-          {!loading && !error && agents.length === 0 && (
-            <div className="text-center text-text-muted py-4">
-              No rankings yet. Run debate cycles to generate rankings.
-            </div>
-          )}
-
-          {agents.map((agent, index) => (
-            <div
-              key={agent.name}
-              className="flex items-center gap-3 p-2 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
-            >
-              {/* Rank Badge */}
-              <div
-                className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold border ${getRankBadge(index + 1)}`}
-              >
-                {index + 1}
-              </div>
-
-              {/* Agent Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/agent/${encodeURIComponent(agent.name)}/`}
-                    className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
-                    title="View agent profile"
-                  >
-                    {agent.name}
-                  </Link>
-                  <span className={`text-sm font-mono font-bold ${getEloColor(agent.elo)}`}>
-                    {agent.elo}
-                  </span>
-                  {agent.consistency !== undefined && (
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded ${getConsistencyColor(agent.consistency)} bg-surface`}
-                      title={`Consistency: ${(agent.consistency * 100).toFixed(0)}%`}
-                    >
-                      {(agent.consistency * 100).toFixed(0)}%
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-text-muted">
-                  {agent.wins}W-{agent.losses}L-{agent.draws}D ({agent.win_rate}%)
-                </div>
-              </div>
-
-              {/* Games Played */}
-              <div className="text-xs text-text-muted">
-                {agent.games} games
-              </div>
-            </div>
-          ))}
-        </div>
+        <RankingsTabPanel
+          agents={agents}
+          loading={loading}
+          error={error}
+          endpointErrors={endpointErrors}
+        />
       )}
 
       {/* Recent Matches Tab */}
       {activeTab === 'matches' && (
-        <div id="matches-panel" role="tabpanel" aria-labelledby="matches-tab" className="space-y-2 max-h-80 overflow-y-auto">
-          {loading && (
-            <MatchesSkeleton count={3} />
-          )}
-
-          {!loading && matches.length === 0 && (
-            <div className="text-center text-text-muted py-4">
-              No matches yet. Run debate cycles to see match history.
-            </div>
-          )}
-
-          {matches.map((match) => (
-            <div
-              key={match.debate_id}
-              className="p-2 bg-bg border border-border rounded-lg"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-green-400">
-                  {match.winner} wins
-                </span>
-                {match.domain && (
-                  <span className="px-1.5 py-0.5 text-xs bg-surface rounded text-text-muted">
-                    {match.domain}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2 text-xs">
-                {Object.entries(match.elo_changes).map(([agent, change]) => (
-                  <span
-                    key={agent}
-                    className={`${change >= 0 ? 'text-green-400' : 'text-red-400'}`}
-                  >
-                    {agent}: {formatEloChange(change)}
-                  </span>
-                ))}
-              </div>
-
-              <div className="text-xs text-text-muted mt-1">
-                {new Date(match.created_at).toLocaleString()}
-              </div>
-            </div>
-          ))}
-        </div>
+        <MatchesTabPanel matches={matches} loading={loading} />
       )}
 
       {/* Reputation Tab */}
       {activeTab === 'reputation' && (
-        <div id="reputation-panel" role="tabpanel" aria-labelledby="reputation-tab" className="space-y-2 max-h-80 overflow-y-auto">
-          {loading && (
-            <LeaderboardSkeleton count={3} />
-          )}
-
-          {!loading && reputations.length === 0 && (
-            <div className="text-center text-text-muted py-4">
-              No reputation data yet. Run debate cycles to build agent reputations.
-            </div>
-          )}
-
-          {reputations.map((rep, index) => (
-            <div
-              key={rep.agent}
-              className="flex items-center gap-3 p-2 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
-            >
-              {/* Rank */}
-              <div className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold bg-surface text-text-muted">
-                {index + 1}
-              </div>
-
-              {/* Agent Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/agent/${encodeURIComponent(rep.agent)}/`}
-                    className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
-                    title="View agent profile"
-                  >
-                    {rep.agent}
-                  </Link>
-                  <span className={`text-sm font-mono font-bold ${rep.score >= 0.7 ? 'text-green-400' : rep.score >= 0.4 ? 'text-yellow-400' : 'text-red-400'}`}>
-                    {(rep.score * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="flex gap-3 text-xs text-text-muted">
-                  <span title="Vote weight in consensus">
-                    Vote: <span className="text-text">{rep.vote_weight.toFixed(2)}x</span>
-                  </span>
-                  <span title="Proposal acceptance rate">
-                    Accept: <span className="text-text">{(rep.proposal_acceptance_rate * 100).toFixed(0)}%</span>
-                  </span>
-                  <span title="Critique value score">
-                    Critique: <span className="text-text">{rep.critique_value.toFixed(2)}</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Debates count */}
-              <div className="text-xs text-text-muted">
-                {rep.debates_participated} debates
-              </div>
-            </div>
-          ))}
-        </div>
+        <ReputationTabPanel reputations={reputations} loading={loading} />
       )}
 
       {/* Teams Tab */}
       {activeTab === 'teams' && (
-        <div id="teams-panel" role="tabpanel" aria-labelledby="teams-tab" className="space-y-2 max-h-80 overflow-y-auto">
-          {loading && (
-            <div className="text-center text-text-muted py-4">Loading team data...</div>
-          )}
-
-          {!loading && teams.length === 0 && (
-            <div className="text-center text-text-muted py-4">
-              No team combinations yet. Run more debates to find winning teams.
-            </div>
-          )}
-
-          {teams.map((team, index) => (
-            <div
-              key={team.agents.join('-')}
-              className="flex items-center gap-3 p-2 bg-bg border border-border rounded-lg hover:border-accent/50 transition-colors"
-            >
-              {/* Rank Badge */}
-              <div
-                className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold border ${getRankBadge(index + 1)}`}
-              >
-                {index + 1}
-              </div>
-
-              {/* Team Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {team.agents.map((agent, i) => (
-                    <Link
-                      key={agent}
-                      href={`/agent/${encodeURIComponent(agent)}/`}
-                      className="text-sm font-medium text-text hover:text-accent transition-colors cursor-pointer"
-                      title="View agent profile"
-                    >
-                      {agent}{i < team.agents.length - 1 && <span className="text-text-muted ml-1">+</span>}
-                    </Link>
-                  ))}
-                </div>
-                <div className="text-xs text-text-muted">
-                  {team.wins}W / {team.total_debates} debates
-                </div>
-              </div>
-
-              {/* Success Rate */}
-              <div className={`text-sm font-mono font-bold ${team.success_rate >= 0.7 ? 'text-green-400' : team.success_rate >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                {(team.success_rate * 100).toFixed(0)}%
-              </div>
-            </div>
-          ))}
-        </div>
+        <TeamsTabPanel teams={teams} loading={loading} />
       )}
 
       {/* Stats Tab */}
       {activeTab === 'stats' && (
-        <div id="stats-panel" role="tabpanel" aria-labelledby="stats-tab" className="space-y-3 max-h-80 overflow-y-auto">
-          {loading && (
-            <StatsSkeleton />
-          )}
-
-          {!loading && !stats && (
-            <div className="text-center text-text-muted py-4">
-              No ranking stats yet. Run debates to generate statistics.
-            </div>
-          )}
-
-          {stats && (
-            <>
-              {/* Key Metrics */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-bg border border-border rounded-lg">
-                  <div className="text-xs text-text-muted">Mean ELO</div>
-                  <div className="text-xl font-bold text-accent">{stats.mean_elo?.toFixed(0) || 'N/A'}</div>
-                </div>
-                <div className="p-3 bg-bg border border-border rounded-lg">
-                  <div className="text-xs text-text-muted">Median ELO</div>
-                  <div className="text-xl font-bold text-text">{stats.median_elo?.toFixed(0) || 'N/A'}</div>
-                </div>
-                <div className="p-3 bg-bg border border-border rounded-lg">
-                  <div className="text-xs text-text-muted">Total Agents</div>
-                  <div className="text-xl font-bold text-text">{stats.total_agents || 0}</div>
-                </div>
-                <div className="p-3 bg-bg border border-border rounded-lg">
-                  <div className="text-xs text-text-muted">Total Matches</div>
-                  <div className="text-xl font-bold text-text">{stats.total_matches || 0}</div>
-                </div>
-              </div>
-
-              {/* Rating Distribution */}
-              {stats.rating_distribution && Object.keys(stats.rating_distribution).length > 0 && (
-                <div className="p-3 bg-bg border border-border rounded-lg">
-                  <div className="text-xs text-text-muted mb-2">Rating Distribution</div>
-                  <div className="space-y-1">
-                    {Object.entries(stats.rating_distribution)
-                      .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
-                      .map(([tier, count]) => (
-                        <div key={tier} className="flex items-center gap-2">
-                          <span className="text-xs text-text-muted w-16">{tier}+</span>
-                          <div className="flex-1 h-2 bg-surface rounded">
-                            <div
-                              className="h-full bg-accent rounded"
-                              style={{ width: `${Math.min((count / stats.total_agents) * 100, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-text w-8 text-right">{count}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Trending Agents */}
-              {((stats.trending_up && stats.trending_up.length > 0) ||
-                (stats.trending_down && stats.trending_down.length > 0)) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {stats.trending_up && stats.trending_up.length > 0 && (
-                    <div className="p-3 bg-bg border border-border rounded-lg">
-                      <div className="text-xs text-green-400 mb-1">Trending Up</div>
-                      {stats.trending_up.slice(0, 3).map((agent) => (
-                        <div key={agent} className="text-sm text-text truncate">{agent}</div>
-                      ))}
-                    </div>
-                  )}
-                  {stats.trending_down && stats.trending_down.length > 0 && (
-                    <div className="p-3 bg-bg border border-border rounded-lg">
-                      <div className="text-xs text-red-400 mb-1">Trending Down</div>
-                      {stats.trending_down.slice(0, 3).map((agent) => (
-                        <div key={agent} className="text-sm text-text truncate">{agent}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <StatsTabPanel stats={stats} loading={loading} />
       )}
 
       {/* Minds (Introspection) Tab */}
       {activeTab === 'minds' && (
-        <div id="minds-panel" role="tabpanel" aria-labelledby="minds-tab" className="space-y-3 max-h-80 overflow-y-auto">
-          {loading && (
-            <IntrospectionListSkeleton count={2} />
-          )}
-
-          {!loading && introspections.length === 0 && (
-            <div className="text-center text-text-muted py-4">
-              No introspection data yet. Agents build self-models through debate participation.
-            </div>
-          )}
-
-          {introspections.map((intro) => (
-            <div
-              key={intro.agent}
-              className="p-3 bg-bg border border-border rounded-lg hover:border-purple-500/30 transition-colors"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <Link
-                  href={`/agent/${encodeURIComponent(intro.agent)}/`}
-                  className="font-medium text-text hover:text-accent transition-colors"
-                >
-                  {intro.agent}
-                </Link>
-                <span className={`text-xs px-2 py-0.5 rounded ${
-                  intro.confidence_calibration >= 0.8 ? 'bg-green-500/20 text-green-400' :
-                  intro.confidence_calibration >= 0.5 ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-red-500/20 text-red-400'
-                }`}>
-                  {Math.round(intro.confidence_calibration * 100)}% calibrated
-                </span>
-              </div>
-
-              {/* Performance Assessment */}
-              {intro.recent_performance_assessment && (
-                <p className="text-sm text-text-muted mb-2 italic">
-                  &quot;{intro.recent_performance_assessment}&quot;
-                </p>
-              )}
-
-              {/* Strengths / Weaknesses / Biases */}
-              <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                {intro.self_model?.strengths?.length > 0 && (
-                  <div>
-                    <div className="text-green-400 mb-1">Strengths</div>
-                    {intro.self_model.strengths.slice(0, 2).map((s, i) => (
-                      <div key={i} className="text-text-muted truncate">{s}</div>
-                    ))}
-                  </div>
-                )}
-                {intro.self_model?.weaknesses?.length > 0 && (
-                  <div>
-                    <div className="text-yellow-400 mb-1">Weaknesses</div>
-                    {intro.self_model.weaknesses.slice(0, 2).map((w, i) => (
-                      <div key={i} className="text-text-muted truncate">{w}</div>
-                    ))}
-                  </div>
-                )}
-                {intro.self_model?.biases?.length > 0 && (
-                  <div>
-                    <div className="text-red-400 mb-1">Known Biases</div>
-                    {intro.self_model.biases.slice(0, 2).map((b, i) => (
-                      <div key={i} className="text-text-muted truncate">{b}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Improvement Focus */}
-              {intro.improvement_focus?.length > 0 && (
-                <div className="text-xs">
-                  <span className="text-purple-400">Focus:</span>{' '}
-                  <span className="text-text-muted">{intro.improvement_focus.slice(0, 2).join(', ')}</span>
-                </div>
-              )}
-
-              <div className="text-xs text-text-muted mt-2">
-                Updated: {intro.last_updated ? new Date(intro.last_updated).toLocaleDateString() : 'N/A'}
-              </div>
-            </div>
-          ))}
-        </div>
+        <MindsTabPanel introspections={introspections} loading={loading} />
       )}
 
       {/* Agent Moments Modal */}
