@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-18 (added OAuth, Workflows, Workspace endpoints)
 
 
 This document describes the HTTP and WebSocket APIs for the Aragora AI red team / decision stress-test platform.
@@ -80,6 +80,41 @@ add or change endpoints, update both to keep tests and docs in sync.
 | `POST /api/evolution/ab-tests/:id/conclude` | Conclude test | NEW |
 | `DELETE /api/evolution/ab-tests/:id` | Cancel test | NEW |
 
+### New Endpoints (2026-01-18)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `GET /api/auth/oauth/google` | Start Google OAuth flow | NEW |
+| `GET /api/auth/oauth/google/callback` | Google OAuth callback | NEW |
+| `GET /api/auth/oauth/github` | Start GitHub OAuth flow | NEW |
+| `GET /api/auth/oauth/github/callback` | GitHub OAuth callback | NEW |
+| `POST /api/auth/oauth/link` | Link OAuth account to user | NEW |
+| `DELETE /api/auth/oauth/unlink` | Unlink OAuth account | NEW |
+| `GET /api/auth/oauth/providers` | List available OAuth providers | NEW |
+| `GET /api/user/oauth-providers` | Get user's linked providers | NEW |
+| `GET /api/workflows` | List workflows | NEW |
+| `POST /api/workflows` | Create workflow | NEW |
+| `GET /api/workflows/:id` | Get workflow details | NEW |
+| `PUT /api/workflows/:id` | Update workflow | NEW |
+| `DELETE /api/workflows/:id` | Delete workflow | NEW |
+| `POST /api/workflows/:id/execute` | Execute workflow | NEW |
+| `GET /api/workflows/:id/versions` | Get workflow versions | NEW |
+| `GET /api/workflow-templates` | List workflow templates | NEW |
+| `GET /api/workflow-templates/:id` | Get workflow template | NEW |
+| `GET /api/workflow-executions` | List workflow executions | NEW |
+| `GET /api/workflow-executions/:id` | Get execution status | NEW |
+| `DELETE /api/workflow-executions/:id` | Cancel execution | NEW |
+| `GET /api/workflow-approvals` | List pending approvals | NEW |
+| `POST /api/workflow-approvals/:id` | Submit approval decision | NEW |
+| `POST /api/retention/policies` | Create retention policy | NEW |
+| `POST /api/retention/policies/:id/execute` | Execute retention policy | NEW |
+| `GET /api/retention/expiring` | Get expiring items | NEW |
+| `POST /api/classify` | Classify content sensitivity | NEW |
+| `GET /api/classify/policy/:level` | Get classification policy | NEW |
+| `GET /api/audit/entries` | Query audit entries | NEW |
+| `GET /api/audit/report` | Generate compliance report | NEW |
+| `GET /api/audit/verify` | Verify audit log integrity | NEW |
+
 ### Recently Connected Endpoints
 
 The following endpoints were identified as unused but are now connected:
@@ -125,6 +160,333 @@ Authorization: Bearer <token>
 ```
 
 Rate limiting: 60 requests per minute per token (sliding window).
+
+---
+
+## OAuth Integration
+
+OAuth providers allow users to authenticate with third-party accounts.
+
+### GET /api/auth/oauth/google
+Start Google OAuth flow. Redirects user to Google consent screen.
+
+**Parameters:**
+- `redirect_url` (string, optional): URL to redirect after successful auth (must be in allowlist)
+
+**Response:** `302 Redirect` to Google OAuth consent screen
+
+### GET /api/auth/oauth/google/callback
+Handle Google OAuth callback after user consent.
+
+**Parameters:**
+- `code` (string, required): Authorization code from Google
+- `state` (string, required): State parameter for CSRF protection
+- `error` (string, optional): Error code if user denied consent
+
+**Response:** `302 Redirect` to success URL with auth token
+
+### GET /api/auth/oauth/github
+Start GitHub OAuth flow. Redirects user to GitHub consent screen.
+
+**Parameters:**
+- `redirect_url` (string, optional): URL to redirect after successful auth
+
+**Response:** `302 Redirect` to GitHub OAuth consent screen
+
+### GET /api/auth/oauth/github/callback
+Handle GitHub OAuth callback after user consent.
+
+**Parameters:**
+- `code` (string, required): Authorization code from GitHub
+- `state` (string, required): State parameter for CSRF protection
+
+**Response:** `302 Redirect` to success URL with auth token
+
+### POST /api/auth/oauth/link
+Link an OAuth provider account to the current authenticated user.
+
+**Request Body:**
+```json
+{
+  "provider": "google",
+  "code": "authorization_code_from_provider"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Account linked successfully"
+}
+```
+
+### DELETE /api/auth/oauth/unlink
+Remove OAuth provider link from the current user's account.
+
+**Parameters:**
+- `provider` (string, required): OAuth provider to unlink (`google` or `github`)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Account unlinked successfully"
+}
+```
+
+### GET /api/auth/oauth/providers
+Get list of configured OAuth providers available for authentication.
+
+**Response:**
+```json
+{
+  "providers": [
+    {"id": "google", "name": "Google", "enabled": true},
+    {"id": "github", "name": "GitHub", "enabled": true}
+  ]
+}
+```
+
+### GET /api/user/oauth-providers
+Get list of OAuth providers linked to the current user's account.
+
+**Response:**
+```json
+{
+  "linked_providers": [
+    {"provider": "google", "email": "user@gmail.com", "linked_at": "2026-01-15T12:00:00Z"}
+  ]
+}
+```
+
+---
+
+## Workflow Management
+
+Workflows define multi-step automated debate and audit processes.
+
+### GET /api/workflows
+List workflows with optional filtering.
+
+**Parameters:**
+- `category` (string): Filter by category (`debate`, `analysis`, `integration`, `custom`)
+- `tags` (string): Filter by tags (comma-separated)
+- `search` (string): Search in workflow name and description
+- `limit` (int, default=50, max=200): Maximum workflows to return
+- `offset` (int, default=0): Pagination offset
+
+**Response:**
+```json
+{
+  "workflows": [
+    {
+      "id": "wf-123",
+      "name": "Security Audit Workflow",
+      "description": "Automated security analysis pipeline",
+      "category": "analysis",
+      "tags": ["security", "audit"],
+      "status": "active",
+      "version": 3,
+      "created_at": "2026-01-10T10:00:00Z"
+    }
+  ],
+  "total": 25
+}
+```
+
+### POST /api/workflows
+Create a new workflow definition.
+
+**Request Body:**
+```json
+{
+  "name": "Code Review Pipeline",
+  "description": "Automated code review with multi-agent debate",
+  "category": "analysis",
+  "tags": ["code", "review"],
+  "steps": [
+    {
+      "id": "step-1",
+      "type": "debate",
+      "config": {
+        "topic": "{{input.code_diff}}",
+        "agents": ["claude", "gpt-4", "deepseek-r1"],
+        "rounds": 3
+      }
+    },
+    {
+      "id": "step-2",
+      "type": "approval",
+      "config": {
+        "required_approvers": 1,
+        "timeout_hours": 24
+      }
+    }
+  ],
+  "transitions": [
+    {"from": "step-1", "to": "step-2", "condition": "consensus_reached"}
+  ]
+}
+```
+
+### GET /api/workflows/:workflow_id
+Get detailed workflow definition by ID.
+
+**Response:**
+```json
+{
+  "id": "wf-123",
+  "name": "Security Audit Workflow",
+  "description": "...",
+  "steps": [...],
+  "transitions": [...],
+  "input_schema": {...},
+  "output_schema": {...},
+  "version": 3,
+  "created_at": "2026-01-10T10:00:00Z",
+  "updated_at": "2026-01-15T14:30:00Z"
+}
+```
+
+### PUT /api/workflows/:workflow_id
+Update an existing workflow. Creates a new version.
+
+### DELETE /api/workflows/:workflow_id
+Delete a workflow definition.
+
+### POST /api/workflows/:workflow_id/execute
+Start execution of a workflow.
+
+**Request Body:**
+```json
+{
+  "inputs": {
+    "code_diff": "...",
+    "repository": "my-repo"
+  },
+  "async": true
+}
+```
+
+**Response (async=true):**
+```json
+{
+  "execution_id": "exec-456",
+  "status": "pending",
+  "workflow_id": "wf-123"
+}
+```
+
+### GET /api/workflows/:workflow_id/versions
+Get version history of a workflow.
+
+**Parameters:**
+- `limit` (int, default=20): Maximum versions to return
+
+### GET /api/workflow-templates
+List workflow templates for quick start.
+
+**Parameters:**
+- `category` (string): Filter templates by category
+
+**Response:**
+```json
+{
+  "templates": [
+    {
+      "id": "tmpl-security-audit",
+      "name": "Security Audit",
+      "description": "Comprehensive security analysis",
+      "category": "security",
+      "complexity": "medium"
+    }
+  ]
+}
+```
+
+### GET /api/workflow-templates/:template_id
+Get a specific workflow template for use as starting point.
+
+### GET /api/workflow-executions
+List workflow executions for runtime dashboard.
+
+**Parameters:**
+- `workflow_id` (string): Filter by workflow ID
+- `status` (string): Filter by status (`pending`, `running`, `completed`, `failed`, `cancelled`)
+- `limit` (int, default=50): Maximum executions to return
+
+**Response:**
+```json
+{
+  "executions": [
+    {
+      "id": "exec-456",
+      "workflow_id": "wf-123",
+      "workflow_name": "Security Audit",
+      "status": "running",
+      "current_step": "step-2",
+      "progress": 0.5,
+      "started_at": "2026-01-18T10:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /api/workflow-executions/:execution_id
+Get detailed status of a workflow execution.
+
+**Response:**
+```json
+{
+  "id": "exec-456",
+  "workflow_id": "wf-123",
+  "status": "running",
+  "current_step": "step-2",
+  "step_results": {
+    "step-1": {"status": "completed", "output": {...}}
+  },
+  "context": {...},
+  "started_at": "2026-01-18T10:00:00Z"
+}
+```
+
+### DELETE /api/workflow-executions/:execution_id
+Cancel a running workflow execution.
+
+### GET /api/workflow-approvals
+List workflow steps awaiting human approval.
+
+**Response:**
+```json
+{
+  "approvals": [
+    {
+      "id": "approval-789",
+      "execution_id": "exec-456",
+      "workflow_name": "Security Audit",
+      "step_name": "Final Review",
+      "context": {...},
+      "requested_at": "2026-01-18T11:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /api/workflow-approvals/:approval_id
+Submit approval decision for a workflow step.
+
+**Request Body:**
+```json
+{
+  "decision": "approve",
+  "comment": "Looks good, proceeding with deployment"
+}
+```
+
+**Decisions:** `approve`, `reject`
+
+---
 
 ## HTTP API Endpoints
 
