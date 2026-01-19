@@ -373,7 +373,8 @@ DB_TIMEOUT_SECONDS = _env_float("ARAGORA_DB_TIMEOUT", 30.0)
 
 # Database mode: "legacy" (individual DBs) or "consolidated" (4 combined DBs)
 # See aragora.persistence.db_config for full configuration
-DB_MODE = _env_str("ARAGORA_DB_MODE", "legacy")
+# Default: "consolidated" - uses 4 combined databases for better performance
+DB_MODE = _env_str("ARAGORA_DB_MODE", "consolidated")
 
 # Nomic directory for databases (relative to working directory)
 NOMIC_DIR = _env_str("ARAGORA_DATA_DIR", _env_str("ARAGORA_NOMIC_DIR", ".nomic"))

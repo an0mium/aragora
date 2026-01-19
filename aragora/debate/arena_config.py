@@ -198,6 +198,15 @@ class ArenaConfig:
     training_export_min_confidence: float = 0.75  # Min confidence to export as SFT
     training_export_path: str = ""  # Output path for training data (default: data/training/)
 
+    # ML Integration (local ML models for routing, quality, consensus)
+    enable_ml_delegation: bool = False  # Use ML-based agent selection (MLDelegationStrategy)
+    ml_delegation_strategy: Optional[Any] = None  # Custom MLDelegationStrategy instance
+    ml_delegation_weight: float = 0.3  # Weight for ML scoring vs ELO (0.0-1.0)
+    enable_quality_gates: bool = False  # Filter low-quality responses via QualityGate
+    quality_gate_threshold: float = 0.6  # Minimum quality score (0.0-1.0)
+    enable_consensus_estimation: bool = False  # Use ConsensusEstimator for early termination
+    consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -267,6 +276,14 @@ class ArenaConfig:
             "training_exporter": self.training_exporter,
             "auto_export_training": self.auto_export_training,
             "training_export_min_confidence": self.training_export_min_confidence,
+            # ML Integration
+            "enable_ml_delegation": self.enable_ml_delegation,
+            "ml_delegation_strategy": self.ml_delegation_strategy,
+            "ml_delegation_weight": self.ml_delegation_weight,
+            "enable_quality_gates": self.enable_quality_gates,
+            "quality_gate_threshold": self.quality_gate_threshold,
+            "enable_consensus_estimation": self.enable_consensus_estimation,
+            "consensus_early_termination_threshold": self.consensus_early_termination_threshold,
         }
 
 

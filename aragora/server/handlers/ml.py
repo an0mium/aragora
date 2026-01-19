@@ -106,7 +106,7 @@ class MLHandler(BaseHandler):
 
         return None
 
-    @handle_errors
+    @handle_errors("ML POST request")
     def handle_post(
         self,
         path: str,

@@ -216,6 +216,14 @@ class Arena:
         training_exporter=None,  # DebateTrainingExporter for auto-export
         auto_export_training: bool = False,  # Auto-export training data after debates
         training_export_min_confidence: float = 0.75,  # Min confidence to export
+        # ML Integration (local ML models for routing, quality, consensus)
+        enable_ml_delegation: bool = False,  # Use ML-based agent selection
+        ml_delegation_strategy=None,  # Optional custom MLDelegationStrategy
+        ml_delegation_weight: float = 0.3,  # Weight for ML scoring vs ELO (0.0-1.0)
+        enable_quality_gates: bool = False,  # Filter low-quality responses via QualityGate
+        quality_gate_threshold: float = 0.6,  # Minimum quality score (0.0-1.0)
+        enable_consensus_estimation: bool = False,  # Use ConsensusEstimator for early termination
+        consensus_early_termination_threshold: float = 0.85,  # Probability threshold
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -268,6 +276,14 @@ class Arena:
             training_exporter=training_exporter,
             auto_export_training=auto_export_training,
             training_export_min_confidence=training_export_min_confidence,
+            # ML Integration
+            enable_ml_delegation=enable_ml_delegation,
+            ml_delegation_strategy=ml_delegation_strategy,
+            ml_delegation_weight=ml_delegation_weight,
+            enable_quality_gates=enable_quality_gates,
+            quality_gate_threshold=quality_gate_threshold,
+            enable_consensus_estimation=enable_consensus_estimation,
+            consensus_early_termination_threshold=consensus_early_termination_threshold,
         )
 
         # Initialize tracking subsystems
@@ -382,6 +398,14 @@ class Arena:
         training_exporter=None,
         auto_export_training: bool = False,
         training_export_min_confidence: float = 0.75,
+        # ML Integration
+        enable_ml_delegation: bool = False,
+        ml_delegation_strategy=None,
+        ml_delegation_weight: float = 0.3,
+        enable_quality_gates: bool = False,
+        quality_gate_threshold: float = 0.6,
+        enable_consensus_estimation: bool = False,
+        consensus_early_termination_threshold: float = 0.85,
     ) -> None:
         """Initialize core Arena configuration."""
         auto_evolve = resolve_auto_evolve(auto_evolve)
@@ -460,6 +484,22 @@ class Arena:
         self.breakpoint_manager = breakpoint_manager
         self.agent_selector = agent_selector
         self.use_performance_selection = use_performance_selection
+
+        # ML Integration components
+        self.enable_ml_delegation = enable_ml_delegation
+        self.ml_delegation_weight = ml_delegation_weight
+        self.enable_quality_gates = enable_quality_gates
+        self.quality_gate_threshold = quality_gate_threshold
+        self.enable_consensus_estimation = enable_consensus_estimation
+        self.consensus_early_termination_threshold = consensus_early_termination_threshold
+
+        # Initialize ML components lazily (only when enabled)
+        self._ml_delegation_strategy = ml_delegation_strategy
+        self._ml_quality_gate = None
+        self._ml_consensus_estimator = None
+
+        if enable_ml_delegation or enable_quality_gates or enable_consensus_estimation:
+            self._init_ml_integration()
 
         # Checkpoint manager for debate resume support
         if checkpoint_manager:
@@ -849,6 +889,50 @@ class Arena:
             hooks=self.hooks,
         )
 
+    def _init_ml_integration(self) -> None:
+        """Initialize ML integration components (delegation, quality gates, consensus)."""
+        try:
+            from aragora.debate.ml_integration import (
+                MLDelegationStrategy,
+                QualityGate,
+                ConsensusEstimator,
+            )
+
+            # Initialize ML delegation strategy if enabled
+            if self.enable_ml_delegation and self._ml_delegation_strategy is None:
+                self._ml_delegation_strategy = MLDelegationStrategy(
+                    elo_system=self.elo_system,
+                    calibration_tracker=self.calibration_tracker,
+                    ml_weight=self.ml_delegation_weight,
+                )
+                logger.debug("[ml] Initialized MLDelegationStrategy")
+
+            # Initialize quality gate if enabled
+            if self.enable_quality_gates:
+                self._ml_quality_gate = QualityGate(
+                    threshold=self.quality_gate_threshold,
+                )
+                logger.debug(
+                    f"[ml] Initialized QualityGate with threshold={self.quality_gate_threshold}"
+                )
+
+            # Initialize consensus estimator if enabled
+            if self.enable_consensus_estimation:
+                self._ml_consensus_estimator = ConsensusEstimator(
+                    early_termination_threshold=self.consensus_early_termination_threshold,
+                )
+                logger.debug(
+                    f"[ml] Initialized ConsensusEstimator with threshold="
+                    f"{self.consensus_early_termination_threshold}"
+                )
+
+        except ImportError as e:
+            logger.warning(f"[ml] ML integration not available: {e}")
+            # Disable ML features if import fails
+            self.enable_ml_delegation = False
+            self.enable_quality_gates = False
+            self.enable_consensus_estimation = False
+
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty."""
         if not self.agents:
@@ -931,13 +1015,102 @@ class Arena:
         return domain
 
     def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
-        """Select debate team. Delegates to AgentPool if performance selection enabled."""
-        if not self.use_performance_selection:
-            return requested_agents
-        return self.agent_pool.select_team(
-            domain=self._extract_debate_domain(),
-            team_size=len(requested_agents),
-        )
+        """Select debate team using ML delegation or AgentPool.
+
+        Priority:
+        1. ML delegation (if enable_ml_delegation=True)
+        2. Performance selection via AgentPool (if use_performance_selection=True)
+        3. Original requested agents
+        """
+        # ML-based agent selection takes priority
+        if self.enable_ml_delegation and self._ml_delegation_strategy:
+            try:
+                selected = self._ml_delegation_strategy.select_agents(
+                    task=self.env.task,
+                    agents=requested_agents,
+                    context={
+                        "domain": self._extract_debate_domain(),
+                        "protocol": self.protocol,
+                    },
+                    max_agents=len(requested_agents),
+                )
+                logger.debug(
+                    f"[ml] Selected {len(selected)} agents via ML delegation: "
+                    f"{[a.name for a in selected]}"
+                )
+                return selected
+            except Exception as e:
+                logger.warning(f"[ml] ML delegation failed, falling back: {e}")
+
+        # Fall back to performance-based selection
+        if self.use_performance_selection:
+            return self.agent_pool.select_team(
+                domain=self._extract_debate_domain(),
+                team_size=len(requested_agents),
+            )
+
+        return requested_agents
+
+    def _filter_responses_by_quality(
+        self, responses: list[tuple[str, str]], context: str = ""
+    ) -> list[tuple[str, str]]:
+        """Filter responses using ML quality gate if enabled.
+
+        Args:
+            responses: List of (agent_name, response_text) tuples
+            context: Optional task context for quality assessment
+
+        Returns:
+            Filtered list containing only high-quality responses
+        """
+        if not self.enable_quality_gates or not self._ml_quality_gate:
+            return responses
+
+        try:
+            filtered = self._ml_quality_gate.filter_responses(
+                responses, context=context or self.env.task
+            )
+            removed = len(responses) - len(filtered)
+            if removed > 0:
+                logger.debug(
+                    f"[ml] Quality gate filtered {removed} low-quality responses"
+                )
+            return filtered
+        except Exception as e:
+            logger.warning(f"[ml] Quality gate failed, keeping all responses: {e}")
+            return responses
+
+    def _should_terminate_early(
+        self, responses: list[tuple[str, str]], current_round: int
+    ) -> bool:
+        """Check if debate should terminate early based on consensus estimation.
+
+        Args:
+            responses: List of (agent_name, response_text) tuples
+            current_round: Current debate round number
+
+        Returns:
+            True if consensus is highly likely and safe to terminate early
+        """
+        if not self.enable_consensus_estimation or not self._ml_consensus_estimator:
+            return False
+
+        try:
+            should_stop = self._ml_consensus_estimator.should_terminate_early(
+                responses=responses,
+                current_round=current_round,
+                total_rounds=self.protocol.rounds,
+                context=self.env.task,
+            )
+            if should_stop:
+                logger.info(
+                    f"[ml] Consensus estimator recommends early termination at round "
+                    f"{current_round}/{self.protocol.rounds}"
+                )
+            return should_stop
+        except Exception as e:
+            logger.warning(f"[ml] Consensus estimation failed: {e}")
+            return False
 
     def _get_calibration_weight(self, agent_name: str) -> float:
         """Get calibration weight. Delegates to AgentPool."""
