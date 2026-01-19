@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Coroutine, Dict, Optional, TypeVar
 
 T = TypeVar("T")
@@ -89,23 +90,56 @@ class ControlPlaneHandler(BaseHandler):
         """Get the control plane stream server for event emissions."""
         return self.ctx.get("control_plane_stream")
 
-    def _emit_event(self, emit_method: str, *args, **kwargs) -> None:
-        """Emit an event to the control plane stream (fire-and-forget).
+    def _emit_event(
+        self,
+        emit_method: str,
+        *args,
+        max_retries: int = 3,
+        base_delay: float = 0.1,
+        **kwargs,
+    ) -> None:
+        """Emit an event to the control plane stream with retry logic.
+
+        Uses exponential backoff for transient failures. After all retries
+        exhausted, logs a warning but doesn't fail the main request.
 
         Args:
             emit_method: Name of the emit method on the stream server
-            *args, **kwargs: Arguments to pass to the emit method
+            *args: Positional arguments to pass to the emit method
+            max_retries: Maximum number of retry attempts (default: 3)
+            base_delay: Base delay in seconds for exponential backoff (default: 0.1)
+            **kwargs: Keyword arguments to pass to the emit method
         """
         stream = self._get_stream()
         if not stream:
             return
-        try:
-            method = getattr(stream, emit_method, None)
-            if method:
+
+        method = getattr(stream, emit_method, None)
+        if not method:
+            return
+
+        last_error: Optional[Exception] = None
+
+        for attempt in range(max_retries):
+            try:
                 _run_async(method(*args, **kwargs))
-        except Exception as e:
-            # Don't let stream errors affect the main request
-            logger.debug(f"Stream emission error: {e}")
+                return  # Success
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    # Exponential backoff: 0.1, 0.2, 0.4 seconds
+                    delay = base_delay * (2**attempt)
+                    logger.debug(
+                        f"Stream emission attempt {attempt + 1} failed, "
+                        f"retrying in {delay:.2f}s: {e}"
+                    )
+                    time.sleep(delay)
+
+        # All retries exhausted
+        logger.warning(
+            f"Stream emission failed after {max_retries} attempts for "
+            f"{emit_method}: {last_error}"
+        )
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
