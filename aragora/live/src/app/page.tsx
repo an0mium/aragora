@@ -352,7 +352,7 @@ const TournamentBracket = dynamic(() => import('@/components/TournamentBracket')
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
-const GraphDebateBrowser = dynamic(() => import('@/components/GraphDebateBrowser').then(m => ({ default: m.GraphDebateBrowser })), {
+const GraphDebateBrowser = dynamic(() => import('@/components/graph-debate').then(m => ({ default: m.GraphDebateBrowser })), {
   ssr: false,
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });

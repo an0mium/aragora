@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { GraphDebateBrowser } from '@/components/GraphDebateBrowser';
+import { GraphDebateBrowser } from '@/components/graph-debate';
 
 function GraphDebatesContent() {
   const searchParams = useSearchParams();
