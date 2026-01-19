@@ -26,10 +26,13 @@ from typing import TYPE_CHECKING, Any, Callable, Union
 from aragora.agents.types import T
 from aragora.config import ALLOWED_AGENT_TYPES
 
+_LocalLLMDetector: Any = None
 try:
     from aragora.agents.local_llm_detector import LocalLLMDetector
+
+    _LocalLLMDetector = LocalLLMDetector
 except (ImportError, ModuleNotFoundError):
-    LocalLLMDetector = None  # type: ignore[misc,assignment]
+    pass
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
@@ -340,10 +343,10 @@ class AgentRegistry:
         """
         import asyncio
 
-        if LocalLLMDetector is None:
+        if _LocalLLMDetector is None:
             return []
 
-        detector = LocalLLMDetector()
+        detector = _LocalLLMDetector()
 
         # Run async detection
         try:
@@ -383,7 +386,7 @@ class AgentRegistry:
         """
         import asyncio
 
-        if LocalLLMDetector is None:
+        if _LocalLLMDetector is None:
             return {
                 "any_available": False,
                 "total_models": 0,
@@ -393,7 +396,7 @@ class AgentRegistry:
                 "servers": [],
             }
 
-        detector = LocalLLMDetector()
+        detector = _LocalLLMDetector()
 
         try:
             loop = asyncio.get_running_loop()

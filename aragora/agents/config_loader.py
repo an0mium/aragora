@@ -31,10 +31,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+_yaml: Any = None
 try:
     import yaml
+
+    _yaml = yaml
 except ImportError:
-    yaml = None  # type: ignore[assignment]
+    pass
 
 if TYPE_CHECKING:
     from aragora.core import Agent
@@ -223,7 +226,7 @@ class AgentConfigLoader:
             FileNotFoundError: If file doesn't exist
             ImportError: If PyYAML is not installed
         """
-        if yaml is None:
+        if _yaml is None:
             raise ImportError(
                 "PyYAML is required for YAML config loading. Install with: pip install pyyaml"
             )
@@ -235,7 +238,7 @@ class AgentConfigLoader:
         logger.debug(f"Loading agent config from {path}")
 
         with open(path) as f:
-            data = yaml.safe_load(f)
+            data = _yaml.safe_load(f)
 
         if not isinstance(data, dict):
             raise ConfigValidationError(str(path), ["YAML must contain a mapping"])

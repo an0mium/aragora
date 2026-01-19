@@ -59,11 +59,47 @@ def _get_connection_limits() -> tuple[int, int]:
     return per_host, total
 
 
-# Global session manager for connection pooling
-_session_lock = threading.Lock()
-_shared_connector: Optional[aiohttp.TCPConnector] = None
-_connector_loop_id: Optional[int] = None  # Track which event loop owns the connector
-_pending_close_tasks: set[asyncio.Task] = set()  # Track connector close tasks
+@dataclass
+class ConnectionPoolState:
+    """Typed state container for connection pool management.
+
+    Encapsulates the global state used by the connection pool, providing
+    type safety and making the state management more explicit.
+
+    Attributes:
+        connector: The shared TCP connector instance, or None if not created
+        loop_id: ID of the event loop that owns the connector
+        pending_close_tasks: Set of tasks for async connector cleanup
+        lock: Thread lock for synchronizing access to pool state
+    """
+
+    connector: Optional[aiohttp.TCPConnector] = None
+    loop_id: Optional[int] = None
+    pending_close_tasks: set = None  # type: ignore[assignment]  # Set in __post_init__
+    lock: threading.Lock = None  # type: ignore[assignment]  # Set in __post_init__
+
+    def __post_init__(self) -> None:
+        """Initialize mutable defaults after dataclass creation."""
+        if self.pending_close_tasks is None:
+            self.pending_close_tasks = set()
+        if self.lock is None:
+            self.lock = threading.Lock()
+
+    def reset(self) -> None:
+        """Reset pool state (for testing or shutdown)."""
+        self.connector = None
+        self.loop_id = None
+        self.pending_close_tasks.clear()
+
+
+# Global connection pool state
+_pool_state = ConnectionPoolState()
+
+# Legacy aliases for backward compatibility
+_session_lock = _pool_state.lock
+_shared_connector: Optional[aiohttp.TCPConnector] = None  # Updated via _pool_state
+_connector_loop_id: Optional[int] = None  # Updated via _pool_state
+_pending_close_tasks: set[asyncio.Task] = _pool_state.pending_close_tasks
 
 
 async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
@@ -93,8 +129,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
     Thread-safe: Uses lock for lazy initialization
     """
-    global _shared_connector, _connector_loop_id
-    with _session_lock:
+    with _pool_state.lock:
         # Get current event loop id (if any)
         try:
             current_loop = asyncio.get_running_loop()
@@ -105,14 +140,14 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
         # Recreate connector if it's closed, None, or bound to a different loop
         need_new_connector = (
-            _shared_connector is None
-            or _shared_connector.closed
-            or (current_loop_id is not None and _connector_loop_id != current_loop_id)
+            _pool_state.connector is None
+            or _pool_state.connector.closed
+            or (current_loop_id is not None and _pool_state.loop_id != current_loop_id)
         )
 
         if need_new_connector:
             # Close old connector if it exists and is still open
-            old_connector = _shared_connector
+            old_connector = _pool_state.connector
             if old_connector is not None and not old_connector.closed:
                 try:
                     if current_loop_id is not None:
@@ -122,26 +157,26 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                             name="close_old_connector",
                         )
                         # Track task and remove when done
-                        _pending_close_tasks.add(task)
-                        task.add_done_callback(_pending_close_tasks.discard)
+                        _pool_state.pending_close_tasks.add(task)
+                        task.add_done_callback(_pool_state.pending_close_tasks.discard)
                     # If no running loop, connector will be garbage collected
                     # This is safe because we're creating a new one for the new loop
                 except Exception as e:  # noqa: BLE001 - Cleanup errors should not propagate
                     logger.debug(f"Error scheduling connector close: {e}")
 
             per_host, total = _get_connection_limits()
-            _shared_connector = aiohttp.TCPConnector(
+            _pool_state.connector = aiohttp.TCPConnector(
                 limit=total,
                 limit_per_host=per_host,
                 ttl_dns_cache=300,  # Cache DNS for 5 minutes
                 enable_cleanup_closed=True,  # Clean up closed connections
             )
-            _connector_loop_id = current_loop_id
+            _pool_state.loop_id = current_loop_id
             logger.debug(
                 f"Created shared TCP connector: limit={total}, "
                 f"per_host={per_host}, loop_id={current_loop_id}"
             )
-        return _shared_connector
+        return _pool_state.connector
 
 
 def create_client_session(
@@ -196,21 +231,19 @@ async def close_shared_connector() -> None:
 
     Also awaits any pending connector close tasks to ensure clean shutdown.
     """
-    global _shared_connector, _connector_loop_id
-
     # First, await any pending close tasks from previous connector swaps
-    if _pending_close_tasks:
-        pending = list(_pending_close_tasks)
+    if _pool_state.pending_close_tasks:
+        pending = list(_pool_state.pending_close_tasks)
         if pending:
             logger.debug(f"Awaiting {len(pending)} pending connector close tasks")
             await asyncio.gather(*pending, return_exceptions=True)
-            _pending_close_tasks.clear()
+            _pool_state.pending_close_tasks.clear()
 
-    with _session_lock:
-        if _shared_connector is not None and not _shared_connector.closed:
-            await _shared_connector.close()
-            _shared_connector = None
-            _connector_loop_id = None
+    with _pool_state.lock:
+        if _pool_state.connector is not None and not _pool_state.connector.closed:
+            await _pool_state.connector.close()
+            _pool_state.connector = None
+            _pool_state.loop_id = None
             logger.debug("Closed shared TCP connector")
 
 
@@ -513,6 +546,7 @@ __all__ = [
     "STREAM_CHUNK_TIMEOUT",
     "iter_chunks_with_timeout",
     # Connection pooling
+    "ConnectionPoolState",
     "DEFAULT_CONNECTIONS_PER_HOST",
     "DEFAULT_TOTAL_CONNECTIONS",
     "DEFAULT_CONNECT_TIMEOUT",

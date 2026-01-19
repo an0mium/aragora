@@ -23,6 +23,7 @@ import re
 import subprocess
 from typing import Optional
 
+from aragora.config.timeouts import Timeouts
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
 
@@ -99,7 +100,7 @@ class GitHubConnector(BaseConnector):
                 ["gh", "auth", "status"],
                 capture_output=True,
                 text=True,
-                timeout=30,  # Auth check should be fast
+                timeout=Timeouts.CONNECTOR_AUTH,
                 shell=False,
             )
             self._gh_available = result.returncode == 0
@@ -128,7 +129,7 @@ class GitHubConnector(BaseConnector):
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(),
-                timeout=30,  # Reduced from 60s for faster debate flow
+                timeout=Timeouts.CONNECTOR_API,
             )
 
             if proc.returncode == 0:
