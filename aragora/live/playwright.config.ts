@@ -67,6 +67,13 @@ export default defineConfig({
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
     },
+
+    // Accessibility tests - run with: npx playwright test --project=accessibility
+    {
+      name: 'accessibility',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /accessibility\.spec\.ts/,
+    },
   ],
 
   // Run your local dev server before starting the tests
