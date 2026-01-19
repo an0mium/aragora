@@ -67,7 +67,11 @@ class MockUser:
 
     def verify_api_key(self, key: str) -> bool:
         """Mock API key verification."""
-        return self.api_key_hash is not None and key.startswith("ara_")
+        # Support both hashed keys (new) and plain keys (legacy)
+        if self.api_key_hash is not None and key.startswith("ara_"):
+            return True
+        # Legacy: direct comparison for plain text keys
+        return self.api_key is not None and self.api_key == key
 
     def generate_api_key(self, expires_days: int = 365) -> str:
         """Mock API key generation."""
