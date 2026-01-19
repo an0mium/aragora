@@ -286,6 +286,7 @@ def mock_env_no_api_keys(monkeypatch):
         "MISTRAL_API_KEY",
         "OPENROUTER_API_KEY",
         "XAI_API_KEY",
+        "KIMI_API_KEY",
     ]:
         monkeypatch.delenv(key, raising=False)
 
