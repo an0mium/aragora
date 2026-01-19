@@ -480,6 +480,12 @@ export default function TrainingExplorerPage() {
             <AsciiBannerCompact />
           </Link>
           <div className="flex items-center gap-4">
+            <Link
+              href="/training/models"
+              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            >
+              [MODELS]
+            </Link>
             <ThemeToggle />
             <BackendSelector />
           </div>

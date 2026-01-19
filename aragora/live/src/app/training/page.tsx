@@ -41,6 +41,18 @@ export default function TrainingPage() {
                 [DASHBOARD]
               </Link>
               <Link
+                href="/training/explorer"
+                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              >
+                [EXPLORER]
+              </Link>
+              <Link
+                href="/training/models"
+                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              >
+                [MODELS]
+              </Link>
+              <Link
                 href="/gauntlet"
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
@@ -51,18 +63,6 @@ export default function TrainingPage() {
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
                 [EVOLUTION]
-              </Link>
-              <Link
-                href="/insights"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [INSIGHTS]
-              </Link>
-              <Link
-                href="/tournaments"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [RANKINGS]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />

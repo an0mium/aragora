@@ -45,6 +45,12 @@ function GauntletListView() {
                 [DASHBOARD]
               </Link>
               <Link
+                href="/receipts"
+                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              >
+                [RECEIPTS]
+              </Link>
+              <Link
                 href="/tournaments"
                 className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
               >
