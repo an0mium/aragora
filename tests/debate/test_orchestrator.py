@@ -225,13 +225,8 @@ class TestArenaInitialization:
 class TestArenaFromConfig:
     """Tests for Arena.from_config factory method."""
 
-    @pytest.mark.skip(reason="ArenaConfig.to_arena_kwargs has parameter mismatch with Arena.__init__")
     def test_from_config_creates_arena(self):
-        """Arena.from_config creates an arena from configuration.
-
-        Note: This test is skipped due to API mismatch between ArenaConfig
-        and Arena.__init__ parameters. This should be fixed in the codebase.
-        """
+        """Arena.from_config creates an arena from configuration."""
         from aragora.debate.arena_config import ArenaConfig
 
         env = Environment(task="Design a scalable API")
