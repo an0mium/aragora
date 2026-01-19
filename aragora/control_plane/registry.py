@@ -535,9 +535,9 @@ class AgentRegistry:
         """
         agents = await self.list_all(include_offline=True)
 
-        status_counts = {}
-        capability_counts = {}
-        provider_counts = {}
+        status_counts: dict[str, int] = {}
+        capability_counts: dict[str, int] = {}
+        provider_counts: dict[str, int] = {}
 
         for agent in agents:
             # Count by status
