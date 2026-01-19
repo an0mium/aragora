@@ -227,8 +227,8 @@ class ArenaConfig:
 
         Note:
             Only includes parameters that Arena.__init__ currently accepts.
-            RLM parameters (use_rlm_limiter, rlm_*) and broadcast_platforms
-            are stored in config but not yet supported by Arena.
+            broadcast_platforms and training_export_path are stored in config
+            but not yet supported by Arena.
         """
         return {
             "memory": self.memory,
@@ -296,7 +296,12 @@ class ArenaConfig:
             "quality_gate_threshold": self.quality_gate_threshold,
             "enable_consensus_estimation": self.enable_consensus_estimation,
             "consensus_early_termination_threshold": self.consensus_early_termination_threshold,
-            # Note: RLM parameters (use_rlm_limiter, rlm_*) not yet in Arena.__init__
+            # RLM Cognitive Limiter
+            "use_rlm_limiter": self.use_rlm_limiter,
+            "rlm_limiter": self.rlm_limiter,
+            "rlm_compression_threshold": self.rlm_compression_threshold,
+            "rlm_max_recent_messages": self.rlm_max_recent_messages,
+            "rlm_summary_level": self.rlm_summary_level,
             # Note: broadcast_platforms, training_export_path not yet in Arena.__init__
         }
 

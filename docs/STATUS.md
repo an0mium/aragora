@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 18, 2026 (22:00 UTC)*
+*Last updated: January 19, 2026 (00:00 UTC)*
 
 ## Current Release
 
@@ -52,6 +52,8 @@
 - Knowledge handler enhancements
 - Server startup utilities
 - Handler registry improvements
+- RLM cognitive load limiter integrated into Arena via `use_rlm_limiter` config
+- ArenaConfig API alignment with Arena.__init__ parameters
 
 ---
 

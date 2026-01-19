@@ -207,6 +207,12 @@ class Arena:
         quality_gate_threshold: float = 0.6,  # Minimum quality score (0.0-1.0)
         enable_consensus_estimation: bool = False,  # Use ConsensusEstimator for early termination
         consensus_early_termination_threshold: float = 0.85,  # Probability threshold
+        # RLM Cognitive Load Limiter (for long debates)
+        use_rlm_limiter: bool = False,  # Use RLM-enhanced cognitive limiter for context compression
+        rlm_limiter=None,  # Pre-configured RLMCognitiveLoadLimiter
+        rlm_compression_threshold: int = 3000,  # Chars above which to trigger RLM compression
+        rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
+        rlm_summary_level: str = "SUMMARY",  # Abstraction level for older content
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -328,6 +334,15 @@ class Arena:
 
         # Initialize termination checker
         self._init_termination_checker()
+
+        # Initialize RLM cognitive load limiter for context compression
+        self._init_rlm_limiter(
+            use_rlm_limiter=use_rlm_limiter,
+            rlm_limiter=rlm_limiter,
+            rlm_compression_threshold=rlm_compression_threshold,
+            rlm_max_recent_messages=rlm_max_recent_messages,
+            rlm_summary_level=rlm_summary_level,
+        )
 
     @classmethod
     def from_config(
@@ -614,6 +629,53 @@ class Arena:
             select_judge_fn=select_judge_fn,
             hooks=self.hooks,
         )
+
+    def _init_rlm_limiter(
+        self,
+        use_rlm_limiter: bool,
+        rlm_limiter,
+        rlm_compression_threshold: int,
+        rlm_max_recent_messages: int,
+        rlm_summary_level: str,
+    ) -> None:
+        """Initialize the RLM cognitive load limiter for context compression.
+
+        The RLM limiter compresses older debate context using hierarchical
+        summarization while preserving semantic access. This prevents context
+        windows from overflowing during long debates.
+        """
+        self.use_rlm_limiter = use_rlm_limiter
+        self.rlm_compression_threshold = rlm_compression_threshold
+        self.rlm_max_recent_messages = rlm_max_recent_messages
+        self.rlm_summary_level = rlm_summary_level
+
+        if rlm_limiter is not None:
+            self.rlm_limiter = rlm_limiter
+        elif use_rlm_limiter:
+            # Create RLM limiter with configured parameters
+            try:
+                from aragora.debate.cognitive_limiter_rlm import (
+                    RLMCognitiveBudget,
+                    RLMCognitiveLoadLimiter,
+                )
+
+                budget = RLMCognitiveBudget(
+                    enable_rlm_compression=True,
+                    compression_threshold=rlm_compression_threshold,
+                    max_recent_full_messages=rlm_max_recent_messages,
+                    summary_level=rlm_summary_level,
+                )
+                self.rlm_limiter = RLMCognitiveLoadLimiter(budget=budget)
+                logger.info(
+                    f"[arena] RLM limiter enabled: threshold={rlm_compression_threshold}, "
+                    f"recent={rlm_max_recent_messages}, level={rlm_summary_level}"
+                )
+            except ImportError:
+                logger.warning("[arena] RLM module not available, disabling limiter")
+                self.rlm_limiter = None
+                self.use_rlm_limiter = False
+        else:
+            self.rlm_limiter = None
 
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty."""
