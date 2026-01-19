@@ -173,7 +173,7 @@ class OpenRouterAgent(APIAgent):
         payload: dict = {
             "model": model,
             "messages": messages,
-            "max_tokens": 4096,
+            "max_tokens": self.max_tokens if self.max_tokens is not None else 4096,
         }
 
         # Apply persona generation parameters if set (for response diversity)
