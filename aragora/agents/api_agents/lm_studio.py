@@ -22,6 +22,7 @@ from aragora.agents.api_agents.common import (
     Critique,
     Message,
     _sanitize_error_message,
+    create_client_session,
     handle_agent_errors,
 )
 from aragora.agents.registry import AgentRegistry
@@ -67,11 +68,8 @@ class LMStudioAgent(APIAgent):
     async def is_available(self) -> bool:
         """Check if LM Studio server is running and accessible."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.base_url}/models",
-                    timeout=aiohttp.ClientTimeout(total=5),
-                ) as response:
+            async with create_client_session(timeout=5.0) as session:
+                async with session.get(f"{self.base_url}/models") as response:
                     return response.status == 200
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
             return False
@@ -82,12 +80,9 @@ class LMStudioAgent(APIAgent):
         Returns:
             List of model info dicts with 'id', 'object', 'owned_by' keys.
         """
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=10.0) as session:
             try:
-                async with session.get(
-                    f"{self.base_url}/models",
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
+                async with session.get(f"{self.base_url}/models") as response:
                     if response.status != 200:
                         return []
                     data = await response.json()
@@ -139,13 +134,9 @@ class LMStudioAgent(APIAgent):
             "stream": False,
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
-                async with session.post(
-                    url,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as response:
+                async with session.post(url, json=payload) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)
@@ -210,13 +201,9 @@ class LMStudioAgent(APIAgent):
             "stream": True,
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
-                async with session.post(
-                    url,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as response:
+                async with session.post(url, json=payload) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)

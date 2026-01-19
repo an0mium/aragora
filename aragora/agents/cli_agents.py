@@ -473,7 +473,7 @@ class CodexAgent(CLIAgent):
         """
         full_prompt = self._build_full_prompt(prompt, context)
         # Use stdin for large prompts to avoid E2BIG (arg list too long)
-        if len(full_prompt) > 10000:
+        if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
                 ["codex", "exec", "--skip-git-repo-check", "-"],
                 prompt,

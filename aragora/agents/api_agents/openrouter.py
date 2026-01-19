@@ -163,11 +163,19 @@ class OpenRouterAgent(APIAgent):
         if self.system_prompt:
             messages.insert(0, {"role": "system", "content": self.system_prompt})
 
-        payload = {
+        payload: dict = {
             "model": model,
             "messages": messages,
             "max_tokens": 4096,
         }
+
+        # Apply persona generation parameters if set (for response diversity)
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
+        if self.top_p is not None:
+            payload["top_p"] = self.top_p
+        if self.frequency_penalty is not None:
+            payload["frequency_penalty"] = self.frequency_penalty
 
         last_error = None
         for attempt in range(max_retries):
@@ -324,12 +332,20 @@ class OpenRouterAgent(APIAgent):
         if self.system_prompt:
             messages.insert(0, {"role": "system", "content": self.system_prompt})
 
-        payload = {
+        payload: dict = {
             "model": self.model,
             "messages": messages,
             "max_tokens": 4096,
             "stream": True,
         }
+
+        # Apply persona generation parameters if set (for response diversity)
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
+        if self.top_p is not None:
+            payload["top_p"] = self.top_p
+        if self.frequency_penalty is not None:
+            payload["frequency_penalty"] = self.frequency_penalty
 
         last_error = None
         for attempt in range(max_retries):

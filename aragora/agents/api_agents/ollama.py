@@ -25,6 +25,7 @@ from aragora.agents.api_agents.common import (
     Critique,
     Message,
     _sanitize_error_message,
+    create_client_session,
     handle_agent_errors,
 )
 from aragora.agents.registry import AgentRegistry
@@ -63,11 +64,8 @@ class OllamaAgent(APIAgent):
     async def is_available(self) -> bool:
         """Check if Ollama server is running and accessible."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.base_url}/api/tags",
-                    timeout=aiohttp.ClientTimeout(total=5),
-                ) as response:
+            async with create_client_session(timeout=5.0) as session:
+                async with session.get(f"{self.base_url}/api/tags") as response:
                     return response.status == 200
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
             return False
@@ -78,12 +76,9 @@ class OllamaAgent(APIAgent):
         Returns:
             List of model info dicts with 'name', 'size', 'modified_at' keys.
         """
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=10.0) as session:
             try:
-                async with session.get(
-                    f"{self.base_url}/api/tags",
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
+                async with session.get(f"{self.base_url}/api/tags") as response:
                     if response.status != 200:
                         return []
                     data = await response.json()
@@ -103,11 +98,10 @@ class OllamaAgent(APIAgent):
         Yields:
             Dict with 'status', 'completed', 'total' keys
         """
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=3600.0) as session:  # 1 hour for large models
             async with session.post(
                 f"{self.base_url}/api/pull",
                 json={"name": model_name, "stream": True},
-                timeout=aiohttp.ClientTimeout(total=3600),  # 1 hour for large models
             ) as response:
                 async for line in response.content:
                     if line:
@@ -127,12 +121,11 @@ class OllamaAgent(APIAgent):
             Dict with model details including parameters, template, etc.
         """
         model = model_name or self.model
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=10.0) as session:
             try:
                 async with session.post(
                     f"{self.base_url}/api/show",
                     json={"name": model},
-                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status != 200:
                         return {}
@@ -164,13 +157,9 @@ class OllamaAgent(APIAgent):
             "stream": False,
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
-                async with session.post(
-                    url,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as response:
+                async with session.post(url, json=payload) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)
@@ -224,13 +213,9 @@ class OllamaAgent(APIAgent):
             "stream": True,
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with create_client_session(timeout=float(self.timeout)) as session:
             try:
-                async with session.post(
-                    url,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as response:
+                async with session.post(url, json=payload) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         sanitized = _sanitize_error_message(error_text)

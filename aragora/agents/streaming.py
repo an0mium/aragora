@@ -25,13 +25,14 @@ def get_stream_buffer_size() -> int:
     """Get max stream buffer size from settings.
 
     Configurable via settings.agent.stream_buffer_size.
-    Default is 5MB (5 * 1024 * 1024 bytes).
+    Default is 10MB (10 * 1024 * 1024 bytes).
     """
     return get_settings().agent.stream_buffer_size
 
 
 # Legacy constant for backward compatibility - prefer get_stream_buffer_size()
-MAX_STREAM_BUFFER_SIZE = 5 * 1024 * 1024  # 5MB default
+# Must match settings.agent.stream_buffer_size default (10MB)
+MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # 10MB - matches settings default
 
 
 class StreamingMixin:
@@ -73,15 +74,16 @@ class StreamingMixin:
             String content tokens from the stream
 
         Raises:
-            RuntimeError: If buffer exceeds MAX_STREAM_BUFFER_SIZE
+            StreamingError: If buffer exceeds configurable stream_buffer_size (default 10MB)
         """
         buffer = ""
         async for chunk in response.content.iter_any():
             buffer += chunk.decode("utf-8", errors="ignore")
 
             # Prevent unbounded buffer growth (DoS protection)
-            if len(buffer) > MAX_STREAM_BUFFER_SIZE:
-                raise StreamingError("Streaming buffer exceeded maximum size (1MB limit)")
+            max_size = get_stream_buffer_size()
+            if len(buffer) > max_size:
+                raise StreamingError(f"Streaming buffer exceeded maximum size ({max_size // (1024*1024)}MB limit)")
 
             # Process complete SSE lines
             while "\n" in buffer:

@@ -15,7 +15,6 @@ import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.common import (
-    MAX_STREAM_BUFFER_SIZE,
     AgentAPIError,
     AgentConnectionError,
     AgentRateLimitError,
@@ -24,7 +23,9 @@ from aragora.agents.api_agents.common import (
     Critique,
     Message,
     _sanitize_error_message,
+    create_client_session,
     get_api_key,
+    get_stream_buffer_size,
     handle_agent_errors,
     iter_chunks_with_timeout,
 )
@@ -157,13 +158,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
             "Content-Type": "application/json",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-            ) as response:
+        async with create_client_session(timeout=float(self.timeout)) as session:
+            async with session.post(url, json=payload, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
@@ -273,13 +269,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
             "Content-Type": "application/json",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-            ) as response:
+        async with create_client_session(timeout=float(self.timeout)) as session:
+            async with session.post(url, json=payload, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
@@ -304,7 +295,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                     async for chunk in iter_chunks_with_timeout(response.content):
                         buffer += chunk
                         # Prevent unbounded buffer growth (DoS protection)
-                        if len(buffer) > MAX_STREAM_BUFFER_SIZE:
+                        if len(buffer) > get_stream_buffer_size():
                             raise AgentStreamError(
                                 "Streaming buffer exceeded maximum size",
                                 agent_name=self.name,

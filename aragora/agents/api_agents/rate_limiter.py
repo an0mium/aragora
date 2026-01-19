@@ -78,6 +78,9 @@ class OpenRouterRateLimiter:
 
     Uses token bucket algorithm with configurable tiers.
     Thread-safe for use across multiple agent instances.
+
+    Uses asyncio.Lock for async methods to avoid blocking the event loop,
+    with a separate threading.Lock for sync methods (header updates).
     """
 
     def __init__(self, tier: str = "standard"):
@@ -91,7 +94,15 @@ class OpenRouterRateLimiter:
 
         self._tokens = float(self.tier.burst_size)
         self._last_refill = time.monotonic()
-        self._lock = threading.Lock()
+
+        # Use asyncio.Lock for async acquire() to avoid blocking the event loop.
+        # Coroutines waiting for this lock will yield to the event loop instead
+        # of blocking the entire thread.
+        self._async_lock: Optional[asyncio.Lock] = None  # Lazy init per event loop
+
+        # Use threading.Lock for sync methods like update_from_headers().
+        # These are very short critical sections (counter updates only).
+        self._sync_lock = threading.Lock()
 
         # Track rate limit headers from API
         self._api_limit: Optional[int] = None
@@ -104,6 +115,12 @@ class OpenRouterRateLimiter:
         logger.debug(
             f"OpenRouter rate limiter initialized: tier={self.tier.name}, rpm={self.tier.requests_per_minute}"
         )
+
+    def _get_async_lock(self) -> asyncio.Lock:
+        """Get or create the async lock for the current event loop."""
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        return self._async_lock
 
     def _refill(self) -> None:
         """Refill tokens based on elapsed time."""
@@ -120,6 +137,9 @@ class OpenRouterRateLimiter:
         Blocks until a token is available or timeout is reached.
         Uses exponential backoff when recovering from rate limit errors.
         Returns True if acquired, False if timed out.
+
+        Uses asyncio.Lock internally so waiting coroutines yield to the
+        event loop instead of blocking the entire thread.
         """
         deadline = time.monotonic() + timeout
 
@@ -135,19 +155,20 @@ class OpenRouterRateLimiter:
             logger.info(f"rate_limiter_backoff_wait delay={backoff_delay:.1f}s")
             await asyncio.sleep(backoff_delay)
 
+        async_lock = self._get_async_lock()
+
         while True:
-            # Compute state inside lock, but sleep outside to avoid blocking event loop
+            # Compute state inside lock, sleep outside to avoid blocking event loop
             api_wait_time: Optional[float] = None
-            with self._lock:
+            async with async_lock:
                 self._refill()
 
-                # Check API-reported limits if available
+                # Check API-reported limits if available (read from sync-updated values)
                 if self._api_remaining is not None and self._api_remaining <= 0:
                     wait_time = (self._api_reset or 60) - time.time()
                     if wait_time > 0 and wait_time < timeout:
                         logger.debug(f"OpenRouter API limit reached, waiting {wait_time:.1f}s")
                         api_wait_time = min(wait_time, 1.0)
-                        # Don't sleep here - will sleep after releasing lock
 
                 if api_wait_time is None:  # Only try to acquire if not waiting for API limit
                     if self._tokens >= 1:
@@ -158,7 +179,7 @@ class OpenRouterRateLimiter:
                 else:
                     acquired = False
 
-            # Sleep OUTSIDE lock to avoid blocking event loop
+            # Sleep OUTSIDE lock to allow other coroutines to acquire
             if api_wait_time is not None:
                 await asyncio.sleep(api_wait_time)
                 continue
@@ -190,8 +211,10 @@ class OpenRouterRateLimiter:
         - X-RateLimit-Limit: Total requests allowed
         - X-RateLimit-Remaining: Requests remaining
         - X-RateLimit-Reset: Unix timestamp when limit resets
+
+        Uses threading.Lock for thread-safety from sync contexts.
         """
-        with self._lock:
+        with self._sync_lock:
             if "X-RateLimit-Limit" in headers:
                 try:
                     self._api_limit = int(headers["X-RateLimit-Limit"])
@@ -218,7 +241,7 @@ class OpenRouterRateLimiter:
 
     def release_on_error(self) -> None:
         """Release a token back on request error (optional, for retries)."""
-        with self._lock:
+        with self._sync_lock:
             self._tokens = min(self.tier.burst_size, self._tokens + 1.0)
 
     def record_rate_limit_error(self, status_code: int = 429) -> float:
@@ -255,7 +278,7 @@ class OpenRouterRateLimiter:
     @property
     def stats(self) -> dict:
         """Get current rate limiter statistics."""
-        with self._lock:
+        with self._sync_lock:
             return {
                 "tier": self.tier.name,
                 "rpm_limit": self.tier.requests_per_minute,
@@ -327,6 +350,9 @@ class ProviderRateLimiter:
 
     Uses token bucket algorithm with provider-specific configurations.
     Thread-safe with per-instance locks (no global lock contention).
+
+    Uses asyncio.Lock for async methods to avoid blocking the event loop,
+    with a separate threading.Lock for sync methods (header updates).
     """
 
     def __init__(self, provider: str, rpm: Optional[int] = None, burst: Optional[int] = None):
@@ -360,7 +386,15 @@ class ProviderRateLimiter:
 
         self._tokens = float(self.burst_size)
         self._last_refill = time.monotonic()
-        self._lock = threading.Lock()  # Per-instance lock, no global contention
+
+        # Use asyncio.Lock for async acquire() to avoid blocking the event loop.
+        # Coroutines waiting for this lock will yield to the event loop instead
+        # of blocking the entire thread.
+        self._async_lock: Optional[asyncio.Lock] = None  # Lazy init per event loop
+
+        # Use threading.Lock for sync methods like update_from_headers().
+        # These are very short critical sections (counter updates only).
+        self._sync_lock = threading.Lock()
 
         # Track rate limit headers from API
         self._api_limit: Optional[int] = None
@@ -374,6 +408,12 @@ class ProviderRateLimiter:
             f"Provider rate limiter initialized: provider={self.provider}, "
             f"rpm={self.requests_per_minute}, burst={self.burst_size}"
         )
+
+    def _get_async_lock(self) -> asyncio.Lock:
+        """Get or create the async lock for the current event loop."""
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        return self._async_lock
 
     def _refill(self) -> None:
         """Refill tokens based on elapsed time."""
@@ -390,6 +430,9 @@ class ProviderRateLimiter:
         Blocks until a token is available or timeout is reached.
         Uses exponential backoff when recovering from rate limit errors.
         Returns True if acquired, False if timed out.
+
+        Uses asyncio.Lock internally so waiting coroutines yield to the
+        event loop instead of blocking the entire thread.
         """
         deadline = time.monotonic() + timeout
 
@@ -406,13 +449,15 @@ class ProviderRateLimiter:
             logger.info(f"[{self.provider}] rate_limiter_backoff_wait delay={backoff_delay:.1f}s")
             await asyncio.sleep(backoff_delay)
 
+        async_lock = self._get_async_lock()
+
         while True:
-            # Compute state inside lock, but sleep outside to avoid blocking event loop
+            # Compute state inside lock, sleep outside to avoid blocking event loop
             api_wait_time: Optional[float] = None
-            with self._lock:
+            async with async_lock:
                 self._refill()
 
-                # Check API-reported limits if available
+                # Check API-reported limits if available (read from sync-updated values)
                 if self._api_remaining is not None and self._api_remaining <= 0:
                     wait_time = (self._api_reset or 60) - time.time()
                     if wait_time > 0 and wait_time < timeout:
@@ -420,7 +465,6 @@ class ProviderRateLimiter:
                             f"[{self.provider}] API limit reached, waiting {wait_time:.1f}s"
                         )
                         api_wait_time = min(wait_time, 1.0)
-                        # Don't sleep here - will sleep after releasing lock
 
                 if api_wait_time is None:  # Only try to acquire if not waiting for API limit
                     if self._tokens >= 1:
@@ -431,7 +475,7 @@ class ProviderRateLimiter:
                 else:
                     acquired = False
 
-            # Sleep OUTSIDE lock to avoid blocking event loop
+            # Sleep OUTSIDE lock to allow other coroutines to acquire
             if api_wait_time is not None:
                 await asyncio.sleep(api_wait_time)
                 continue
@@ -457,8 +501,11 @@ class ProviderRateLimiter:
             await asyncio.sleep(min(wait_time, 1.0))
 
     def update_from_headers(self, headers: dict) -> None:
-        """Update rate limit state from API response headers."""
-        with self._lock:
+        """Update rate limit state from API response headers.
+
+        Uses threading.Lock for thread-safety from sync contexts.
+        """
+        with self._sync_lock:
             # Try common header formats
             for limit_header in ["X-RateLimit-Limit", "x-ratelimit-limit", "RateLimit-Limit"]:
                 if limit_header in headers:
@@ -490,7 +537,7 @@ class ProviderRateLimiter:
 
     def release_on_error(self) -> None:
         """Release a token back on request error (optional, for retries)."""
-        with self._lock:
+        with self._sync_lock:
             self._tokens = min(self.burst_size, self._tokens + 1.0)
 
     def record_rate_limit_error(self, status_code: int = 429) -> float:
@@ -512,7 +559,7 @@ class ProviderRateLimiter:
     @property
     def stats(self) -> dict:
         """Get current rate limiter statistics."""
-        with self._lock:
+        with self._sync_lock:
             return {
                 "provider": self.provider,
                 "rpm_limit": self.requests_per_minute,

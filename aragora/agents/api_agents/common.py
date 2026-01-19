@@ -64,6 +64,19 @@ def _get_connection_limits() -> tuple[int, int]:
 _session_lock = threading.Lock()
 _shared_connector: Optional[aiohttp.TCPConnector] = None
 _connector_loop_id: Optional[int] = None  # Track which event loop owns the connector
+_pending_close_tasks: set[asyncio.Task] = set()  # Track connector close tasks
+
+
+async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
+    """Close a TCP connector with proper await.
+
+    Module-level function for cleaner task scheduling.
+    """
+    try:
+        await connector.close()
+        logger.debug("Old TCP connector closed successfully")
+    except Exception as e:  # noqa: BLE001
+        logger.debug(f"Error closing old connector: {e}")
 
 
 def get_shared_connector() -> aiohttp.TCPConnector:
@@ -100,22 +113,22 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
         if need_new_connector:
             # Close old connector if it exists and is still open
-            if _shared_connector is not None and not _shared_connector.closed:
+            old_connector = _shared_connector
+            if old_connector is not None and not old_connector.closed:
                 try:
-                    # close() returns a coroutine - schedule it on the loop
-                    # so connections are properly cleaned up
                     if current_loop_id is not None:
-                        asyncio.get_running_loop().create_task(
-                            _shared_connector.close()
+                        # Schedule close as a tracked task
+                        task = asyncio.get_running_loop().create_task(
+                            _close_connector_async(old_connector),
+                            name="close_old_connector",
                         )
-                    else:
-                        # No running loop, try to close synchronously
-                        # This may leave the connector in a partially closed state
-                        # but is better than leaking completely
-                        _shared_connector._closed = True
-                        logger.debug("Marked old connector as closed (no event loop)")
+                        # Track task and remove when done
+                        _pending_close_tasks.add(task)
+                        task.add_done_callback(_pending_close_tasks.discard)
+                    # If no running loop, connector will be garbage collected
+                    # This is safe because we're creating a new one for the new loop
                 except Exception as e:  # noqa: BLE001 - Cleanup errors should not propagate
-                    logger.debug(f"Error closing old connector: {e}")
+                    logger.debug(f"Error scheduling connector close: {e}")
 
             per_host, total = _get_connection_limits()
             _shared_connector = aiohttp.TCPConnector(
@@ -181,8 +194,19 @@ async def close_shared_connector() -> None:
 
     Call this during application shutdown to properly clean up
     connection resources. Safe to call multiple times.
+
+    Also awaits any pending connector close tasks to ensure clean shutdown.
     """
     global _shared_connector, _connector_loop_id
+
+    # First, await any pending close tasks from previous connector swaps
+    if _pending_close_tasks:
+        pending = list(_pending_close_tasks)
+        if pending:
+            logger.debug(f"Awaiting {len(pending)} pending connector close tasks")
+            await asyncio.gather(*pending, return_exceptions=True)
+            _pending_close_tasks.clear()
+
     with _session_lock:
         if _shared_connector is not None and not _shared_connector.closed:
             await _shared_connector.close()
@@ -197,13 +221,14 @@ def get_stream_buffer_size() -> int:
     """Get max stream buffer size from settings.
 
     Unified across all streaming pathways for consistent DoS protection.
-    Default is 5MB (5 * 1024 * 1024 bytes).
+    Default is 10MB (10 * 1024 * 1024 bytes).
     """
     return get_settings().agent.stream_buffer_size
 
 
 # Legacy constant for backward compatibility - prefer get_stream_buffer_size()
-MAX_STREAM_BUFFER_SIZE = 5 * 1024 * 1024  # 5MB default, unified with aragora/agents/streaming.py
+# Must match settings.agent.stream_buffer_size default (10MB)
+MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # 10MB - matches settings default
 
 
 def calculate_retry_delay(
