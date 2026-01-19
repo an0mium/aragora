@@ -41,14 +41,15 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.core import DebateResult
 
-# Check for official RLM library (import from bridge for proper detection)
+# Check for RLM library (use factory for consistent initialization)
 try:
-    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
-    HAS_ARAGORA_RLM = True
+    from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
+    HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
-    HAS_ARAGORA_RLM = False
-    AragoraRLM = None  # type: ignore[misc,assignment]
+    HAS_RLM_FACTORY = False
+    get_rlm = None  # type: ignore[misc,assignment]
+    get_compressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -195,30 +196,30 @@ class CrossDebateMemory:
         return HAS_OFFICIAL_RLM
 
     async def _get_rlm(self) -> Any:
-        """Get AragoraRLM instance (routes to TRUE RLM when available).
+        """Get AragoraRLM instance via factory (routes to TRUE RLM when available).
 
         Returns:
             AragoraRLM instance. Will use TRUE RLM (REPL-based) if official
             library is installed, otherwise uses compression fallback.
         """
-        if not HAS_ARAGORA_RLM or AragoraRLM is None:
+        if not HAS_RLM_FACTORY or get_rlm is None:
             return None
 
         if self._rlm is None:
             try:
-                self._rlm = AragoraRLM()
+                self._rlm = get_rlm()
                 if HAS_OFFICIAL_RLM:
                     logger.info(
-                        "[CrossDebateMemory] TRUE RLM initialized "
+                        "[CrossDebateMemory] TRUE RLM initialized via factory "
                         "(REPL-based, model writes code to examine context)"
                     )
                 else:
                     logger.info(
-                        "[CrossDebateMemory] AragoraRLM initialized "
+                        "[CrossDebateMemory] AragoraRLM initialized via factory "
                         "(will use compression fallback since official RLM not installed)"
                     )
             except Exception as e:
-                logger.warning(f"[CrossDebateMemory] Failed to initialize AragoraRLM: {e}")
+                logger.warning(f"[CrossDebateMemory] Failed to get RLM from factory: {e}")
         return self._rlm
 
     async def initialize(self) -> None:
@@ -232,14 +233,15 @@ class CrossDebateMemory:
         self._initialized = True
 
     async def _get_compressor(self):
-        """Lazy-load the RLM compressor."""
+        """Lazy-load the RLM compressor via factory."""
         if self._compressor is None and self.config.enable_rlm:
-            try:
-                from aragora.rlm import HierarchicalCompressor
-
-                self._compressor = HierarchicalCompressor()
-            except ImportError:
-                logger.warning("RLM module not available for cross-debate memory")
+            if get_compressor is not None:
+                try:
+                    self._compressor = get_compressor()
+                except Exception as e:
+                    logger.warning(f"Failed to get compressor from factory: {e}")
+            else:
+                logger.warning("RLM factory not available for cross-debate memory")
         return self._compressor
 
     def _estimate_tokens(self, text: str) -> int:

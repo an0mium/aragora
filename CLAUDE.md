@@ -13,7 +13,7 @@ Context for Claude Code when working with the Aragora codebase.
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
-| RLM | `aragora/rlm/` | `compressor.py`, `streaming.py`, `training/` |
+| RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `compressor.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 
 ## Project Overview
@@ -169,7 +169,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Trickster - hollow consensus detection via `enable_trickster`
 - SecurityBarrier - telemetry redaction
 - Graph/Matrix debate APIs
-- RLM (Recursive Language Models) - context compression
+- RLM (Recursive Language Models) - context compression via factory (`get_rlm()`, `get_compressor()`)
 - Belief Network - claim provenance tracking
 - Workflow Engine - DAG-based automation
 

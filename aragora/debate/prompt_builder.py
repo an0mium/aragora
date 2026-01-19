@@ -29,13 +29,13 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.rlm.types import RLMContext
 
-# Check for RLM availability
+# Check for RLM availability (use factory for consistent initialization)
 try:
-    from aragora.rlm import HierarchicalCompressor, AbstractionLevel, RLMContextAdapter
+    from aragora.rlm import AbstractionLevel, RLMContextAdapter, HAS_OFFICIAL_RLM
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    HAS_OFFICIAL_RLM = False
     AbstractionLevel = None  # type: ignore[misc,assignment]
     RLMContextAdapter = None  # type: ignore[misc,assignment]
 

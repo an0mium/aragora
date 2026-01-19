@@ -103,6 +103,10 @@ from .factory import (
     get_compressor,
     compress_and_query,
     reset_singleton,
+    get_factory_metrics,
+    reset_metrics,
+    log_metrics_summary,
+    RLMFactoryMetrics,
 )
 
 __all__ = [
@@ -153,4 +157,9 @@ __all__ = [
     "get_compressor",
     "compress_and_query",
     "reset_singleton",
+    # Factory metrics (observability)
+    "get_factory_metrics",
+    "reset_metrics",
+    "log_metrics_summary",
+    "RLMFactoryMetrics",
 ]

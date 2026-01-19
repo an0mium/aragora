@@ -34,16 +34,21 @@ from aragora.debate.cognitive_limiter import (
     CognitiveLoadLimiter,
 )
 
-# Check for official RLM library
+# Check for official RLM library (use factory for consistent initialization)
 try:
-    from aragora.rlm.bridge import HAS_OFFICIAL_RLM, AragoraRLM, DebateContextAdapter
+    from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
+    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
+    HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
-    AragoraRLM = None  # type: ignore
+    HAS_RLM_FACTORY = False
+    get_rlm = None  # type: ignore
+    get_compressor = None  # type: ignore
     DebateContextAdapter = None  # type: ignore
+    RLMBackendConfig = None  # type: ignore
 
 if TYPE_CHECKING:
-    from aragora.rlm import HierarchicalCompressor
+    from aragora.rlm.compressor import HierarchicalCompressor
     from aragora.rlm.types import CompressionResult
 
 logger = logging.getLogger(__name__)
@@ -152,31 +157,34 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         self._summarize_fn = summarize_fn
         self._compression_cache: dict[str, CompressionResult] = {}
 
-        # Real RLM integration
+        # Real RLM integration - use factory for consistent initialization
         self._rlm_backend = rlm_backend
         self._rlm_model = rlm_model
         self._aragora_rlm: Optional[Any] = None
         self._debate_adapter: Optional[Any] = None
 
-        if HAS_OFFICIAL_RLM and AragoraRLM is not None:
+        if HAS_RLM_FACTORY and get_rlm is not None:
             try:
-                from aragora.rlm.bridge import RLMBackendConfig
-                self._aragora_rlm = AragoraRLM(
-                    backend_config=RLMBackendConfig(
-                        backend=rlm_backend,
-                        model_name=rlm_model,
+                # Use factory with custom config for this limiter's backend/model preferences
+                from aragora.rlm.types import RLMConfig
+                config = RLMConfig(root_model=rlm_model)
+                self._aragora_rlm = get_rlm(config=config, force_new=True)
+                if DebateContextAdapter is not None:
+                    self._debate_adapter = DebateContextAdapter(self._aragora_rlm)
+                if HAS_OFFICIAL_RLM:
+                    logger.info(
+                        f"TRUE RLM initialized via factory with backend={rlm_backend}, model={rlm_model}"
                     )
-                )
-                self._debate_adapter = DebateContextAdapter(self._aragora_rlm)
-                logger.info(
-                    f"Real RLM initialized with backend={rlm_backend}, model={rlm_model}"
-                )
+                else:
+                    logger.info(
+                        f"AragoraRLM initialized via factory (compression fallback), model={rlm_model}"
+                    )
             except Exception as e:
-                logger.warning(f"Failed to initialize real RLM: {e}")
+                logger.warning(f"Failed to get RLM from factory: {e}")
                 self._aragora_rlm = None
         else:
             logger.info(
-                "Official RLM library not installed. Using hierarchical summarization fallback. "
+                "RLM factory not available. Using hierarchical summarization fallback. "
                 "Install with: pip install aragora[rlm]"
             )
 
@@ -275,13 +283,15 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     @property
     def compressor(self) -> Optional["HierarchicalCompressor"]:
-        """Lazy-load the hierarchical compressor."""
+        """Lazy-load the hierarchical compressor via factory."""
         if self._compressor is None:
-            try:
-                from aragora.rlm import HierarchicalCompressor
-                self._compressor = HierarchicalCompressor()
-            except ImportError:
-                logger.warning("RLM module not available, falling back to base limiter")
+            if get_compressor is not None:
+                try:
+                    self._compressor = get_compressor()
+                except Exception as e:
+                    logger.warning(f"Failed to get compressor from factory: {e}")
+            else:
+                logger.warning("RLM factory not available, falling back to base limiter")
         return self._compressor
 
     @classmethod

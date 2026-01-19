@@ -22,18 +22,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from aragora.rlm import HierarchicalCompressor
+    from aragora.rlm.compressor import HierarchicalCompressor
 
-# Check for RLM availability (prefer AragoraRLM for TRUE RLM support)
+# Check for RLM availability (use factory for consistent initialization)
 try:
-    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
-    from aragora.rlm import HierarchicalCompressor as _HierarchicalCompressor
+    from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    AragoraRLM = None  # type: ignore[misc,assignment]
-    _HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    get_rlm = None  # type: ignore[misc,assignment]
+    get_compressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -96,34 +95,36 @@ class ContextGatherer:
         # Cache for continuum memory context
         self._continuum_context_cache: Optional[str] = None
 
-        # RLM configuration - prefer AragoraRLM for TRUE RLM (REPL-based) support
+        # RLM configuration - use factory for consistent initialization
         self._enable_rlm = enable_rlm_compression and HAS_RLM
         self._rlm_compressor = rlm_compressor
         self._aragora_rlm: Optional[Any] = None
         self._rlm_threshold = rlm_compression_threshold
 
-        if self._enable_rlm:
-            # Prefer AragoraRLM which routes to TRUE RLM when available
-            if AragoraRLM is not None:
-                try:
-                    self._aragora_rlm = AragoraRLM()
-                    if HAS_OFFICIAL_RLM:
-                        logger.info(
-                            "[rlm] ContextGatherer: TRUE RLM enabled "
-                            "(REPL-based, model writes code to examine context)"
-                        )
-                    else:
-                        logger.info(
-                            "[rlm] ContextGatherer: AragoraRLM enabled "
-                            "(will use compression fallback since official RLM not installed)"
-                        )
-                except Exception as e:
-                    logger.warning(f"[rlm] Failed to initialize AragoraRLM: {e}")
+        if self._enable_rlm and get_rlm is not None:
+            # Use factory to get AragoraRLM (routes to TRUE RLM when available)
+            try:
+                self._aragora_rlm = get_rlm()
+                if HAS_OFFICIAL_RLM:
+                    logger.info(
+                        "[rlm] ContextGatherer: TRUE RLM enabled via factory "
+                        "(REPL-based, model writes code to examine context)"
+                    )
+                else:
+                    logger.info(
+                        "[rlm] ContextGatherer: AragoraRLM enabled via factory "
+                        "(will use compression fallback since official RLM not installed)"
+                    )
+            except Exception as e:
+                logger.warning(f"[rlm] Failed to get RLM from factory: {e}")
 
-            # Fallback: direct HierarchicalCompressor (compression-only)
-            if not self._rlm_compressor and _HierarchicalCompressor:
-                self._rlm_compressor = _HierarchicalCompressor()
-                logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback enabled")
+            # Fallback: get compressor from factory (compression-only)
+            if not self._rlm_compressor and get_compressor is not None:
+                try:
+                    self._rlm_compressor = get_compressor()
+                    logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback via factory")
+                except Exception as e:
+                    logger.warning(f"[rlm] Failed to get compressor from factory: {e}")
 
     @property
     def evidence_pack(self) -> Optional[Any]:
@@ -595,16 +596,18 @@ class ContextGatherer:
         continuum_memory: Any,
         domain: str,
         task: str,
+        include_glacial_insights: bool = True,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
         Uses the debate task and domain to query for related past learnings.
-        Enhanced with tier-aware retrieval and confidence markers.
+        Enhanced with tier-aware retrieval, confidence markers, and glacial insights.
 
         Args:
             continuum_memory: ContinuumMemory instance to query
             domain: The debate domain (e.g., "programming", "ethics")
             task: The debate task description
+            include_glacial_insights: Whether to include long-term glacial tier insights
 
         Returns:
             Tuple of:
@@ -620,43 +623,76 @@ class ContextGatherer:
 
         try:
             query = f"{domain}: {task[:200]}"
+            all_memories = []
+            retrieved_ids = []
+            retrieved_tiers = {}
 
-            # Retrieve memories, prioritizing fast/medium tiers (skip glacial for speed)
+            # 1. Retrieve recent memories from fast/medium/slow tiers
             memories = continuum_memory.retrieve(
                 query=query,
                 limit=5,
-                min_importance=0.3,  # Only important memories
+                min_importance=0.3,
+                include_glacial=False,  # Get recent memories first
             )
+            all_memories.extend(memories)
 
-            if not memories:
+            # 2. Also retrieve glacial tier insights for cross-session learning
+            if include_glacial_insights and hasattr(continuum_memory, "get_glacial_insights"):
+                glacial_insights = continuum_memory.get_glacial_insights(
+                    topic=task[:100],
+                    limit=3,
+                    min_importance=0.4,  # Higher threshold for long-term patterns
+                )
+                if glacial_insights:
+                    logger.info(
+                        f"  [continuum] Retrieved {len(glacial_insights)} glacial insights "
+                        f"for cross-session learning"
+                    )
+                    all_memories.extend(glacial_insights)
+
+            if not all_memories:
                 return "", [], {}
 
             # Track retrieved memory IDs and tiers for outcome updates and analytics
             retrieved_ids = [
-                getattr(mem, "id", None) for mem in memories if getattr(mem, "id", None)
+                getattr(mem, "id", None) for mem in all_memories if getattr(mem, "id", None)
             ]
             retrieved_tiers = {
                 getattr(mem, "id", None): getattr(mem, "tier", None)
-                for mem in memories
+                for mem in all_memories
                 if getattr(mem, "id", None) and getattr(mem, "tier", None)
             }
 
             # Format memories with confidence markers based on consolidation
             context_parts = ["[Previous learnings relevant to this debate:]"]
-            for mem in memories[:3]:  # Top 3 most relevant
+
+            # Format recent memories (fast/medium/slow)
+            recent_mems = [m for m in all_memories if getattr(m, "tier", None) and
+                          getattr(m, "tier").value != "glacial"]
+            for mem in recent_mems[:3]:
                 content = mem.content[:200] if hasattr(mem, "content") else str(mem)[:200]
                 tier = mem.tier.value if hasattr(mem, "tier") else "unknown"
-                # Consolidation score indicates reliability
                 consolidation = getattr(mem, "consolidation_score", 0.5)
                 confidence = (
                     "high" if consolidation > 0.7 else "medium" if consolidation > 0.4 else "low"
                 )
                 context_parts.append(f"- [{tier}|{confidence}] {content}")
 
+            # Format glacial insights separately (long-term patterns)
+            glacial_mems = [m for m in all_memories if getattr(m, "tier", None) and
+                           getattr(m, "tier").value == "glacial"]
+            if glacial_mems:
+                context_parts.append("\n[Long-term patterns from previous sessions:]")
+                for mem in glacial_mems[:2]:
+                    content = mem.content[:250] if hasattr(mem, "content") else str(mem)[:250]
+                    consolidation = getattr(mem, "consolidation_score", 0.8)
+                    context_parts.append(f"- [glacial|foundational] {content}")
+
             context = "\n".join(context_parts)
             self._continuum_context_cache = context
             logger.info(
-                f"  [continuum] Retrieved {len(memories)} relevant memories for domain '{domain}'"
+                f"  [continuum] Retrieved {len(recent_mems)} recent + {len(glacial_mems)} glacial "
+                f"memories for domain '{domain}'"
             )
             return context, retrieved_ids, retrieved_tiers
         except (AttributeError, TypeError, ValueError) as e:
