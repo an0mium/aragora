@@ -383,7 +383,7 @@ class TestQuery:
         })
 
         with patch(
-            "aragora.server.handlers.knowledge._run_async",
+            "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MagicMock(to_dict=lambda: {"answer": "blue", "confidence": 0.9}),
         ):
             result = knowledge_handler.handle(
@@ -419,7 +419,7 @@ class TestQuery:
         })
 
         with patch(
-            "aragora.server.handlers.knowledge._run_async",
+            "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MagicMock(to_dict=lambda: {"answer": "test", "confidence": 0.9}),
         ):
             result = knowledge_handler.handle(
@@ -475,7 +475,7 @@ class TestRateLimiting:
 
     def test_rate_limit_respected(self, knowledge_handler):
         """Test that rate limiter is checked."""
-        from aragora.server.handlers.knowledge import _knowledge_limiter
+        from aragora.server.handlers.knowledge_base.handler import _knowledge_limiter
 
         # Verify limiter exists and has expected configuration
         assert _knowledge_limiter is not None
@@ -538,7 +538,7 @@ class TestFactStoreInitialization:
 
         # Patch FactStore to fail
         with patch(
-            "aragora.server.handlers.knowledge.FactStore",
+            "aragora.server.handlers.knowledge_base.handler.FactStore",
             side_effect=Exception("DB not available"),
         ):
             store = handler._get_fact_store()
@@ -554,7 +554,7 @@ class TestFactStoreInitialization:
         handler = KnowledgeHandler({})
 
         with patch(
-            "aragora.server.handlers.knowledge.FactStore",
+            "aragora.server.handlers.knowledge_base.handler.FactStore",
             side_effect=Exception("DB not available"),
         ):
             store1 = handler._get_fact_store()
@@ -579,7 +579,7 @@ class TestQueryEngineInitialization:
         handler = KnowledgeHandler({})
 
         with patch(
-            "aragora.server.handlers.knowledge.FactStore",
+            "aragora.server.handlers.knowledge_base.handler.FactStore",
             side_effect=Exception("DB not available"),
         ):
             engine = handler._get_query_engine()
@@ -595,7 +595,7 @@ class TestQueryEngineInitialization:
         handler = KnowledgeHandler({})
 
         with patch(
-            "aragora.server.handlers.knowledge.FactStore",
+            "aragora.server.handlers.knowledge_base.handler.FactStore",
             side_effect=Exception("DB not available"),
         ):
             engine1 = handler._get_query_engine()
