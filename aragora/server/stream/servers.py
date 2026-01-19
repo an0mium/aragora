@@ -42,6 +42,7 @@ from .events import (
     StreamEventType,
 )
 from .server_base import ServerBase
+from .voice_stream import VoiceStreamHandler
 from .state_manager import (
     LoopInstance,
     cleanup_stale_debates,
@@ -182,6 +183,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # SECURITY: Prevents data leakage between concurrent debates
         self._client_subscriptions: dict[int, str] = {}
         self._client_subscriptions_lock = threading.Lock()
+
+        # Voice streaming handler for speech-to-text
+        self._voice_handler = VoiceStreamHandler(self)
 
     def _init_stores(self, nomic_dir: Path) -> None:
         """Initialize optional stores from nomic directory."""
@@ -819,6 +823,39 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                 )
             )
 
+    async def _handle_voice_websocket(self, request) -> "aiohttp.web.StreamResponse":
+        """Handle voice streaming WebSocket connections.
+
+        Route: /ws/voice/{debate_id}
+        Receives audio chunks, transcribes via Whisper, returns transcripts.
+        """
+        import aiohttp.web as web
+
+        # Extract debate_id from URL
+        debate_id = request.match_info.get("debate_id", "")
+        if not debate_id:
+            return web.Response(status=400, text="Missing debate_id")
+
+        # Validate origin for security
+        origin = request.headers.get("Origin", "")
+        if origin and origin not in WS_ALLOWED_ORIGINS:
+            return web.Response(status=403, text="Origin not allowed")
+
+        # Create WebSocket response
+        ws = web.WebSocketResponse(max_msg_size=WS_MAX_MESSAGE_SIZE)
+        await ws.prepare(request)
+
+        # Delegate to voice handler
+        try:
+            await self._voice_handler.handle_websocket(request, ws, debate_id)
+        except Exception as e:
+            logger.error(f"[voice] WebSocket error for debate {debate_id}: {e}")
+        finally:
+            if not ws.closed:
+                await ws.close()
+
+        return ws
+
     async def _websocket_handler(self, request) -> "aiohttp.web.StreamResponse":
         """Handle WebSocket connections with security validation and optional auth."""
         import aiohttp
@@ -1297,6 +1334,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # WebSocket handlers (not versioned)
         app.router.add_get("/", self._websocket_handler)
         app.router.add_get("/ws", self._websocket_handler)
+        app.router.add_get("/ws/voice/{debate_id}", self._handle_voice_websocket)
 
         # Prometheus metrics endpoint (not under /api/)
         app.router.add_get("/metrics", self._handle_metrics)
@@ -1311,6 +1349,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         logger.info(f"Unified server (HTTP+WS) running on http://{self.host}:{self.port}")
         logger.info(f"  WebSocket: ws://{self.host}:{self.port}/")
+        logger.info(f"  Voice WS:  ws://{self.host}:{self.port}/ws/voice/{{debate_id}}")
         logger.info(f"  HTTP API:  http://{self.host}:{self.port}/api/v1/* (preferred)")
         logger.info(f"  Legacy:    http://{self.host}:{self.port}/api/* (deprecated)")
 

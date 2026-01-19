@@ -34,6 +34,14 @@ interface VerificationResult {
   history_id?: string;
 }
 
+interface HistoryEntry {
+  id: string;
+  claim: string;
+  result: VerificationResult;
+  timestamp: number;
+  proof_tree?: Array<{ id: string; type: string; content: string; children: string[] }>;
+}
+
 interface BatchResult {
   results: VerificationResult[];
   status?: 'error' | 'success';
@@ -97,8 +105,14 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
   const [targetLanguage, setTargetLanguage] = useState<'lean4' | 'z3_smt'>('lean4');
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null);
 
-  // History state
-  const [history, setHistory] = useState<VerificationResult[]>([]);
+  // History state (server-side)
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<string>('');
+  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<HistoryEntry | null>(null);
+  const [showProofTree, setShowProofTree] = useState(false);
 
   // Fetch backend status
   const fetchStatus = useCallback(async () => {
@@ -119,6 +133,52 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Fetch server-side verification history
+  const fetchHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      const params = new URLSearchParams({
+        limit: '20',
+        offset: String(historyPage * 20),
+      });
+      if (historyFilter) {
+        params.append('status', historyFilter);
+      }
+
+      const response = await fetchWithRetry(`${apiBase}/api/verify/history?${params}`, undefined, { maxRetries: 2 });
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data.entries || []);
+        setHistoryTotal(data.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch verification history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [apiBase, historyPage, historyFilter]);
+
+  // Fetch specific history entry details
+  const fetchHistoryEntry = async (id: string) => {
+    try {
+      const response = await fetch(`${apiBase}/api/verify/history/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedHistoryEntry(data);
+        setShowProofTree(false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history entry:', err);
+    }
+  };
+
+  // Load history when tab changes
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab, fetchHistory]);
 
   // Single claim verification
   const handleVerifyClaim = async () => {
@@ -141,7 +201,10 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
 
       const data = await response.json();
       setSingleResult(data);
-      setHistory(prev => [data, ...prev.slice(0, 19)]);
+      // Refresh server-side history
+      if (activeTab === 'history') {
+        fetchHistory();
+      }
     } catch (err) {
       console.error('Verification failed:', err);
       setSingleResult({
@@ -633,34 +696,199 @@ export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualize
 
       {/* History Tab */}
       {activeTab === 'history' && (
-        <div className="card p-4">
-          <h4 className="font-mono text-acid-cyan mb-4">VERIFICATION HISTORY</h4>
-
-          {history.length === 0 ? (
-            <div className="text-center py-8 text-text-muted font-mono">
-              No verification history yet. Run some verifications to see them here.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {history.map((result, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-surface rounded border border-acid-green/20"
+        <div className="space-y-4">
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-mono text-acid-cyan">VERIFICATION HISTORY</h4>
+              <div className="flex items-center gap-3">
+                <select
+                  value={historyFilter}
+                  onChange={(e) => {
+                    setHistoryFilter(e.target.value);
+                    setHistoryPage(0);
+                  }}
+                  className="bg-surface border border-acid-green/30 rounded px-2 py-1 font-mono text-xs focus:outline-none focus:border-acid-green"
                 >
-                  <div className="flex-1">
-                    <div className="font-mono text-sm text-text line-clamp-1">
-                      {result.formal_statement?.slice(0, 80) || 'No formal statement'}
-                      {(result.formal_statement?.length || 0) > 80 ? '...' : ''}
+                  <option value="">All statuses</option>
+                  <option value="proof_found">Proof Found</option>
+                  <option value="proof_failed">Proof Failed</option>
+                  <option value="translation_failed">Translation Failed</option>
+                  <option value="timeout">Timeout</option>
+                </select>
+                <button
+                  onClick={fetchHistory}
+                  className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+                >
+                  [REFRESH]
+                </button>
+              </div>
+            </div>
+
+            {historyLoading ? (
+              <div className="text-acid-green font-mono animate-pulse py-8 text-center">
+                Loading history...
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-8 text-text-muted font-mono">
+                No verification history yet. Run some verifications to see them here.
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {history.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-3 bg-surface rounded border border-acid-green/20 hover:border-acid-green/40 cursor-pointer transition-colors"
+                      onClick={() => fetchHistoryEntry(entry.id)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm text-text truncate">
+                          {entry.claim.slice(0, 80) || 'No claim'}
+                          {entry.claim.length > 80 ? '...' : ''}
+                        </div>
+                        <div className="text-xs font-mono text-text-muted mt-1 flex items-center gap-2">
+                          <span>{entry.result.language?.toUpperCase() || 'N/A'}</span>
+                          <span>|</span>
+                          <span>{new Date(entry.timestamp * 1000).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      {renderStatusBadge(entry.result.status)}
                     </div>
-                    <div className="text-xs font-mono text-text-muted mt-1">
-                      {result.language?.toUpperCase() || 'N/A'} |
-                      {result.translation_time_ms?.toFixed(0) || '0'}ms translation |
-                      {result.proof_search_time_ms?.toFixed(0) || '0'}ms proof
-                    </div>
-                  </div>
-                  {renderStatusBadge(result.status)}
+                  ))}
                 </div>
-              ))}
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-acid-green/20">
+                  <div className="text-xs font-mono text-text-muted">
+                    Showing {historyPage * 20 + 1} - {Math.min((historyPage + 1) * 20, historyTotal)} of {historyTotal}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setHistoryPage(Math.max(0, historyPage - 1))}
+                      disabled={historyPage === 0}
+                      className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      [PREV]
+                    </button>
+                    <button
+                      onClick={() => setHistoryPage(historyPage + 1)}
+                      disabled={(historyPage + 1) * 20 >= historyTotal}
+                      className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      [NEXT]
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Selected Entry Details */}
+          {selectedHistoryEntry && (
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-mono text-acid-cyan">ENTRY DETAILS</h4>
+                <div className="flex items-center gap-2">
+                  {selectedHistoryEntry.result.is_verified && (
+                    <button
+                      onClick={() => setShowProofTree(!showProofTree)}
+                      className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+                        showProofTree
+                          ? 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan'
+                          : 'border-acid-cyan/30 text-acid-cyan hover:border-acid-cyan/50'
+                      }`}
+                    >
+                      {showProofTree ? '[HIDE PROOF TREE]' : '[VIEW PROOF TREE]'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedHistoryEntry(null)}
+                    className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+                  >
+                    [CLOSE]
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Claim */}
+                <div>
+                  <label className="block text-xs font-mono text-text-muted mb-2">ORIGINAL CLAIM</label>
+                  <div className="bg-surface p-3 rounded font-mono text-sm border border-acid-green/20">
+                    {selectedHistoryEntry.claim}
+                  </div>
+                </div>
+
+                {/* Result status and metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="p-2 bg-surface rounded">
+                    <div className={`text-lg font-mono ${selectedHistoryEntry.result.is_verified ? 'text-acid-green' : 'text-acid-red'}`}>
+                      {selectedHistoryEntry.result.is_verified ? 'YES' : 'NO'}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">verified</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-acid-cyan">
+                      {selectedHistoryEntry.result.language?.toUpperCase() || 'N/A'}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">language</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-text">
+                      {selectedHistoryEntry.result.translation_time_ms?.toFixed(0) || '0'}ms
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">translation</div>
+                  </div>
+                  <div className="p-2 bg-surface rounded">
+                    <div className="text-lg font-mono text-text">
+                      {selectedHistoryEntry.result.proof_search_time_ms?.toFixed(0) || '0'}ms
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">proof search</div>
+                  </div>
+                </div>
+
+                {/* Formal statement */}
+                {selectedHistoryEntry.result.formal_statement && (
+                  <div>
+                    <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
+                    <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                      {selectedHistoryEntry.result.formal_statement}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Error message */}
+                {selectedHistoryEntry.result.error_message && (
+                  <div>
+                    <label className="block text-xs font-mono text-acid-red mb-2">ERROR</label>
+                    <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                      {selectedHistoryEntry.result.error_message}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Proof hash */}
+                {selectedHistoryEntry.result.proof_hash && (
+                  <div className="text-xs font-mono text-text-muted">
+                    Proof hash: {selectedHistoryEntry.result.proof_hash}
+                  </div>
+                )}
+
+                {/* Timestamp */}
+                <div className="text-xs font-mono text-text-muted">
+                  Verified at: {new Date(selectedHistoryEntry.timestamp * 1000).toLocaleString()}
+                </div>
+              </div>
+
+              {/* Proof Tree Visualization */}
+              {showProofTree && selectedHistoryEntry.id && (
+                <div className="mt-6 pt-4 border-t border-acid-green/20">
+                  <ProofTreeVisualization
+                    historyId={selectedHistoryEntry.id}
+                    apiBase={apiBase}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

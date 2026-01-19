@@ -288,6 +288,31 @@ class ConnectorParseError(ConnectorError):
         self.content_type = content_type
 
 
+class ConnectorConfigError(ConnectorError):
+    """Configuration or setup error.
+
+    Raised when:
+    - Missing required configuration
+    - Invalid configuration values
+    - Connector not properly initialized
+
+    NOT retryable (need to fix configuration).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        connector_name: str = "unknown",
+        config_key: Optional[str] = None,
+    ):
+        super().__init__(
+            message,
+            connector_name=connector_name,
+            is_retryable=False,
+        )
+        self.config_key = config_key
+
+
 # =============================================================================
 # Exception Utilities
 # =============================================================================
@@ -512,6 +537,7 @@ __all__ = [
     "ConnectorNotFoundError",
     "ConnectorQuotaError",
     "ConnectorParseError",
+    "ConnectorConfigError",
     # Utilities
     "is_retryable_error",
     "get_retry_delay",

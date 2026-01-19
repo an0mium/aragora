@@ -665,7 +665,7 @@ class GoogleDriveConnector(EnterpriseConnector):
             file_id = evidence_id
 
         try:
-            params = {
+            params: Dict[str, Any] = {
                 "fields": "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,owners",
             }
 

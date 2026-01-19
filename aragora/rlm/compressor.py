@@ -3,14 +3,21 @@ Hierarchical Context Compressor for RLM.
 
 Builds multi-level abstraction trees from long content, enabling
 efficient navigation from high-level summaries to detailed content.
+
+Performance optimizations:
+- LRU cache with configurable size and TTL
+- Parallel sub-LM calls for batch compression
+- Async semaphore for concurrency control
+- Content-hash based deduplication
 """
 
 import asyncio
 import hashlib
 import logging
 import time
-from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional, Tuple
 
 from .types import (
     AbstractionLevel,
@@ -23,8 +30,100 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 
-# Cache for compression results
-_compression_cache: dict[str, RLMContext] = {}
+@dataclass
+class CacheEntry:
+    """Entry in the compression cache with TTL."""
+    context: RLMContext
+    created_at: float
+    access_count: int = 0
+
+
+class LRUCompressionCache:
+    """
+    LRU cache for compression results with TTL expiration.
+
+    Performance features:
+    - O(1) lookups and insertions
+    - Automatic eviction of oldest entries
+    - TTL-based expiration
+    - Access tracking for metrics
+    """
+
+    def __init__(self, max_size: int = 1000, ttl_seconds: float = 3600.0):
+        """
+        Initialize the cache.
+
+        Args:
+            max_size: Maximum number of entries to cache
+            ttl_seconds: Time-to-live for cache entries (default 1 hour)
+        """
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._hits = 0
+        self._misses = 0
+
+    def get(self, key: str) -> Optional[RLMContext]:
+        """Get a value from the cache, returning None if expired or missing."""
+        if key not in self._cache:
+            self._misses += 1
+            return None
+
+        entry = self._cache[key]
+
+        # Check TTL
+        if time.time() - entry.created_at > self.ttl_seconds:
+            del self._cache[key]
+            self._misses += 1
+            return None
+
+        # Move to end (most recently used)
+        self._cache.move_to_end(key)
+        entry.access_count += 1
+        self._hits += 1
+
+        return entry.context
+
+    def set(self, key: str, context: RLMContext) -> None:
+        """Set a value in the cache, evicting old entries if necessary."""
+        # Remove oldest if at capacity
+        while len(self._cache) >= self.max_size:
+            self._cache.popitem(last=False)
+
+        self._cache[key] = CacheEntry(
+            context=context,
+            created_at=time.time(),
+        )
+
+    def clear(self) -> None:
+        """Clear the cache."""
+        self._cache.clear()
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        total = self._hits + self._misses
+        return {
+            "size": len(self._cache),
+            "max_size": self.max_size,
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": self._hits / total if total > 0 else 0.0,
+        }
+
+
+# Global compression cache (LRU with 1-hour TTL)
+_compression_cache = LRUCompressionCache(max_size=1000, ttl_seconds=3600.0)
+
+# Semaphore for controlling concurrent LLM calls
+_call_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
+    """Get or create the global semaphore for LLM call concurrency control."""
+    global _call_semaphore
+    if _call_semaphore is None:
+        _call_semaphore = asyncio.Semaphore(max_concurrent)
+    return _call_semaphore
 
 
 @dataclass
@@ -152,22 +251,23 @@ Conclusion:""",
         """
         start_time = time.time()
 
-        # Check cache
+        # Check cache (LRU with TTL)
         cache_key = self._cache_key(content, source_type, max_levels)
-        if self.config.cache_compressions and cache_key in _compression_cache:
-            logger.debug(f"Cache hit for compression: {cache_key[:16]}...")
-            cached = _compression_cache[cache_key]
-            return CompressionResult(
-                context=cached,
-                original_tokens=cached.original_tokens,
-                compressed_tokens={},
-                compression_ratio={},
-                time_seconds=0.0,
-                sub_calls_made=0,
-                cache_hits=1,
-                estimated_fidelity=0.9,
-                key_topics_extracted=[],
-            )
+        if self.config.cache_compressions:
+            cached = _compression_cache.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache hit for compression: {cache_key[:16]}...")
+                return CompressionResult(
+                    context=cached,
+                    original_tokens=cached.original_tokens,
+                    compressed_tokens={},
+                    compression_ratio={},
+                    time_seconds=0.0,
+                    sub_calls_made=0,
+                    cache_hits=1,
+                    estimated_fidelity=0.9,
+                    key_topics_extracted=[],
+                )
 
         # Estimate token count
         original_tokens = self._count_tokens(content)
@@ -256,9 +356,9 @@ Conclusion:""",
                     if topic.strip()
                 )
 
-        # Cache result
+        # Cache result (LRU with TTL)
         if self.config.cache_compressions:
-            _compression_cache[cache_key] = context
+            _compression_cache.set(cache_key, context)
 
         elapsed = time.time() - start_time
 
@@ -399,7 +499,10 @@ Conclusion:""",
         prompt = prompt_template.format(content=combined)
 
         try:
-            response = self.agent_call(prompt, self.config.root_model)
+            # Use semaphore to control concurrent LLM calls
+            semaphore = get_call_semaphore(self.config.max_sub_calls)
+            async with semaphore:
+                response = self.agent_call(prompt, self.config.root_model)
 
             # Create new node
             node = AbstractionNode(
@@ -523,5 +626,32 @@ Conclusion:""",
 
 def clear_compression_cache() -> None:
     """Clear the compression cache."""
+    _compression_cache.clear()
+
+
+def get_compression_cache_stats() -> dict[str, Any]:
+    """
+    Get statistics about the compression cache.
+
+    Returns:
+        Dict with cache size, hit rate, and other metrics
+    """
+    return _compression_cache.get_stats()
+
+
+def configure_compression_cache(
+    max_size: int = 1000,
+    ttl_seconds: float = 3600.0,
+) -> None:
+    """
+    Configure the compression cache.
+
+    Args:
+        max_size: Maximum number of entries to cache
+        ttl_seconds: Time-to-live for cache entries
+    """
     global _compression_cache
-    _compression_cache = {}
+    _compression_cache = LRUCompressionCache(
+        max_size=max_size,
+        ttl_seconds=ttl_seconds,
+    )

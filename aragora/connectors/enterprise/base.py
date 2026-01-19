@@ -130,6 +130,11 @@ class SyncResult:
     errors: List[str] = field(default_factory=list)
     new_cursor: Optional[str] = None
 
+    @property
+    def items_total(self) -> int:
+        """Total items processed (synced + updated + skipped + failed)."""
+        return self.items_synced + self.items_updated + self.items_skipped + self.items_failed
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {

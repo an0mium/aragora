@@ -1013,13 +1013,18 @@ class TestListAvailableAgents:
 class TestCLIAgentFallback:
     """Tests for CLI agent fallback to OpenRouter functionality."""
 
-    def test_enable_fallback_default_true(self):
-        """Should enable fallback by default."""
+    def test_enable_fallback_default_false(self):
+        """Should disable fallback by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
         agent = CodexAgent(name="test", model="test")
+        assert agent.enable_fallback is False
+
+    def test_enable_fallback_can_be_enabled(self):
+        """Should allow enabling fallback explicitly."""
+        agent = CodexAgent(name="test", model="test", enable_fallback=True)
         assert agent.enable_fallback is True
 
     def test_enable_fallback_can_be_disabled(self):
-        """Should allow disabling fallback."""
+        """Should allow disabling fallback explicitly."""
         agent = CodexAgent(name="test", model="test", enable_fallback=False)
         assert agent.enable_fallback is False
 
@@ -1097,7 +1102,8 @@ class TestCLIAgentGetFallbackAgent:
 
     @pytest.fixture
     def agent(self):
-        return CodexAgent(name="test", model="gpt-5.2-codex")
+        # Enable fallback for testing fallback functionality
+        return CodexAgent(name="test", model="gpt-5.2-codex", enable_fallback=True)
 
     def test_returns_none_when_disabled(self, agent):
         """Should return None when fallback is disabled."""
@@ -1172,8 +1178,8 @@ class TestCLIAgentFallbackIntegration:
 
     @pytest.mark.asyncio
     async def test_codex_falls_back_on_timeout(self):
-        """CodexAgent should fallback on timeout."""
-        agent = CodexAgent(name="test", model="test")
+        """CodexAgent should fallback on timeout when enabled."""
+        agent = CodexAgent(name="test", model="test", enable_fallback=True)
 
         with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:
             mock_cli.side_effect = TimeoutError("timed out")
@@ -1191,8 +1197,8 @@ class TestCLIAgentFallbackIntegration:
 
     @pytest.mark.asyncio
     async def test_claude_falls_back_on_rate_limit(self):
-        """ClaudeAgent should fallback on rate limit."""
-        agent = ClaudeAgent(name="test", model="test")
+        """ClaudeAgent should fallback on rate limit when enabled."""
+        agent = ClaudeAgent(name="test", model="test", enable_fallback=True)
 
         with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:
             mock_cli.side_effect = RuntimeError("CLI command failed: rate limit exceeded")
@@ -1210,8 +1216,8 @@ class TestCLIAgentFallbackIntegration:
 
     @pytest.mark.asyncio
     async def test_gemini_falls_back_on_cli_failure(self):
-        """GeminiCLIAgent should fallback on CLI failure."""
-        agent = GeminiCLIAgent(name="test", model="test")
+        """GeminiCLIAgent should fallback on CLI failure when enabled."""
+        agent = GeminiCLIAgent(name="test", model="test", enable_fallback=True)
 
         with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:
             mock_cli.side_effect = RuntimeError("CLI command failed: process crashed")
@@ -1565,7 +1571,7 @@ class TestFallbackIntegration:
     @pytest.mark.asyncio
     async def test_prefer_api_skips_cli(self):
         """Should skip CLI and use OpenRouter directly when prefer_api=True."""
-        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True)
+        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True, enable_fallback=True)
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             with patch.object(agent, "_run_cli") as mock_cli:

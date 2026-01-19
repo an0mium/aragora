@@ -530,10 +530,10 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results
-        parallel_results = []
+        parallel_results: list[dict[str, Any]] = []
         all_success = True
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 parallel_results.append({"error": str(result)})
                 all_success = False
             else:

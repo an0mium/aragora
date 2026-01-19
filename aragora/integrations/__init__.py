@@ -1,5 +1,12 @@
 """Aragora integrations for external services."""
 
+from aragora.integrations.base import (
+    BaseIntegration,
+    FormattedConsensusData,
+    FormattedDebateData,
+    FormattedErrorData,
+    FormattedLeaderboardData,
+)
 from aragora.integrations.discord import (
     DiscordConfig,
     DiscordIntegration,
@@ -10,12 +17,22 @@ from aragora.integrations.discord import (
 from aragora.integrations.email import (
     EmailConfig,
     EmailIntegration,
+    EmailProvider,
     EmailRecipient,
+)
+from aragora.integrations.matrix import (
+    MatrixConfig,
+    MatrixIntegration,
 )
 from aragora.integrations.slack import (
     SlackConfig,
     SlackIntegration,
     SlackMessage,
+)
+from aragora.integrations.teams import (
+    AdaptiveCard,
+    TeamsConfig,
+    TeamsIntegration,
 )
 from aragora.integrations.telegram import (
     InlineButton,
@@ -29,8 +46,25 @@ from aragora.integrations.webhooks import (
     WebhookConfig,
     WebhookDispatcher,
 )
+from aragora.integrations.whatsapp import (
+    WhatsAppConfig,
+    WhatsAppIntegration,
+    WhatsAppProvider,
+)
+from aragora.integrations.zoom import (
+    ZoomConfig,
+    ZoomIntegration,
+    ZoomMeetingInfo,
+    ZoomWebhookEvent,
+)
 
 __all__ = [
+    # Base
+    "BaseIntegration",
+    "FormattedDebateData",
+    "FormattedConsensusData",
+    "FormattedErrorData",
+    "FormattedLeaderboardData",
     # Webhooks
     "WebhookDispatcher",
     "WebhookConfig",
@@ -54,5 +88,22 @@ __all__ = [
     # Email
     "EmailIntegration",
     "EmailConfig",
+    "EmailProvider",
     "EmailRecipient",
+    # Microsoft Teams
+    "TeamsIntegration",
+    "TeamsConfig",
+    "AdaptiveCard",
+    # WhatsApp
+    "WhatsAppIntegration",
+    "WhatsAppConfig",
+    "WhatsAppProvider",
+    # Matrix/Element
+    "MatrixIntegration",
+    "MatrixConfig",
+    # Zoom
+    "ZoomIntegration",
+    "ZoomConfig",
+    "ZoomMeetingInfo",
+    "ZoomWebhookEvent",
 ]

@@ -307,7 +307,12 @@ class TestCodebaseAuditor:
         assert "hardcoded_secret" in categories or "sql_injection" in categories
 
     def test_quality_pattern_detection(self, auditor):
-        """Test detecting quality patterns."""
+        """Test detecting quality patterns.
+
+        Note: The TODO/FIXME comments below are INTENTIONAL test fixture data
+        used to verify the auditor correctly detects these comment patterns.
+        They are not actual issues in the codebase.
+        """
         code = """
         # TODO: Fix this later
         # FIXME: Security issue here

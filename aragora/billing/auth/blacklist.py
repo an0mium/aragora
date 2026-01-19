@@ -35,7 +35,7 @@ class TokenBlacklist:
     _lock = threading.Lock()
     _initialized: bool
     _blacklist: dict[str, float]
-    _data_lock: threading.Lock
+    _data_lock: threading.RLock  # RLock allows reentrant acquisition
     _cleanup_interval: int
     _last_cleanup: float
 
@@ -58,7 +58,7 @@ class TokenBlacklist:
         if self._initialized:
             return
         self._blacklist: dict[str, float] = {}  # token_jti -> expiry_timestamp
-        self._data_lock = threading.Lock()
+        self._data_lock = threading.RLock()  # RLock for reentrant locking
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
         self._initialized = True

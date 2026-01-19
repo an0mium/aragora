@@ -683,11 +683,18 @@ class TestOpenRouterFallbackIntegration:
     """Test OpenRouter fallback integration."""
 
     def test_fallback_enabled_by_default(self):
-        """Test that fallback is enabled by default in CLI agents."""
+        """Test that fallback is disabled by default in CLI agents (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
         from aragora.agents.cli_agents import ClaudeAgent
 
         # Create agent without explicit enable_fallback (uses concrete subclass)
         agent = ClaudeAgent(name="test", model="claude")
+        assert agent.enable_fallback is False
+
+    def test_fallback_can_be_enabled(self):
+        """Test that fallback can be explicitly enabled."""
+        from aragora.agents.cli_agents import ClaudeAgent
+
+        agent = ClaudeAgent(name="test", model="claude", enable_fallback=True)
         assert agent.enable_fallback is True
 
     def test_fallback_can_be_disabled(self):
@@ -705,7 +712,7 @@ class TestOpenRouterFallbackIntegration:
         # Temporarily remove API key
         original = os.environ.pop("OPENROUTER_API_KEY", None)
         try:
-            agent = ClaudeAgent(name="test", model="claude")
+            agent = ClaudeAgent(name="test", model="claude", enable_fallback=True)
             # Should still enable fallback, but it won't work without key
             assert agent.enable_fallback is True
             # Fallback agent should not be created without key

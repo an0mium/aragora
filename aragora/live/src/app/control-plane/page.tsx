@@ -2,13 +2,28 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-import { AgentWorkflowVisualization } from '@/components/AgentWorkflowVisualization';
 import { useControlPlaneWebSocket, type TaskState } from '@/hooks/useControlPlaneWebSocket';
+
+// Lazy load heavy visualization component
+const AgentWorkflowVisualization = dynamic(
+  () => import('@/components/AgentWorkflowVisualization').then(m => ({ default: m.AgentWorkflowVisualization })),
+  { ssr: false, loading: () => <div className="h-[350px] flex items-center justify-center text-text-muted">Loading visualization...</div> }
+);
+import {
+  type Agent,
+  type ProcessingJob,
+  type SystemMetrics,
+  type TabId,
+  getStatusColor,
+  formatTokens,
+  TABS,
+} from './types';
 
 // Control Plane Components
 import {
@@ -27,40 +42,6 @@ import {
   KnowledgeExplorer as VerticalKnowledgeExplorer,
   ExecutionMonitor as VerticalExecutionMonitor,
 } from '@/components/verticals';
-
-interface Agent {
-  id: string;
-  name: string;
-  model: string;
-  status: 'idle' | 'working' | 'error' | 'rate_limited';
-  current_task?: string;
-  requests_today: number;
-  tokens_used: number;
-  last_active?: string;
-}
-
-interface ProcessingJob {
-  id: string;
-  type: 'document_processing' | 'audit' | 'debate' | 'batch_upload';
-  name: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'paused';
-  progress: number;
-  started_at?: string;
-  document_count?: number;
-  agents_assigned: string[];
-}
-
-interface SystemMetrics {
-  active_jobs: number;
-  queued_jobs: number;
-  agents_available: number;
-  agents_busy: number;
-  documents_processed_today: number;
-  audits_completed_today: number;
-  tokens_used_today: number;
-}
-
-type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'connectors' | 'executions' | 'queue' | 'verticals' | 'policy' | 'workspace' | 'settings';
 
 export default function ControlPlanePage() {
   const { config: backendConfig } = useBackend();
@@ -308,46 +289,13 @@ export default function ControlPlanePage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'idle':
-      case 'completed':
-        return 'text-success';
-      case 'working':
-      case 'running':
-        return 'text-acid-cyan';
-      case 'queued':
-        return 'text-acid-yellow';
-      case 'error':
-      case 'failed':
-      case 'rate_limited':
-        return 'text-crimson';
-      case 'paused':
-        return 'text-text-muted';
-      default:
-        return 'text-text-muted';
-    }
-  };
-
-  const formatTokens = (tokens: number) => {
-    if (tokens < 1000) return tokens.toString();
-    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
-    return `${(tokens / 1000000).toFixed(2)}M`;
-  };
-
-  const tabs = [
-    { id: 'overview' as TabId, label: 'OVERVIEW' },
-    { id: 'agents' as TabId, label: 'AGENTS', count: displayAgents.length },
-    { id: 'workflows' as TabId, label: 'WORKFLOWS' },
-    { id: 'knowledge' as TabId, label: 'KNOWLEDGE' },
-    { id: 'connectors' as TabId, label: 'CONNECTORS' },
-    { id: 'executions' as TabId, label: 'EXECUTIONS' },
-    { id: 'queue' as TabId, label: 'QUEUE', count: displayJobs.filter(j => j.status === 'running' || j.status === 'queued').length },
-    { id: 'verticals' as TabId, label: 'VERTICALS' },
-    { id: 'policy' as TabId, label: 'POLICY' },
-    { id: 'workspace' as TabId, label: 'WORKSPACE' },
-    { id: 'settings' as TabId, label: 'SETTINGS' },
-  ];
+  // Build tabs with dynamic counts
+  const tabs = TABS.map(tab => ({
+    ...tab,
+    count: tab.id === 'agents' ? displayAgents.length :
+           tab.id === 'queue' ? displayJobs.filter(j => j.status === 'running' || j.status === 'queued').length :
+           undefined,
+  }));
 
   return (
     <>

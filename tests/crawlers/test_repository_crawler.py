@@ -1,25 +1,37 @@
-"""Tests for Repository Crawler."""
+"""Tests for Repository Crawler (legacy module).
+
+Note: These tests cover the deprecated ``aragora.crawlers`` module which is
+maintained for backward compatibility. For new code, use
+``aragora.connectors.repository_crawler`` instead.
+
+The deprecated module emits DeprecationWarning on import, which is suppressed
+here to keep test output clean.
+"""
 
 import asyncio
 import os
 import pytest
 import tempfile
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from aragora.crawlers import (
-    RepositoryCrawler,
-    RepositoryCrawlerConfig,
-    RepositoryInfo,
-    BaseCrawler,
-    ContentType,
-    CrawlerConfig,
-    CrawlResult,
-    CrawlStats,
-    CrawlStatus,
-    IndexResult,
-)
+# Suppress deprecation warning for this legacy test module
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from aragora.crawlers import (
+        RepositoryCrawler,
+        RepositoryCrawlerConfig,
+        RepositoryInfo,
+        BaseCrawler,
+        ContentType,
+        CrawlerConfig,
+        CrawlResult,
+        CrawlStats,
+        CrawlStatus,
+        IndexResult,
+    )
 
 
 class TestContentType:

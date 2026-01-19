@@ -42,8 +42,37 @@ from .features import (
     _check_trickster,
     _check_requirement,
 )
+from .integrations import (
+    IntegrationsHandler,
+    IntegrationConfig,
+    IntegrationStatus,
+    IntegrationType,
+    VALID_INTEGRATION_TYPES,
+    register_integration_routes,
+)
 from .plugins import PluginsHandler
 from .pulse import PulseHandler
+from .rlm import RLMHandler
+from .transcription import TranscriptionHandler
+from .smart_upload import (
+    SmartUploadHandler,
+    FileCategory,
+    ProcessingAction,
+    UploadResult,
+    detect_file_category,
+    get_processing_action,
+    smart_upload,
+    get_upload_status,
+)
+from .cloud_storage import (
+    CloudStorageHandler,
+    get_provider_status,
+    get_all_provider_status,
+    list_files as cloud_list_files,
+    download_file as cloud_download_file,
+)
+from .gmail_ingest import GmailIngestHandler
+from .gmail_query import GmailQueryHandler
 
 __all__ = [
     "AudioHandler",
@@ -89,4 +118,27 @@ __all__ = [
     "PluginsHandler",
     "PODCAST_AVAILABLE",
     "PulseHandler",
+    "RLMHandler",
+    "TranscriptionHandler",
+    "IntegrationsHandler",
+    "IntegrationConfig",
+    "IntegrationStatus",
+    "IntegrationType",
+    "VALID_INTEGRATION_TYPES",
+    "register_integration_routes",
+    "SmartUploadHandler",
+    "FileCategory",
+    "ProcessingAction",
+    "UploadResult",
+    "detect_file_category",
+    "get_processing_action",
+    "smart_upload",
+    "get_upload_status",
+    "CloudStorageHandler",
+    "get_provider_status",
+    "get_all_provider_status",
+    "cloud_list_files",
+    "cloud_download_file",
+    "GmailIngestHandler",
+    "GmailQueryHandler",
 ]

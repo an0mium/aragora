@@ -6,9 +6,7 @@ Welcome to Aragora's documentation. This index helps you find the right document
 
 | Document | Description |
 |----------|-------------|
-| [START_HERE](./START_HERE.md) | Entry point for new users |
-| [QUICKSTART](./QUICKSTART.md) | 5-minute setup guide |
-| [GETTING_STARTED](./GETTING_STARTED.md) | Comprehensive onboarding |
+| [GETTING_STARTED](./GETTING_STARTED.md) | Comprehensive onboarding guide |
 
 ## Core Concepts
 
@@ -17,6 +15,10 @@ Welcome to Aragora's documentation. This index helps you find the right document
 | [ARCHITECTURE](./ARCHITECTURE.md) | System architecture overview |
 | [FEATURES](./FEATURES.md) | Complete feature documentation |
 | [MODES_GUIDE](./MODES_GUIDE.md) | Debate modes (standard, gauntlet, genesis) |
+| [DEBATE_INTERNALS](./DEBATE_INTERNALS.md) | Debate engine internals (Arena, phases, consensus) |
+| [REASONING](./REASONING.md) | Belief networks, provenance, and claims |
+| [WORKFLOW_ENGINE](./WORKFLOW_ENGINE.md) | DAG-based workflow execution |
+| [RESILIENCE](./RESILIENCE.md) | Circuit breaker and fault tolerance |
 
 ## Using Aragora
 
@@ -146,7 +148,6 @@ These documents are kept for historical reference but may contain outdated infor
 | [DATABASE_CONSOLIDATION](./DATABASE_CONSOLIDATION.md) | Historical | Migration complete, see DATABASE.md |
 | [GAUNTLET_GUIDE](./GAUNTLET_GUIDE.md) | Superseded | Content merged into GAUNTLET.md |
 | [GAUNTLET_ARCHITECTURE](./GAUNTLET_ARCHITECTURE.md) | Reference | Technical details, see GAUNTLET.md for usage |
-| [PULSE_SYSTEM](./PULSE_SYSTEM.md) | Superseded | Content merged into PULSE.md |
 | [SECURITY_AUDIT](./SECURITY_AUDIT.md) | Historical | Point-in-time audit results |
 | [REFACTORING](./REFACTORING.md) | Historical | Completed refactoring notes |
 | [POSITIONING](./POSITIONING.md) | Marketing | Internal marketing document |

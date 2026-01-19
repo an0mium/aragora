@@ -8,10 +8,11 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from typing import Optional
+
+from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
     BaseHandler,
@@ -22,22 +23,16 @@ from ..base import (
     json_response,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.validation.security import (
+    execute_regex_with_timeout,
+    execute_regex_finditer_with_timeout,
+)
 
 # Rate limiter for insights endpoints (60 requests per minute)
 _insights_limiter = RateLimiter(requests_per_minute=60)
 
 # Maximum content size for insight extraction (1MB)
 MAX_CONTENT_SIZE = 1024 * 1024
-
-
-def _run_async(coro):
-    """Run async coroutine from sync context."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +245,8 @@ class InsightsHandler(BaseHandler):
                 continue
 
             for pattern in claim_patterns:
-                if re.search(pattern, sentence, re.IGNORECASE):
+                # Use timeout-protected regex to prevent ReDoS
+                if execute_regex_with_timeout(pattern, sentence, timeout=0.5, flags=re.IGNORECASE):
                     claims.append(
                         {
                             "text": sentence[:500],
@@ -276,7 +272,10 @@ class InsightsHandler(BaseHandler):
         ]
 
         for pattern, etype in evidence_patterns:
-            matches = re.finditer(pattern, content, re.IGNORECASE)
+            # Use timeout-protected finditer to prevent ReDoS
+            matches = execute_regex_finditer_with_timeout(
+                pattern, content, timeout=1.0, flags=re.IGNORECASE, max_matches=15
+            )
             for match in matches:
                 evidence.append(
                     {

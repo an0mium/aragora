@@ -3,10 +3,15 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { ScenarioMatrixView } from '@/components/scenario-matrix';
+
+const ScenarioMatrixView = dynamic(
+  () => import('@/components/scenario-matrix').then(m => ({ default: m.ScenarioMatrixView })),
+  { ssr: false, loading: () => <div className="h-[600px] flex items-center justify-center text-acid-green font-mono animate-pulse">Loading matrix visualization...</div> }
+);
 
 function MatrixDebatesContent() {
   const searchParams = useSearchParams();

@@ -124,7 +124,7 @@ class ErrorPattern:
         phase: str,
         cycle_number: int = 0,
         fix_iteration: int = 0,
-        context: dict = None,
+        context: dict | None = None,
     ) -> "ErrorPattern":
         """Create pattern from an exception."""
         error_type = _detect_error_type(error)
@@ -276,7 +276,7 @@ def _suggest_action(error_type: ErrorType, phase: str) -> str:
 def classify_error(
     error: Exception,
     phase: str,
-    context: dict = None,
+    context: dict | None = None,
 ) -> ErrorCategory:
     """
     Classify an error into a structured category.

@@ -1,89 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
-
-interface KnowledgeNode {
-  id: string;
-  nodeType: string;
-  content: string;
-  confidence: number;
-  tier: string;
-  sourceType: string;
-  documentId?: string;
-  debateId?: string;
-  agentId?: string;
-  topics: string[];
-  createdAt: string;
-  updatedAt: string;
-  metadata?: Record<string, unknown>;
-}
-
-interface KnowledgeRelationship {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  relationshipType: string;
-  strength: number;
-  createdAt: string;
-}
-
-interface Contradiction {
-  fact_id: string;
-  content: string;
-  contradiction_type: string;
-  severity: string;
-  explanation: string;
-}
-
-interface VerificationResult {
-  status: string;
-  confidence: number;
-  verified_by: string[];
-  verification_notes: string;
-}
-
-interface KnowledgeStats {
-  totalNodes: number;
-  nodesByType: Record<string, number>;
-  nodesByTier: Record<string, number>;
-  nodesBySource: Record<string, number>;
-  totalRelationships: number;
-}
-
-interface StaleItem {
-  node_id: string;
-  staleness_score: number;
-  reasons: string[];
-  last_validated_at: string | null;
-  recommended_action: string;
-}
-
-const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
-  continuum: { bg: 'bg-blue-900/30', text: 'text-blue-400' },
-  consensus: { bg: 'bg-green-900/30', text: 'text-green-400' },
-  fact: { bg: 'bg-yellow-900/30', text: 'text-yellow-400' },
-  evidence: { bg: 'bg-purple-900/30', text: 'text-purple-400' },
-  critique: { bg: 'bg-orange-900/30', text: 'text-orange-400' },
-  document: { bg: 'bg-cyan-900/30', text: 'text-cyan-400' },
-};
-
-const TIER_COLORS: Record<string, { bg: string; text: string }> = {
-  fast: { bg: 'bg-red-900/30', text: 'text-red-400' },
-  medium: { bg: 'bg-yellow-900/30', text: 'text-yellow-400' },
-  slow: { bg: 'bg-blue-900/30', text: 'text-blue-400' },
-  glacial: { bg: 'bg-purple-900/30', text: 'text-purple-400' },
-};
-
-const NODE_TYPE_ICONS: Record<string, string> = {
-  memory: '🧠',
-  consensus: '🤝',
-  fact: '📌',
-  evidence: '📄',
-  critique: '💬',
-  claim: '💡',
-  entity: '🏷️',
-};
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import {
+  type KnowledgeNode,
+  type KnowledgeRelationship,
+  type Contradiction,
+  type VerificationResult,
+  type KnowledgeStats,
+  type StaleItem,
+  SOURCE_COLORS,
+  TIER_COLORS,
+  NODE_TYPE_ICONS,
+  getConfidenceColor,
+  formatRelativeDate,
+  getMockNodes,
+  getMockStats,
+  getMockRelationships,
+} from './types';
 
 export default function KnowledgeMoundPage() {
   const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
@@ -372,34 +307,19 @@ export default function KnowledgeMoundPage() {
     fetchNodes();
   };
 
-  const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= 0.8) return 'text-green-400';
-    if (confidence >= 0.5) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const diff = Date.now() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  };
-
   return (
     <main className="min-h-screen bg-bg p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-mono font-bold text-text mb-2">
-            Knowledge Mound
-          </h1>
-          <p className="text-text-muted">
-            Explore the unified knowledge superstructure across all memory systems
-          </p>
-        </div>
+      <PanelErrorBoundary panelName="Knowledge Mound">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+              Knowledge Mound
+            </h1>
+            <p className="text-text-muted">
+              Explore the unified knowledge superstructure across all memory systems
+            </p>
+          </div>
 
         {/* Stats Bar */}
         {stats && (
@@ -724,7 +644,7 @@ export default function KnowledgeMoundPage() {
                         <span className={getConfidenceColor(node.confidence)}>
                           {Math.round(node.confidence * 100)}% confidence
                         </span>
-                        <span>{formatDate(node.createdAt)}</span>
+                        <span>{formatRelativeDate(node.createdAt)}</span>
                       </div>
 
                       {node.topics && node.topics.length > 0 && (
@@ -789,7 +709,7 @@ export default function KnowledgeMoundPage() {
                   </div>
                   <div className="p-2 bg-bg rounded">
                     <div className="text-xs text-text-muted">Created</div>
-                    <div className="font-mono text-text text-sm">{formatDate(selectedNode.createdAt)}</div>
+                    <div className="font-mono text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
                   </div>
                 </div>
 
@@ -939,141 +859,8 @@ export default function KnowledgeMoundPage() {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </PanelErrorBoundary>
     </main>
   );
-}
-
-// Mock data for development
-function getMockNodes(): KnowledgeNode[] {
-  return [
-    {
-      id: 'kn_001',
-      nodeType: 'consensus',
-      content: 'Rate limiting should be implemented at the API gateway level with a sliding window algorithm for better accuracy.',
-      confidence: 0.92,
-      tier: 'slow',
-      sourceType: 'consensus',
-      debateId: 'debate_001',
-      topics: ['api-design', 'security', 'performance'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    },
-    {
-      id: 'kn_002',
-      nodeType: 'memory',
-      content: 'User authentication flow uses JWT tokens with 1-hour expiry and refresh token rotation.',
-      confidence: 0.85,
-      tier: 'medium',
-      sourceType: 'continuum',
-      topics: ['authentication', 'security'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    },
-    {
-      id: 'kn_003',
-      nodeType: 'fact',
-      content: 'GDPR Article 17 requires data controllers to erase personal data without undue delay when requested.',
-      confidence: 0.98,
-      tier: 'glacial',
-      sourceType: 'fact',
-      documentId: 'gdpr_2016',
-      topics: ['gdpr', 'compliance', 'data-protection'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    },
-    {
-      id: 'kn_004',
-      nodeType: 'evidence',
-      content: 'Performance test results show 99th percentile latency of 45ms under 1000 RPS load.',
-      confidence: 0.75,
-      tier: 'fast',
-      sourceType: 'evidence',
-      agentId: 'performance_agent',
-      topics: ['performance', 'testing'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    },
-    {
-      id: 'kn_005',
-      nodeType: 'critique',
-      content: 'Suggesting alternative approach: use circuit breaker pattern instead of simple retry for external API calls.',
-      confidence: 0.68,
-      tier: 'medium',
-      sourceType: 'critique',
-      debateId: 'debate_002',
-      agentId: 'claude',
-      topics: ['resilience', 'patterns'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    },
-    {
-      id: 'kn_006',
-      nodeType: 'consensus',
-      content: 'Database connection pooling should use minimum 10, maximum 50 connections with 30-second idle timeout.',
-      confidence: 0.88,
-      tier: 'slow',
-      sourceType: 'consensus',
-      debateId: 'debate_003',
-      topics: ['database', 'performance', 'configuration'],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    },
-  ];
-}
-
-function getMockStats(): KnowledgeStats {
-  return {
-    totalNodes: 1247,
-    nodesByType: {
-      memory: 456,
-      consensus: 234,
-      fact: 312,
-      evidence: 178,
-      critique: 67,
-    },
-    nodesByTier: {
-      fast: 123,
-      medium: 456,
-      slow: 523,
-      glacial: 145,
-    },
-    nodesBySource: {
-      continuum: 456,
-      consensus: 234,
-      fact: 312,
-      evidence: 178,
-      critique: 67,
-    },
-    totalRelationships: 3421,
-  };
-}
-
-function getMockRelationships(nodeId: string): KnowledgeRelationship[] {
-  return [
-    {
-      id: 'rel_001',
-      sourceId: nodeId,
-      targetId: 'kn_support_001',
-      relationshipType: 'supports',
-      strength: 0.85,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'rel_002',
-      sourceId: 'kn_derive_001',
-      targetId: nodeId,
-      relationshipType: 'derived_from',
-      strength: 0.92,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'rel_003',
-      sourceId: nodeId,
-      targetId: 'kn_elaborates_001',
-      relationshipType: 'elaborates',
-      strength: 0.78,
-      createdAt: new Date().toISOString(),
-    },
-  ];
 }

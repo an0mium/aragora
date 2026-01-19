@@ -452,7 +452,7 @@ describe('DocumentUpload', () => {
       fireEvent.change(input, { target: { files: [file] } });
 
       await waitFor(() => {
-        expect(screen.getByText('Attached (1)')).toBeInTheDocument();
+        expect(screen.getByText('Documents (1)')).toBeInTheDocument();
       });
 
       await waitFor(() => {

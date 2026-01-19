@@ -3,10 +3,15 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { GraphDebateBrowser } from '@/components/graph-debate';
+
+const GraphDebateBrowser = dynamic(
+  () => import('@/components/graph-debate').then(m => ({ default: m.GraphDebateBrowser })),
+  { ssr: false, loading: () => <div className="h-[600px] flex items-center justify-center text-acid-green font-mono animate-pulse">Loading graph visualization...</div> }
+);
 
 function GraphDebatesContent() {
   const searchParams = useSearchParams();

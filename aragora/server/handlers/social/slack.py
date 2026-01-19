@@ -230,6 +230,8 @@ class SlackHandler(BaseHandler):
                 return self._command_status()
             elif subcommand == "debate":
                 return self._command_debate(args, user_id, channel_id, response_url)
+            elif subcommand == "gauntlet":
+                return self._command_gauntlet(args, user_id, channel_id, response_url)
             elif subcommand == "agents":
                 return self._command_agents()
             else:
@@ -249,14 +251,15 @@ class SlackHandler(BaseHandler):
         """Show help message."""
         help_text = """*Aragora Slash Commands*
 
-`/aragora debate "topic"` - Start a debate on a topic
+`/aragora debate "topic"` - Start a multi-agent debate on a topic
+`/aragora gauntlet "statement"` - Run adversarial stress-test validation
 `/aragora status` - Get system status
 `/aragora agents` - List available agents
 `/aragora help` - Show this help message
 
 *Examples:*
 - `/aragora debate "Should AI be regulated?"`
-- `/aragora debate AI ethics in healthcare`
+- `/aragora gauntlet "We should migrate to microservices"`
 - `/aragora status`
 """
         return self._slack_response(help_text, response_type="ephemeral")
@@ -339,6 +342,201 @@ class SlackHandler(BaseHandler):
             return self._slack_response(
                 f"Error listing agents: {str(e)[:100]}",
                 response_type="ephemeral",
+            )
+
+    def _command_gauntlet(
+        self,
+        args: str,
+        user_id: str,
+        channel_id: str,
+        response_url: str,
+    ) -> HandlerResult:
+        """Run gauntlet adversarial validation on a statement.
+
+        Args:
+            args: The statement to validate
+            user_id: Slack user ID
+            channel_id: Slack channel ID
+            response_url: URL for async responses
+        """
+        if not args:
+            return self._slack_response(
+                'Please provide a statement to stress-test. Example: `/aragora gauntlet "We should migrate to microservices"`',
+                response_type="ephemeral",
+            )
+
+        # Strip quotes if present
+        statement = args.strip().strip("\"'")
+
+        if len(statement) < 10:
+            return self._slack_response(
+                "Statement is too short. Please provide more detail.",
+                response_type="ephemeral",
+            )
+
+        if len(statement) > 1000:
+            return self._slack_response(
+                "Statement is too long. Please limit to 1000 characters.",
+                response_type="ephemeral",
+            )
+
+        # Acknowledge immediately
+        blocks: List[Dict[str, Any]] = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Running Gauntlet stress-test on:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_",
+                },
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Requested by <@{user_id}> | Running adversarial validation...",
+                    },
+                ],
+            },
+        ]
+
+        # Queue the gauntlet run asynchronously
+        if response_url:
+            create_tracked_task(
+                self._run_gauntlet_async(statement, response_url, user_id, channel_id),
+                name=f"slack-gauntlet-{statement[:30]}",
+            )
+
+        return self._slack_blocks_response(
+            blocks,
+            text=f"Running Gauntlet: {statement[:50]}...",
+            response_type="in_channel",
+        )
+
+    async def _run_gauntlet_async(
+        self,
+        statement: str,
+        response_url: str,
+        user_id: str,
+        channel_id: str,
+    ) -> None:
+        """Run gauntlet asynchronously and POST result to Slack."""
+        import aiohttp
+
+        try:
+            # Call the gauntlet API
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "http://localhost:8080/api/gauntlet/run",
+                    json={
+                        "statement": statement,
+                        "intensity": "medium",
+                        "metadata": {
+                            "source": "slack",
+                            "channel_id": channel_id,
+                            "user_id": user_id,
+                        },
+                    },
+                    timeout=aiohttp.ClientTimeout(total=120),
+                ) as resp:
+                    data = await resp.json()
+
+                    if resp.status != 200:
+                        await self._post_to_response_url(
+                            response_url,
+                            {
+                                "response_type": "in_channel",
+                                "text": f"Gauntlet failed: {data.get('error', 'Unknown error')}",
+                                "replace_original": False,
+                            },
+                        )
+                        return
+
+                    # Build result blocks
+                    run_id = data.get("run_id", "unknown")
+                    score = data.get("score", 0)
+                    passed = data.get("passed", False)
+                    vulnerabilities = data.get("vulnerabilities", [])
+
+                    score_bar = "" * int(score * 5) + "" * (5 - int(score * 5))
+                    status_emoji = "" if passed else ""
+
+                    blocks = [
+                        {
+                            "type": "header",
+                            "text": {
+                                "type": "plain_text",
+                                "text": f"{status_emoji} Gauntlet Results",
+                                "emoji": True,
+                            },
+                        },
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_",
+                            },
+                        },
+                        {
+                            "type": "section",
+                            "fields": [
+                                {
+                                    "type": "mrkdwn",
+                                    "text": f"*Score:* {score_bar} {score:.1%}",
+                                },
+                                {
+                                    "type": "mrkdwn",
+                                    "text": f"*Status:* {'Passed' if passed else 'Failed'}",
+                                },
+                                {
+                                    "type": "mrkdwn",
+                                    "text": f"*Vulnerabilities:* {len(vulnerabilities)}",
+                                },
+                            ],
+                        },
+                    ]
+
+                    if vulnerabilities:
+                        vuln_text = "*Issues Found:*\n"
+                        for v in vulnerabilities[:5]:
+                            vuln_text += f"• {v.get('description', 'Unknown issue')[:100]}\n"
+                        if len(vulnerabilities) > 5:
+                            vuln_text += f"_...and {len(vulnerabilities) - 5} more_"
+
+                        blocks.append({
+                            "type": "section",
+                            "text": {"type": "mrkdwn", "text": vuln_text},
+                        })
+
+                    blocks.append({
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Run ID: `{run_id}` | Requested by <@{user_id}>",
+                            },
+                        ],
+                    })
+
+                    await self._post_to_response_url(
+                        response_url,
+                        {
+                            "response_type": "in_channel",
+                            "text": f"Gauntlet complete: {statement[:50]}...",
+                            "blocks": blocks,
+                            "replace_original": False,
+                        },
+                    )
+
+        except Exception as e:
+            logger.error(f"Async gauntlet failed: {e}", exc_info=True)
+            await self._post_to_response_url(
+                response_url,
+                {
+                    "response_type": "in_channel",
+                    "text": f"Gauntlet failed: {str(e)[:100]}",
+                    "replace_original": False,
+                },
             )
 
     def _command_debate(

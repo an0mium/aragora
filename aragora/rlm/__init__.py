@@ -80,6 +80,24 @@ from .bridge import (
     create_aragora_rlm,
     HAS_OFFICIAL_RLM,
 )
+from .batch import (
+    BatchConfig,
+    BatchItemStatus,
+    BatchItemResult,
+    BatchResult,
+    llm_batch,
+    llm_batch_detailed,
+    llm_batch_with_progress,
+    batch_map,
+    batch_filter,
+    batch_first,
+    batch_race,
+)
+from .adapter import (
+    RLMContextAdapter,
+    RegisteredContent,
+    get_adapter,
+)
 
 __all__ = [
     # Types
@@ -108,4 +126,20 @@ __all__ = [
     "RLMBackendConfig",
     "create_aragora_rlm",
     "HAS_OFFICIAL_RLM",
+    # Batch parallelism
+    "BatchConfig",
+    "BatchItemStatus",
+    "BatchItemResult",
+    "BatchResult",
+    "llm_batch",
+    "llm_batch_detailed",
+    "llm_batch_with_progress",
+    "batch_map",
+    "batch_filter",
+    "batch_first",
+    "batch_race",
+    # Context adapter (external environment pattern)
+    "RLMContextAdapter",
+    "RegisteredContent",
+    "get_adapter",
 ]

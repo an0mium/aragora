@@ -367,8 +367,14 @@ try:
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     HANDLERS_AVAILABLE = False
+    # Log the import error for debugging - this should not be silently swallowed
+    logger.error(
+        f"Failed to import handlers: {e}. "
+        "This may indicate a broken module or missing dependency. "
+        "Handler functionality will be degraded."
+    )
     # Handler class placeholders remain None for graceful degradation
 
 

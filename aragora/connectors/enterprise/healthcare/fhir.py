@@ -210,8 +210,8 @@ class PHIRedactor:
                 return self._redact_address(value)
             elif field_name == "identifier":
                 return self._redact_identifier(value)
-            elif field_name == "birthDate":
-                return self._redact_date(value)
+            # birthDate is always a string in FHIR, not a dict
+            # If we encounter a dict, recursively process its fields
             return {k: self._redact_field(v, k) for k, v in value.items()}
 
         if isinstance(value, str):
@@ -274,7 +274,7 @@ class PHIRedactor:
     def _redact_text_fields(self, obj: Any) -> Any:
         """Recursively redact text fields that might contain PHI."""
         if isinstance(obj, dict):
-            result = {}
+            result: Dict[str, Any] = {}
             for key, value in obj.items():
                 if key in {"text", "div", "narrative", "note", "comment"}:
                     if isinstance(value, str):

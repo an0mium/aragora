@@ -125,6 +125,32 @@ from .schema import (
     validate_against_schema,
 )
 
+# Security validation
+from .security import (
+    # Constants
+    MAX_AGENTS_PER_DEBATE,
+    MAX_CONTEXT_LENGTH,
+    MAX_DEBATE_TITLE_LENGTH,
+    MAX_REGEX_PATTERN_LENGTH,
+    MAX_SEARCH_QUERY_LENGTH,
+    MAX_TASK_LENGTH,
+    REGEX_TIMEOUT_SECONDS,
+    # Classes
+    SecurityValidationResult,
+    ValidationError,
+    # ReDoS protection
+    execute_regex_with_timeout,
+    is_safe_regex_pattern,
+    validate_search_query_redos_safe,
+    # Input validation
+    validate_agent_count,
+    validate_context_size,
+    validate_debate_title,
+    validate_task_content,
+    # Sanitization
+    sanitize_user_input,
+)
+
 __all__ = [
     # Core
     "MAX_JSON_BODY_SIZE",
@@ -194,6 +220,24 @@ __all__ = [
     "TELEGRAM_CONFIG_SCHEMA",
     "NOTIFICATION_SEND_SCHEMA",
     "validate_against_schema",
+    # Security
+    "MAX_DEBATE_TITLE_LENGTH",
+    "MAX_TASK_LENGTH",
+    "MAX_CONTEXT_LENGTH",
+    "MAX_SEARCH_QUERY_LENGTH",
+    "MAX_REGEX_PATTERN_LENGTH",
+    "MAX_AGENTS_PER_DEBATE",
+    "REGEX_TIMEOUT_SECONDS",
+    "ValidationError",
+    "SecurityValidationResult",
+    "is_safe_regex_pattern",
+    "execute_regex_with_timeout",
+    "validate_search_query_redos_safe",
+    "validate_debate_title",
+    "validate_task_content",
+    "validate_context_size",
+    "validate_agent_count",
+    "sanitize_user_input",
     # Decorators
     "validate_request",
     "validate_post_body",

@@ -13,22 +13,12 @@ Provides CRUD operations and execution control for workflows:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Coroutine, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional
 
-T = TypeVar("T")
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """Run an async coroutine from sync context safely.
-
-    Uses asyncio.run() which creates a new event loop, runs the coroutine,
-    and closes the loop. Safe to call from sync handlers.
-    """
-    return asyncio.run(coro)
+from aragora.server.http_utils import run_async as _run_async
 
 from aragora.workflow.types import (
     WorkflowDefinition,

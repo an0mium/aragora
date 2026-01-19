@@ -491,12 +491,12 @@ class TestAnthropicAgentInitialization:
         assert agent.api_key == "explicit-key"
 
     def test_fallback_enabled_by_default(self):
-        """Test that fallback is enabled by default."""
+        """Test that fallback is disabled by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
         from aragora.agents.api_agents import AnthropicAPIAgent
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             agent = AnthropicAPIAgent(name="test")
-            assert agent.enable_fallback is True
+            assert agent.enable_fallback is False
 
     def test_fallback_can_be_disabled(self):
         """Test that fallback can be disabled."""
@@ -816,7 +816,7 @@ class TestFallbackAgentCreation:
         # Remove API key temporarily
         original = os.environ.pop("OPENROUTER_API_KEY", None)
         try:
-            agent = ClaudeAgent(name="test", model="claude")
+            agent = ClaudeAgent(name="test", model="claude", enable_fallback=True)
             fallback = agent._get_fallback_agent()
             assert fallback is None
         finally:
@@ -824,12 +824,12 @@ class TestFallbackAgentCreation:
                 os.environ["OPENROUTER_API_KEY"] = original
 
     def test_get_fallback_agent_with_api_key(self):
-        """Test fallback agent is created when API key available."""
+        """Test fallback agent is created when API key available and fallback enabled."""
         from aragora.agents.cli_agents import ClaudeAgent
         import os
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
-            agent = ClaudeAgent(name="test", model="claude")
+            agent = ClaudeAgent(name="test", model="claude", enable_fallback=True)
             fallback = agent._get_fallback_agent()
             assert fallback is not None
             assert "fallback" in fallback.name
@@ -844,11 +844,11 @@ class TestFallbackAgentCreation:
             assert fallback is None
 
     def test_fallback_agent_inherits_system_prompt(self):
-        """Test fallback agent inherits system prompt."""
+        """Test fallback agent inherits system prompt when fallback enabled."""
         from aragora.agents.cli_agents import ClaudeAgent
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
-            agent = ClaudeAgent(name="test", model="claude")
+            agent = ClaudeAgent(name="test", model="claude", enable_fallback=True)
             agent.system_prompt = "Custom system prompt"
             fallback = agent._get_fallback_agent()
             assert fallback is not None

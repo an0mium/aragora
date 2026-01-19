@@ -956,7 +956,7 @@ class SlackNotificationError(NotificationError):
     """Raised when Slack webhook or API call fails."""
 
     def __init__(self, message: str, status_code: int | None = None, error_code: str | None = None):
-        details = {}
+        details: dict[str, int | str] = {}
         if status_code is not None:
             details["status_code"] = status_code
         if error_code is not None:

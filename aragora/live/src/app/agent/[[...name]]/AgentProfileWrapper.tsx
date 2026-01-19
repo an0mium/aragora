@@ -5,98 +5,18 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
-
-interface AgentProfile {
-  agent: string;
-  ranking: {
-    rating: {
-      elo: number;
-      wins: number;
-      losses: number;
-      draws: number;
-      games_played: number;
-    };
-    recent_matches: number;
-  } | null;
-  persona: {
-    type: string;
-    primary_stance: string;
-    specializations: string[];
-    debate_count: number;
-  } | null;
-  consistency: {
-    score: number;
-    recent_flips: number;
-  } | null;
-  calibration: {
-    brier_score: number;
-    prediction_count: number;
-  } | null;
-}
-
-interface Moment {
-  type: string;
-  description: string;
-  timestamp: string;
-  significance: number;
-  context?: string;
-}
-
-interface NetworkData {
-  agent: string;
-  rivals: { agent: string; score: number; debate_count?: number }[];
-  allies: { agent: string; score: number; debate_count?: number }[];
-  influences: { agent: string; score: number }[];
-  influenced_by: { agent: string; score: number }[];
-}
-
-interface HeadToHeadData {
-  agent: string;
-  opponent: string;
-  matches: number;
-  wins?: number;
-  losses?: number;
-  draws?: number;
-  win_rate?: number;
-  by_domain?: Record<string, { wins: number; losses: number; draws: number }>;
-}
-
-interface DomainData {
-  agent: string;
-  overall_elo: number;
-  domains: { domain: string; elo: number; relative: number }[];
-  domain_count: number;
-}
-
-interface PerformanceData {
-  agent: string;
-  elo: number;
-  total_games: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  win_rate: number;
-  recent_win_rate: number;
-  elo_trend: number;
-  critiques_accepted: number;
-  critiques_total: number;
-  critique_acceptance_rate: number;
-  calibration: {
-    accuracy: number;
-    brier_score: number;
-    prediction_count: number;
-  };
-}
-
-interface HistoryEntry {
-  debate_id: string;
-  topic?: string;
-  opponent?: string;
-  result: 'win' | 'loss' | 'draw';
-  elo_change: number;
-  elo_after: number;
-  created_at: string;
-}
+import {
+  type AgentProfile,
+  type Moment,
+  type NetworkData,
+  type HeadToHeadData,
+  type DomainData,
+  type PerformanceData,
+  type HistoryEntry,
+  getEloColor,
+  getConsistencyColor,
+  getMomentIcon,
+} from './types';
 
 const DEFAULT_API_BASE = API_BASE_URL;
 
@@ -208,32 +128,6 @@ export function AgentProfileWrapper() {
       fetchHeadToHead(selectedRival);
     }
   }, [selectedRival, fetchHeadToHead]);
-
-  const getEloColor = (elo: number): string => {
-    if (elo >= 1600) return 'text-green-400';
-    if (elo >= 1500) return 'text-yellow-400';
-    if (elo >= 1400) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  const getConsistencyColor = (score: number): string => {
-    if (score >= 0.8) return 'text-green-400';
-    if (score >= 0.6) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getMomentIcon = (type: string): string => {
-    switch (type.toLowerCase()) {
-      case 'breakthrough': return '⚡';
-      case 'upset_win': return '🏆';
-      case 'consensus_leader': return '🎯';
-      case 'streak': return '🔥';
-      case 'first_win': return '🌟';
-      case 'comeback': return '💪';
-      case 'dominant_performance': return '👑';
-      default: return '📌';
-    }
-  };
 
   // Base route - show agent list or redirect to dashboard
   if (!agentName) {

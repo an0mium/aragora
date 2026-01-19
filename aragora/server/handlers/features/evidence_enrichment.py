@@ -9,9 +9,10 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any, Coroutine, Optional, TYPE_CHECKING, TypeVar
+from typing import Any, Optional, TYPE_CHECKING
+
+from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
     BaseHandler,
@@ -21,18 +22,6 @@ from ..base import (
     json_response,
     require_user_auth,
 )
-
-T = TypeVar("T")
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """Run an async coroutine from sync context safely.
-
-    Uses asyncio.run() which creates a new event loop, runs the coroutine,
-    and closes the loop. Safe to call from sync handlers.
-    """
-    return asyncio.run(coro)
-
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding

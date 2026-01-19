@@ -96,6 +96,15 @@ _EXPORTS = {
         "aragora.server.stream.nomic_loop_stream",
         "NomicLoopEvent",
     ),
+    # Voice stream
+    "VoiceStreamHandler": (
+        "aragora.server.stream.voice_stream",
+        "VoiceStreamHandler",
+    ),
+    "VoiceSession": (
+        "aragora.server.stream.voice_stream",
+        "VoiceSession",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -160,6 +169,9 @@ __all__ = [
     "NomicLoopStreamServer",
     "NomicLoopEventType",
     "NomicLoopEvent",
+    # Voice stream
+    "VoiceStreamHandler",
+    "VoiceSession",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

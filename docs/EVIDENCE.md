@@ -685,8 +685,190 @@ evidence = client._request("POST", "/api/evidence/collect", json={
 
 ---
 
+## Attribution & Reputation System
+
+The attribution module tracks source reputation across debates and provides cross-debate evidence tracking.
+
+### ReputationTier
+
+Source reputation classification:
+
+| Tier | Score Range | Description |
+|------|-------------|-------------|
+| `AUTHORITATIVE` | >= 0.85 | Highly trusted source |
+| `RELIABLE` | >= 0.70 | Generally trustworthy |
+| `STANDARD` | >= 0.50 | Default/neutral reputation |
+| `UNCERTAIN` | >= 0.30 | Questionable reliability |
+| `UNRELIABLE` | < 0.30 | Poor track record |
+
+### VerificationOutcome
+
+Track verification results for evidence:
+
+```python
+from aragora.evidence import VerificationOutcome
+
+VerificationOutcome.VERIFIED        # Confirmed accurate
+VerificationOutcome.PARTIALLY_VERIFIED  # Some claims verified
+VerificationOutcome.UNVERIFIED      # Could not verify (neutral)
+VerificationOutcome.CONTESTED       # Disputed by other evidence
+VerificationOutcome.REFUTED         # Shown to be incorrect
+```
+
+### SourceReputationManager
+
+Track source reputation across debates:
+
+```python
+from aragora.evidence import SourceReputationManager, VerificationOutcome
+
+manager = SourceReputationManager()
+
+# Record a verification
+manager.record_verification(
+    record_id="v-001",
+    source_id="arxiv.org",
+    debate_id="debate-123",
+    outcome=VerificationOutcome.VERIFIED,
+    confidence=0.9,
+)
+
+# Get reputation
+rep = manager.get_reputation("arxiv.org")
+print(rep.reputation_score)  # 0-1 score
+print(rep.tier)              # ReputationTier.RELIABLE
+print(rep.verification_rate) # Fraction verified
+print(rep.trend)             # Recent vs overall trend
+
+# Query sources
+top_sources = manager.get_top_sources(limit=10)
+unreliable = manager.get_unreliable_sources(threshold=0.3)
+
+# Export/import state
+state = manager.export_state()
+new_manager.import_state(state)
+```
+
+### ReputationScorer
+
+Algorithms for computing reputation with time decay:
+
+```python
+from aragora.evidence import ReputationScorer
+
+scorer = ReputationScorer(
+    decay_half_life=30.0,     # Days for time decay
+    recent_window=7.0,        # Days for "recent" window
+)
+
+# Compute from history
+overall, recent, trend = scorer.compute_score(verifications, current_score=0.5)
+```
+
+**Outcome Impact Weights:**
+| Outcome | Impact |
+|---------|--------|
+| `VERIFIED` | +0.15 |
+| `PARTIALLY_VERIFIED` | +0.05 |
+| `UNVERIFIED` | 0.00 |
+| `CONTESTED` | -0.05 |
+| `REFUTED` | -0.20 |
+
+### AttributionChain
+
+Track evidence usage across debates:
+
+```python
+from aragora.evidence import AttributionChain
+
+chain = AttributionChain()
+
+# Track evidence usage
+entry = chain.add_entry(
+    evidence_id="ev-001",
+    source_id="arxiv.org",
+    debate_id="debate-123",
+    content="Evidence content...",
+)
+
+# Record verification
+chain.record_verification(
+    evidence_id="ev-001",
+    outcome=VerificationOutcome.VERIFIED,
+)
+
+# Query chain
+evidence_history = chain.get_evidence_chain("ev-001")
+source_usage = chain.get_source_chain("arxiv.org")
+debate_attributions = chain.get_debate_attributions("debate-123")
+
+# Find reused evidence
+reused = chain.find_reused_evidence(min_uses=2)
+
+# Compute debate reliability
+metrics = chain.compute_debate_reliability("debate-123")
+# {
+#     "evidence_count": 5,
+#     "avg_reputation": 0.75,
+#     "min_reputation": 0.60,
+#     "verified_count": 3,
+#     "reliability_score": 0.72,
+# }
+```
+
+---
+
+## Evidence Metadata Enrichment
+
+### MetadataEnricher
+
+Enriches evidence with source classification and provenance:
+
+```python
+from aragora.evidence import MetadataEnricher
+
+enricher = MetadataEnricher()
+
+metadata = enricher.enrich(
+    content="Research paper content...",
+    url="https://arxiv.org/abs/2024.12345",
+    existing_metadata={"author": "John Smith", "doi": "10.1234/example"},
+)
+
+print(metadata.source_type)      # SourceType.ACADEMIC
+print(metadata.confidence)       # 0.75
+print(metadata.has_citations)    # True
+print(metadata.topics)           # ["Machine Learning", ...]
+```
+
+### Source Types
+
+| Type | Domains/Patterns |
+|------|------------------|
+| `ACADEMIC` | arxiv.org, doi.org, scholar.google.com |
+| `DOCUMENTATION` | docs.python.org, readthedocs.io |
+| `NEWS` | reuters.com, bbc.com, nytimes.com |
+| `SOCIAL` | stackoverflow.com, reddit.com, twitter.com |
+| `CODE` | github.com, gitlab.com |
+
+### Confidence Scoring
+
+Confidence is computed from multiple factors:
+
+| Factor | Impact |
+|--------|--------|
+| Academic source | +0.20 |
+| Has DOI | +0.10 |
+| Peer reviewed | +0.15 |
+| Has citations | +0.10 |
+| Recent (<30 days) | +0.10 |
+| Short content (<50 words) | -0.10 |
+
+---
+
 ## See Also
 
 - [Pulse System Guide](PULSE.md) - Trending topic integration
 - [Provenance Documentation](./FEATURES.md#provenance--evidence-chain) - Full provenance system details
 - [API Endpoints](API_ENDPOINTS.md) - Full API endpoint reference
+- [REASONING.md](./REASONING.md) - Belief networks and claims

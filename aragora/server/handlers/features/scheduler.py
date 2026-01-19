@@ -17,9 +17,10 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any, Coroutine, Optional, TypeVar
+from typing import Any, Optional
+
+from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
     BaseHandler,
@@ -31,17 +32,6 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """Run an async coroutine from sync context safely.
-
-    Uses asyncio.run() which creates a new event loop, runs the coroutine,
-    and closes the loop. Safe to call from sync handlers.
-    """
-    return asyncio.run(coro)
 
 
 class SchedulerHandler(BaseHandler):

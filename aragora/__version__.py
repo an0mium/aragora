@@ -8,9 +8,9 @@ Import VERSION_INFO for programmatic access to version components.
 from __future__ import annotations
 
 # Version components
-VERSION_MAJOR = 1
-VERSION_MINOR = 5
-VERSION_PATCH = 1
+VERSION_MAJOR = 2
+VERSION_MINOR = 0
+VERSION_PATCH = 2
 VERSION_SUFFIX = ""  # e.g., "a1", "b2", "rc1", or "" for final
 
 # Construct version string
@@ -20,7 +20,7 @@ if VERSION_SUFFIX:
     __version__ += VERSION_SUFFIX
 
 # Release date (ISO 8601 format)
-RELEASE_DATE = "2026-01-15"
+RELEASE_DATE = "2026-01-19"
 
 # Package metadata
 PACKAGE_NAME = "aragora"

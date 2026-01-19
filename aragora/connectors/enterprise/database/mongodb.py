@@ -107,6 +107,7 @@ class MongoDBConnector(EnterpriseConnector):
     async def _discover_collections(self) -> List[str]:
         """Discover collections in the database."""
         await self._get_client()
+        assert self._db is not None, "Database not initialized"
         collections = await self._db.list_collection_names()
         # Filter out system collections
         return [c for c in collections if not c.startswith("system.")]
@@ -178,6 +179,7 @@ class MongoDBConnector(EnterpriseConnector):
         Uses timestamp fields for incremental sync when available.
         """
         await self._get_client()
+        assert self._db is not None, "Database not initialized"
 
         # Get collections to sync
         collections = self.collections or await self._discover_collections()
@@ -265,6 +267,7 @@ class MongoDBConnector(EnterpriseConnector):
         Works best with collections that have text indexes.
         """
         await self._get_client()
+        assert self._db is not None, "Database not initialized"
         results = []
 
         collections = self.collections or await self._discover_collections()
@@ -411,6 +414,7 @@ class MongoDBConnector(EnterpriseConnector):
         Useful for complex queries and analytics.
         """
         await self._get_client()
+        assert self._db is not None, "Database not initialized"
 
         collection = self._db[collection_name]
         results = []

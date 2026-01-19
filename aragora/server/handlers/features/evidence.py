@@ -33,6 +33,10 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.validation.security import (
+    validate_search_query_redos_safe,
+    MAX_SEARCH_QUERY_LENGTH,
+)
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -261,6 +265,14 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         query = body.get("query", "").strip()
         if not query:
             return error_response("Query is required", 400)
+
+        # Validate search query for ReDoS safety
+        validation_result = validate_search_query_redos_safe(
+            query, max_length=MAX_SEARCH_QUERY_LENGTH
+        )
+        if not validation_result.is_valid:
+            logger.warning("Evidence search query validation failed: %s", validation_result.error)
+            return error_response(validation_result.error or "Invalid search query", 400)
 
         limit = body.get("limit", 20)
         source_filter = body.get("source")

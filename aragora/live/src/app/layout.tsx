@@ -6,7 +6,10 @@ import { ToastProvider } from '@/context/ToastContext';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ConnectionProvider } from '@/context/ConnectionContext';
 import { DebateSelectionProvider } from '@/context/DebateSelectionContext';
+import { ProgressiveModeProvider } from '@/context/ProgressiveModeContext';
+import { AdaptiveModeProvider } from '@/context/AdaptiveModeContext';
 import { Sidebar } from '@/components/Sidebar';
+import { TopNavigation } from '@/components/navigation/TopNavigation';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 
@@ -16,6 +19,12 @@ export const metadata: Metadata = {
   description: 'Real-time AI red team system - Watch decision stress-tests unfold in public.',
   keywords: ['AI', 'red team', 'stress-test', 'gauntlet', 'decision receipts', 'LLM', 'aragora'],
   authors: [{ name: 'Aragora Team' }],
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Aragora',
+  },
   icons: {
     icon: '/icon.png',
     apple: '/apple-icon.png',
@@ -26,6 +35,14 @@ export const metadata: Metadata = {
     type: 'website',
     images: ['/aragora-logo.png'],
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
+  themeColor: '#00ff41',
 };
 
 export default function RootLayout({
@@ -48,17 +65,24 @@ export default function RootLayout({
         <AuthProvider>
           <ConnectionProvider>
             <DebateSelectionProvider>
-              <SidebarProvider>
-                <ToastProvider>
-                  <ErrorBoundary>
-                    <Sidebar />
-                    <GlobalConnectionStatus />
-                    <div id="main-content" tabIndex={-1}>
-                      {children}
-                    </div>
-                  </ErrorBoundary>
-                </ToastProvider>
-              </SidebarProvider>
+              <ProgressiveModeProvider>
+                <AdaptiveModeProvider>
+                  <SidebarProvider>
+                    <ToastProvider>
+                      <ErrorBoundary>
+                        <Sidebar />
+                        <GlobalConnectionStatus />
+                        <div id="main-content" tabIndex={-1} className="flex flex-col min-h-screen">
+                          <TopNavigation />
+                          <main className="flex-1">
+                            {children}
+                          </main>
+                        </div>
+                      </ErrorBoundary>
+                    </ToastProvider>
+                  </SidebarProvider>
+                </AdaptiveModeProvider>
+              </ProgressiveModeProvider>
             </DebateSelectionProvider>
           </ConnectionProvider>
         </AuthProvider>

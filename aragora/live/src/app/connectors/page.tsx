@@ -3,84 +3,50 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToastContext } from '@/context/ToastContext';
 import { API_BASE_URL } from '@/config';
-
-interface Connector {
-  id: string;
-  job_id: string;
-  tenant_id: string;
-  type?: string;
-  schedule: {
-    interval_minutes?: number;
-    cron_expression?: string;
-    enabled: boolean;
-  };
-  last_run: string | null;
-  next_run: string | null;
-  consecutive_failures: number;
-  is_running?: boolean;
-}
-
-interface SchedulerStats {
-  total_jobs: number;
-  running_syncs: number;
-  pending_syncs: number;
-  completed_syncs: number;
-  failed_syncs: number;
-  success_rate: number;
-}
-
-interface SyncHistoryEntry {
-  run_id: string;
-  job_id: string;
-  status: string;
-  started_at: string;
-  completed_at: string | null;
-  items_synced: number;
-  error: string | null;
-}
-
-const connectorTypeIcons: Record<string, string> = {
-  github: '🐙',
-  s3: '📦',
-  postgres: '🐘',
-  mongodb: '🍃',
-  fhir: '🏥',
-};
-
-const connectorTypeColors: Record<string, string> = {
-  github: 'border-purple-500 bg-purple-500/10',
-  s3: 'border-orange-500 bg-orange-500/10',
-  postgres: 'border-blue-500 bg-blue-500/10',
-  mongodb: 'border-green-500 bg-green-500/10',
-  fhir: 'border-red-500 bg-red-500/10',
-};
+import {
+  type Connector,
+  type ConnectorDetails,
+  type SchedulerStats,
+  type SyncHistoryEntry,
+  type ConnectorType,
+  CONNECTOR_TYPE_ICONS,
+  CONNECTOR_TYPE_COLORS,
+  CONNECTOR_CATEGORIES,
+  formatRelativeTime,
+} from './types';
 
 function ConnectorCard({
   connector,
   onSync,
+  onCancelSync,
   onEdit,
   onDelete,
+  onViewDetails,
   syncing,
 }: {
   connector: Connector;
   onSync: () => void;
+  onCancelSync: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onViewDetails: () => void;
   syncing: boolean;
 }) {
   const connectorType = connector.type || connector.id.split(':')[0] || 'unknown';
-  const connectorId = connector.id.split(':').pop() || connector.id;
+  const connectorId = connector.name || connector.id.split(':').pop() || connector.id;
+  const isRunning = connector.is_running || connector.status === 'syncing';
 
   return (
     <div
       className={`
-        p-5 rounded-lg border-2 transition-all
-        ${connectorTypeColors[connectorType] || 'border-gray-500 bg-gray-500/10'}
+        p-5 rounded-lg border-2 transition-all cursor-pointer hover:shadow-lg
+        ${CONNECTOR_TYPE_COLORS[connectorType] || 'border-gray-500 bg-gray-500/10'}
       `}
+      onClick={onViewDetails}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{connectorTypeIcons[connectorType] || '🔗'}</span>
+          <span className="text-3xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
           <div>
             <h3 className="font-mono font-bold text-text">{connectorId}</h3>
             <span className="text-xs text-text-muted font-mono uppercase">
@@ -90,12 +56,17 @@ function ConnectorCard({
         </div>
 
         <div className="flex items-center gap-2">
-          {connector.is_running && (
+          {isRunning && (
             <span className="px-2 py-1 text-xs bg-acid-green/20 text-acid-green border border-acid-green/50 rounded font-mono animate-pulse">
-              SYNCING
+              SYNCING {connector.sync_progress ? `${Math.round(connector.sync_progress * 100)}%` : ''}
             </span>
           )}
-          {connector.consecutive_failures > 0 && (
+          {connector.status === 'error' && (
+            <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-mono">
+              ERROR
+            </span>
+          )}
+          {connector.consecutive_failures > 0 && !connector.status?.includes('error') && (
             <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-mono">
               {connector.consecutive_failures} FAILURES
             </span>
@@ -103,7 +74,19 @@ function ConnectorCard({
         </div>
       </div>
 
-      {/* Schedule Info */}
+      {/* Sync Progress Bar */}
+      {isRunning && connector.sync_progress !== undefined && (
+        <div className="mb-4">
+          <div className="h-2 bg-bg rounded-full overflow-hidden">
+            <div
+              className="h-full bg-acid-green transition-all duration-300"
+              style={{ width: `${connector.sync_progress * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stats & Schedule Info */}
       <div className="mb-4 p-3 bg-bg/50 rounded">
         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
           <div>
@@ -127,15 +110,15 @@ function ConnectorCard({
             <div>
               <span className="text-text-muted">Last Run:</span>
               <span className="ml-2 text-text">
-                {new Date(connector.last_run).toLocaleString()}
+                {formatRelativeTime(connector.last_run)}
               </span>
             </div>
           )}
-          {connector.next_run && (
+          {connector.items_synced !== undefined && (
             <div>
-              <span className="text-text-muted">Next Run:</span>
+              <span className="text-text-muted">Items:</span>
               <span className="ml-2 text-text">
-                {new Date(connector.next_run).toLocaleString()}
+                {connector.items_synced.toLocaleString()}
               </span>
             </div>
           )}
@@ -143,14 +126,23 @@ function ConnectorCard({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          onClick={onSync}
-          disabled={syncing || connector.is_running}
-          className="flex-1 px-3 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
-        >
-          {syncing ? 'SYNCING...' : 'SYNC NOW'}
-        </button>
+      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+        {isRunning ? (
+          <button
+            onClick={onCancelSync}
+            className="flex-1 px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+          >
+            CANCEL SYNC
+          </button>
+        ) : (
+          <button
+            onClick={onSync}
+            disabled={syncing}
+            className="flex-1 px-3 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+          >
+            {syncing ? 'SYNCING...' : 'SYNC NOW'}
+          </button>
+        )}
         <button
           onClick={onEdit}
           className="px-3 py-2 bg-blue-500/20 border border-blue-500/50 text-blue-400 font-mono text-sm hover:bg-blue-500/30 transition-colors rounded"
@@ -205,7 +197,7 @@ function EditConnectorModal({
       <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{connectorTypeIcons[connectorType] || '🔗'}</span>
+            <span className="text-2xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
             <div>
               <h2 className="text-lg font-mono font-bold text-text">Edit Connector</h2>
               <span className="text-xs text-text-muted font-mono">{connectorId}</span>
@@ -380,7 +372,7 @@ function AddConnectorModal({
               Connector Type
             </label>
             <div className="grid grid-cols-5 gap-2">
-              {Object.entries(connectorTypeIcons).map(([t, icon]) => (
+              {Object.entries(CONNECTOR_TYPE_ICONS).map(([t, icon]) => (
                 <button
                   key={t}
                   type="button"
@@ -448,6 +440,292 @@ function AddConnectorModal({
   );
 }
 
+function ConnectorDetailsModal({
+  connectorId,
+  apiBase,
+  onClose,
+  onSync,
+  onCancelSync,
+}: {
+  connectorId: string;
+  apiBase: string;
+  onClose: () => void;
+  onSync: () => void;
+  onCancelSync: (syncId: string) => void;
+}) {
+  const [details, setDetails] = useState<ConnectorDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'logs' | 'config'>('overview');
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${apiBase}/api/connectors/${connectorId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setDetails(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch connector details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [connectorId, apiBase]);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+        <div className="text-text-muted font-mono animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!details) {
+    return null;
+  }
+
+  const connectorType = details.type || details.id.split(':')[0] || 'unknown';
+  const isRunning = details.is_running || details.status === 'syncing';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+      <div className="w-full max-w-3xl max-h-[90vh] bg-surface border border-border rounded-lg shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
+            <div>
+              <h2 className="text-lg font-mono font-bold text-text">
+                {details.name || details.id.split(':').pop()}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted font-mono uppercase">{connectorType}</span>
+                {details.category && (
+                  <span className={`text-xs px-2 py-0.5 rounded font-mono ${CONNECTOR_CATEGORIES[details.category]?.color || 'bg-gray-500/20 text-gray-400'}`}>
+                    {details.category}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-2xl">
+            ✕
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-border">
+          {(['overview', 'logs', 'config'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 px-4 py-3 font-mono text-sm uppercase transition-colors ${
+                activeTab === tab
+                  ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              {/* Status Card */}
+              <div className="p-4 bg-bg rounded-lg border border-border">
+                <h3 className="text-sm font-mono font-bold text-text mb-3">STATUS</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <div className="text-xs text-text-muted font-mono">Status</div>
+                    <div className={`font-mono font-bold ${
+                      details.status === 'connected' || details.status === 'configured' ? 'text-acid-green' :
+                      details.status === 'error' ? 'text-red-400' :
+                      details.status === 'syncing' ? 'text-yellow-400' :
+                      'text-text-muted'
+                    }`}>
+                      {details.status?.toUpperCase() || 'UNKNOWN'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-muted font-mono">Items Synced</div>
+                    <div className="font-mono font-bold text-text">
+                      {(details.items_synced || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-muted font-mono">Last Run</div>
+                    <div className="font-mono text-text">
+                      {details.last_run ? formatRelativeTime(details.last_run) : 'Never'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-muted font-mono">Failures</div>
+                    <div className={`font-mono font-bold ${
+                      details.consecutive_failures > 0 ? 'text-red-400' : 'text-acid-green'
+                    }`}>
+                      {details.consecutive_failures}
+                    </div>
+                  </div>
+                </div>
+                {details.error_message && (
+                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400 font-mono">
+                    {details.error_message}
+                  </div>
+                )}
+              </div>
+
+              {/* Schedule Card */}
+              <div className="p-4 bg-bg rounded-lg border border-border">
+                <h3 className="text-sm font-mono font-bold text-text mb-3">SCHEDULE</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm font-mono">
+                  <div>
+                    <span className="text-text-muted">Type:</span>
+                    <span className="ml-2 text-text">
+                      {details.schedule.cron_expression ? 'Cron' : 'Interval'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Value:</span>
+                    <span className="ml-2 text-text">
+                      {details.schedule.cron_expression || `${details.schedule.interval_minutes || 60}m`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Enabled:</span>
+                    <span className={`ml-2 ${details.schedule.enabled ? 'text-acid-green' : 'text-red-400'}`}>
+                      {details.schedule.enabled ? 'YES' : 'NO'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Next Run:</span>
+                    <span className="ml-2 text-text">
+                      {details.next_run ? new Date(details.next_run).toLocaleString() : 'Not scheduled'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                {isRunning ? (
+                  <button
+                    onClick={() => details.current_run_id && onCancelSync(details.current_run_id)}
+                    className="flex-1 px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono hover:bg-red-500/30 transition-colors rounded"
+                  >
+                    Cancel Current Sync
+                  </button>
+                ) : (
+                  <button
+                    onClick={onSync}
+                    className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/30 transition-colors rounded"
+                  >
+                    Sync Now
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-mono font-bold text-text mb-3">SYNC HISTORY</h3>
+              {details.recent_syncs && details.recent_syncs.length > 0 ? (
+                details.recent_syncs.map((sync, idx) => (
+                  <div
+                    key={sync.id || sync.run_id || idx}
+                    className="p-3 bg-bg rounded-lg border border-border"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                        sync.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                        sync.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                        sync.status === 'running' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {sync.status.toUpperCase()}
+                      </span>
+                      <span className="text-xs text-text-muted font-mono">
+                        {new Date(sync.started_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                      <div>
+                        <span className="text-text-muted">Items:</span>
+                        <span className="ml-1 text-text">{sync.items_synced || sync.items_processed || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Failed:</span>
+                        <span className="ml-1 text-text">{sync.items_failed || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Duration:</span>
+                        <span className="ml-1 text-text">
+                          {sync.duration_seconds ? `${sync.duration_seconds}s` : '-'}
+                        </span>
+                      </div>
+                    </div>
+                    {(sync.error || sync.error_message) && (
+                      <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400 font-mono">
+                        {sync.error || sync.error_message}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-text-muted font-mono">
+                  No sync history yet
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'config' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-mono font-bold text-text mb-3">CONFIGURATION</h3>
+              <div className="p-4 bg-bg rounded-lg border border-border">
+                <pre className="text-sm font-mono text-text whitespace-pre-wrap">
+                  {JSON.stringify(details.config || {}, null, 2)}
+                </pre>
+              </div>
+              <div className="p-4 bg-bg rounded-lg border border-border">
+                <h4 className="text-xs font-mono font-bold text-text-muted mb-2">METADATA</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div>
+                    <span className="text-text-muted">ID:</span>
+                    <span className="ml-2 text-text">{details.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Job ID:</span>
+                    <span className="ml-2 text-text">{details.job_id}</span>
+                  </div>
+                  {details.created_at && (
+                    <div>
+                      <span className="text-text-muted">Created:</span>
+                      <span className="ml-2 text-text">{new Date(details.created_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {details.updated_at && (
+                    <div>
+                      <span className="text-text-muted">Updated:</span>
+                      <span className="ml-2 text-text">{new Date(details.updated_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ConnectorsPage() {
   const { showToast } = useToastContext();
   const [connectors, setConnectors] = useState<Connector[]>([]);
@@ -456,6 +734,7 @@ export default function ConnectorsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingConnector, setEditingConnector] = useState<Connector | null>(null);
+  const [viewingConnectorId, setViewingConnectorId] = useState<string | null>(null);
   const [syncingConnectors, setSyncingConnectors] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
@@ -580,6 +859,22 @@ export default function ConnectorsPage() {
     }
   };
 
+  const handleCancelSync = async (syncId: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/connectors/sync/${syncId}/cancel`,
+        { method: 'POST' }
+      );
+
+      if (!response.ok) throw new Error('Failed to cancel sync');
+
+      showToast('Sync cancelled', 'success');
+      fetchData();
+    } catch (error) {
+      showToast('Failed to cancel sync', 'error');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-bg p-6">
       {/* Header */}
@@ -689,11 +984,13 @@ export default function ConnectorsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {connectors.map((connector) => (
               <ConnectorCard
-                key={connector.job_id}
+                key={connector.job_id || connector.id}
                 connector={connector}
                 onSync={() => handleSync(connector.id)}
+                onCancelSync={() => connector.current_run_id && handleCancelSync(connector.current_run_id)}
                 onEdit={() => setEditingConnector(connector)}
                 onDelete={() => handleDelete(connector.id)}
+                onViewDetails={() => setViewingConnectorId(connector.id)}
                 syncing={syncingConnectors.has(connector.id)}
               />
             ))}
@@ -764,6 +1061,23 @@ export default function ConnectorsPage() {
           connector={editingConnector}
           onClose={() => setEditingConnector(null)}
           onSave={(updates) => handleUpdateConnector(editingConnector.id, updates)}
+        />
+      )}
+
+      {/* Connector Details Modal */}
+      {viewingConnectorId && (
+        <ConnectorDetailsModal
+          connectorId={viewingConnectorId}
+          apiBase={API_BASE_URL}
+          onClose={() => setViewingConnectorId(null)}
+          onSync={() => {
+            handleSync(viewingConnectorId);
+            setViewingConnectorId(null);
+          }}
+          onCancelSync={(syncId) => {
+            handleCancelSync(syncId);
+            setViewingConnectorId(null);
+          }}
         />
       )}
     </main>

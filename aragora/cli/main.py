@@ -1091,6 +1091,11 @@ Examples:
 
     create_knowledge_parser(subparsers)
 
+    # RLM command (recursive language model operations)
+    from aragora.cli.rlm import create_rlm_parser
+
+    create_rlm_parser(subparsers)
+
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(
         "memory",

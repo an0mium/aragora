@@ -420,6 +420,7 @@ export function useNomicLoopWebSocket({
 
         default:
           // Unknown event type - log for debugging
+          // eslint-disable-next-line no-console
           console.debug('[NomicLoop] Unknown event type:', event.type);
           break;
       }

@@ -10,9 +10,17 @@ Provides common implementation for agents using OpenAI-compatible APIs:
 This eliminates ~150 lines of duplicate code per agent.
 """
 
-import logging
-from typing import AsyncGenerator
+from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, cast
+
+from aragora.core import Critique, Message
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from aragora.agents.protocols import OpenAICompatibleBase
 
 from aragora.agents.api_agents.common import (
     AgentAPIError,
@@ -68,7 +76,26 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Record token usage (delegates to APIAgent base class)."""
         super()._record_token_usage(tokens_in, tokens_out)
 
-    # Methods _build_context_prompt and _parse_critique inherited from CritiqueMixin (via APIAgent)
+    # Methods inherited from CritiqueMixin (via APIAgent) - stubs for type checking
+    def _build_context_prompt(
+        self,
+        context: Optional[list[Message]] = None,
+        truncate: bool = False,
+        sanitize_fn: Optional["Callable[[str], str]"] = None,
+    ) -> str:
+        """Build context from previous messages (provided by base class)."""
+        # This method is inherited from CritiqueMixin via APIAgent
+        raise NotImplementedError("Must be mixed with a CritiqueMixin subclass")
+
+    def _parse_critique(
+        self,
+        response: str,
+        target_agent: str,
+        target_content: str,
+    ) -> Critique:
+        """Parse critique response (provided by base class)."""
+        # This method is inherited from CritiqueMixin via APIAgent
+        raise NotImplementedError("Must be mixed with a CritiqueMixin subclass")
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""
@@ -147,8 +174,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Generate a response using the OpenAI-compatible API."""
         full_prompt = prompt
         if context:
-            full_prompt = self._build_context_prompt(context) + prompt  # type: ignore[attr-defined]
-
+            full_prompt = self._build_context_prompt(context) + prompt  
         url = self._get_endpoint_url()
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
@@ -194,8 +220,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Stream tokens from the OpenAI-compatible API."""
         full_prompt = prompt
         if context:
-            full_prompt = self._build_context_prompt(context) + prompt  # type: ignore[attr-defined]
-
+            full_prompt = self._build_context_prompt(context) + prompt  
         url = self._get_endpoint_url()
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
@@ -260,7 +285,6 @@ SEVERITY: X.X
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, target_agent or "proposal", proposal)  # type: ignore[attr-defined]
-
+        return self._parse_critique(response, target_agent or "proposal", proposal)  
 
 __all__ = ["OpenAICompatibleMixin"]

@@ -29,12 +29,11 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from typing import Any, Coroutine, Dict, Optional, TypeVar
+from typing import Any, Dict, Optional
 
-T = TypeVar("T")
+from aragora.server.http_utils import run_async as _run_async
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -45,23 +44,6 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """
-    Run an async coroutine from sync context safely.
-
-    Uses asyncio.run() which creates a new event loop, runs the coroutine,
-    and closes the loop. This is the recommended pattern for calling async
-    code from sync handlers.
-
-    Args:
-        coro: The coroutine to run
-
-    Returns:
-        The result of the coroutine
-    """
-    return asyncio.run(coro)
 
 
 class ControlPlaneHandler(BaseHandler):

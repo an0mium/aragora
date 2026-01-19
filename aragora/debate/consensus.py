@@ -299,6 +299,14 @@ class ConsensusProof:
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
+
+        def enum_dict_factory(data: list) -> dict:
+            """Convert Enum values to their string values for JSON serialization."""
+            return {
+                k: v.value if isinstance(v, Enum) else v
+                for k, v in data
+            }
+
         return {
             "proof_id": self.proof_id,
             "debate_id": self.debate_id,
@@ -306,13 +314,13 @@ class ConsensusProof:
             "final_claim": self.final_claim,
             "confidence": self.confidence,
             "consensus_reached": self.consensus_reached,
-            "votes": [asdict(v) for v in self.votes],
+            "votes": [asdict(v, dict_factory=enum_dict_factory) for v in self.votes],
             "supporting_agents": self.supporting_agents,
             "dissenting_agents": self.dissenting_agents,
-            "claims": [asdict(c) for c in self.claims],
-            "dissents": [asdict(d) for d in self.dissents],
-            "unresolved_tensions": [asdict(t) for t in self.unresolved_tensions],
-            "evidence_chain": [asdict(e) for e in self.evidence_chain],
+            "claims": [asdict(c, dict_factory=enum_dict_factory) for c in self.claims],
+            "dissents": [asdict(d, dict_factory=enum_dict_factory) for d in self.dissents],
+            "unresolved_tensions": [asdict(t, dict_factory=enum_dict_factory) for t in self.unresolved_tensions],
+            "evidence_chain": [asdict(e, dict_factory=enum_dict_factory) for e in self.evidence_chain],
             "reasoning_summary": self.reasoning_summary,
             "created_at": self.created_at,
             "rounds_to_consensus": self.rounds_to_consensus,

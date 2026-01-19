@@ -6,14 +6,18 @@ import { AsciiBannerCompact } from './AsciiBanner';
 import { Scanlines, CRTVignette } from './MatrixRain';
 import { ThemeToggle } from './ThemeToggle';
 import { BackendSelector } from './BackendSelector';
+import { FeatureNavigator } from './landing/FeatureNavigator';
+import { UseCaseCards } from './landing/UseCaseCards';
+import { VerticalCards } from './landing/VerticalCards';
 
 interface LandingPageProps {
   apiBase: string;
   wsUrl: string;
   onDebateStarted: (debateId: string) => void;
+  onEnterDashboard?: () => void;
 }
 
-export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProps) {
+export function LandingPage({ apiBase, wsUrl, onDebateStarted, onEnterDashboard }: LandingPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
@@ -66,12 +70,14 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
               >
                 [API]
               </a>
-              <a
-                href="https://live.aragora.ai"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [LIVE]
-              </a>
+              {onEnterDashboard && (
+                <button
+                  onClick={onEnterDashboard}
+                  className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                >
+                  [DASHBOARD]
+                </button>
+              )}
               <BackendSelector compact />
               <ThemeToggle />
             </div>
@@ -148,6 +154,21 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted }: LandingPageProp
             onError={handleError}
           />
         </div>
+
+        {/* Use Case Cards Section - "Who is Aragora for?" */}
+        <section className="container mx-auto px-4">
+          <UseCaseCards />
+        </section>
+
+        {/* Industry Verticals Section */}
+        <section className="container mx-auto px-4 border-t border-acid-green/10">
+          <VerticalCards />
+        </section>
+
+        {/* Feature Navigator Section */}
+        <section className="container mx-auto px-4 py-12 border-t border-acid-green/10">
+          <FeatureNavigator onEnterDashboard={onEnterDashboard} />
+        </section>
 
         {/* Learn More Section - Single Parent Collapsible */}
         <section className="border-t border-acid-green/20 mt-auto">

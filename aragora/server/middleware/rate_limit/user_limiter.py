@@ -27,10 +27,17 @@ logger = logging.getLogger(__name__)
 USER_RATE_LIMITS: Dict[str, int] = {
     "default": 60,  # Default for authenticated users
     "debate_create": 10,  # Creating new debates
+    "debate_search": 30,  # Searching debates (ReDoS protection)
     "vote": 30,  # Voting on proposals
     "agent_call": 120,  # Calling agent APIs
     "export": 5,  # Exporting data
     "admin": 300,  # Admin operations
+    # New security-focused limits
+    "batch_submit": 2,  # Batch operations (expensive)
+    "evidence_collect": 10,  # Evidence collection (external APIs)
+    "knowledge_query": 20,  # Knowledge base queries
+    "memory_cleanup": 5,  # Memory management operations
+    "plugin_install": 3,  # Plugin installation
 }
 
 

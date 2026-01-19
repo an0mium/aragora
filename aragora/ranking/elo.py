@@ -770,7 +770,7 @@ class EloSystem:
 
             invalidate_on_event("match_recorded")
         except ImportError:
-            pass  # Handlers may not be available in all contexts
+            logger.debug("Handler cache invalidation skipped - handlers module not available")
 
         # Emit ELO update events for each agent
         if self.event_emitter and elo_changes:
@@ -792,7 +792,7 @@ class EloSystem:
                         )
                     )
             except (ImportError, AttributeError, TypeError):
-                pass  # Stream module not available or emitter misconfigured
+                logger.debug("Stream event emission skipped - stream module not available")
 
         return elo_changes
 

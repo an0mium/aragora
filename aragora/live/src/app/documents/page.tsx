@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { FolderUploadDialog } from '@/components/FolderUploadDialog';
+import { CloudStoragePicker, type CloudFile } from '@/components/upload';
 import { useAuth } from '@/context/AuthContext';
 
 interface Document {
@@ -63,6 +64,51 @@ export default function DocumentsPage() {
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [cloudPickerOpen, setCloudPickerOpen] = useState(false);
+
+  const handleCloudFilesSelected = useCallback(async (files: CloudFile[]) => {
+    setCloudPickerOpen(false);
+    setUploading(true);
+    try {
+      for (const file of files) {
+        // Download and re-upload from cloud storage
+        const response = await fetch(`${backendConfig.api}/api/cloud/${file.provider}/download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens?.access_token || ''}`,
+          },
+          body: JSON.stringify({ file_id: file.id }),
+        });
+
+        if (response.ok) {
+          const { content } = await response.json();
+          // Upload the content
+          const uploadResponse = await fetch(`${backendConfig.api}/api/documents`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens?.access_token || ''}`,
+            },
+            body: JSON.stringify({
+              filename: file.name,
+              content: content,
+              mime_type: file.mimeType,
+              source: `cloud:${file.provider}`,
+            }),
+          });
+          if (!uploadResponse.ok) {
+            console.error(`Failed to upload ${file.name}`);
+          }
+        }
+      }
+      fetchDocuments();
+    } catch (err) {
+      setError('Failed to import files from cloud storage');
+    } finally {
+      setUploading(false);
+    }
+  }, [backendConfig.api, tokens?.access_token]);
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -157,7 +203,7 @@ export default function DocumentsPage() {
           <div className="text-center">
             <div className="text-4xl mb-3">📁</div>
             <div className="text-lg font-mono mb-2">{uploading ? 'UPLOADING...' : 'DROP FILES HERE'}</div>
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
               <label className="btn btn-primary cursor-pointer">
                 <input type="file" multiple className="hidden" onChange={(e) => e.target.files && uploadFiles(Array.from(e.target.files))} />
                 SELECT FILES
@@ -167,6 +213,12 @@ export default function DocumentsPage() {
                 className="btn btn-secondary"
               >
                 📂 UPLOAD FOLDER
+              </button>
+              <button
+                onClick={() => setCloudPickerOpen(true)}
+                className="btn btn-secondary"
+              >
+                ☁️ IMPORT FROM CLOUD
               </button>
             </div>
           </div>
@@ -182,6 +234,21 @@ export default function DocumentsPage() {
           apiBase={backendConfig.api}
           authToken={tokens?.access_token}
         />
+
+        {/* Cloud Storage Picker Modal */}
+        {cloudPickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-2xl mx-4">
+              <CloudStoragePicker
+                onSelect={handleCloudFilesSelected}
+                onClose={() => setCloudPickerOpen(false)}
+                multiple={true}
+                apiBase={backendConfig.api}
+                className="max-h-[80vh] overflow-auto"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between mb-4">
           <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input w-64" />

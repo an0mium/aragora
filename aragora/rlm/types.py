@@ -226,3 +226,103 @@ class RLMResult:
 # Type aliases for callbacks
 CompressionCallback = Callable[[str, AbstractionLevel], str]
 QueryCallback = Callable[[RLMQuery, RLMContext], RLMResult]
+
+
+class RLMStreamEventType(Enum):
+    """Types of streaming events from RLM operations."""
+
+    # Query lifecycle events
+    QUERY_START = "query_start"
+    QUERY_COMPLETE = "query_complete"
+
+    # Refinement events
+    ITERATION_START = "iteration_start"
+    ITERATION_COMPLETE = "iteration_complete"
+    FEEDBACK_GENERATED = "feedback_generated"
+
+    # Progress events
+    LEVEL_ENTERED = "level_entered"
+    NODE_EXAMINED = "node_examined"
+    SUB_CALL_START = "sub_call_start"
+    SUB_CALL_COMPLETE = "sub_call_complete"
+
+    # Content events
+    PARTIAL_ANSWER = "partial_answer"
+    FINAL_ANSWER = "final_answer"
+
+    # Status events
+    CONFIDENCE_UPDATE = "confidence_update"
+    ERROR = "error"
+
+
+@dataclass
+class RLMStreamEvent:
+    """
+    Event emitted during streaming RLM operations.
+
+    Provides granular visibility into RLM query execution for
+    progress tracking, debugging, and real-time UI updates.
+    """
+
+    event_type: RLMStreamEventType
+    timestamp: float = 0.0
+
+    # Query context
+    query: str = ""
+    iteration: int = 0
+
+    # Progress data
+    level: Optional[AbstractionLevel] = None
+    node_id: Optional[str] = None
+
+    # Content data
+    content: str = ""
+    partial_answer: str = ""
+
+    # Stats
+    tokens_processed: int = 0
+    sub_calls_made: int = 0
+    confidence: float = 0.0
+
+    # Error info
+    error: Optional[str] = None
+
+    # Full result (only on completion events)
+    result: Optional["RLMResult"] = None
+
+    def __post_init__(self):
+        if self.timestamp == 0.0:
+            import time
+            self.timestamp = time.time()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        data: dict[str, Any] = {
+            "event_type": self.event_type.value,
+            "timestamp": self.timestamp,
+            "query": self.query,
+            "iteration": self.iteration,
+            "tokens_processed": self.tokens_processed,
+            "sub_calls_made": self.sub_calls_made,
+            "confidence": self.confidence,
+        }
+
+        if self.level:
+            data["level"] = self.level.name
+        if self.node_id:
+            data["node_id"] = self.node_id
+        if self.content:
+            data["content"] = self.content
+        if self.partial_answer:
+            data["partial_answer"] = self.partial_answer
+        if self.error:
+            data["error"] = self.error
+        if self.result:
+            data["result"] = {
+                "answer": self.result.answer,
+                "ready": self.result.ready,
+                "iteration": self.result.iteration,
+                "confidence": self.result.confidence,
+            }
+
+        return data

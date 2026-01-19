@@ -4,6 +4,7 @@
 
 export { PipelineProgress } from './PipelineProgress';
 export { DataPreview } from './DataPreview';
+export { TrainingPricingPanel } from './TrainingPricingPanel';
 
 export type {
   ExportType,

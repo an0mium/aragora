@@ -709,15 +709,18 @@ class TestCompressionCache:
 
     def test_clear_cache(self):
         """Test cache clearing function."""
-        # Directly add to cache
         from aragora.rlm import compressor as comp_module
-        comp_module._compression_cache["test_key"] = MagicMock()
+        from aragora.rlm.types import RLMContext
 
-        assert len(comp_module._compression_cache) > 0
+        # Add to cache using the proper interface
+        context = RLMContext(original_content="test", original_tokens=1)
+        comp_module._compression_cache.set("test_key", context)
+
+        assert comp_module._compression_cache.get_stats()["size"] > 0
 
         clear_compression_cache()
 
-        assert len(comp_module._compression_cache) == 0
+        assert comp_module._compression_cache.get_stats()["size"] == 0
 
 
 # =============================================================================

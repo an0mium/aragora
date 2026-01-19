@@ -34,7 +34,8 @@ class TestOpenAIAgentInitialization:
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "openai"
-        assert agent.enable_fallback is True
+        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
+        assert agent.enable_fallback is False
         assert agent.enable_web_search is True
         assert "api.openai.com" in agent.base_url
 

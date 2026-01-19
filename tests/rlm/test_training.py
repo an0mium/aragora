@@ -21,6 +21,9 @@ from aragora.rlm.training import (
     StrategyPolicy,
     RefinementPolicy,
     PolicyState,
+    Trainer,
+    TrainerConfig,
+    TrainingMetrics,
 )
 
 
@@ -355,3 +358,183 @@ class TestPolicyState:
         features = state.to_feature_vector()
         assert len(features) == 7  # Base features
         assert all(isinstance(f, float) for f in features)
+
+
+class TestTrainerConfig:
+    """Test TrainerConfig dataclass."""
+
+    def test_default_config(self):
+        """Test default configuration values."""
+        config = TrainerConfig()
+        assert config.batch_size == 32
+        assert config.learning_rate == 0.001
+        assert config.discount_factor == 0.99
+        assert config.buffer_size == 10000
+
+    def test_custom_config(self):
+        """Test custom configuration."""
+        config = TrainerConfig(
+            batch_size=64,
+            learning_rate=0.01,
+            max_refinement_iterations=10,
+        )
+        assert config.batch_size == 64
+        assert config.learning_rate == 0.01
+        assert config.max_refinement_iterations == 10
+
+
+class TestTrainingMetrics:
+    """Test TrainingMetrics dataclass."""
+
+    def test_metrics_creation(self):
+        """Test creating training metrics."""
+        metrics = TrainingMetrics(
+            epoch=5,
+            avg_reward=0.75,
+            success_rate=0.8,
+        )
+        assert metrics.epoch == 5
+        assert metrics.avg_reward == 0.75
+        assert metrics.success_rate == 0.8
+
+    def test_metrics_to_dict(self):
+        """Test metrics serialization."""
+        metrics = TrainingMetrics(
+            epoch=10,
+            total_trajectories=100,
+            avg_reward=0.5,
+            strategy_distribution={"grep": 0.6, "peek": 0.4},
+        )
+
+        data = metrics.to_dict()
+        assert data["epoch"] == 10
+        assert data["total_trajectories"] == 100
+        assert data["avg_reward"] == 0.5
+        assert data["strategy_distribution"]["grep"] == 0.6
+
+
+class TestTrainer:
+    """Test Trainer class."""
+
+    def test_trainer_creation(self):
+        """Test creating trainer with default config."""
+        trainer = Trainer()
+        assert trainer.config is not None
+        assert trainer.strategy_policy is not None
+        assert trainer.refinement_policy is not None
+        assert trainer.reward_model is not None
+        assert trainer.experience_buffer is not None
+
+    def test_trainer_custom_config(self):
+        """Test creating trainer with custom config."""
+        config = TrainerConfig(batch_size=64, learning_rate=0.01)
+        trainer = Trainer(config=config)
+        assert trainer.config.batch_size == 64
+        assert trainer.config.learning_rate == 0.01
+
+    def test_trainer_custom_policies(self):
+        """Test creating trainer with custom policies."""
+        strategy_policy = StrategyPolicy(exploration_rate=0.5)
+        refinement_policy = RefinementPolicy(confidence_threshold=0.9)
+
+        trainer = Trainer(
+            strategy_policy=strategy_policy,
+            refinement_policy=refinement_policy,
+        )
+
+        assert trainer.strategy_policy.exploration_rate == 0.5
+        assert trainer.refinement_policy.confidence_threshold == 0.9
+
+    def test_trainer_compute_rewards(self):
+        """Test reward computation for trajectories."""
+        trainer = Trainer()
+
+        # Create test trajectories
+        trajectories = []
+        for i in range(3):
+            t = Trajectory(query=f"query {i}")
+            t.finalize(
+                f"answer {i}",
+                outcome={
+                    "consensus_reached": i % 2 == 0,
+                    "agreement_score": 0.5 + i * 0.1,
+                },
+                stats={
+                    "confidence": 0.6 + i * 0.1,
+                    "sub_calls_made": 3,
+                    "iterations": 1,
+                    "ready": True,
+                },
+            )
+            trajectories.append(t)
+
+        rewards = trainer.compute_rewards(trajectories)
+        assert len(rewards) == 3
+        assert all(isinstance(r, tuple) for r in rewards)
+        assert all(len(r) == 3 for r in rewards)
+
+    def test_trainer_store_trajectories(self):
+        """Test storing trajectories in buffer."""
+        trainer = Trainer()
+
+        trajectories = []
+        for i in range(5):
+            t = Trajectory(query=f"query {i}")
+            t.finalize(f"answer", {"success": True})
+            trajectories.append(t)
+
+        rewards = trainer.compute_rewards(trajectories)
+        trainer.store_trajectories(rewards)
+
+        assert len(trainer.experience_buffer) == 5
+
+    def test_trainer_update_policies(self):
+        """Test policy updates based on rewards."""
+        trainer = Trainer()
+        initial_exploration = trainer.strategy_policy.exploration_rate
+
+        trajectories = []
+        for i, strategy in enumerate(["grep", "peek", "grep"]):
+            t = Trajectory(query=f"query {i}", strategy=strategy)
+            t.finalize(f"answer", {"success": True}, stats={"confidence": 0.8})
+            trajectories.append(t)
+
+        rewards = trainer.compute_rewards(trajectories)
+        trainer.update_policies(trajectories, rewards)
+
+        # Exploration should decay
+        assert trainer.strategy_policy.exploration_rate < initial_exploration
+
+    def test_trainer_add_callback(self):
+        """Test adding training callbacks."""
+        trainer = Trainer()
+        callback_called = [False]
+
+        def my_callback(metrics: TrainingMetrics) -> None:
+            callback_called[0] = True
+
+        trainer.add_callback(my_callback)
+        assert len(trainer._callbacks) == 1
+
+    def test_trainer_get_buffer_stats(self):
+        """Test getting buffer statistics."""
+        trainer = Trainer()
+
+        # Add some trajectories
+        for i in range(3):
+            t = Trajectory(query=f"query {i}")
+            t.finalize(f"answer", {"success": True})
+            trainer.experience_buffer.add(t)
+
+        stats = trainer.get_buffer_stats()
+        assert stats["size"] == 3
+
+    def test_trainer_get_policy_stats(self):
+        """Test getting policy statistics."""
+        trainer = Trainer()
+
+        stats = trainer.get_policy_stats()
+        assert "strategy_policy" in stats
+        assert "refinement_policy" in stats
+        assert "exploration_rate" in stats["strategy_policy"]
+        assert "confidence_threshold" in stats["refinement_policy"]

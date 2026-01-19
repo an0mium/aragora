@@ -150,13 +150,17 @@ class ConnectorsHandler(BaseHandler):
         connector_id = None
         sync_id = None
 
-        if "/connectors/" in path and "/sync" not in path:
+        if "/connectors/" in path:
             parts = path.split("/connectors/")
             if len(parts) > 1:
                 remaining = parts[1].split("/")
-                connector_id = remaining[0]
-        elif "/sync/" in path:
-            parts = path.split("/sync/")
+                # First segment after /connectors/ is the connector_id (unless it's a special route)
+                if remaining[0] not in ("sync-history", "stats", "test", "types", "sync"):
+                    connector_id = remaining[0]
+
+        # For sync cancel operations, parse sync_id from /sync/{sync_id}/cancel
+        if "/connectors/sync/" in path:
+            parts = path.split("/connectors/sync/")
             if len(parts) > 1:
                 remaining = parts[1].split("/")
                 sync_id = remaining[0]
@@ -685,6 +689,19 @@ class ConnectorsHandler(BaseHandler):
         """Parse JSON body from request."""
         body = await request.json()
         return body if isinstance(body, dict) else {}
+
+    def _json_response(self, status: int, data: Any) -> Dict[str, Any]:
+        """Create a JSON response."""
+        import json as json_module
+        return {
+            "status_code": status,
+            "headers": {"Content-Type": "application/json"},
+            "body": data,
+        }
+
+    def _error_response(self, status: int, message: str) -> Dict[str, Any]:
+        """Create an error response."""
+        return self._json_response(status, {"error": message})
 
 
 __all__ = ["ConnectorsHandler"]

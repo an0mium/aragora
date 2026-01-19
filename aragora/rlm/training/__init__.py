@@ -58,6 +58,7 @@ from .reward import (
     RewardModel,
     SparseReward,
 )
+from .trainer import Trainer, TrainerConfig, TrainingMetrics
 
 __all__ = [
     # Buffer
@@ -76,4 +77,8 @@ __all__ = [
     "StrategyPolicy",
     "RefinementPolicy",
     "CompositePolicy",
+    # Trainer
+    "Trainer",
+    "TrainerConfig",
+    "TrainingMetrics",
 ]

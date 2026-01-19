@@ -1059,6 +1059,29 @@ class DissentRetriever:
     def __init__(self, memory: ConsensusMemory):
         self.memory = memory
 
+    @staticmethod
+    def _smart_truncate(text: str, max_chars: int) -> str:
+        """Truncate text preserving sentence boundaries when possible."""
+        if not text or len(text) <= max_chars:
+            return text
+
+        truncated = text[:max_chars]
+
+        # Try to break at sentence boundary
+        for i in range(len(truncated) - 1, int(max_chars * 0.5), -1):
+            if truncated[i] in ".!?" and (
+                i + 1 >= len(truncated) or truncated[i + 1] in " \n"
+            ):
+                return text[: i + 1]
+
+        # Break at word boundary
+        if " " in truncated:
+            last_space = truncated.rfind(" ")
+            if last_space > max_chars * 0.7:
+                return text[:last_space] + "..."
+
+        return truncated + "..."
+
     def retrieve_for_new_debate(
         self,
         topic: str,

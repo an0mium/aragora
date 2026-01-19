@@ -27,16 +27,42 @@ Knowledge Mound API (unified knowledge storage):
 - GET /api/knowledge/mound/graph/:id - Get graph traversal from node
 - GET /api/knowledge/mound/stats - Get mound statistics
 - POST /api/knowledge/mound/index/repository - Index a repository
+
+Refactoring Plan (1,730 lines -> modular structure):
+------------------------------------------------------
+This file is marked for modular refactoring similar to handlers/debates/.
+Target structure:
+
+  handlers/knowledge_base/            # Renamed to avoid conflicts
+  ├── __init__.py                     # Re-exports KnowledgeHandler
+  ├── handler.py                      # Main KnowledgeHandler (~200 lines)
+  ├── facts.py                        # FactsOperationsMixin
+  ├── query.py                        # QueryOperationsMixin
+  ├── search.py                       # SearchOperationsMixin
+  └── mound/
+      ├── __init__.py                 # Re-exports KnowledgeMoundHandler
+      ├── handler.py                  # Main KnowledgeMoundHandler (~200 lines)
+      ├── nodes.py                    # NodeOperationsMixin
+      ├── relationships.py            # RelationshipOperationsMixin
+      ├── graph.py                    # GraphOperationsMixin
+      ├── culture.py                  # CultureOperationsMixin
+      ├── staleness.py                # StalenessOperationsMixin
+      ├── sync.py                     # SyncOperationsMixin
+      └── export.py                   # ExportOperationsMixin
+
+Each mixin should:
+1. Define a Protocol class for expected interface
+2. Provide _handle_* methods grouped by functionality
+3. Be mixed into the main handler class
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Coroutine, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional
 
-T = TypeVar("T")
+from aragora.server.http_utils import run_async as _run_async
 
 from aragora.knowledge import (
     DatasetQueryEngine,
@@ -68,23 +94,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """
-    Run an async coroutine from sync context safely.
-
-    Uses asyncio.run() which creates a new event loop, runs the coroutine,
-    and closes the loop. This is the recommended pattern for calling async
-    code from sync handlers.
-
-    Args:
-        coro: The coroutine to run
-
-    Returns:
-        The result of the coroutine
-    """
-    return asyncio.run(coro)
 
 
 # Rate limiter for knowledge endpoints (60 requests per minute)

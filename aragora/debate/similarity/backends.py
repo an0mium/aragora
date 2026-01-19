@@ -10,6 +10,7 @@ import logging
 import os
 import threading
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Optional
 
 import numpy as np
@@ -200,10 +201,10 @@ class JaccardBackend(SimilarityBackend):
         - Order-independent
 
     Performance optimization:
-        - Individual similarity computations are cached (256 pairs)
+        - LRU cache for similarity computations (256 pairs, O(1) eviction)
     """
 
-    _similarity_cache: dict[tuple[str, str], float] = {}
+    _similarity_cache: OrderedDict[tuple[str, str], float] = OrderedDict()
     _cache_max_size = 256
     _cache_lock = threading.RLock()
 
@@ -218,6 +219,8 @@ class JaccardBackend(SimilarityBackend):
         # Check cache first (with lock)
         with JaccardBackend._cache_lock:
             if cache_key in JaccardBackend._similarity_cache:
+                # Move to end for LRU (O(1))
+                JaccardBackend._similarity_cache.move_to_end(cache_key)
                 return JaccardBackend._similarity_cache[cache_key]
 
         # Normalize: lowercase and split into words (outside lock)
@@ -235,12 +238,11 @@ class JaccardBackend(SimilarityBackend):
 
         result = len(intersection) / len(union)
 
-        # Cache result (with lock and simple size limit)
+        # Cache result with LRU eviction (O(1))
         with JaccardBackend._cache_lock:
-            if len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
-                keys = list(JaccardBackend._similarity_cache.keys())
-                for k in keys[: len(keys) // 2]:
-                    del JaccardBackend._similarity_cache[k]
+            # Evict oldest if at capacity
+            while len(JaccardBackend._similarity_cache) >= JaccardBackend._cache_max_size:
+                JaccardBackend._similarity_cache.popitem(last=False)
             JaccardBackend._similarity_cache[cache_key] = result
 
         return result
@@ -263,10 +265,10 @@ class TFIDFBackend(SimilarityBackend):
         - Reduces impact of common words
 
     Performance optimization:
-        - Individual similarity computations are cached (256 pairs)
+        - LRU cache for similarity computations (256 pairs, O(1) eviction)
     """
 
-    _similarity_cache: dict[tuple[str, str], float] = {}
+    _similarity_cache: OrderedDict[tuple[str, str], float] = OrderedDict()
     _cache_max_size = 256
     _cache_lock = threading.RLock()
 
@@ -294,6 +296,8 @@ class TFIDFBackend(SimilarityBackend):
         # Check cache first (with lock)
         with TFIDFBackend._cache_lock:
             if cache_key in TFIDFBackend._similarity_cache:
+                # Move to end for LRU (O(1))
+                TFIDFBackend._similarity_cache.move_to_end(cache_key)
                 return TFIDFBackend._similarity_cache[cache_key]
 
         # Compute outside lock
@@ -301,12 +305,11 @@ class TFIDFBackend(SimilarityBackend):
         similarity = self.cosine_similarity(tfidf_matrix[0], tfidf_matrix[1])[0][0]
         result = float(similarity)
 
-        # Cache result (with lock and simple size limit)
+        # Cache result with LRU eviction (O(1))
         with TFIDFBackend._cache_lock:
-            if len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
-                keys = list(TFIDFBackend._similarity_cache.keys())
-                for k in keys[: len(keys) // 2]:
-                    del TFIDFBackend._similarity_cache[k]
+            # Evict oldest if at capacity
+            while len(TFIDFBackend._similarity_cache) >= TFIDFBackend._cache_max_size:
+                TFIDFBackend._similarity_cache.popitem(last=False)
             TFIDFBackend._similarity_cache[cache_key] = result
 
         return result
@@ -331,7 +334,7 @@ class SentenceTransformerBackend(SimilarityBackend):
     Performance optimization:
         - Model is cached at class level (avoids reloading)
         - Embeddings are cached at text level (EmbeddingCache)
-        - Similarity results are cached at pair level (256 pairs)
+        - LRU cache for similarity/contradiction at pair level (256 pairs, O(1) eviction)
         - Expected speedup: 10-100x for repeated text comparisons
 
     Optional NLI (Natural Language Inference) support:
@@ -344,8 +347,8 @@ class SentenceTransformerBackend(SimilarityBackend):
     _model_name_cache: Optional[str] = None
     _nli_model_cache: Optional[Any] = None
     _nli_model_name_cache: Optional[str] = None
-    _similarity_cache: dict[tuple[str, str], float] = {}
-    _contradiction_cache: dict[tuple[str, str], bool] = {}
+    _similarity_cache: OrderedDict[tuple[str, str], float] = OrderedDict()
+    _contradiction_cache: OrderedDict[tuple[str, str], bool] = OrderedDict()
     _cache_max_size: int = 256
     _cache_lock = threading.RLock()
 
@@ -471,7 +474,7 @@ class SentenceTransformerBackend(SimilarityBackend):
         """Compute semantic similarity using sentence embeddings (thread-safe).
 
         Uses multi-level caching:
-        1. Similarity cache (pair level) - fastest
+        1. LRU similarity cache (pair level, O(1) eviction) - fastest
         2. Embedding cache (text level) - avoids re-encoding same text
         3. Model encode (slowest) - only for cache misses
         """
@@ -484,6 +487,8 @@ class SentenceTransformerBackend(SimilarityBackend):
         # Check similarity cache first (with lock)
         with SentenceTransformerBackend._cache_lock:
             if cache_key in SentenceTransformerBackend._similarity_cache:
+                # Move to end for LRU (O(1))
+                SentenceTransformerBackend._similarity_cache.move_to_end(cache_key)
                 return SentenceTransformerBackend._similarity_cache[cache_key]
 
         # Get embeddings (checks embedding cache internally)
@@ -494,16 +499,14 @@ class SentenceTransformerBackend(SimilarityBackend):
         similarity = self.cosine_similarity(emb1.reshape(1, -1), emb2.reshape(1, -1))[0][0]
         result = float(similarity)
 
-        # Cache similarity result (with lock and simple size limit)
+        # Cache similarity result with LRU eviction (O(1))
         with SentenceTransformerBackend._cache_lock:
-            if (
+            # Evict oldest if at capacity
+            while (
                 len(SentenceTransformerBackend._similarity_cache)
                 >= SentenceTransformerBackend._cache_max_size
             ):
-                # Clear oldest half when full
-                keys = list(SentenceTransformerBackend._similarity_cache.keys())
-                for k in keys[: len(keys) // 2]:
-                    del SentenceTransformerBackend._similarity_cache[k]
+                SentenceTransformerBackend._similarity_cache.popitem(last=False)
             SentenceTransformerBackend._similarity_cache[cache_key] = result
 
         return result
@@ -532,6 +535,8 @@ class SentenceTransformerBackend(SimilarityBackend):
         # Check contradiction cache first
         with SentenceTransformerBackend._cache_lock:
             if cache_key in SentenceTransformerBackend._contradiction_cache:
+                # Move to end for LRU (O(1))
+                SentenceTransformerBackend._contradiction_cache.move_to_end(cache_key)
                 return SentenceTransformerBackend._contradiction_cache[cache_key]
 
         # Use NLI model if available
@@ -541,16 +546,14 @@ class SentenceTransformerBackend(SimilarityBackend):
             # Fall back to pattern-based detection
             result = super().is_contradictory(text1, text2)
 
-        # Cache result
+        # Cache result with LRU eviction (O(1))
         with SentenceTransformerBackend._cache_lock:
-            if (
+            # Evict oldest if at capacity
+            while (
                 len(SentenceTransformerBackend._contradiction_cache)
                 >= SentenceTransformerBackend._cache_max_size
             ):
-                # Clear oldest half when full
-                keys = list(SentenceTransformerBackend._contradiction_cache.keys())
-                for k in keys[: len(keys) // 2]:
-                    del SentenceTransformerBackend._contradiction_cache[k]
+                SentenceTransformerBackend._contradiction_cache.popitem(last=False)
             SentenceTransformerBackend._contradiction_cache[cache_key] = result
 
         return result

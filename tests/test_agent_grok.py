@@ -27,7 +27,8 @@ class TestGrokAgentInitialization:
         assert agent.role == "proposer"
         assert agent.agent_type == "grok"
         assert agent.timeout == 120
-        assert agent.enable_fallback is True
+        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
+        assert agent.enable_fallback is False
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""

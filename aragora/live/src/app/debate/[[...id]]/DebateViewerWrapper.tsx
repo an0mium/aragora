@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DebateViewer } from '@/components/debate-viewer';
 import { CruxPanel } from '@/components/CruxPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
+import { VoiceInput } from '@/components/VoiceInput';
 import { RedTeamAnalysisPanel } from '@/components/RedTeamAnalysisPanel';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { ImpasseDetectionPanel } from '@/components/ImpasseDetectionPanel';
@@ -21,6 +22,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
+import { useDebateWebSocketStore } from '@/hooks/useDebateWebSocketStore';
 
 export function DebateViewerWrapper() {
   const router = useRouter();
@@ -61,6 +63,19 @@ export function DebateViewerWrapper() {
     setIsLoading(false);
   }, []);
 
+  // Live debates start with 'adhoc_' - hide analysis during streaming for better UX
+  const isLiveDebate = debateId?.startsWith('adhoc_') ?? false;
+
+  // Get WebSocket actions for voice input integration
+  // Note: This creates a separate connection for voice suggestions
+  // DebateViewer has its own connection for main debate events
+  // Must be called before early returns to satisfy hooks rules
+  const { sendSuggestion } = useDebateWebSocketStore({
+    debateId: debateId || '',
+    wsUrl: config.ws,
+    enabled: isLiveDebate && !!debateId,
+  });
+
   // Show loading while determining debate ID
   if (isLoading) {
     return (
@@ -96,15 +111,26 @@ export function DebateViewerWrapper() {
     );
   }
 
-  // Live debates start with 'adhoc_' - hide analysis during streaming for better UX
-  const isLiveDebate = debateId.startsWith('adhoc_');
-
   return (
     <div className="min-h-screen bg-bg">
       {/* Main Debate Viewer */}
       <PanelErrorBoundary panelName="Debate Viewer">
         <DebateViewer debateId={debateId} wsUrl={config.ws} />
       </PanelErrorBoundary>
+
+      {/* Voice Input Panel - visible for live debates */}
+      {isLiveDebate && (
+        <div className="container mx-auto px-4 py-4">
+          <PanelErrorBoundary panelName="Voice Input">
+            <VoiceInput
+              debateId={debateId}
+              apiBase={config.api}
+              sendSuggestion={sendSuggestion}
+              autoSubmitSuggestion={false}
+            />
+          </PanelErrorBoundary>
+        </div>
+      )}
 
       {/* Analysis Panels Toggle - hidden during live debates for maximum viewport space */}
       {!isLiveDebate && (

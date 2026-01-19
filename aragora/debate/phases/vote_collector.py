@@ -10,6 +10,7 @@ Key responsibilities:
 - Error tracking for unanimity mode
 - Vote grouping for similar choices
 - Success callbacks (hooks, recording, position tracking)
+- RLM-inspired early termination when clear majority is reached
 
 Usage:
     collector = VoteCollector(
@@ -36,6 +37,12 @@ logger = logging.getLogger(__name__)
 # Timeout constants
 AGENT_TIMEOUT_SECONDS = 45
 VOTE_COLLECTION_TIMEOUT = 180  # Hard cap for collecting all votes
+
+# RLM Early Termination Configuration
+# Minimum fraction of votes needed for early termination
+RLM_EARLY_TERMINATION_THRESHOLD = 0.75
+# Minimum lead over second choice to trigger early termination (as fraction of total agents)
+RLM_MAJORITY_LEAD_THRESHOLD = 0.25
 
 
 def get_complexity_governor():
@@ -72,6 +79,14 @@ class VoteCollectorConfig:
     vote_collection_timeout: float = VOTE_COLLECTION_TIMEOUT
     agent_timeout: float = AGENT_TIMEOUT_SECONDS
 
+    # RLM Early Termination
+    # Enable early termination when clear majority reached
+    enable_rlm_early_termination: bool = True
+    # Minimum fraction of votes collected before checking for early termination
+    rlm_early_termination_threshold: float = RLM_EARLY_TERMINATION_THRESHOLD
+    # Minimum lead (as fraction of total agents) for early termination
+    rlm_majority_lead_threshold: float = RLM_MAJORITY_LEAD_THRESHOLD
+
 
 class VoteCollector:
     """
@@ -82,6 +97,7 @@ class VoteCollector:
     - Error tracking for unanimity mode
     - Vote success callbacks (hooks, recording, position tracking)
     - Vote grouping for similar choices
+    - RLM-inspired early termination when clear majority is reached
     """
 
     def __init__(self, config: VoteCollectorConfig):
@@ -99,6 +115,73 @@ class VoteCollector:
         self.position_tracker = config.position_tracker
         self._group_similar_votes = config.group_similar_votes
         self.VOTE_COLLECTION_TIMEOUT = config.vote_collection_timeout
+
+    def _check_clear_majority(
+        self,
+        votes: list["Vote"],
+        total_agents: int,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Check if a clear majority has been reached for RLM early termination.
+
+        RLM-inspired optimization: Stop collecting votes once a clear winner
+        is determined, avoiding unnecessary waiting for slower agents.
+
+        A clear majority requires:
+        1. At least rlm_early_termination_threshold (default 75%) of votes collected
+        2. Leading choice has > 50% of total agents
+        3. Lead over second choice >= rlm_majority_lead_threshold (default 25%)
+
+        Args:
+            votes: List of votes collected so far
+            total_agents: Total number of agents in the debate
+
+        Returns:
+            Tuple of (has_clear_majority, winning_choice or None)
+        """
+        if not self.config.enable_rlm_early_termination:
+            return False, None
+
+        if not votes or total_agents == 0:
+            return False, None
+
+        # Check minimum vote threshold
+        votes_collected = len(votes)
+        min_votes_needed = int(total_agents * self.config.rlm_early_termination_threshold)
+        if votes_collected < min_votes_needed:
+            return False, None
+
+        # Count votes by choice
+        vote_counts: dict[str, int] = {}
+        for vote in votes:
+            if hasattr(vote, 'choice') and vote.choice:
+                vote_counts[vote.choice] = vote_counts.get(vote.choice, 0) + 1
+
+        if not vote_counts:
+            return False, None
+
+        # Sort choices by count
+        sorted_choices = sorted(vote_counts.items(), key=lambda x: x[1], reverse=True)
+        leader, leader_count = sorted_choices[0]
+
+        # Check if leader has majority of total agents (not just votes collected)
+        if leader_count <= total_agents / 2:
+            return False, None
+
+        # Check lead over second choice
+        second_count = sorted_choices[1][1] if len(sorted_choices) > 1 else 0
+        lead = leader_count - second_count
+        min_lead = int(total_agents * self.config.rlm_majority_lead_threshold)
+
+        if lead >= min_lead:
+            logger.info(
+                f"rlm_early_termination_majority leader={leader} "
+                f"votes={leader_count}/{votes_collected} lead={lead} "
+                f"total_agents={total_agents}"
+            )
+            return True, leader
+
+        return False, None
 
     async def collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection.
@@ -141,8 +224,10 @@ class VoteCollector:
                 return (agent, e)
 
         async def collect_all_votes():
-            """Collect votes from all agents concurrently."""
+            """Collect votes from all agents concurrently with RLM early termination."""
+            total_agents = len(ctx.agents)
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
+            early_terminated = False
 
             for completed_task in asyncio.as_completed(vote_tasks):
                 try:
@@ -161,6 +246,40 @@ class VoteCollector:
                 else:
                     votes.append(vote_result)
                     self._handle_vote_success(ctx, agent, vote_result)
+
+                    # RLM early termination check
+                    has_majority, leader = self._check_clear_majority(votes, total_agents)
+                    if has_majority:
+                        # Cancel remaining tasks - we have a clear winner
+                        for task in vote_tasks:
+                            if not task.done():
+                                task.cancel()
+                        early_terminated = True
+
+                        # Notify spectator about early termination
+                        if self._notify_spectator:
+                            self._notify_spectator(
+                                "rlm_early_termination",
+                                details=f"Clear majority for '{leader}' ({len(votes)}/{total_agents} votes)",
+                                metric=len(votes) / total_agents,
+                                agent="system",
+                            )
+
+                        # Emit hook for WebSocket clients
+                        if "on_rlm_early_termination" in self.hooks:
+                            self.hooks["on_rlm_early_termination"](
+                                leader=leader,
+                                votes_collected=len(votes),
+                                total_agents=total_agents,
+                            )
+
+                        break  # Exit collection loop
+
+            if early_terminated:
+                logger.info(
+                    f"vote_collection_early_terminated collected={len(votes)} "
+                    f"total_agents={total_agents}"
+                )
 
         # Apply outer timeout to prevent N*agent_timeout runaway
         try:
@@ -362,6 +481,9 @@ def create_vote_collector(
     group_similar_votes: Optional[Callable] = None,
     vote_collection_timeout: float = VOTE_COLLECTION_TIMEOUT,
     agent_timeout: float = AGENT_TIMEOUT_SECONDS,
+    enable_rlm_early_termination: bool = True,
+    rlm_early_termination_threshold: float = RLM_EARLY_TERMINATION_THRESHOLD,
+    rlm_majority_lead_threshold: float = RLM_MAJORITY_LEAD_THRESHOLD,
 ) -> VoteCollector:
     """Create a VoteCollector with the given configuration.
 
@@ -375,6 +497,9 @@ def create_vote_collector(
         group_similar_votes: Vote grouping callback
         vote_collection_timeout: Overall timeout for vote collection
         agent_timeout: Per-agent voting timeout
+        enable_rlm_early_termination: Enable RLM early termination when majority reached
+        rlm_early_termination_threshold: Min fraction of votes before checking majority
+        rlm_majority_lead_threshold: Min lead (fraction) to trigger early termination
 
     Returns:
         Configured VoteCollector instance
@@ -389,6 +514,9 @@ def create_vote_collector(
         group_similar_votes=group_similar_votes,
         vote_collection_timeout=vote_collection_timeout,
         agent_timeout=agent_timeout,
+        enable_rlm_early_termination=enable_rlm_early_termination,
+        rlm_early_termination_threshold=rlm_early_termination_threshold,
+        rlm_majority_lead_threshold=rlm_majority_lead_threshold,
     )
     return VoteCollector(config)
 
@@ -403,4 +531,6 @@ __all__ = [
     "create_vote_collector",
     "VOTE_COLLECTION_TIMEOUT",
     "AGENT_TIMEOUT_SECONDS",
+    "RLM_EARLY_TERMINATION_THRESHOLD",
+    "RLM_MAJORITY_LEAD_THRESHOLD",
 ]

@@ -620,6 +620,42 @@ class KnowledgeMound:
 
         return result
 
+    async def get_recent_nodes(
+        self,
+        workspace_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[KnowledgeItem]:
+        """
+        Get most recently updated knowledge nodes.
+
+        Args:
+            workspace_id: Workspace to query (defaults to self.workspace_id)
+            limit: Maximum number of nodes to return
+
+        Returns:
+            List of KnowledgeItems sorted by update time (newest first)
+        """
+        self._ensure_initialized()
+
+        ws_id = workspace_id or self.workspace_id
+
+        # Query the meta store for recent nodes
+        if hasattr(self._meta_store, "get_recent_nodes_async"):
+            return await self._meta_store.get_recent_nodes_async(ws_id, limit)
+        else:
+            # SQLite fallback - query nodes ordered by updated_at
+            nodes = self._meta_store.query_nodes(
+                workspace_id=ws_id,
+                limit=limit,
+            )
+            # Sort by updated_at if available, else created_at
+            sorted_nodes = sorted(
+                nodes,
+                key=lambda n: getattr(n, 'updated_at', None) or getattr(n, 'created_at', None) or '',
+                reverse=True,
+            )
+            return [self._node_to_item(n) for n in sorted_nodes[:limit]]
+
     async def query_semantic(
         self,
         text: str,

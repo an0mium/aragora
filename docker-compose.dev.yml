@@ -51,6 +51,9 @@ services:
       - ARAGORA_WEAVIATE_ENABLED=${ARAGORA_WEAVIATE_ENABLED:-false}
       - ARAGORA_WEAVIATE_URL=http://weaviate:8080
       - ARAGORA_EMBEDDING_MODEL=${ARAGORA_EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      # Qdrant (optional - for knowledge mound and memory)
+      - ARAGORA_QDRANT_ENABLED=${ARAGORA_QDRANT_ENABLED:-false}
+      - ARAGORA_QDRANT_URL=http://qdrant:6333
     volumes:
       # Mount source code for hot reload
       - ./aragora:/app/aragora:ro
@@ -228,12 +231,40 @@ services:
     networks:
       - aragora-dev
 
+  # ==========================================================================
+  # Qdrant Vector Database (optional - for knowledge mound and memory)
+  # ==========================================================================
+  # Enable with: ARAGORA_QDRANT_ENABLED=true docker-compose -f docker-compose.dev.yml up
+  # Qdrant is recommended for pure vector operations (memory, knowledge embeddings)
+  # while Weaviate excels at hybrid search (debates, documents)
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: aragora-qdrant-dev
+    profiles:
+      - knowledge  # Only starts with --profile knowledge
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - qdrant-dev-data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: "6334"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - aragora-dev
+
 volumes:
   aragora-dev-data:
   aragora-dev-nomic:
   redis-dev-data:
   postgres-dev-data:
   weaviate-dev-data:
+  qdrant-dev-data:
 
 networks:
   aragora-dev:

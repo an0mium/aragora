@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { isAgentMessage } from '@/types/events';
 import { getAgentColors } from '@/utils/agentColors';
@@ -25,69 +25,61 @@ export function AgentPanel({ events }: AgentPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Collect all agent_message content for deduplication
-  const agentMessageContents = new Set(
-    events
-      .filter(isAgentMessage)
-      .map((e) => {
-        const content = e.data.content || '';
-        // Normalize: first 2000 chars, lowercase, trimmed for better deduplication accuracy
-        // Increased from 500 to prevent false positive deduplication of long messages
-        return content.slice(0, 2000).toLowerCase().trim();
-      })
-  );
+  // Memoize agent message contents for deduplication
+  const agentMessageContents = useMemo(() => {
+    return new Set(
+      events
+        .filter(isAgentMessage)
+        .map((e) => {
+          const content = e.data.content || '';
+          // Normalize: first 2000 chars, lowercase, trimmed for better deduplication accuracy
+          return content.slice(0, 2000).toLowerCase().trim();
+        })
+    );
+  }, [events]);
 
-  // Filter to agent-related events, preferring agent_message over log_message
-  // to avoid duplicated content (log_message often echoes agent_message)
-  const agentEvents = events.filter((e) => {
-    // Always include these primary event types
-    if (
-      e.type === 'agent_message' ||
-      e.type === 'critique' ||
-      e.type === 'consensus' ||
-      e.type === 'vote'
-    ) {
-      return true;
-    }
-    // For log_message, filter out duplicates more aggressively
-    if (e.type === 'log_message') {
-      const msg = (e.data?.message as string) || '';
+  // Memoize filtered agent events to avoid recalculating on every render
+  const agentEvents = useMemo(() => {
+    return events.filter((e) => {
+      // Always include these primary event types
+      if (
+        e.type === 'agent_message' ||
+        e.type === 'critique' ||
+        e.type === 'consensus' ||
+        e.type === 'vote'
+      ) {
+        return true;
+      }
+      // For log_message, filter out duplicates more aggressively
+      if (e.type === 'log_message') {
+        const msg = (e.data?.message as string) || '';
 
-      // Skip log messages that look like arena message summaries (they have agent_message equivalents)
-      // These have format: "    [role] agent (round N): content"
-      if (msg.match(/^\s*\[(proposer|critic|synthesizer|judge|reviewer|implementer)\]/i)) {
-        return false;
+        // Skip log messages that look like arena message summaries
+        if (msg.match(/^\s*\[(proposer|critic|synthesizer|judge|reviewer|implementer)\]/i)) {
+          return false;
+        }
+        // Skip vote/critique/consensus summaries (have dedicated events)
+        if (msg.match(/^\s*\[(vote|critique|consensus)\]/i)) {
+          return false;
+        }
+        // Skip round markers (redundant with agent_message)
+        if (msg.match(/^\s*Round \d+:/i)) {
+          return false;
+        }
+        // Skip agent-attributed log messages that duplicate agent_message content
+        const normalizedMsg = msg.slice(0, 2000).toLowerCase().trim();
+        if (agentMessageContents.has(normalizedMsg)) {
+          return false;
+        }
+        // Skip if log message starts with agent name (likely duplicate)
+        if (msg.match(/^\s*(gemini|claude|codex|grok)[-\w]*\s*:/i)) {
+          return false;
+        }
+        return true;
       }
-      // Skip vote summaries (have vote events)
-      if (msg.match(/^\s*\[vote\]/i)) {
-        return false;
-      }
-      // Skip critique summaries (have critique events)
-      if (msg.match(/^\s*\[critique\]/i)) {
-        return false;
-      }
-      // Skip consensus summaries (have consensus events)
-      if (msg.match(/^\s*\[consensus\]/i)) {
-        return false;
-      }
-      // Skip round markers (redundant with agent_message)
-      if (msg.match(/^\s*Round \d+:/i)) {
-        return false;
-      }
-      // Skip agent-attributed log messages that duplicate agent_message content
-      // Check if content matches any agent_message (first 2000 chars for accuracy)
-      const normalizedMsg = msg.slice(0, 2000).toLowerCase().trim();
-      if (agentMessageContents.has(normalizedMsg)) {
-        return false;
-      }
-      // Skip if log message starts with agent name (likely duplicate)
-      if (msg.match(/^\s*(gemini|claude|codex|grok)[-\w]*\s*:/i)) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  });
+      return false;
+    });
+  }, [events, agentMessageContents]);
 
   // Auto-scroll to bottom when new events arrive
   useEffect(() => {
@@ -199,7 +191,7 @@ interface EventCardProps {
   onToggle: (id: string) => void;
 }
 
-function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
+const EventCard = memo(function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
   const agentName = event.agent || 'system';
   const colors = getAgentColors(agentName);
   const timestamp = new Date(event.timestamp * 1000).toLocaleTimeString();
@@ -291,4 +283,4 @@ function EventCard({ id, event, isExpanded, onToggle }: EventCardProps) {
       )}
     </div>
   );
-}
+});

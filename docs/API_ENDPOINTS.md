@@ -1,5 +1,9 @@
 # Aragora API Documentation
 
+> **Redirect Notice:** This document is a simplified endpoint listing. For comprehensive documentation including request/response schemas, examples, and usage notes, see **[API_REFERENCE.md](./API_REFERENCE.md)**.
+>
+> This file is auto-generated and may be removed in a future release.
+
 This document describes the HTTP API endpoints provided by the Aragora server.
 
 ## Table of Contents
@@ -33,6 +37,8 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Training](#training)
 - [Webhook](#webhook)
 - [Workspace](#workspace)
+- [Transcription](#transcription)
+- [Bot Integrations](#bot-integrations)
 
 ---
 
@@ -831,6 +837,108 @@ Generate compliance report
 ### `GET` `/api/audit/verify`
 
 Verify audit log integrity
+
+---
+
+## Transcription
+
+Speech-to-text transcription endpoints for audio, video, and YouTube content.
+
+### `GET` `/api/transcription/config`
+
+Get supported formats and limits
+
+### `POST` `/api/transcription/audio`
+
+Transcribe an audio file
+
+**Request:** Multipart form with `file` field
+
+**Response:**
+```json
+{
+  "text": "Transcribed text content...",
+  "language": "en",
+  "duration": 123.45,
+  "segments": [
+    {"start": 0.0, "end": 2.0, "text": "First segment"}
+  ]
+}
+```
+
+### `POST` `/api/transcription/video`
+
+Extract audio from video and transcribe
+
+### `POST` `/api/transcription/youtube`
+
+Transcribe a YouTube video
+
+**Request:**
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+}
+```
+
+### `POST` `/api/transcription/youtube/info`
+
+Get YouTube video metadata without transcribing
+
+**Response:**
+```json
+{
+  "video_id": "dQw4w9WgXcQ",
+  "title": "Video Title",
+  "duration": 180,
+  "channel": "Channel Name",
+  "thumbnail_url": "https://..."
+}
+```
+
+---
+
+## Bot Integrations
+
+Endpoints for chat platform bot webhooks.
+
+### Discord
+
+#### `GET` `/api/bots/discord/status`
+
+Get Discord bot configuration status
+
+#### `POST` `/api/bots/discord/interactions`
+
+Handle Discord Interactions API webhooks
+
+**Headers Required:**
+- `X-Signature-Ed25519` - Request signature
+- `X-Signature-Timestamp` - Request timestamp
+
+### Microsoft Teams
+
+#### `GET` `/api/bots/teams/status`
+
+Get Teams bot configuration status
+
+#### `POST` `/api/bots/teams/messages`
+
+Handle Bot Framework messages
+
+### Zoom
+
+#### `GET` `/api/bots/zoom/status`
+
+Get Zoom bot configuration status
+
+#### `POST` `/api/bots/zoom/events`
+
+Handle Zoom webhook events
+
+**Headers:**
+- `x-zm-request-timestamp` - Request timestamp
+- `x-zm-signature` - HMAC signature
 
 ---
 

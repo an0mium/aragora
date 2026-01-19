@@ -19,6 +19,16 @@ interface IndexProgress {
   error?: string;
 }
 
+interface IndexedRepository {
+  repository_name: string;
+  workspace_id: string;
+  total_nodes: number;
+  total_files: number;
+  node_types: Record<string, number>;
+  last_indexed?: string;
+  status?: string;
+}
+
 interface Entity {
   id: string;
   content?: string;
@@ -48,8 +58,12 @@ const statusColors: Record<string, string> = {
 
 export default function RepositoryPage() {
   const { config: backendConfig } = useBackend();
-  const [activeTab, setActiveTab] = useState<'index' | 'browse' | 'graph'>('index');
+  const [activeTab, setActiveTab] = useState<'repos' | 'index' | 'browse' | 'graph'>('repos');
   const [error, setError] = useState<string | null>(null);
+
+  // Repository list state
+  const [repositories, setRepositories] = useState<IndexedRepository[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(true);
 
   // Index state
   const [repoPath, setRepoPath] = useState('');
@@ -60,8 +74,10 @@ export default function RepositoryPage() {
   const [maxFiles, setMaxFiles] = useState(10000);
   const [extractSymbols, setExtractSymbols] = useState(true);
   const [extractDeps, setExtractDeps] = useState(true);
+  const [incrementalUpdate, setIncrementalUpdate] = useState(false);
   const [indexing, setIndexing] = useState(false);
   const [progress, setProgress] = useState<IndexProgress | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Browse state
   const [browseRepoId, setBrowseRepoId] = useState('');
@@ -80,14 +96,92 @@ export default function RepositoryPage() {
   const [graphEntities, setGraphEntities] = useState<Entity[]>([]);
   const [loadingGraph, setLoadingGraph] = useState(false);
 
+  // Fetch repositories
+  const fetchRepositories = useCallback(async () => {
+    try {
+      setLoadingRepos(true);
+      // Try to get known repository IDs from the orchestrator or mound
+      const knownRepos = ['aragora', 'default']; // Common repo names to check
+      const repos: IndexedRepository[] = [];
+
+      for (const repoId of knownRepos) {
+        try {
+          const res = await fetch(`${backendConfig.api}/api/repository/${encodeURIComponent(repoId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            repos.push({
+              repository_name: repoId,
+              workspace_id: data.workspace_id || 'default',
+              total_nodes: data.total_nodes || 0,
+              total_files: data.total_files || 0,
+              node_types: data.node_types || {},
+              last_indexed: data.last_indexed,
+              status: 'indexed',
+            });
+          }
+        } catch {
+          // Repo doesn't exist, skip
+        }
+      }
+      setRepositories(repos);
+    } catch (err) {
+      console.error('Failed to fetch repositories:', err);
+    } finally {
+      setLoadingRepos(false);
+    }
+  }, [backendConfig.api]);
+
+  useEffect(() => {
+    fetchRepositories();
+  }, [fetchRepositories]);
+
+  // Poll for indexing progress
+  const pollProgress = useCallback(async (repoId: string) => {
+    try {
+      const res = await fetch(`${backendConfig.api}/api/repository/${encodeURIComponent(repoId)}/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setProgress(data);
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            setPollingInterval(null);
+          }
+          setIndexing(false);
+          fetchRepositories();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to poll progress:', err);
+    }
+  }, [backendConfig.api, pollingInterval, fetchRepositories]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
+
   const handleStartIndex = async () => {
     if (!repoPath.trim()) return;
     setIndexing(true);
-    setProgress(null);
+    setProgress({
+      repository_id: repoPath,
+      status: 'indexing',
+      files_discovered: 0,
+      files_processed: 0,
+      nodes_created: 0,
+    });
     setError(null);
 
+    const endpoint = incrementalUpdate ? '/api/repository/incremental' : '/api/repository/index';
+
     try {
-      const res = await fetch(`${backendConfig.api}/api/repository/index`, {
+      const res = await fetch(`${backendConfig.api}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,15 +209,41 @@ export default function RepositoryPage() {
             nodes_created: data.result.nodes_created || 0,
             error: data.result.errors?.join(', '),
           });
+          fetchRepositories();
         }
       } else {
         const errData = await res.json().catch(() => ({}));
         setError(errData.error || 'Indexing failed');
+        setProgress(prev => prev ? { ...prev, status: 'failed', error: errData.error } : null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Indexing failed');
+      setProgress(prev => prev ? { ...prev, status: 'failed', error: err instanceof Error ? err.message : 'Failed' } : null);
     } finally {
       setIndexing(false);
+    }
+  };
+
+  const handleDeleteRepository = async (repoId: string) => {
+    if (!confirm(`Are you sure you want to delete the indexed repository "${repoId}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${backendConfig.api}/api/repository/${encodeURIComponent(repoId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_id: workspaceId }),
+      });
+
+      if (res.ok) {
+        fetchRepositories();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || 'Failed to delete repository');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete repository');
     }
   };
 
@@ -230,7 +350,7 @@ export default function RepositoryPage() {
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6 border-b border-border pb-2">
-            {(['index', 'browse', 'graph'] as const).map(tab => (
+            {(['repos', 'index', 'browse', 'graph'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -240,10 +360,110 @@ export default function RepositoryPage() {
                     : 'text-text-muted hover:text-text'
                 }`}
               >
-                {tab.toUpperCase()}
+                {tab === 'repos' ? 'REPOSITORIES' : tab.toUpperCase()}
               </button>
             ))}
           </div>
+
+          {/* Repositories Tab */}
+          {activeTab === 'repos' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-mono text-acid-green">[INDEXED REPOSITORIES]</h3>
+                <button
+                  onClick={() => setActiveTab('index')}
+                  className="px-4 py-2 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors"
+                >
+                  [+ INDEX NEW]
+                </button>
+              </div>
+
+              {loadingRepos ? (
+                <div className="text-center py-12">
+                  <div className="text-acid-green font-mono animate-pulse">Loading repositories...</div>
+                </div>
+              ) : repositories.length === 0 ? (
+                <div className="card p-8 text-center">
+                  <div className="text-text-muted font-mono mb-4">
+                    No repositories indexed yet.
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('index')}
+                    className="px-4 py-2 font-mono text-sm border border-acid-green text-acid-green hover:bg-acid-green/10 transition-colors"
+                  >
+                    [INDEX A REPOSITORY]
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {repositories.map(repo => (
+                    <div key={repo.repository_name} className="card p-4 hover:border-acid-green/50 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-mono font-bold text-acid-green">{repo.repository_name}</h4>
+                          <span className="text-xs font-mono text-text-muted">Workspace: {repo.workspace_id}</span>
+                        </div>
+                        <span className="px-2 py-0.5 text-xs font-mono text-acid-green bg-acid-green/10 border border-acid-green/30 rounded">
+                          INDEXED
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="p-2 bg-bg rounded border border-border">
+                          <div className="text-xs font-mono text-text-muted">Nodes</div>
+                          <div className="font-mono text-lg text-acid-cyan">{repo.total_nodes.toLocaleString()}</div>
+                        </div>
+                        <div className="p-2 bg-bg rounded border border-border">
+                          <div className="text-xs font-mono text-text-muted">Files</div>
+                          <div className="font-mono text-lg text-accent">{repo.total_files.toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      {repo.node_types && Object.keys(repo.node_types).length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-xs font-mono text-text-muted mb-1">Node Types</div>
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(repo.node_types).slice(0, 4).map(([type, count]) => (
+                              <span key={type} className="px-2 py-0.5 text-xs font-mono bg-surface text-text-muted rounded">
+                                {type}: {count}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setBrowseRepoId(repo.repository_name);
+                            setActiveTab('browse');
+                          }}
+                          className="flex-1 py-1.5 font-mono text-xs border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                        >
+                          [BROWSE]
+                        </button>
+                        <button
+                          onClick={() => {
+                            setGraphRepoId(repo.repository_name);
+                            setActiveTab('graph');
+                          }}
+                          className="flex-1 py-1.5 font-mono text-xs border border-accent text-accent hover:bg-accent/10 transition-colors"
+                        >
+                          [GRAPH]
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRepository(repo.repository_name)}
+                          className="py-1.5 px-2 font-mono text-xs border border-crimson text-crimson hover:bg-crimson/10 transition-colors"
+                        >
+                          [X]
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Index Tab */}
           {activeTab === 'index' && (
@@ -318,7 +538,7 @@ export default function RepositoryPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     <label className="flex items-center gap-2 text-sm font-mono">
                       <input
                         type="checkbox"
@@ -337,6 +557,15 @@ export default function RepositoryPage() {
                       />
                       <span className="text-text-muted">Extract Dependencies</span>
                     </label>
+                    <label className="flex items-center gap-2 text-sm font-mono">
+                      <input
+                        type="checkbox"
+                        checked={incrementalUpdate}
+                        onChange={e => setIncrementalUpdate(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      <span className="text-acid-cyan">Incremental Update</span>
+                    </label>
                   </div>
 
                   <button
@@ -344,7 +573,7 @@ export default function RepositoryPage() {
                     disabled={indexing || !repoPath.trim()}
                     className="w-full py-3 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
                   >
-                    {indexing ? '[INDEXING...]' : '[START INDEX]'}
+                    {indexing ? '[INDEXING...]' : incrementalUpdate ? '[RUN INCREMENTAL UPDATE]' : '[START FULL INDEX]'}
                   </button>
                 </div>
               </div>

@@ -32,10 +32,11 @@ SOC 2 Controls: CC6.1, CC6.3 - Logical access controls
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
+
+from aragora.server.http_utils import run_async
 
 from aragora.billing.jwt_auth import extract_user_from_request
 from aragora.privacy import (
@@ -120,14 +121,10 @@ class WorkspaceHandler(BaseHandler):
     def _run_async(self, coro):
         """Run an async coroutine from sync context.
 
-        Creates a new event loop, runs the coroutine, and cleans up.
-        This centralizes the async-from-sync pattern used throughout.
+        Delegates to the centralized run_async utility which handles
+        event loop management and nested loop edge cases.
         """
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        return run_async(coro)
 
     def _get_user_store(self) -> Any:
         """Get user store from context."""

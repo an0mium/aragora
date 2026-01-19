@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-18
 
 
-**Aragora** is an Adversarial Validation Engine that stress-tests decisions through multi-agent AI debate. This is the canonical onboarding guide (see `docs/START_HERE.md` for the short entry point).
+**Aragora** is an Adversarial Validation Engine that stress-tests decisions through multi-agent AI debate. This is the canonical onboarding guide.
 
 **Choose your path:**
 - [Quick Start](#quick-start) - Get running in 5 minutes

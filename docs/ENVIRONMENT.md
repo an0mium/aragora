@@ -623,6 +623,103 @@ Configuration for debate-to-podcast conversion.
 
 See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation.
 
+## Transcription (Speech-to-Text)
+
+Configuration for audio/video transcription using Whisper backends.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_WHISPER_BACKEND` | Optional | Transcription backend: `openai`, `faster-whisper`, `whisper-cpp`, `auto` | `auto` |
+| `ARAGORA_WHISPER_MODEL` | Optional | Whisper model size: `tiny`, `base`, `small`, `medium`, `large` | `base` |
+| `ARAGORA_TRANSCRIPTION_TIMEOUT` | Optional | Transcription timeout (seconds) | `300` |
+| `ARAGORA_MAX_AUDIO_DURATION` | Optional | Max audio duration for transcription (seconds) | `3600` |
+| `ARAGORA_MAX_AUDIO_SIZE_MB` | Optional | Max audio file size (MB) | `25` |
+
+**Backend Selection:**
+- `openai` - Uses OpenAI Whisper API (requires `OPENAI_API_KEY`)
+- `faster-whisper` - Local CTranslate2-based transcription (requires `pip install faster-whisper`)
+- `whisper-cpp` - Local whisper.cpp binary (requires `whisper` in PATH)
+- `auto` - Tries OpenAI first, falls back to local backends
+
+**Usage:**
+```bash
+# Use OpenAI Whisper API (fastest, requires API key)
+ARAGORA_WHISPER_BACKEND=openai
+
+# Use local faster-whisper (GPU-accelerated)
+ARAGORA_WHISPER_BACKEND=faster-whisper
+ARAGORA_WHISPER_MODEL=medium
+
+# Use whisper.cpp (CPU-optimized)
+ARAGORA_WHISPER_BACKEND=whisper-cpp
+```
+
+## Bot Integrations
+
+Configuration for chat platform bots (Discord, Teams, Zoom, Slack).
+
+### Discord Bot
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `DISCORD_BOT_TOKEN` | Required | Discord bot authentication token | - |
+| `DISCORD_APPLICATION_ID` | Required | Discord application ID for slash commands | - |
+| `DISCORD_PUBLIC_KEY` | Required | Public key for interaction verification | - |
+
+**Setup:**
+1. Create application at [Discord Developer Portal](https://discord.com/developers/applications)
+2. Enable "Bot" and copy the token
+3. Enable "Slash Commands" and note the Application ID
+4. Copy the Public Key from "General Information"
+5. Set Interactions Endpoint URL to `https://your-api.com/api/bots/discord/interactions`
+
+### Microsoft Teams Bot
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `TEAMS_APP_ID` | Required | Azure Bot registration App ID | - |
+| `TEAMS_APP_PASSWORD` | Required | Azure Bot registration password | - |
+
+**Setup:**
+1. Register a bot at [Azure Bot Service](https://portal.azure.com/#create/Microsoft.BotServiceConnectivityGalleryPackage)
+2. Enable Teams channel in "Channels" settings
+3. Create an app manifest for Teams deployment
+4. Set Messaging Endpoint to `https://your-api.com/api/bots/teams/messages`
+
+### Zoom Bot
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ZOOM_CLIENT_ID` | Required | Zoom app OAuth client ID | - |
+| `ZOOM_CLIENT_SECRET` | Required | Zoom app OAuth client secret | - |
+| `ZOOM_BOT_JID` | Required | Bot's JID for chat messages | - |
+| `ZOOM_SECRET_TOKEN` | Required | Webhook signature verification token | - |
+| `ZOOM_VERIFICATION_TOKEN` | Optional | Legacy verification token | - |
+
+**Setup:**
+1. Create an app at [Zoom Marketplace](https://marketplace.zoom.us/develop/create)
+2. Choose "Chatbot" app type
+3. Configure OAuth scopes for chat messaging
+4. Set Event Subscription URL to `https://your-api.com/api/bots/zoom/events`
+
+### Slack (Enhanced)
+
+Slack integration uses the existing `SLACK_*` variables with additional bidirectional features.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SLACK_BOT_TOKEN` | Required | Slack bot OAuth token (xoxb-...) | - |
+| `SLACK_SIGNING_SECRET` | Required | Request signing secret | - |
+| `SLACK_APP_TOKEN` | Optional | App-level token for Socket Mode (xapp-...) | - |
+
+**Additional Commands:**
+- `/aragora debate "topic"` - Start a multi-agent debate
+- `/aragora gauntlet` - Run stress-test validation (with file attachment)
+- `/aragora status` - Check system health
+- `/aragora help` - List available commands
+
+See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
+
 ## Debug & Logging
 
 | Variable | Required | Description | Default |

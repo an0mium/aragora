@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora"
-version = "1.5.2"
+version = "2.0.2"
 description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
 readme = "README.md"
 license = "MIT"
@@ -473,6 +473,24 @@ module = [
     "aragora.debate.event_emission",
     "aragora.debate.debate_hooks",
     "aragora.debate.event_bus",
+    # Added strict - RLM modules (Jan 2026)
+    "aragora.rlm.__init__",
+    "aragora.rlm.types",
+    "aragora.rlm.bridge",
+    "aragora.rlm.compressor",
+    "aragora.rlm.metrics",
+    "aragora.rlm.repl",
+    "aragora.rlm.strategies",
+    "aragora.rlm.streaming",
+    "aragora.rlm.training.__init__",
+    "aragora.rlm.training.buffer",
+    "aragora.rlm.training.policy",
+    "aragora.rlm.training.reward",
+    "aragora.debate.cognitive_limiter_rlm",
+    "aragora.memory.cross_debate_rlm",
+    # Added strict - Phase 4 transcription module (Jan 2026)
+    "aragora.transcription.*",
+    "aragora.server.handlers.transcription",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -498,13 +516,16 @@ module = [
 check_untyped_defs = true
 
 # Moderate-strict for complex modules (check untyped defs)
+# Note: aragora.memory.continuum promoted to strict in Phase 17
 [[tool.mypy.overrides]]
 module = [
     "aragora.debate.orchestrator",
     "aragora.agents.api_agents.*",
-    "aragora.memory.continuum",
     "aragora.memory.consensus",
     # aragora.memory.streams promoted to strict in Phase 11
+    # Phase 4: bots module - moderate until decorator types fixed
+    "aragora.bots.*",
+    "aragora.server.handlers.bots.*",
 ]
 disallow_untyped_defs = false
 check_untyped_defs = true

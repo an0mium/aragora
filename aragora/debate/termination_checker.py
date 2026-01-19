@@ -3,14 +3,40 @@ Debate termination checking.
 
 Extracted from Arena orchestrator to improve code organization and testability.
 Handles judge-based termination and early stopping via agent consensus.
+
+RLM Enhancement (arXiv:2512.24601):
+This module now supports the RLM "ready signal" pattern where termination
+decisions include confidence scores. Instead of binary yes/no decisions,
+agents can signal their confidence level, enabling adaptive termination:
+- High confidence (>0.8): Ready to terminate
+- Medium confidence (0.5-0.8): May benefit from more rounds
+- Low confidence (<0.5): Should continue
+
+Usage:
+    checker = TerminationChecker(protocol, agents, generate_fn, task)
+
+    # Traditional check (backwards compatible)
+    should_continue, reason = await checker.check_judge_termination(round_num, proposals, context)
+
+    # RLM-style check with confidence
+    should_terminate, reason, confidence = await checker.check_judge_termination_with_confidence(
+        round_num, proposals, context
+    )
+    if confidence >= 0.8:
+        # High confidence - safe to terminate
+        pass
 """
 
 __all__ = [
     "TerminationChecker",
+    "TerminationResult",
 ]
 
 import asyncio
+import json
 import logging
+import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
@@ -18,6 +44,44 @@ if TYPE_CHECKING:
     from aragora.debate.protocol import DebateProtocol
 
 logger = logging.getLogger(__name__)
+
+# RLM Ready Signal Configuration
+RLM_HIGH_CONFIDENCE_THRESHOLD = 0.8  # Confidence needed for early termination
+RLM_MIN_CONFIDENCE_FOR_STOP = 0.6    # Minimum confidence to consider stopping
+
+
+@dataclass
+class TerminationResult:
+    """Result of a termination check with RLM-style confidence scoring.
+
+    Based on the RLM paper's ready signal pattern where the model signals
+    its confidence rather than just a binary decision.
+    """
+
+    should_terminate: bool
+    """Whether the debate should terminate."""
+
+    reason: str = ""
+    """Explanation for the decision."""
+
+    confidence: float = 0.5
+    """Confidence in the decision (0.0 to 1.0)."""
+
+    source: str = "unknown"
+    """Source of the decision (judge, early_stop, agent_quorum)."""
+
+    votes: Optional[dict[str, bool]] = None
+    """Individual agent votes if applicable."""
+
+    @property
+    def is_high_confidence(self) -> bool:
+        """Check if this is a high-confidence decision."""
+        return self.confidence >= RLM_HIGH_CONFIDENCE_THRESHOLD
+
+    @property
+    def should_consider_stopping(self) -> bool:
+        """Check if termination should be considered (meets minimum threshold)."""
+        return self.should_terminate and self.confidence >= RLM_MIN_CONFIDENCE_FOR_STOP
 
 
 class TerminationChecker:
@@ -129,6 +193,135 @@ REASON: <brief explanation>"""
 
         return True, ""
 
+    async def check_judge_termination_with_confidence(
+        self,
+        round_num: int,
+        proposals: dict[str, str],
+        context: list["Message"],
+    ) -> TerminationResult:
+        """Have a judge evaluate if the debate is conclusive with confidence scoring.
+
+        RLM-enhanced version that returns a confidence score along with the decision,
+        enabling adaptive termination based on judge certainty.
+
+        Args:
+            round_num: Current round number
+            proposals: Dict of agent name to proposal text
+            context: Recent message context
+
+        Returns:
+            TerminationResult with should_terminate, reason, and confidence
+        """
+        if not self.protocol.judge_termination:
+            return TerminationResult(
+                should_terminate=False,
+                reason="Judge termination not enabled",
+                confidence=1.0,
+                source="config",
+            )
+
+        if round_num < self.protocol.min_rounds_before_judge_check:
+            return TerminationResult(
+                should_terminate=False,
+                reason=f"Minimum rounds ({self.protocol.min_rounds_before_judge_check}) not reached",
+                confidence=1.0,
+                source="config",
+            )
+
+        if not self.select_judge_fn:
+            logger.warning("Judge termination enabled but no judge selector provided")
+            return TerminationResult(
+                should_terminate=False,
+                reason="No judge selector available",
+                confidence=0.5,
+                source="error",
+            )
+
+        # Select a judge
+        judge = await self.select_judge_fn(proposals, context)
+
+        # RLM-enhanced prompt that requests confidence score
+        prompt = f"""You are evaluating whether this multi-agent debate has reached a conclusive state.
+
+Task: {self.task[:300]}
+
+After {round_num} rounds of debate, the proposals are:
+{chr(10).join(f"- {agent}: {prop[:200]}..." for agent, prop in proposals.items())}
+
+Evaluate:
+1. Have the key issues been thoroughly discussed?
+2. Are there major unresolved disagreements that more debate could resolve?
+3. Would additional rounds likely produce meaningful improvements?
+
+Respond in JSON format:
+{{"conclusive": true/false, "confidence": 0.0-1.0, "reason": "brief explanation"}}
+
+Where confidence indicates how certain you are in your assessment:
+- 0.9-1.0: Very confident, clear conclusion
+- 0.7-0.9: Fairly confident, minor uncertainties
+- 0.5-0.7: Moderately confident, some open questions
+- Below 0.5: Uncertain, need more discussion"""
+
+        try:
+            response = await self.generate_fn(judge, prompt, context[-5:])
+            response_str = str(response).strip()
+
+            # Try to parse JSON response
+            conclusive = False
+            confidence = 0.5
+            reason = ""
+
+            # Extract JSON from response (may be surrounded by markdown)
+            json_match = re.search(r'\{[^{}]*\}', response_str)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group())
+                    conclusive = bool(data.get("conclusive", False))
+                    confidence = float(data.get("confidence", 0.5))
+                    confidence = max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
+                    reason = str(data.get("reason", ""))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            # Fallback to text parsing if JSON failed
+            if not reason:
+                for line in response_str.split("\n"):
+                    if "conclusive" in line.lower():
+                        conclusive = any(w in line.lower() for w in ["yes", "true"])
+                    if "reason" in line.lower():
+                        reason = line.split(":", 1)[-1].strip() if ":" in line else line
+
+            result = TerminationResult(
+                should_terminate=conclusive,
+                reason=reason,
+                confidence=confidence,
+                source="judge",
+            )
+
+            if conclusive and result.is_high_confidence:
+                logger.info(
+                    f"judge_termination_confident judge={judge.name} "
+                    f"confidence={confidence:.2f} reason={reason[:100]}"
+                )
+                if "on_judge_termination" in self.hooks:
+                    self.hooks["on_judge_termination"](judge.name, reason)
+            elif conclusive:
+                logger.info(
+                    f"judge_termination_low_confidence judge={judge.name} "
+                    f"confidence={confidence:.2f} (below threshold)"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"Judge termination check failed: {e}")
+            return TerminationResult(
+                should_terminate=False,
+                reason=f"Error: {e}",
+                confidence=0.0,
+                source="error",
+            )
+
     async def check_early_stopping(
         self,
         round_num: int,
@@ -232,3 +425,62 @@ Respond with only: CONTINUE or STOP
             return True, "Agents voted to stop early"
 
         return False, ""
+
+    async def should_terminate_with_confidence(
+        self,
+        round_num: int,
+        proposals: dict[str, str],
+        context: list["Message"],
+        require_high_confidence: bool = True,
+    ) -> TerminationResult:
+        """Check termination conditions with RLM-style confidence scoring.
+
+        Enhanced version that only terminates when confidence is high enough,
+        implementing the RLM "ready signal" pattern.
+
+        Args:
+            round_num: Current round number
+            proposals: Dict of agent name to proposal text
+            context: Recent message context
+            require_high_confidence: If True, only terminate on high confidence (>=0.8)
+
+        Returns:
+            TerminationResult with should_terminate, reason, confidence
+        """
+        # Check judge termination with confidence
+        judge_result = await self.check_judge_termination_with_confidence(
+            round_num, proposals, context
+        )
+
+        if judge_result.should_terminate:
+            # Apply confidence requirement
+            if require_high_confidence and not judge_result.is_high_confidence:
+                logger.info(
+                    f"termination_rejected_low_confidence confidence={judge_result.confidence:.2f}"
+                )
+                return TerminationResult(
+                    should_terminate=False,
+                    reason=f"Judge suggested termination but confidence ({judge_result.confidence:.2f}) below threshold",
+                    confidence=judge_result.confidence,
+                    source="judge_low_confidence",
+                )
+            return judge_result
+
+        # Check early stopping (no confidence scoring yet, use vote ratio as proxy)
+        should_continue = await self.check_early_stopping(round_num, proposals, context)
+        if not should_continue:
+            # Estimate confidence from early stopping
+            # This could be enhanced to collect actual confidence from agents
+            return TerminationResult(
+                should_terminate=True,
+                reason="Agents voted to stop early",
+                confidence=self.protocol.early_stop_threshold,  # Use threshold as confidence
+                source="early_stop",
+            )
+
+        return TerminationResult(
+            should_terminate=False,
+            reason="Continue debate",
+            confidence=1.0,  # High confidence in continuing
+            source="no_termination_trigger",
+        )

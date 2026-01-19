@@ -11,6 +11,10 @@ Context for Claude Code when working with the Aragora codebase.
 | Server | `aragora/server/` | `unified_server.py`, `handlers/` |
 | Memory | `aragora/memory/` | `continuum.py`, `consensus.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
+| Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
+| Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
+| RLM | `aragora/rlm/` | `compressor.py`, `streaming.py`, `training/` |
+| Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 
 ## Project Overview
 
@@ -42,9 +46,9 @@ aragora/
 │   ├── continuum.py        # Multi-tier memory (fast/medium/slow/glacial)
 │   └── consensus.py        # Historical debate outcomes
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (297 endpoints)
-│   ├── handlers/           # HTTP endpoint handlers (78 modules)
-│   └── stream/             # WebSocket streaming (10 modules)
+│   ├── unified_server.py   # Main server (~275 endpoints)
+│   ├── handlers/           # HTTP endpoint handlers (119 modules)
+│   └── stream/             # WebSocket streaming (14 modules)
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
@@ -146,6 +150,8 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
+**Test Suite:** 34,400+ tests across 928 test files
+
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
 - Memory systems (CritiqueStore, ContinuumMemory)
@@ -163,9 +169,14 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Trickster - hollow consensus detection via `enable_trickster`
 - SecurityBarrier - telemetry redaction
 - Graph/Matrix debate APIs
+- RLM (Recursive Language Models) - context compression
+- Belief Network - claim provenance tracking
+- Workflow Engine - DAG-based automation
 
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
 - Evidence collection - functional but limited connectors
+- Knowledge Mound - experimental (Phase A1)
+- Control Plane - enterprise features (Phase 0)
 
-See `docs/STATUS.md` for detailed feature status.
+See `docs/STATUS.md` for 74+ detailed feature statuses.

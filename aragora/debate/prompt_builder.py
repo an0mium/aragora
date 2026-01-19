@@ -31,12 +31,13 @@ if TYPE_CHECKING:
 
 # Check for RLM availability
 try:
-    from aragora.rlm import HierarchicalCompressor, AbstractionLevel
+    from aragora.rlm import HierarchicalCompressor, AbstractionLevel, RLMContextAdapter
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
     HierarchicalCompressor = None  # type: ignore[misc,assignment]
     AbstractionLevel = None  # type: ignore[misc,assignment]
+    RLMContextAdapter = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,12 @@ class PromptBuilder:
         # RLM hierarchical context (set by ContextInitializer when enabled)
         self._rlm_context: Optional["RLMContext"] = None
         self._enable_rlm_hints: bool = HAS_RLM  # Show agents how to query context
+
+        # RLM context adapter for external environment pattern
+        # Content is registered here and accessed via query, not stuffed in prompt
+        self._rlm_adapter: Optional["RLMContextAdapter"] = None
+        if HAS_RLM and RLMContextAdapter is not None:
+            self._rlm_adapter = RLMContextAdapter()
 
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
@@ -909,11 +916,22 @@ The system will provide relevant details from the full history."""
             if snippet.url:
                 lines.append(f"  URL: {snippet.url}")
 
-            # Include truncated snippet content
-            content = snippet.snippet[:200] if snippet.snippet else ""
-            if content:
-                if len(snippet.snippet) > 200:
-                    content += "..."
+            # Include snippet content using RLM external environment pattern
+            # Full content is registered externally, summary shown in prompt
+            if snippet.snippet:
+                if self._rlm_adapter and len(snippet.snippet) > 200:
+                    # RLM pattern: register full content, show summary with hint
+                    content = self._rlm_adapter.format_for_prompt(
+                        content=snippet.snippet,
+                        max_chars=200,
+                        content_type="evidence",
+                        include_hint=self._enable_rlm_hints,
+                    )
+                else:
+                    # Fallback: simple truncation
+                    content = snippet.snippet[:200]
+                    if len(snippet.snippet) > 200:
+                        content += "..."
                 lines.append(f"  > {content}")
             lines.append("")  # Blank line between snippets
 
@@ -998,6 +1016,7 @@ The system will provide relevant details from the full history."""
             belief_section = f"\n\n{belief_context}"
 
         # Include historical dissents and minority views
+        # RLM pattern: register full dissent context, show summary in prompt
         dissent_section = ""
         if self.dissent_retriever:
             try:
@@ -1005,7 +1024,18 @@ The system will provide relevant details from the full history."""
                     topic=self.env.task
                 )
                 if dissent_context:
-                    dissent_section = f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
+                    if self._rlm_adapter and len(dissent_context) > 600:
+                        # RLM: full content in external store, summary in prompt
+                        formatted = self._rlm_adapter.format_for_prompt(
+                            content=dissent_context,
+                            max_chars=600,
+                            content_type="dissent",
+                            include_hint=self._enable_rlm_hints,
+                        )
+                        dissent_section = f"\n\n## Historical Minority Views\n{formatted}"
+                    else:
+                        # Fallback: simple truncation
+                        dissent_section = f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
             except Exception as e:
                 logger.debug(f"Dissent retrieval error: {e}")
 

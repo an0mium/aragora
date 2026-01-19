@@ -4,7 +4,7 @@ This document indexes all HTTP handlers in `aragora/server/handlers/`.
 
 ## Overview
 
-The server uses a modular handler architecture with 89 handler modules organized by domain. Each handler extends `BaseHandler` and registers routes it can handle.
+The server uses a modular handler architecture with **119 handler modules** organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. See the [Experimental Handlers](#experimental-handlers-18-total) section for features in development.
 
 ## Handler Structure
 
@@ -223,6 +223,57 @@ POST /api/formal/prove          - Generate formal proof
 | `tournaments.py` | `/api/tournaments/*` | Tournament management |
 | `training.py` | `/api/training/*` | Training data export |
 | `webhooks.py` | `/api/webhooks/*` | Webhook management |
+| `connectors.py` | `/api/connectors/*` | Data connector management |
+| `control_plane.py` | `/api/control-plane/*` | Enterprise control plane |
+| `routing.py` | `/api/routing/*` | Agent routing & team selection |
+| `selection.py` | `/api/selection/*` | Selection plugin API |
+| `evaluation.py` | `/api/evaluation/*` | LLM-as-Judge evaluation |
+| `knowledge.py` | `/api/knowledge/*` | Knowledge base API |
+| `ml.py` | `/api/ml/*` | ML capabilities API |
+| `policy.py` | `/api/policy/*` | Policy compliance |
+| `queue.py` | `/api/queue/*` | Job queue management |
+| `repository.py` | `/api/repository/*` | Repository indexing |
+| `uncertainty.py` | `/api/uncertainty/*` | Uncertainty estimation |
+| `verticals.py` | `/api/verticals/*` | Vertical specialists |
+| `workspace.py` | `/api/workspace/*` | Enterprise workspace |
+| `workflows.py` | `/api/workflows/*` | Workflow engine API |
+
+---
+
+## Experimental Handlers (20 total)
+
+These handlers are functional but APIs may change. Check `aragora/server/handlers/__init__.py` for current stability levels.
+
+| Handler | Phase | Description |
+|---------|-------|-------------|
+| `AnalyticsDashboardHandler` | EXPERIMENTAL | Enterprise analytics dashboard |
+| `RoutingHandler` | Phase A | Agent routing and team selection |
+| `SelectionHandler` | Phase A | Selection plugin API |
+| `ControlPlaneHandler` | Phase 0 | Enterprise control plane |
+| `DocumentQueryHandler` | Phase A | Natural language document querying |
+| `EvaluationHandler` | EXPERIMENTAL | LLM-as-Judge evaluation |
+| `EvidenceEnrichmentHandler` | Phase A | Evidence enrichment for findings |
+| `FindingWorkflowHandler` | Phase A | Finding workflow management |
+| `FolderUploadHandler` | Phase A | Folder upload support |
+| `KnowledgeHandler` | EXPERIMENTAL | Knowledge base API |
+| `KnowledgeMoundHandler` | Phase A1 | Knowledge Mound system |
+| `MLHandler` | EXPERIMENTAL | ML capabilities API |
+| `PolicyHandler` | Phase 2 | Policy and compliance management |
+| `QueueHandler` | Phase A1 | Job queue management |
+| `RepositoryHandler` | Phase A3 | Repository indexing |
+| `SchedulerHandler` | Phase A | Audit scheduling |
+| `SlackHandler` | EXPERIMENTAL | Slack integration |
+| `UncertaintyHandler` | Phase A1 | Uncertainty estimation |
+| `VerticalsHandler` | Phase A1 | Vertical specialist API |
+| `WorkflowHandler` | Phase 2 | Workflow engine API |
+| `WorkspaceHandler` | Phase 2 | Enterprise workspace/privacy |
+
+### Stability Levels
+
+- **STABLE**: Production-ready, backwards compatible
+- **PREVIEW**: Feature complete, API may change slightly
+- **EXPERIMENTAL**: In development, expect breaking changes
+- **Phase 0/A/A1/A3/2**: Enterprise feature rollout phases
 
 ---
 
@@ -232,7 +283,9 @@ POST /api/formal/prove          - Generate formal proof
 |--------|-------------|
 | `base.py` | Base handler class with common utilities |
 | `exceptions.py` | Handler exception types |
+| `interface.py` | Handler Protocol definitions and contracts |
 | `types.py` | Type definitions |
+| `utilities.py` | Shared handler utility functions |
 | `utils/database.py` | Database access helpers |
 | `utils/decorators.py` | Handler decorators |
 | `utils/params.py` | Query parameter parsing |

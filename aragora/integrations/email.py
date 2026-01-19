@@ -3,10 +3,32 @@ Email notification integration for aragora debates.
 
 Sends debate summaries, consensus alerts, and digest emails.
 Supports HTML email templates with inline CSS.
+
+Providers:
+    - SMTP (default): Standard SMTP protocol
+    - SendGrid: SendGrid Web API v3
+    - AWS SES: Amazon Simple Email Service
+
+Usage:
+    # SMTP (default)
+    email = EmailIntegration(EmailConfig(smtp_host="smtp.example.com"))
+
+    # SendGrid
+    email = EmailIntegration(EmailConfig(
+        provider="sendgrid",
+        sendgrid_api_key="SG.xxxxx"
+    ))
+
+    # AWS SES
+    email = EmailIntegration(EmailConfig(
+        provider="ses",
+        ses_region="us-east-1"
+    ))
 """
 
 import asyncio
 import logging
+import os
 import smtplib
 import ssl
 from collections import defaultdict
@@ -14,28 +36,50 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from enum import Enum
 from typing import Any, Optional
+
+import aiohttp
 
 from aragora.core import DebateResult
 
 logger = logging.getLogger(__name__)
 
 
+class EmailProvider(Enum):
+    """Email service provider."""
+    SMTP = "smtp"
+    SENDGRID = "sendgrid"
+    SES = "ses"
+
+
 @dataclass
 class EmailConfig:
     """Configuration for Email integration."""
 
+    # Provider selection
+    provider: str = "smtp"  # "smtp", "sendgrid", or "ses"
+
     # SMTP settings
-    smtp_host: str
+    smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
     use_tls: bool = True
     use_ssl: bool = False
 
+    # SendGrid settings
+    sendgrid_api_key: str = ""
+
+    # AWS SES settings
+    ses_region: str = "us-east-1"
+    ses_access_key_id: str = ""
+    ses_secret_access_key: str = ""
+
     # Email settings
     from_email: str = "debates@aragora.ai"
     from_name: str = "Aragora Debates"
+    reply_to: str = ""
 
     # Notification settings
     notify_on_consensus: bool = True
@@ -56,9 +100,35 @@ class EmailConfig:
     max_retries: int = 3
     retry_delay: float = 2.0
 
+    # Tracking
+    enable_click_tracking: bool = False
+    enable_open_tracking: bool = False
+
     def __post_init__(self) -> None:
-        if not self.smtp_host:
-            raise ValueError("SMTP host is required")
+        # Load from environment if not provided
+        if not self.sendgrid_api_key:
+            self.sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "")
+        if not self.ses_access_key_id:
+            self.ses_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID", "")
+        if not self.ses_secret_access_key:
+            self.ses_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+        if not self.ses_region:
+            self.ses_region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+
+        # Validate configuration based on provider
+        if self.provider == "smtp" and not self.smtp_host:
+            # Check for SendGrid or SES as fallback
+            if self.sendgrid_api_key:
+                self.provider = "sendgrid"
+            elif self.ses_access_key_id and self.ses_secret_access_key:
+                self.provider = "ses"
+            else:
+                raise ValueError("SMTP host is required for SMTP provider")
+
+    @property
+    def email_provider(self) -> EmailProvider:
+        """Get the email provider enum."""
+        return EmailProvider(self.provider)
 
 
 @dataclass
@@ -81,11 +151,29 @@ class EmailIntegration:
     """
     Email integration for sending debate notifications.
 
+    Supports multiple providers:
+        - SMTP: Standard email protocol
+        - SendGrid: SendGrid Web API v3
+        - AWS SES: Amazon Simple Email Service
+
     Usage:
+        # SMTP
         email = EmailIntegration(EmailConfig(
-            smtp_host="smtp.sendgrid.net",
-            smtp_username="apikey",
-            smtp_password="your-api-key",
+            smtp_host="smtp.example.com",
+            smtp_username="user",
+            smtp_password="pass",
+        ))
+
+        # SendGrid
+        email = EmailIntegration(EmailConfig(
+            provider="sendgrid",
+            sendgrid_api_key="SG.xxxxx",
+        ))
+
+        # AWS SES
+        email = EmailIntegration(EmailConfig(
+            provider="ses",
+            ses_region="us-east-1",
         ))
 
         # Add recipient
@@ -101,13 +189,29 @@ class EmailIntegration:
         await email.send_digest()
     """
 
+    # API endpoints
+    SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
+    SES_API_VERSION = "2010-12-01"
+
     def __init__(self, config: EmailConfig):
         self.config = config
         self.recipients: list[EmailRecipient] = []
         self._email_count = 0
         self._last_reset = datetime.now()
         self._pending_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        self._rate_limit_lock = asyncio.Lock()  # Thread-safe rate limiting
+        self._rate_limit_lock = asyncio.Lock()
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create aiohttp session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self) -> None:
+        """Close the aiohttp session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
 
     def add_recipient(self, recipient: EmailRecipient) -> None:
         """Add an email recipient."""
@@ -149,49 +253,246 @@ class EmailIntegration:
         html_body: str,
         text_body: Optional[str] = None,
     ) -> bool:
-        """Send an email with retry logic."""
+        """Send an email with retry logic.
+
+        Dispatches to the appropriate provider based on configuration.
+        """
         if not await self._check_rate_limit():
             return False
 
+        provider = self.config.email_provider
+
         for attempt in range(self.config.max_retries):
             try:
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = subject
-                msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
-                msg["To"] = recipient.formatted
-                msg["List-Unsubscribe"] = (
-                    f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{recipient.email}>"
-                )
+                if provider == EmailProvider.SENDGRID:
+                    success = await self._send_via_sendgrid(
+                        recipient, subject, html_body, text_body
+                    )
+                elif provider == EmailProvider.SES:
+                    success = await self._send_via_ses(
+                        recipient, subject, html_body, text_body
+                    )
+                else:
+                    # Default to SMTP
+                    success = await self._send_via_smtp(
+                        recipient, subject, html_body, text_body
+                    )
 
-                # Add plain text part
-                if text_body:
-                    msg.attach(MIMEText(text_body, "plain"))
+                if success:
+                    logger.debug(f"Email sent to {recipient.email} via {provider.value}")
+                    return True
 
-                # Add HTML part
-                msg.attach(MIMEText(html_body, "html"))
-
-                # Send via SMTP (run in thread pool to avoid blocking)
-                await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    self._smtp_send,
-                    msg,
-                    recipient.email,
-                )
-
-                logger.debug(f"Email sent to {recipient.email}")
-                return True
-
-            except smtplib.SMTPException as e:
-                logger.error(f"SMTP error sending to {recipient.email}: {e}")
+                # If not successful but no exception, still retry
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
-            except Exception as e:
-                logger.error(f"Email send failed: {e}")
+
+            except aiohttp.ClientError as e:
+                logger.error(f"Email network error via {provider.value}: {e}")
+                if attempt < self.config.max_retries - 1:
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
+                    continue
+                return False
+            except asyncio.TimeoutError:
+                logger.error(f"Email request timed out via {provider.value}")
+                if attempt < self.config.max_retries - 1:
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
+                    continue
+                return False
+            except smtplib.SMTPException as e:
+                logger.error(f"SMTP error via {provider.value}: {e}")
+                if attempt < self.config.max_retries - 1:
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
+                    continue
+                return False
+            except OSError as e:
+                # Network/socket errors
+                logger.error(f"Email connection error via {provider.value}: {e}")
+                if attempt < self.config.max_retries - 1:
+                    await asyncio.sleep(self.config.retry_delay * (2**attempt))
+                    continue
                 return False
 
         return False
+
+    async def _send_via_smtp(
+        self,
+        recipient: EmailRecipient,
+        subject: str,
+        html_body: str,
+        text_body: Optional[str] = None,
+    ) -> bool:
+        """Send email via SMTP."""
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{self.config.from_name} <{self.config.from_email}>"
+        msg["To"] = recipient.formatted
+        msg["List-Unsubscribe"] = (
+            f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{recipient.email}>"
+        )
+
+        if text_body:
+            msg.attach(MIMEText(text_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+
+        # Run in thread pool to avoid blocking
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            self._smtp_send,
+            msg,
+            recipient.email,
+        )
+        return True
+
+    async def _send_via_sendgrid(
+        self,
+        recipient: EmailRecipient,
+        subject: str,
+        html_body: str,
+        text_body: Optional[str] = None,
+    ) -> bool:
+        """Send email via SendGrid Web API v3.
+
+        SendGrid API documentation: https://docs.sendgrid.com/api-reference/mail-send/mail-send
+        """
+        session = await self._get_session()
+
+        # Build SendGrid payload
+        payload: dict[str, Any] = {
+            "personalizations": [
+                {
+                    "to": [{"email": recipient.email}],
+                }
+            ],
+            "from": {
+                "email": self.config.from_email,
+                "name": self.config.from_name,
+            },
+            "subject": subject,
+            "content": [],
+        }
+
+        # Add recipient name if available
+        if recipient.name:
+            payload["personalizations"][0]["to"][0]["name"] = recipient.name
+
+        # Add reply-to if configured
+        if self.config.reply_to:
+            payload["reply_to"] = {"email": self.config.reply_to}
+
+        # Add content (plain text first, then HTML)
+        if text_body:
+            payload["content"].append({"type": "text/plain", "value": text_body})
+        payload["content"].append({"type": "text/html", "value": html_body})
+
+        # Tracking settings
+        payload["tracking_settings"] = {
+            "click_tracking": {"enable": self.config.enable_click_tracking},
+            "open_tracking": {"enable": self.config.enable_open_tracking},
+        }
+
+        # Add unsubscribe header
+        payload["headers"] = {
+            "List-Unsubscribe": f"<mailto:unsubscribe@aragora.ai?subject=unsubscribe-{recipient.email}>"
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.config.sendgrid_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with session.post(
+                self.SENDGRID_API_URL,
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as response:
+                if response.status in (200, 202):
+                    return True
+                else:
+                    text = await response.text()
+                    logger.error(f"SendGrid API error: {response.status} - {text}")
+                    return False
+        except aiohttp.ClientError as e:
+            logger.error(f"SendGrid connection error: {e}")
+            return False
+
+    async def _send_via_ses(
+        self,
+        recipient: EmailRecipient,
+        subject: str,
+        html_body: str,
+        text_body: Optional[str] = None,
+    ) -> bool:
+        """Send email via AWS SES.
+
+        Uses AWS SES SendEmail API with Signature Version 4.
+        For simplicity, uses boto3 if available, otherwise falls back to direct API.
+        """
+        try:
+            # Try using boto3 (preferred method)
+            import boto3
+            from botocore.config import Config
+
+            config = Config(
+                region_name=self.config.ses_region,
+                retries={"max_attempts": 1},  # We handle retries ourselves
+            )
+
+            # Create SES client with explicit credentials if provided
+            if self.config.ses_access_key_id and self.config.ses_secret_access_key:
+                ses_client = boto3.client(
+                    "ses",
+                    config=config,
+                    aws_access_key_id=self.config.ses_access_key_id,
+                    aws_secret_access_key=self.config.ses_secret_access_key,
+                )
+            else:
+                # Use default credential chain (env vars, IAM role, etc.)
+                ses_client = boto3.client("ses", config=config)
+
+            # Build email message
+            message: dict[str, Any] = {
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Html": {"Data": html_body, "Charset": "UTF-8"},
+                },
+            }
+
+            if text_body:
+                message["Body"]["Text"] = {"Data": text_body, "Charset": "UTF-8"}
+
+            # Send email
+            response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: ses_client.send_email(
+                    Source=f"{self.config.from_name} <{self.config.from_email}>",
+                    Destination={"ToAddresses": [recipient.email]},
+                    Message=message,
+                    ReplyToAddresses=[self.config.reply_to] if self.config.reply_to else [],
+                ),
+            )
+
+            message_id = response.get("MessageId")
+            if message_id:
+                logger.debug(f"SES message sent: {message_id}")
+                return True
+            return False
+
+        except ImportError:
+            logger.error("boto3 is required for AWS SES. Install with: pip install boto3")
+            return False
+        except Exception as e:
+            # Handle botocore exceptions (ClientError, EndpointConnectionError, etc.)
+            # We catch Exception here because botocore may not be installed
+            error_name = type(e).__name__
+            if "ClientError" in error_name or "Botocore" in error_name:
+                logger.error(f"SES AWS error: {e}")
+            else:
+                logger.error(f"SES send error: {e}", exc_info=True)
+            return False
 
     def _smtp_send(self, msg: MIMEMultipart, to_email: str) -> None:
         """Send email via SMTP (synchronous, called from executor)."""
@@ -601,9 +902,18 @@ class EmailIntegration:
 
         return "\n".join(lines)
 
+    async def __aenter__(self) -> "EmailIntegration":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit."""
+        await self.close()
+
 
 __all__ = [
     "EmailConfig",
+    "EmailProvider",
     "EmailRecipient",
     "EmailIntegration",
 ]

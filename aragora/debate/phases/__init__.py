@@ -54,6 +54,13 @@ from aragora.debate.phases.voting import (
     WeightedVoteResult,
 )
 from aragora.debate.phases.weight_calculator import WeightCalculator
+from aragora.debate.phases.batch_utils import (
+    DebateBatchConfig,
+    DebateBatchResult,
+    batch_with_agents,
+    batch_generate_critiques,
+    batch_collect_votes,
+)
 
 __all__ = [
     "DebateContext",
@@ -85,4 +92,10 @@ __all__ = [
     "VoteWeighterDeps",
     "SynthesisGenerator",
     "TrainingEmitter",
+    # Batch utilities (RLM parallelism)
+    "DebateBatchConfig",
+    "DebateBatchResult",
+    "batch_with_agents",
+    "batch_generate_critiques",
+    "batch_collect_votes",
 ]

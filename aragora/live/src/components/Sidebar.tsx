@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSidebar } from '@/context/SidebarContext';
 import { useAuth } from '@/context/AuthContext';
+import { useProgressiveMode, ProgressiveMode } from '@/context/ProgressiveModeContext';
+import { ModeSelector } from '@/components/ui/FeatureCard';
 
 interface NavItem {
   label: string;
@@ -11,6 +13,7 @@ interface NavItem {
   icon?: string;
   requiresAuth?: boolean;
   adminOnly?: boolean;
+  minMode?: ProgressiveMode;
 }
 
 const accountItems: NavItem[] = [
@@ -24,24 +27,44 @@ const authenticatedAccountItems: NavItem[] = [
   { label: 'Organization', href: '/organization', icon: '@', requiresAuth: true },
 ];
 
-const mainNavItems: NavItem[] = [
-  { label: 'Live Debate', href: '/debate', icon: '!' },
-  { label: 'Debates', href: '/debates', icon: '#' },
-  { label: 'Gauntlet', href: '/gauntlet', icon: '%' },
-  { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
-  { label: 'Agents', href: '/agents', icon: '&' },
+// Use-case focused navigation - "Start" section
+// simple: Basic debate creation
+// standard: Full debate controls
+// advanced: Power features
+// expert: All features including admin/dev tools
+const startItems: NavItem[] = [
+  { label: 'Hub', href: '/hub', icon: '+' },
+  { label: 'New Debate', href: '/arena', icon: '!' },
+  { label: 'Stress-Test', href: '/gauntlet', icon: '%', minMode: 'standard' },
+  { label: 'Code Review', href: '/reviews', icon: '<', minMode: 'standard' },
+  { label: 'Document Audit', href: '/audit', icon: '|', minMode: 'standard' },
 ];
 
-const secondaryNavItems: NavItem[] = [
-  { label: 'Workflows', href: '/workflows', icon: '>' },
-  { label: 'Connectors', href: '/connectors', icon: '<' },
-  { label: 'Templates', href: '/templates', icon: '[' },
-  { label: 'Analytics', href: '/analytics', icon: '~' },
-  { label: 'Genesis', href: '/genesis', icon: '@' },
-  { label: 'Memory', href: '/memory', icon: '=' },
-  { label: 'Audit Sessions', href: '/audit', icon: '|' },
-  { label: 'Documents', href: '/documents', icon: ']' },
-  { label: 'Integrations', href: '/integrations', icon: '<' },
+// Browse section - viewing past content
+const browseItems: NavItem[] = [
+  { label: 'Debates', href: '/debates', icon: '#' },
+  { label: 'Knowledge', href: '/knowledge', icon: '?', minMode: 'standard' },
+  { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
+  { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
+  { label: 'Gallery', href: '/gallery', icon: '*' },
+];
+
+// Tools section - management and configuration
+const toolsItems: NavItem[] = [
+  { label: 'Documents', href: '/documents', icon: ']', minMode: 'standard' },
+  { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'advanced' },
+  { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },
+  { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'advanced' },
+  { label: 'Templates', href: '/templates', icon: '[', minMode: 'advanced' },
+];
+
+// Advanced section - power user features
+const advancedItems: NavItem[] = [
+  { label: 'Genesis', href: '/genesis', icon: '@', minMode: 'expert' },
+  { label: 'Memory', href: '/memory', icon: '=', minMode: 'advanced' },
+  { label: 'Introspection', href: '/introspection', icon: '?', minMode: 'expert' },
+  { label: 'Verticals', href: '/verticals', icon: '/', minMode: 'advanced' },
+  { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -53,6 +76,7 @@ const adminNavItems: NavItem[] = [
 export function Sidebar() {
   const { isOpen, close } = useSidebar();
   const { isAuthenticated, user, logout } = useAuth();
+  const { isFeatureVisible, modeLabel } = useProgressiveMode();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
@@ -84,10 +108,16 @@ export function Sidebar() {
     close();
   };
 
-  const renderNavSection = (title: string, items: NavItem[]) => {
+  const renderNavSection = (title: string, items: NavItem[], sectionMinMode?: ProgressiveMode) => {
+    // Don't show section at all if user's mode is below section minimum
+    if (sectionMinMode && !isFeatureVisible(sectionMinMode)) {
+      return null;
+    }
+
     const filteredItems = items.filter(item => {
       if (item.requiresAuth && !isAuthenticated) return false;
       if (item.adminOnly && !isAdmin) return false;
+      if (item.minMode && !isFeatureVisible(item.minMode)) return false;
       return true;
     });
 
@@ -171,14 +201,28 @@ export function Sidebar() {
             </>
           )}
 
-          {/* Main navigation */}
-          {renderNavSection('Navigate', mainNavItems)}
+          {/* Mode selector */}
+          <div className="mb-6 p-2">
+            <h3 className="text-acid-cyan text-xs uppercase tracking-wider mb-2 px-2">
+              Mode: {modeLabel}
+            </h3>
+            <ModeSelector compact />
+          </div>
 
-          {/* Secondary navigation */}
-          {renderNavSection('Tools', secondaryNavItems)}
+          {/* Start - Use cases */}
+          {renderNavSection('Start', startItems)}
+
+          {/* Browse - View past content */}
+          {renderNavSection('Browse', browseItems)}
+
+          {/* Tools - Management */}
+          {renderNavSection('Tools', toolsItems, 'standard')}
+
+          {/* Advanced - Power features */}
+          {renderNavSection('Advanced', advancedItems, 'advanced')}
 
           {/* Admin section */}
-          {isAdmin && renderNavSection('Admin', adminNavItems)}
+          {isAdmin && renderNavSection('Admin', adminNavItems, 'expert')}
         </div>
 
         {/* Footer */}

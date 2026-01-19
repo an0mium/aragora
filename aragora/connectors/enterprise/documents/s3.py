@@ -268,8 +268,11 @@ class S3Connector(EnterpriseConnector):
 
                     try:
                         # Get object content
+                        def get_object(k: str = key) -> Dict[str, Any]:
+                            return client.get_object(Bucket=self.bucket, Key=k)
+
                         obj_response = await asyncio.get_event_loop().run_in_executor(
-                            None, lambda k=key: client.get_object(Bucket=self.bucket, Key=k)
+                            None, get_object
                         )
                         body = obj_response["Body"].read()
                         content_type = obj_response.get("ContentType", "")

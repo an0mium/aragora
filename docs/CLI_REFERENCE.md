@@ -544,6 +544,230 @@ See `aragora/mcp/tools.py` for the authoritative list and parameter schemas.
 
 ---
 
+### knowledge - Knowledge Base Operations
+
+Query, search, and manage the knowledge base.
+
+```bash
+aragora knowledge query "What are the payment terms?"
+aragora knowledge facts --workspace default
+aragora knowledge search "contract expiration"
+aragora knowledge process document.pdf
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `query` | Ask a question about the knowledge base |
+| `facts` | List, show, or verify facts |
+| `search` | Search document chunks using semantic similarity |
+| `process` | Process and ingest documents |
+| `jobs` | List processing jobs |
+
+**query Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-w, --workspace` | `default` | Workspace ID |
+| `--debate` | - | Use multi-agent debate for synthesis |
+| `-n, --limit` | `5` | Max facts to include |
+| `--json` | - | Output as JSON |
+
+**facts Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `action` | `list` | Action: `list`, `show`, `verify` |
+| `-w, --workspace` | `default` | Workspace ID |
+| `-t, --topic` | - | Filter by topic |
+| `-s, --status` | - | Filter by status: `unverified`, `contested`, `majority_agreed`, `byzantine_agreed`, `formally_proven` |
+| `--min-confidence` | `0.0` | Minimum confidence (0-1) |
+
+---
+
+### document-audit - Document Auditing
+
+Audit documents using multi-agent analysis.
+
+```bash
+aragora document-audit upload --input ./docs/
+aragora document-audit scan --input ./docs/ --type security
+aragora document-audit status --session abc123
+aragora document-audit report --session abc123 --output report.json
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `upload` | Upload documents for processing |
+| `scan` | Scan documents for issues |
+| `status` | Check audit session status |
+| `report` | Generate audit report |
+
+**upload Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-i, --input` | - | Path to file or directory |
+| `-r, --recursive` | - | Process directories recursively |
+| `--chunking` | `auto` | Chunking strategy |
+| `--chunk-size` | - | Chunk size in tokens |
+| `--chunk-overlap` | - | Overlap between chunks |
+
+**scan Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-i, --input` | - | Path to file or directory |
+| `-t, --type` | - | Scan type: `security`, `compliance`, `quality` |
+
+---
+
+### documents - Document Management
+
+Upload, list, and manage documents for auditing and analysis.
+
+```bash
+aragora documents upload ./files/*.pdf
+aragora documents upload ./folder/ --recursive
+aragora documents list
+aragora documents show doc-123
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `upload` | Upload files or folders for processing |
+| `list` | List uploaded documents |
+| `show` | Show document details |
+
+**upload Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-r, --recursive` | - | Recursively upload folder contents |
+| `--max-depth` | `10` | Maximum folder depth for recursive uploads (-1 for unlimited) |
+| `--exclude` | - | Exclude patterns (gitignore-style, can be repeated) |
+| `--include` | - | Include only files matching patterns (can be repeated) |
+| `--max-size` | `500mb` | Maximum total upload size (e.g., `500mb`, `1gb`) |
+| `--max-file-size` | `100mb` | Maximum size per file |
+| `--max-files` | `1000` | Maximum number of files to upload |
+| `--agent-filter` | - | Use AI agent to filter files by relevance |
+| `--filter-prompt` | - | Custom prompt for agent-based filtering |
+| `--filter-model` | `gemini-2.0-flash` | Model to use for agent filtering |
+| `--dry-run` | - | Show what would be uploaded without uploading |
+| `--config` | - | Path to YAML config file for upload settings |
+| `--follow-symlinks` | - | Follow symbolic links (default: skip them) |
+| `--json` | - | Output results as JSON |
+
+**list Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-n, --limit` | `50` | Maximum documents to show |
+| `--json` | - | Output as JSON |
+
+**show Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `doc_id` | - | Document ID (required) |
+| `--chunks` | - | Show document chunks |
+| `--json` | - | Output as JSON |
+
+**Examples:**
+
+```bash
+# Upload a single file
+aragora documents upload contract.pdf
+
+# Upload multiple files via glob
+aragora documents upload ./contracts/*.pdf
+
+# Recursively upload a folder with exclusions
+aragora documents upload ./project/ -r --exclude "*.log" --exclude "node_modules"
+
+# Dry run to preview what would be uploaded
+aragora documents upload ./data/ -r --dry-run
+
+# Upload with AI-powered relevance filtering
+aragora documents upload ./mixed-docs/ -r --agent-filter --filter-prompt "Include only financial documents"
+
+# List all uploaded documents
+aragora documents list --limit 100
+
+# Show document details with chunks
+aragora documents show doc-abc123 --chunks --json
+```
+
+---
+
+### publish - Generate Shareable Reports
+
+Generate shareable, interactive reports from debate traces.
+
+```bash
+aragora publish <debate-id> --format html --output ./reports/
+aragora publish latest --format md
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `debate_id` | Debate ID or `latest` for most recent |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-f, --format` | `html` | Output format: `html`, `md`, `json` |
+| `-o, --output` | `.` | Output directory |
+
+---
+
+### training - Model Training Operations
+
+Export training data and manage fine-tuning jobs for models trained on Aragora debate data.
+
+```bash
+aragora training export-sft -o training_data.jsonl
+aragora training export-dpo -o dpo_data.jsonl
+aragora training train-sft --output-dir ./models/
+aragora training list-models
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `export-sft` | Export SFT (Supervised Fine-Tuning) training data |
+| `export-dpo` | Export DPO (Direct Preference Optimization) data |
+| `export-gauntlet` | Export gauntlet runs as training data |
+| `export-all` | Export all training data types |
+| `train-sft` | Run SFT training job |
+| `train-dpo` | Run DPO training job |
+| `train-combined` | Run combined SFT+DPO training |
+| `list-models` | List available fine-tuned models |
+| `sample` | Sample from training data |
+| `stats` | Show training data statistics |
+| `test-connection` | Test training infrastructure connection |
+
+**export-sft Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output` | `sft_training_data.jsonl` | Output file path |
+| `--min-confidence` | `0.7` | Minimum debate confidence |
+| `--min-success-rate` | `0.6` | Minimum pattern success rate |
+| `--limit` | `1000` | Maximum records to export |
+| `--db-path` | `agora_memory.db` | Database path |
+
+---
+
 ## Agent Types
 
 Available agent types for the `--agents` option. The full catalog and defaults live in [AGENTS.md](../AGENTS.md).

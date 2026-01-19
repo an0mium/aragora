@@ -13,7 +13,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
 ## Core Debate Surfaces
 
 - `/` - Live dashboard (streaming debate view, panels, and controls). Landing page when hosted on `www.aragora.ai`.
-  - Related docs: [START_HERE](./START_HERE.md), [FEATURES](./FEATURES.md), [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md)
+  - Related docs: [GETTING_STARTED](./GETTING_STARTED.md), [FEATURES](./FEATURES.md), [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md)
 - `/debate/[id]` - Live/archived debate viewer with streaming transcript and metadata.
   - Related docs: [DEBATE_PHASES](./DEBATE_PHASES.md), [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md)
 - `/debates` - Debate archive list with filtering and sharing links.

@@ -22,6 +22,15 @@ with proper source typing and confidence scoring.
 
 from aragora.connectors.arxiv import ARXIV_CATEGORIES, ArXivConnector
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.whisper import (
+    WhisperConnector,
+    TranscriptionResult,
+    TranscriptionSegment,
+    is_supported_audio,
+    is_supported_video,
+    is_supported_media,
+    get_supported_formats as get_whisper_formats,
+)
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
     ConnectorAuthError,
@@ -83,6 +92,14 @@ __all__ = [
     "MEDIUM_CREDIBILITY_SOURCES",
     "SECConnector",
     "FORM_TYPES",
+    # Whisper Transcription
+    "WhisperConnector",
+    "TranscriptionResult",
+    "TranscriptionSegment",
+    "is_supported_audio",
+    "is_supported_video",
+    "is_supported_media",
+    "get_whisper_formats",
     # Exceptions
     "ConnectorError",
     "ConnectorAuthError",

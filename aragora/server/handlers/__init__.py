@@ -65,6 +65,7 @@ from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
 from .breakpoints import BreakpointsHandler
 from .features import AudioHandler  # Moved to features/
+from .transcription import TranscriptionHandler
 from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
@@ -122,6 +123,7 @@ from .replays import ReplaysHandler
 from .reviews import ReviewsHandler
 from .routing import RoutingHandler
 from .ml import MLHandler
+from .rlm import RLMContextHandler
 from .selection import SelectionHandler
 from .social import SlackHandler  # Moved to social/
 from .social import SocialMediaHandler
@@ -131,6 +133,7 @@ from .verification import VerificationHandler
 from .webhooks import WebhookHandler
 from .workflows import WorkflowHandler
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
+from .bots import DiscordHandler, TeamsHandler, ZoomHandler  # Bot platform handlers
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -175,12 +178,14 @@ ALL_HANDLERS = [
     CheckpointHandler,
     RoutingHandler,
     MLHandler,  # ML capabilities API (routing, scoring, consensus)
+    RLMContextHandler,  # RLM context compression and query API
     SelectionHandler,  # Selection plugin API
     EvaluationHandler,  # LLM-as-Judge evaluation endpoints
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
     EvolutionHandler,
     PluginsHandler,
     AudioHandler,
+    TranscriptionHandler,  # Speech-to-text transcription API
     SocialMediaHandler,
     BroadcastHandler,
     LaboratoryHandler,
@@ -212,6 +217,10 @@ ALL_HANDLERS = [
     VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
     WorkflowHandler,  # Enterprise workflow engine API
+    # Bot platform handlers
+    DiscordHandler,  # Discord Interactions API
+    TeamsHandler,  # Microsoft Teams Bot Framework
+    ZoomHandler,  # Zoom webhooks and chat
 ]
 
 # Handler stability classifications
@@ -245,11 +254,13 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
     "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
+    "RLMContextHandler": Stability.EXPERIMENTAL,  # RLM context compression and query API - new
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
+    "TranscriptionHandler": Stability.EXPERIMENTAL,  # Speech-to-text transcription - new
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
     "PulseHandler": Stability.STABLE,  # Trending topics API
     "GalleryHandler": Stability.STABLE,  # Consensus gallery
@@ -301,6 +312,10 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RepositoryHandler": Stability.EXPERIMENTAL,  # Repository indexing API - Phase A3
     "UncertaintyHandler": Stability.EXPERIMENTAL,  # Uncertainty estimation API - Phase A1
     "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
+    # Bot platform handlers
+    "DiscordHandler": Stability.EXPERIMENTAL,  # Discord Interactions API - new
+    "TeamsHandler": Stability.EXPERIMENTAL,  # Microsoft Teams Bot Framework - new
+    "ZoomHandler": Stability.EXPERIMENTAL,  # Zoom webhooks and chat - new
 }
 
 
@@ -389,10 +404,12 @@ __all__ = [
     "CalibrationHandler",
     "RoutingHandler",
     "MLHandler",
+    "RLMContextHandler",
     "EvolutionHandler",
     "EvolutionABTestingHandler",
     "PluginsHandler",
     "AudioHandler",
+    "TranscriptionHandler",
     "SocialMediaHandler",
     "BroadcastHandler",
     "LaboratoryHandler",
@@ -429,6 +446,10 @@ __all__ = [
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",
+    # Bot platform handlers
+    "DiscordHandler",
+    "TeamsHandler",
+    "ZoomHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

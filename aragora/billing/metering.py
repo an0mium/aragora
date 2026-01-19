@@ -17,11 +17,15 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import uuid4
 
@@ -29,6 +33,9 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+# Default database path for billing events
+DEFAULT_BILLING_DB_PATH = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")) / "billing_events.db"
 
 
 class BillingEventType(Enum):
@@ -203,6 +210,13 @@ class MeteringConfig:
     flush_interval: float = 30.0
     """Seconds between automatic flushes."""
 
+    # Persistence
+    db_path: Path = field(default_factory=lambda: DEFAULT_BILLING_DB_PATH)
+    """Path to SQLite database for billing events."""
+
+    persist_events: bool = True
+    """Whether to persist events to database (set False for testing)."""
+
     # Pricing (per unit)
     api_call_price: Decimal = Decimal("0.0001")
     """Price per API call."""
@@ -235,7 +249,8 @@ class UsageMeter:
     Tenant-aware usage metering system.
 
     Tracks billable events, integrates with tenant quotas,
-    and provides billing summaries.
+    and provides billing summaries. Events are persisted to SQLite
+    for durable billing data.
     """
 
     def __init__(self, config: Optional[MeteringConfig] = None):
@@ -245,11 +260,159 @@ class UsageMeter:
         self._lock = asyncio.Lock()
         self._flush_task: Optional[asyncio.Task] = None
         self._running = False
+        self._db_initialized = False
+
+    def _ensure_db(self) -> None:
+        """Ensure database and tables exist."""
+        if self._db_initialized or not self.config.persist_events:
+            return
+
+        # Ensure directory exists
+        self.config.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS billing_events (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    user_id TEXT,
+                    event_type TEXT NOT NULL,
+                    resource TEXT,
+                    quantity INTEGER DEFAULT 1,
+                    tokens_in INTEGER DEFAULT 0,
+                    tokens_out INTEGER DEFAULT 0,
+                    bytes_used INTEGER DEFAULT 0,
+                    unit_cost TEXT DEFAULT '0',
+                    total_cost TEXT DEFAULT '0',
+                    currency TEXT DEFAULT 'USD',
+                    debate_id TEXT,
+                    connector_id TEXT,
+                    metadata TEXT,
+                    timestamp TEXT NOT NULL,
+                    billing_period TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # Create indexes for common queries
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_billing_tenant_period
+                ON billing_events(tenant_id, billing_period)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_billing_timestamp
+                ON billing_events(timestamp)
+            """)
+            conn.commit()
+
+        self._db_initialized = True
+        logger.debug(f"Billing database initialized at {self.config.db_path}")
+
+    def _persist_events(self, events: list[BillingEvent]) -> None:
+        """Persist events to database."""
+        if not self.config.persist_events or not events:
+            return
+
+        self._ensure_db()
+
+        with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
+            for event in events:
+                conn.execute("""
+                    INSERT OR REPLACE INTO billing_events
+                    (id, tenant_id, user_id, event_type, resource,
+                     quantity, tokens_in, tokens_out, bytes_used,
+                     unit_cost, total_cost, currency,
+                     debate_id, connector_id, metadata,
+                     timestamp, billing_period)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    event.id,
+                    event.tenant_id,
+                    event.user_id,
+                    event.event_type.value,
+                    event.resource,
+                    event.quantity,
+                    event.tokens_in,
+                    event.tokens_out,
+                    event.bytes_used,
+                    str(event.unit_cost),
+                    str(event.total_cost),
+                    event.currency,
+                    event.debate_id,
+                    event.connector_id,
+                    json.dumps(event.metadata) if event.metadata else None,
+                    event.timestamp.isoformat(),
+                    event.billing_period,
+                ))
+            conn.commit()
+
+        logger.debug(f"Persisted {len(events)} billing events to database")
+
+    def _query_events(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        tenant_id: str,
+        event_type: Optional[BillingEventType] = None,
+    ) -> list[BillingEvent]:
+        """Query events from database."""
+        if not self.config.persist_events:
+            return []
+
+        self._ensure_db()
+
+        query = """
+            SELECT id, tenant_id, user_id, event_type, resource,
+                   quantity, tokens_in, tokens_out, bytes_used,
+                   unit_cost, total_cost, currency,
+                   debate_id, connector_id, metadata,
+                   timestamp, billing_period
+            FROM billing_events
+            WHERE tenant_id = ?
+              AND timestamp >= ?
+              AND timestamp <= ?
+        """
+        params: list[Any] = [tenant_id, start_date.isoformat(), end_date.isoformat()]
+
+        if event_type:
+            query += " AND event_type = ?"
+            params.append(event_type.value)
+
+        query += " ORDER BY timestamp DESC"
+
+        events = []
+        with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            for row in cursor:
+                event = BillingEvent(
+                    id=row["id"],
+                    tenant_id=row["tenant_id"],
+                    user_id=row["user_id"],
+                    event_type=BillingEventType(row["event_type"]),
+                    resource=row["resource"] or "",
+                    quantity=row["quantity"],
+                    tokens_in=row["tokens_in"],
+                    tokens_out=row["tokens_out"],
+                    bytes_used=row["bytes_used"],
+                    unit_cost=Decimal(row["unit_cost"]),
+                    total_cost=Decimal(row["total_cost"]),
+                    currency=row["currency"],
+                    debate_id=row["debate_id"],
+                    connector_id=row["connector_id"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+                    billing_period=row["billing_period"],
+                )
+                if row["timestamp"]:
+                    event.timestamp = datetime.fromisoformat(row["timestamp"])
+                events.append(event)
+
+        return events
 
     async def start(self) -> None:
         """Start the metering system."""
         if self._running:
             return
+        self._ensure_db()
         self._running = True
         self._flush_task = asyncio.create_task(self._flush_loop())
         logger.info("Usage metering started")
@@ -278,7 +441,7 @@ class UsageMeter:
                 logger.error(f"Error in flush loop: {e}")
 
     async def _flush_events(self) -> None:
-        """Flush buffered events to storage."""
+        """Flush buffered events to persistent storage."""
         async with self._lock:
             if not self._events:
                 return
@@ -286,8 +449,18 @@ class UsageMeter:
             events_to_flush = self._events.copy()
             self._events.clear()
 
-        # Store events (in production, this would go to database/queue)
+        # Persist events to database
         logger.debug(f"Flushing {len(events_to_flush)} billing events")
+        try:
+            self._persist_events(events_to_flush)
+        except Exception as e:
+            logger.error(f"Failed to persist billing events: {e}")
+            # Re-add events to buffer on failure so they aren't lost
+            async with self._lock:
+                self._events = events_to_flush + self._events
+            raise
+
+        # Log events for monitoring
         for event in events_to_flush:
             if self.config.detailed_logging:
                 logger.info(
@@ -494,21 +667,32 @@ class UsageMeter:
         """
         Get billing events for a period.
 
-        In production, this would query from database.
+        Queries from persistent storage and includes any buffered events
+        that haven't been flushed yet.
         """
         tid = tenant_id or self._get_tenant_id()
         if not tid:
             return []
 
-        # Filter buffered events (in production, query database)
+        # Query persisted events from database
+        persisted_events = self._query_events(start_date, end_date, tid, event_type)
+
+        # Also include any buffered events that match
         async with self._lock:
-            events = [
+            buffered_events = [
                 e for e in self._events
                 if e.tenant_id == tid
                 and start_date <= e.timestamp <= end_date
                 and (event_type is None or e.event_type == event_type)
             ]
-        return events
+
+        # Combine and deduplicate by ID
+        all_events = {e.id: e for e in persisted_events}
+        for e in buffered_events:
+            all_events[e.id] = e
+
+        # Return sorted by timestamp descending
+        return sorted(all_events.values(), key=lambda e: e.timestamp, reverse=True)
 
     async def get_usage_summary(
         self,

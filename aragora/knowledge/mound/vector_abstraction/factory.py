@@ -3,11 +3,16 @@ Factory for creating vector store instances.
 
 Provides a central point for vector store creation with automatic
 backend selection based on configuration or environment variables.
+
+Namespace-based routing automatically selects the optimal backend:
+- Qdrant: Pure vector operations (knowledge, memory) - better memory efficiency
+- Weaviate: Hybrid search (debate, documents, evidence) - native BM25 fusion
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Type
 
 from aragora.knowledge.mound.vector_abstraction.base import (
@@ -17,6 +22,18 @@ from aragora.knowledge.mound.vector_abstraction.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Namespace-to-backend routing configuration
+# Maps namespaces to their optimal vector backend based on workload characteristics
+NAMESPACE_BACKEND_ROUTING: dict[str, VectorBackend] = {
+    # Pure vector operations benefit from Qdrant's memory efficiency and speed
+    "knowledge": VectorBackend.QDRANT,
+    "memory": VectorBackend.QDRANT,
+    # Hybrid search workloads benefit from Weaviate's native BM25 fusion
+    "debate": VectorBackend.WEAVIATE,
+    "documents": VectorBackend.WEAVIATE,
+    "evidence": VectorBackend.WEAVIATE,
+}
 
 
 class VectorStoreFactory:
@@ -149,6 +166,80 @@ class VectorStoreFactory:
             Store class or None if not registered
         """
         return cls._registry.get(backend)
+
+    @classmethod
+    def for_namespace(
+        cls,
+        namespace: str,
+        config_overrides: dict | None = None,
+    ) -> BaseVectorStore:
+        """
+        Create a vector store optimized for a specific namespace.
+
+        Automatically selects the optimal backend based on namespace:
+        - knowledge, memory -> Qdrant (pure vector operations)
+        - debate, documents, evidence -> Weaviate (hybrid search)
+
+        Falls back to VECTOR_BACKEND env var or in-memory if neither is available.
+
+        Args:
+            namespace: Namespace identifier (e.g., "knowledge", "debate")
+            config_overrides: Optional config values to override
+
+        Returns:
+            Configured vector store instance
+
+        Example:
+            # Get store optimized for knowledge embeddings
+            store = VectorStoreFactory.for_namespace("knowledge")
+
+            # Get store optimized for debate search
+            store = VectorStoreFactory.for_namespace("debate")
+        """
+        # Check if namespace routing is enabled
+        routing_enabled = os.getenv("VECTOR_NAMESPACE_ROUTING", "true").lower() == "true"
+
+        if routing_enabled and namespace in NAMESPACE_BACKEND_ROUTING:
+            preferred_backend = NAMESPACE_BACKEND_ROUTING[namespace]
+
+            # Check if preferred backend is registered and available
+            if cls.is_registered(preferred_backend):
+                logger.debug(
+                    f"Using namespace routing: {namespace} -> {preferred_backend.value}"
+                )
+                config = VectorStoreConfig(
+                    backend=preferred_backend,
+                    namespace=namespace,
+                    **(config_overrides or {}),
+                )
+                return cls.create(config)
+            else:
+                logger.debug(
+                    f"Preferred backend {preferred_backend.value} not available "
+                    f"for namespace {namespace}, falling back to default"
+                )
+
+        # Fall back to environment-based config
+        config = VectorStoreConfig.from_env()
+        config.namespace = namespace
+        if config_overrides:
+            for key, value in config_overrides.items():
+                if hasattr(config, key):
+                    setattr(config, key, value)
+        return cls.create(config)
+
+    @classmethod
+    def get_backend_for_namespace(cls, namespace: str) -> VectorBackend | None:
+        """
+        Get the recommended backend for a namespace.
+
+        Args:
+            namespace: Namespace identifier
+
+        Returns:
+            Recommended backend or None if no routing defined
+        """
+        return NAMESPACE_BACKEND_ROUTING.get(namespace)
 
 
 def _register_default_backends() -> None:

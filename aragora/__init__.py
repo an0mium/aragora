@@ -5,7 +5,7 @@ A society of heterogeneous AI agents that adversarially stress-test
 high-stakes specs, architectures, policies, and code. Debate is the
 engine; the product is a defensible decision record.
 
-=== CORE FEATURES (v1.5.1) ===
+=== CORE FEATURES (v2.0.2) ===
 
 DECISION STRESS-TEST ENGINE:
 - Multi-agent debate with propose/critique/synthesize protocol (engine)

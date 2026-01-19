@@ -6,6 +6,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { API_BASE_URL } from '@/config';
 import {
   getClient,
@@ -196,10 +197,11 @@ export default function BillingPage() {
         </header>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <h1 className="text-2xl font-mono text-acid-green mb-6">
-            BILLING & SUBSCRIPTION
-          </h1>
+        <PanelErrorBoundary panelName="Billing">
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            <h1 className="text-2xl font-mono text-acid-green mb-6">
+              BILLING & SUBSCRIPTION
+            </h1>
 
           {/* Tab Navigation */}
           <div className="flex gap-4 mb-6 border-b border-acid-green/30">
@@ -650,7 +652,8 @@ export default function BillingPage() {
               )}
             </div>
           )}
-        </div>
+          </div>
+        </PanelErrorBoundary>
       </main>
     </ProtectedRoute>
   );

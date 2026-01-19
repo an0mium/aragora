@@ -10,6 +10,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+from aragora.server.validation.security import (
+    validate_search_query_redos_safe,
+    MAX_SEARCH_QUERY_LENGTH,
+)
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -74,6 +79,15 @@ class SearchOperationsMixin:
             DatabaseError,
             StorageError,
         )
+
+        # Validate search query for ReDoS safety
+        if query:
+            validation_result = validate_search_query_redos_safe(
+                query, max_length=MAX_SEARCH_QUERY_LENGTH
+            )
+            if not validation_result.is_valid:
+                logger.warning("Search query validation failed: %s", validation_result.error)
+                return error_response(validation_result.error or "Invalid search query", 400)
 
         storage = self.get_storage()
         try:

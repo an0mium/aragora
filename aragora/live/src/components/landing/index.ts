@@ -1,11 +1,12 @@
-export { LandingPage } from './LandingPage';
-export { Header } from './Header';
-export { HeroSection } from './HeroSection';
-export { WhyAragoraSection } from './WhyAragoraSection';
-export { DebateProtocolSection } from './DebateProtocolSection';
-export { CapabilitiesSection } from './CapabilitiesSection';
-export { TrustSection } from './TrustSection';
-export { Footer } from './Footer';
-export { SectionHeader } from './SectionHeader';
+/**
+ * Landing page components for the unified Aragora platform.
+ */
 
-export type { LandingPageProps, HeroSectionProps } from './types';
+export {
+  UseCaseSelector,
+  QuickStartCards,
+  USE_CASES,
+  type UseCase,
+  type UseCaseItem,
+  type UseCaseSelectorProps,
+} from './UseCaseSelector';

@@ -264,9 +264,9 @@ class RedTeamMode:
             max_rounds: Maximum attack/defend cycles
         """
         session_id = f"redteam-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        rounds = []
-        all_attacks = []
-        all_defenses = []
+        rounds: list[RedTeamRound] = []
+        all_attacks: list[Attack] = []
+        all_defenses: list[Defense] = []
 
         current_proposal = target_proposal
 

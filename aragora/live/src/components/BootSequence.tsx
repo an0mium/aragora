@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface BootSequenceProps {
   onComplete: () => void;
@@ -8,7 +8,7 @@ interface BootSequenceProps {
 }
 
 const BOOT_LINES = [
-  { text: 'ARAGORA SYSTEM v1.5.2', delay: 0, style: 'title' },
+  { text: 'ARAGORA SYSTEM v2.0.2', delay: 0, style: 'title' },
   { text: '═══════════════════════════════════════════════', delay: 100, style: 'divider' },
   { text: '', delay: 200, style: 'normal' },
   { text: '[INIT] Loading kernel modules...', delay: 300, style: 'system' },
@@ -71,14 +71,21 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   const [showCursor, setShowCursor] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
 
+  // Guard to prevent onComplete from being called multiple times
+  const hasCompletedRef = useRef(false);
+
   // Handle skip - any key or click skips immediately
   const handleSkip = useCallback(() => {
+    if (hasCompletedRef.current) return;
+    hasCompletedRef.current = true;
     onComplete();
   }, [onComplete]);
 
   // Skip boot sequence if requested via prop
   useEffect(() => {
     if (skip) {
+      if (hasCompletedRef.current) return;
+      hasCompletedRef.current = true;
       onComplete();
     }
   }, [skip, onComplete]);
@@ -137,6 +144,8 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
     if (!isComplete) return;
 
     const autoTimer = setTimeout(() => {
+      if (hasCompletedRef.current) return;
+      hasCompletedRef.current = true;
       onComplete();
     }, 1500);
 

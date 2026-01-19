@@ -174,6 +174,9 @@ class DeepAuditRunner:
                 message="Deep audit not available, skipping",
             )
 
+        # Type narrowing: _available implies _run_deep_audit is not None
+        assert self._run_deep_audit is not None
+
         self._log("    [deep-audit] Running strategic design audit (5-round)")
 
         try:
@@ -245,6 +248,9 @@ Cross-examine each other's reasoning. Be thorough.""",
                 approved=True,
                 message="Deep audit not available",
             )
+
+        # Type narrowing: _available implies _run_deep_audit is not None
+        assert self._run_deep_audit is not None
 
         self._log(
             f"    [deep-audit] Starting intensive review for protected files: {touched_files}"

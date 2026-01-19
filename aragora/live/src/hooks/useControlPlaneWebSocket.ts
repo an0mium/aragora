@@ -407,6 +407,7 @@ export function useControlPlaneWebSocket({
 
         default:
           // Unknown event type - log for debugging
+          // eslint-disable-next-line no-console
           console.debug('[ControlPlane] Unknown event type:', event.type);
           break;
       }

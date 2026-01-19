@@ -7,43 +7,14 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
-
-interface Dimension {
-  id: string;
-  name: string;
-  description: string;
-  rubric: {
-    score_1: string;
-    score_2: string;
-    score_3: string;
-    score_4: string;
-    score_5: string;
-  };
-}
-
-interface Profile {
-  id: string;
-  name: string;
-  description: string;
-  weights: Record<string, number>;
-}
-
-interface EvaluationResult {
-  overall_score: number;
-  passed: boolean;
-  dimension_scores: Record<string, number>;
-  weighted_score: number;
-  reasoning?: string;
-  metadata?: Record<string, unknown>;
-}
-
-interface CompareResult {
-  winner: 'A' | 'B' | 'tie';
-  confidence: number;
-  reasoning: string;
-  scores_a?: Record<string, number>;
-  scores_b?: Record<string, number>;
-}
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import {
+  type Dimension,
+  type Profile,
+  type EvaluationResult,
+  type CompareResult,
+  getScoreColor,
+} from './types';
 
 export default function EvaluationPage() {
   const { config: backendConfig } = useBackend();
@@ -174,13 +145,6 @@ export default function EvaluationPage() {
     );
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 4) return 'text-acid-green';
-    if (score >= 3) return 'text-acid-yellow';
-    if (score >= 2) return 'text-warning';
-    return 'text-crimson';
-  };
-
   return (
     <>
       <Scanlines opacity={0.02} />
@@ -200,15 +164,16 @@ export default function EvaluationPage() {
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-8">
-          {/* Title */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-mono font-bold text-acid-green mb-2">
-              [LLM_JUDGE]
-            </h1>
-            <p className="text-text-muted font-mono text-sm">
-              LLM-as-Judge evaluation for response quality assessment
-            </p>
+        <PanelErrorBoundary panelName="Evaluation">
+          <div className="container mx-auto px-4 py-8">
+            {/* Title */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-mono font-bold text-acid-green mb-2">
+                [LLM_JUDGE]
+              </h1>
+              <p className="text-text-muted font-mono text-sm">
+                LLM-as-Judge evaluation for response quality assessment
+              </p>
           </div>
 
           {error && (
@@ -583,7 +548,8 @@ export default function EvaluationPage() {
               )}
             </>
           )}
-        </div>
+          </div>
+        </PanelErrorBoundary>
       </main>
     </>
   );

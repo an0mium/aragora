@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 interface UploadedDocument {
   id: string;
@@ -10,61 +10,211 @@ interface UploadedDocument {
   preview: string;
 }
 
+interface UploadedMedia {
+  id: string;
+  job_id: string;
+  filename: string;
+  file_type: 'audio' | 'video';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  text?: string;
+  word_count?: number;
+  duration_seconds?: number;
+  language?: string;
+  error?: string;
+}
+
 interface DocumentUploadProps {
   onDocumentsChange?: (docIds: string[]) => void;
+  onTranscriptionsChange?: (transcriptions: UploadedMedia[]) => void;
   apiBase?: string;
+  enableAudioVideo?: boolean;
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
-const ACCEPTED_TYPES = {
+// Document MIME types
+const DOC_TYPES = {
   'application/pdf': '.pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
   'text/plain': '.txt',
   'text/markdown': '.md',
 };
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.markdown'];
+// Audio MIME types
+const AUDIO_TYPES = {
+  'audio/mpeg': '.mp3',
+  'audio/mp4': '.m4a',
+  'audio/wav': '.wav',
+  'audio/webm': '.webm',
+};
 
-export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUploadProps) {
+// Video MIME types
+const VIDEO_TYPES = {
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
+};
+
+const DOC_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.markdown'];
+const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.webm'];
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
+
+// Combined for backwards compatibility
+const ACCEPTED_TYPES = { ...DOC_TYPES };
+const ACCEPTED_EXTENSIONS = DOC_EXTENSIONS;
+
+// Max sizes
+const MAX_DOC_SIZE_MB = 10;
+const MAX_MEDIA_SIZE_MB = 25; // Whisper API limit
+
+export function DocumentUpload({
+  onDocumentsChange,
+  onTranscriptionsChange,
+  apiBase = '',
+  enableAudioVideo = true,
+}: DocumentUploadProps) {
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<UploadedMedia[]>([]);
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Build accepted extensions based on enableAudioVideo prop
+  const allExtensions = useMemo(
+    () => enableAudioVideo
+      ? [...DOC_EXTENSIONS, ...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS]
+      : DOC_EXTENSIONS,
+    [enableAudioVideo]
+  );
+
+  // Determine file type from extension
+  const getFileType = (filename: string): 'document' | 'audio' | 'video' => {
+    const ext = '.' + filename.split('.').pop()?.toLowerCase();
+    if (AUDIO_EXTENSIONS.includes(ext)) return 'audio';
+    if (VIDEO_EXTENSIONS.includes(ext)) return 'video';
+    return 'document';
+  };
+
+  // Poll for transcription status
+  useEffect(() => {
+    const pendingJobs = mediaFiles.filter(
+      (m) => m.status === 'pending' || m.status === 'processing'
+    );
+
+    if (pendingJobs.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      for (const job of pendingJobs) {
+        try {
+          const response = await fetch(`${apiBase}/api/transcription/${job.job_id}`);
+          if (!response.ok) continue;
+
+          const data = await response.json();
+
+          if (data.status === 'completed' || data.status === 'failed') {
+            setMediaFiles((prev) => {
+              const updated = prev.map((m) =>
+                m.job_id === job.job_id
+                  ? {
+                      ...m,
+                      status: data.status,
+                      text: data.text,
+                      word_count: data.word_count,
+                      duration_seconds: data.duration_seconds,
+                      language: data.language,
+                      error: data.error,
+                    }
+                  : m
+              );
+              onTranscriptionsChange?.(updated);
+              return updated;
+            });
+          }
+        } catch {
+          // Ignore polling errors
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [mediaFiles, apiBase, onTranscriptionsChange]);
+
+  // Upload document file
+  const uploadDocument = useCallback(async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${apiBase}/api/documents/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Upload failed');
+    }
+
+    const newDoc: UploadedDocument = {
+      id: data.document.id,
+      filename: data.document.filename,
+      word_count: data.document.word_count,
+      page_count: data.document.page_count,
+      preview: data.document.preview,
+    };
+
+    setDocuments((prev) => {
+      const updated = [...prev, newDoc];
+      onDocumentsChange?.(updated.map((d) => d.id));
+      return updated;
+    });
+  }, [apiBase, onDocumentsChange]);
+
+  // Upload media file for transcription
+  const uploadMedia = useCallback(async (file: File, fileType: 'audio' | 'video') => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${apiBase}/api/transcription/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Transcription upload failed');
+    }
+
+    const newMedia: UploadedMedia = {
+      id: data.job_id,
+      job_id: data.job_id,
+      filename: file.name,
+      file_type: fileType,
+      status: 'pending',
+    };
+
+    setMediaFiles((prev) => {
+      const updated = [...prev, newMedia];
+      onTranscriptionsChange?.(updated);
+      return updated;
+    });
+  }, [apiBase, onTranscriptionsChange]);
+
+  // Main upload handler
   const uploadFile = useCallback(async (file: File) => {
     setStatus('uploading');
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const fileType = getFileType(file.name);
 
-      const response = await fetch(`${apiBase}/api/documents/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
+      if (fileType === 'document') {
+        await uploadDocument(file);
+      } else {
+        await uploadMedia(file, fileType);
       }
-
-      const newDoc: UploadedDocument = {
-        id: data.document.id,
-        filename: data.document.filename,
-        word_count: data.document.word_count,
-        page_count: data.document.page_count,
-        preview: data.document.preview,
-      };
-
-      setDocuments((prev) => {
-        const updated = [...prev, newDoc];
-        onDocumentsChange?.(updated.map((d) => d.id));
-        return updated;
-      });
 
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
@@ -72,7 +222,7 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
       setError(err instanceof Error ? err.message : 'Upload failed');
       setStatus('error');
     }
-  }, [apiBase, onDocumentsChange]);
+  }, [uploadDocument, uploadMedia]);
 
   const handleFileSelect = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -81,35 +231,42 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
 
     // Validate file extension
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      setError(`Unsupported file type: ${ext}. Supported: ${ACCEPTED_EXTENSIONS.join(', ')}`);
+    if (!allExtensions.includes(ext)) {
+      setError(`Unsupported file type: ${ext}. Supported: ${allExtensions.join(', ')}`);
       setStatus('error');
       return;
     }
 
-    // Validate MIME type matches extension (security check)
-    const expectedMimes = Object.entries(ACCEPTED_TYPES)
-      .filter(([, extension]) => extension === ext || (ext === '.markdown' && extension === '.md'))
-      .map(([mime]) => mime);
+    // Determine file category and max size
+    const fileType = getFileType(file.name);
+    const maxSizeMB = fileType === 'document' ? MAX_DOC_SIZE_MB : MAX_MEDIA_SIZE_MB;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
-    if (expectedMimes.length > 0 && file.type && !expectedMimes.includes(file.type)) {
-      // Allow empty MIME type (some browsers don't set it)
-      if (file.type !== '') {
-        setError(`File MIME type (${file.type}) doesn't match extension (${ext}). Possible file spoofing.`);
-        setStatus('error');
-        return;
+    // Validate MIME type matches extension (security check) - only for documents
+    if (fileType === 'document') {
+      const expectedMimes = Object.entries(DOC_TYPES)
+        .filter(([, extension]) => extension === ext || (ext === '.markdown' && extension === '.md'))
+        .map(([mime]) => mime);
+
+      if (expectedMimes.length > 0 && file.type && !expectedMimes.includes(file.type)) {
+        // Allow empty MIME type (some browsers don't set it)
+        if (file.type !== '') {
+          setError(`File MIME type (${file.type}) doesn't match extension (${ext}). Possible file spoofing.`);
+          setStatus('error');
+          return;
+        }
       }
     }
 
-    // Validate file size (10MB max)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File too large. Maximum size is 10MB.');
+    // Validate file size
+    if (file.size > maxSizeBytes) {
+      setError(`File too large. Maximum size is ${maxSizeMB}MB for ${fileType} files.`);
       setStatus('error');
       return;
     }
 
     uploadFile(file);
-  }, [uploadFile]);
+  }, [uploadFile, allExtensions]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -135,6 +292,14 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
     });
   };
 
+  const removeMedia = (mediaId: string) => {
+    setMediaFiles((prev) => {
+      const updated = prev.filter((m) => m.id !== mediaId);
+      onTranscriptionsChange?.(updated);
+      return updated;
+    });
+  };
+
   const getFileIcon = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -147,8 +312,35 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
       case 'md':
       case 'markdown':
         return '📋';
+      case 'mp3':
+      case 'm4a':
+      case 'wav':
+      case 'webm':
+        return '🎵';
+      case 'mp4':
+      case 'mov':
+        return '🎬';
       default:
         return '📎';
+    }
+  };
+
+  const getStatusBadge = (status: UploadedMedia['status']) => {
+    switch (status) {
+      case 'pending':
+        return <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Queued</span>;
+      case 'processing':
+        return <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded flex items-center gap-1">
+          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Transcribing
+        </span>;
+      case 'completed':
+        return <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded">Done</span>;
+      case 'failed':
+        return <span className="text-xs bg-crimson/20 text-crimson px-2 py-0.5 rounded">Failed</span>;
     }
   };
 
@@ -189,7 +381,7 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
           <input
             ref={fileInputRef}
             type="file"
-            accept={ACCEPTED_EXTENSIONS.join(',')}
+            accept={allExtensions.join(',')}
             onChange={(e) => handleFileSelect(e.target.files)}
             className="hidden"
           />
@@ -220,12 +412,14 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
             </div>
           ) : (
             <>
-              <div className="text-2xl mb-2">📎</div>
+              <div className="text-2xl mb-2">{enableAudioVideo ? '📎🎵🎬' : '📎'}</div>
               <div className="text-sm text-text-muted">
                 Drop files here or click to upload
               </div>
               <div className="text-xs text-text-muted mt-1">
-                PDF, DOCX, TXT, MD (max 10MB)
+                {enableAudioVideo
+                  ? 'PDF, DOCX, TXT, MD (10MB) | MP3, WAV, M4A, MP4, MOV (25MB)'
+                  : 'PDF, DOCX, TXT, MD (max 10MB)'}
               </div>
             </>
           )}
@@ -249,7 +443,7 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
         {documents.length > 0 && (
           <div className="space-y-2">
             <div className="text-xs text-text-muted uppercase tracking-wider">
-              Attached ({documents.length})
+              Documents ({documents.length})
             </div>
             {documents.map((doc) => (
               <div
@@ -277,6 +471,69 @@ export function DocumentUpload({ onDocumentsChange, apiBase = '' }: DocumentUplo
                   className="text-text-muted hover:text-crimson transition-colors p-1"
                   title="Remove document"
                   aria-label={`Remove document: ${doc.filename}`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Media files / transcriptions list */}
+        {enableAudioVideo && mediaFiles.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs text-text-muted uppercase tracking-wider">
+              Transcriptions ({mediaFiles.length})
+            </div>
+            {mediaFiles.map((media) => (
+              <div
+                key={media.id}
+                className="bg-surface border border-border rounded p-2 flex items-start gap-2"
+              >
+                <span className="text-lg flex-shrink-0">{getFileIcon(media.filename)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate flex items-center gap-2">
+                    {media.filename}
+                    {getStatusBadge(media.status)}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {media.file_type === 'audio' ? 'Audio' : 'Video'}
+                    {media.duration_seconds && ` | ${Math.round(media.duration_seconds)}s`}
+                    {media.word_count && ` | ${media.word_count.toLocaleString()} words`}
+                    {media.language && ` | ${media.language.toUpperCase()}`}
+                  </div>
+                  {media.status === 'completed' && media.text && (
+                    <div className="text-xs text-text-muted mt-1 line-clamp-2">
+                      {media.text.slice(0, 150)}...
+                    </div>
+                  )}
+                  {media.status === 'failed' && media.error && (
+                    <div className="text-xs text-crimson mt-1">
+                      Error: {media.error}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeMedia(media.id);
+                  }}
+                  className="text-text-muted hover:text-crimson transition-colors p-1"
+                  title="Remove transcription"
+                  aria-label={`Remove transcription: ${media.filename}`}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

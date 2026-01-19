@@ -192,6 +192,17 @@ class StreamEventType(Enum):
 
     WORKFLOW_METRICS = "workflow_metrics"  # Workflow execution metrics
 
+    # Voice/Transcription events (Speech-to-Text)
+    VOICE_START = "voice_start"  # Voice input session started
+    VOICE_CHUNK = "voice_chunk"  # Audio chunk received
+    VOICE_TRANSCRIPT = "voice_transcript"  # Real-time transcription segment
+    VOICE_END = "voice_end"  # Voice input session ended
+    TRANSCRIPTION_QUEUED = "transcription_queued"  # File transcription job queued
+    TRANSCRIPTION_STARTED = "transcription_started"  # Transcription processing began
+    TRANSCRIPTION_PROGRESS = "transcription_progress"  # Transcription progress update
+    TRANSCRIPTION_COMPLETE = "transcription_complete"  # Transcription finished
+    TRANSCRIPTION_FAILED = "transcription_failed"  # Transcription error
+
 
 @dataclass
 class StreamEvent:

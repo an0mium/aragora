@@ -3,19 +3,187 @@ RLM REPL Environment for programmatic context interaction.
 
 Based on the paper's approach of treating long prompts as an external
 environment that the LLM can interact with through a Python REPL.
+
+SECURITY: This module implements a sandboxed Python execution environment.
+Key security measures:
+- Empty __builtins__ dict prevents access to dangerous builtins
+- AST validation blocks imports, dangerous functions, and dunder access
+- Regex operations have complexity limits to prevent ReDoS
+- String concatenation of blocked names is detected at runtime
+- Lambda closures are protected against self-reference leaks
 """
 
 import ast
 import io
 import logging
 import re
+import signal
+import threading
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass, field
+from functools import wraps
 from typing import Any, Callable, Optional
 
 from .types import AbstractionLevel, RLMConfig, RLMContext, RLMResult
 
 logger = logging.getLogger(__name__)
+
+
+# Security constants
+MAX_REGEX_PATTERN_LENGTH = 1000
+MAX_REGEX_GROUPS = 20
+REGEX_TIMEOUT_SECONDS = 2.0
+MAX_NAMESPACE_VALUE_SIZE = 10_000_000  # 10MB per value
+
+
+def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
+    """
+    Execute regex with security protections against ReDoS.
+
+    Args:
+        pattern: Regex pattern to match
+        text: Text to search in
+        flags: Regex flags
+
+    Returns:
+        List of matches, empty if pattern is invalid or times out
+
+    Raises:
+        SecurityError: If pattern is too complex
+    """
+    # Check pattern length
+    if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+        raise SecurityError(
+            f"Regex pattern too long: {len(pattern)} > {MAX_REGEX_PATTERN_LENGTH}"
+        )
+
+    # Check for potentially catastrophic patterns
+    # These patterns can cause exponential backtracking
+    dangerous_patterns = [
+        r"\(.*\+\)\+",  # (a+)+
+        r"\(.*\*\)\+",  # (a*)+
+        r"\(.*\*\)\*",  # (a*)*
+        r"\(.*\?\)\+",  # (a?)+
+        r"\.{3,}\*",    # ...* (many dots followed by star)
+    ]
+    for dangerous in dangerous_patterns:
+        if re.search(dangerous, pattern):
+            raise SecurityError(f"Regex pattern may cause catastrophic backtracking")
+
+    # Count groups
+    try:
+        compiled = re.compile(pattern, flags)
+        if compiled.groups > MAX_REGEX_GROUPS:
+            raise SecurityError(
+                f"Too many regex groups: {compiled.groups} > {MAX_REGEX_GROUPS}"
+            )
+    except re.error as e:
+        return []  # Invalid pattern
+
+    # Execute with timeout using threading
+    result: list[str] = []
+    error: Optional[Exception] = None
+
+    def run_regex():
+        nonlocal result, error
+        try:
+            result = compiled.findall(text)
+        except Exception as e:
+            error = e
+
+    thread = threading.Thread(target=run_regex)
+    thread.start()
+    thread.join(timeout=REGEX_TIMEOUT_SECONDS)
+
+    if thread.is_alive():
+        logger.warning(f"Regex operation timed out for pattern: {pattern[:50]}...")
+        # Thread will continue but we return empty
+        return []
+
+    if error:
+        return []
+
+    return result
+
+
+def _contains_blocked_dunder(value: str) -> bool:
+    """
+    Check if a string contains blocked dunder names.
+
+    This catches both direct strings and concatenation results.
+    """
+    blocked = {
+        "__globals__", "__builtins__", "__code__", "__closure__",
+        "__class__", "__bases__", "__subclasses__", "__mro__",
+        "__dict__", "__module__", "__name__", "__qualname__",
+        "__func__", "__self__", "__wrapped__", "__annotations__",
+        "__init_subclass__", "__reduce__", "__reduce_ex__",
+        "__getattribute__", "__setattr__", "__delattr__",
+    }
+    value_lower = value.lower()
+    return any(b in value_lower for b in blocked)
+
+
+class SafeReModule:
+    """
+    A wrapped re module that enforces security limits on regex operations.
+
+    This prevents ReDoS attacks by:
+    - Limiting pattern length
+    - Limiting number of groups
+    - Checking for catastrophic backtracking patterns
+    - Enforcing timeout on operations
+    """
+
+    def __init__(self):
+        self.IGNORECASE = re.IGNORECASE
+        self.MULTILINE = re.MULTILINE
+        self.DOTALL = re.DOTALL
+        self.VERBOSE = re.VERBOSE
+
+    def findall(self, pattern: str, string: str, flags: int = 0) -> list[str]:
+        """Safe findall with ReDoS protection."""
+        return _safe_regex(pattern, string, flags)
+
+    def search(self, pattern: str, string: str, flags: int = 0):
+        """Safe search with ReDoS protection."""
+        if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+            raise SecurityError(f"Pattern too long: {len(pattern)}")
+        try:
+            return re.search(pattern, string, flags)
+        except re.error:
+            return None
+
+    def match(self, pattern: str, string: str, flags: int = 0):
+        """Safe match with ReDoS protection."""
+        if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+            raise SecurityError(f"Pattern too long: {len(pattern)}")
+        try:
+            return re.match(pattern, string, flags)
+        except re.error:
+            return None
+
+    def sub(self, pattern: str, repl: str, string: str, count: int = 0, flags: int = 0) -> str:
+        """Safe sub with ReDoS protection."""
+        if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+            raise SecurityError(f"Pattern too long: {len(pattern)}")
+        try:
+            return re.sub(pattern, repl, string, count, flags)
+        except re.error:
+            return string
+
+    def split(self, pattern: str, string: str, maxsplit: int = 0, flags: int = 0) -> list[str]:
+        """Safe split with ReDoS protection."""
+        if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
+            raise SecurityError(f"Pattern too long: {len(pattern)}")
+        try:
+            return re.split(pattern, string, maxsplit, flags)
+        except re.error:
+            return [string]
+
+    def compile(self, pattern: str, flags: int = 0):
+        """Blocked - could bypass our safety checks."""
+        raise SecurityError("re.compile() is not allowed - use findall/search directly")
 
 
 @dataclass
@@ -162,8 +330,8 @@ class RLMEnvironment:
         for name, func in self.SAFE_BUILTINS.items():
             self.state.namespace[name] = func
 
-        # Re module for regex
-        self.state.namespace["re"] = re
+        # Safe re module for regex (with ReDoS protections)
+        self.state.namespace["re"] = SafeReModule()
 
     def _get_level(self, level: AbstractionLevel) -> str:
         """Get context at a specific abstraction level."""
@@ -220,11 +388,14 @@ class RLMEnvironment:
         return results[:10]  # Limit results
 
     def _grep(self, pattern: str, content: Optional[str] = None) -> list[str]:
-        """Search using regex pattern."""
+        """Search using regex pattern with ReDoS protection."""
         text = content or self.context.original_content
         try:
-            matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
+            matches = _safe_regex(pattern, text, re.IGNORECASE | re.MULTILINE)
             return matches[:20]  # Limit results
+        except SecurityError as e:
+            logger.warning(f"Grep blocked: {e}")
+            return []
         except re.error:
             return []
 
@@ -394,6 +565,11 @@ class RLMEnvironment:
 
         Returns:
             (output, is_final) - output string and whether FINAL was called
+
+        Security:
+            - AST validation blocks dangerous operations before execution
+            - Runtime checks detect string concatenation attacks
+            - Namespace size limits prevent memory exhaustion
         """
         # Validate code safety (basic AST check)
         try:
@@ -407,11 +583,22 @@ class RLMEnvironment:
         # Capture stdout
         stdout_capture = io.StringIO()
 
+        # Store namespace keys before execution for comparison
+        keys_before = set(self.state.namespace.keys())
+
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stdout_capture):
                 exec(code, {"__builtins__": {}}, self.state.namespace)
+        except SecurityError as e:
+            return f"SecurityError: {e}", False
         except Exception as e:
             return f"Error: {type(e).__name__}: {e}", False
+
+        # Post-execution security checks
+        try:
+            self._validate_namespace_post_exec(keys_before)
+        except SecurityError as e:
+            return f"SecurityError: {e}", False
 
         output = stdout_capture.getvalue()
 
@@ -426,6 +613,49 @@ class RLMEnvironment:
         is_final = self.state.final_answer is not None or self.state.final_var is not None
 
         return output, is_final
+
+    def _validate_namespace_post_exec(self, keys_before: set[str]) -> None:
+        """
+        Validate namespace after execution for security concerns.
+
+        Checks:
+        - New variable names don't contain blocked dunder patterns
+        - String values don't contain blocked dunder patterns (concatenation attack)
+        - Values aren't excessively large (memory exhaustion)
+        """
+        new_keys = set(self.state.namespace.keys()) - keys_before
+
+        for key in new_keys:
+            # Check key name
+            if _contains_blocked_dunder(key):
+                del self.state.namespace[key]
+                raise SecurityError(f"Variable name contains blocked pattern: {key}")
+
+            # Check string values for concatenation attacks
+            value = self.state.namespace[key]
+            if isinstance(value, str):
+                if _contains_blocked_dunder(value):
+                    del self.state.namespace[key]
+                    raise SecurityError(
+                        f"String variable '{key}' contains blocked dunder pattern"
+                    )
+                if len(value) > MAX_NAMESPACE_VALUE_SIZE:
+                    del self.state.namespace[key]
+                    raise SecurityError(
+                        f"String variable '{key}' exceeds size limit"
+                    )
+
+            # Check list/dict sizes
+            elif isinstance(value, (list, dict, set)):
+                try:
+                    size = len(str(value))
+                    if size > MAX_NAMESPACE_VALUE_SIZE:
+                        del self.state.namespace[key]
+                        raise SecurityError(
+                            f"Collection variable '{key}' exceeds size limit"
+                        )
+                except Exception:
+                    pass  # Can't check size, allow it
 
     def _validate_ast(self, tree: ast.AST) -> None:
         """

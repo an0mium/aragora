@@ -25,16 +25,39 @@ interface WebhookEvent {
   status: 'success' | 'failed' | 'pending';
   response_code?: number;
   triggered_at: string;
+  request_body?: string;
+  response_body?: string;
 }
 
+// Events that can trigger webhooks (from WEBHOOK_EVENTS)
 const EVENT_TYPES = [
-  { id: 'debate.started', label: 'Debate Started', description: 'When a new debate begins' },
-  { id: 'debate.completed', label: 'Debate Completed', description: 'When a debate reaches consensus or ends' },
-  { id: 'consensus.reached', label: 'Consensus Reached', description: 'When agents reach agreement' },
-  { id: 'round.completed', label: 'Round Completed', description: 'After each debate round' },
-  { id: 'agent.message', label: 'Agent Message', description: 'When an agent sends a message' },
-  { id: 'vote.cast', label: 'Vote Cast', description: 'When a vote is recorded' },
+  // Debate lifecycle
+  { id: 'debate_start', label: 'Debate Start', description: 'When a new debate begins', category: 'Debate' },
+  { id: 'debate_end', label: 'Debate End', description: 'When a debate concludes', category: 'Debate' },
+  { id: 'consensus', label: 'Consensus', description: 'When agents reach agreement', category: 'Debate' },
+  { id: 'round_start', label: 'Round Start', description: 'When a new round begins', category: 'Debate' },
+  // Agent events
+  { id: 'agent_message', label: 'Agent Message', description: 'When an agent sends a message', category: 'Agent' },
+  { id: 'vote', label: 'Vote', description: 'When a vote is recorded', category: 'Agent' },
+  // Memory/learning
+  { id: 'insight_extracted', label: 'Insight Extracted', description: 'When new insights are learned', category: 'Learning' },
+  // Verification
+  { id: 'claim_verification_result', label: 'Claim Verification', description: 'When a claim is verified', category: 'Verification' },
+  { id: 'formal_verification_result', label: 'Formal Verification', description: 'When formal proof completes', category: 'Verification' },
+  // Gauntlet
+  { id: 'gauntlet_complete', label: 'Gauntlet Complete', description: 'When gauntlet stress-test finishes', category: 'Gauntlet' },
+  { id: 'gauntlet_verdict', label: 'Gauntlet Verdict', description: 'When verdict is issued', category: 'Gauntlet' },
+  // Graph debates
+  { id: 'graph_branch_created', label: 'Branch Created', description: 'When discussion branches', category: 'Graph' },
+  { id: 'graph_branch_merged', label: 'Branch Merged', description: 'When branches merge', category: 'Graph' },
+  // Genesis evolution
+  { id: 'genesis_evolution', label: 'Genesis Evolution', description: 'When prompts evolve', category: 'Evolution' },
+  // Breakpoints
+  { id: 'breakpoint', label: 'Breakpoint', description: 'Debug breakpoint triggered', category: 'Debug' },
+  { id: 'breakpoint_resolved', label: 'Breakpoint Resolved', description: 'Debug breakpoint resolved', category: 'Debug' },
 ];
+
+const EVENT_CATEGORIES = [...new Set(EVENT_TYPES.map(e => e.category))];
 
 function StatusBadge({ active }: { active: boolean }) {
   return (
@@ -69,8 +92,12 @@ export default function WebhooksPage() {
 
   // Create form state
   const [newUrl, setNewUrl] = useState('');
+  const [newName, setNewName] = useState('');
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -161,6 +188,30 @@ export default function WebhooksPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to toggle webhook');
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    setTesting(id);
+    setTestResult(null);
+
+    try {
+      const res = await fetch(`${backendConfig.api}/api/webhooks/${id}/test`, {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setTestResult({ success: true, message: `Test sent! Response: HTTP ${data.response_status || 200}` });
+        fetchData(); // Refresh to show updated delivery log
+      } else {
+        setTestResult({ success: false, message: data.error || 'Test failed' });
+      }
+    } catch (err) {
+      setTestResult({ success: false, message: err instanceof Error ? err.message : 'Test failed' });
+    } finally {
+      setTesting(null);
     }
   };
 
@@ -283,7 +334,7 @@ export default function WebhooksPage() {
                     <div key={webhook.id} className="p-4 border border-acid-green/20 rounded bg-surface/30">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <code className="text-acid-cyan text-sm">{webhook.url}</code>
+                          <code className="text-acid-cyan text-sm break-all">{webhook.url}</code>
                           <div className="flex items-center gap-2 mt-1">
                             <StatusBadge active={webhook.active} />
                             {webhook.failure_count > 0 && (
@@ -293,7 +344,14 @@ export default function WebhooksPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => handleTest(webhook.id)}
+                            disabled={testing === webhook.id || !webhook.active}
+                            className="px-2 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+                          >
+                            {testing === webhook.id ? '[TESTING...]' : '[TEST]'}
+                          </button>
                           <button
                             onClick={() => handleToggle(webhook.id, webhook.active)}
                             className="px-2 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-text transition-colors"
@@ -308,12 +366,25 @@ export default function WebhooksPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Test result notification */}
+                      {testResult && testing === null && (
+                        <div className={`mb-3 p-2 text-xs font-mono rounded ${
+                          testResult.success ? 'bg-acid-green/10 text-acid-green' : 'bg-warning/10 text-warning'
+                        }`}>
+                          {testResult.message}
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap gap-1">
-                        {webhook.events.map(event => (
-                          <span key={event} className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green rounded">
-                            {event}
-                          </span>
-                        ))}
+                        {webhook.events.map(event => {
+                          const eventType = EVENT_TYPES.find(e => e.id === event);
+                          return (
+                            <span key={event} className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green rounded">
+                              {eventType?.label || event}
+                            </span>
+                          );
+                        })}
                       </div>
                       {webhook.last_triggered && (
                         <div className="mt-2 text-xs font-mono text-text-muted">
@@ -353,39 +424,70 @@ export default function WebhooksPage() {
               <div className="p-6 border border-acid-cyan/30 rounded bg-surface/30">
                 <h3 className="font-mono text-acid-cyan mb-4">Create New Webhook</h3>
 
-                <div className="mb-4">
-                  <label className="block font-mono text-sm text-text-muted mb-2">
-                    Webhook URL
-                  </label>
-                  <input
-                    type="url"
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    placeholder="https://your-server.com/webhook"
-                    className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block font-mono text-sm text-text-muted mb-2">
+                      Webhook URL *
+                    </label>
+                    <input
+                      type="url"
+                      value={newUrl}
+                      onChange={(e) => setNewUrl(e.target.value)}
+                      placeholder="https://your-server.com/webhook"
+                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-sm text-text-muted mb-2">
+                      Name (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="My webhook"
+                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                    />
+                  </div>
                 </div>
 
                 <div className="mb-4">
-                  <label className="block font-mono text-sm text-text-muted mb-2">
-                    Events to Subscribe
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {EVENT_TYPES.map(event => (
-                      <button
-                        key={event.id}
-                        onClick={() => toggleEvent(event.id)}
-                        className={`p-3 border text-left transition-colors ${
-                          selectedEvents.includes(event.id)
-                            ? 'border-acid-green bg-acid-green/10'
-                            : 'border-acid-green/20 hover:border-acid-green/40'
-                        }`}
-                      >
-                        <div className="font-mono text-sm text-text">{event.label}</div>
-                        <div className="font-mono text-xs text-text-muted">{event.description}</div>
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="font-mono text-sm text-text-muted">
+                      Events to Subscribe ({selectedEvents.length} selected)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEvents(selectedEvents.length === EVENT_TYPES.length ? [] : EVENT_TYPES.map(e => e.id))}
+                      className="text-xs font-mono text-acid-cyan hover:text-acid-cyan/80"
+                    >
+                      {selectedEvents.length === EVENT_TYPES.length ? '[DESELECT ALL]' : '[SELECT ALL]'}
+                    </button>
                   </div>
+
+                  {/* Events grouped by category */}
+                  {EVENT_CATEGORIES.map(category => (
+                    <div key={category} className="mb-4">
+                      <div className="text-xs font-mono text-text-muted mb-2 uppercase">{category}</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {EVENT_TYPES.filter(e => e.category === category).map(event => (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={() => toggleEvent(event.id)}
+                            className={`p-3 border text-left transition-colors ${
+                              selectedEvents.includes(event.id)
+                                ? 'border-acid-green bg-acid-green/10'
+                                : 'border-acid-green/20 hover:border-acid-green/40'
+                            }`}
+                          >
+                            <div className="font-mono text-sm text-text">{event.label}</div>
+                            <div className="font-mono text-xs text-text-muted">{event.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <button

@@ -35,6 +35,7 @@ class SourceType(Enum):
     DATABASE = "database"
     COMPUTATION = "computation"
     SYNTHESIS = "synthesis"  # Combined from multiple sources
+    AUDIO_TRANSCRIPT = "audio_transcript"  # Transcribed audio/video content
     UNKNOWN = "unknown"
 
 

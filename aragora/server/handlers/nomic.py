@@ -24,17 +24,16 @@ Extracted from system.py for better modularity.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Coroutine, Optional, TypeVar
-
-T = TypeVar("T")
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
+
+from aragora.server.http_utils import run_async as _run_async
 
 from .base import (
     BaseHandler,
@@ -44,13 +43,6 @@ from .base import (
     json_response,
     safe_error_message,
 )
-
-logger = logging.getLogger(__name__)
-
-
-def _run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """Run an async coroutine from sync context safely."""
-    return asyncio.run(coro)
 
 
 class NomicHandler(BaseHandler):

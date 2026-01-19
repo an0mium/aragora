@@ -921,3 +921,322 @@ class TestRevisionPhase:
 
         # Generate should not have been called since no critiques target agent1
         generate_fn.assert_not_called()
+
+
+# =============================================================================
+# RLM Ready Signal Tests
+# =============================================================================
+
+
+class TestRLMReadySignal:
+    """Tests for RLM ready signal pattern implementation."""
+
+    def test_parse_ready_signal_html_comment_format(self):
+        """Should parse ready signal from HTML comment format."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        content = '''This is my final position on the matter.
+
+<!-- READY_SIGNAL: {"confidence": 0.92, "ready": true, "reasoning": "Fully refined"} -->'''
+
+        signal = parse_ready_signal("agent1", content, round_num=3)
+
+        assert signal.agent == "agent1"
+        assert signal.confidence == 0.92
+        assert signal.ready is True
+        assert signal.reasoning == "Fully refined"
+        assert signal.round_num == 3
+
+    def test_parse_ready_signal_json_code_block_format(self):
+        """Should parse ready signal from JSON code block format."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        content = '''My analysis is complete.
+
+```ready_signal {"confidence": 0.85, "ready": true, "reasoning": "No further changes needed"}```'''
+
+        signal = parse_ready_signal("agent2", content, round_num=2)
+
+        assert signal.confidence == 0.85
+        assert signal.ready is True
+
+    def test_parse_ready_signal_inline_format(self):
+        """Should parse ready signal from inline marker format."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        content = 'Final answer provided. [READY: confidence=0.88, ready=true]'
+
+        signal = parse_ready_signal("agent3", content, round_num=4)
+
+        assert signal.confidence == 0.88
+        assert signal.ready is True
+
+    def test_parse_ready_signal_natural_language(self):
+        """Should detect ready signal from natural language markers."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        content = 'This is my final position. I believe no further refinement is needed.'
+
+        signal = parse_ready_signal("agent1", content, round_num=5)
+
+        assert signal.ready is True
+        assert signal.confidence == 0.7  # Natural language gets moderate confidence
+
+    def test_parse_ready_signal_no_signal(self):
+        """Should return defaults when no ready signal found."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        content = 'This is my proposal but I want to keep iterating.'
+
+        signal = parse_ready_signal("agent1", content, round_num=1)
+
+        assert signal.ready is False
+        assert signal.confidence == 0.5  # Default
+
+    def test_parse_ready_signal_empty_content(self):
+        """Should handle empty content gracefully."""
+        from aragora.debate.phases.debate_rounds import parse_ready_signal
+
+        signal = parse_ready_signal("agent1", "", round_num=1)
+
+        assert signal.ready is False
+        assert signal.confidence == 0.5
+
+
+class TestAgentReadinessSignal:
+    """Tests for AgentReadinessSignal dataclass."""
+
+    def test_is_high_confidence_true(self):
+        """Should return True when confidence meets threshold."""
+        from aragora.debate.phases.debate_rounds import (
+            AgentReadinessSignal,
+            RLM_READY_CONFIDENCE_THRESHOLD,
+        )
+
+        signal = AgentReadinessSignal(
+            agent="test",
+            confidence=RLM_READY_CONFIDENCE_THRESHOLD,
+            ready=True,
+        )
+
+        assert signal.is_high_confidence() is True
+
+    def test_is_high_confidence_false(self):
+        """Should return False when confidence below threshold."""
+        from aragora.debate.phases.debate_rounds import AgentReadinessSignal
+
+        signal = AgentReadinessSignal(
+            agent="test",
+            confidence=0.5,
+            ready=True,
+        )
+
+        assert signal.is_high_confidence() is False
+
+    def test_should_terminate_requires_both(self):
+        """Should only terminate when ready AND high confidence."""
+        from aragora.debate.phases.debate_rounds import AgentReadinessSignal
+
+        # High confidence but not ready
+        signal1 = AgentReadinessSignal(agent="a", confidence=0.9, ready=False)
+        assert signal1.should_terminate() is False
+
+        # Ready but low confidence
+        signal2 = AgentReadinessSignal(agent="b", confidence=0.5, ready=True)
+        assert signal2.should_terminate() is False
+
+        # Both ready and high confidence
+        signal3 = AgentReadinessSignal(agent="c", confidence=0.9, ready=True)
+        assert signal3.should_terminate() is True
+
+
+class TestCollectiveReadiness:
+    """Tests for CollectiveReadiness tracking."""
+
+    def test_ready_count_tracks_ready_agents(self):
+        """Should count agents that should terminate."""
+        from aragora.debate.phases.debate_rounds import (
+            AgentReadinessSignal,
+            CollectiveReadiness,
+        )
+
+        readiness = CollectiveReadiness()
+        readiness.update(AgentReadinessSignal(agent="a1", confidence=0.9, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a2", confidence=0.9, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a3", confidence=0.5, ready=False))
+
+        assert readiness.ready_count == 2
+        assert readiness.total_count == 3
+
+    def test_avg_confidence_calculation(self):
+        """Should calculate average confidence correctly."""
+        from aragora.debate.phases.debate_rounds import (
+            AgentReadinessSignal,
+            CollectiveReadiness,
+        )
+
+        readiness = CollectiveReadiness()
+        readiness.update(AgentReadinessSignal(agent="a1", confidence=0.8))
+        readiness.update(AgentReadinessSignal(agent="a2", confidence=0.6))
+
+        assert readiness.avg_confidence == 0.7
+
+    def test_has_quorum_true(self):
+        """Should detect quorum when enough agents ready."""
+        from aragora.debate.phases.debate_rounds import (
+            AgentReadinessSignal,
+            CollectiveReadiness,
+        )
+
+        readiness = CollectiveReadiness()
+        # 3 out of 4 agents ready (75% quorum)
+        readiness.update(AgentReadinessSignal(agent="a1", confidence=0.9, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a2", confidence=0.85, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a3", confidence=0.82, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a4", confidence=0.5, ready=False))
+
+        assert readiness.has_quorum() is True
+
+    def test_has_quorum_false(self):
+        """Should return False when quorum not reached."""
+        from aragora.debate.phases.debate_rounds import (
+            AgentReadinessSignal,
+            CollectiveReadiness,
+        )
+
+        readiness = CollectiveReadiness()
+        # Only 1 out of 4 agents ready (25%)
+        readiness.update(AgentReadinessSignal(agent="a1", confidence=0.9, ready=True))
+        readiness.update(AgentReadinessSignal(agent="a2", confidence=0.5, ready=False))
+        readiness.update(AgentReadinessSignal(agent="a3", confidence=0.5, ready=False))
+        readiness.update(AgentReadinessSignal(agent="a4", confidence=0.5, ready=False))
+
+        assert readiness.has_quorum() is False
+
+
+class TestRLMReadyQuorumCheck:
+    """Tests for _check_rlm_ready_quorum method."""
+
+    def test_returns_true_when_quorum_reached(self, protocol):
+        """Should return True when enough agents signal ready."""
+        phase = DebateRoundsPhase(protocol=protocol)
+
+        ctx = MockDebateContext(
+            proposals={
+                "agent1": 'Position A <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "agent2": 'Position B <!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->',
+                "agent3": 'Position C <!-- READY_SIGNAL: {"confidence": 0.88, "ready": true} -->',
+                "agent4": 'Still iterating...',
+            }
+        )
+
+        result = phase._check_rlm_ready_quorum(ctx, round_num=3)
+
+        assert result is True
+        assert phase._collective_readiness.ready_count == 3
+
+    def test_returns_false_when_no_quorum(self, protocol):
+        """Should return False when not enough agents signal ready."""
+        phase = DebateRoundsPhase(protocol=protocol)
+
+        ctx = MockDebateContext(
+            proposals={
+                "agent1": 'Position A <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "agent2": 'Still working...',
+                "agent3": 'More iteration needed...',
+                "agent4": 'Not done yet...',
+            }
+        )
+
+        result = phase._check_rlm_ready_quorum(ctx, round_num=2)
+
+        assert result is False
+        assert phase._collective_readiness.ready_count == 1
+
+    def test_emits_hook_on_quorum(self, protocol):
+        """Should emit hook when quorum reached."""
+        hook_fn = MagicMock()
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            hooks={"on_rlm_ready_quorum": hook_fn},
+        )
+
+        ctx = MockDebateContext(
+            proposals={
+                "a1": 'Done <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a2": 'Done <!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->',
+                "a3": 'Done <!-- READY_SIGNAL: {"confidence": 0.88, "ready": true} -->',
+            }
+        )
+
+        phase._check_rlm_ready_quorum(ctx, round_num=4)
+
+        hook_fn.assert_called_once()
+        call_kwargs = hook_fn.call_args.kwargs
+        assert call_kwargs["round_num"] == 4
+        assert len(call_kwargs["ready_agents"]) == 3
+
+    def test_notifies_spectator_on_quorum(self, protocol):
+        """Should notify spectator when quorum reached."""
+        notify_fn = MagicMock()
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            notify_spectator=notify_fn,
+        )
+
+        ctx = MockDebateContext(
+            proposals={
+                "a1": 'Done <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a2": 'Done <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a3": 'Done <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+            }
+        )
+
+        phase._check_rlm_ready_quorum(ctx, round_num=3)
+
+        notify_fn.assert_called()
+        assert notify_fn.call_args[0][0] == "rlm_ready"
+
+
+class TestRLMIntegrationWithShouldTerminate:
+    """Tests for RLM ready signal integration with _should_terminate."""
+
+    @pytest.mark.asyncio
+    async def test_terminates_on_rlm_quorum(self, protocol):
+        """Should terminate when RLM quorum is reached."""
+        phase = DebateRoundsPhase(protocol=protocol)
+
+        ctx = MockDebateContext(
+            proposals={
+                "a1": 'Final <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a2": 'Final <!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->',
+                "a3": 'Final <!-- READY_SIGNAL: {"confidence": 0.88, "ready": true} -->',
+            }
+        )
+
+        result = await phase._should_terminate(ctx, round_num=3)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_rlm_check_runs_before_judge(self, protocol):
+        """RLM check should run before judge-based termination."""
+        judge_check = AsyncMock(return_value=(True, "continue"))
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            check_judge_termination=judge_check,
+        )
+
+        ctx = MockDebateContext(
+            proposals={
+                "a1": 'Final <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a2": 'Final <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+                "a3": 'Final <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
+            }
+        )
+
+        result = await phase._should_terminate(ctx, round_num=3)
+
+        # Should terminate due to RLM quorum, judge check should not be called
+        assert result is True
+        judge_check.assert_not_called()

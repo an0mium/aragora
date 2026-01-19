@@ -7,6 +7,7 @@ import { ApiError } from './ApiError';
 import {
   PipelineProgress,
   DataPreview,
+  TrainingPricingPanel,
   type ExportType,
   type OutputFormat,
   type PipelineStage,
@@ -20,7 +21,7 @@ export function TrainingExportPanel() {
   const client = useAragoraClient();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'export' | 'formats' | 'history'>('export');
+  const [activeTab, setActiveTab] = useState<'export' | 'formats' | 'history' | 'pricing'>('export');
 
   // Data state
   const [stats, setStats] = useState<ExportStats | null>(null);
@@ -245,6 +246,7 @@ export function TrainingExportPanel() {
     { id: 'export' as const, label: 'Export' },
     { id: 'formats' as const, label: 'Formats' },
     { id: 'history' as const, label: 'History' },
+    { id: 'pricing' as const, label: 'Pricing' },
   ];
 
   // Reset pipeline when export type changes
@@ -632,6 +634,18 @@ export function TrainingExportPanel() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Pricing Tab */}
+        {activeTab === 'pricing' && (
+          <TrainingPricingPanel
+            currentUsage={{
+              recordsExported: lastExport?.total_records || 0,
+              exportsThisMonth: stats?.exported_files?.length || 0,
+              lastExportDate: lastExport?.exported_at || null,
+              tier: 'starter',
+            }}
+          />
         )}
       </div>
     </div>

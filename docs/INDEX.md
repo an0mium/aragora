@@ -1,13 +1,12 @@
 # Documentation Index
 
-> Aragora Documentation Navigation (113 documents)
+> Aragora Documentation Navigation (184 documents)
 
 ## Quick Links
 
 | Need | Document |
 |------|----------|
-| First time setup | [START_HERE.md](START_HERE.md) |
-| Quick tutorial | [QUICK_START.md](QUICK_START.md) |
+| First time setup | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | API reference | [API_REFERENCE.md](API_REFERENCE.md) |
 | Production deployment | [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
@@ -18,10 +17,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [START_HERE.md](START_HERE.md) | First-time setup guide |
-| [QUICK_START.md](QUICK_START.md) | 5-minute tutorial |
-| [QUICKSTART.md](QUICKSTART.md) | Alternative quickstart |
-| [GETTING_STARTED.md](GETTING_STARTED.md) | Detailed getting started |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | Comprehensive onboarding guide |
 | [USER_ONBOARDING.md](USER_ONBOARDING.md) | User onboarding flow |
 | [ENVIRONMENT.md](ENVIRONMENT.md) | Environment variables |
 
@@ -36,6 +32,11 @@
 | [DATABASE_SETUP.md](DATABASE_SETUP.md) | Database configuration |
 | [DATABASE_CONSOLIDATION.md](DATABASE_CONSOLIDATION.md) | Multi-database strategy |
 | [DEPENDENCIES.md](DEPENDENCIES.md) | Package dependencies |
+| [DEBATE_INTERNALS.md](DEBATE_INTERNALS.md) | Debate engine internals |
+| [REASONING.md](REASONING.md) | Belief networks and provenance |
+| [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md) | DAG-based workflow engine |
+| [RESILIENCE.md](RESILIENCE.md) | Circuit breaker patterns |
+| [HANDLERS.md](HANDLERS.md) | HTTP handler reference |
 
 ## API Reference
 
@@ -123,8 +124,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [PULSE.md](PULSE.md) | Pulse overview |
-| [PULSE_SYSTEM.md](PULSE_SYSTEM.md) | Pulse architecture |
+| [PULSE.md](PULSE.md) | Pulse system (ingestors, scoring, scheduler) |
 
 ## Security & Compliance
 

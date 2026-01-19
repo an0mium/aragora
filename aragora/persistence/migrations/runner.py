@@ -260,19 +260,43 @@ class MigrationRunner:
         target_version: int,
     ) -> dict:
         """Show what migrations would be run without executing."""
+
+        def check_migrations(pending: list[MigrationFile]) -> tuple[list[dict], list[dict]]:
+            """Check pending migrations for issues, returns (migration_info, warnings)."""
+            migration_info = []
+            warnings = []
+            for m in pending:
+                info = {"version": m.version, "name": m.name, "description": m.description}
+                # Check if migration is empty
+                try:
+                    module = self._load_migration_module(m)
+                    if hasattr(module, "upgrade") and self._is_empty_migration(module.upgrade):
+                        info["warning"] = "Empty migration (only has pass statement)"
+                        warnings.append(
+                            {
+                                "version": m.version,
+                                "message": f"Migration {m.version} ({m.path.name}) is empty and will fail",
+                            }
+                        )
+                except Exception:  # noqa: BLE001 - Continue if we can't inspect
+                    pass
+                migration_info.append(info)
+            return migration_info, warnings
+
         if not db_path.exists():
             pending = [m for m in migrations if m.version <= target_version]
-            return {
+            migration_info, warnings = check_migrations(pending)
+            result = {
                 "db_name": db_name,
                 "status": "dry_run",
                 "current_version": 0,
                 "target_version": target_version,
                 "would_create_db": True,
-                "pending_migrations": [
-                    {"version": m.version, "name": m.name, "description": m.description}
-                    for m in pending
-                ],
+                "pending_migrations": migration_info,
             }
+            if warnings:
+                result["warnings"] = warnings
+            return result
 
         conn = get_wal_connection(db_path)
         try:
@@ -280,18 +304,19 @@ class MigrationRunner:
             current = manager.get_version()
 
             pending = [m for m in migrations if m.version > current and m.version <= target_version]
+            migration_info, warnings = check_migrations(pending)
 
-            return {
+            result = {
                 "db_name": db_name,
                 "status": "dry_run",
                 "current_version": current,
                 "target_version": target_version,
                 "would_create_db": False,
-                "pending_migrations": [
-                    {"version": m.version, "name": m.name, "description": m.description}
-                    for m in pending
-                ],
+                "pending_migrations": migration_info,
             }
+            if warnings:
+                result["warnings"] = warnings
+            return result
         finally:
             conn.close()
 
@@ -332,9 +357,10 @@ class MigrationRunner:
                     if hasattr(module, "upgrade"):
                         # Check if migration is empty (only has pass)
                         if self._is_empty_migration(module.upgrade):
-                            logger.warning(
-                                f"[{db_name}] Migration {migration.version} has empty "
-                                f"upgrade() function. Consider implementing it."
+                            raise ValueError(
+                                f"Migration {migration.version} ({migration.path.name}) has empty "
+                                f"upgrade() function. Please implement the migration SQL or remove "
+                                f"the migration file if it's not needed."
                             )
                         module.upgrade(conn)
                         conn.commit()
@@ -445,8 +471,9 @@ Migration {next_version}: {description}
 
 Created: {datetime.utcnow().isoformat()}
 
-IMPORTANT: Replace the 'pass' statements below with actual SQL.
-Empty migrations will generate warnings when applied.
+IMPORTANT: You MUST replace the 'pass' statement in upgrade() with actual SQL.
+Empty migrations will FAIL validation and cannot be applied.
+If this migration is not needed, delete the file instead.
 """
 
 import sqlite3
@@ -489,7 +516,8 @@ def upgrade(conn: sqlite3.Connection) -> None:
     #     ON audit_log(timestamp)
     # """)
 
-    # TODO: Replace this pass with your migration SQL
+    # REQUIRED: Replace this pass with your migration SQL
+    # Empty migrations will fail validation - implement or delete this file
     pass
 
 

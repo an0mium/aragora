@@ -154,7 +154,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         new_status = body.get("status")
@@ -259,7 +259,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         assignee_id = body.get("user_id")
@@ -331,7 +331,7 @@ class FindingWorkflowHandler(BaseHandler):
         try:
             body = await self._parse_json_body(request)
             comment = body.get("comment", "")
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             # Comment is optional, proceed with empty string if body parsing fails
             logger.debug(f"Optional comment body not provided or invalid: {e}")
 
@@ -387,7 +387,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         comment = body.get("comment")
@@ -484,7 +484,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         priority = body.get("priority")
@@ -565,7 +565,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         due_date_str = body.get("due_date")
@@ -616,7 +616,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         linked_id = body.get("linked_finding_id")
@@ -664,7 +664,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         parent_id = body.get("parent_finding_id")
@@ -723,7 +723,7 @@ class FindingWorkflowHandler(BaseHandler):
         """
         try:
             body = await self._parse_json_body(request)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return self._error_response(400, "Invalid JSON body")
 
         finding_ids = body.get("finding_ids", [])
@@ -779,7 +779,7 @@ class FindingWorkflowHandler(BaseHandler):
 
                 results["success"].append(fid)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
                 results["failed"].append({"finding_id": fid, "error": str(e)})
 
         return self._json_response(

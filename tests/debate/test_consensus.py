@@ -17,6 +17,7 @@ import pytest
 
 from aragora.debate.consensus import (
     Claim,
+    ConsensusBuilder,
     ConsensusProof,
     ConsensusVote,
     DissentRecord,
@@ -554,3 +555,438 @@ class TestConsensusProof:
         blind_spots = proof.get_blind_spots()
 
         assert any("Scalability" in spot for spot in blind_spots)
+
+    def test_get_blind_spots_low_agreement(self):
+        """Test blind spot detection from low agreement ratio."""
+        # 1 supporting, 2 dissenting = 33% agreement
+        votes = [
+            ConsensusVote("a1", VoteType.AGREE, 0.9, "Support"),
+            ConsensusVote("a2", VoteType.DISAGREE, 0.8, "Dissent"),
+            ConsensusVote("a3", VoteType.DISAGREE, 0.7, "Dissent"),
+        ]
+        proof = ConsensusProof(
+            proof_id="proof_006",
+            debate_id="debate_006",
+            task="Test",
+            final_claim="Test",
+            confidence=0.7,
+            consensus_reached=False,
+            votes=votes,
+            supporting_agents=["a1"],
+            dissenting_agents=["a2", "a3"],
+            claims=[],
+            dissents=[],
+            unresolved_tensions=[],
+            evidence_chain=[],
+            reasoning_summary="Test",
+        )
+
+        blind_spots = proof.get_blind_spots()
+        assert any("Low consensus" in spot for spot in blind_spots)
+
+    def test_get_risk_correlation_empty(self):
+        """Test risk correlation with no claims."""
+        proof = self._create_sample_proof()
+        proof.claims = []
+        proof.unresolved_tensions = []
+        correlation = proof.get_risk_correlation()
+
+        assert correlation["unanimous"] == []
+        assert correlation["majority"] == []
+        assert correlation["contested"] == []
+
+    def test_get_risk_correlation_unanimous(self):
+        """Test risk correlation with unanimous support."""
+        claim = Claim(
+            claim_id="c1",
+            statement="All agents agree on this claim",
+            author="claude",
+            confidence=0.9,
+            supporting_evidence=[
+                Evidence("e1", "a", "content", "arg", True, 0.8),
+                Evidence("e2", "b", "content", "arg", True, 0.7),
+            ],
+            refuting_evidence=[],  # No refuting evidence
+        )
+        proof = self._create_sample_proof()
+        proof.claims = [claim]
+        proof.unresolved_tensions = []
+
+        correlation = proof.get_risk_correlation()
+        assert len(correlation["unanimous"]) == 1
+        assert "All agents agree" in correlation["unanimous"][0]
+
+    def test_get_risk_correlation_contested(self):
+        """Test risk correlation with contested claims."""
+        claim = Claim(
+            claim_id="c1",
+            statement="Controversial claim",
+            author="claude",
+            confidence=0.5,
+            supporting_evidence=[
+                Evidence("e1", "a", "content", "arg", True, 0.5),
+            ],
+            refuting_evidence=[
+                Evidence("e2", "b", "content", "arg", False, 0.5),
+            ],
+        )
+        tensions = [
+            UnresolvedTension(
+                tension_id="t1",
+                description="Big disagreement",
+                agents_involved=["a", "b"],
+                options=["Option A", "Option B"],
+                impact="Major",
+            ),
+        ]
+        proof = self._create_sample_proof()
+        proof.claims = [claim]
+        proof.unresolved_tensions = tensions
+
+        correlation = proof.get_risk_correlation()
+        assert len(correlation["contested"]) >= 1
+        assert any("Big disagreement" in item for item in correlation["contested"])
+
+    def test_to_dict(self):
+        """Test conversion to dictionary."""
+        proof = self._create_sample_proof()
+        data = proof.to_dict()
+
+        assert data["proof_id"] == "proof_001"
+        assert data["debate_id"] == "debate_001"
+        assert data["final_claim"] == "Use Redis for caching with a 15-minute TTL"
+        assert data["confidence"] == 0.85
+        assert data["consensus_reached"] is True
+        assert len(data["votes"]) == 3
+        assert "checksum" in data
+
+    def test_to_json(self):
+        """Test JSON serialization."""
+        proof = self._create_sample_proof()
+        json_str = proof.to_json()
+
+        import json
+        data = json.loads(json_str)
+        assert data["proof_id"] == "proof_001"
+        assert isinstance(json_str, str)
+
+    def test_to_json_with_indent(self):
+        """Test JSON serialization with custom indent."""
+        proof = self._create_sample_proof()
+        json_str = proof.to_json(indent=4)
+
+        # With indent=4, the string should contain indented lines
+        assert "    " in json_str
+
+    def test_to_markdown(self):
+        """Test Markdown report generation."""
+        dissents = [
+            DissentRecord(
+                agent="gemini",
+                claim_id="c1",
+                dissent_type="partial",
+                reasons=["Reason 1"],
+                alternative_view="Alternative",
+                severity=0.5,
+            ),
+        ]
+        tensions = [
+            UnresolvedTension(
+                tension_id="t1",
+                description="Test tension",
+                agents_involved=["claude"],
+                options=["A", "B"],
+                impact="Test impact",
+            ),
+        ]
+        proof = self._create_sample_proof(dissents=dissents, tensions=tensions)
+        markdown = proof.to_markdown()
+
+        assert "# Consensus Proof" in markdown
+        assert "**Proof ID:** `proof_001`" in markdown
+        assert "## Task" in markdown
+        assert "## Consensus" in markdown
+        assert "Design a caching solution" in markdown
+        assert "Supporting Agents" in markdown
+        assert "Dissenting Agents" in markdown
+        assert "## Evidence Chain" in markdown
+
+    def test_to_markdown_no_dissenting_agents(self):
+        """Test Markdown with no dissenting agents."""
+        votes = [
+            ConsensusVote("claude", VoteType.AGREE, 0.9, "Support"),
+            ConsensusVote("gpt4", VoteType.AGREE, 0.85, "Support"),
+        ]
+        proof = ConsensusProof(
+            proof_id="proof_007",
+            debate_id="debate_007",
+            task="Test task",
+            final_claim="Test claim",
+            confidence=0.9,
+            consensus_reached=True,
+            votes=votes,
+            supporting_agents=["claude", "gpt4"],
+            dissenting_agents=[],
+            claims=[],
+            dissents=[],
+            unresolved_tensions=[],
+            evidence_chain=[],
+            reasoning_summary="All agreed",
+        )
+
+        markdown = proof.to_markdown()
+        assert "*None*" in markdown  # No dissenting agents section
+
+
+class TestConsensusBuilder:
+    """Tests for ConsensusBuilder class."""
+
+    def test_builder_initialization(self):
+        """Test ConsensusBuilder initialization."""
+        builder = ConsensusBuilder("debate_001", "Design a cache system")
+
+        assert builder.debate_id == "debate_001"
+        assert builder.task == "Design a cache system"
+        assert builder.claims == []
+        assert builder.evidence == []
+        assert builder.votes == []
+        assert builder.dissents == []
+        assert builder.tensions == []
+
+    def test_add_claim(self):
+        """Test adding a claim."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim = builder.add_claim(
+            statement="Use Redis for caching",
+            author="claude",
+            confidence=0.85,
+            round_num=1,
+        )
+
+        assert claim.claim_id == "debate_001-claim-1"
+        assert claim.statement == "Use Redis for caching"
+        assert claim.author == "claude"
+        assert claim.confidence == 0.85
+        assert claim.round_introduced == 1
+        assert len(builder.claims) == 1
+
+    def test_add_claim_with_parent(self):
+        """Test adding a claim that revises another."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        original = builder.add_claim("Original claim", "claude", 0.7, 1)
+        revised = builder.add_claim(
+            statement="Revised claim",
+            author="claude",
+            confidence=0.9,
+            round_num=2,
+            parent_claim_id=original.claim_id,
+        )
+
+        assert revised.parent_claim_id == original.claim_id
+        assert len(builder.claims) == 2
+
+    def test_add_multiple_claims_increments_counter(self):
+        """Test that claim IDs increment."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim1 = builder.add_claim("Claim 1", "a", 0.5)
+        claim2 = builder.add_claim("Claim 2", "b", 0.5)
+        claim3 = builder.add_claim("Claim 3", "c", 0.5)
+
+        assert claim1.claim_id == "debate_001-claim-1"
+        assert claim2.claim_id == "debate_001-claim-2"
+        assert claim3.claim_id == "debate_001-claim-3"
+
+    def test_add_evidence_supporting(self):
+        """Test adding supporting evidence."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim = builder.add_claim("Redis is fast", "claude", 0.8)
+        evidence = builder.add_evidence(
+            claim_id=claim.claim_id,
+            source="benchmark",
+            content="Redis: 10ms latency",
+            evidence_type="data",
+            supports=True,
+            strength=0.95,
+        )
+
+        assert evidence.evidence_id == "debate_001-ev-1"
+        assert evidence.supports_claim is True
+        assert evidence.strength == 0.95
+        assert len(claim.supporting_evidence) == 1
+        assert len(claim.refuting_evidence) == 0
+
+    def test_add_evidence_refuting(self):
+        """Test adding refuting evidence."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim = builder.add_claim("Redis is always best", "claude", 0.8)
+        evidence = builder.add_evidence(
+            claim_id=claim.claim_id,
+            source="gpt4",
+            content="Memcached is faster for simple key-value",
+            evidence_type="argument",
+            supports=False,
+            strength=0.7,
+        )
+
+        assert evidence.supports_claim is False
+        assert len(claim.supporting_evidence) == 0
+        assert len(claim.refuting_evidence) == 1
+
+    def test_add_evidence_nonexistent_claim(self):
+        """Test adding evidence for non-existent claim."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        evidence = builder.add_evidence(
+            claim_id="nonexistent",
+            source="test",
+            content="Content",
+            evidence_type="argument",
+            supports=True,
+            strength=0.5,
+        )
+
+        # Evidence is still created and tracked
+        assert evidence.evidence_id == "debate_001-ev-1"
+        assert len(builder.evidence) == 1
+
+    def test_record_vote(self):
+        """Test recording a vote."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        vote = builder.record_vote(
+            agent="claude",
+            vote=VoteType.AGREE,
+            confidence=0.9,
+            reasoning="Strongly support this approach",
+        )
+
+        assert vote.agent == "claude"
+        assert vote.vote == VoteType.AGREE
+        assert vote.confidence == 0.9
+        assert len(builder.votes) == 1
+
+    def test_record_vote_conditional(self):
+        """Test recording a conditional vote."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        vote = builder.record_vote(
+            agent="gpt4",
+            vote=VoteType.CONDITIONAL,
+            confidence=0.7,
+            reasoning="Agree with reservations",
+            conditions=["Must handle errors", "Need tests"],
+        )
+
+        assert vote.vote == VoteType.CONDITIONAL
+        assert len(vote.conditions) == 2
+
+    def test_record_dissent(self):
+        """Test recording dissent."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim = builder.add_claim("Disputed claim", "claude", 0.6)
+        dissent = builder.record_dissent(
+            agent="gemini",
+            claim_id=claim.claim_id,
+            reasons=["Security concerns", "Performance issues"],
+            dissent_type="partial",
+            alternative="Use a different approach",
+            severity=0.7,
+        )
+
+        assert dissent.agent == "gemini"
+        assert dissent.claim_id == claim.claim_id
+        assert dissent.dissent_type == "partial"
+        assert len(dissent.reasons) == 2
+        assert dissent.alternative_view == "Use a different approach"
+        assert dissent.severity == 0.7
+        assert len(builder.dissents) == 1
+
+    def test_record_tension(self):
+        """Test recording unresolved tension."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        tension = builder.record_tension(
+            description="Performance vs Security tradeoff",
+            agents=["claude", "gpt4"],
+            options=["Prioritize performance", "Prioritize security"],
+            impact="Affects architecture decision",
+            followup="Run benchmarks",
+        )
+
+        assert tension.tension_id == "debate_001-tension-1"
+        assert tension.description == "Performance vs Security tradeoff"
+        assert len(tension.agents_involved) == 2
+        assert len(tension.options) == 2
+        assert tension.suggested_followup == "Run benchmarks"
+        assert len(builder.tensions) == 1
+
+    def test_record_multiple_tensions(self):
+        """Test recording multiple tensions increments ID."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        t1 = builder.record_tension("Tension 1", ["a"], ["opt"], "impact")
+        t2 = builder.record_tension("Tension 2", ["b"], ["opt"], "impact")
+
+        assert t1.tension_id == "debate_001-tension-1"
+        assert t2.tension_id == "debate_001-tension-2"
+
+    def test_build_consensus_proof(self):
+        """Test building a ConsensusProof."""
+        builder = ConsensusBuilder("debate_001", "Design a cache")
+
+        # Add claims
+        claim = builder.add_claim("Use Redis", "claude", 0.85, 1)
+        builder.add_evidence(claim.claim_id, "benchmark", "Fast", "data", True, 0.9)
+
+        # Record votes
+        builder.record_vote("claude", VoteType.AGREE, 0.9, "Support")
+        builder.record_vote("gpt4", VoteType.AGREE, 0.85, "Support")
+        builder.record_vote("gemini", VoteType.DISAGREE, 0.6, "Concerns")
+
+        # Build proof
+        proof = builder.build(
+            final_claim="Use Redis with 15min TTL",
+            confidence=0.85,
+            consensus_reached=True,
+            reasoning_summary="Agents agreed on Redis",
+            rounds=3,
+        )
+
+        assert proof.proof_id == "proof-debate_001"
+        assert proof.debate_id == "debate_001"
+        assert proof.task == "Design a cache"
+        assert proof.final_claim == "Use Redis with 15min TTL"
+        assert proof.confidence == 0.85
+        assert proof.consensus_reached is True
+        assert proof.rounds_to_consensus == 3
+        assert len(proof.votes) == 3
+        assert "claude" in proof.supporting_agents
+        assert "gpt4" in proof.supporting_agents
+        assert "gemini" in proof.dissenting_agents
+
+    def test_build_categorizes_conditional_as_supporting(self):
+        """Test that conditional votes are counted as supporting."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        builder.record_vote("claude", VoteType.CONDITIONAL, 0.8, "Agree with conditions")
+
+        proof = builder.build(
+            final_claim="Final",
+            confidence=0.8,
+            consensus_reached=True,
+            reasoning_summary="Summary",
+        )
+
+        assert "claude" in proof.supporting_agents
+        assert "claude" not in proof.dissenting_agents
+
+    def test_build_includes_dissents_and_tensions(self):
+        """Test that build includes recorded dissents and tensions."""
+        builder = ConsensusBuilder("debate_001", "Test task")
+        claim = builder.add_claim("Claim", "claude", 0.7)
+        builder.record_dissent("gemini", claim.claim_id, ["Reason"], severity=0.8)
+        builder.record_tension("Tension", ["a", "b"], ["opt1", "opt2"], "Impact")
+
+        proof = builder.build(
+            final_claim="Final",
+            confidence=0.7,
+            consensus_reached=False,
+            reasoning_summary="No consensus",
+        )
+
+        assert len(proof.dissents) == 1
+        assert len(proof.unresolved_tensions) == 1

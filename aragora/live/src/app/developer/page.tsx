@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 
 const API_BASE = API_BASE_URL;
 
@@ -274,11 +275,12 @@ export default function DeveloperPortal() {
 
   return (
     <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-mono text-acid-green mb-2">DEVELOPER PORTAL</h1>
-        <p className="text-text-muted font-mono text-sm mb-8">
-          Manage your API keys and monitor usage
-        </p>
+      <PanelErrorBoundary panelName="Developer Portal">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-mono text-acid-green mb-2">DEVELOPER PORTAL</h1>
+          <p className="text-text-muted font-mono text-sm mb-8">
+            Manage your API keys and monitor usage
+          </p>
 
         {/* API Key Management */}
         <div className="border border-acid-green/30 bg-surface/30 p-6 mb-6">
@@ -621,7 +623,8 @@ export default function DeveloperPortal() {
             </a>
           </div>
         </div>
-      </div>
+        </div>
+      </PanelErrorBoundary>
     </div>
   );
 }
