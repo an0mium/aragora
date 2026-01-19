@@ -757,7 +757,74 @@ class TestControlPlaneHandlerIntegration:
             result = control_plane_handler.handle_post(
                 f"/api/control-plane/tasks/{task_id}/complete", {}, complete_handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("completed") is True
+
+
+class TestControlPlaneHandlerEmitEvent:
+    """Test _emit_event retry logic."""
+
+    def test_emit_event_success_first_try(self, control_plane_handler):
+        """Test successful emission on first try."""
+        mock_stream = MagicMock()
+        mock_stream.emit_task_created = AsyncMock()
+        control_plane_handler.ctx["control_plane_stream"] = mock_stream
+
+        control_plane_handler._emit_event("emit_task_created", {"task_id": "123"})
+
+        mock_stream.emit_task_created.assert_called_once_with({"task_id": "123"})
+
+    def test_emit_event_retry_on_failure(self, control_plane_handler):
+        """Test retry logic with exponential backoff."""
+        mock_stream = MagicMock()
+        call_count = [0]
+
+        async def flaky_emit(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise Exception("Transient error")
+            return True
+
+        mock_stream.emit_task_created = flaky_emit
+        control_plane_handler.ctx["control_plane_stream"] = mock_stream
+
+        with patch("time.sleep") as mock_sleep:
+            control_plane_handler._emit_event("emit_task_created", {"task_id": "123"})
+
+        # Should have retried 3 times (2 failures + 1 success)
+        assert call_count[0] == 3
+        # Should have slept twice (before 2nd and 3rd attempts)
+        assert mock_sleep.call_count == 2
+
+    def test_emit_event_all_retries_fail(self, control_plane_handler):
+        """Test logging warning after all retries fail."""
+        mock_stream = MagicMock()
+        mock_stream.emit_task_failed = AsyncMock(side_effect=Exception("Persistent error"))
+        control_plane_handler.ctx["control_plane_stream"] = mock_stream
+
+        with patch("time.sleep"):
+            with patch("aragora.server.handlers.control_plane.logger") as mock_logger:
+                control_plane_handler._emit_event(
+                    "emit_task_failed", {"task_id": "123"}, max_retries=3
+                )
+
+                # Should log warning after all retries fail
+                mock_logger.warning.assert_called_once()
+                assert "failed after 3 attempts" in mock_logger.warning.call_args[0][0]
+
+    def test_emit_event_no_stream(self, control_plane_handler):
+        """Test graceful handling when no stream configured."""
+        control_plane_handler.ctx.pop("control_plane_stream", None)
+
+        # Should not raise
+        control_plane_handler._emit_event("emit_task_created", {"task_id": "123"})
+
+    def test_emit_event_method_not_found(self, control_plane_handler):
+        """Test graceful handling when emit method doesn't exist."""
+        mock_stream = MagicMock(spec=[])  # No methods
+        control_plane_handler.ctx["control_plane_stream"] = mock_stream
+
+        # Should not raise
+        control_plane_handler._emit_event("nonexistent_method", {"data": "test"})
