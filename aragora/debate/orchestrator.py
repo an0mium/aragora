@@ -690,6 +690,50 @@ class Arena:
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
         self.prompt_builder.user_suggestions = self.user_suggestions  # type: ignore[assignment]
 
+    async def compress_debate_messages(
+        self,
+        messages: list,
+        critiques: list | None = None,
+    ) -> tuple[list, list | None]:
+        """Compress debate messages using RLM cognitive load limiter.
+
+        Uses hierarchical compression to reduce context size while preserving
+        semantic content. Older messages are summarized, recent messages kept
+        at full detail.
+
+        Args:
+            messages: List of debate messages to compress
+            critiques: Optional list of critiques to compress
+
+        Returns:
+            Tuple of (compressed_messages, compressed_critiques)
+
+        Example:
+            compressed_msgs, compressed_crits = await arena.compress_debate_messages(
+                messages=ctx.context_messages,
+                critiques=all_critiques,
+            )
+        """
+        if not self.use_rlm_limiter or not self.rlm_limiter:
+            return messages, critiques
+
+        try:
+            result = await self.rlm_limiter.compress_context_async(
+                messages=messages,
+                critiques=critiques,
+            )
+
+            if result.compression_applied:
+                logger.info(
+                    f"[arena] Compressed debate context: {result.original_chars} → "
+                    f"{result.compressed_chars} chars ({result.compression_ratio:.0%} of original)"
+                )
+
+            return result.messages, result.critiques
+        except Exception as e:
+            logger.warning(f"[arena] RLM compression failed, using original: {e}")
+            return messages, critiques
+
     def _get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context."""
         return self._context_delegator.get_continuum_context()
