@@ -339,6 +339,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         "/api/health",
         "/api/health/detailed",
         "/api/health/deep",
+        "/api/health/stores",
         # OAuth
         "/api/auth/oauth/providers",  # Login page needs to show available providers
         # API documentation (public)

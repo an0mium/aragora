@@ -28,37 +28,254 @@ except ImportError:
     logger.warning("EloSystem not available, will create minimal database")
 
 
-# Default agents to seed - major AI providers
-DEFAULT_AGENTS = [
+# Agent metadata with rich information
+# Format: (name, provider, metadata_dict)
+AGENT_METADATA = [
     # Anthropic
-    ("claude-opus", "anthropic"),
-    ("claude-sonnet", "anthropic"),
-    ("claude-haiku", "anthropic"),
+    {
+        "name": "claude-opus",
+        "provider": "anthropic",
+        "model_id": "claude-opus-4-5-20251101",
+        "context_window": 200000,
+        "specialties": ["reasoning", "analysis", "coding", "writing"],
+        "strengths": ["Deep reasoning", "Nuanced analysis", "Long-form content"],
+        "release_date": "2025-01",
+    },
+    {
+        "name": "claude-sonnet",
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-4-20250514",
+        "context_window": 200000,
+        "specialties": ["coding", "analysis", "general"],
+        "strengths": ["Balanced speed/quality", "Strong coding", "Tool use"],
+        "release_date": "2025-05",
+    },
+    {
+        "name": "claude-haiku",
+        "provider": "anthropic",
+        "model_id": "claude-haiku-4-20250514",
+        "context_window": 200000,
+        "specialties": ["speed", "classification", "simple-tasks"],
+        "strengths": ["Fast responses", "Cost-effective", "High throughput"],
+        "release_date": "2025-05",
+    },
     # OpenAI
-    ("gpt-4o", "openai"),
-    ("gpt-4-turbo", "openai"),
-    ("o1", "openai"),
-    ("o1-mini", "openai"),
+    {
+        "name": "gpt-4o",
+        "provider": "openai",
+        "model_id": "gpt-4o-2024-11-20",
+        "context_window": 128000,
+        "specialties": ["multimodal", "coding", "general"],
+        "strengths": ["Multimodal", "Fast", "Well-rounded"],
+        "release_date": "2024-11",
+    },
+    {
+        "name": "gpt-4-turbo",
+        "provider": "openai",
+        "model_id": "gpt-4-turbo-2024-04-09",
+        "context_window": 128000,
+        "specialties": ["coding", "analysis", "general"],
+        "strengths": ["Reliable", "Good instruction following"],
+        "release_date": "2024-04",
+    },
+    {
+        "name": "o1",
+        "provider": "openai",
+        "model_id": "o1-2024-12-17",
+        "context_window": 200000,
+        "specialties": ["reasoning", "math", "science", "coding"],
+        "strengths": ["Deep reasoning", "Complex problem solving", "Chain of thought"],
+        "release_date": "2024-12",
+    },
+    {
+        "name": "o1-mini",
+        "provider": "openai",
+        "model_id": "o1-mini-2024-09-12",
+        "context_window": 128000,
+        "specialties": ["reasoning", "math", "coding"],
+        "strengths": ["Fast reasoning", "Cost-effective for STEM"],
+        "release_date": "2024-09",
+    },
     # Google
-    ("gemini-pro", "google"),
-    ("gemini-ultra", "google"),
+    {
+        "name": "gemini-pro",
+        "provider": "google",
+        "model_id": "gemini-2.0-flash",
+        "context_window": 1000000,
+        "specialties": ["multimodal", "long-context", "general"],
+        "strengths": ["Massive context", "Multimodal", "Fast"],
+        "release_date": "2024-12",
+    },
+    {
+        "name": "gemini-ultra",
+        "provider": "google",
+        "model_id": "gemini-2.5-pro-preview",
+        "context_window": 1000000,
+        "specialties": ["reasoning", "multimodal", "analysis"],
+        "strengths": ["Deep reasoning", "Agentic capabilities"],
+        "release_date": "2025-01",
+    },
     # xAI
-    ("grok-2", "xai"),
-    ("grok-beta", "xai"),
-    # Meta (via OpenRouter)
-    ("llama-3.1-405b", "meta"),
-    ("llama-3.1-70b", "meta"),
+    {
+        "name": "grok-2",
+        "provider": "xai",
+        "model_id": "grok-2-1212",
+        "context_window": 131072,
+        "specialties": ["general", "real-time", "humor"],
+        "strengths": ["Real-time knowledge", "Contrarian perspectives"],
+        "release_date": "2024-12",
+    },
+    {
+        "name": "grok-beta",
+        "provider": "xai",
+        "model_id": "grok-beta",
+        "context_window": 131072,
+        "specialties": ["general", "coding"],
+        "strengths": ["Experimental features", "Fast iteration"],
+        "release_date": "2024-08",
+    },
+    # Meta
+    {
+        "name": "llama-3.1-405b",
+        "provider": "meta",
+        "model_id": "meta-llama/llama-3.1-405b-instruct",
+        "context_window": 128000,
+        "specialties": ["general", "coding", "multilingual"],
+        "strengths": ["Open weights", "Large scale", "Customizable"],
+        "release_date": "2024-07",
+    },
+    {
+        "name": "llama-3.1-70b",
+        "provider": "meta",
+        "model_id": "meta-llama/llama-3.1-70b-instruct",
+        "context_window": 128000,
+        "specialties": ["general", "coding"],
+        "strengths": ["Open weights", "Good balance", "Self-hostable"],
+        "release_date": "2024-07",
+    },
     # Mistral
-    ("mistral-large", "mistral"),
-    ("codestral", "mistral"),
+    {
+        "name": "mistral-large",
+        "provider": "mistral",
+        "model_id": "mistral-large-latest",
+        "context_window": 128000,
+        "specialties": ["multilingual", "coding", "reasoning"],
+        "strengths": ["European perspective", "Strong multilingual", "Function calling"],
+        "release_date": "2024-11",
+    },
+    {
+        "name": "codestral",
+        "provider": "mistral",
+        "model_id": "codestral-latest",
+        "context_window": 32000,
+        "specialties": ["coding", "code-completion"],
+        "strengths": ["Code specialized", "Fill-in-the-middle", "Fast"],
+        "release_date": "2024-05",
+    },
     # DeepSeek
-    ("deepseek-v3", "deepseek"),
-    ("deepseek-coder", "deepseek"),
+    {
+        "name": "deepseek-v3",
+        "provider": "deepseek",
+        "model_id": "deepseek-chat",
+        "context_window": 64000,
+        "specialties": ["reasoning", "coding", "math"],
+        "strengths": ["Strong reasoning", "Cost-effective", "Open weights"],
+        "release_date": "2024-12",
+    },
+    {
+        "name": "deepseek-coder",
+        "provider": "deepseek",
+        "model_id": "deepseek-coder",
+        "context_window": 128000,
+        "specialties": ["coding", "code-completion"],
+        "strengths": ["Code specialized", "Repository understanding"],
+        "release_date": "2024-01",
+    },
     # Alibaba
-    ("qwen-2.5-72b", "alibaba"),
+    {
+        "name": "qwen-2.5-72b",
+        "provider": "alibaba",
+        "model_id": "qwen/qwen-2.5-72b-instruct",
+        "context_window": 131072,
+        "specialties": ["multilingual", "coding", "math"],
+        "strengths": ["Chinese/English", "Strong math", "Open weights"],
+        "release_date": "2024-09",
+    },
     # Cohere
-    ("command-r-plus", "cohere"),
+    {
+        "name": "command-r-plus",
+        "provider": "cohere",
+        "model_id": "command-r-plus-08-2024",
+        "context_window": 128000,
+        "specialties": ["rag", "enterprise", "multilingual"],
+        "strengths": ["RAG optimized", "Enterprise focus", "Tool use"],
+        "release_date": "2024-08",
+    },
+    # Moonshot (Kimi)
+    {
+        "name": "kimi-k2",
+        "provider": "moonshot",
+        "model_id": "moonshotai/kimi-k2",
+        "context_window": 131072,
+        "specialties": ["long-context", "chinese", "reasoning"],
+        "strengths": ["Long context", "Strong Chinese", "Agentic"],
+        "release_date": "2025-01",
+    },
 ]
+
+# Legacy format for backward compatibility
+DEFAULT_AGENTS = [(a["name"], a["provider"]) for a in AGENT_METADATA]
+
+
+def seed_agent_metadata(db_path: Path) -> int:
+    """Seed agent metadata table with rich information."""
+    import json
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+
+    # Create metadata table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_metadata (
+            agent_name TEXT PRIMARY KEY,
+            provider TEXT NOT NULL,
+            model_id TEXT,
+            context_window INTEGER,
+            specialties TEXT,  -- JSON array
+            strengths TEXT,    -- JSON array
+            release_date TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_provider ON agent_metadata(provider)")
+
+    seeded = 0
+    now = datetime.now().isoformat()
+
+    for agent in AGENT_METADATA:
+        try:
+            conn.execute("""
+                INSERT OR REPLACE INTO agent_metadata
+                (agent_name, provider, model_id, context_window, specialties, strengths, release_date, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                agent["name"],
+                agent["provider"],
+                agent.get("model_id"),
+                agent.get("context_window"),
+                json.dumps(agent.get("specialties", [])),
+                json.dumps(agent.get("strengths", [])),
+                agent.get("release_date"),
+                now,
+            ))
+            seeded += 1
+        except Exception as e:
+            logger.warning(f"Failed to seed metadata for {agent['name']}: {e}")
+
+    conn.commit()
+    conn.close()
+    return seeded
 
 
 def seed_with_elo_system(db_path: Path, agents: list[tuple[str, str]], force: bool = False) -> int:
@@ -99,6 +316,14 @@ def seed_with_elo_system(db_path: Path, agents: list[tuple[str, str]], force: bo
             logger.warning(f"Failed to seed {agent_name}: {e}")
 
     return seeded
+
+
+def export_metadata_json(output_path: Path) -> None:
+    """Export agent metadata to JSON file."""
+    import json
+
+    output_path.write_text(json.dumps(AGENT_METADATA, indent=2))
+    logger.info(f"Exported metadata to {output_path}")
 
 
 def seed_minimal_database(db_path: Path, agents: list[tuple[str, str]]) -> int:
@@ -172,7 +397,38 @@ def main():
         action="store_true",
         help="Show what would be seeded without making changes",
     )
+    parser.add_argument(
+        "--with-metadata",
+        action="store_true",
+        default=True,
+        help="Also seed agent metadata table (default: True)",
+    )
+    parser.add_argument(
+        "--export-json",
+        type=Path,
+        default=None,
+        help="Export agent metadata to JSON file",
+    )
+    parser.add_argument(
+        "--list-agents",
+        action="store_true",
+        help="List all available agents with metadata and exit",
+    )
     args = parser.parse_args()
+
+    # List agents mode
+    if args.list_agents:
+        logger.info(f"Available agents ({len(AGENT_METADATA)}):\n")
+        for agent in AGENT_METADATA:
+            print(f"  {agent['name']:<20} ({agent['provider']:<10}) "
+                  f"ctx:{agent.get('context_window', 'N/A'):<8} "
+                  f"specialties: {', '.join(agent.get('specialties', []))}")
+        return
+
+    # Export JSON mode
+    if args.export_json:
+        export_metadata_json(args.export_json)
+        return
 
     # Determine database path
     base_dir = Path(__file__).parent.parent
@@ -186,8 +442,11 @@ def main():
 
     if args.dry_run:
         logger.info("DRY RUN - no changes will be made")
-        for agent_name, provider in DEFAULT_AGENTS:
-            logger.info(f"  Would seed: {agent_name} ({provider})")
+        for agent in AGENT_METADATA:
+            ctx = agent.get("context_window", "N/A")
+            specs = ", ".join(agent.get("specialties", [])[:3])
+            logger.info(f"  Would seed: {agent['name']} ({agent['provider']}) "
+                       f"[ctx:{ctx}, {specs}]")
         return
 
     # Ensure .nomic directory exists
@@ -200,6 +459,11 @@ def main():
         seeded = seed_minimal_database(db_path, DEFAULT_AGENTS)
 
     logger.info(f"Seeded {seeded} agents successfully")
+
+    # Seed metadata
+    if args.with_metadata:
+        metadata_count = seed_agent_metadata(db_path)
+        logger.info(f"Seeded {metadata_count} agent metadata records")
 
     # Print summary
     if seeded > 0:

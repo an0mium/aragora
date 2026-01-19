@@ -41,6 +41,7 @@ class HealthHandler(BaseHandler):
         "/api/health",
         "/api/health/detailed",
         "/api/health/deep",
+        "/api/health/stores",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -57,6 +58,7 @@ class HealthHandler(BaseHandler):
             "/api/health": self._health_check,
             "/api/health/detailed": self._detailed_health_check,
             "/api/health/deep": self._deep_health_check,
+            "/api/health/stores": self._database_stores_health,
         }
 
         endpoint_handler = handlers.get(path)
@@ -551,6 +553,223 @@ class HealthHandler(BaseHandler):
             }
 
         return json_response(health)
+
+    def _database_stores_health(self) -> HandlerResult:
+        """Check health of all database stores.
+
+        Returns detailed status for each database store:
+        - debate_storage: Main debate persistence (SQLite/Supabase)
+        - elo_system: Agent rankings database
+        - insight_store: Debate insights database
+        - flip_detector: Flip detection database
+        - consensus_memory: Consensus patterns database
+        - user_store: User and organization data
+
+        This endpoint helps diagnose which specific stores are
+        initialized, connected, and functioning.
+        """
+        stores: Dict[str, Dict[str, Any]] = {}
+        all_healthy = True
+        start_time = time.time()
+
+        # 1. Debate Storage
+        try:
+            storage = self.get_storage()
+            if storage is not None:
+                count = len(storage.list_recent(limit=1))
+                stores["debate_storage"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(storage).__name__,
+                }
+            else:
+                stores["debate_storage"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Will auto-create on first debate",
+                }
+        except Exception as e:
+            stores["debate_storage"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+            all_healthy = False
+
+        # 2. ELO System
+        try:
+            elo = self.get_elo_system()
+            if elo is not None:
+                leaderboard = elo.get_leaderboard(limit=5)
+                stores["elo_system"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "agent_count": len(leaderboard),
+                }
+            else:
+                stores["elo_system"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Run: python scripts/seed_agents.py",
+                }
+        except Exception as e:
+            stores["elo_system"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+            all_healthy = False
+
+        # 3. Insight Store
+        try:
+            insight_store = self.ctx.get("insight_store")
+            if insight_store is not None:
+                stores["insight_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(insight_store).__name__,
+                }
+            else:
+                stores["insight_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                    "hint": "Will auto-create on first insight",
+                }
+        except Exception as e:
+            stores["insight_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 4. Flip Detector
+        try:
+            flip_detector = self.ctx.get("flip_detector")
+            if flip_detector is not None:
+                stores["flip_detector"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(flip_detector).__name__,
+                }
+            else:
+                stores["flip_detector"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                }
+        except Exception as e:
+            stores["flip_detector"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 5. User Store
+        try:
+            user_store = self.ctx.get("user_store")
+            if user_store is not None:
+                stores["user_store"] = {
+                    "healthy": True,
+                    "status": "connected",
+                    "type": type(user_store).__name__,
+                }
+            else:
+                stores["user_store"] = {
+                    "healthy": True,
+                    "status": "not_initialized",
+                }
+        except Exception as e:
+            stores["user_store"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 6. Consensus Memory
+        try:
+            from aragora.memory.consensus import ConsensusMemory
+
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir is not None:
+                consensus_path = nomic_dir / "consensus_memory.db"
+                if consensus_path.exists():
+                    stores["consensus_memory"] = {
+                        "healthy": True,
+                        "status": "exists",
+                        "path": str(consensus_path),
+                    }
+                else:
+                    stores["consensus_memory"] = {
+                        "healthy": True,
+                        "status": "not_initialized",
+                        "hint": "Run: python scripts/seed_consensus.py",
+                    }
+            else:
+                stores["consensus_memory"] = {
+                    "healthy": True,
+                    "status": "nomic_dir_not_set",
+                }
+        except ImportError:
+            stores["consensus_memory"] = {
+                "healthy": True,
+                "status": "module_not_available",
+            }
+        except Exception as e:
+            stores["consensus_memory"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        # 7. Agent Metadata (from seed script)
+        try:
+            nomic_dir = self.get_nomic_dir()
+            if nomic_dir is not None:
+                elo_path = nomic_dir / "elo.db"
+                if elo_path.exists():
+                    import sqlite3
+                    conn = sqlite3.connect(elo_path)
+                    cursor = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_metadata'"
+                    )
+                    has_metadata = cursor.fetchone() is not None
+                    if has_metadata:
+                        cursor = conn.execute("SELECT COUNT(*) FROM agent_metadata")
+                        count = cursor.fetchone()[0]
+                        stores["agent_metadata"] = {
+                            "healthy": True,
+                            "status": "connected",
+                            "agent_count": count,
+                        }
+                    else:
+                        stores["agent_metadata"] = {
+                            "healthy": True,
+                            "status": "table_not_exists",
+                            "hint": "Run: python scripts/seed_agents.py --with-metadata",
+                        }
+                    conn.close()
+                else:
+                    stores["agent_metadata"] = {
+                        "healthy": True,
+                        "status": "database_not_exists",
+                    }
+            else:
+                stores["agent_metadata"] = {
+                    "healthy": True,
+                    "status": "nomic_dir_not_set",
+                }
+        except Exception as e:
+            stores["agent_metadata"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:100]}",
+            }
+
+        elapsed_ms = round((time.time() - start_time) * 1000, 2)
+
+        return json_response({
+            "status": "healthy" if all_healthy else "degraded",
+            "stores": stores,
+            "elapsed_ms": elapsed_ms,
+            "summary": {
+                "total": len(stores),
+                "healthy": sum(1 for s in stores.values() if s.get("healthy", False)),
+                "connected": sum(1 for s in stores.values() if s.get("status") == "connected"),
+                "not_initialized": sum(1 for s in stores.values() if s.get("status") == "not_initialized"),
+            },
+        })
 
     def _deep_health_check(self) -> HandlerResult:
         """Deep health check - verifies all external dependencies.

@@ -3,12 +3,16 @@ Domain detection for task routing.
 
 Provides LLM-based domain detection with keyword fallback for natural language
 task descriptions. Uses Claude Haiku for fast, accurate classification.
+
+Includes TTL caching to reduce API costs for repeated queries.
 """
 
+import hashlib
 import json
 import logging
 import os
 import re
+import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -16,6 +20,82 @@ if TYPE_CHECKING:
     from aragora.routing.selection import TaskRequirements
 
 logger = logging.getLogger(__name__)
+
+# Default cache settings
+DEFAULT_CACHE_TTL = 3600  # 1 hour
+DEFAULT_CACHE_SIZE = 500  # Max entries
+
+
+class _DomainCache:
+    """Simple TTL cache for domain detection results."""
+
+    def __init__(self, max_size: int = DEFAULT_CACHE_SIZE, ttl_seconds: int = DEFAULT_CACHE_TTL):
+        self._cache: dict[str, tuple[float, list[tuple[str, float]]]] = {}
+        self._max_size = max_size
+        self._ttl = ttl_seconds
+        self._hits = 0
+        self._misses = 0
+
+    def _make_key(self, text: str, top_n: int) -> str:
+        """Create cache key from text and top_n."""
+        # Normalize: lowercase, strip, limit length for consistent hashing
+        normalized = text.lower().strip()[:500]
+        return hashlib.sha256(f"{normalized}:{top_n}".encode()).hexdigest()[:16]
+
+    def get(self, text: str, top_n: int) -> Optional[list[tuple[str, float]]]:
+        """Get cached result if valid."""
+        key = self._make_key(text, top_n)
+        entry = self._cache.get(key)
+        if entry is None:
+            self._misses += 1
+            return None
+
+        timestamp, result = entry
+        if time.time() - timestamp > self._ttl:
+            # Expired
+            del self._cache[key]
+            self._misses += 1
+            return None
+
+        self._hits += 1
+        return result
+
+    def set(self, text: str, top_n: int, result: list[tuple[str, float]]) -> None:
+        """Cache a result."""
+        # Evict oldest entries if at capacity
+        if len(self._cache) >= self._max_size:
+            # Remove oldest 10%
+            sorted_keys = sorted(
+                self._cache.keys(),
+                key=lambda k: self._cache[k][0]
+            )
+            for k in sorted_keys[:max(1, self._max_size // 10)]:
+                del self._cache[k]
+
+        key = self._make_key(text, top_n)
+        self._cache[key] = (time.time(), result)
+
+    def stats(self) -> dict:
+        """Return cache statistics."""
+        total = self._hits + self._misses
+        return {
+            "size": len(self._cache),
+            "max_size": self._max_size,
+            "ttl_seconds": self._ttl,
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": self._hits / total if total > 0 else 0.0,
+        }
+
+    def clear(self) -> int:
+        """Clear all entries. Returns count of cleared entries."""
+        count = len(self._cache)
+        self._cache.clear()
+        return count
+
+
+# Global cache instance (shared across DomainDetector instances)
+_domain_cache = _DomainCache()
 
 # Domain detection keywords
 DOMAIN_KEYWORDS: dict[str, list[str]] = {
@@ -307,6 +387,7 @@ class DomainDetector:
         custom_keywords: Optional[dict[str, list[str]]] = None,
         use_llm: bool = True,
         client: Optional["anthropic.Anthropic"] = None,
+        use_cache: bool = True,
     ):
         """Initialize with optional custom domain keywords.
 
@@ -314,6 +395,7 @@ class DomainDetector:
             custom_keywords: Additional domain keywords to merge
             use_llm: Whether to use LLM classification (default True, falls back to keywords on error)
             client: Optional Anthropic client (created lazily if not provided)
+            use_cache: Whether to cache LLM results (default True)
         """
         self.keywords = DOMAIN_KEYWORDS.copy()
         if custom_keywords:
@@ -324,6 +406,7 @@ class DomainDetector:
                     self.keywords[domain] = words
         self.use_llm = use_llm and os.environ.get("ANTHROPIC_API_KEY")
         self._client = client
+        self._use_cache = use_cache
 
     @property
     def client(self) -> Optional["anthropic.Anthropic"]:
@@ -342,9 +425,17 @@ class DomainDetector:
         """Detect domains using Claude Haiku for accurate classification.
 
         Returns None if LLM classification fails (caller should use keyword fallback).
+        Uses caching to reduce API calls for repeated queries.
         """
         if not self.client:
             return None
+
+        # Check cache first
+        if self._use_cache:
+            cached = _domain_cache.get(task_text, top_n)
+            if cached is not None:
+                logger.debug(f"Domain cache hit for: {task_text[:50]}...")
+                return cached
 
         # Build domain descriptions for the prompt
         domain_list = ", ".join(sorted(self.VALID_DOMAINS))
@@ -397,7 +488,11 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                     valid_results.append((name, min(1.0, max(0.0, conf))))
 
             if valid_results:
-                return valid_results[:top_n]
+                result = valid_results[:top_n]
+                # Cache successful result
+                if self._use_cache:
+                    _domain_cache.set(task_text, top_n, result)
+                return result
 
             # No valid domains found, fallback
             return None
@@ -405,6 +500,16 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
         except Exception as e:
             logger.debug(f"LLM domain detection failed: {e}")
             return None
+
+    @staticmethod
+    def cache_stats() -> dict:
+        """Return cache statistics."""
+        return _domain_cache.stats()
+
+    @staticmethod
+    def clear_cache() -> int:
+        """Clear the domain cache. Returns count of cleared entries."""
+        return _domain_cache.clear()
 
     def detect(self, task_text: str, top_n: int = 3) -> list[tuple[str, float]]:
         """
