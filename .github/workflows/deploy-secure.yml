@@ -207,10 +207,10 @@ jobs:
             --query 'Reservations[0].Instances[0].PublicIpAddress' \
             --output text)
 
-          echo "Checking health at $PUBLIC_IP:8765"
+          echo "Checking health at $PUBLIC_IP:8080"
 
           for i in {1..12}; do
-            if curl -sf "http://$PUBLIC_IP:8765/api/health" -o /dev/null 2>/dev/null; then
+            if curl -sf "http://$PUBLIC_IP:8080/api/health" -o /dev/null 2>/dev/null; then
               echo "Health check passed"
               echo "health_ok=true" >> $GITHUB_OUTPUT
               exit 0
