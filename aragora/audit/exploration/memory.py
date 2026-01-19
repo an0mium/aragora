@@ -15,22 +15,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
 from aragora.audit.exploration.session import Insight
+from aragora.memory import MemoryTier
 
 logger = logging.getLogger(__name__)
-
-
-class MemoryTier(str, Enum):
-    """Memory tier for exploration insights."""
-
-    FAST = "fast"  # Current session, 1h half-life
-    MEDIUM = "medium"  # Cross-document, 24h half-life
-    SLOW = "slow"  # Domain knowledge, 7d half-life
-    GLACIAL = "glacial"  # Foundational rules, 30d half-life
 
 
 @dataclass

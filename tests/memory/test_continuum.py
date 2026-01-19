@@ -11,19 +11,14 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from enum import Enum
+
+# Import canonical MemoryTier from aragora.memory
+from aragora.memory import MemoryTier
 
 
 # =============================================================================
 # Mock Memory Classes (mirrors actual implementation)
 # =============================================================================
-
-class MemoryTier(str, Enum):
-    """Memory tier levels."""
-    FAST = "fast"      # 1 minute TTL
-    MEDIUM = "medium"  # 1 hour TTL
-    SLOW = "slow"      # 1 day TTL
-    GLACIAL = "glacial"  # 1 week TTL
 
 
 @dataclass
