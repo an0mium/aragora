@@ -44,6 +44,8 @@ from .base import (
     safe_error_message,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class NomicHandler(BaseHandler):
     """Handler for nomic loop state, monitoring, and control endpoints.
