@@ -1,0 +1,181 @@
+/**
+ * Handlers for message-related events
+ * (synthesis, consensus, debate_message, agent_message, agent_response, critique)
+ */
+
+import type { StreamEvent } from '@/types/events';
+import type { TranscriptMessage } from '../types';
+import type { EventHandlerContext, ParsedEventData } from './types';
+
+/**
+ * Handle synthesis event - final debate summary
+ */
+export function handleSynthesisEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const synthesisContent = (eventData?.content as string) || '';
+
+  if (!synthesisContent) return;
+
+  const msg: TranscriptMessage = {
+    agent: (data.agent as string) || (eventData?.agent as string) || 'synthesis-agent',
+    role: 'synthesis',
+    content: synthesisContent,
+    round: (data.round as number) || (eventData?.round as number),
+    timestamp: (data.timestamp as number) || Date.now() / 1000,
+  };
+  ctx.addMessageIfNew(msg);
+
+  // Also track as stream event for analytics panels
+  const streamEvent: StreamEvent = {
+    type: 'synthesis',
+    data: {
+      agent: msg.agent,
+      content: synthesisContent,
+      confidence: eventData?.confidence as number,
+    },
+    timestamp: msg.timestamp || Date.now() / 1000,
+  };
+  ctx.addStreamEvent(streamEvent);
+}
+
+/**
+ * Handle consensus event - agreement reached between agents
+ */
+export function handleConsensusEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const consensusData = data.data;
+  const reached = consensusData?.reached as boolean;
+  const confidence = (consensusData?.confidence as number) || 0;
+  const answer = (consensusData?.answer as string) || '';
+  const synthesis = (consensusData?.synthesis as string) || '';
+
+  // Track consensus as stream event for analytics
+  const streamEvent: StreamEvent = {
+    type: 'consensus',
+    data: {
+      reached,
+      confidence,
+      answer,
+      synthesis,
+    },
+    timestamp: (data.timestamp as number) || Date.now() / 1000,
+  };
+  ctx.addStreamEvent(streamEvent);
+
+  // Add status message
+  const statusMsg: TranscriptMessage = {
+    agent: 'system',
+    role: 'consensus-status',
+    content: `[CONSENSUS ${reached ? 'REACHED' : 'NOT REACHED'}] Confidence: ${Math.round(confidence * 100)}%`,
+    timestamp: (data.timestamp as number) || Date.now() / 1000,
+  };
+  ctx.addMessageIfNew(statusMsg);
+
+  // If there's a fallback synthesis in consensus data and consensus was reached
+  const synthContent = synthesis || answer;
+  if (synthContent && reached) {
+    const synthesisMsg: TranscriptMessage = {
+      agent: 'consensus',
+      role: 'synthesis',
+      content: synthContent,
+      timestamp: ((data.timestamp as number) || Date.now() / 1000) + 0.001,
+    };
+    ctx.addMessageIfNew(synthesisMsg);
+  }
+}
+
+/**
+ * Handle debate_message or agent_message events
+ */
+export function handleAgentMessageEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const msg: TranscriptMessage = {
+    agent: (data.agent as string) || (eventData?.agent as string) || 'unknown',
+    role: eventData?.role as string,
+    content: (eventData?.content as string) || '',
+    round: (data.round as number) || (eventData?.round as number),
+    timestamp: (data.timestamp as number) || (eventData?.timestamp as number) || Date.now() / 1000,
+  };
+
+  if (msg.content && ctx.addMessageIfNew(msg)) {
+    const agentName = msg.agent;
+    if (agentName) {
+      ctx.setAgents(prev => prev.includes(agentName) ? prev : [...prev, agentName]);
+    }
+  }
+
+  // Also track as stream event
+  const streamEvent: StreamEvent = {
+    type: 'agent_message',
+    data: {
+      agent: (data.agent as string) || (eventData?.agent as string) || 'unknown',
+      content: (eventData?.content as string) || '',
+      role: (eventData?.role as string) || '',
+    },
+    timestamp: (data.timestamp as number) || Date.now() / 1000,
+    round: (data.round as number) || (eventData?.round as number),
+    agent: (data.agent as string) || (eventData?.agent as string),
+  };
+  ctx.addStreamEvent(streamEvent);
+}
+
+/**
+ * Handle legacy agent_response events
+ */
+export function handleAgentResponseEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const msg: TranscriptMessage = {
+    agent: (eventData?.agent as string) || 'unknown',
+    role: eventData?.role as string,
+    content: (eventData?.content as string) || (eventData?.response as string) || '',
+    round: eventData?.round as number,
+    timestamp: Date.now() / 1000,
+  };
+
+  if (msg.content) {
+    ctx.addMessageIfNew(msg);
+  }
+}
+
+/**
+ * Handle critique events
+ */
+export function handleCritiqueEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const issues = eventData?.issues as string[] | undefined;
+  const target = (eventData?.target as string) || 'unknown';
+  const critic = (data.agent as string) || (eventData?.agent as string) || 'unknown';
+
+  // Build critique content: prefer full content, fallback to issues, then placeholder
+  let critiqueBody = '';
+  if (eventData?.content && typeof eventData.content === 'string' && (eventData.content as string).trim()) {
+    critiqueBody = eventData.content as string;
+  } else if (issues && issues.length > 0) {
+    critiqueBody = issues.join('; ');
+  } else {
+    critiqueBody = '[Critique content not available]';
+  }
+
+  const msg: TranscriptMessage = {
+    agent: critic,
+    role: 'critic',
+    content: `[CRITIQUE → ${target}] ${critiqueBody}`,
+    round: (data.round as number) || (eventData?.round as number),
+    timestamp: (data.timestamp as number) || Date.now() / 1000,
+  };
+
+  if (msg.content) {
+    ctx.addMessageIfNew(msg);
+  }
+}
+
+/**
+ * Registry of message event handlers
+ */
+export const messageHandlers = {
+  synthesis: handleSynthesisEvent,
+  consensus: handleConsensusEvent,
+  debate_message: handleAgentMessageEvent,
+  agent_message: handleAgentMessageEvent,
+  agent_response: handleAgentResponseEvent,
+  critique: handleCritiqueEvent,
+};
