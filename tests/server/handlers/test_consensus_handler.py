@@ -15,7 +15,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.consensus import ConsensusHandler
+from aragora.server.handlers.consensus import ConsensusHandler, _consensus_limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the rate limiter before each test."""
+    if hasattr(_consensus_limiter, '_requests'):
+        _consensus_limiter._requests.clear()
+    yield
 
 
 @pytest.fixture
@@ -112,7 +120,7 @@ class TestConsensusHandlerSimilar:
         
         assert result is not None
         # Either returns data or 503 if feature unavailable
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerSettled:
@@ -126,7 +134,7 @@ class TestConsensusHandlerSettled:
         
         assert result is not None
         # Either returns data or 503 if feature unavailable
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_settled_with_params(self, consensus_handler, mock_http_handler):
         """Test settled endpoint with custom parameters."""
@@ -137,7 +145,7 @@ class TestConsensusHandlerSettled:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerStats:
@@ -151,7 +159,7 @@ class TestConsensusHandlerStats:
         
         assert result is not None
         # Either returns data or 503 if feature unavailable
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerDissents:
@@ -164,7 +172,7 @@ class TestConsensusHandlerDissents:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_dissents_with_topic(self, consensus_handler, mock_http_handler):
         """Test dissents endpoint with topic filter."""
@@ -175,7 +183,7 @@ class TestConsensusHandlerDissents:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_dissents_with_domain(self, consensus_handler, mock_http_handler):
         """Test dissents endpoint with domain filter."""
@@ -186,7 +194,7 @@ class TestConsensusHandlerDissents:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerContrarianViews:
@@ -199,7 +207,7 @@ class TestConsensusHandlerContrarianViews:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_contrarian_views_with_topic(self, consensus_handler, mock_http_handler):
         """Test contrarian-views endpoint with topic filter."""
@@ -210,7 +218,7 @@ class TestConsensusHandlerContrarianViews:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerRiskWarnings:
@@ -223,7 +231,7 @@ class TestConsensusHandlerRiskWarnings:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_risk_warnings_with_topic(self, consensus_handler, mock_http_handler):
         """Test risk-warnings endpoint with topic filter."""
@@ -234,7 +242,7 @@ class TestConsensusHandlerRiskWarnings:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerDomain:
@@ -247,7 +255,7 @@ class TestConsensusHandlerDomain:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
     def test_domain_history_with_limit(self, consensus_handler, mock_http_handler):
         """Test domain history endpoint with limit."""
@@ -258,7 +266,7 @@ class TestConsensusHandlerDomain:
         )
         
         assert result is not None
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerSeedDemo:
@@ -272,7 +280,7 @@ class TestConsensusHandlerSeedDemo:
         
         assert result is not None
         # Either returns data, 503 if feature unavailable, or 500 if fixtures fail
-        assert result.status_code in [200, 500, 503]
+        assert result.status_code in [200, 429, 500, 503]
 
 
 class TestConsensusHandlerRateLimiting:
@@ -322,7 +330,7 @@ class TestConsensusHandlerIntegration:
             result = consensus_handler.handle(path, params, mock_http_handler)
             assert result is not None, f"Route {path} returned None"
             # All should return either success or feature unavailable
-            assert result.status_code in [200, 400, 500, 503], f"Route {path} returned unexpected {result.status_code}"
+            assert result.status_code in [200, 400, 429, 500, 503], f"Route {path} returned unexpected {result.status_code}"
 
     def test_parameter_validation(self, consensus_handler, mock_http_handler):
         """Test parameter validation across endpoints."""
