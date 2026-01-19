@@ -72,6 +72,15 @@ export default function ControlPlanePage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
   const [useWebSocket, setUseWebSocket] = useState(true);
+  const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
+  const [verticalsData, setVerticalsData] = useState<Array<{
+    vertical_id: string;
+    display_name: string;
+    description: string;
+    expertise_areas?: string[];
+    compliance_frameworks?: string[];
+    default_model?: string;
+  }>>([]);
 
   // WebSocket connection for real-time updates
   const {
@@ -240,6 +249,22 @@ export default function ControlPlanePage() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // Fetch verticals data
+  useEffect(() => {
+    const fetchVerticals = async () => {
+      try {
+        const res = await fetch(`${backendConfig.api}/api/verticals`);
+        if (res.ok) {
+          const data = await res.json();
+          setVerticalsData(data.verticals || []);
+        }
+      } catch {
+        // Verticals endpoint may not be available
+      }
+    };
+    fetchVerticals();
+  }, [backendConfig.api]);
 
   // Auto-refresh (fallback to polling when WebSocket is not connected)
   useEffect(() => {
