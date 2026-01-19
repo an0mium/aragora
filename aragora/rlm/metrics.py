@@ -56,6 +56,12 @@ RLM_CACHE_MISSES: Any = None
 RLM_CONTEXT_LEVELS: Any = None
 RLM_MEMORY_USAGE: Any = None
 
+# Iterative refinement metrics (Prime Intellect alignment)
+RLM_REFINEMENT_ITERATIONS: Any = None
+RLM_REFINEMENT_SUCCESS: Any = None
+RLM_REFINEMENT_DURATION: Any = None
+RLM_READY_FALSE_RATE: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -63,6 +69,8 @@ def _init_metrics() -> bool:
     global RLM_COMPRESSIONS, RLM_COMPRESSION_RATIO, RLM_TOKENS_SAVED
     global RLM_COMPRESSION_DURATION, RLM_QUERIES, RLM_QUERY_DURATION
     global RLM_CACHE_HITS, RLM_CACHE_MISSES, RLM_CONTEXT_LEVELS, RLM_MEMORY_USAGE
+    global RLM_REFINEMENT_ITERATIONS, RLM_REFINEMENT_SUCCESS
+    global RLM_REFINEMENT_DURATION, RLM_READY_FALSE_RATE
 
     if _initialized:
         return True
@@ -148,6 +156,33 @@ def _init_metrics() -> bool:
             "Memory used by RLM context cache",
         )
 
+        # Iterative refinement metrics (Prime Intellect alignment)
+        RLM_REFINEMENT_ITERATIONS = Histogram(
+            "aragora_rlm_refinement_iterations",
+            "Number of refinement iterations until ready=True",
+            ["strategy"],
+            buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        )
+
+        RLM_REFINEMENT_SUCCESS = Counter(
+            "aragora_rlm_refinement_success_total",
+            "Total successful refinements (ready=True before max iterations)",
+            ["strategy"],
+        )
+
+        RLM_REFINEMENT_DURATION = Histogram(
+            "aragora_rlm_refinement_duration_seconds",
+            "Total time for refinement loop (all iterations)",
+            ["strategy"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+        )
+
+        RLM_READY_FALSE_RATE = Counter(
+            "aragora_rlm_ready_false_total",
+            "Total times LLM signaled ready=False (needs refinement)",
+            ["iteration"],
+        )
+
         _initialized = True
         logger.info("RLM Prometheus metrics initialized")
         return True
@@ -164,6 +199,8 @@ def _init_noop_metrics() -> None:
     global RLM_COMPRESSIONS, RLM_COMPRESSION_RATIO, RLM_TOKENS_SAVED
     global RLM_COMPRESSION_DURATION, RLM_QUERIES, RLM_QUERY_DURATION
     global RLM_CACHE_HITS, RLM_CACHE_MISSES, RLM_CONTEXT_LEVELS, RLM_MEMORY_USAGE
+    global RLM_REFINEMENT_ITERATIONS, RLM_REFINEMENT_SUCCESS
+    global RLM_REFINEMENT_DURATION, RLM_READY_FALSE_RATE
 
     class NoopMetric:
         """No-op metric that accepts any method call."""
@@ -182,6 +219,11 @@ def _init_noop_metrics() -> None:
     RLM_CACHE_MISSES = noop
     RLM_CONTEXT_LEVELS = noop
     RLM_MEMORY_USAGE = noop
+    # Refinement metrics
+    RLM_REFINEMENT_ITERATIONS = noop
+    RLM_REFINEMENT_SUCCESS = noop
+    RLM_REFINEMENT_DURATION = noop
+    RLM_READY_FALSE_RATE = noop
 
 
 def record_compression(
@@ -382,3 +424,78 @@ def record_knowledge_compression(
         levels=levels,
         duration_seconds=duration_seconds,
     )
+
+
+# Iterative refinement metrics (Prime Intellect alignment)
+
+
+def record_refinement(
+    strategy: str,
+    iterations: int,
+    success: bool,
+    duration_seconds: float,
+) -> None:
+    """
+    Record an iterative refinement operation.
+
+    Args:
+        strategy: Decomposition strategy used (auto, grep, partition_map, etc.)
+        iterations: Number of iterations until ready=True (or max iterations)
+        success: Whether ready=True was achieved before max iterations
+        duration_seconds: Total time for refinement loop
+    """
+    _init_metrics()
+
+    RLM_REFINEMENT_ITERATIONS.labels(strategy=strategy).observe(iterations)
+
+    if success:
+        RLM_REFINEMENT_SUCCESS.labels(strategy=strategy).inc()
+
+    if duration_seconds > 0:
+        RLM_REFINEMENT_DURATION.labels(strategy=strategy).observe(duration_seconds)
+
+
+def record_ready_false(iteration: int) -> None:
+    """
+    Record when LLM signals ready=False (needs refinement).
+
+    Args:
+        iteration: Current iteration number (0-indexed)
+    """
+    _init_metrics()
+    RLM_READY_FALSE_RATE.labels(iteration=str(iteration)).inc()
+
+
+@contextmanager
+def measure_refinement(strategy: str = "auto") -> Generator[dict, None, None]:
+    """
+    Context manager for measuring refinement operations.
+
+    Usage:
+        with measure_refinement("grep") as ctx:
+            result = await rlm.query_with_refinement(query, context)
+            ctx["iterations"] = result.iteration + 1
+            ctx["success"] = result.ready
+
+    Args:
+        strategy: Decomposition strategy being used
+
+    Yields:
+        Dictionary to populate with refinement results
+    """
+    start_time = time.perf_counter()
+    context: dict = {
+        "iterations": 1,
+        "success": True,
+    }
+
+    try:
+        yield context
+    finally:
+        duration = time.perf_counter() - start_time
+        record_refinement(
+            strategy=strategy,
+            iterations=context.get("iterations", 1),
+            success=context.get("success", True),
+            duration_seconds=duration,
+        )

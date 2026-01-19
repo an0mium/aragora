@@ -63,7 +63,9 @@ class MockCritique:
 
     issues: list = field(default_factory=list)
     severity: float = 5.0
-    target_agent: str = "proposal"
+    # NOTE: target_agent should be the actual agent name (e.g., "agent1", "agent2")
+    # not "proposal". Critiques target specific agents, not a generic "proposal".
+    target_agent: str = "agent1"
 
     def to_prompt(self) -> str:
         return f"Critique: {len(self.issues)} issues, severity {self.severity}"
@@ -850,7 +852,8 @@ class TestRevisionPhase:
             build_revision_prompt=build_prompt_fn,
         )
 
-        result = MockResult(critiques=[MockCritique(target_agent="proposal")])
+        # Critique targeting agent1 specifically (the proposer)
+        result = MockResult(critiques=[MockCritique(target_agent="agent1")])
         ctx = MockDebateContext(
             agents=agents,
             proposals={"agent1": "original proposal"},
@@ -860,7 +863,7 @@ class TestRevisionPhase:
         critics = [agents[1]]
         await phase._revision_phase(ctx, critics, round_num=1)
 
-        # Should have updated proposal
+        # Should have updated proposal for agent1 since critique targeted agent1
         assert ctx.proposals["agent1"] == "revised proposal"
 
     @pytest.mark.asyncio
@@ -876,7 +879,8 @@ class TestRevisionPhase:
             build_revision_prompt=build_prompt_fn,
         )
 
-        result = MockResult(critiques=[MockCritique(target_agent="proposal")])
+        # Critique targeting agent1 specifically
+        result = MockResult(critiques=[MockCritique(target_agent="agent1")])
         ctx = MockDebateContext(
             agents=agents,
             proposals={"agent1": "original"},
@@ -893,7 +897,7 @@ class TestRevisionPhase:
 
     @pytest.mark.asyncio
     async def test_skips_without_critiques(self, protocol, agents):
-        """Should skip revision when no critiques exist."""
+        """Should skip revision when no critiques target the agent."""
         generate_fn = AsyncMock(return_value="revised")
         build_prompt_fn = MagicMock(return_value="prompt")
 
@@ -903,8 +907,9 @@ class TestRevisionPhase:
             build_revision_prompt=build_prompt_fn,
         )
 
-        # No critiques with target_agent="proposal"
-        result = MockResult(critiques=[MockCritique(target_agent="other")])
+        # Critique targets "other_agent", not "agent1" (the proposer)
+        # So agent1 should skip revision since no critiques target them
+        result = MockResult(critiques=[MockCritique(target_agent="other_agent")])
         ctx = MockDebateContext(
             agents=agents,
             proposals={"agent1": "original"},
@@ -914,5 +919,5 @@ class TestRevisionPhase:
         critics = [agents[1]]
         await phase._revision_phase(ctx, critics, round_num=1)
 
-        # Generate should not have been called
+        # Generate should not have been called since no critiques target agent1
         generate_fn.assert_not_called()

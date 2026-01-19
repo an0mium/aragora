@@ -621,10 +621,12 @@ class DebateRoundsPhase:
             logger.warning("Missing callbacks for revision phase")
             return
 
-        # Get critiques for revision
-        agent_critiques = [c for c in result.critiques if c.target_agent == "proposal"]
+        # Get all critiques from this round for revision
+        # NOTE: Critiques have target_agent set to the actual agent name (e.g., "alice", "bob"),
+        # not "proposal". We filter per-agent below in the loop.
+        all_critiques = list(result.critiques)
 
-        if not agent_critiques:
+        if not all_critiques:
             return
 
         # Build revision tasks for all proposers with bounded concurrency
@@ -654,8 +656,17 @@ class DebateRoundsPhase:
         revision_tasks = []
         revision_agents = []
         for agent in ctx.proposers:
+            # Filter critiques specifically targeting this agent
+            # This ensures each agent only sees critiques directed at their proposal
+            agent_critiques = [c for c in all_critiques if c.target_agent == agent.name]
+
+            # Skip revision if no critiques for this agent
+            if not agent_critiques:
+                logger.debug(f"No critiques targeting {agent.name}, skipping revision")
+                continue
+
             revision_prompt = self._build_revision_prompt(
-                agent, proposals.get(agent.name, ""), agent_critiques[-len(critics) :], round_num
+                agent, proposals.get(agent.name, ""), agent_critiques, round_num
             )
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)

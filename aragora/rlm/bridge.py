@@ -346,6 +346,135 @@ Use FINAL(answer) when done.
         # Then query
         return await self.query(query, compression.context)
 
+    async def query_with_refinement(
+        self,
+        query: str,
+        context: RLMContext,
+        strategy: str = "auto",
+        max_iterations: int = 3,
+        feedback_generator: Optional[Callable[[RLMResult], str]] = None,
+    ) -> RLMResult:
+        """
+        Query with iterative refinement (Prime Intellect alignment).
+
+        Implements the iterative refinement protocol where the LLM can
+        signal incomplete answers via ready=False, triggering additional
+        refinement iterations with feedback.
+
+        Args:
+            query: The query to answer
+            context: Pre-compressed hierarchical context
+            strategy: Decomposition strategy (auto, peek, grep, partition_map, etc.)
+            max_iterations: Maximum refinement iterations
+            feedback_generator: Optional function to generate feedback from
+                              incomplete result. If None, uses default feedback.
+
+        Returns:
+            RLMResult with final answer and refinement history
+        """
+        refinement_history: list[str] = []
+        iteration = 0
+        result: Optional[RLMResult] = None
+
+        while iteration < max_iterations:
+            # Generate feedback for iterations > 0
+            feedback: Optional[str] = None
+            if iteration > 0 and result:
+                if feedback_generator:
+                    feedback = feedback_generator(result)
+                else:
+                    feedback = self._default_feedback(result, query)
+
+            # Execute query iteration
+            result = await self._query_iteration(
+                query=query,
+                context=context,
+                strategy=strategy,
+                iteration=iteration,
+                feedback=feedback,
+            )
+
+            # Track iteration
+            result.iteration = iteration
+            if iteration > 0:
+                refinement_history.append(result.answer)
+
+            logger.info(
+                f"RLM refinement iteration={iteration} ready={result.ready} "
+                f"confidence={result.confidence:.2f}"
+            )
+
+            # Check if answer is ready
+            if result.ready:
+                break
+
+            iteration += 1
+
+        # Finalize result
+        if result:
+            result.refinement_history = refinement_history
+            result.iteration = iteration
+
+        return result or RLMResult(
+            answer="[Failed to generate answer after max iterations]",
+            ready=True,
+            iteration=max_iterations,
+            refinement_history=refinement_history,
+        )
+
+    async def _query_iteration(
+        self,
+        query: str,
+        context: RLMContext,
+        strategy: str,
+        iteration: int,
+        feedback: Optional[str],
+    ) -> RLMResult:
+        """Execute a single query iteration with optional feedback."""
+        # Modify query to include feedback context
+        effective_query = query
+        if feedback and iteration > 0:
+            effective_query = f"""Previous answer was incomplete. Feedback:
+{feedback}
+
+Original question: {query}
+
+Please provide an improved answer based on the feedback."""
+
+        # Execute query
+        result = await self.query(effective_query, context, strategy)
+
+        # If using built-in REPL, set iteration context
+        # (The official RLM would handle this internally)
+        result.iteration = iteration
+
+        return result
+
+    def _default_feedback(self, result: RLMResult, original_query: str) -> str:
+        """Generate default feedback for incomplete answers."""
+        feedback_parts = ["Your previous answer was marked as incomplete."]
+
+        if result.uncertainty_sources:
+            feedback_parts.append(
+                f"Uncertainty sources identified: {', '.join(result.uncertainty_sources)}"
+            )
+
+        if result.confidence < 0.5:
+            feedback_parts.append(
+                "Confidence was low. Try drilling down into more specific context sections."
+            )
+
+        if result.sub_calls_made == 0:
+            feedback_parts.append(
+                "Consider using RLM_M() to delegate complex sub-queries."
+            )
+
+        feedback_parts.append(
+            f"Focus on answering: {original_query[:200]}"
+        )
+
+        return "\n".join(feedback_parts)
+
 
 class DebateContextAdapter:
     """
