@@ -1014,7 +1014,7 @@ export default function ConnectorsPage() {
                   <div key={entry.run_id} className="p-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-mono text-text truncate">
-                        {entry.job_id.split(':').pop()}
+                        {entry.job_id?.split(':').pop() || entry.run_id}
                       </span>
                       <span
                         className={`text-xs font-mono px-2 py-0.5 rounded ${

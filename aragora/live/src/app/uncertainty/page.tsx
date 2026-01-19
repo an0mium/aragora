@@ -72,7 +72,8 @@ interface AgentCalibration {
 type ActiveTab = 'debate' | 'leaderboard' | 'visualization' | 'agent';
 
 export default function UncertaintyPage() {
-  const { apiBase } = useBackend();
+  const { config: backendConfig } = useBackend();
+  const apiBase = backendConfig.api;
   const [activeTab, setActiveTab] = useState<ActiveTab>('leaderboard');
 
   // Debate analysis state
