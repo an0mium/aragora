@@ -1,4 +1,7 @@
-# Rate Limiting
+# Rate Limiting (Developer Guide)
+
+> **Audience:** This is a **developer/maintainer guide** for understanding and extending the rate limiting implementation.
+> For API consumer documentation (handling rate limits, best practices), see [API_RATE_LIMITS.md](./API_RATE_LIMITS.md).
 
 Aragora implements comprehensive rate limiting to protect against abuse and ensure fair resource allocation. This document covers the rate limiting architecture, configuration, and usage.
 

@@ -1,5 +1,8 @@
 # OAuth Integration Guide
 
+> **Note:** This guide has been consolidated into [AUTH_GUIDE.md](./AUTH_GUIDE.md).
+> See the unified authentication documentation for the most up-to-date information.
+
 This guide covers setting up and using OAuth authentication in Aragora.
 
 ## Supported Providers

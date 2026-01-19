@@ -313,4 +313,4 @@ def get_required_secret(name: str) -> str:
 
 def clear_secret_cache() -> None:
     """Clear the secret cache (for testing or secret rotation)."""
-    get_secret.cache_clear()
+    reset_secret_manager()

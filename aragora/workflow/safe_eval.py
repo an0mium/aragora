@@ -253,9 +253,17 @@ class _SafeEvaluator(ast.NodeVisitor):
         step = self.visit(node.step) if node.step else None
         return slice(lower, upper, step)
 
-    def visit_Index(self, node: ast.Index) -> Any:
-        """Handle index (Python 3.8 compatibility)."""
-        return self.visit(node.value)
+    def visit_Index(self, node: Any) -> Any:
+        """Handle index (Python 3.8 compatibility).
+
+        Note: ast.Index was deprecated in Python 3.9 and removed in 3.11.
+        In newer Python versions, the subscript node's slice is the value directly.
+        """
+        # In Python 3.9+, ast.Index may not exist or may not have 'value' attribute
+        if hasattr(node, 'value'):
+            return self.visit(node.value)
+        # Fallback: the node itself is the value
+        return self.visit(node)
 
     def visit_List(self, node: ast.List) -> Any:
         """Handle list literals ([a, b, c])."""

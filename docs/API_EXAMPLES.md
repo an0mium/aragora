@@ -1,5 +1,7 @@
 # API Examples
 
+> **Last Updated:** 2026-01-18
+
 Practical examples for using the Aragora HTTP and WebSocket APIs.
 
 ## Quick Start
@@ -14,6 +16,260 @@ Verify it's running:
 
 ```bash
 curl http://localhost:8080/api/health
+```
+
+---
+
+## Python SDK Examples
+
+The following examples show how to interact with the Aragora API using Python. These patterns work with any HTTP client library.
+
+### Setup
+
+```python
+import httpx
+import asyncio
+from typing import Any
+
+# Base configuration
+BASE_URL = "http://localhost:8080"
+API_TOKEN = "your-api-token"  # Set via ARAGORA_API_TOKEN env var
+
+headers = {
+    "Authorization": f"Bearer {API_TOKEN}",
+    "Content-Type": "application/json",
+}
+```
+
+### Create and Stream a Debate
+
+```python
+import httpx
+import json
+
+async def create_debate_with_streaming():
+    """Create a debate and stream results in real-time."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Create the debate
+        response = await client.post("/api/debates", json={
+            "topic": "What are the risks of autonomous AI agents?",
+            "rounds": 3,
+            "agents": ["anthropic-api", "openai-api"],
+            "consensus_mode": "supermajority",
+        })
+        debate = response.json()
+        debate_id = debate["debate_id"]
+
+        print(f"Debate created: {debate_id}")
+
+        # Connect to WebSocket for real-time updates
+        async with httpx.AsyncClient() as ws_client:
+            async with ws_client.stream(
+                "GET",
+                f"{BASE_URL}/ws?debate_id={debate_id}"
+            ) as stream:
+                async for line in stream.aiter_lines():
+                    if line.startswith("data: "):
+                        event = json.loads(line[6:])
+                        handle_event(event)
+
+def handle_event(event: dict):
+    """Process debate stream events."""
+    event_type = event.get("type")
+
+    if event_type == "agent_message":
+        agent = event["agent"]
+        content = event["content"][:100]
+        print(f"[{agent}] {content}...")
+
+    elif event_type == "consensus":
+        claim = event["claim"]
+        confidence = event["confidence"]
+        print(f"Consensus reached: {claim} (confidence: {confidence:.0%})")
+
+    elif event_type == "debate_end":
+        print("Debate completed!")
+
+# Run the example
+asyncio.run(create_debate_with_streaming())
+```
+
+### Control Plane Task Management
+
+```python
+async def control_plane_example():
+    """Submit and monitor tasks via the control plane."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Submit a document processing task
+        response = await client.post("/api/control-plane/tasks", json={
+            "task_type": "document_processing",
+            "payload": {
+                "document_url": "https://example.com/report.pdf",
+                "extract_facts": True,
+            },
+            "required_capabilities": ["document", "analysis"],
+            "priority": "high",
+        })
+        task = response.json()
+        task_id = task["task_id"]
+
+        print(f"Task submitted: {task_id}")
+
+        # Poll for completion
+        while True:
+            status_response = await client.get(f"/api/control-plane/tasks/{task_id}")
+            status = status_response.json()
+
+            if status["status"] == "completed":
+                print(f"Task completed: {status['result']}")
+                break
+            elif status["status"] == "failed":
+                print(f"Task failed: {status['error']}")
+                break
+
+            await asyncio.sleep(1)  # Poll every second
+
+asyncio.run(control_plane_example())
+```
+
+### Gauntlet Compliance Audit
+
+```python
+async def run_gauntlet_audit():
+    """Run a compliance gauntlet against a proposal."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Start a GDPR compliance gauntlet
+        response = await client.post("/api/gauntlet", json={
+            "proposal": """
+            Our new data collection system will:
+            1. Store user location data for 5 years
+            2. Share anonymized data with third-party advertisers
+            3. Use AI to infer user preferences
+            """,
+            "personas": ["gdpr", "ai_act"],
+            "severity_threshold": 0.5,
+        })
+        result = response.json()
+
+        print(f"Gauntlet ID: {result['gauntlet_id']}")
+        print(f"Verdict: {result['verdict']}")
+        print(f"Confidence: {result['confidence']:.0%}")
+
+        # Print findings
+        for finding in result.get("findings", []):
+            severity = finding["severity"]
+            title = finding["title"]
+            print(f"  [{severity}] {title}")
+
+asyncio.run(run_gauntlet_audit())
+```
+
+### Evidence Collection
+
+```python
+async def collect_evidence():
+    """Collect evidence from multiple sources."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Configure evidence sources
+        await client.post("/api/evidence/sources", json={
+            "source_type": "web",
+            "config": {
+                "domains": ["arxiv.org", "github.com"],
+                "max_results": 10,
+            }
+        })
+
+        # Collect evidence for a claim
+        response = await client.post("/api/evidence/collect", json={
+            "claim": "Large language models can exhibit emergent capabilities",
+            "source_types": ["web", "academic"],
+            "max_snippets": 20,
+        })
+        evidence = response.json()
+
+        for snippet in evidence["snippets"]:
+            print(f"[{snippet['source']}] {snippet['content'][:100]}...")
+            print(f"  Relevance: {snippet['relevance']:.0%}")
+
+asyncio.run(collect_evidence())
+```
+
+### WebSocket Real-Time Events
+
+```python
+import websockets
+import json
+
+async def listen_to_events():
+    """Listen to real-time debate events via WebSocket."""
+    ws_url = f"ws://localhost:8080/ws"
+
+    async with websockets.connect(ws_url) as ws:
+        # Subscribe to a specific debate
+        await ws.send(json.dumps({
+            "action": "subscribe",
+            "debate_id": "debate-123",
+        }))
+
+        # Listen for events
+        async for message in ws:
+            event = json.loads(message)
+            event_type = event.get("type")
+
+            if event_type == "round_start":
+                print(f"Round {event['round']} starting")
+
+            elif event_type == "agent_message":
+                print(f"[{event['agent']}] {event['content'][:50]}...")
+
+            elif event_type == "critique":
+                print(f"Critique from {event['agent']}: {event['issues']}")
+
+            elif event_type == "vote":
+                print(f"{event['agent']} votes: {event['vote_type']}")
+
+            elif event_type == "consensus":
+                print(f"Consensus: {event['claim']}")
+                break  # Exit after consensus
+
+asyncio.run(listen_to_events())
+```
+
+### Batch Operations
+
+```python
+async def batch_debate_analysis():
+    """Analyze multiple debates in batch."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Get recent debates
+        debates_response = await client.get("/api/debates", params={"limit": 10})
+        debates = debates_response.json()["debates"]
+
+        # Analyze each debate's consensus
+        results = []
+        for debate in debates:
+            slug = debate["slug"]
+
+            # Get convergence data
+            convergence = await client.get(f"/api/debates/{slug}/convergence")
+
+            # Get consensus proof
+            proof = await client.get(f"/api/debates/{slug}/proof")
+
+            results.append({
+                "slug": slug,
+                "topic": debate["topic"],
+                "consensus_reached": debate.get("consensus_reached", False),
+                "convergence_score": convergence.json().get("score", 0),
+                "checksum": proof.json().get("checksum"),
+            })
+
+        # Print summary
+        for r in results:
+            status = "✓" if r["consensus_reached"] else "✗"
+            print(f"{status} {r['slug']}: convergence={r['convergence_score']:.2f}")
+
+asyncio.run(batch_debate_analysis())
 ```
 
 ---

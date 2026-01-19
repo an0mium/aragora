@@ -1,5 +1,8 @@
 # SSO/Enterprise Authentication Setup
 
+> **Note:** This guide has been consolidated into [AUTH_GUIDE.md](./AUTH_GUIDE.md).
+> See the unified authentication documentation for the most up-to-date information.
+
 This guide covers configuring Single Sign-On (SSO) for enterprise authentication in Aragora.
 
 ## Overview

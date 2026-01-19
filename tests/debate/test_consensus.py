@@ -434,7 +434,6 @@ class TestConsensusProof:
         # 100% agreement but only 0.5 confidence < 0.7
         assert proof.has_strong_consensus is False
 
-    @pytest.mark.skip(reason="Known issue: VoteType enum not JSON serializable in checksum method")
     def test_checksum_generation(self):
         """Test checksum generation."""
         proof = self._create_sample_proof()
@@ -443,7 +442,6 @@ class TestConsensusProof:
         assert isinstance(checksum, str)
         assert len(checksum) == 16
 
-    @pytest.mark.skip(reason="Known issue: VoteType enum not JSON serializable in checksum method")
     def test_checksum_deterministic(self):
         """Test that checksum is deterministic."""
         proof = self._create_sample_proof()
@@ -453,7 +451,6 @@ class TestConsensusProof:
 
         assert checksum1 == checksum2
 
-    @pytest.mark.skip(reason="Known issue: VoteType enum not JSON serializable in checksum method")
     def test_checksum_changes_with_content(self):
         """Test that checksum changes when content changes."""
         proof1 = self._create_sample_proof()

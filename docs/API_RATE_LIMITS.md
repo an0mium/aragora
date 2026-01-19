@@ -1,5 +1,8 @@
 # API Rate Limits
 
+> **Audience:** This guide is for **API consumers** who need to understand and work with rate limits.
+> For implementation details and developer documentation, see [RATE_LIMITING.md](./RATE_LIMITING.md).
+
 Aragora implements rate limiting to ensure fair usage and service stability. This document describes the rate limiting system and how to work within its constraints.
 
 ## Rate Limit Tiers

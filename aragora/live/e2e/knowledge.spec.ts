@@ -138,13 +138,16 @@ test.describe('Knowledge Search and Query', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Find and use search
-    const searchInput = page.locator('input[type="text"]').first();
-    if (await searchInput.isVisible().catch(() => false)) {
+    // Look for search input - page may or may not have one
+    const searchInput = page.locator('input[type="text"], input[placeholder*="search" i]').first();
+    const hasSearch = await searchInput.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (hasSearch) {
       await searchInput.fill('AI');
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(300);
     }
 
+    // Page should still be functional
     await expect(page.locator('body')).toBeVisible();
   });
 

@@ -755,7 +755,7 @@ Examples of MATCHING:
                     conf_match = re.search(r"CONFIDENCE:\s*([0-9.]+)", result)
                     expl_match = re.search(r"EXPLANATION:\s*(.+?)(?:\n|$)", result, re.DOTALL)
 
-                    matches = matches_match and matches_match.group(1).upper() == "YES"
+                    matches = bool(matches_match and matches_match.group(1).upper() == "YES")
                     confidence = float(conf_match.group(1)) if conf_match else 0.5
                     explanation = (
                         expl_match.group(1).strip() if expl_match else "Unable to parse explanation"

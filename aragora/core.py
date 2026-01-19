@@ -344,9 +344,20 @@ class Agent(ABC):
 
     @abstractmethod
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
-        """Critique a proposal."""
+        """Critique a proposal.
+
+        Args:
+            proposal: The proposal/response to critique
+            task: The task or question being addressed
+            context: Optional conversation context
+            target_agent: Name of the agent whose proposal is being critiqued
+        """
         pass
 
     async def vote(self, proposals: dict[str, str], task: str) -> Vote:

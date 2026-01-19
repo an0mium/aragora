@@ -1,5 +1,9 @@
 # OAuth and SAML Setup Guide
 
+> **Note:** This guide has been consolidated into [AUTH_GUIDE.md](./AUTH_GUIDE.md).
+> See the unified authentication documentation for the most up-to-date information.
+> This file is retained for detailed provider-specific configurations.
+
 Configure external identity providers for Aragora authentication.
 
 ## Table of Contents
