@@ -95,7 +95,7 @@ from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
-from .knowledge import KnowledgeHandler, KnowledgeMoundHandler
+from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
 from .memory import LearningHandler  # Moved to memory/
