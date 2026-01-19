@@ -180,6 +180,7 @@ export function BeliefNetworkGraph({
       clearInterval(interval);
       clearTimeout(timeout);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- simulation.length is only used for early return, not as trigger
   }, [data, width, height]);
 
   // Build node lookup for link rendering

@@ -219,6 +219,7 @@ export default function AuditSessionDetail() {
     return () => {
       eventSource.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-subscribe when status changes, not entire session
   }, [session?.status, backendConfig.api, sessionId]);
 
   // Initial fetch

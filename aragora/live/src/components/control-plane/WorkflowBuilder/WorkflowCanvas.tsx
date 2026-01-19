@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
@@ -80,8 +80,8 @@ export function WorkflowCanvas({
   } = useWorkflowBuilderStore();
 
   const { zoom, panX, panY, selectedNodeIds, selectedEdgeIds } = canvas;
-  const steps = currentWorkflow?.steps || [];
-  const transitions = currentWorkflow?.transitions || [];
+  const steps = useMemo(() => currentWorkflow?.steps || [], [currentWorkflow?.steps]);
+  const transitions = useMemo(() => currentWorkflow?.transitions || [], [currentWorkflow?.transitions]);
 
   // Snap position to grid
   const snapToGrid = useCallback(

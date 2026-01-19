@@ -3,17 +3,34 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/config';
 
-interface MLStats {
-  router_available: boolean;
-  scorer_available: boolean;
-  predictor_available: boolean;
-  embeddings_available: boolean;
-  exporter_available: boolean;
-  total_routings?: number;
-  total_scorings?: number;
-  total_predictions?: number;
-  avg_routing_confidence?: number;
-  avg_quality_score?: number;
+interface MLCapabilities {
+  routing: boolean;
+  scoring: boolean;
+  consensus: boolean;
+  embeddings: boolean;
+  training_export: boolean;
+}
+
+interface MLModelsResponse {
+  capabilities: MLCapabilities;
+  models: Record<string, unknown>;
+  version: string;
+}
+
+interface MLStatsResponse {
+  stats: {
+    routing?: {
+      registered_agents: number;
+      historical_records: number;
+    };
+    consensus?: {
+      calibration_samples: number;
+      accuracy: number;
+      precision: number;
+      recall: number;
+    };
+  };
+  status: string;
 }
 
 interface RoutingResult {
@@ -26,10 +43,14 @@ interface RoutingResult {
 }
 
 interface ScoringResult {
-  quality_score: number;
-  dimensions: Record<string, number>;
-  issues: string[];
-  suggestions: string[];
+  overall: number;
+  coherence: number;
+  completeness: number;
+  relevance: number;
+  clarity: number;
+  confidence: number;
+  is_high_quality: boolean;
+  needs_review: boolean;
 }
 
 interface ConsensusPrediction {
@@ -45,7 +66,8 @@ interface MLDashboardProps {
 }
 
 export function MLDashboard({ apiBase }: MLDashboardProps) {
-  const [stats, setStats] = useState<MLStats | null>(null);
+  const [capabilities, setCapabilities] = useState<MLCapabilities | null>(null);
+  const [stats, setStats] = useState<MLStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,12 +96,23 @@ export function MLDashboard({ apiBase }: MLDashboardProps) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: fetchError } = await apiFetch<MLStats>('/api/ml/stats');
-    if (fetchError) {
-      setError(fetchError);
-    } else if (data) {
-      setStats(data);
+
+    // Fetch both models (capabilities) and stats in parallel
+    const [modelsRes, statsRes] = await Promise.all([
+      apiFetch<MLModelsResponse>('/api/ml/models'),
+      apiFetch<MLStatsResponse>('/api/ml/stats'),
+    ]);
+
+    if (modelsRes.error) {
+      setError(modelsRes.error);
+    } else if (modelsRes.data) {
+      setCapabilities(modelsRes.data.capabilities);
     }
+
+    if (statsRes.data) {
+      setStats(statsRes.data);
+    }
+
     setLoading(false);
   }, []);
 
@@ -115,11 +148,12 @@ export function MLDashboard({ apiBase }: MLDashboardProps) {
     setScoringLoading(true);
     setScoringResult(null);
 
+    // Backend expects 'text' and 'context', not 'response' and 'task'
     const { data, error: scoreError } = await apiFetch<ScoringResult>('/api/ml/score', {
       method: 'POST',
       body: JSON.stringify({
-        response: scoreText,
-        task: scoreTask || undefined,
+        text: scoreText,
+        context: scoreTask || undefined,
       }),
     });
 
@@ -198,51 +232,86 @@ export function MLDashboard({ apiBase }: MLDashboardProps) {
       </div>
 
       {/* Stats Tab */}
-      {activeTab === 'stats' && stats && (
+      {activeTab === 'stats' && (
         <div className="card p-6 space-y-6">
           <h3 className="text-lg font-mono text-acid-green">ML Module Status</h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatusIndicator
-              label="Agent Router"
-              available={stats.router_available}
-            />
-            <StatusIndicator
-              label="Quality Scorer"
-              available={stats.scorer_available}
-            />
-            <StatusIndicator
-              label="Consensus Predictor"
-              available={stats.predictor_available}
-            />
-            <StatusIndicator
-              label="Embeddings"
-              available={stats.embeddings_available}
-            />
-            <StatusIndicator
-              label="Training Exporter"
-              available={stats.exporter_available}
-            />
-          </div>
+          {capabilities && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <StatusIndicator
+                label="Agent Router"
+                available={capabilities.routing}
+              />
+              <StatusIndicator
+                label="Quality Scorer"
+                available={capabilities.scoring}
+              />
+              <StatusIndicator
+                label="Consensus Predictor"
+                available={capabilities.consensus}
+              />
+              <StatusIndicator
+                label="Embeddings"
+                available={capabilities.embeddings}
+              />
+              <StatusIndicator
+                label="Training Exporter"
+                available={capabilities.training_export}
+              />
+            </div>
+          )}
 
-          {stats.total_routings !== undefined && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <MetricCard
-                label="Total Routings"
-                value={stats.total_routings}
-              />
-              <MetricCard
-                label="Avg Routing Confidence"
-                value={`${((stats.avg_routing_confidence || 0) * 100).toFixed(1)}%`}
-              />
-              <MetricCard
-                label="Total Scorings"
-                value={stats.total_scorings || 0}
-              />
-              <MetricCard
-                label="Avg Quality Score"
-                value={`${((stats.avg_quality_score || 0) * 100).toFixed(1)}%`}
-              />
+          {stats?.stats && (
+            <div className="space-y-4 mt-6">
+              {stats.stats.routing && (
+                <div className="p-4 border border-acid-green/30 bg-acid-green/5 rounded">
+                  <h4 className="text-sm font-mono text-acid-cyan mb-3">Routing Stats</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <MetricCard
+                      label="Registered Agents"
+                      value={stats.stats.routing.registered_agents}
+                    />
+                    <MetricCard
+                      label="Historical Records"
+                      value={stats.stats.routing.historical_records}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {stats.stats.consensus && (
+                <div className="p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
+                  <h4 className="text-sm font-mono text-acid-cyan mb-3">Consensus Predictor Calibration</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <MetricCard
+                      label="Calibration Samples"
+                      value={stats.stats.consensus.calibration_samples}
+                    />
+                    <MetricCard
+                      label="Accuracy"
+                      value={`${(stats.stats.consensus.accuracy * 100).toFixed(1)}%`}
+                    />
+                    <MetricCard
+                      label="Precision"
+                      value={`${(stats.stats.consensus.precision * 100).toFixed(1)}%`}
+                    />
+                    <MetricCard
+                      label="Recall"
+                      value={`${(stats.stats.consensus.recall * 100).toFixed(1)}%`}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs font-mono text-text-muted">
+                Status: <span className={stats.status === 'healthy' ? 'text-acid-green' : 'text-acid-yellow'}>{stats.status.toUpperCase()}</span>
+              </div>
+            </div>
+          )}
+
+          {!capabilities && !stats && (
+            <div className="text-center py-8 text-text-muted font-mono">
+              ML module not available. Check if the backend has ML dependencies installed.
             </div>
           )}
 
@@ -412,56 +481,53 @@ export function MLDashboard({ apiBase }: MLDashboardProps) {
             <div className="mt-6 p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded space-y-3">
               <h4 className="text-sm font-mono text-acid-cyan">Quality Analysis</h4>
 
-              <div>
-                <span className="text-xs text-text-muted">Overall Quality:</span>
-                <div className="flex items-center gap-3 mt-1">
-                  <ProgressBar value={scoringResult.quality_score} />
-                  <span className="text-acid-green font-mono">
-                    {(scoringResult.quality_score * 100).toFixed(0)}%
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-xs text-text-muted">Overall Quality:</span>
+                  <div className="flex items-center gap-3 mt-1">
+                    <ProgressBar value={scoringResult.overall} />
+                    <span className="text-acid-green font-mono">
+                      {(scoringResult.overall * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <span className={`px-2 py-1 text-xs font-mono rounded ${scoringResult.is_high_quality ? 'bg-acid-green/20 text-acid-green' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                    {scoringResult.is_high_quality ? 'HIGH QUALITY' : 'NEEDS IMPROVEMENT'}
                   </span>
+                  {scoringResult.needs_review && (
+                    <span className="px-2 py-1 text-xs font-mono rounded bg-yellow-500/20 text-yellow-500">
+                      NEEDS REVIEW
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {Object.keys(scoringResult.dimensions).length > 0 && (
-                <div>
-                  <span className="text-xs text-text-muted">Dimensions:</span>
-                  <div className="mt-1 space-y-1">
-                    {Object.entries(scoringResult.dimensions).map(([dim, score]) => (
-                      <div key={dim} className="flex items-center gap-2">
-                        <span className="text-xs font-mono w-32 capitalize">{dim}</span>
-                        <div className="flex-1">
-                          <ProgressBar value={score} />
-                        </div>
-                        <span className="text-xs font-mono w-12 text-right">
-                          {(score * 100).toFixed(0)}%
-                        </span>
+              <div>
+                <span className="text-xs text-text-muted">Dimensions:</span>
+                <div className="mt-1 space-y-1">
+                  {[
+                    { name: 'Coherence', value: scoringResult.coherence },
+                    { name: 'Completeness', value: scoringResult.completeness },
+                    { name: 'Relevance', value: scoringResult.relevance },
+                    { name: 'Clarity', value: scoringResult.clarity },
+                  ].map(({ name, value }) => (
+                    <div key={name} className="flex items-center gap-2">
+                      <span className="text-xs font-mono w-32">{name}</span>
+                      <div className="flex-1">
+                        <ProgressBar value={value} />
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-xs font-mono w-12 text-right">
+                        {(value * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {scoringResult.issues.length > 0 && (
-                <div>
-                  <span className="text-xs text-text-muted">Issues Detected:</span>
-                  <ul className="mt-1 text-xs font-mono text-yellow-500">
-                    {scoringResult.issues.map((issue, i) => (
-                      <li key={i}>- {issue}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {scoringResult.suggestions.length > 0 && (
-                <div>
-                  <span className="text-xs text-text-muted">Suggestions:</span>
-                  <ul className="mt-1 text-xs font-mono text-acid-cyan">
-                    {scoringResult.suggestions.map((s, i) => (
-                      <li key={i}>- {s}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <div className="text-xs text-text-muted">
+                Confidence: <span className="text-acid-cyan font-mono">{(scoringResult.confidence * 100).toFixed(0)}%</span>
+              </div>
             </div>
           )}
         </div>

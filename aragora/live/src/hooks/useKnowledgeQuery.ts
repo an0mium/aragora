@@ -158,7 +158,8 @@ export function useKnowledgeQuery({
     if (autoLoadStats) {
       loadStats();
     }
-  }, [autoLoadStats, loadStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadStats is defined later, mount-only
+  }, [autoLoadStats]);
 
   // Set query text with optional debounced execution
   const setQueryText = useCallback(

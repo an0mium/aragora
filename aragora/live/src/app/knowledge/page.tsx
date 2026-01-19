@@ -28,6 +28,21 @@ interface KnowledgeRelationship {
   createdAt: string;
 }
 
+interface Contradiction {
+  fact_id: string;
+  content: string;
+  contradiction_type: string;
+  severity: string;
+  explanation: string;
+}
+
+interface VerificationResult {
+  status: string;
+  confidence: number;
+  verified_by: string[];
+  verification_notes: string;
+}
+
 interface KnowledgeStats {
   totalNodes: number;
   nodesByType: Record<string, number>;
@@ -72,6 +87,27 @@ export default function KnowledgeMoundPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [relationships, setRelationships] = useState<KnowledgeRelationship[]>([]);
+
+  // Verification state
+  const [verifying, setVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+
+  // Contradictions state
+  const [contradictions, setContradictions] = useState<Contradiction[]>([]);
+  const [loadingContradictions, setLoadingContradictions] = useState(false);
+
+  // Add fact state
+  const [showAddFact, setShowAddFact] = useState(false);
+  const [newFactContent, setNewFactContent] = useState('');
+  const [newFactSource, setNewFactSource] = useState('');
+  const [newFactTopics, setNewFactTopics] = useState('');
+  const [addingFact, setAddingFact] = useState(false);
+
+  // Repository indexing state
+  const [showIndexRepo, setShowIndexRepo] = useState(false);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [indexing, setIndexing] = useState(false);
+  const [indexingStatus, setIndexingStatus] = useState<string | null>(null);
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -152,10 +188,109 @@ export default function KnowledgeMoundPage() {
   useEffect(() => {
     if (selectedNode) {
       fetchRelationships(selectedNode.id);
+      setVerificationResult(null);
+      setContradictions([]);
     } else {
       setRelationships([]);
     }
   }, [selectedNode, fetchRelationships]);
+
+  // Verify a fact with AI agents
+  const verifyFact = useCallback(async (factId: string) => {
+    setVerifying(true);
+    setVerificationResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/facts/${factId}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setVerificationResult(data);
+      }
+    } catch (err) {
+      console.error('Verification failed:', err);
+    } finally {
+      setVerifying(false);
+    }
+  }, []);
+
+  // Fetch contradictions for a fact
+  const fetchContradictions = useCallback(async (factId: string) => {
+    setLoadingContradictions(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/facts/${factId}/contradictions`);
+      if (response.ok) {
+        const data = await response.json();
+        setContradictions(data.contradictions || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch contradictions:', err);
+    } finally {
+      setLoadingContradictions(false);
+    }
+  }, []);
+
+  // Add a new fact
+  const addFact = useCallback(async () => {
+    if (!newFactContent.trim()) return;
+
+    setAddingFact(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/facts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: newFactContent.trim(),
+          source: newFactSource.trim() || undefined,
+          topics: newFactTopics.split(',').map(t => t.trim()).filter(Boolean),
+        }),
+      });
+      if (response.ok) {
+        setNewFactContent('');
+        setNewFactSource('');
+        setNewFactTopics('');
+        setShowAddFact(false);
+        fetchNodes();
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Failed to add fact:', err);
+    } finally {
+      setAddingFact(false);
+    }
+  }, [newFactContent, newFactSource, newFactTopics, fetchNodes, fetchStats]);
+
+  // Index a repository
+  const indexRepository = useCallback(async () => {
+    if (!repoUrl.trim()) return;
+
+    setIndexing(true);
+    setIndexingStatus('Starting indexing...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/knowledge/mound/index/repository`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repository_url: repoUrl.trim(),
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIndexingStatus(`Indexed ${data.files_indexed || 0} files, ${data.nodes_created || 0} knowledge nodes created.`);
+        setRepoUrl('');
+        fetchNodes();
+        fetchStats();
+      } else {
+        setIndexingStatus('Indexing failed. Check repository URL and permissions.');
+      }
+    } catch (err) {
+      setIndexingStatus('Indexing failed. Check network connection.');
+      console.error('Failed to index repository:', err);
+    } finally {
+      setIndexing(false);
+    }
+  }, [repoUrl, fetchNodes, fetchStats]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,6 +352,104 @@ export default function KnowledgeMoundPage() {
             <div className="p-4 bg-surface border border-border rounded-lg text-center">
               <div className="text-2xl font-mono text-acid-cyan">{stats.totalRelationships}</div>
               <div className="text-xs text-text-muted">Relationships</div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 mb-6">
+          <button
+            onClick={() => setShowAddFact(!showAddFact)}
+            className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono rounded-lg hover:bg-acid-green/30 transition-colors"
+          >
+            + Add Fact
+          </button>
+          <button
+            onClick={() => setShowIndexRepo(!showIndexRepo)}
+            className="px-4 py-2 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono rounded-lg hover:bg-acid-cyan/30 transition-colors"
+          >
+            Index Repository
+          </button>
+        </div>
+
+        {/* Add Fact Form */}
+        {showAddFact && (
+          <div className="mb-6 p-4 bg-surface border border-acid-green/30 rounded-lg">
+            <h3 className="text-sm font-mono text-acid-green uppercase mb-3">Add New Fact</h3>
+            <div className="space-y-3">
+              <textarea
+                value={newFactContent}
+                onChange={(e) => setNewFactContent(e.target.value)}
+                placeholder="Enter fact content..."
+                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono h-24"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={newFactSource}
+                  onChange={(e) => setNewFactSource(e.target.value)}
+                  placeholder="Source (optional)"
+                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono"
+                />
+                <input
+                  type="text"
+                  value={newFactTopics}
+                  onChange={(e) => setNewFactTopics(e.target.value)}
+                  placeholder="Topics (comma-separated)"
+                  className="px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-green focus:outline-none font-mono"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={addFact}
+                  disabled={addingFact || !newFactContent.trim()}
+                  className="px-4 py-2 bg-acid-green text-bg font-mono rounded-lg hover:bg-acid-green/80 disabled:opacity-50"
+                >
+                  {addingFact ? 'Adding...' : 'Add Fact'}
+                </button>
+                <button
+                  onClick={() => setShowAddFact(false)}
+                  className="px-4 py-2 border border-border text-text-muted font-mono rounded-lg hover:border-text-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Index Repository Form */}
+        {showIndexRepo && (
+          <div className="mb-6 p-4 bg-surface border border-acid-cyan/30 rounded-lg">
+            <h3 className="text-sm font-mono text-acid-cyan uppercase mb-3">Index Repository</h3>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/owner/repo or /path/to/local/repo"
+                className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-text focus:border-acid-cyan focus:outline-none font-mono"
+              />
+              {indexingStatus && (
+                <div className={`text-sm font-mono ${indexingStatus.includes('failed') ? 'text-red-400' : 'text-acid-green'}`}>
+                  {indexingStatus}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={indexRepository}
+                  disabled={indexing || !repoUrl.trim()}
+                  className="px-4 py-2 bg-acid-cyan text-bg font-mono rounded-lg hover:bg-acid-cyan/80 disabled:opacity-50"
+                >
+                  {indexing ? 'Indexing...' : 'Index Repository'}
+                </button>
+                <button
+                  onClick={() => { setShowIndexRepo(false); setIndexingStatus(null); }}
+                  className="px-4 py-2 border border-border text-text-muted font-mono rounded-lg hover:border-text-muted"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -398,8 +631,85 @@ export default function KnowledgeMoundPage() {
                   </div>
                 </div>
 
-                {/* Provenance */}
+                {/* Actions */}
                 <div className="border-t border-border pt-4">
+                  <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Actions</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => verifyFact(selectedNode.id)}
+                      disabled={verifying}
+                      className="px-3 py-1.5 bg-acid-green/20 border border-acid-green text-acid-green text-xs font-mono rounded hover:bg-acid-green/30 disabled:opacity-50"
+                    >
+                      {verifying ? 'Verifying...' : 'Verify with AI'}
+                    </button>
+                    <button
+                      onClick={() => fetchContradictions(selectedNode.id)}
+                      disabled={loadingContradictions}
+                      className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500 text-yellow-500 text-xs font-mono rounded hover:bg-yellow-500/30 disabled:opacity-50"
+                    >
+                      {loadingContradictions ? 'Checking...' : 'Find Contradictions'}
+                    </button>
+                  </div>
+
+                  {/* Verification Result */}
+                  {verificationResult && (
+                    <div className="mt-3 p-3 bg-bg border border-border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-text-muted">Verification Status</span>
+                        <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                          verificationResult.status === 'verified' ? 'bg-green-900/30 text-green-400' :
+                          verificationResult.status === 'disputed' ? 'bg-red-900/30 text-red-400' :
+                          'bg-yellow-900/30 text-yellow-400'
+                        }`}>
+                          {verificationResult.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-text-muted mb-1">
+                        Confidence: <span className={getConfidenceColor(verificationResult.confidence)}>{Math.round(verificationResult.confidence * 100)}%</span>
+                      </div>
+                      {verificationResult.verified_by && verificationResult.verified_by.length > 0 && (
+                        <div className="text-xs text-text-muted mb-1">
+                          Verified by: <span className="text-acid-cyan">{verificationResult.verified_by.join(', ')}</span>
+                        </div>
+                      )}
+                      {verificationResult.verification_notes && (
+                        <p className="text-xs text-text-muted mt-2">{verificationResult.verification_notes}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Contradictions */}
+                  {contradictions.length > 0 && (
+                    <div className="mt-3 p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
+                      <h4 className="text-xs font-mono text-red-400 uppercase mb-2">
+                        Contradictions Found ({contradictions.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {contradictions.map((c, idx) => (
+                          <div key={c.fact_id || idx} className="p-2 bg-bg rounded text-xs">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-red-400">{c.contradiction_type}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                c.severity === 'high' ? 'bg-red-900/30 text-red-400' :
+                                c.severity === 'medium' ? 'bg-yellow-900/30 text-yellow-400' :
+                                'bg-blue-900/30 text-blue-400'
+                              }`}>
+                                {c.severity}
+                              </span>
+                            </div>
+                            <p className="text-text-muted line-clamp-2">{c.content}</p>
+                            {c.explanation && (
+                              <p className="text-text-muted/70 mt-1 text-[10px]">{c.explanation}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Provenance */}
+                <div className="border-t border-border pt-4 mt-4">
                   <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Provenance</h3>
                   <div className="space-y-2 text-sm">
                     {selectedNode.debateId && (

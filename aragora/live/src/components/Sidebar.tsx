@@ -37,6 +37,7 @@ const secondaryNavItems: NavItem[] = [
   { label: 'Connectors', href: '/connectors', icon: '<' },
   { label: 'Templates', href: '/templates', icon: '[' },
   { label: 'Analytics', href: '/analytics', icon: '~' },
+  { label: 'Genesis', href: '/genesis', icon: '@' },
   { label: 'Memory', href: '/memory', icon: '=' },
   { label: 'Audit Sessions', href: '/audit', icon: '|' },
   { label: 'Documents', href: '/documents', icon: ']' },

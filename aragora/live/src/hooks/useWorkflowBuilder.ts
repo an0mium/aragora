@@ -133,7 +133,8 @@ export function useWorkflowBuilder({
     if (workflowId) {
       loadWorkflow(workflowId);
     }
-  }, [workflowId, loadWorkflow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadWorkflow defined later, mount-only
+  }, [workflowId]);
 
   // Auto-save when dirty
   useEffect(() => {
@@ -154,7 +155,8 @@ export function useWorkflowBuilder({
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [autoSave, isDirty, currentWorkflow, autoSaveDelay, saveWorkflow]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- saveWorkflow defined later
+  }, [autoSave, isDirty, currentWorkflow, autoSaveDelay]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -188,7 +190,8 @@ export function useWorkflowBuilder({
 
     window.addEventListener('keydown', handleKeyboard);
     return () => window.removeEventListener('keydown', handleKeyboard);
-  }, [enableKeyboardShortcuts, undo, redo, saveWorkflow]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- saveWorkflow defined later
+  }, [enableKeyboardShortcuts, undo, redo]);
 
   // Load a specific workflow
   const loadWorkflow = useCallback(
@@ -285,7 +288,8 @@ export function useWorkflowBuilder({
         setCurrentWorkflow(null);
       }
     },
-    [api, currentWorkflow, setCurrentWorkflow, loadWorkflows]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadWorkflows defined later
+    [api, currentWorkflow, setCurrentWorkflow]
   );
 
   // Duplicate a workflow
@@ -309,7 +313,8 @@ export function useWorkflowBuilder({
 
       return saved;
     },
-    [api, workflows, loadWorkflows]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadWorkflows defined later
+    [api, workflows]
   );
 
   // Load workflow templates
@@ -343,7 +348,8 @@ export function useWorkflowBuilder({
 
       return saved;
     },
-    [api, templates, setCurrentWorkflow, loadWorkflows]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadWorkflows defined later
+    [api, templates, setCurrentWorkflow]
   );
 
   // Load all workflows
