@@ -344,20 +344,25 @@ class TestTimestampColumn:
 # =============================================================================
 
 
-@NEEDS_REWRITE
 class TestConnectionPool:
     """Test connection pool management."""
 
     @pytest.mark.asyncio
     async def test_get_pool_creates_pool(self, postgres_connector):
         """Test pool is created on first access."""
-        mock_pool = MagicMock()
+        import sys
 
-        with patch("asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool):
+        mock_pool = MagicMock()
+        mock_asyncpg = MagicMock()
+        mock_asyncpg.create_pool = AsyncMock(return_value=mock_pool)
+
+        # Inject mock asyncpg module
+        with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
             pool = await postgres_connector._get_pool()
 
             assert pool == mock_pool
             assert postgres_connector._pool == mock_pool
+            mock_asyncpg.create_pool.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_pool_reuses_existing(self, postgres_connector):
@@ -372,10 +377,12 @@ class TestConnectionPool:
     @pytest.mark.asyncio
     async def test_get_pool_asyncpg_not_installed(self, postgres_connector):
         """Test error when asyncpg not installed."""
-        with patch.dict('sys.modules', {'asyncpg': None}):
-            with patch("builtins.__import__", side_effect=ImportError("No module named 'asyncpg'")):
-                # This would normally raise ImportError
-                pass  # Skip actual test as it's hard to mock properly
+        import sys
+
+        # Remove asyncpg from modules and ensure import fails
+        with patch.dict(sys.modules, {"asyncpg": None}):
+            with pytest.raises(ImportError):
+                await postgres_connector._get_pool()
 
 
 # =============================================================================
@@ -521,7 +528,6 @@ class TestSync:
 # =============================================================================
 
 
-@NEEDS_REWRITE
 class TestSearch:
     """Test search functionality."""
 
@@ -646,7 +652,6 @@ class TestWebhook:
 # =============================================================================
 
 
-@NEEDS_REWRITE
 class TestListener:
     """Test LISTEN/NOTIFY functionality."""
 
