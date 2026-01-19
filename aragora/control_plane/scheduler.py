@@ -203,11 +203,16 @@ class TaskScheduler:
         self._redis_url = redis_url
         self._key_prefix = key_prefix
         self._stream_prefix = stream_prefix
+        self._index_prefix = f"{key_prefix}index:"  # Secondary index prefix
         self._consumer_group = consumer_group
         self._claim_timeout_ms = claim_timeout_ms
         self._redis: Optional[Any] = None
         self._local_tasks: Dict[str, Task] = {}
         self._local_queue: List[Task] = []
+        # Local indexes for in-memory fallback
+        self._local_status_index: Dict[TaskStatus, Set[str]] = {
+            status: set() for status in TaskStatus
+        }
 
     async def connect(self) -> None:
         """Connect to Redis."""
@@ -339,11 +344,12 @@ class TaskScheduler:
         if not task:
             return False
 
+        previous_status = task.status
         task.status = TaskStatus.COMPLETED
         task.completed_at = time.time()
         task.result = result
 
-        await self._save_task(task)
+        await self._save_task(task, previous_status=previous_status)
         await self._ack_task(task)
 
         # Record metrics
@@ -374,6 +380,7 @@ class TaskScheduler:
         if not task:
             return False
 
+        previous_status = task.status
         task.error = error
         task.retries += 1
 
@@ -384,7 +391,7 @@ class TaskScheduler:
             task.started_at = None
             # Clear the message ID since we're requeuing (new stream entry)
             task.metadata.pop("_stream_message_id", None)
-            await self._save_task(task)
+            await self._save_task(task, previous_status=previous_status)
             await self._enqueue_task(task)
 
             # Record retry metric
@@ -397,7 +404,7 @@ class TaskScheduler:
         else:
             task.status = TaskStatus.FAILED
             task.completed_at = time.time()
-            await self._save_task(task)
+            await self._save_task(task, previous_status=previous_status)
             await self._ack_task(task)
             # Move to dead-letter queue for later analysis
             await self._move_to_dead_letter(task, error)
@@ -427,10 +434,11 @@ class TaskScheduler:
         if task.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             return False
 
+        previous_status = task.status
         task.status = TaskStatus.CANCELLED
         task.completed_at = time.time()
 
-        await self._save_task(task)
+        await self._save_task(task, previous_status=previous_status)
         await self._ack_task(task)
 
         logger.info(f"Task cancelled: {task_id}")
@@ -461,7 +469,7 @@ class TaskScheduler:
         limit: int = 100,
     ) -> List[Task]:
         """
-        List tasks by status.
+        List tasks by status using secondary index for O(1) lookups.
 
         Args:
             status: Status to filter by
@@ -470,27 +478,28 @@ class TaskScheduler:
         Returns:
             List of tasks with the given status
         """
-        tasks = []
+        tasks: List[Task] = []
 
         if self._redis:
-            # Use SCAN to find tasks (in production, use a secondary index)
-            pattern = f"{self._key_prefix}*"
-            count = 0
-            async for key in self._redis.scan_iter(match=pattern):
-                if count >= limit:
-                    break
-                data = await self._redis.get(key)
-                if data:
-                    task = Task.from_dict(json.loads(data))
-                    if task.status == status:
-                        tasks.append(task)
-                        count += 1
-        else:
-            for task in self._local_tasks.values():
-                if task.status == status:
+            # Use secondary index for O(1) lookup instead of O(n) SCAN
+            index_key = f"{self._index_prefix}status:{status.value}"
+            task_ids = await self._redis.smembers(index_key)
+
+            # Fetch tasks in batches for efficiency
+            for task_id in list(task_ids)[:limit]:
+                task = await self.get(task_id)
+                if task and task.status == status:
                     tasks.append(task)
-                    if len(tasks) >= limit:
-                        break
+                elif task is None:
+                    # Task expired, remove from index
+                    await self._redis.srem(index_key, task_id)
+        else:
+            # Use local index for O(1) lookup
+            task_ids = list(self._local_status_index.get(status, set()))[:limit]
+            for task_id in task_ids:
+                task = self._local_tasks.get(task_id)
+                if task and task.status == status:
+                    tasks.append(task)
 
         return tasks
 
@@ -585,17 +594,61 @@ class TaskScheduler:
 
         return reclaimed
 
-    async def _save_task(self, task: Task) -> None:
-        """Save task to Redis or local storage."""
+    async def _save_task(self, task: Task, previous_status: Optional[TaskStatus] = None) -> None:
+        """Save task to Redis or local storage with status index maintenance."""
         if self._redis:
             key = f"{self._key_prefix}{task.id}"
+
+            # Update status index if status changed
+            if previous_status and previous_status != task.status:
+                await self._update_status_index(task.id, previous_status, task.status)
+            elif not previous_status:
+                # New task - add to status index
+                await self._add_to_status_index(task.id, task.status)
+
             await self._redis.set(
                 key,
                 json.dumps(task.to_dict()),
                 ex=86400,  # 24 hour expiry
             )
         else:
+            # Use explicit previous_status if provided, otherwise check stored task
+            if previous_status is None:
+                old_task = self._local_tasks.get(task.id)
+                old_status = old_task.status if old_task else None
+            else:
+                old_status = previous_status
+
+            # Update local status index
+            if old_status and old_status != task.status:
+                self._local_status_index[old_status].discard(task.id)
+                self._local_status_index[task.status].add(task.id)
+            elif old_status is None:
+                self._local_status_index[task.status].add(task.id)
+
             self._local_tasks[task.id] = task
+
+    async def _add_to_status_index(self, task_id: str, status: TaskStatus) -> None:
+        """Add task ID to status index set."""
+        if self._redis:
+            index_key = f"{self._index_prefix}status:{status.value}"
+            await self._redis.sadd(index_key, task_id)
+            # Set expiry on index key to match task expiry
+            await self._redis.expire(index_key, 86400)
+
+    async def _update_status_index(
+        self, task_id: str, old_status: TaskStatus, new_status: TaskStatus
+    ) -> None:
+        """Move task ID from old status index to new status index."""
+        if self._redis:
+            old_key = f"{self._index_prefix}status:{old_status.value}"
+            new_key = f"{self._index_prefix}status:{new_status.value}"
+            # Use pipeline for atomic update
+            async with self._redis.pipeline() as pipe:
+                pipe.srem(old_key, task_id)
+                pipe.sadd(new_key, task_id)
+                pipe.expire(new_key, 86400)
+                await pipe.execute()
 
     async def _enqueue_task(self, task: Task) -> None:
         """Add task to the appropriate queue."""
@@ -735,12 +788,13 @@ class TaskScheduler:
                         task.metadata["_stream_message_id"] = msg_id
 
                         # Claim the task
+                        previous_status = task.status
                         task.status = TaskStatus.RUNNING
                         task.assigned_agent = worker_id
                         task.assigned_at = time.time()
                         task.started_at = time.time()
 
-                        await self._save_task(task)
+                        await self._save_task(task, previous_status=previous_status)
                         logger.debug(f"Task {task_id} claimed by {worker_id}")
 
                         return task
@@ -765,11 +819,19 @@ class TaskScheduler:
             if task.required_capabilities and not task.required_capabilities.issubset(cap_set):
                 continue
 
-            # Claim the task
+            # Claim the task - update local status index
+            previous_status = task.status
             task.status = TaskStatus.RUNNING
             task.assigned_agent = worker_id
             task.assigned_at = time.time()
             task.started_at = time.time()
+
+            # Update local status index
+            self._local_status_index[previous_status].discard(task.id)
+            self._local_status_index[task.status].add(task.id)
+
+            # Update local_tasks storage so get() returns updated task
+            self._local_tasks[task.id] = task
 
             self._local_queue.pop(i)
             return task
