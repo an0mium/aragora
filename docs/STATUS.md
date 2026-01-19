@@ -56,24 +56,50 @@
 - ArenaConfig API alignment with Arena.__init__ parameters
 - Auto-wiring of RLM compression into debate rounds (triggers after round 3)
 
-**RLM Cognitive Load Limiter** (NEW)
+**RLM (Recursive Language Models) Integration** (UPDATED)
 
-Enables context compression for long debates using hierarchical summarization:
+Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - "Recursive Language Models" by Alex L. Zhang, Tim Kraska, and Omar Khattab. MIT Licensed: [github.com/alexzhang13/rlm](https://github.com/alexzhang13/rlm)
 
+**How Real RLM Works:**
+1. Context is stored as a Python variable in a REPL environment (NOT in the prompt)
+2. LLM writes code to programmatically examine/grep/partition the context
+3. LLM can recursively call itself on context subsets
+4. LLM dynamically decides decomposition strategy (grep, map-reduce, peek, etc.)
+5. Full context remains accessible - no information loss from truncation
+
+**Installation:**
+```bash
+# Install with real RLM support
+pip install aragora[rlm]
+```
+
+**Usage:**
 ```python
 from aragora.debate.orchestrator import Arena
 from aragora.debate.arena_config import ArenaConfig
 
 config = ArenaConfig(
-    use_rlm_limiter=True,                  # Enable RLM compression
-    rlm_compression_threshold=5000,        # Chars to trigger compression
+    use_rlm_limiter=True,                  # Enable RLM context management
+    rlm_compression_threshold=5000,        # Chars to trigger RLM
     rlm_max_recent_messages=3,             # Keep N recent at full detail
     rlm_compression_round_threshold=3,     # Start after round N
 )
 arena = Arena.from_config(env, agents, protocol, config)
+
+# Check if real RLM is available
+from aragora.debate.cognitive_limiter_rlm import HAS_OFFICIAL_RLM
+if HAS_OFFICIAL_RLM:
+    # Uses real REPL-based RLM (infinite context support)
+    result = await limiter.query_with_rlm("What did agents agree on?", messages)
+else:
+    # Falls back to hierarchical summarization
+    compressed = await limiter.compress_context_async(messages=messages)
 ```
 
-When enabled, older debate context is automatically compressed while recent messages are kept at full detail, preventing context window overflow during long debates.
+**Fallback Mode** (when `rlm` package not installed):
+- Uses LLM-based hierarchical summarization (still useful, but not true RLM)
+- Creates abstraction levels (FULL, DETAILED, SUMMARY, ABSTRACT)
+- Preserves semantics through compression rather than truncation
 
 ---
 

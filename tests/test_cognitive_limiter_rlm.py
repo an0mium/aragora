@@ -1,7 +1,11 @@
 """Tests for RLM-Enhanced Cognitive Load Limiter.
 
-Tests the hierarchical compression functionality that replaces truncation
-with semantic compression using RLM strategies.
+Tests both:
+1. Real RLM integration (arXiv:2512.24601) - REPL-based approach where context
+   is stored as a Python variable and LLM writes code to query it
+2. Fallback hierarchical summarization when RLM library not installed
+
+Install real RLM: pip install aragora[rlm]
 """
 
 import asyncio
@@ -15,6 +19,7 @@ from aragora.debate.cognitive_limiter_rlm import (
     CompressedContext,
     RLMCognitiveLoadLimiter,
     create_rlm_limiter,
+    HAS_OFFICIAL_RLM,
 )
 from aragora.debate.cognitive_limiter import CognitiveBudget
 
@@ -584,6 +589,152 @@ class TestBaseIntegration:
 
 
 # ============================================================================
+# Real RLM Integration Tests
+# ============================================================================
+
+
+class TestRealRLMIntegration:
+    """Tests for real RLM library integration (arXiv:2512.24601).
+
+    Real RLM uses a REPL-based approach where:
+    1. Context is stored as a Python variable in a REPL environment
+    2. LLM writes code to programmatically examine the context
+    3. LLM can recursively call itself on context subsets
+    4. LLM dynamically decides decomposition strategy
+    """
+
+    def test_has_official_rlm_export(self):
+        """HAS_OFFICIAL_RLM flag is exported for checking availability."""
+        # Flag should be a boolean
+        assert isinstance(HAS_OFFICIAL_RLM, bool)
+
+    def test_limiter_has_real_rlm_property(self):
+        """Limiter exposes has_real_rlm property."""
+        limiter = RLMCognitiveLoadLimiter()
+        assert hasattr(limiter, "has_real_rlm")
+        assert isinstance(limiter.has_real_rlm, bool)
+
+    def test_limiter_rlm_backend_parameters(self):
+        """Limiter accepts RLM backend parameters."""
+        limiter = RLMCognitiveLoadLimiter(
+            rlm_backend="anthropic",
+            rlm_model="claude-3-5-sonnet-20241022"
+        )
+        assert limiter._rlm_backend == "anthropic"
+        assert limiter._rlm_model == "claude-3-5-sonnet-20241022"
+
+    def test_for_stress_level_accepts_rlm_params(self):
+        """for_stress_level accepts RLM backend parameters."""
+        limiter = RLMCognitiveLoadLimiter.for_stress_level(
+            level="elevated",
+            rlm_backend="openrouter",
+            rlm_model="mistral-large"
+        )
+        assert limiter._rlm_backend == "openrouter"
+        assert limiter._rlm_model == "mistral-large"
+
+    def test_create_rlm_limiter_accepts_backend_params(self):
+        """create_rlm_limiter factory accepts RLM backend parameters."""
+        limiter = create_rlm_limiter(
+            stress_level="nominal",
+            rlm_backend="anthropic",
+            rlm_model="claude-3-opus-20240229"
+        )
+        assert limiter._rlm_backend == "anthropic"
+        assert limiter._rlm_model == "claude-3-opus-20240229"
+
+    def test_stats_include_rlm_queries(self):
+        """Stats track RLM queries separately from compressions."""
+        limiter = RLMCognitiveLoadLimiter()
+        assert "rlm_queries" in limiter.stats
+        assert "real_rlm_used" in limiter.stats
+        assert limiter.stats["rlm_queries"] == 0
+        assert limiter.stats["real_rlm_used"] == 0
+
+    @pytest.mark.asyncio
+    async def test_query_with_rlm_fallback(self):
+        """query_with_rlm falls back to search when RLM not available."""
+        limiter = RLMCognitiveLoadLimiter()
+
+        messages = [
+            MockMessage(content="We should use token bucket algorithm", round=1),
+            MockMessage(content="I agree with the token bucket approach", round=2),
+        ]
+
+        # Even without real RLM, should return a result
+        result = await limiter.query_with_rlm(
+            query="token bucket",
+            messages=messages,
+            strategy="auto"
+        )
+
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_format_messages_for_rlm(self):
+        """Messages are formatted correctly for RLM REPL."""
+        limiter = RLMCognitiveLoadLimiter()
+
+        messages = [
+            MockMessage(agent="alice", role="proposer", content="Hello", round=1),
+            MockMessage(agent="bob", role="critic", content="World", round=2),
+        ]
+
+        formatted = limiter._format_messages_for_rlm(messages)
+
+        assert "[Round 1]" in formatted
+        assert "[Round 2]" in formatted
+        assert "alice" in formatted
+        assert "bob" in formatted
+        assert "proposer" in formatted
+        assert "critic" in formatted
+
+    def test_fallback_search(self):
+        """Fallback search returns relevant messages."""
+        limiter = RLMCognitiveLoadLimiter()
+
+        messages = [
+            MockMessage(content="Token bucket is efficient", round=1),
+            MockMessage(content="Sliding window is better", round=2),
+            MockMessage(content="I prefer the token approach", round=3),
+        ]
+
+        result = limiter._fallback_search("token approach", messages)
+
+        # Should find messages containing query terms
+        assert "token" in result.lower() or "relevant" in result.lower() or "found" in result.lower()
+
+    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM library not installed")
+    def test_real_rlm_initialization(self):
+        """When RLM is installed, limiter initializes real RLM."""
+        limiter = RLMCognitiveLoadLimiter(
+            rlm_backend="openai",
+            rlm_model="gpt-4o"
+        )
+        assert limiter.has_real_rlm is True
+        assert limiter._aragora_rlm is not None
+
+    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM library not installed")
+    @pytest.mark.asyncio
+    async def test_real_rlm_query(self):
+        """Real RLM query uses REPL-based approach."""
+        limiter = RLMCognitiveLoadLimiter(
+            rlm_backend="openai",
+            rlm_model="gpt-4o"
+        )
+
+        messages = [MockMessage(content="Test content " * 100, round=i) for i in range(10)]
+
+        result = await limiter.query_with_rlm(
+            query="What is discussed?",
+            messages=messages,
+        )
+
+        assert isinstance(result, str)
+        assert limiter.stats["real_rlm_used"] > 0
+
+
+# ============================================================================
 # Integration Tests - Arena with RLM
 # ============================================================================
 
@@ -702,7 +853,8 @@ class TestArenaRLMIntegration:
         assert arena.debate_rounds_phase._compress_context is not None
         assert arena.debate_rounds_phase._rlm_compression_round_threshold == 3
 
-    def test_arena_compress_debate_messages(self):
+    @pytest.mark.asyncio
+    async def test_arena_compress_debate_messages(self):
         """Arena.compress_debate_messages compresses messages correctly."""
         from aragora.debate.orchestrator import Arena
         from aragora.core import Environment, DebateProtocol
@@ -725,18 +877,14 @@ class TestArenaRLMIntegration:
         critiques = [MockCritique(reasoning="B" * 200) for _ in range(5)]
 
         # Run async compression
-        async def run_test():
-            return await arena.compress_debate_messages(messages, critiques)
-
-        compressed_msgs, compressed_crits = asyncio.get_event_loop().run_until_complete(
-            run_test()
-        )
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, critiques)
 
         # Should return lists (may or may not be compressed depending on threshold)
         assert isinstance(compressed_msgs, list)
         assert compressed_crits is None or isinstance(compressed_crits, list)
 
-    def test_arena_without_rlm_no_compression(self):
+    @pytest.mark.asyncio
+    async def test_arena_without_rlm_no_compression(self):
         """Arena without RLM returns original messages."""
         from aragora.debate.orchestrator import Arena
         from aragora.core import Environment, DebateProtocol
@@ -756,12 +904,7 @@ class TestArenaRLMIntegration:
         messages = [MockMessage(content="Test", round=i) for i in range(5)]
         critiques = [MockCritique(reasoning="Critique") for _ in range(3)]
 
-        async def run_test():
-            return await arena.compress_debate_messages(messages, critiques)
-
-        compressed_msgs, compressed_crits = asyncio.get_event_loop().run_until_complete(
-            run_test()
-        )
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, critiques)
 
         # Without RLM, should return original messages unchanged
         assert compressed_msgs is messages

@@ -3,25 +3,53 @@ Recursive Language Models (RLM) integration for Aragora.
 
 Based on the paper: "Recursive Language Models" (arXiv:2512.24601)
 by Alex L. Zhang, Tim Kraska, and Omar Khattab.
+MIT Licensed: https://github.com/alexzhang13/rlm
 
-RLMs enable LLMs to process inputs far exceeding their context windows by
-treating long prompts as an external environment that can be programmatically
-examined, decomposed, and recursively processed.
+How Real RLM Works (from the paper):
+1. Context is stored as a Python variable in a REPL environment (NOT in prompt)
+2. LLM writes code to programmatically examine/grep/partition the context
+3. LLM can recursively call itself on context subsets
+4. LLM dynamically decides decomposition strategy (grep, map-reduce, peek, etc.)
+5. Full context remains accessible - no information loss from truncation
+
+The key insight is that "long prompts should not be fed into the neural network
+directly but should instead be treated as part of the environment that the LLM
+can symbolically interact with."
+
+Installation:
+    # Install with real RLM support
+    pip install aragora[rlm]
+
+    # Or install the official library directly
+    pip install rlm
+
+Usage with Real RLM:
+    from aragora.rlm import AragoraRLM, DebateContextAdapter, HAS_OFFICIAL_RLM
+
+    if HAS_OFFICIAL_RLM:
+        # Real RLM - context in REPL, LLM writes code to query
+        rlm = AragoraRLM(backend="openai", model="gpt-4o")
+        adapter = DebateContextAdapter(rlm)
+        answer = await adapter.query_debate(
+            "What were the main disagreements?",
+            debate_result
+        )
+    else:
+        # Fallback - hierarchical summarization (still useful, but not RLM)
+        from aragora.rlm import HierarchicalCompressor
+        compressor = HierarchicalCompressor()
+        result = await compressor.compress(content, source_type="debate")
+
+Fallback Mode (when rlm package not installed):
+- Uses HierarchicalCompressor for LLM-based summarization
+- Creates abstraction levels (FULL, DETAILED, SUMMARY, ABSTRACT, METADATA)
+- Preserves semantics but doesn't provide true RLM capabilities
+- No REPL environment, no recursive self-calls
 
 Integration points in Aragora:
-1. Debate context compression - Hierarchical summary trees
+1. Debate context queries - Ask questions about long debate histories
 2. Knowledge Mound queries - Recursive retrieval with abstraction
 3. Repository understanding - Hierarchical codebase models
-
-Usage:
-    from aragora.rlm import RLMContext, HierarchicalCompressor
-
-    # Create hierarchical context from debate history
-    compressor = HierarchicalCompressor(model="claude")
-    hierarchical_ctx = await compressor.compress(debate_history)
-
-    # Query with recursive decomposition
-    result = await hierarchical_ctx.query("What were the key disagreements?")
 """
 
 from .types import (

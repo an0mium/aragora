@@ -2,11 +2,23 @@
 RLM-Enhanced Cognitive Load Limiter.
 
 Extends the base CognitiveLoadLimiter with Recursive Language Model (RLM)
-hierarchical compression. Instead of truncating content, older context is
-compressed into summaries at multiple abstraction levels while maintaining
-full semantic access through the RLM REPL.
+support for processing arbitrarily long debate contexts.
 
-Based on arXiv:2512.24601 - "Recursive Language Models"
+Based on arXiv:2512.24601 - "Recursive Language Models" by Alex L. Zhang,
+Tim Kraska, and Omar Khattab. MIT Licensed: https://github.com/alexzhang13/rlm
+
+How Real RLM Works:
+1. Context is stored as a variable in a Python REPL environment (NOT in the prompt)
+2. The LLM writes code to programmatically examine/grep/partition the context
+3. The LLM can recursively call itself on context subsets
+4. The LLM dynamically decides decomposition strategy (grep, map-reduce, peek, etc.)
+
+When the official RLM library is installed (`pip install aragora[rlm]`), this module
+uses the real REPL-based approach. Otherwise, it falls back to hierarchical
+summarization which preserves semantics but isn't true RLM.
+
+Install RLM support:
+    pip install aragora[rlm]
 """
 
 from __future__ import annotations
@@ -21,6 +33,14 @@ from aragora.debate.cognitive_limiter import (
     CognitiveBudget,
     CognitiveLoadLimiter,
 )
+
+# Check for official RLM library
+try:
+    from aragora.rlm.bridge import HAS_OFFICIAL_RLM, AragoraRLM, DebateContextAdapter
+except ImportError:
+    HAS_OFFICIAL_RLM = False
+    AragoraRLM = None  # type: ignore
+    DebateContextAdapter = None  # type: ignore
 
 if TYPE_CHECKING:
     from aragora.rlm import HierarchicalCompressor
@@ -73,28 +93,39 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     """
     RLM-enhanced cognitive load limiter.
 
-    Uses hierarchical compression from RLM to preserve semantic content
-    instead of discarding it through truncation.
+    When the official RLM library is installed, uses the real REPL-based approach
+    where context is stored as a Python variable and the LLM writes code to query it.
 
-    Key differences from base limiter:
-    1. Older messages are compressed into summaries, not discarded
-    2. Full content remains accessible through RLM REPL
-    3. Abstraction levels allow retrieving detail on demand
+    Without RLM installed, falls back to hierarchical summarization which preserves
+    semantic content but doesn't provide the full RLM capabilities.
+
+    Key features with real RLM:
+    1. Context stored in REPL environment, not in prompt
+    2. LLM programmatically examines/greps/partitions context
+    3. LLM can recursively call itself on context subsets
+    4. Full context remains accessible without truncation
+
+    Fallback features (without RLM):
+    1. Older messages compressed into summaries
+    2. Abstraction levels (FULL, DETAILED, SUMMARY, ABSTRACT)
+    3. Rule-based compression preserves key content
 
     Usage:
         limiter = RLMCognitiveLoadLimiter()
 
-        # Async compression (uses LLM for summarization)
-        compressed = await limiter.compress_context_async(
-            messages=debate_history,
-            critiques=all_critiques,
-        )
-
-        # Sync fallback (uses rule-based compression)
-        compressed = limiter.compress_context(
-            messages=debate_history,
-            critiques=all_critiques,
-        )
+        # Check if real RLM is available
+        if limiter.has_real_rlm:
+            # Use REPL-based approach (infinite context)
+            result = await limiter.query_with_rlm(
+                query="What did agents agree on?",
+                messages=debate_history,
+            )
+        else:
+            # Fallback to summarization
+            compressed = await limiter.compress_context_async(
+                messages=debate_history,
+                critiques=all_critiques,
+            )
     """
 
     def __init__(
@@ -102,6 +133,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         budget: Optional[RLMCognitiveBudget] = None,
         compressor: Optional["HierarchicalCompressor"] = None,
         summarize_fn: Optional[Callable[[str, str], str]] = None,
+        rlm_backend: str = "openai",
+        rlm_model: str = "gpt-4o",
     ):
         """
         Initialize the RLM-enhanced limiter.
@@ -110,6 +143,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             budget: RLM-aware cognitive budget
             compressor: HierarchicalCompressor instance (lazy-loaded if None)
             summarize_fn: Optional sync function for rule-based summarization
+            rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
+            rlm_model: Model for real RLM queries
         """
         rlm_budget = budget or RLMCognitiveBudget()
         super().__init__(budget=rlm_budget)
@@ -117,12 +152,126 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         self._summarize_fn = summarize_fn
         self._compression_cache: dict[str, CompressionResult] = {}
 
+        # Real RLM integration
+        self._rlm_backend = rlm_backend
+        self._rlm_model = rlm_model
+        self._aragora_rlm: Optional[Any] = None
+        self._debate_adapter: Optional[Any] = None
+
+        if HAS_OFFICIAL_RLM and AragoraRLM is not None:
+            try:
+                from aragora.rlm.bridge import RLMBackendConfig
+                self._aragora_rlm = AragoraRLM(
+                    backend_config=RLMBackendConfig(
+                        backend=rlm_backend,
+                        model_name=rlm_model,
+                    )
+                )
+                self._debate_adapter = DebateContextAdapter(self._aragora_rlm)
+                logger.info(
+                    f"Real RLM initialized with backend={rlm_backend}, model={rlm_model}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize real RLM: {e}")
+                self._aragora_rlm = None
+        else:
+            logger.info(
+                "Official RLM library not installed. Using hierarchical summarization fallback. "
+                "Install with: pip install aragora[rlm]"
+            )
+
         # Extended stats
         self.stats.update({
             "rlm_compressions": 0,
+            "rlm_queries": 0,
+            "real_rlm_used": 0,
             "compression_ratio_avg": 1.0,
             "abstraction_levels_used": {},
         })
+
+    @property
+    def has_real_rlm(self) -> bool:
+        """Check if real RLM library is available and initialized."""
+        return self._aragora_rlm is not None
+
+    async def query_with_rlm(
+        self,
+        query: str,
+        messages: List[Any],
+        strategy: str = "auto",
+    ) -> str:
+        """
+        Query debate context using real RLM's REPL-based approach.
+
+        The context is stored as a Python variable in a REPL environment,
+        and the LLM writes code to programmatically examine it.
+
+        Args:
+            query: Natural language query about the debate
+            messages: Debate message history
+            strategy: RLM strategy (auto, peek, grep, partition_map)
+
+        Returns:
+            Answer extracted from context
+
+        Example:
+            >>> result = await limiter.query_with_rlm(
+            ...     "What were the main disagreements?",
+            ...     debate_messages,
+            ...     strategy="grep"
+            ... )
+        """
+        if not self.has_real_rlm:
+            logger.warning("Real RLM not available, using fallback search")
+            return self._fallback_search(query, messages)
+
+        self.stats["rlm_queries"] += 1
+        self.stats["real_rlm_used"] += 1
+
+        try:
+            # Format messages for RLM REPL
+            formatted_context = self._format_messages_for_rlm(messages)
+
+            # Use AragoraRLM for query
+            result = await self._aragora_rlm.compress_and_query(
+                query=query,
+                content=formatted_context,
+                source_type="debate",
+            )
+
+            return result.answer
+
+        except Exception as e:
+            logger.error(f"RLM query failed: {e}")
+            return self._fallback_search(query, messages)
+
+    def _format_messages_for_rlm(self, messages: List[Any]) -> str:
+        """Format messages for RLM REPL context variable."""
+        parts = []
+        for i, msg in enumerate(messages):
+            agent = getattr(msg, "agent", "unknown")
+            role = getattr(msg, "role", "")
+            content = getattr(msg, "content", str(msg))
+            round_num = getattr(msg, "round", i)
+            parts.append(f"[Round {round_num}] {agent} ({role}): {content}")
+        return "\n\n".join(parts)
+
+    def _fallback_search(self, query: str, messages: List[Any]) -> str:
+        """Keyword-based search fallback when RLM unavailable."""
+        query_terms = query.lower().split()
+        relevant = []
+
+        for msg in messages:
+            content = getattr(msg, "content", str(msg)).lower()
+            matches = sum(1 for term in query_terms if term in content)
+            if matches >= len(query_terms) // 2:
+                relevant.append(getattr(msg, "content", str(msg)))
+
+        if relevant:
+            return f"Found {len(relevant)} relevant messages:\n\n" + "\n---\n".join(
+                r[:500] + "..." if len(r) > 500 else r for r in relevant[:3]
+            )
+        return "No relevant information found."
 
     @property
     def compressor(self) -> Optional["HierarchicalCompressor"]:
@@ -136,8 +285,23 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         return self._compressor
 
     @classmethod
-    def for_stress_level(cls, level: str) -> "RLMCognitiveLoadLimiter":
-        """Create RLM limiter for stress level."""
+    def for_stress_level(
+        cls,
+        level: str,
+        rlm_backend: str = "openai",
+        rlm_model: str = "gpt-4o",
+    ) -> "RLMCognitiveLoadLimiter":
+        """
+        Create RLM limiter for stress level.
+
+        Args:
+            level: Stress level (nominal, elevated, high, critical)
+            rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
+            rlm_model: Model for real RLM queries
+
+        Returns:
+            Configured RLMCognitiveLoadLimiter
+        """
         base_budget = STRESS_BUDGETS.get(level, STRESS_BUDGETS["elevated"])
 
         # Convert to RLM budget with level-appropriate settings
@@ -155,7 +319,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             summary_level="ABSTRACT" if level == "critical" else "SUMMARY",
         )
 
-        return cls(budget=rlm_budget)
+        return cls(budget=rlm_budget, rlm_backend=rlm_backend, rlm_model=rlm_model)
 
     async def compress_context_async(
         self,
@@ -661,18 +825,54 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 def create_rlm_limiter(
     stress_level: str = "elevated",
     compressor: Optional["HierarchicalCompressor"] = None,
+    rlm_backend: str = "openai",
+    rlm_model: str = "gpt-4o",
 ) -> RLMCognitiveLoadLimiter:
     """
     Factory function to create an RLM-enhanced limiter.
 
+    When the official RLM library is installed, this uses the real REPL-based
+    approach from arXiv:2512.24601. Otherwise, falls back to hierarchical
+    summarization.
+
     Args:
         stress_level: Current system stress level
-        compressor: Optional pre-configured compressor
+        compressor: Optional pre-configured compressor (for fallback)
+        rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
+        rlm_model: Model for real RLM queries
 
     Returns:
         RLMCognitiveLoadLimiter instance
+
+    Example:
+        # Create limiter with real RLM support
+        limiter = create_rlm_limiter(
+            stress_level="elevated",
+            rlm_backend="anthropic",
+            rlm_model="claude-3-5-sonnet-20241022"
+        )
+
+        # Check if real RLM is available
+        if limiter.has_real_rlm:
+            answer = await limiter.query_with_rlm("What was decided?", messages)
+        else:
+            compressed = await limiter.compress_context_async(messages=messages)
     """
-    limiter = RLMCognitiveLoadLimiter.for_stress_level(stress_level)
+    limiter = RLMCognitiveLoadLimiter.for_stress_level(
+        stress_level,
+        rlm_backend=rlm_backend,
+        rlm_model=rlm_model,
+    )
     if compressor:
         limiter._compressor = compressor
     return limiter
+
+
+# Export flag for checking RLM availability
+__all__ = [
+    "RLMCognitiveBudget",
+    "CompressedContext",
+    "RLMCognitiveLoadLimiter",
+    "create_rlm_limiter",
+    "HAS_OFFICIAL_RLM",
+]

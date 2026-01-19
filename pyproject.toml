@@ -121,12 +121,18 @@ ml = [
     "scikit-learn>=1.5.0,<2.0",  # 1.5.0+ required for NumPy 2.x support
     "sentence-transformers>=3.0.0,<4.0",
 ]
+rlm = [
+    # Official RLM library from arXiv:2512.24601 (MIT license)
+    # Enables recursive language models for infinite context processing
+    # Source: https://github.com/alexzhang13/rlm
+    "rlm>=0.1.0",
+]
 control-plane = [
     "redis>=5.0.0,<6.0",
     "networkx>=3.0,<4.0",  # DAG workflow representation
 ]
 all = [
-    "aragora[dev,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane]",
+    "aragora[dev,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm]",
 ]
 
 [project.scripts]
@@ -254,6 +260,14 @@ module = [
     "aragora.debate.phases.vote_aggregator",
     "aragora.debate.phases.consensus_verification",
     "aragora.debate.phases.roles_manager",
+    # Added strict - Debate phases expansion (Jan 2026)
+    "aragora.debate.phases.metrics",
+    "aragora.debate.phases.spectator",
+    "aragora.debate.phases.critique",
+    "aragora.debate.phases.winner_selector",
+    "aragora.debate.phases.training_emitter",
+    "aragora.debate.phases.judgment",
+    "aragora.debate.phases.synthesis_generator",
     "aragora.debate.context",
     "aragora.debate.protocol",
     "aragora.debate.roles",
