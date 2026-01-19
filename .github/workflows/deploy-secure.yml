@@ -260,7 +260,12 @@ jobs:
 
   deploy-ec2-production:
     needs: [test, deploy-ec2-staging]
-    if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-production'
+    # Run if: manual dispatch to production OR (staging succeeded AND auto-deploy)
+    if: |
+      always() && (
+        (github.event.inputs.environment == 'ec2-production') ||
+        (needs.deploy-ec2-staging.result == 'success' && (github.event.inputs.environment == 'all' || github.event_name == 'push'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
