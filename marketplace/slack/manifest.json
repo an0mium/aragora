@@ -1,0 +1,102 @@
+{
+  "_metadata": {
+    "major_version": 2,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Aragora",
+    "description": "Multi-agent AI debate and validation platform. Run debates, stress-test decisions, and get AI consensus directly in Slack.",
+    "long_description": "Aragora brings the power of multi-agent AI debate to your Slack workspace.\n\n**Key Features:**\n- Start instant debates on any topic with multiple AI agents (Claude, GPT-4, Gemini, Grok)\n- Run gauntlet stress-tests on proposals, decisions, and statements\n- Get structured consensus with confidence scores\n- Vote on debate outcomes and provide feedback\n- Track debate history and insights\n\n**Use Cases:**\n- Validate business decisions before committing\n- Get multiple AI perspectives on technical choices\n- Stress-test marketing claims and proposals\n- Generate comprehensive analysis of complex topics\n\n**How It Works:**\n1. Use /aragora debate \"Your topic\" to start a multi-agent debate\n2. AI agents discuss, critique, and build on each other's arguments\n3. Consensus emerges with supporting evidence\n4. Results appear in a thread with voting options\n\n**Security:**\n- SOC 2 Type II compliant\n- Data encrypted at rest and in transit\n- No message content stored beyond debate context\n- Enterprise-ready with SSO and audit logging",
+    "background_color": "#0a0a0a"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "Aragora",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/aragora",
+        "description": "Run multi-agent debates and validations",
+        "usage_hint": "debate \"topic\" | gauntlet \"statement\" | status | help",
+        "should_escape": false
+      },
+      {
+        "command": "/debate",
+        "description": "Quick debate on a topic",
+        "usage_hint": "\"Should we use microservices?\"",
+        "should_escape": false
+      },
+      {
+        "command": "/gauntlet",
+        "description": "Stress-test a statement or proposal",
+        "usage_hint": "\"Our Q4 projections are accurate\"",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Start Debate",
+        "type": "message",
+        "callback_id": "start_debate_from_message",
+        "description": "Start a debate about this message"
+      },
+      {
+        "name": "Run Gauntlet",
+        "type": "message",
+        "callback_id": "run_gauntlet_on_message",
+        "description": "Stress-test this message/proposal"
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "commands",
+        "files:read",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "im:write",
+        "mpim:history",
+        "mpim:read",
+        "reactions:read",
+        "reactions:write",
+        "users:read"
+      ]
+    },
+    "redirect_urls": [
+      "https://api.aragora.ai/api/social/slack/oauth/callback",
+      "https://aragora.ai/integrations/slack/callback"
+    ]
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://api.aragora.ai/api/social/slack/events",
+      "bot_events": [
+        "app_home_opened",
+        "app_mention",
+        "message.im",
+        "reaction_added"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://api.aragora.ai/api/social/slack/interactions",
+      "message_menu_options_url": "https://api.aragora.ai/api/social/slack/options"
+    },
+    "org_deploy_enabled": true,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

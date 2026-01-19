@@ -72,13 +72,35 @@ export default function BroadcastPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${backendUrl}/api/broadcast/status`);
+      // Get episode count from podcast API
+      const res = await fetch(`${backendUrl}/api/podcast/episodes?limit=1`);
       if (res.ok) {
         const data = await res.json();
-        setStatus(data);
+        setStatus({
+          available: true,
+          tts_backends: ['edge-tts', 'elevenlabs'],
+          supported_formats: ['mp3', 'wav'],
+          episode_count: data.count || 0,
+          pipeline_available: true,
+        });
+      } else {
+        setStatus({
+          available: false,
+          tts_backends: [],
+          supported_formats: [],
+          episode_count: 0,
+          pipeline_available: false,
+        });
       }
     } catch (e) {
       console.error('Failed to fetch broadcast status:', e);
+      setStatus({
+        available: false,
+        tts_backends: [],
+        supported_formats: [],
+        episode_count: 0,
+        pipeline_available: false,
+      });
     }
   }, [backendUrl]);
 

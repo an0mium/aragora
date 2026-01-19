@@ -1173,7 +1173,9 @@ class DissentRetriever:
             lines.append("## Similar Past Debates")
             for s in context["similar_debates"][:3]:
                 lines.append(f"- **{s['topic']}** ({s['strength']}, {s['similarity']:.0%} similar)")
-                lines.append(f"  Conclusion: {s['conclusion'][:100]}...")
+                # Use smart truncation that preserves sentence boundaries
+                conclusion = self._smart_truncate(s['conclusion'], 100)
+                lines.append(f"  Conclusion: {conclusion}")
                 if s["dissent_count"] > 0:
                     lines.append(f"  ⚠️ {s['dissent_count']} dissenting view(s)")
             lines.append("")
@@ -1181,7 +1183,9 @@ class DissentRetriever:
         if context["unacknowledged_dissents"]:
             lines.append("## Unaddressed Historical Concerns")
             for d in context["unacknowledged_dissents"][:3]:
-                lines.append(f"- [{d['dissent_type']}] {d['content'][:100]}...")
+                # Use smart truncation that preserves sentence boundaries
+                content = self._smart_truncate(d['content'], 100)
+                lines.append(f"- [{d['dissent_type']}] {content}")
             lines.append("")
 
         if context["relevant_dissents"]:

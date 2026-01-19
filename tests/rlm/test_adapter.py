@@ -1,0 +1,400 @@
+"""
+Tests for RLMContextAdapter.
+
+Tests the external environment pattern for context access:
+- Content registration and retrieval
+- Summary generation
+- Drill-down to sections
+- Query-based access
+- Smart truncation fallback
+"""
+
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+
+from aragora.rlm.adapter import (
+    RLMContextAdapter,
+    RegisteredContent,
+    get_adapter,
+)
+from aragora.rlm.types import RLMResult
+
+
+class TestRLMContextAdapter:
+    """Tests for RLMContextAdapter."""
+
+    def test_init_default(self):
+        """Test default initialization."""
+        adapter = RLMContextAdapter()
+        assert adapter._registry == {}
+        assert adapter._compressor is None
+        assert adapter._agent_call is None
+
+    def test_init_with_params(self):
+        """Test initialization with parameters."""
+        mock_compressor = MagicMock()
+        mock_agent_call = AsyncMock()
+        adapter = RLMContextAdapter(
+            compressor=mock_compressor,
+            agent_call=mock_agent_call,
+        )
+        assert adapter._compressor == mock_compressor
+        assert adapter._agent_call == mock_agent_call
+
+
+class TestContentRegistration:
+    """Tests for content registration."""
+
+    def test_register_content_basic(self):
+        """Test basic content registration."""
+        adapter = RLMContextAdapter()
+        content_id = adapter.register_content(
+            content_id="test_001",
+            content="This is test content for the adapter.",
+            content_type="evidence",
+        )
+        assert content_id == "test_001"
+        assert "test_001" in adapter._registry
+
+    def test_register_content_auto_id(self):
+        """Test auto-generated content ID."""
+        adapter = RLMContextAdapter()
+        content_id = adapter.register_content(
+            content_id="",
+            content="Auto-generate an ID for this content.",
+        )
+        assert content_id  # Should have generated an ID
+        assert len(content_id) == 12  # MD5 hash prefix
+
+    def test_register_content_auto_summary(self):
+        """Test auto-generated summary."""
+        adapter = RLMContextAdapter()
+        long_content = "First sentence here. Second sentence. " * 20
+        adapter.register_content(
+            content_id="test",
+            content=long_content,
+        )
+        registered = adapter._registry["test"]
+        assert registered.summary
+        assert len(registered.summary) < len(long_content)
+
+    def test_register_content_custom_summary(self):
+        """Test custom summary."""
+        adapter = RLMContextAdapter()
+        adapter.register_content(
+            content_id="test",
+            content="Long content here...",
+            summary="Custom summary",
+        )
+        assert adapter._registry["test"].summary == "Custom summary"
+
+    def test_register_content_sections(self):
+        """Test section extraction."""
+        adapter = RLMContextAdapter()
+        content = """# Introduction
+This is the intro.
+
+## Methods
+These are the methods.
+
+## Results
+These are the results."""
+
+        adapter.register_content(
+            content_id="test",
+            content=content,
+        )
+        sections = adapter._registry["test"].sections
+        assert "introduction" in sections or "intro" in sections
+        assert "methods" in sections
+        assert "results" in sections
+
+    def test_list_registered(self):
+        """Test listing registered content."""
+        adapter = RLMContextAdapter()
+        adapter.register_content("a", "Content A")
+        adapter.register_content("b", "Content B")
+        assert set(adapter.list_registered()) == {"a", "b"}
+
+    def test_unregister(self):
+        """Test unregistering content."""
+        adapter = RLMContextAdapter()
+        adapter.register_content("test", "Content")
+        assert adapter.unregister("test")
+        assert "test" not in adapter._registry
+        assert not adapter.unregister("nonexistent")
+
+
+class TestGetSummary:
+    """Tests for get_summary method."""
+
+    def test_get_summary_basic(self):
+        """Test basic summary retrieval."""
+        adapter = RLMContextAdapter()
+        adapter.register_content(
+            content_id="test",
+            content="Short content",
+            summary="Test summary",
+        )
+        summary = adapter.get_summary("test")
+        assert summary == "Test summary"
+
+    def test_get_summary_with_max_chars(self):
+        """Test summary with character limit."""
+        adapter = RLMContextAdapter()
+        adapter.register_content(
+            content_id="test",
+            content="x",
+            summary="This is a longer summary that needs truncation.",
+        )
+        summary = adapter.get_summary("test", max_chars=20)
+        assert len(summary) <= 23  # 20 + "..."
+
+    def test_get_summary_not_found(self):
+        """Test summary for non-existent content."""
+        adapter = RLMContextAdapter()
+        summary = adapter.get_summary("nonexistent")
+        assert summary == ""
+
+
+class TestGetFullContent:
+    """Tests for get_full_content method."""
+
+    def test_get_full_content(self):
+        """Test full content retrieval."""
+        adapter = RLMContextAdapter()
+        original = "This is the full content."
+        adapter.register_content("test", original)
+        assert adapter.get_full_content("test") == original
+
+    def test_get_full_content_not_found(self):
+        """Test full content for non-existent."""
+        adapter = RLMContextAdapter()
+        assert adapter.get_full_content("nonexistent") == ""
+
+
+class TestDrillDown:
+    """Tests for drill_down method."""
+
+    def test_drill_down_section(self):
+        """Test drill-down to specific section."""
+        adapter = RLMContextAdapter()
+        adapter._registry["test"] = RegisteredContent(
+            id="test",
+            full_content="Full content here",
+            content_type="text",
+            sections={"intro": "Introduction text", "conclusion": "Conclusion text"},
+        )
+        result = adapter.drill_down("test", section="intro")
+        assert result == "Introduction text"
+
+    def test_drill_down_query(self):
+        """Test drill-down with query."""
+        adapter = RLMContextAdapter()
+        adapter.register_content(
+            content_id="test",
+            content="""Line one about apples.
+Line two about oranges.
+Line three about bananas.
+Line four about apples again.""",
+        )
+        result = adapter.drill_down("test", query="apples")
+        assert "apples" in result.lower()
+
+    def test_drill_down_max_chars(self):
+        """Test drill-down with max chars."""
+        adapter = RLMContextAdapter()
+        adapter.register_content("test", "x" * 1000)
+        result = adapter.drill_down("test", max_chars=50)
+        assert len(result) <= 53  # 50 + "..."
+
+    def test_drill_down_not_found(self):
+        """Test drill-down for non-existent."""
+        adapter = RLMContextAdapter()
+        assert adapter.drill_down("nonexistent") == ""
+
+
+class TestQuery:
+    """Tests for async query method."""
+
+    @pytest.mark.asyncio
+    async def test_query_no_llm(self):
+        """Test query without LLM (uses search)."""
+        adapter = RLMContextAdapter()
+        adapter.register_content(
+            content_id="test",
+            content="The sky is blue. The grass is green. Water is wet.",
+        )
+        result = await adapter.query("test", "What color is the sky?")
+        assert isinstance(result, RLMResult)
+        assert "blue" in result.answer.lower() or result.confidence > 0
+
+    @pytest.mark.asyncio
+    async def test_query_not_found(self):
+        """Test query for non-existent content."""
+        adapter = RLMContextAdapter()
+        result = await adapter.query("nonexistent", "Question?")
+        assert result.confidence == 0.0
+
+    @pytest.mark.asyncio
+    async def test_query_with_llm(self):
+        """Test query with mock LLM."""
+        mock_agent = AsyncMock(return_value="The sky is blue.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        adapter.register_content("test", "The sky is blue. The grass is green.")
+
+        result = await adapter.query("test", "What color is the sky?")
+        assert result.answer == "The sky is blue."
+        assert result.confidence == 0.8
+        mock_agent.assert_called_once()
+
+
+class TestSmartTruncate:
+    """Tests for smart_truncate method."""
+
+    def test_short_content_unchanged(self):
+        """Test that short content passes through unchanged."""
+        adapter = RLMContextAdapter()
+        content = "Short text."
+        assert adapter.smart_truncate(content, max_chars=100) == content
+
+    def test_truncate_at_sentence(self):
+        """Test truncation at sentence boundary."""
+        adapter = RLMContextAdapter()
+        content = "First sentence. Second sentence. Third sentence."
+        result = adapter.smart_truncate(content, max_chars=30)
+        # Should end at a sentence boundary
+        assert result.endswith(".") or result.endswith("...")
+
+    def test_truncate_at_word(self):
+        """Test truncation at word boundary."""
+        adapter = RLMContextAdapter()
+        content = "word " * 100
+        result = adapter.smart_truncate(content, max_chars=30)
+        # Should not cut mid-word
+        assert result.endswith("...") or result.endswith(" ")
+
+    def test_truncate_empty(self):
+        """Test truncation of empty content."""
+        adapter = RLMContextAdapter()
+        assert adapter.smart_truncate("", max_chars=100) == ""
+
+
+class TestFormatForPrompt:
+    """Tests for format_for_prompt method."""
+
+    def test_format_short_content(self):
+        """Test formatting short content."""
+        adapter = RLMContextAdapter()
+        content = "Short content."
+        result = adapter.format_for_prompt(content, max_chars=100)
+        assert "Short content" in result
+
+    def test_format_with_hint(self):
+        """Test formatting with drill-down hint."""
+        adapter = RLMContextAdapter()
+        content = "x" * 500
+        result = adapter.format_for_prompt(content, max_chars=100, include_hint=True)
+        assert "[Full" in result or "available" in result
+
+    def test_format_registers_content(self):
+        """Test that format_for_prompt registers the content."""
+        adapter = RLMContextAdapter()
+        content = "Some content to register."
+        adapter.format_for_prompt(content, max_chars=200)
+        assert len(adapter.list_registered()) == 1
+
+
+class TestSectionExtraction:
+    """Tests for section extraction."""
+
+    def test_extract_evidence_conclusion(self):
+        """Test extraction of conclusion from evidence."""
+        adapter = RLMContextAdapter()
+        content = """Study results show...
+Conclusion: The treatment was effective.
+More details here."""
+
+        adapter.register_content("test", content, content_type="evidence")
+        sections = adapter._registry["test"].sections
+        assert "conclusion" in sections
+        assert "effective" in sections["conclusion"].lower()
+
+    def test_extract_dissent_core(self):
+        """Test extraction of core disagreement from dissent."""
+        adapter = RLMContextAdapter()
+        content = """Some context.
+However, this approach has problems.
+More issues here."""
+
+        adapter.register_content("test", content, content_type="dissent")
+        sections = adapter._registry["test"].sections
+        assert "core" in sections or "intro" in sections
+
+
+class TestGlobalAdapter:
+    """Tests for global adapter instance."""
+
+    def test_get_adapter_singleton(self):
+        """Test that get_adapter returns singleton."""
+        adapter1 = get_adapter()
+        adapter2 = get_adapter()
+        assert adapter1 is adapter2
+
+    def test_get_adapter_type(self):
+        """Test get_adapter return type."""
+        adapter = get_adapter()
+        assert isinstance(adapter, RLMContextAdapter)
+
+
+class TestSearchContent:
+    """Tests for internal search functionality."""
+
+    def test_search_finds_relevant_lines(self):
+        """Test search finds relevant content."""
+        adapter = RLMContextAdapter()
+        content = """Line about cats.
+Line about dogs.
+Line about birds.
+Another line about dogs."""
+
+        result = adapter._search_content(content, "dogs", max_chars=500)
+        assert "dogs" in result.lower()
+
+    def test_search_no_matches(self):
+        """Test search with no matches returns beginning."""
+        adapter = RLMContextAdapter()
+        content = "Line one.\nLine two.\nLine three."
+        result = adapter._search_content(content, "xyz", max_chars=100)
+        assert result.startswith("Line")
+
+
+class TestRegisteredContentDataclass:
+    """Tests for RegisteredContent dataclass."""
+
+    def test_registered_content_creation(self):
+        """Test creating RegisteredContent."""
+        rc = RegisteredContent(
+            id="test",
+            full_content="Content",
+            content_type="text",
+        )
+        assert rc.id == "test"
+        assert rc.full_content == "Content"
+        assert rc.summary == ""
+        assert rc.sections == {}
+        assert rc.metadata == {}
+
+    def test_registered_content_with_all_fields(self):
+        """Test RegisteredContent with all fields."""
+        rc = RegisteredContent(
+            id="test",
+            full_content="Content",
+            content_type="evidence",
+            summary="Summary",
+            sections={"intro": "Intro text"},
+            metadata={"source": "test"},
+        )
+        assert rc.summary == "Summary"
+        assert rc.sections["intro"] == "Intro text"
+        assert rc.metadata["source"] == "test"

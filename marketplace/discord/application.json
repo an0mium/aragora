@@ -1,0 +1,141 @@
+{
+  "application": {
+    "name": "Aragora",
+    "description": "Multi-agent AI debate platform. Get AI consensus on any topic.",
+    "bot_public": true,
+    "bot_require_code_grant": false,
+    "tags": ["AI", "debate", "productivity", "research", "validation"]
+  },
+  "bot": {
+    "username": "Aragora",
+    "description": "Multi-agent AI debate and validation bot"
+  },
+  "install_params": {
+    "scopes": ["bot", "applications.commands"],
+    "permissions": "274878024768"
+  },
+  "commands": [
+    {
+      "name": "debate",
+      "description": "Start a multi-agent AI debate on any topic",
+      "type": 1,
+      "options": [
+        {
+          "name": "topic",
+          "description": "The topic to debate",
+          "type": 3,
+          "required": true
+        },
+        {
+          "name": "agents",
+          "description": "Number of AI agents (2-6)",
+          "type": 4,
+          "required": false,
+          "min_value": 2,
+          "max_value": 6
+        },
+        {
+          "name": "rounds",
+          "description": "Number of debate rounds (1-5)",
+          "type": 4,
+          "required": false,
+          "min_value": 1,
+          "max_value": 5
+        }
+      ]
+    },
+    {
+      "name": "gauntlet",
+      "description": "Stress-test a statement or proposal with adversarial AI",
+      "type": 1,
+      "options": [
+        {
+          "name": "statement",
+          "description": "The statement to validate",
+          "type": 3,
+          "required": true
+        },
+        {
+          "name": "personas",
+          "description": "Adversarial personas (security,legal,financial,technical)",
+          "type": 3,
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "description": "Check Aragora system status",
+      "type": 1
+    },
+    {
+      "name": "history",
+      "description": "View recent debates in this server",
+      "type": 1,
+      "options": [
+        {
+          "name": "limit",
+          "description": "Number of debates to show",
+          "type": 4,
+          "required": false,
+          "min_value": 1,
+          "max_value": 10
+        }
+      ]
+    },
+    {
+      "name": "help",
+      "description": "Show help and available commands",
+      "type": 1
+    }
+  ],
+  "permissions": {
+    "description": "Required permissions for Aragora bot",
+    "required": [
+      {
+        "name": "Send Messages",
+        "flag": 2048,
+        "reason": "Send debate results and responses"
+      },
+      {
+        "name": "Send Messages in Threads",
+        "flag": 274877906944,
+        "reason": "Reply in threads for organized conversations"
+      },
+      {
+        "name": "Embed Links",
+        "flag": 16384,
+        "reason": "Rich embeds for debate results"
+      },
+      {
+        "name": "Attach Files",
+        "flag": 32768,
+        "reason": "Send debate exports and visualizations"
+      },
+      {
+        "name": "Read Message History",
+        "flag": 65536,
+        "reason": "Context for message-based commands"
+      },
+      {
+        "name": "Add Reactions",
+        "flag": 64,
+        "reason": "Add voting reactions to debates"
+      },
+      {
+        "name": "Use External Emojis",
+        "flag": 262144,
+        "reason": "Status indicators and UI elements"
+      }
+    ]
+  },
+  "listing": {
+    "short_description": "Multi-agent AI debate platform. Get AI consensus on any topic with Claude, GPT-4, Gemini, and more.",
+    "detailed_description": "# Aragora - Multi-Agent AI Debate\n\nBring the power of AI consensus to your Discord server. Aragora orchestrates debates between multiple AI agents to deliver well-reasoned, multi-perspective answers.\n\n## Features\n\n**Multi-Agent Debates**\nStart debates on any topic. AI agents (Claude, GPT-4, Gemini, Grok) discuss, critique, and build consensus.\n\n**Gauntlet Validation**\nStress-test proposals with adversarial AI personas. Find weaknesses before they become problems.\n\n**Rich Results**\nGet structured results with confidence scores, key arguments, and voting options.\n\n**Server Integration**\nDebate history, per-server settings, and role-based permissions.\n\n## Commands\n\n- `/debate topic` - Start a multi-agent debate\n- `/gauntlet statement` - Stress-test a proposal\n- `/status` - Check system status\n- `/history` - View recent debates\n- `/help` - Show all commands\n\n## Use Cases\n\n- **Decision Making**: Get multiple AI perspectives before committing\n- **Idea Validation**: Test ideas against critical analysis\n- **Research**: Explore topics from multiple angles\n- **Learning**: Understand complex topics through debate\n\n## Security\n\n- SOC 2 Type II compliant\n- No message content stored beyond debate\n- Enterprise-ready\n\n## Support\n\nVisit https://aragora.ai or join our support server.",
+    "category": "Productivity",
+    "tags": ["AI", "debate", "productivity", "research", "decision-making"],
+    "support_server": "https://discord.gg/aragora",
+    "terms_of_service": "https://aragora.ai/terms",
+    "privacy_policy": "https://aragora.ai/privacy"
+  }
+}
