@@ -2,6 +2,19 @@
 
 This guide covers migrating to newer Aragora versions.
 
+## API v1 → v2
+
+For comprehensive API migration from v1 to v2, see [**MIGRATION_V1_TO_V2.md**](./MIGRATION_V1_TO_V2.md).
+
+**Key Changes:**
+- Response format: Data wrapped in `{"data": ..., "meta": ...}`
+- Endpoint names: Pluralized and RESTful
+- New features: Calibration, probes, privacy compliance
+
+**Timeline:** API v1 sunset is **June 1, 2026**.
+
+---
+
 ## 0.8.x → 1.0.0
 
 ### Breaking Changes
