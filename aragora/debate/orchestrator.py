@@ -16,12 +16,10 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
-from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
 from aragora.debate.arena_config import ArenaConfig
+from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.audience_manager import AudienceManager
-from aragora.debate.autonomic_executor import AutonomicExecutor
-from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
 from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
@@ -33,23 +31,17 @@ from aragora.debate.convergence import (
     ConvergenceDetector,
     cleanup_embedding_cache,
 )
-from aragora.debate.event_bridge import EventEmitterBridge
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
 from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
-from aragora.debate.extensions import ArenaExtensions
-from aragora.debate.immune_system import get_immune_system
 from aragora.debate.judge_selector import JudgeSelector
-from aragora.debate.optional_imports import OptionalImports
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.debate.result_formatter import ResultFormatter
 from aragora.debate.roles_manager import RolesManager
-from aragora.debate.safety import resolve_auto_evolve, resolve_prompt_evolution
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.state_cache import DebateStateCache
-from aragora.debate.subsystem_coordinator import SubsystemCoordinator
 from aragora.debate.termination_checker import TerminationChecker
 from aragora.exceptions import EarlyStopError
 from aragora.observability.logging import correlation_context
@@ -61,15 +53,6 @@ from aragora.server.metrics import (
 )
 from aragora.spectate.stream import SpectatorStream
 from aragora.utils.cache_registry import register_lru_cache
-
-# Optional evolution import for prompt self-improvement
-try:
-    from aragora.evolution.evolver import PromptEvolver
-
-    PROMPT_EVOLVER_AVAILABLE = True
-except ImportError:
-    PromptEvolver = None  # type: ignore[misc,assignment]
-    PROMPT_EVOLVER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 # Structured logger for key debate events (JSON-formatted in production)
@@ -228,10 +211,13 @@ class Arena:
         """Initialize the Arena with environment, agents, and optional subsystems.
 
         See inline parameter comments for subsystem descriptions.
-        Initialization delegates to _init_core(), _init_trackers(), etc.
+        Initialization delegates to ArenaInitializer for core/tracker setup.
         """
-        # Initialize core configuration
-        self._init_core(
+        # Create initializer with broadcast callback
+        initializer = ArenaInitializer(broadcast_callback=self._broadcast_health_event)
+
+        # Initialize core configuration via ArenaInitializer
+        core = initializer.init_core(
             environment=environment,
             agents=agents,
             protocol=protocol,
@@ -276,7 +262,6 @@ class Arena:
             training_exporter=training_exporter,
             auto_export_training=auto_export_training,
             training_export_min_confidence=training_export_min_confidence,
-            # ML Integration
             enable_ml_delegation=enable_ml_delegation,
             ml_delegation_strategy=ml_delegation_strategy,
             ml_delegation_weight=ml_delegation_weight,
@@ -286,8 +271,14 @@ class Arena:
             consensus_early_termination_threshold=consensus_early_termination_threshold,
         )
 
-        # Initialize tracking subsystems
-        self._init_trackers(
+        # Unpack core components to instance attributes
+        self._apply_core_components(core)
+
+        # Initialize tracking subsystems via ArenaInitializer
+        trackers = initializer.init_trackers(
+            protocol=self.protocol,
+            loop_id=self.loop_id,
+            agent_pool=self.agent_pool,
             position_tracker=position_tracker,
             position_ledger=position_ledger,
             enable_position_ledger=enable_position_ledger,
@@ -305,6 +296,9 @@ class Arena:
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
         )
+
+        # Unpack tracker components to instance attributes
+        self._apply_tracker_components(trackers)
 
         # Initialize user participation and roles
         self._init_user_participation()
@@ -352,349 +346,81 @@ class Arena:
             **config.to_arena_kwargs(),
         )
 
-    def _init_core(
-        self,
-        environment: Environment,
-        agents: list[Agent],
-        protocol: DebateProtocol | None,
-        memory,
-        event_hooks: dict | None,
-        hook_manager,  # Optional HookManager for extended lifecycle hooks
-        event_emitter: Optional["EventEmitterProtocol"],
-        spectator: SpectatorStream | None,
-        debate_embeddings,
-        insight_store,
-        recorder,
-        agent_weights: dict[str, float] | None,
-        loop_id: str,
-        strict_loop_scoping: bool,
-        circuit_breaker: CircuitBreaker | None,
-        initial_messages: list | None,
-        trending_topic,
-        pulse_manager,
-        auto_fetch_trending: bool,
-        population_manager,
-        auto_evolve: bool,
-        breeding_threshold: float,
-        evidence_collector,
-        breakpoint_manager,
-        checkpoint_manager,
-        enable_checkpointing: bool,
-        performance_monitor,
-        enable_performance_monitor: bool,
-        enable_telemetry: bool,
-        use_airlock: bool,
-        airlock_config,
-        agent_selector,
-        use_performance_selection: bool,
-        prompt_evolver,
-        enable_prompt_evolution: bool,
-        org_id: str = "",
-        user_id: str = "",
-        usage_tracker=None,
-        broadcast_pipeline=None,
-        auto_broadcast: bool = False,
-        broadcast_min_confidence: float = 0.8,
-        training_exporter=None,
-        auto_export_training: bool = False,
-        training_export_min_confidence: float = 0.75,
+    def _apply_core_components(self, core) -> None:
+        """Unpack CoreComponents dataclass to instance attributes."""
+        self.env = core.env
+        self.agents = core.agents
+        self.protocol = core.protocol
+        self.memory = core.memory
+        self.hooks = core.hooks
+        self.hook_manager = core.hook_manager
+        self.event_emitter = core.event_emitter
+        self.spectator = core.spectator
+        self.debate_embeddings = core.debate_embeddings
+        self.insight_store = core.insight_store
+        self.recorder = core.recorder
+        self.agent_weights = core.agent_weights
+        self.loop_id = core.loop_id
+        self.strict_loop_scoping = core.strict_loop_scoping
+        self.circuit_breaker = core.circuit_breaker
+        self.agent_pool = core.agent_pool
+        self.immune_system = core.immune_system
+        self.chaos_director = core.chaos_director
+        self.performance_monitor = core.performance_monitor
+        self.prompt_evolver = core.prompt_evolver
+        self.autonomic = core.autonomic
+        self.initial_messages = core.initial_messages
+        self.trending_topic = core.trending_topic
+        self.pulse_manager = core.pulse_manager
+        self.auto_fetch_trending = core.auto_fetch_trending
+        self.population_manager = core.population_manager
+        self.auto_evolve = core.auto_evolve
+        self.breeding_threshold = core.breeding_threshold
+        self.evidence_collector = core.evidence_collector
+        self.breakpoint_manager = core.breakpoint_manager
+        self.agent_selector = core.agent_selector
+        self.use_performance_selection = core.use_performance_selection
+        self.checkpoint_manager = core.checkpoint_manager
+        self.org_id = core.org_id
+        self.user_id = core.user_id
+        self.extensions = core.extensions
+        self.cartographer = core.cartographer
+        self.event_bridge = core.event_bridge
         # ML Integration
-        enable_ml_delegation: bool = False,
-        ml_delegation_strategy=None,
-        ml_delegation_weight: float = 0.3,
-        enable_quality_gates: bool = False,
-        quality_gate_threshold: float = 0.6,
-        enable_consensus_estimation: bool = False,
-        consensus_early_termination_threshold: float = 0.85,
-    ) -> None:
-        """Initialize core Arena configuration."""
-        auto_evolve = resolve_auto_evolve(auto_evolve)
-        enable_prompt_evolution = resolve_prompt_evolution(enable_prompt_evolution)
-        self.env = environment
-        self.agents = agents
-        self.protocol = protocol or DebateProtocol()
-
-        # Wrap agents with airlock protection if enabled
-        if use_airlock:
-            from aragora.agents.airlock import AirlockConfig, wrap_agents
-
-            airlock_cfg = airlock_config or AirlockConfig()
-            self.agents = wrap_agents(self.agents, airlock_cfg)  # type: ignore[assignment]
-            logger.debug(f"[airlock] Wrapped {len(self.agents)} agents with resilience layer")
-        self.memory = memory
-        self.hooks = event_hooks or {}
-        self.hook_manager = hook_manager  # Extended lifecycle hooks (HookManager)
-        self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
-        self.spectator = spectator or SpectatorStream(enabled=False)
-        self.debate_embeddings = debate_embeddings
-        self.insight_store = insight_store
-        self.recorder = recorder
-        self.agent_weights = agent_weights or {}
-        self.loop_id = loop_id
-        self.strict_loop_scoping = strict_loop_scoping
-        self.circuit_breaker = circuit_breaker or CircuitBreaker()
-
-        # Agent pool for lifecycle management and team selection
-        self.agent_pool = AgentPool(
-            agents=self.agents,
-            config=AgentPoolConfig(circuit_breaker=self.circuit_breaker),
-        )
-
-        # Transparent immune system for health monitoring and broadcasting
-        self.immune_system = get_immune_system()
-
-        # Chaos director for theatrical failure messages
-        self.chaos_director = get_chaos_director(DramaLevel.MODERATE)
-
-        # Performance monitor for agent telemetry
-        if performance_monitor:
-            self.performance_monitor = performance_monitor
-        elif enable_performance_monitor:
-            from aragora.agents.performance_monitor import AgentPerformanceMonitor
-
-            self.performance_monitor = AgentPerformanceMonitor()
-        else:
-            self.performance_monitor = None
-
-        # Prompt evolver for self-improvement via pattern extraction
-        if prompt_evolver:
-            self.prompt_evolver = prompt_evolver
-        elif enable_prompt_evolution and PROMPT_EVOLVER_AVAILABLE:
-            self.prompt_evolver = PromptEvolver()
-            logger.debug("[evolution] Auto-created PromptEvolver for pattern extraction")
-        else:
-            self.prompt_evolver = None
-
-        self.autonomic = AutonomicExecutor(
-            circuit_breaker=self.circuit_breaker,
-            immune_system=self.immune_system,
-            chaos_director=self.chaos_director,
-            performance_monitor=self.performance_monitor,
-            enable_telemetry=enable_telemetry,
-            event_hooks=self.hooks,  # Pass hooks for agent error events
-        )
-        self.initial_messages = initial_messages or []
-        self.trending_topic = trending_topic
-        self.pulse_manager = pulse_manager
-        self.auto_fetch_trending = auto_fetch_trending
-        self.population_manager = population_manager
-        self.auto_evolve = auto_evolve
-        self.breeding_threshold = breeding_threshold
-        self.evidence_collector = evidence_collector
-        self.breakpoint_manager = breakpoint_manager
-        self.agent_selector = agent_selector
-        self.use_performance_selection = use_performance_selection
-
-        # ML Integration components
-        self.enable_ml_delegation = enable_ml_delegation
-        self.ml_delegation_weight = ml_delegation_weight
-        self.enable_quality_gates = enable_quality_gates
-        self.quality_gate_threshold = quality_gate_threshold
-        self.enable_consensus_estimation = enable_consensus_estimation
-        self.consensus_early_termination_threshold = consensus_early_termination_threshold
-
-        # Initialize ML components lazily (only when enabled)
-        self._ml_delegation_strategy = ml_delegation_strategy
-        self._ml_quality_gate = None
-        self._ml_consensus_estimator = None
-
-        if enable_ml_delegation or enable_quality_gates or enable_consensus_estimation:
-            self._init_ml_integration()
-
-        # Checkpoint manager for debate resume support
-        if checkpoint_manager:
-            self.checkpoint_manager = checkpoint_manager
-        elif enable_checkpointing:
-            from aragora.debate.checkpoint import CheckpointManager, DatabaseCheckpointStore
-
-            self.checkpoint_manager = CheckpointManager(store=DatabaseCheckpointStore())
-            logger.debug("[checkpoint] Auto-created CheckpointManager with database store")
-        else:
-            self.checkpoint_manager = None
-
-        # Billing identity - kept for context metadata
-        self.org_id = org_id
-        self.user_id = user_id
-
-        # Create extensions handler (billing, broadcast, training)
-        # Extensions are triggered after debate completion - all settings stored there
-        self.extensions = ArenaExtensions(
-            org_id=org_id,
-            user_id=user_id,
-            usage_tracker=usage_tracker,
-            broadcast_pipeline=broadcast_pipeline,
-            auto_broadcast=auto_broadcast,
-            broadcast_min_confidence=broadcast_min_confidence,
-            training_exporter=training_exporter,
-            auto_export_training=auto_export_training,
-            training_export_min_confidence=training_export_min_confidence,
-        )
-
-        # Auto-initialize BreakpointManager if enable_breakpoints is True
-        if self.protocol.enable_breakpoints and self.breakpoint_manager is None:
-            self._auto_init_breakpoint_manager()
-
-        # ArgumentCartographer for debate graph visualization
-        AC = OptionalImports.get_argument_cartographer()
-        self.cartographer = AC() if AC else None
-
-        # Event bridge for coordinating spectator/websocket/cartographer
-        self.event_bridge = EventEmitterBridge(
-            spectator=self.spectator,
-            event_emitter=self.event_emitter,
-            cartographer=self.cartographer,
-            loop_id=self.loop_id,
-        )
-
+        self.enable_ml_delegation = core.enable_ml_delegation
+        self.ml_delegation_weight = core.ml_delegation_weight
+        self.enable_quality_gates = core.enable_quality_gates
+        self.quality_gate_threshold = core.quality_gate_threshold
+        self.enable_consensus_estimation = core.enable_consensus_estimation
+        self.consensus_early_termination_threshold = core.consensus_early_termination_threshold
+        self._ml_delegation_strategy = core.ml_delegation_strategy
+        self._ml_quality_gate = core.ml_quality_gate
+        self._ml_consensus_estimator = core.ml_consensus_estimator
         # Event bus initialized later in _init_event_bus() after audience_manager exists
         self.event_bus: Optional[EventBus] = None
 
-        # Connect immune system to event bridge for WebSocket broadcasting
-        self.immune_system.set_broadcast_callback(self._broadcast_health_event)
+    def _apply_tracker_components(self, trackers) -> None:
+        """Unpack TrackerComponents dataclass to instance attributes."""
+        self.position_tracker = trackers.position_tracker
+        self.position_ledger = trackers.position_ledger
+        self.elo_system = trackers.elo_system
+        self.persona_manager = trackers.persona_manager
+        self.dissent_retriever = trackers.dissent_retriever
+        self.consensus_memory = trackers.consensus_memory
+        self.flip_detector = trackers.flip_detector
+        self.calibration_tracker = trackers.calibration_tracker
+        self.continuum_memory = trackers.continuum_memory
+        self.relationship_tracker = trackers.relationship_tracker
+        self.moment_detector = trackers.moment_detector
+        self.tier_analytics_tracker = trackers.tier_analytics_tracker
+        self.knowledge_mound = trackers.knowledge_mound
+        self.enable_knowledge_retrieval = trackers.enable_knowledge_retrieval
+        self.enable_knowledge_ingestion = trackers.enable_knowledge_ingestion
+        self._trackers = trackers.coordinator
 
     def _broadcast_health_event(self, event: dict) -> None:
         """Broadcast health events. Delegates to EventEmitter."""
         self._event_emitter.broadcast_health_event(event)
-
-    def _init_trackers(
-        self,
-        position_tracker,
-        position_ledger,
-        enable_position_ledger: bool,
-        elo_system,
-        persona_manager,
-        dissent_retriever,
-        consensus_memory,
-        flip_detector,
-        calibration_tracker,
-        continuum_memory,
-        relationship_tracker,
-        moment_detector,
-        tier_analytics_tracker=None,
-        knowledge_mound=None,
-        enable_knowledge_retrieval: bool = True,
-        enable_knowledge_ingestion: bool = True,
-    ) -> None:
-        """Initialize tracking subsystems for positions, relationships, and learning."""
-        self.position_tracker = position_tracker
-        self.position_ledger = position_ledger
-        self._enable_position_ledger = enable_position_ledger
-        self.elo_system = elo_system
-        self.persona_manager = persona_manager
-        self.dissent_retriever = dissent_retriever
-        self.consensus_memory = consensus_memory
-        self.flip_detector = flip_detector
-        self.calibration_tracker = calibration_tracker
-        self.continuum_memory = continuum_memory
-        self.relationship_tracker = relationship_tracker
-        self.moment_detector = moment_detector
-        self.tier_analytics_tracker = tier_analytics_tracker
-
-        # Knowledge Mound integration
-        self.knowledge_mound = knowledge_mound
-        self.enable_knowledge_retrieval = enable_knowledge_retrieval
-        self.enable_knowledge_ingestion = enable_knowledge_ingestion
-
-        # Auto-initialize MomentDetector when elo_system available but no detector provided
-        if self.moment_detector is None and self.elo_system:
-            self._auto_init_moment_detector()
-
-        # Auto-upgrade to ELO-ranked judge selection when elo_system is available
-        # Only upgrade from default "random" - don't override explicit user choice
-        if self.elo_system and self.protocol.judge_selection == "random":
-            self.protocol.judge_selection = "elo_ranked"
-
-        # Auto-initialize CalibrationTracker when enable_calibration is True
-        if self.protocol.enable_calibration and self.calibration_tracker is None:
-            self._auto_init_calibration_tracker()
-
-        # Auto-initialize DissentRetriever when consensus_memory is available
-        if self.consensus_memory and self.dissent_retriever is None:
-            self._auto_init_dissent_retriever()
-
-        # Update AgentPool with ELO and calibration systems if available
-        if self.elo_system or self.calibration_tracker:
-            self.agent_pool.set_scoring_systems(
-                elo_system=self.elo_system,
-                calibration_tracker=self.calibration_tracker,
-            )
-
-        # Sync topology setting from protocol to AgentPool
-        topology = getattr(self.protocol, "topology", "full_mesh")
-        self.agent_pool._config.topology = topology
-
-        # Auto-initialize PositionLedger when enable_position_ledger is True
-        if self._enable_position_ledger and self.position_ledger is None:
-            self._auto_init_position_ledger()
-
-        # Create SubsystemCoordinator with all initialized subsystems
-        # This provides centralized lifecycle management while maintaining
-        # backward compatibility with direct field access
-        self._trackers = SubsystemCoordinator(
-            protocol=self.protocol,
-            loop_id=self.loop_id,
-            position_tracker=self.position_tracker,
-            position_ledger=self.position_ledger,
-            elo_system=self.elo_system,
-            calibration_tracker=self.calibration_tracker,
-            consensus_memory=self.consensus_memory,
-            dissent_retriever=self.dissent_retriever,
-            continuum_memory=self.continuum_memory,
-            flip_detector=self.flip_detector,
-            moment_detector=self.moment_detector,
-            relationship_tracker=self.relationship_tracker,
-            tier_analytics_tracker=self.tier_analytics_tracker,
-            # Disable auto-init since we already initialized everything
-            enable_position_ledger=False,
-            enable_calibration=False,
-            enable_moment_detection=False,
-        )
-
-    def _auto_init_position_ledger(self) -> None:
-        """Auto-initialize PositionLedger. See SubsystemCoordinator for details."""
-        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
-
-        temp = SubsystemCoordinator(enable_position_ledger=True)
-        self.position_ledger = temp.position_ledger
-
-    def _auto_init_calibration_tracker(self) -> None:
-        """Auto-initialize CalibrationTracker. See SubsystemCoordinator for details."""
-        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
-
-        temp = SubsystemCoordinator(enable_calibration=True)
-        self.calibration_tracker = temp.calibration_tracker
-
-    def _auto_init_dissent_retriever(self) -> None:
-        """Auto-initialize DissentRetriever. See SubsystemCoordinator for details."""
-        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
-
-        temp = SubsystemCoordinator(consensus_memory=self.consensus_memory)
-        self.dissent_retriever = temp.dissent_retriever
-
-    def _auto_init_moment_detector(self) -> None:
-        """Auto-initialize MomentDetector. See SubsystemCoordinator for details."""
-        from aragora.debate.subsystem_coordinator import SubsystemCoordinator
-
-        temp = SubsystemCoordinator(
-            elo_system=self.elo_system,
-            position_ledger=self.position_ledger,
-            relationship_tracker=self.relationship_tracker,
-            enable_moment_detection=True,
-        )
-        self.moment_detector = temp.moment_detector
-
-    def _auto_init_breakpoint_manager(self) -> None:
-        """Auto-initialize BreakpointManager when enable_breakpoints is True."""
-        try:
-            from aragora.debate.breakpoints import BreakpointConfig, BreakpointManager
-
-            config = self.protocol.breakpoint_config or BreakpointConfig()
-            self.breakpoint_manager = BreakpointManager(config=config)
-            logger.debug("Auto-initialized BreakpointManager for human-in-the-loop breakpoints")
-        except ImportError:
-            logger.warning("BreakpointManager not available - breakpoints disabled")
-        except (TypeError, ValueError, RuntimeError) as e:
-            logger.warning("BreakpointManager auto-init failed: %s", e)
 
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
@@ -888,50 +614,6 @@ class Arena:
             select_judge_fn=select_judge_fn,
             hooks=self.hooks,
         )
-
-    def _init_ml_integration(self) -> None:
-        """Initialize ML integration components (delegation, quality gates, consensus)."""
-        try:
-            from aragora.debate.ml_integration import (
-                MLDelegationStrategy,
-                QualityGate,
-                ConsensusEstimator,
-            )
-
-            # Initialize ML delegation strategy if enabled
-            if self.enable_ml_delegation and self._ml_delegation_strategy is None:
-                self._ml_delegation_strategy = MLDelegationStrategy(
-                    elo_system=self.elo_system,
-                    calibration_tracker=self.calibration_tracker,
-                    ml_weight=self.ml_delegation_weight,
-                )
-                logger.debug("[ml] Initialized MLDelegationStrategy")
-
-            # Initialize quality gate if enabled
-            if self.enable_quality_gates:
-                self._ml_quality_gate = QualityGate(
-                    threshold=self.quality_gate_threshold,
-                )
-                logger.debug(
-                    f"[ml] Initialized QualityGate with threshold={self.quality_gate_threshold}"
-                )
-
-            # Initialize consensus estimator if enabled
-            if self.enable_consensus_estimation:
-                self._ml_consensus_estimator = ConsensusEstimator(
-                    early_termination_threshold=self.consensus_early_termination_threshold,
-                )
-                logger.debug(
-                    f"[ml] Initialized ConsensusEstimator with threshold="
-                    f"{self.consensus_early_termination_threshold}"
-                )
-
-        except ImportError as e:
-            logger.warning(f"[ml] ML integration not available: {e}")
-            # Disable ML features if import fails
-            self.enable_ml_delegation = False
-            self.enable_quality_gates = False
-            self.enable_consensus_estimation = False
 
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty."""

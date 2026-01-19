@@ -295,7 +295,7 @@ class TestErrorHandlingPatterns:
 
     def test_safe_error_message_exists(self):
         """safe_error_message utility exists."""
-        from aragora.server.error_utils import safe_error_message
+        from aragora.server.errors import safe_error_message
 
         result = safe_error_message(Exception("test"), "context")
         assert isinstance(result, str)
