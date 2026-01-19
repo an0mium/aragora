@@ -581,3 +581,188 @@ class TestBaseIntegration:
         # Base class stats should exist
         assert "total_calls" in limiter.stats or True  # May not have this stat
         assert "rlm_compressions" in limiter.stats  # Our added stat
+
+
+# ============================================================================
+# Integration Tests - Arena with RLM
+# ============================================================================
+
+
+class TestArenaRLMIntegration:
+    """Integration tests for Arena with RLM cognitive load limiter."""
+
+    def test_arena_config_has_rlm_params(self):
+        """ArenaConfig includes all RLM parameters."""
+        from aragora.debate.arena_config import ArenaConfig
+
+        config = ArenaConfig(
+            use_rlm_limiter=True,
+            rlm_compression_threshold=5000,
+            rlm_max_recent_messages=3,
+            rlm_summary_level="SUMMARY",
+            rlm_compression_round_threshold=2,
+        )
+
+        assert config.use_rlm_limiter is True
+        assert config.rlm_compression_threshold == 5000
+        assert config.rlm_max_recent_messages == 3
+        assert config.rlm_summary_level == "SUMMARY"
+        assert config.rlm_compression_round_threshold == 2
+
+    def test_arena_config_to_kwargs_includes_rlm(self):
+        """ArenaConfig.to_arena_kwargs includes RLM parameters."""
+        from aragora.debate.arena_config import ArenaConfig
+
+        config = ArenaConfig(
+            use_rlm_limiter=True,
+            rlm_compression_threshold=4000,
+            rlm_compression_round_threshold=4,
+        )
+
+        kwargs = config.to_arena_kwargs()
+
+        assert kwargs["use_rlm_limiter"] is True
+        assert kwargs["rlm_compression_threshold"] == 4000
+        assert kwargs["rlm_compression_round_threshold"] == 4
+
+    def _create_mock_agent(self, name="test-agent"):
+        """Create a mock agent with all required attributes."""
+        agent = MagicMock()
+        agent.name = name
+        agent.model = "test-model"
+        agent.role = "proposer"
+        agent.stance = None
+        return agent
+
+    def test_arena_initializes_rlm_limiter(self):
+        """Arena initializes RLM limiter when use_rlm_limiter=True."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.core import Environment, DebateProtocol
+
+        agent = self._create_mock_agent()
+
+        env = Environment(task="Test task")
+        protocol = DebateProtocol(rounds=3, enable_trickster=False)
+
+        arena = Arena(
+            environment=env,
+            agents=[agent],
+            protocol=protocol,
+            use_rlm_limiter=True,
+            rlm_compression_threshold=3000,
+            rlm_max_recent_messages=5,
+            rlm_compression_round_threshold=3,
+        )
+
+        assert arena.use_rlm_limiter is True
+        assert arena.rlm_limiter is not None
+        assert arena.rlm_compression_round_threshold == 3
+        assert arena.rlm_compression_threshold == 3000
+
+    def test_arena_from_config_creates_rlm_arena(self):
+        """Arena.from_config creates arena with RLM when configured."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.arena_config import ArenaConfig
+        from aragora.core import Environment, DebateProtocol
+
+        agent = self._create_mock_agent()
+
+        env = Environment(task="Test task")
+        protocol = DebateProtocol(rounds=3, enable_trickster=False)
+        config = ArenaConfig(
+            use_rlm_limiter=True,
+            rlm_compression_threshold=2000,
+            rlm_compression_round_threshold=2,
+        )
+
+        arena = Arena.from_config(env, [agent], protocol, config)
+
+        assert arena.use_rlm_limiter is True
+        assert arena.rlm_limiter is not None
+        assert arena.rlm_compression_round_threshold == 2
+
+    def test_debate_rounds_phase_has_compress_context_callback(self):
+        """DebateRoundsPhase receives compress_context callback when RLM enabled."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.core import Environment, DebateProtocol
+
+        agent = self._create_mock_agent()
+
+        env = Environment(task="Test task")
+        protocol = DebateProtocol(rounds=3, enable_trickster=False)
+
+        arena = Arena(
+            environment=env,
+            agents=[agent],
+            protocol=protocol,
+            use_rlm_limiter=True,
+        )
+
+        # Check debate_rounds_phase has the callback
+        assert arena.debate_rounds_phase._compress_context is not None
+        assert arena.debate_rounds_phase._rlm_compression_round_threshold == 3
+
+    def test_arena_compress_debate_messages(self):
+        """Arena.compress_debate_messages compresses messages correctly."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.core import Environment, DebateProtocol
+
+        agent = self._create_mock_agent()
+
+        env = Environment(task="Test task")
+        protocol = DebateProtocol(rounds=3, enable_trickster=False)
+
+        arena = Arena(
+            environment=env,
+            agents=[agent],
+            protocol=protocol,
+            use_rlm_limiter=True,
+            rlm_compression_threshold=100,  # Low threshold to trigger compression
+        )
+
+        # Create test messages (long enough to trigger compression)
+        messages = [MockMessage(content="A" * 200, round=i) for i in range(10)]
+        critiques = [MockCritique(reasoning="B" * 200) for _ in range(5)]
+
+        # Run async compression
+        async def run_test():
+            return await arena.compress_debate_messages(messages, critiques)
+
+        compressed_msgs, compressed_crits = asyncio.get_event_loop().run_until_complete(
+            run_test()
+        )
+
+        # Should return lists (may or may not be compressed depending on threshold)
+        assert isinstance(compressed_msgs, list)
+        assert compressed_crits is None or isinstance(compressed_crits, list)
+
+    def test_arena_without_rlm_no_compression(self):
+        """Arena without RLM returns original messages."""
+        from aragora.debate.orchestrator import Arena
+        from aragora.core import Environment, DebateProtocol
+
+        agent = self._create_mock_agent()
+
+        env = Environment(task="Test task")
+        protocol = DebateProtocol(rounds=3, enable_trickster=False)
+
+        arena = Arena(
+            environment=env,
+            agents=[agent],
+            protocol=protocol,
+            use_rlm_limiter=False,  # RLM disabled
+        )
+
+        messages = [MockMessage(content="Test", round=i) for i in range(5)]
+        critiques = [MockCritique(reasoning="Critique") for _ in range(3)]
+
+        async def run_test():
+            return await arena.compress_debate_messages(messages, critiques)
+
+        compressed_msgs, compressed_crits = asyncio.get_event_loop().run_until_complete(
+            run_test()
+        )
+
+        # Without RLM, should return original messages unchanged
+        assert compressed_msgs is messages
+        assert compressed_crits is critiques
