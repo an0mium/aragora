@@ -79,6 +79,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [runModalPlugin, setRunModalPlugin] = useState<PluginManifest | null>(null);
+  const [installedError, setInstalledError] = useState<string | null>(null);
 
   const fetchPlugins = useCallback(async () => {
     try {
@@ -174,6 +175,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
   const fetchInstalledPlugins = useCallback(async () => {
     try {
+      setInstalledError(null);
       const response = await fetchWithRetry(
         `${apiBase}/api/plugins/installed`,
         undefined,
@@ -186,9 +188,14 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
           (data.installed || []).map((p: PluginManifest) => p.name)
         );
         setInstalledPlugins(installed);
+      } else if (response.status === 401) {
+        // User not authenticated - this is expected
+        setInstalledError('auth');
+      } else {
+        setInstalledError('Failed to load installed plugins');
       }
-    } catch {
-      // Silently fail - user may not be authenticated
+    } catch (err) {
+      setInstalledError(err instanceof Error ? err.message : 'Connection error');
     }
   }, [apiBase]);
 
@@ -346,8 +353,18 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             <div className="text-xs font-mono text-text-muted">Total Plugins</div>
           </div>
           <div>
-            <div className="text-2xl font-mono text-accent">{installedPlugins.size}</div>
-            <div className="text-xs font-mono text-text-muted">Installed</div>
+            <div className="text-2xl font-mono text-accent">
+              {installedError === 'auth' ? (
+                <span className="text-text-muted" title="Login to see installed plugins">--</span>
+              ) : installedError ? (
+                <span className="text-warning" title={installedError}>?</span>
+              ) : (
+                installedPlugins.size
+              )}
+            </div>
+            <div className="text-xs font-mono text-text-muted">
+              {installedError === 'auth' ? 'Login Required' : 'Installed'}
+            </div>
           </div>
           <div>
             <div className="text-2xl font-mono text-acid-cyan">{allCapabilities.length}</div>

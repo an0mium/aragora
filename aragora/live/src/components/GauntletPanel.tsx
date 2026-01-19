@@ -46,6 +46,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
   const [selectedVerdict, setSelectedVerdict] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDetails, setExpandedDetails] = useState<Record<string, unknown> | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
 
   const fetchResults = useCallback(async () => {
     try {
@@ -76,11 +77,14 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
 
   const fetchDetails = async (gauntletId: string) => {
     try {
+      setDetailsError(null);
       const response = await fetch(`${apiBase}/api/gauntlet/${gauntletId}`);
       if (!response.ok) throw new Error('Failed to fetch details');
       const data = await response.json();
       setExpandedDetails(data);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load details';
+      setDetailsError(message);
       console.error('Failed to fetch gauntlet details:', err);
     }
   };
@@ -89,8 +93,10 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
     if (expandedId === gauntletId) {
       setExpandedId(null);
       setExpandedDetails(null);
+      setDetailsError(null);
     } else {
       setExpandedId(gauntletId);
+      setDetailsError(null);
       fetchDetails(gauntletId);
     }
   };
@@ -216,6 +222,19 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
 
                 {expandedId === result.gauntlet_id && (
                   <div className="bg-bg border-t border-border p-4">
+                    {/* Details Error */}
+                    {detailsError && (
+                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-500 font-mono text-sm flex items-center justify-between">
+                        <span>{detailsError}</span>
+                        <button
+                          onClick={() => fetchDetails(result.gauntlet_id)}
+                          className="text-xs hover:text-red-400 transition-colors"
+                        >
+                          [RETRY]
+                        </button>
+                      </div>
+                    )}
+
                     {/* Inline Heatmap */}
                     <div className="mb-4">
                       <GauntletHeatmap gauntletId={result.gauntlet_id} apiBase={apiBase} />
