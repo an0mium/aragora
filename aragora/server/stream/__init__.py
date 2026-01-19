@@ -83,6 +83,19 @@ _EXPORTS = {
         "aragora.server.stream.control_plane_stream",
         "ControlPlaneEvent",
     ),
+    # Nomic loop stream
+    "NomicLoopStreamServer": (
+        "aragora.server.stream.nomic_loop_stream",
+        "NomicLoopStreamServer",
+    ),
+    "NomicLoopEventType": (
+        "aragora.server.stream.nomic_loop_stream",
+        "NomicLoopEventType",
+    ),
+    "NomicLoopEvent": (
+        "aragora.server.stream.nomic_loop_stream",
+        "NomicLoopEvent",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -143,6 +156,10 @@ __all__ = [
     "ControlPlaneStreamServer",
     "ControlPlaneEventType",
     "ControlPlaneEvent",
+    # Nomic loop stream
+    "NomicLoopStreamServer",
+    "NomicLoopEventType",
+    "NomicLoopEvent",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

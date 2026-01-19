@@ -207,6 +207,13 @@ class ArenaConfig:
     enable_consensus_estimation: bool = False  # Use ConsensusEstimator for early termination
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
 
+    # RLM Cognitive Load Limiter (for long debates)
+    use_rlm_limiter: bool = False  # Use RLM-enhanced cognitive limiter for context compression
+    rlm_limiter: Optional[Any] = None  # Pre-configured RLMCognitiveLoadLimiter
+    rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
+    rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail
+    rlm_summary_level: str = "SUMMARY"  # Abstraction level for older content (ABSTRACT, SUMMARY, DETAILED)
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -284,6 +291,12 @@ class ArenaConfig:
             "quality_gate_threshold": self.quality_gate_threshold,
             "enable_consensus_estimation": self.enable_consensus_estimation,
             "consensus_early_termination_threshold": self.consensus_early_termination_threshold,
+            # RLM Cognitive Limiter
+            "use_rlm_limiter": self.use_rlm_limiter,
+            "rlm_limiter": self.rlm_limiter,
+            "rlm_compression_threshold": self.rlm_compression_threshold,
+            "rlm_max_recent_messages": self.rlm_max_recent_messages,
+            "rlm_summary_level": self.rlm_summary_level,
         }
 
 

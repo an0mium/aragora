@@ -8,19 +8,33 @@ Endpoints:
 - GET /api/nomic/log - Get nomic loop logs
 - GET /api/nomic/risk-register - Get risk register entries
 - GET /api/modes - Get available operational modes
+- WS /api/nomic/stream - Real-time WebSocket event stream
+
+Control endpoints (POST):
+- POST /api/nomic/control/start - Start nomic loop
+- POST /api/nomic/control/stop - Stop nomic loop
+- POST /api/nomic/control/pause - Pause nomic loop
+- POST /api/nomic/control/resume - Resume nomic loop
+- POST /api/nomic/control/skip-phase - Skip current phase
+- POST /api/nomic/proposals/approve - Approve proposal
+- POST /api/nomic/proposals/reject - Reject proposal
 
 Extracted from system.py for better modularity.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Coroutine, Optional, TypeVar
+
+T = TypeVar("T")
 
 if TYPE_CHECKING:
-    pass
+    from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
 
 from .base import (
     BaseHandler,
@@ -34,8 +48,16 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from sync context safely."""
+    return asyncio.run(coro)
+
+
 class NomicHandler(BaseHandler):
-    """Handler for nomic loop state, monitoring, and control endpoints."""
+    """Handler for nomic loop state, monitoring, and control endpoints.
+
+    Supports real-time WebSocket event streaming when a stream server is configured.
+    """
 
     ROUTES = [
         "/api/nomic/state",
@@ -53,6 +75,74 @@ class NomicHandler(BaseHandler):
         "/api/nomic/proposals/reject",
         "/api/modes",
     ]
+
+    def __init__(self, server_context: dict):
+        """Initialize nomic handler.
+
+        Args:
+            server_context: Server context with shared resources
+        """
+        super().__init__(server_context)
+        self._stream: Optional["NomicLoopStreamServer"] = None
+
+    def set_stream_server(self, stream: "NomicLoopStreamServer") -> None:
+        """Set the WebSocket stream server for event emission.
+
+        Args:
+            stream: The Nomic Loop stream server instance
+        """
+        self._stream = stream
+
+    def _get_stream(self) -> Optional["NomicLoopStreamServer"]:
+        """Get the stream server from context or instance."""
+        if self._stream:
+            return self._stream
+        return self.ctx.get("nomic_loop_stream")
+
+    def _emit_event(
+        self,
+        emit_method: str,
+        *args,
+        max_retries: int = 3,
+        base_delay: float = 0.1,
+        **kwargs,
+    ) -> None:
+        """Emit an event to the Nomic Loop stream with retry logic.
+
+        Args:
+            emit_method: Name of the stream method to call (e.g., "emit_loop_started")
+            *args: Positional arguments for the emit method
+            max_retries: Maximum retry attempts on failure
+            base_delay: Base delay between retries (exponential backoff)
+            **kwargs: Keyword arguments for the emit method
+        """
+        stream = self._get_stream()
+        if not stream:
+            return
+
+        method = getattr(stream, emit_method, None)
+        if not method:
+            return
+
+        last_error: Optional[Exception] = None
+        for attempt in range(max_retries):
+            try:
+                _run_async(method(*args, **kwargs))
+                return  # Success
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.debug(
+                        f"Nomic stream emission attempt {attempt + 1} failed, "
+                        f"retrying in {delay:.2f}s: {e}"
+                    )
+                    time.sleep(delay)
+
+        logger.warning(
+            f"Nomic stream emission failed after {max_retries} attempts "
+            f"for {emit_method}: {last_error}"
+        )
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -448,6 +538,14 @@ class NomicHandler(BaseHandler):
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
 
+            # Emit loop started event
+            self._emit_event(
+                "emit_loop_started",
+                cycles=cycles,
+                auto_approve=auto_approve,
+                dry_run=body.get("dry_run", False),
+            )
+
             return json_response({
                 "status": "started",
                 "pid": process.pid,
@@ -502,6 +600,13 @@ class NomicHandler(BaseHandler):
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
 
+            # Emit loop stopped event
+            self._emit_event(
+                "emit_loop_stopped",
+                forced=not graceful,
+                reason="user_requested",
+            )
+
             return json_response({
                 "status": "stopping" if graceful else "killed",
                 "pid": pid,
@@ -537,6 +642,13 @@ class NomicHandler(BaseHandler):
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
 
+            # Emit loop paused event
+            self._emit_event(
+                "emit_loop_paused",
+                current_phase=state.get("phase", "unknown"),
+                current_cycle=state.get("cycle", 0),
+            )
+
             return json_response({
                 "status": "paused",
                 "cycle": state.get("cycle", 0),
@@ -569,6 +681,13 @@ class NomicHandler(BaseHandler):
 
             with open(state_file, "w") as f:
                 json.dump(state, f, indent=2)
+
+            # Emit loop resumed event
+            self._emit_event(
+                "emit_loop_resumed",
+                current_phase=state.get("phase", "unknown"),
+                current_cycle=state.get("cycle", 0),
+            )
 
             return json_response({
                 "status": "resumed",
@@ -612,6 +731,14 @@ class NomicHandler(BaseHandler):
 
                 with open(state_file, "w") as f:
                     json.dump(state, f, indent=2)
+
+                # Emit phase skipped event
+                self._emit_event(
+                    "emit_phase_skipped",
+                    phase=current_phase,
+                    cycle=state.get("cycle", 0),
+                    reason="user_requested",
+                )
 
                 return json_response({
                     "status": "skip_requested",
@@ -688,6 +815,13 @@ class NomicHandler(BaseHandler):
             with open(proposals_file, "w") as f:
                 json.dump(data, f, indent=2)
 
+            # Emit proposal approved event
+            self._emit_event(
+                "emit_proposal_approved",
+                proposal_id=proposal_id,
+                approved_by=body.get("approved_by", "user"),
+            )
+
             return json_response({
                 "status": "approved",
                 "proposal_id": proposal_id,
@@ -732,6 +866,14 @@ class NomicHandler(BaseHandler):
             data["proposals"] = proposals
             with open(proposals_file, "w") as f:
                 json.dump(data, f, indent=2)
+
+            # Emit proposal rejected event
+            self._emit_event(
+                "emit_proposal_rejected",
+                proposal_id=proposal_id,
+                rejected_by=body.get("rejected_by", "user"),
+                reason=body.get("reason", ""),
+            )
 
             return json_response({
                 "status": "rejected",

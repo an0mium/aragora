@@ -43,7 +43,7 @@ from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
 from .prometheus import record_http_request
 from .storage import DebateStorage
-from .stream import ControlPlaneStreamServer, DebateStreamServer, SyncEventEmitter
+from .stream import ControlPlaneStreamServer, DebateStreamServer, NomicLoopStreamServer, SyncEventEmitter
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -101,6 +101,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     static_dir: Optional[Path] = None
     stream_emitter: Optional[SyncEventEmitter] = None
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
+    nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None
@@ -775,6 +776,7 @@ class UnifiedServer:
         http_port: int = 8080,
         ws_port: int = 8765,
         control_plane_port: int = 8766,
+        nomic_loop_port: int = 8767,
         ws_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         http_host: str = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1"),
         static_dir: Optional[Path] = None,
@@ -790,6 +792,7 @@ class UnifiedServer:
             http_port: Port for HTTP API server (default 8080)
             ws_port: Port for WebSocket streaming (default 8765)
             control_plane_port: Port for control plane WebSocket (default 8766)
+            nomic_loop_port: Port for nomic loop WebSocket (default 8767)
             ws_host: WebSocket bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
             http_host: HTTP bind address (default 127.0.0.1, use ARAGORA_BIND_HOST env)
             static_dir: Optional path to static files for serving UI
@@ -817,6 +820,7 @@ class UnifiedServer:
         self.http_port = http_port
         self.ws_port = ws_port
         self.control_plane_port = control_plane_port
+        self.nomic_loop_port = nomic_loop_port
         self.ws_host = ws_host
         self.http_host = http_host
         self.static_dir = static_dir
@@ -829,6 +833,7 @@ class UnifiedServer:
         # Create WebSocket servers
         self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
         self.control_plane_stream = ControlPlaneStreamServer(host=ws_host, port=control_plane_port)
+        self.nomic_loop_stream = NomicLoopStreamServer(host=ws_host, port=nomic_loop_port)
 
         # Initialize Supabase persistence if available
         self.persistence = init_persistence(enable_persistence)
@@ -838,6 +843,7 @@ class UnifiedServer:
         UnifiedHandler.static_dir = static_dir
         UnifiedHandler.stream_emitter = self.stream_server.emitter
         UnifiedHandler.control_plane_stream = self.control_plane_stream
+        UnifiedHandler.nomic_loop_stream = self.nomic_loop_stream
         UnifiedHandler.persistence = self.persistence
 
         # Initialize nomic-dependent subsystems
@@ -949,11 +955,20 @@ class UnifiedServer:
         )
         self._watchdog_task = startup_status.get("watchdog_task")
 
+        # Wire Control Plane coordinator to handler
+        self._control_plane_coordinator = startup_status.get("control_plane_coordinator")
+        if self._control_plane_coordinator:
+            from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+            ControlPlaneHandler.coordinator = self._control_plane_coordinator
+            logger.info("Control Plane coordinator wired to handler")
+
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
         logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")
         logger.info(f"  Control Plane WS: ws://localhost:{self.control_plane_port}")
+        logger.info(f"  Nomic Loop WS: ws://localhost:{self.nomic_loop_port}")
         if self.ssl_enabled:
             logger.info(f"  SSL:        enabled (cert: {self.ssl_cert})")
         if self.static_dir:
@@ -968,10 +983,11 @@ class UnifiedServer:
         self._http_thread = Thread(target=self._run_http_server, daemon=True)
         self._http_thread.start()
 
-        # Start both WebSocket servers concurrently
+        # Start all WebSocket servers concurrently
         await asyncio.gather(
             self.stream_server.start(),
             self.control_plane_stream.start(),
+            self.nomic_loop_stream.start(),
         )
 
     def _setup_signal_handlers(self) -> None:
@@ -1102,6 +1118,14 @@ class UnifiedServer:
             except (asyncio.CancelledError, RuntimeError) as e:
                 logger.debug(f"Watchdog shutdown: {e}")
 
+        # 4.8. Shutdown Control Plane coordinator
+        if hasattr(self, "_control_plane_coordinator") and self._control_plane_coordinator:
+            try:
+                await self._control_plane_coordinator.shutdown()
+                logger.info("Control Plane coordinator shutdown complete")
+            except (RuntimeError, asyncio.CancelledError) as e:
+                logger.debug(f"Control Plane coordinator shutdown: {e}")
+
         # 5. Close WebSocket connections
         if hasattr(self, "stream_server") and self.stream_server:
             try:
@@ -1117,6 +1141,14 @@ class UnifiedServer:
                 logger.info("Control plane WebSocket connections closed")
             except (OSError, RuntimeError, asyncio.CancelledError) as e:
                 logger.warning(f"Control plane WebSocket shutdown error: {e}")
+
+        # 5.6. Close nomic loop WebSocket connections
+        if hasattr(self, "nomic_loop_stream") and self.nomic_loop_stream:
+            try:
+                await self.nomic_loop_stream.stop()
+                logger.info("Nomic loop WebSocket connections closed")
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
+                logger.warning(f"Nomic loop WebSocket shutdown error: {e}")
 
         # 6. Close shared HTTP connector (prevents connection leaks)
         try:

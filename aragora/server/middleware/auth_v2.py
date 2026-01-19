@@ -497,6 +497,63 @@ def extract_auth_token(handler: Any) -> Optional[str]:
     return auth_header
 
 
+def extract_token(handler: Any) -> Optional[str]:
+    """
+    Extract Bearer token from request handler.
+
+    Only extracts Bearer tokens. For broader token extraction
+    (including ApiKey), use extract_auth_token.
+
+    Args:
+        handler: HTTP request handler with headers attribute.
+
+    Returns:
+        Token string or None if not present or not Bearer type.
+    """
+    if handler is None:
+        return None
+
+    auth_header = None
+    if hasattr(handler, "headers"):
+        auth_header = handler.headers.get("Authorization", "")
+
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+
+    return None
+
+
+def extract_client_ip(handler: Any) -> Optional[str]:
+    """
+    Extract client IP from request handler.
+
+    Checks X-Forwarded-For for proxied requests, then client_address.
+
+    Args:
+        handler: HTTP request handler.
+
+    Returns:
+        Client IP string or None.
+    """
+    if handler is None:
+        return None
+
+    # Check for forwarded IP (behind proxy)
+    if hasattr(handler, "headers"):
+        forwarded = handler.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            # Take first IP in chain (original client)
+            return forwarded.split(",")[0].strip()
+
+    # Check for direct connection
+    if hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, tuple) and len(addr) >= 1:
+            return str(addr[0])
+
+    return None
+
+
 async def authenticate_request(handler: Any) -> Optional[User]:
     """
     Authenticate a request and return user.
@@ -686,6 +743,8 @@ __all__ = [
     "authenticate_request",
     "get_current_user",
     "extract_auth_token",
+    "extract_token",  # Alias for backward compatibility
+    "extract_client_ip",
     # Decorators
     "require_user",
     "require_admin",

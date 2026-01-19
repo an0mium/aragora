@@ -377,6 +377,108 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
+    def on_trickster_intervention(
+        intervention_type: str,
+        targets: list[str],
+        challenge: str,
+        round_num: int,
+    ) -> None:
+        """Emit trickster intervention event when hollow consensus is challenged."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.TRICKSTER_INTERVENTION,
+                data={
+                    "intervention_type": intervention_type,
+                    "targets": targets,
+                    "challenge": challenge[:500],  # Truncate for WebSocket
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_hollow_consensus(
+        confidence: float,
+        indicators: list[str],
+        recommendation: str,
+    ) -> None:
+        """Emit hollow consensus warning from trickster."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.HOLLOW_CONSENSUS,
+                data={
+                    "confidence": confidence,
+                    "indicators": indicators[:5],  # Limit indicators
+                    "recommendation": recommendation[:200],
+                },
+                loop_id=loop_id,
+            )
+        )
+
+    def on_rhetorical_observation(
+        agent: str,
+        patterns: list[str],
+        round_num: int,
+        analysis: str = "",
+    ) -> None:
+        """Emit rhetorical observation event when patterns are detected."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.RHETORICAL_OBSERVATION,
+                data={
+                    "agent": agent,
+                    "patterns": patterns,
+                    "round": round_num,
+                    "analysis": analysis[:200],
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_convergence_check(
+        status: str,
+        similarity: float,
+        per_agent: dict[str, float],
+        round_num: int,
+    ) -> None:
+        """Emit convergence check result."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.CONSENSUS,  # Reuse CONSENSUS for convergence
+                data={
+                    "status": status,
+                    "similarity": similarity,
+                    "per_agent": per_agent,
+                    "is_convergence_check": True,
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_novelty_check(
+        avg_novelty: float,
+        per_agent: dict[str, float],
+        low_novelty_agents: list[str],
+        round_num: int,
+    ) -> None:
+        """Emit novelty check result."""
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.PHASE_PROGRESS,  # Use PHASE_PROGRESS for novelty
+                data={
+                    "phase": "novelty_check",
+                    "avg_novelty": avg_novelty,
+                    "per_agent": per_agent,
+                    "low_novelty_agents": low_novelty_agents,
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
     return {
         "on_debate_start": on_debate_start,
         "on_agent_preview": on_agent_preview,
@@ -391,6 +493,12 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         "on_agent_error": on_agent_error,
         "on_phase_progress": on_phase_progress,
         "on_heartbeat": on_heartbeat,
+        # Trickster and rhetorical observation hooks
+        "on_trickster_intervention": on_trickster_intervention,
+        "on_hollow_consensus": on_hollow_consensus,
+        "on_rhetorical_observation": on_rhetorical_observation,
+        "on_convergence_check": on_convergence_check,
+        "on_novelty_check": on_novelty_check,
     }
 
 

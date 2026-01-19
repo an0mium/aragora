@@ -242,6 +242,32 @@ async def init_stuck_debate_watchdog() -> Optional[asyncio.Task]:
         return None
 
 
+async def init_control_plane_coordinator() -> Optional[Any]:
+    """Initialize the Control Plane coordinator.
+
+    Creates and connects the ControlPlaneCoordinator which manages:
+    - Agent registry (service discovery)
+    - Task scheduler (distributed task execution)
+    - Health monitor (agent health tracking)
+
+    Returns:
+        Connected ControlPlaneCoordinator, or None if initialization fails
+    """
+    try:
+        from aragora.control_plane.coordinator import ControlPlaneCoordinator
+
+        coordinator = await ControlPlaneCoordinator.create()
+        logger.info("Control Plane coordinator initialized and connected")
+        return coordinator
+    except ImportError as e:
+        logger.debug(f"Control Plane not available: {e}")
+        return None
+    except Exception as e:
+        # Redis may not be available - this is OK for local development
+        logger.warning(f"Control Plane coordinator not started (Redis may be unavailable): {e}")
+        return None
+
+
 async def run_startup_sequence(
     nomic_dir: Optional[Path] = None,
     stream_emitter: Optional[Any] = None,
@@ -264,6 +290,7 @@ async def run_startup_sequence(
         "pulse_scheduler": False,
         "state_cleanup": False,
         "watchdog_task": None,
+        "control_plane_coordinator": None,
     }
 
     # Initialize in parallel where possible
@@ -277,6 +304,7 @@ async def run_startup_sequence(
     status["pulse_scheduler"] = await init_pulse_scheduler(stream_emitter)
     status["state_cleanup"] = init_state_cleanup_task()
     status["watchdog_task"] = await init_stuck_debate_watchdog()
+    status["control_plane_coordinator"] = await init_control_plane_coordinator()
 
     return status
 
@@ -290,5 +318,6 @@ __all__ = [
     "init_pulse_scheduler",
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
+    "init_control_plane_coordinator",
     "run_startup_sequence",
 ]

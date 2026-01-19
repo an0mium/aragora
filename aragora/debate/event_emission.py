@@ -210,5 +210,238 @@ class EventEmitter:
         except Exception as e:
             logger.debug(f"Agent preview emission failed: {e}")
 
+    # === Feature Integration Events ===
+    # These events connect backend subsystems to frontend panels
+
+    def emit_calibration_update(
+        self,
+        agent_name: str,
+        brier_score: float,
+        prediction_count: int,
+        accuracy: float,
+    ) -> None:
+        """Emit calibration update event when an agent's calibration changes.
+
+        Args:
+            agent_name: Name of the agent
+            brier_score: Updated Brier score (0-1, lower is better)
+            prediction_count: Total predictions made
+            accuracy: Prediction accuracy percentage
+        """
+        self.notify_spectator(
+            "calibration_update",
+            agent=agent_name,
+            brier_score=brier_score,
+            prediction_count=prediction_count,
+            accuracy=accuracy,
+        )
+
+    def emit_evidence_found(
+        self,
+        claim: str,
+        evidence_type: str,
+        source: str,
+        confidence: float,
+        excerpt: str = "",
+    ) -> None:
+        """Emit evidence found event when supporting evidence is collected.
+
+        Args:
+            claim: The claim being supported
+            evidence_type: Type of evidence (citation, fact, quote, etc.)
+            source: Source of the evidence
+            confidence: Confidence score (0-1)
+            excerpt: Relevant excerpt from the evidence
+        """
+        self.notify_spectator(
+            "evidence_found",
+            claim=claim,
+            evidence_type=evidence_type,
+            source=source,
+            confidence=confidence,
+            excerpt=excerpt[:500] if excerpt else "",
+        )
+
+    def emit_trait_emerged(
+        self,
+        agent_name: str,
+        trait_name: str,
+        trait_description: str,
+        emergence_round: int,
+    ) -> None:
+        """Emit trait emerged event when PersonaLaboratory detects a new trait.
+
+        Args:
+            agent_name: Name of the agent
+            trait_name: Name of the emerged trait
+            trait_description: Description of the trait
+            emergence_round: Round in which trait emerged
+        """
+        self.notify_spectator(
+            "trait_emerged",
+            agent=agent_name,
+            trait_name=trait_name,
+            trait_description=trait_description,
+            emergence_round=emergence_round,
+        )
+
+    def emit_risk_warning(
+        self,
+        risk_type: str,
+        severity: str,
+        description: str,
+        affected_claims: list[str] | None = None,
+    ) -> None:
+        """Emit risk warning event when domain risk is identified.
+
+        Args:
+            risk_type: Type of risk (factual, logical, ethical, etc.)
+            severity: Severity level (low, medium, high, critical)
+            description: Description of the risk
+            affected_claims: List of claims affected by this risk
+        """
+        self.notify_spectator(
+            "risk_warning",
+            risk_type=risk_type,
+            severity=severity,
+            description=description,
+            affected_claims=affected_claims or [],
+        )
+
+    def emit_rhetorical_observation(
+        self,
+        agent_name: str,
+        technique: str,
+        description: str,
+        quote: str = "",
+        effectiveness: float = 0.5,
+    ) -> None:
+        """Emit rhetorical observation when a rhetorical pattern is detected.
+
+        Args:
+            agent_name: Agent using the technique
+            technique: Name of the rhetorical technique
+            description: Explanation of how it was used
+            quote: Example quote demonstrating the technique
+            effectiveness: Estimated effectiveness (0-1)
+        """
+        self.notify_spectator(
+            "rhetorical_observation",
+            agent=agent_name,
+            technique=technique,
+            description=description,
+            quote=quote[:200] if quote else "",
+            effectiveness=effectiveness,
+        )
+
+    def emit_hollow_consensus(
+        self,
+        confidence: float,
+        indicators: list[str],
+        recommendation: str,
+    ) -> None:
+        """Emit hollow consensus warning from Trickster.
+
+        Args:
+            confidence: Confidence that consensus is hollow (0-1)
+            indicators: List of indicators suggesting hollow consensus
+            recommendation: Suggested action
+        """
+        self.notify_spectator(
+            "hollow_consensus",
+            confidence=confidence,
+            indicators=indicators,
+            recommendation=recommendation,
+        )
+
+    def emit_trickster_intervention(
+        self,
+        intervention_type: str,
+        challenge: str,
+        target_claim: str = "",
+    ) -> None:
+        """Emit trickster intervention when Trickster injects a challenge.
+
+        Args:
+            intervention_type: Type of intervention (devils_advocate, contrarian, etc.)
+            challenge: The challenge or question injected
+            target_claim: The claim being challenged
+        """
+        self.notify_spectator(
+            "trickster_intervention",
+            intervention_type=intervention_type,
+            challenge=challenge,
+            target_claim=target_claim,
+        )
+
+    def emit_phase_start(self, phase_name: str, round_number: int) -> None:
+        """Emit phase start event.
+
+        Args:
+            phase_name: Name of the phase starting
+            round_number: Current debate round
+        """
+        self.notify_spectator(
+            "phase_start",
+            phase=phase_name,
+            round=round_number,
+        )
+
+    def emit_phase_end(
+        self,
+        phase_name: str,
+        round_number: int,
+        duration_ms: int,
+        success: bool = True,
+    ) -> None:
+        """Emit phase end event.
+
+        Args:
+            phase_name: Name of the phase ending
+            round_number: Current debate round
+            duration_ms: Duration of the phase in milliseconds
+            success: Whether the phase completed successfully
+        """
+        self.notify_spectator(
+            "phase_end",
+            phase=phase_name,
+            round=round_number,
+            duration_ms=duration_ms,
+            success=success,
+        )
+
+    def emit_round_start(self, round_number: int, total_rounds: int) -> None:
+        """Emit round start event.
+
+        Args:
+            round_number: Current round number
+            total_rounds: Total number of rounds
+        """
+        self.notify_spectator(
+            "round_start",
+            round=round_number,
+            total_rounds=total_rounds,
+        )
+
+    def emit_round_end(
+        self,
+        round_number: int,
+        total_rounds: int,
+        duration_ms: int,
+    ) -> None:
+        """Emit round end event.
+
+        Args:
+            round_number: Current round number
+            total_rounds: Total number of rounds
+            duration_ms: Duration of the round in milliseconds
+        """
+        self.notify_spectator(
+            "round_end",
+            round=round_number,
+            total_rounds=total_rounds,
+            duration_ms=duration_ms,
+        )
+
 
 __all__ = ["EventEmitter"]

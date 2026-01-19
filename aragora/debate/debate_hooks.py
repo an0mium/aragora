@@ -27,9 +27,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.positions import PositionLedger
     from aragora.core import Agent, DebateResult, Vote
     from aragora.debate.context import DebateContext
+    from aragora.debate.event_emission import EventEmitter
     from aragora.debate.memory_manager import MemoryManager
     from aragora.ranking.elo import EloSystem
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
@@ -53,6 +55,7 @@ class DebateHooks:
     - Store debate outcome in memory
     - Update retrieved memory outcomes
     - Trigger formal verification of claims
+    - Update calibration scores and emit events
 
     All hooks are optional and fail gracefully - errors don't break the debate.
     """
@@ -62,6 +65,8 @@ class DebateHooks:
     elo_system: Optional["EloSystem"] = None
     memory_manager: Optional["MemoryManager"] = None
     evidence_grounder: Optional["EvidenceGrounder"] = None
+    calibration_tracker: Optional["CalibrationTracker"] = None
+    event_emitter: Optional["EventEmitter"] = None
 
     # Tracking state
     _continuum_retrieved_ids: List[str] = field(default_factory=list)
@@ -181,6 +186,13 @@ class DebateHooks:
         # Update memory outcomes for retrieved memories
         self._update_memory_outcomes(result)
 
+        # Update calibration scores and emit events
+        self._update_calibration(
+            ctx=ctx,
+            result=result,
+            participants=participants,
+        )
+
         # Trigger formal verification (async)
         await self._verify_claims(result)
 
@@ -293,6 +305,87 @@ class DebateHooks:
 
         except Exception as e:
             logger.warning(f"Memory outcome update error: {e}")
+
+    def _update_calibration(
+        self,
+        ctx: "DebateContext",
+        result: "DebateResult",
+        participants: List[str],
+    ) -> None:
+        """Update calibration scores and emit events.
+
+        Records prediction outcomes for each agent based on whether their
+        position aligned with the final consensus/verdict.
+
+        Args:
+            ctx: The debate context
+            result: The debate result
+            participants: List of participant agent names
+        """
+        if not self.calibration_tracker:
+            return
+
+        try:
+            winner = getattr(result, "winner", None)
+            confidence = getattr(result, "confidence", 0.7)
+            debate_id = ctx.debate_id
+
+            # Record predictions for each participant
+            for agent_name in participants:
+                # Consider agent "correct" if they were the winner
+                # or if they voted for the winning position
+                correct = agent_name == winner
+
+                # Get confidence from agent's last vote if available
+                agent_confidence = confidence
+                votes = getattr(result, "votes", [])
+                for vote in votes:
+                    if getattr(vote, "agent", None) == agent_name:
+                        agent_confidence = getattr(vote, "confidence", confidence)
+                        # Check if vote aligned with winner
+                        if hasattr(vote, "choice") and winner:
+                            correct = vote.choice == winner
+                        break
+
+                # Record the prediction
+                self.calibration_tracker.record_prediction(
+                    agent=agent_name,
+                    confidence=agent_confidence,
+                    correct=correct,
+                    domain=ctx.domain or "general",
+                    debate_id=debate_id,
+                )
+
+            # Emit calibration update events
+            if self.event_emitter:
+                for agent_name in participants:
+                    try:
+                        # Get updated calibration stats
+                        curve = self.calibration_tracker.get_calibration_curve(agent_name)
+                        if curve:
+                            total_predictions = sum(b.count for b in curve)
+                            total_correct = sum(b.count * b.actual for b in curve)
+                            accuracy = total_correct / total_predictions if total_predictions > 0 else 0
+
+                            # Compute Brier score (average squared error)
+                            brier = 0.0
+                            for bucket in curve:
+                                if bucket.count > 0:
+                                    expected = (bucket.range_start + bucket.range_end) / 2
+                                    brier += bucket.count * (expected - bucket.actual) ** 2
+                            brier = brier / total_predictions if total_predictions > 0 else 0
+
+                            self.event_emitter.emit_calibration_update(
+                                agent_name=agent_name,
+                                brier_score=brier,
+                                prediction_count=total_predictions,
+                                accuracy=accuracy,
+                            )
+                    except Exception as e:
+                        logger.debug(f"Calibration event emission failed for {agent_name}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Calibration update error: {e}")
 
     async def _verify_claims(self, result: "DebateResult") -> None:
         """Verify decidable claims using formal methods.

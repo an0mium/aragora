@@ -45,8 +45,6 @@ from .audit_logger import (
 )
 from .auth import (
     AuthContext,
-    extract_client_ip,
-    extract_token,
     optional_auth,
     require_auth,
     require_auth_or_localhost,
@@ -58,6 +56,9 @@ from .auth_v2 import (
     User,
     Workspace,
     authenticate_request,
+    extract_auth_token,
+    extract_client_ip,
+    extract_token,
     get_current_user,
     get_jwt_validator,
     require_admin,

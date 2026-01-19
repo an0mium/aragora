@@ -52,58 +52,8 @@ class AuthContext:
         return self.authenticated
 
 
-def extract_token(handler: Any) -> Optional[str]:
-    """
-    Extract Bearer token from request handler.
-
-    Args:
-        handler: HTTP request handler with headers attribute.
-
-    Returns:
-        Token string or None if not present.
-    """
-    if handler is None:
-        return None
-
-    auth_header = None
-    if hasattr(handler, "headers"):
-        auth_header = handler.headers.get("Authorization", "")
-
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header[7:]
-
-    return None
-
-
-def extract_client_ip(handler: Any) -> Optional[str]:
-    """
-    Extract client IP from request handler.
-
-    Checks X-Forwarded-For for proxied requests, then client_address.
-
-    Args:
-        handler: HTTP request handler.
-
-    Returns:
-        Client IP string or None.
-    """
-    if handler is None:
-        return None
-
-    # Check for forwarded IP (behind proxy)
-    if hasattr(handler, "headers"):
-        forwarded = handler.headers.get("X-Forwarded-For", "")
-        if forwarded:
-            # Take first IP in chain (original client)
-            return forwarded.split(",")[0].strip()
-
-    # Check for direct connection
-    if hasattr(handler, "client_address"):
-        addr = handler.client_address
-        if isinstance(addr, tuple) and len(addr) >= 1:
-            return str(addr[0])
-
-    return None
+# Import utilities from auth_v2 to avoid duplication
+from .auth_v2 import extract_client_ip, extract_token
 
 
 def validate_token(token: str) -> bool:

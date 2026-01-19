@@ -21,6 +21,7 @@ Knowledge Mound API (unified knowledge storage):
 - POST /api/knowledge/mound/query - Semantic query against knowledge mound
 - POST /api/knowledge/mound/nodes - Add a knowledge node
 - GET /api/knowledge/mound/nodes/:id - Get specific node
+- GET /api/knowledge/mound/nodes/:id/relationships - Get relationships for a node
 - GET /api/knowledge/mound/nodes - List/filter nodes
 - POST /api/knowledge/mound/relationships - Add relationship between nodes
 - GET /api/knowledge/mound/graph/:id - Get graph traversal from node
@@ -758,6 +759,9 @@ class KnowledgeMoundHandler(BaseHandler):
         parts = path.strip("/").split("/")
         if len(parts) >= 5:
             node_id = parts[4]
+            # Check for /relationships sub-route
+            if len(parts) >= 6 and parts[5] == "relationships":
+                return self._handle_get_node_relationships(node_id, query_params)
             return self._handle_get_node(node_id)
         return error_response("Invalid node path", 400)
 
@@ -899,6 +903,70 @@ class KnowledgeMoundHandler(BaseHandler):
             return error_response(f"Node not found: {node_id}", 404)
 
         return json_response(node.to_dict())
+
+    @handle_errors("get node relationships")
+    def _handle_get_node_relationships(
+        self, node_id: str, query_params: dict
+    ) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/nodes/:id/relationships - Get node relationships."""
+
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        # First verify the node exists
+        try:
+            node = _run_async(mound.get_node(node_id))
+        except Exception as e:
+            logger.error(f"Failed to get node: {e}")
+            return error_response(f"Failed to get node: {e}", 500)
+
+        if not node:
+            return error_response(f"Node not found: {node_id}", 404)
+
+        # Get query parameters
+        relationship_type = get_bounded_string_param(
+            query_params, "relationship_type", None, max_length=50
+        )
+        direction = get_bounded_string_param(
+            query_params, "direction", "both", max_length=20
+        )
+
+        if direction not in ("outgoing", "incoming", "both"):
+            return error_response(
+                "direction must be 'outgoing', 'incoming', or 'both'", 400
+            )
+
+        try:
+            relationships = _run_async(
+                mound.get_relationships(
+                    node_id=node_id,
+                    relationship_type=relationship_type,
+                    direction=direction,
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to get relationships: {e}")
+            return error_response(f"Failed to get relationships: {e}", 500)
+
+        return json_response({
+            "node_id": node_id,
+            "relationships": [
+                {
+                    "id": rel.id,
+                    "from_node_id": rel.from_node_id,
+                    "to_node_id": rel.to_node_id,
+                    "relationship_type": rel.relationship_type,
+                    "strength": rel.strength,
+                    "created_at": rel.created_at.isoformat() if rel.created_at else None,
+                    "created_by": rel.created_by,
+                    "metadata": rel.metadata,
+                }
+                for rel in relationships
+            ],
+            "count": len(relationships),
+            "direction": direction,
+        })
 
     @handle_errors("list nodes")
     def _handle_list_nodes(self, query_params: dict) -> HandlerResult:

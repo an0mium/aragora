@@ -919,6 +919,7 @@ class HandlerRegistryMixin:
             "storage": getattr(cls, "storage", None),
             "stream_emitter": getattr(cls, "stream_emitter", None),
             "control_plane_stream": getattr(cls, "control_plane_stream", None),
+            "nomic_loop_stream": getattr(cls, "nomic_loop_stream", None),
             "elo_system": getattr(cls, "elo_system", None),
             "nomic_dir": nomic_dir,
             "debate_embeddings": getattr(cls, "debate_embeddings", None),

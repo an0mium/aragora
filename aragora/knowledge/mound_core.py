@@ -1129,6 +1129,27 @@ class KnowledgeMound:
         assert self._meta_store is not None
         return self._meta_store.get_stats(self.workspace_id)
 
+    async def get_relationships(
+        self,
+        node_id: str,
+        relationship_type: Optional[RelationshipType] = None,
+        direction: Literal["outgoing", "incoming", "both"] = "both",
+    ) -> list[KnowledgeRelationship]:
+        """
+        Get relationships for a specific node.
+
+        Args:
+            node_id: The node ID to get relationships for
+            relationship_type: Filter by relationship type (optional)
+            direction: Direction of relationships ('outgoing', 'incoming', or 'both')
+
+        Returns:
+            List of relationships
+        """
+        self._ensure_initialized()
+        assert self._meta_store is not None
+        return self._meta_store.get_relationships(node_id, relationship_type, direction)
+
     async def merge_from_debate(
         self,
         debate_result: Any,  # DebateResult type

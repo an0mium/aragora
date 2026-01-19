@@ -206,20 +206,32 @@ class DebateRoundsPhase:
             if not observations:
                 return
 
-            # Emit events for each observation
-            if self.event_emitter:
-                from aragora.server.stream.events import StreamEvent, StreamEventType
+            # Extract pattern names and build observation data
+            patterns = [obs.pattern.value for obs in observations]
+            observation_data = [o.to_dict() for o in observations]
+            # Use first observation's commentary as analysis if available
+            analysis = observations[0].audience_commentary if observations else ""
 
-                self.event_emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.RHETORICAL_OBSERVATION,
-                        loop_id=loop_id,
-                        data={
-                            "agent": agent,
-                            "round_num": round_num,
-                            "observations": [o.to_dict() for o in observations],
-                        },
-                    )
+            # Emit events for rhetorical observations via EventEmitter
+            # Use emit_sync since this is not an async context
+            if self.event_emitter:
+                self.event_emitter.emit_sync(
+                    event_type="rhetorical_observation",
+                    debate_id=loop_id,
+                    agent=agent,
+                    round=round_num,
+                    patterns=patterns,
+                    observations=observation_data,
+                    analysis=analysis,
+                )
+
+            # Also call hook for arena_hooks-based WebSocket broadcast
+            if "on_rhetorical_observation" in self.hooks:
+                self.hooks["on_rhetorical_observation"](
+                    agent=agent,
+                    patterns=patterns,
+                    round_num=round_num,
+                    analysis=analysis,
                 )
 
             # Log for debugging
@@ -821,7 +833,34 @@ class DebateRoundsPhase:
                         metric=intervention.priority,
                         agent="trickster",
                     )
-                # Emit trickster event
+
+                # Emit trickster events via EventEmitter for WebSocket clients
+                if self.event_emitter:
+                    # Emit hollow_consensus event
+                    self.event_emitter.emit_sync(
+                        event_type="hollow_consensus",
+                        debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
+                        confidence=intervention.priority,
+                        indicators=list(intervention.evidence_gaps.keys())[:5],
+                        recommendation=intervention.challenge_text[:200],
+                    )
+                    # Emit trickster_intervention event
+                    self.event_emitter.emit_sync(
+                        event_type="trickster_intervention",
+                        debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
+                        intervention_type=intervention.intervention_type.value,
+                        challenge=intervention.challenge_text,
+                        target_claim=", ".join(intervention.target_agents),
+                        round=round_num,
+                    )
+
+                # Call hooks for WebSocket broadcasting via arena_hooks
+                if "on_hollow_consensus" in self.hooks:
+                    self.hooks["on_hollow_consensus"](
+                        confidence=intervention.priority,
+                        indicators=list(intervention.evidence_gaps.keys())[:5],
+                        recommendation=intervention.challenge_text[:200],
+                    )
                 if "on_trickster_intervention" in self.hooks:
                     self.hooks["on_trickster_intervention"](
                         intervention_type=intervention.intervention_type.value,
@@ -917,7 +956,19 @@ class DebateRoundsPhase:
                             metric=novelty_result.min_novelty,
                             agent="trickster",
                         )
-                    # Emit trickster event
+
+                    # Emit trickster intervention via EventEmitter for WebSocket
+                    if self.event_emitter:
+                        self.event_emitter.emit_sync(
+                            event_type="trickster_intervention",
+                            debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
+                            intervention_type=intervention.intervention_type.value,
+                            challenge=intervention.challenge_text,
+                            target_claim=", ".join(intervention.target_agents),
+                            round=round_num,
+                        )
+
+                    # Also call legacy hook if registered
                     if "on_trickster_intervention" in self.hooks:
                         self.hooks["on_trickster_intervention"](
                             intervention_type=intervention.intervention_type.value,
