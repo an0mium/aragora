@@ -23,11 +23,10 @@ const EvidenceVisualizerPanel = dynamic(
 
 interface EvidenceStats {
   total_evidence: number;
-  by_type: Record<string, number>;
   by_source: Record<string, number>;
-  recent_count: number;
-  verified_count: number;
-  avg_relevance_score: number;
+  average_reliability: number;
+  debate_associations: number;
+  unique_debates: number;
 }
 
 export default function EvidencePage() {
@@ -115,25 +114,25 @@ export default function EvidencePage() {
                   <div className="text-xs font-mono text-text-muted">Total Evidence</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-acid-cyan">{stats.verified_count}</div>
-                  <div className="text-xs font-mono text-text-muted">Verified</div>
+                  <div className="text-2xl font-mono text-acid-cyan">{stats.unique_debates}</div>
+                  <div className="text-xs font-mono text-text-muted">Linked Debates</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-gold">{stats.recent_count}</div>
-                  <div className="text-xs font-mono text-text-muted">Recent (24h)</div>
+                  <div className="text-2xl font-mono text-gold">{stats.debate_associations}</div>
+                  <div className="text-xs font-mono text-text-muted">Associations</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-mono text-text">{(stats.avg_relevance_score * 100).toFixed(0)}%</div>
-                  <div className="text-xs font-mono text-text-muted">Avg Relevance</div>
+                  <div className="text-2xl font-mono text-text">{(stats.average_reliability * 100).toFixed(0)}%</div>
+                  <div className="text-xs font-mono text-text-muted">Avg Reliability</div>
                 </div>
               </div>
-              {stats.by_type && Object.keys(stats.by_type).length > 0 && (
+              {stats.by_source && Object.keys(stats.by_source).length > 0 && (
                 <div className="mt-4 pt-3 border-t border-acid-cyan/20">
-                  <div className="text-xs font-mono text-text-muted mb-2">By Type</div>
+                  <div className="text-xs font-mono text-text-muted mb-2">By Source</div>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(stats.by_type).map(([type, count]) => (
-                      <span key={type} className="px-2 py-1 text-xs font-mono bg-surface rounded">
-                        {type}: <span className="text-acid-green">{count}</span>
+                    {Object.entries(stats.by_source).map(([source, count]) => (
+                      <span key={source} className="px-2 py-1 text-xs font-mono bg-surface rounded">
+                        {source}: <span className="text-acid-green">{count}</span>
                       </span>
                     ))}
                   </div>

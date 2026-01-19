@@ -127,12 +127,12 @@ const DOC_CATEGORIES = [
 
 // Platform capabilities
 const CAPABILITIES = [
-  { label: 'AI Providers', value: '13+', desc: 'Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen, Kimi...' },
-  { label: 'Consensus Algorithms', value: '6', desc: 'Majority, unanimous, weighted, strong, conditional, tension-tracking' },
+  { label: 'AI Providers', value: '20+', desc: 'Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen, Kimi, Llama...' },
+  { label: 'Consensus Algorithms', value: '8', desc: 'Majority, unanimous, judge, weighted, supermajority, any, byzantine, none' },
   { label: 'Debate Types', value: '3', desc: 'Standard, graph, matrix' },
   { label: 'Memory Tiers', value: '4', desc: 'Fast, medium, slow, glacial' },
-  { label: 'REST Endpoints', value: '245+', desc: 'Full API coverage' },
-  { label: 'Test Files', value: '600+', desc: 'Comprehensive coverage' },
+  { label: 'REST Endpoints', value: '1285+', desc: 'Full API coverage' },
+  { label: 'Tests', value: '34,300+', desc: 'Comprehensive coverage' },
 ];
 
 export default function AboutPage() {
@@ -229,7 +229,7 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  PyPI v1.5.1
+                  PyPI v1.5.2
                 </a>
                 <a
                   href="https://www.npmjs.com/package/@aragora/sdk"
