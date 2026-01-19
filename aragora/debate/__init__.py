@@ -197,6 +197,11 @@ _EXPORT_MAP = {
     "StreamMessage": ("aragora.debate.stream_chain", "StreamMessage"),
     "ChainedDebate": ("aragora.debate.stream_chain", "ChainedDebate"),
     "create_chain_from_topology": ("aragora.debate.stream_chain", "create_chain_from_topology"),
+    # High-Level Debate Service
+    "DebateService": ("aragora.debate.service", "DebateService"),
+    "DebateOptions": ("aragora.debate.service", "DebateOptions"),
+    "get_debate_service": ("aragora.debate.service", "get_debate_service"),
+    "reset_debate_service": ("aragora.debate.service", "reset_debate_service"),
 }
 
 
@@ -406,4 +411,9 @@ __all__ = [
     "StreamMessage",
     "ChainedDebate",
     "create_chain_from_topology",
+    # High-Level Debate Service
+    "DebateService",
+    "DebateOptions",
+    "get_debate_service",
+    "reset_debate_service",
 ]
