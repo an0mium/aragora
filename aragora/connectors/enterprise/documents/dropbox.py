@@ -16,7 +16,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
 from urllib.parse import quote, urlencode
 
@@ -214,7 +214,7 @@ class DropboxConnector(EnterpriseConnector):
                 expires_in = result.get("expires_in", 14400)
                 self._token_expires = datetime.now(timezone.utc).replace(
                     tzinfo=None
-                ) + __import__("datetime").timedelta(seconds=expires_in)
+                ) + timedelta(seconds=expires_in)
                 return True
             else:
                 error = await resp.text()
@@ -246,7 +246,7 @@ class DropboxConnector(EnterpriseConnector):
                 expires_in = result.get("expires_in", 14400)
                 self._token_expires = datetime.now(timezone.utc).replace(
                     tzinfo=None
-                ) + __import__("datetime").timedelta(seconds=expires_in)
+                ) + timedelta(seconds=expires_in)
                 return True
             else:
                 error = await resp.text()

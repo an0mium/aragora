@@ -225,7 +225,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                assert httpx is not None
+                if httpx is None:
+                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
                 async with httpx.AsyncClient() as client:
                     response = await client.get(discovery_url, timeout=10.0)
                     response.raise_for_status()
@@ -407,7 +408,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                assert httpx is not None
+                if httpx is None:
+                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
                         token_endpoint, data=data, headers=headers, timeout=30.0
@@ -494,7 +496,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                assert httpx is not None
+                if httpx is None:
+                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
                 async with httpx.AsyncClient() as client:
                     response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
                     response.raise_for_status()
@@ -598,7 +601,8 @@ class OIDCProvider(SSOProvider):
 
         try:
             if HAS_HTTPX:
-                assert httpx is not None
+                if httpx is None:
+                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
                 async with httpx.AsyncClient() as client:
                     response = await client.post(token_endpoint, data=data, timeout=30.0)
                     response.raise_for_status()
