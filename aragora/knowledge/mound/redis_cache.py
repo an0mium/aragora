@@ -393,4 +393,4 @@ class RedisCache:
 
     def _hash_key(self, key: str) -> str:
         """Hash a key for consistent sizing."""
-        return hashlib.md5(key.encode()).hexdigest()[:16]
+        return hashlib.sha256(key.encode()).hexdigest()[:16]

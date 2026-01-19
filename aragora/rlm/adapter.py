@@ -74,15 +74,22 @@ class RLMContextAdapter:
     """
     RLM-style adapter: context as external environment, not prompt stuffing.
 
-    Instead of truncating content and losing information, this adapter:
-    1. Stores full content in an external registry
-    2. Provides minimal summaries for prompts
-    3. Supports programmatic queries for specific details
-    4. Enables drill-down to sections on demand
+    Based on Prime Intellect's RLM paper (arXiv:2512.24601), this adapter
+    implements the external environment pattern where content is stored
+    externally and accessed programmatically rather than stuffed into prompts.
 
-    Only falls back to compression/truncation when:
-    - No external storage is available
-    - Content must fit in a specific character limit
+    Key principles:
+    1. **External Environment**: Full content stored in registry, not prompts
+    2. **Query-based Access**: LLM requests specific data when needed
+    3. **Drill-down**: Start with summaries, drill into details on demand
+
+    **Priority Order** (highest to lowest):
+    1. TRUE RLM: Use LLM to query/summarize content programmatically
+    2. COMPRESSION: Use hierarchical compressor if available
+    3. TRUNCATION: Heuristic extraction as LAST RESORT only
+
+    Async methods (generate_summary_async, format_for_prompt_async) use
+    the full priority chain. Sync methods fall back to compression/truncation.
     """
 
     def __init__(
@@ -360,10 +367,10 @@ Answer (be specific and cite relevant parts):"""
         include_hint: bool = True,
     ) -> str:
         """
-        Format content for prompt inclusion with RLM hint.
+        Format content for prompt inclusion with RLM hint (sync version).
 
-        Registers the content and returns a summary with a hint
-        that more detail is available via query.
+        Uses heuristic summary. For TRUE RLM with LLM summarization,
+        use format_for_prompt_async() instead.
 
         Args:
             content: Full content
@@ -391,16 +398,145 @@ Answer (be specific and cite relevant parts):"""
 
         return summary
 
+    async def format_for_prompt_async(
+        self,
+        content: str,
+        max_chars: int,
+        content_type: str = "text",
+        include_hint: bool = True,
+    ) -> str:
+        """
+        Format content for prompt inclusion - TRUE RLM with LLM summarization.
+
+        This is the preferred method: registers content externally and uses
+        LLM to generate a meaningful summary. Falls back to heuristics only
+        when no LLM is available.
+
+        Args:
+            content: Full content
+            max_chars: Max chars for prompt
+            content_type: Type of content
+            include_hint: Include drill-down hint
+
+        Returns:
+            LLM-generated summary with drill-down hint
+        """
+        if not content:
+            return ""
+
+        # Register content for later access (external environment)
+        content_id = self.register_content(
+            content_id="",  # Auto-generate
+            content=content,
+            content_type=content_type,
+        )
+
+        # TRUE RLM: Use LLM to generate summary
+        summary = await self.generate_summary_async(
+            content_id, max_chars - 50 if include_hint else max_chars
+        )
+
+        if include_hint and len(content) > max_chars:
+            summary += f"\n[Full {content_type} available: {content_id}]"
+
+        return summary
+
     # =========================================================================
     # Internal Helpers
     # =========================================================================
 
     def _generate_id(self, content: str) -> str:
         """Generate a unique ID for content."""
-        return hashlib.md5(f"{content[:100]}:{len(content)}".encode()).hexdigest()[:12]
+        return hashlib.sha256(f"{content[:100]}:{len(content)}".encode()).hexdigest()[:12]
 
-    def _extract_summary(self, content: str, content_type: str) -> str:
-        """Extract a summary from content (heuristic, no LLM)."""
+    async def generate_summary_async(
+        self,
+        content_id: str,
+        max_chars: Optional[int] = None,
+    ) -> str:
+        """
+        Generate summary using TRUE RLM pattern.
+
+        Priority order (highest to lowest):
+        1. TRUE RLM: Use LLM to query external content
+        2. COMPRESSION: Use hierarchical compressor if available
+        3. TRUNCATION: Heuristic extraction as last resort
+
+        Args:
+            content_id: ID of registered content
+            max_chars: Optional character limit
+
+        Returns:
+            Summary (LLM > compression > truncation fallback)
+        """
+        registered = self._registry.get(content_id)
+        if not registered:
+            return ""
+
+        # Short content doesn't need summarization
+        if len(registered.full_content) <= 200:
+            return registered.summary or registered.full_content
+
+        # PRIORITY 1: TRUE RLM - Use LLM to generate summary
+        if self._agent_call:
+            try:
+                prompt = f"""Summarize this {registered.content_type} in 2-3 concise sentences.
+Focus on the key points and conclusions.
+
+Content:
+{registered.full_content[:4000]}
+
+Summary:"""
+                response = await self._agent_call(prompt, "sub_model")
+                summary = str(response).strip()
+
+                # Cache the LLM-generated summary
+                registered.summary = summary
+
+                if max_chars and len(summary) > max_chars:
+                    summary = self._smart_truncate(summary, max_chars)
+                return summary
+            except Exception as e:
+                logger.warning(f"adapter_llm_summary_failed error={e}, trying compression")
+
+        # PRIORITY 2: COMPRESSION - Use compressor if available
+        if self._compressor:
+            try:
+                result = await self._compressor.compress(
+                    registered.full_content,
+                    source_type=registered.content_type,
+                )
+                summary = result.context.get_at_level(
+                    result.context.abstraction_levels.get("summary", "SUMMARY")
+                ) if hasattr(result, 'context') else str(result)
+                registered.summary = summary
+
+                if max_chars and len(summary) > max_chars:
+                    summary = self._smart_truncate(summary, max_chars)
+                return summary
+            except Exception as e:
+                logger.warning(f"adapter_compress_failed error={e}, using truncation")
+
+        # PRIORITY 3: TRUNCATION - Heuristic extraction as last resort
+        summary = registered.summary or self._heuristic_summary(
+            registered.full_content, registered.content_type
+        )
+        if max_chars and len(summary) > max_chars:
+            summary = self._smart_truncate(summary, max_chars)
+        return summary
+
+    def _heuristic_summary(self, content: str, content_type: str) -> str:
+        """
+        LAST RESORT: Heuristic summary extraction via truncation.
+
+        Priority order:
+        1. TRUE RLM (LLM queries) - PREFERRED
+        2. COMPRESSION (hierarchical) - FALLBACK
+        3. TRUNCATION (this method) - LAST RESORT ONLY
+
+        This method should only be used when both LLM and compression
+        are unavailable. Use generate_summary_async() for true RLM behavior.
+        """
         if not content:
             return ""
 
@@ -430,6 +566,10 @@ Answer (be specific and cite relevant parts):"""
 
         # Fallback to truncation
         return self._smart_truncate(content, 200)
+
+    def _extract_summary(self, content: str, content_type: str) -> str:
+        """Alias for _heuristic_summary for backwards compatibility."""
+        return self._heuristic_summary(content, content_type)
 
     def _extract_sections(
         self, content: str, content_type: str
