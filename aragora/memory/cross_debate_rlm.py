@@ -35,13 +35,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MemoryTier(Enum):
-    """Memory tiers for cross-debate context."""
+class AccessTier(Enum):
+    """Access recency tiers for cross-debate context.
+
+    NOTE: This is distinct from aragora.memory.tier_manager.MemoryTier which
+    tracks UPDATE FREQUENCY (FAST/MEDIUM/SLOW/GLACIAL). AccessTier tracks
+    RECENCY of access for debate context retrieval.
+
+    - HOT: Recently accessed debates, full detail preserved
+    - WARM: Less recent debates, summary-level context
+    - COLD: Older debates, abstract-level context
+    - ARCHIVE: Very old debates, minimal context retained
+    """
 
     HOT = "hot"  # Recent debates, full detail
     WARM = "warm"  # Older debates, summary level
     COLD = "cold"  # Old debates, abstract level
     ARCHIVE = "archive"  # Very old, minimal context
+
+
+# Backward compatibility alias
+MemoryTier = AccessTier
 
 
 @dataclass

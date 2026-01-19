@@ -29,8 +29,22 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-class MemoryTier(Enum):
-    """Memory update frequency tiers."""
+class MemoryTier(str, Enum):
+    """Memory update frequency tiers.
+
+    Controls how frequently memory entries are updated based on the
+    HOPE-inspired nested learning paradigm:
+
+    - FAST: Updates on every event (1 hour half-life)
+    - MEDIUM: Updates per debate round (24 hour half-life)
+    - SLOW: Updates per nomic cycle (7 day half-life)
+    - GLACIAL: Updates monthly (30 day half-life)
+
+    NOTE: This is distinct from aragora.memory.cross_debate_rlm.AccessTier
+    which tracks ACCESS RECENCY (HOT/WARM/COLD/ARCHIVE) for debate context.
+
+    Inherits from str for JSON serialization compatibility.
+    """
 
     FAST = "fast"  # Updates on every event
     MEDIUM = "medium"  # Updates per debate round
