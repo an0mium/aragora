@@ -87,15 +87,27 @@ class MLDelegationStrategy(DelegationStrategy):
     def __init__(
         self,
         config: Optional[MLIntegrationConfig] = None,
+        elo_system: Optional[Any] = None,
+        calibration_tracker: Optional[Any] = None,
+        ml_weight: Optional[float] = None,
     ):
         """Initialize ML delegation strategy.
 
         Args:
             config: ML integration configuration
+            elo_system: Optional ELO ranking system for hybrid scoring
+            calibration_tracker: Optional calibration tracker for agent performance
+            ml_weight: Weight for ML routing in hybrid scoring (0.0-1.0)
         """
         self.config = config or MLIntegrationConfig()
         self._router = None
         self._cache: Dict[str, Tuple[List[str], float]] = {}
+
+        # Hybrid scoring components
+        self._elo_system = elo_system
+        self._calibration_tracker = calibration_tracker
+        if ml_weight is not None:
+            self.config.ml_routing_weight = ml_weight
 
     def _get_router(self):
         """Lazy load the agent router."""

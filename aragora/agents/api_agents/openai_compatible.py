@@ -76,16 +76,16 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Record token usage (delegates to APIAgent base class)."""
         super()._record_token_usage(tokens_in, tokens_out)
 
-    # Methods inherited from CritiqueMixin (via APIAgent) - stubs for type checking
+    # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
         self,
         context: Optional[list[Message]] = None,
         truncate: bool = False,
         sanitize_fn: Optional["Callable[[str], str]"] = None,
     ) -> str:
-        """Build context from previous messages (provided by base class)."""
-        # This method is inherited from CritiqueMixin via APIAgent
-        raise NotImplementedError("Must be mixed with a CritiqueMixin subclass")
+        """Build context from previous messages (delegates to CritiqueMixin)."""
+        # Delegate to CritiqueMixin via APIAgent in the MRO
+        return super()._build_context_prompt(context, truncate, sanitize_fn)
 
     def _parse_critique(
         self,
@@ -93,9 +93,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         target_agent: str,
         target_content: str,
     ) -> Critique:
-        """Parse critique response (provided by base class)."""
-        # This method is inherited from CritiqueMixin via APIAgent
-        raise NotImplementedError("Must be mixed with a CritiqueMixin subclass")
+        """Parse critique response (delegates to CritiqueMixin)."""
+        # Delegate to CritiqueMixin via APIAgent in the MRO
+        return super()._parse_critique(response, target_agent, target_content)
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""
