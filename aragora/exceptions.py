@@ -1016,6 +1016,34 @@ class DocumentChunkError(DocumentProcessingError):
 
 
 # ============================================================================
+# Connector Errors - Usage Guide
+# ============================================================================
+# For connector-specific errors (HTTP connectors, API connectors), import from
+# aragora.connectors.exceptions which provides the full exception hierarchy with:
+#   - is_retryable flag for retry decisions
+#   - retry_after for backoff timing
+#   - connector_name for error attribution
+#   - classify_exception() utility for converting generic exceptions
+#   - connector_error_handler context manager
+#
+# Example:
+#   from aragora.connectors.exceptions import (
+#       ConnectorError, ConnectorTimeoutError, ConnectorRateLimitError,
+#       classify_exception, connector_error_handler,
+#   )
+#
+#   # Using context manager
+#   async with connector_error_handler("github"):
+#       response = await client.get(url)
+#
+# Available exceptions:
+#   ConnectorError (base), ConnectorAuthError, ConnectorRateLimitError,
+#   ConnectorTimeoutError, ConnectorNetworkError, ConnectorAPIError,
+#   ConnectorValidationError, ConnectorNotFoundError, ConnectorQuotaError,
+#   ConnectorParseError
+
+
+# ============================================================================
 # Agent Errors - Usage Guide
 # ============================================================================
 # For runtime agent failures (timeouts, rate limits, connection issues), import
