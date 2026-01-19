@@ -1,8 +1,15 @@
 """
 Email Priority Analyzer.
 
-Uses RLM compression and ContinuumMemory to score email importance
-based on user-specific learned preferences.
+Uses AragoraRLM (routes to TRUE RLM when available) and ContinuumMemory
+to score email importance based on user-specific learned preferences.
+
+TRUE RLM (when official library installed):
+- Model writes code to programmatically analyze email content
+- Context stored as REPL variables, not in prompt
+
+Compression fallback (when official library not installed):
+- Uses hierarchical summarization for long content
 """
 
 from __future__ import annotations
@@ -11,6 +18,15 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+# Check for AragoraRLM (routes to TRUE RLM when available)
+try:
+    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
+    HAS_ARAGORA_RLM = True
+except ImportError:
+    HAS_ARAGORA_RLM = False
+    HAS_OFFICIAL_RLM = False
+    AragoraRLM = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -104,14 +120,26 @@ class EmailPriorityAnalyzer:
         return self._memory
 
     async def _get_rlm(self) -> Any:
-        """Get or create RLM query instance."""
+        """Get or create AragoraRLM instance (routes to TRUE RLM when available)."""
         if self._rlm is None:
-            try:
-                from aragora.rlm.streaming import StreamingRLMQuery
+            if not HAS_ARAGORA_RLM or AragoraRLM is None:
+                logger.debug("[EmailPriority] AragoraRLM not available")
+                return None
 
-                self._rlm = StreamingRLMQuery()
-            except ImportError:
-                logger.debug("[EmailPriority] RLM not available")
+            try:
+                self._rlm = AragoraRLM()
+                if HAS_OFFICIAL_RLM:
+                    logger.info(
+                        "[EmailPriority] TRUE RLM initialized "
+                        "(REPL-based, model writes code to examine content)"
+                    )
+                else:
+                    logger.info(
+                        "[EmailPriority] AragoraRLM initialized "
+                        "(will use compression fallback since official RLM not installed)"
+                    )
+            except Exception as e:
+                logger.debug(f"[EmailPriority] Failed to initialize AragoraRLM: {e}")
                 return None
         return self._rlm
 
@@ -351,27 +379,45 @@ class EmailPriorityAnalyzer:
         if low_priority_matches > 0:
             score = max(0.1, score - low_priority_matches * 0.2)
 
-        # Use RLM for deeper analysis if available and body is long
+        # Use AragoraRLM for deeper analysis if available and body is long
+        # Routes to TRUE RLM (REPL-based) when available, compression fallback otherwise
         rlm = await self._get_rlm()
         if rlm and body_text and len(body_text) > 200:
             try:
-                # Analyze relevance with RLM
-                analysis_result = await rlm.analyze(
+                # Analyze relevance using AragoraRLM
+                analysis_result = await rlm.compress_and_query(
+                    query=(
+                        "Rate this email's importance on a scale of 0-10. "
+                        "Consider if it requires action, contains time-sensitive info, "
+                        "or is from an important context. Reply with just the number."
+                    ),
                     content=body_text[:2000],
-                    prompt="Rate this email's importance on a scale of 0-10. Consider if it requires action, contains time-sensitive info, or is from an important context. Reply with just the number.",
-                    max_tokens=10,
+                    source_type="email",
                 )
 
-                if analysis_result:
+                if analysis_result and analysis_result.answer:
+                    # Log which approach was used
+                    if analysis_result.used_true_rlm:
+                        logger.debug("[EmailPriority] Used TRUE RLM for content analysis")
+                    elif analysis_result.used_compression_fallback:
+                        logger.debug("[EmailPriority] Used compression fallback for content analysis")
+
                     try:
-                        rlm_score = float(analysis_result.strip()) / 10.0
-                        # Blend with keyword-based score
-                        score = (score + rlm_score) / 2
+                        # Extract numeric score from response
+                        answer = analysis_result.answer.strip()
+                        # Try to find a number in the response
+                        import re
+                        match = re.search(r'\b(\d+(?:\.\d+)?)\b', answer)
+                        if match:
+                            rlm_score = float(match.group(1)) / 10.0
+                            rlm_score = max(0.0, min(1.0, rlm_score))  # Clamp
+                            # Blend with keyword-based score
+                            score = (score + rlm_score) / 2
                     except ValueError:
                         pass
 
             except Exception as e:
-                logger.debug(f"[EmailPriority] RLM analysis failed: {e}")
+                logger.debug(f"[EmailPriority] AragoraRLM analysis failed: {e}")
 
         return score
 

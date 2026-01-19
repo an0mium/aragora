@@ -27,6 +27,24 @@ class MockTrendingTopic:
         return f"Discuss the implications of: {self.topic}"
 
 
+@pytest.fixture(autouse=True)
+def reset_pulse_singletons():
+    """Reset pulse module singletons before and after each test."""
+    import aragora.server.handlers.features.pulse as pulse_module
+
+    # Reset before test
+    pulse_module._shared_pulse_manager = None
+    pulse_module._shared_scheduler = None
+    pulse_module._shared_debate_store = None
+
+    yield
+
+    # Reset after test
+    pulse_module._shared_pulse_manager = None
+    pulse_module._shared_scheduler = None
+    pulse_module._shared_debate_store = None
+
+
 @pytest.fixture
 def handler(tmp_path):
     """Create PulseHandler with mock context."""
@@ -202,22 +220,27 @@ class TestTrendingEndpoint:
                             assert "sources" in data
 
     def test_handles_fetch_exception(self, handler):
-        """Returns 500 on fetch exception."""
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+        """Gracefully handles async fetch exception by returning empty topics."""
+        mock_manager = Mock()
+        mock_manager.ingestors = {}  # Set up ingestors as empty dict
+        # RuntimeError in async fetch is caught by _run_async_safely
+        # which returns empty list and 200 (graceful degradation)
+        mock_manager.get_trending_topics = AsyncMock(
+            side_effect=RuntimeError("Network error")
+        )
+
+        # _get_trending_topics creates PulseManager directly via import
+        with patch("aragora.pulse.ingestor.PulseManager", return_value=mock_manager):
             with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
                 with patch("aragora.pulse.ingestor.RedditIngestor"):
                     with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = Mock()
-                        mock_manager.get_trending_topics = AsyncMock(
-                            side_effect=Exception("Network error")
-                        )
-                        mock_pm_class.return_value = mock_manager
-
                         result = handler._get_trending_topics(10)
 
-                        assert result.status_code == 500
+                        # Graceful degradation: returns 200 with empty topics
+                        assert result.status_code == 200
                         data = json.loads(result.body)
-                        assert "error" in data
+                        assert data["topics"] == []
+                        assert data["count"] == 0
 
 
 class TestSuggestEndpoint:
@@ -225,20 +248,12 @@ class TestSuggestEndpoint:
 
     def test_returns_503_without_pulse_module(self, handler):
         """Returns 503 when pulse module not available."""
-        # Mock the pulse module to avoid real API calls
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
-            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
-                with patch("aragora.pulse.ingestor.RedditIngestor"):
-                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = MagicMock()
-                        mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
-                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
-                        mock_pm.return_value = mock_manager
-
-                        result = handler.handle("/api/pulse/suggest", {}, None)
-                        # Either works or returns appropriate error
-                        assert result is not None
+        # Patch the import to fail
+        with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
+            result = handler.handle("/api/pulse/suggest", {}, None)
+            # Should return 503 when pulse module unavailable
+            assert result is not None
+            assert result.status_code == 503
 
     def test_validates_category_parameter(self, handler):
         """Validates category parameter for security."""
@@ -250,27 +265,26 @@ class TestSuggestEndpoint:
 
     def test_accepts_valid_category(self, handler):
         """Accepts valid category parameter."""
-        # Mock the pulse module to avoid real API calls
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
-            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
-                with patch("aragora.pulse.ingestor.RedditIngestor"):
-                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = MagicMock()
-                        mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
-                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
-                        mock_pm.return_value = mock_manager
+        # Mock the pulse manager to avoid real API calls
+        mock_manager = MagicMock()
+        mock_manager.ingestors = {}
+        mock_manager.get_trending_topics = AsyncMock(return_value=[])
+        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
 
-                        result = handler.handle(
-                            "/api/pulse/suggest", {"category": ["technology"]}, None
-                        )
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_manager",
+            return_value=mock_manager,
+        ):
+            result = handler.handle(
+                "/api/pulse/suggest", {"category": ["technology"]}, None
+            )
 
-                        # Should either succeed or fail for other reasons
-                        assert result is not None
-                        # If 400, it's not due to category validation
-                        if result.status_code == 400:
-                            data = json.loads(result.body)
-                            assert "category" not in data.get("error", "").lower()
+            # Should either succeed (404 if no topics) or fail for other reasons
+            assert result is not None
+            # If 400, it's not due to category validation
+            if result.status_code == 400:
+                data = json.loads(result.body)
+                assert "category" not in data.get("error", "").lower()
 
     def test_suggest_response_structure(self, handler):
         """Returns proper response structure when successful."""
@@ -313,19 +327,18 @@ class TestSuggestEndpoint:
 
     def test_handles_suggest_exception(self, handler):
         """Returns 500 on suggestion exception."""
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm_class:
+        mock_manager = Mock()
+        # Mock select_topic_for_debate to raise RuntimeError which is caught
+        mock_manager.get_trending_topics = AsyncMock(return_value=[Mock()])
+        mock_manager.select_topic_for_debate = Mock(
+            side_effect=RuntimeError("Selection error")
+        )
+
+        # _suggest_debate_topic creates PulseManager directly via import
+        with patch("aragora.pulse.ingestor.PulseManager", return_value=mock_manager):
             with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
                 with patch("aragora.pulse.ingestor.RedditIngestor"):
                     with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = Mock()
-                        # Mock select_topic_for_debate to raise exception
-                        # (this is called after get_trending_topics succeeds)
-                        mock_manager.get_trending_topics = AsyncMock(return_value=[Mock()])
-                        mock_manager.select_topic_for_debate = Mock(
-                            side_effect=Exception("Selection error")
-                        )
-                        mock_pm_class.return_value = mock_manager
-
                         result = handler._suggest_debate_topic()
 
                         assert result.status_code == 500
@@ -338,40 +351,38 @@ class TestErrorHandling:
 
     def test_import_error_handled_trending(self, handler):
         """Handles ImportError gracefully for trending endpoint."""
-        # Mock the pulse module to avoid real API calls
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
-            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
-                with patch("aragora.pulse.ingestor.RedditIngestor"):
-                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = MagicMock()
-                        mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
-                        mock_pm.return_value = mock_manager
+        # Mock get_pulse_manager to return a mock manager
+        mock_manager = MagicMock()
+        mock_manager.ingestors = {}
+        mock_manager.get_trending_topics = AsyncMock(return_value=[])
 
-                        result = handler._get_trending_topics(10)
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_manager",
+            return_value=mock_manager,
+        ):
+            result = handler._get_trending_topics(10)
 
-                        # Should either work or return error
-                        assert result is not None
-                        assert result.status_code in [200, 500, 503]
+            # Should either work or return error
+            assert result is not None
+            assert result.status_code in [200, 500, 503]
 
     def test_import_error_handled_suggest(self, handler):
         """Handles ImportError gracefully for suggest endpoint."""
-        # Mock the pulse module to avoid real API calls
-        with patch("aragora.pulse.ingestor.PulseManager") as mock_pm:
-            with patch("aragora.pulse.ingestor.HackerNewsIngestor"):
-                with patch("aragora.pulse.ingestor.RedditIngestor"):
-                    with patch("aragora.pulse.ingestor.TwitterIngestor"):
-                        mock_manager = MagicMock()
-                        mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
-                        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
-                        mock_pm.return_value = mock_manager
+        # Mock get_pulse_manager to return a mock manager
+        mock_manager = MagicMock()
+        mock_manager.ingestors = {}
+        mock_manager.get_trending_topics = AsyncMock(return_value=[])
+        mock_manager.select_topic_for_debate = MagicMock(return_value=None)
 
-                        result = handler._suggest_debate_topic()
+        with patch(
+            "aragora.server.handlers.features.pulse.get_pulse_manager",
+            return_value=mock_manager,
+        ):
+            result = handler._suggest_debate_topic()
 
-                        # Should either work or return error
-                        assert result is not None
-                        assert result.status_code in [200, 404, 500, 503]
+            # Should either work or return error
+            assert result is not None
+            assert result.status_code in [200, 404, 500, 503]
 
     def test_async_loop_handling(self, handler):
         """Handles existing event loop correctly."""
@@ -447,7 +458,7 @@ class TestAnalyticsEndpoint:
 
     def test_analytics_returns_503_without_module(self, handler):
         """Returns 503 when pulse module not available."""
-        with patch("aragora.server.handlers.pulse.get_pulse_manager", return_value=None):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_manager", return_value=None):
             result = handler._get_analytics()
             assert result.status_code == 503
 
@@ -464,7 +475,7 @@ class TestAnalyticsEndpoint:
         mock_manager.get_analytics.return_value = mock_analytics
 
         with patch(
-            "aragora.server.handlers.pulse.get_pulse_manager",
+            "aragora.server.handlers.features.pulse.get_pulse_manager",
             return_value=mock_manager,
         ):
             result = handler._get_analytics()
@@ -481,7 +492,7 @@ class TestSchedulerStatusEndpoint:
 
     def test_scheduler_status_returns_503_without_scheduler(self, handler):
         """Returns 503 when scheduler not available."""
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             result = handler._get_scheduler_status()
             assert result.status_code == 503
 
@@ -500,11 +511,11 @@ class TestSchedulerStatusEndpoint:
         mock_store.get_analytics.return_value = {"total": 10}
 
         with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler",
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
             return_value=mock_scheduler,
         ):
             with patch(
-                "aragora.server.handlers.pulse.get_scheduled_debate_store",
+                "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
                 return_value=mock_store,
             ):
                 result = handler._get_scheduler_status()
@@ -521,7 +532,7 @@ class TestSchedulerHistoryEndpoint:
     def test_scheduler_history_returns_503_without_store(self, handler):
         """Returns 503 when store not available."""
         with patch(
-            "aragora.server.handlers.pulse.get_scheduled_debate_store",
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
             return_value=None,
         ):
             result = handler._get_scheduler_history(50, 0, None)
@@ -548,7 +559,7 @@ class TestSchedulerHistoryEndpoint:
         mock_store.count_total.return_value = 1
 
         with patch(
-            "aragora.server.handlers.pulse.get_scheduled_debate_store",
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
             return_value=mock_store,
         ):
             result = handler._get_scheduler_history(50, 0, None)
@@ -566,7 +577,7 @@ class TestSchedulerHistoryEndpoint:
         mock_store.count_total.return_value = 0
 
         with patch(
-            "aragora.server.handlers.pulse.get_scheduled_debate_store",
+            "aragora.server.handlers.features.pulse.get_scheduled_debate_store",
             return_value=mock_store,
         ):
             handler._get_scheduler_history(50, 0, "reddit")
@@ -611,8 +622,8 @@ class TestDebateTopicEndpoint:
         mock_handler.rfile = BytesIO(body)
 
         # Need to mock auth decorator to test the validation
-        with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-            with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+            with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                 # Re-import to get undecorated version
                 result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
                     handler, mock_handler
@@ -631,8 +642,8 @@ class TestDebateTopicEndpoint:
         mock_handler.headers = {"Content-Length": str(len(body))}
         mock_handler.rfile = BytesIO(body)
 
-        with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-            with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+            with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                 result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
                     handler, mock_handler
                 )
@@ -648,9 +659,9 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._start_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -661,9 +672,9 @@ class TestSchedulerControlEndpoints:
         mock_handler = Mock()
         mock_handler.headers = {"Content-Length": "0"}
 
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._stop_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -673,9 +684,9 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._pause_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -685,9 +696,9 @@ class TestSchedulerControlEndpoints:
         """Returns 503 when scheduler not available."""
         mock_handler = Mock()
 
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._resume_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -705,9 +716,9 @@ class TestSchedulerConfigEndpoint:
         mock_handler.headers = {"Content-Length": "2"}
         mock_handler.rfile = BytesIO(b"{}")
 
-        with patch("aragora.server.handlers.pulse.get_pulse_scheduler", return_value=None):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+        with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -721,11 +732,11 @@ class TestSchedulerConfigEndpoint:
         mock_scheduler = Mock()
 
         with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler",
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
             return_value=mock_scheduler,
         ):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -745,11 +756,11 @@ class TestSchedulerConfigEndpoint:
         mock_scheduler = Mock()
 
         with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler",
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
             return_value=mock_scheduler,
         ):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -772,11 +783,11 @@ class TestSchedulerConfigEndpoint:
         mock_scheduler.config = mock_config
 
         with patch(
-            "aragora.server.handlers.pulse.get_pulse_scheduler",
+            "aragora.server.handlers.features.pulse.get_pulse_scheduler",
             return_value=mock_scheduler,
         ):
-            with patch("aragora.server.handlers.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.pulse.rate_limit", lambda **kw: lambda f: f):
+            with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
+                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )

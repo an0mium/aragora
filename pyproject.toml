@@ -544,21 +544,23 @@ module = ["yaml", "croniter"]
 ignore_missing_imports = true
 
 # Ignore errors in modules with complex third-party types or dynamic patterns
+# Phase 22: Reduced from 100+ to ~25 modules (Jan 2026)
+# Many modules promoted to strict after verification
 [[tool.mypy.overrides]]
 module = [
-    # Third-party integrations
+    # Third-party integrations (external SDK types)
     "aragora.persistence.supabase_client",
     "aragora.persistence.migrations.*",
     "aragora.observability.slo",
     "aragora.billing.stripe_client",
+    "aragora.billing.auth.blacklist",
     # Nomic phases (complex orchestration)
     "aragora.nomic.phases.*",
     "aragora.nomic.checkpoints",
-    # Plugins - all promoted to strict in Phase 18
-    # Verification (Z3/Lean types)
+    # Verification (Z3/Lean external types)
     "aragora.verification.proofs",
     "aragora.verification.formal",
-    # Dynamic modules
+    # Dynamic modules with complex patterns
     "aragora.gauntlet.heatmap",
     "aragora.gauntlet.receipt",
     "aragora.export.audit_trail",
@@ -568,97 +570,100 @@ module = [
     "aragora.training.model_registry",
     "aragora.pipeline.pr_generator",
     "aragora.policy.engine",
-    # Storage layer (database return types) - factory.py promoted to strict
+    # Storage layer (database return types)
     "aragora.storage.audit_store",
     "aragora.storage.organization_store",
     "aragora.storage.postgres_store",
-    # Server utilities
-    "aragora.server.debate_utils",
-    "aragora.server.static_server",
-    "aragora.server.state",
-    # Database backends
-    "aragora.db.backends",
-    # Other complex modules
-    "aragora.utils.optional_imports",
-    "aragora.services.registry",
-    "aragora.evidence.collector",
-    "aragora.debate.tracing",
-    "aragora.debate.phases.metrics",
-    "aragora.agents.telemetry",
-    "aragora.debate.graph",
-    "aragora.debate.agent_pool",
-    "aragora.debate.event_bridge",
-    "aragora.debate.phases.spectator",
-    "aragora.cli.replay",
-    "aragora.memory.tier_manager",
-    "aragora.queue.status",
-    "aragora.connectors.github",
-    # Additional modules with type complexity
+    "aragora.storage.repositories.*",
+    # Server/handler modules with complex db interactions
     "aragora.server.openapi",
     "aragora.server.validation.decorators",
-    "aragora.broadcast.storage",
-    # webhook_store.py promoted to strict (passes mypy)
-    "aragora.storage.repositories.*",
-    "aragora.storage.schema",
-    "aragora.db.migrate",
     "aragora.server.middleware.*",
     "aragora.server.handlers.admin.cache",
     "aragora.server.handlers.utils.database",
-    "aragora.nomic.recovery",
-    "aragora.logging_config",
     "aragora.agents.api_agents.rate_limiter",
-    "aragora.client.websocket",
-    # Added to unblock CI - need proper fixes later
+    # Documents/indexing (external adapters)
     "aragora.documents.ingestion.unstructured_adapter",
-    "aragora.storage.user_store",
     "aragora.documents.indexing.weaviate_store",
-    "aragora.broadcast.tts_backends",
-    "aragora.observability.immutable_log",
-    "aragora.nomic.preflight",
-    "aragora.auth.lockout",
-    "aragora.storage.token_blacklist_store",
-    "aragora.billing.auth.blacklist",
-    "aragora.debate.similarity.backends",
-    "aragora.gauntlet.storage",
-    "aragora.server.debate_queue",
-    "aragora.debate.traces_database",
-    "aragora.storage.base_database",
-    "aragora.ranking.calibration_database",
-    "aragora.utils.cache",
-    "aragora.billing.payment_recovery",
-    "aragora.knowledge.fact_store",
-    "aragora.server.storage",
-    "aragora.memory.consensus",
-    "aragora.insights.store",
-    "aragora.auth.saml",
-    "aragora.auth.oidc",
-    "aragora.connectors.base",
-    "aragora.server.research_phase",
-    "aragora.connectors.youtube_uploader",
-    "aragora.connectors.twitter_poster",
-    "aragora.training.tinker_client",
-    "aragora.pulse.ingestor",
-    "aragora.knowledge.fact_extractor",
-    "aragora.fixtures",
+    # Modules with actual type errors (need fixes)
+    "aragora.evidence.collector",
     "aragora.server.question_classifier",
-    "aragora.debate.role_matcher",
-    "aragora.connectors.wikipedia",
-    "aragora.connectors.sec",
-    "aragora.connectors.newsapi",
-    "aragora.connectors.web",
-    "aragora.pulse.scheduler",
-    "aragora.genesis.ledger",
-    "aragora.genesis.breeding",
+    # MCP tools (dynamic typing)
     "aragora.mcp.tools_module.evidence",
-    "aragora.audit.evidence_adapter",
-    "aragora.debate.context_gatherer",
-    "aragora.modes.probes.strategies",
-    "aragora.privacy.classifier",
-    "aragora.privacy.audit_log",
-    "aragora.security.encryption",
-    "aragora.privacy.isolation",
 ]
 ignore_errors = true
+
+# ============================================================================
+# PROMOTED TO STRICT (Phase 22, Jan 2026)
+# These modules now pass mypy --ignore-missing-imports
+# ============================================================================
+# aragora.server.state
+# aragora.server.debate_utils
+# aragora.server.static_server
+# aragora.server.storage
+# aragora.server.research_phase
+# aragora.server.debate_queue
+# aragora.db.backends
+# aragora.db.migrate
+# aragora.utils.optional_imports
+# aragora.utils.cache
+# aragora.services.registry
+# aragora.debate.tracing
+# aragora.debate.phases.metrics
+# aragora.debate.phases.spectator
+# aragora.debate.graph
+# aragora.debate.agent_pool
+# aragora.debate.event_bridge
+# aragora.debate.role_matcher
+# aragora.debate.context_gatherer
+# aragora.debate.similarity.backends
+# aragora.debate.traces_database
+# aragora.agents.telemetry
+# aragora.cli.replay
+# aragora.memory.tier_manager
+# aragora.memory.consensus
+# aragora.queue.status
+# aragora.connectors.github
+# aragora.connectors.base
+# aragora.connectors.youtube_uploader
+# aragora.connectors.twitter_poster
+# aragora.connectors.wikipedia
+# aragora.connectors.sec
+# aragora.connectors.newsapi
+# aragora.connectors.web
+# aragora.broadcast.storage
+# aragora.broadcast.tts_backends
+# aragora.storage.schema
+# aragora.storage.user_store
+# aragora.storage.token_blacklist_store
+# aragora.storage.base_database
+# aragora.nomic.recovery
+# aragora.nomic.preflight
+# aragora.logging_config
+# aragora.client.websocket
+# aragora.observability.immutable_log
+# aragora.auth.lockout
+# aragora.auth.saml
+# aragora.auth.oidc
+# aragora.gauntlet.storage
+# aragora.ranking.calibration_database
+# aragora.billing.payment_recovery
+# aragora.knowledge.fact_store
+# aragora.knowledge.fact_extractor
+# aragora.insights.store
+# aragora.training.tinker_client
+# aragora.pulse.ingestor
+# aragora.pulse.scheduler
+# aragora.genesis.ledger
+# aragora.genesis.breeding
+# aragora.audit.evidence_adapter
+# aragora.modes.probes.strategies
+# aragora.privacy.classifier
+# aragora.privacy.audit_log
+# aragora.privacy.isolation
+# aragora.security.encryption
+# aragora.fixtures
+# ============================================================================
 
 # Ignore errors in scripts (not part of main package)
 [[tool.mypy.overrides]]

@@ -12,10 +12,18 @@ import AxeBuilder from '@axe-core/playwright';
 const CRITICAL_PAGES = [
   { path: '/', name: 'Landing Page' },
   { path: '/debates', name: 'Debates List' },
+  { path: '/debates/graph', name: 'Graph Debates' },
+  { path: '/debates/matrix', name: 'Matrix Debates' },
   { path: '/agents', name: 'Agents Page' },
   { path: '/leaderboard', name: 'Leaderboard' },
   { path: '/about', name: 'About Page' },
   { path: '/pricing', name: 'Pricing Page' },
+  { path: '/control-plane', name: 'Control Plane' },
+  { path: '/observability', name: 'Observability Dashboard' },
+  { path: '/admin/ab-tests', name: 'A/B Testing Dashboard' },
+  { path: '/admin/memory', name: 'Memory Analytics' },
+  { path: '/admin/forensic', name: 'Forensic Audit' },
+  { path: '/admin/verticals', name: 'Verticals Admin' },
 ];
 
 test.describe('Accessibility - Critical Pages', () => {
