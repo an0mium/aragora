@@ -16,6 +16,7 @@ Endpoints:
 - GET /api/agent/{name}/allies - Get top allies
 - GET /api/agent/{name}/moments - Get significant moments
 - GET /api/agent/{name}/positions - Get position history
+- GET /api/agent/{name}/metadata - Get agent metadata (model, capabilities)
 - GET /api/agent/compare - Compare multiple agents
 - GET /api/agent/{name}/head-to-head/{opponent} - Get head-to-head stats
 - GET /api/flips/recent - Get recent flips across all agents
@@ -85,6 +86,7 @@ class AgentsHandler(BaseHandler):
         "/api/agent/*/positions",
         "/api/agent/*/domains",
         "/api/agent/*/performance",
+        "/api/agent/*/metadata",
         "/api/agent/*/head-to-head/*",
         "/api/agent/*/opponent-briefing/*",
         "/api/agent/*/introspect",
@@ -223,6 +225,7 @@ class AgentsHandler(BaseHandler):
             "positions": lambda: self._get_positions(agent, get_int_param(params, "limit", 20)),
             "domains": lambda: self._get_domains(agent),
             "performance": lambda: self._get_performance(agent),
+            "metadata": lambda: self._get_metadata(agent),
             "introspect": lambda: self._get_agent_introspect(agent, params.get("debate_id")),
         }
 
@@ -872,6 +875,102 @@ class AgentsHandler(BaseHandler):
                 },
             }
         )
+
+    @handle_errors("agent metadata")
+    def _get_metadata(self, agent: str) -> HandlerResult:
+        """Get rich metadata about an agent.
+
+        Returns model information, capabilities, and provider details
+        from the agent_metadata table (populated by seed script).
+
+        Args:
+            agent: Agent name to look up
+
+        Returns:
+            JSON with agent metadata including:
+            - provider: LLM provider (anthropic, openai, google, etc.)
+            - model_id: Full model identifier
+            - context_window: Maximum context window size
+            - specialties: Areas of expertise
+            - strengths: Key capabilities
+            - release_date: When the model was released
+        """
+        import json
+        import sqlite3
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return json_response({
+                "agent": agent,
+                "metadata": None,
+                "message": "Database not available",
+            })
+
+        elo_path = get_db_path(DatabaseType.ELO, nomic_dir)
+        if not elo_path.exists():
+            return json_response({
+                "agent": agent,
+                "metadata": None,
+                "message": "ELO database not found",
+            })
+
+        try:
+            conn = sqlite3.connect(elo_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT agent_name, provider, model_id, context_window,
+                       specialties, strengths, release_date, updated_at
+                FROM agent_metadata
+                WHERE agent_name = ?
+                """,
+                (agent,),
+            )
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return json_response({
+                    "agent": agent,
+                    "metadata": None,
+                    "message": "Agent metadata not found",
+                })
+
+            # Parse JSON fields
+            specialties = []
+            strengths = []
+            try:
+                if row["specialties"]:
+                    specialties = json.loads(row["specialties"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+            try:
+                if row["strengths"]:
+                    strengths = json.loads(row["strengths"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            return json_response({
+                "agent": agent,
+                "metadata": {
+                    "provider": row["provider"],
+                    "model_id": row["model_id"],
+                    "context_window": row["context_window"],
+                    "specialties": specialties,
+                    "strengths": strengths,
+                    "release_date": row["release_date"],
+                    "updated_at": row["updated_at"],
+                },
+            })
+        except sqlite3.OperationalError as e:
+            # Table may not exist yet
+            if "no such table" in str(e):
+                return json_response({
+                    "agent": agent,
+                    "metadata": None,
+                    "message": "Agent metadata table not initialized. Run seed_agents.py to populate.",
+                })
+            raise
 
     @handle_errors("agent introspect")
     def _get_agent_introspect(self, agent: str, debate_id: Optional[str] = None) -> HandlerResult:

@@ -169,6 +169,154 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "total_interactions": {"type": "integer"},
         },
     },
+    "OAuthProvider": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Provider identifier (e.g., 'google', 'github')"},
+            "name": {"type": "string", "description": "Display name for the provider"},
+        },
+        "required": ["id", "name"],
+    },
+    "OAuthProviders": {
+        "type": "object",
+        "properties": {
+            "providers": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/OAuthProvider"},
+                "description": "List of available OAuth providers",
+            },
+        },
+        "required": ["providers"],
+    },
+    "Round": {
+        "type": "object",
+        "properties": {
+            "round_number": {"type": "integer", "description": "Round number (1-indexed)"},
+            "messages": {"type": "array", "items": {"$ref": "#/components/schemas/Message"}},
+            "votes": {"type": "object", "description": "Agent votes for this round"},
+            "summary": {"type": "string", "description": "Round summary"},
+        },
+    },
+    "Workspace": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Workspace ID"},
+            "organization_id": {"type": "string", "description": "Parent organization ID"},
+            "name": {"type": "string", "description": "Workspace name"},
+            "created_at": {"type": "string", "format": "date-time"},
+            "created_by": {"type": "string"},
+            "encrypted": {"type": "boolean", "description": "Whether workspace data is encrypted"},
+            "retention_days": {"type": "integer", "description": "Data retention period in days"},
+            "sensitivity_level": {"type": "string", "description": "Data sensitivity level"},
+            "document_count": {"type": "integer"},
+            "storage_bytes": {"type": "integer"},
+        },
+        "required": ["id", "organization_id", "name"],
+    },
+    "WorkspaceList": {
+        "type": "object",
+        "properties": {
+            "workspaces": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Workspace"},
+            },
+            "total": {"type": "integer"},
+        },
+        "required": ["workspaces", "total"],
+    },
+    # Retention Policies
+    "RetentionPolicy": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "retention_days": {"type": "integer"},
+            "data_types": {"type": "array", "items": {"type": "string"}},
+            "enabled": {"type": "boolean"},
+            "created_at": {"type": "string", "format": "date-time"},
+        },
+    },
+    "RetentionPolicyList": {
+        "type": "object",
+        "properties": {
+            "policies": {"type": "array", "items": {"$ref": "#/components/schemas/RetentionPolicy"}},
+            "total": {"type": "integer"},
+        },
+    },
+    # Workflow schemas
+    "StepDefinition": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "config": {"type": "object"},
+            "depends_on": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "TransitionRule": {
+        "type": "object",
+        "properties": {
+            "from_step": {"type": "string"},
+            "to_step": {"type": "string"},
+            "condition": {"type": "string"},
+        },
+    },
+    "Workflow": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "version": {"type": "string"},
+            "status": {"type": "string"},
+            "steps": {"type": "array", "items": {"$ref": "#/components/schemas/StepDefinition"}},
+            "transitions": {"type": "array", "items": {"$ref": "#/components/schemas/TransitionRule"}},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+    },
+    "WorkflowList": {
+        "type": "object",
+        "properties": {
+            "workflows": {"type": "array", "items": {"$ref": "#/components/schemas/Workflow"}},
+            "total": {"type": "integer"},
+        },
+    },
+    "WorkflowUpdate": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "steps": {"type": "array", "items": {"$ref": "#/components/schemas/StepDefinition"}},
+            "transitions": {"type": "array", "items": {"$ref": "#/components/schemas/TransitionRule"}},
+        },
+    },
+    "WorkflowTemplate": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "steps": {"type": "array", "items": {"$ref": "#/components/schemas/StepDefinition"}},
+            "parameters": {"type": "object"},
+        },
+    },
+    "WorkflowTemplateList": {
+        "type": "object",
+        "properties": {
+            "templates": {"type": "array", "items": {"$ref": "#/components/schemas/WorkflowTemplate"}},
+            "total": {"type": "integer"},
+        },
+    },
+    "ExecutionList": {
+        "type": "object",
+        "properties": {
+            "executions": {"type": "array", "items": {"type": "object"}},
+            "total": {"type": "integer"},
+        },
+    },
 }
 
 
