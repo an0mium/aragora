@@ -65,37 +65,32 @@ class RLMContextHandler(BaseHandler):
         self._rlm: Optional[Any] = None
 
     def _get_compressor(self) -> Any:
-        """Get or create the hierarchical compressor."""
+        """Get or create the hierarchical compressor using factory."""
         if self._compressor is None:
             try:
-                from aragora.rlm import HierarchicalCompressor
+                from aragora.rlm import get_compressor
 
-                self._compressor = HierarchicalCompressor()
+                self._compressor = get_compressor()
             except ImportError:
                 return None
         return self._compressor
 
     def _get_rlm(self) -> Any:
-        """Get AragoraRLM instance - only when official RLM available.
+        """Get AragoraRLM instance using factory.
 
         Returns:
-            AragoraRLM instance if official RLM is installed, None otherwise.
-            When None is returned, callers should use _get_compressor() for
-            compression-based fallback operations.
+            AragoraRLM instance (routes to TRUE RLM when available).
+            The factory handles TRUE RLM vs compression fallback automatically.
         """
         if self._rlm is None:
             try:
-                from aragora.rlm import AragoraRLM, HAS_OFFICIAL_RLM
+                from aragora.rlm import get_rlm, HAS_OFFICIAL_RLM
 
+                self._rlm = get_rlm()
                 if HAS_OFFICIAL_RLM:
-                    self._rlm = AragoraRLM()
-                    logger.info("Official RLM initialized for handler")
+                    logger.info("Official TRUE RLM initialized for handler")
                 else:
-                    # Don't create AragoraRLM without official library
-                    # Use _get_compressor() for fallback operations
-                    logger.debug(
-                        "Official RLM not available, use compression fallback"
-                    )
+                    logger.info("RLM initialized with compression fallback")
             except ImportError:
                 return None
         return self._rlm

@@ -730,13 +730,13 @@ class FixedSizeChunking(ChunkingStrategy):
         return overlap
 
 
-# RLM availability check
+# RLM availability check (use factory for consistent initialization)
 try:
-    from aragora.rlm import HierarchicalCompressor, RLMConfig, AbstractionLevel
+    from aragora.rlm import get_compressor, RLMConfig, AbstractionLevel
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    get_compressor = None  # type: ignore[misc,assignment]
     RLMConfig = None  # type: ignore[misc,assignment]
     AbstractionLevel = None  # type: ignore[misc,assignment]
 
@@ -774,12 +774,15 @@ class RLMChunking(ChunkingStrategy):
         self._agent_call = agent_call
         self._compressor = None
 
-        if HAS_RLM and HierarchicalCompressor:
-            config_obj = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
-            self._compressor = HierarchicalCompressor(
-                config=config_obj,
-                agent_call=agent_call,
-            )
+        if HAS_RLM and get_compressor is not None:
+            try:
+                config_obj = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
+                self._compressor = get_compressor(config=config_obj)
+                # Set agent_call if the compressor supports it
+                if agent_call and hasattr(self._compressor, 'agent_call'):
+                    self._compressor.agent_call = agent_call
+            except Exception as e:
+                logger.warning(f"Failed to initialize RLM compressor: {e}")
 
     @property
     def strategy_name(self) -> str:

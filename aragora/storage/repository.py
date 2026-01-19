@@ -329,6 +329,177 @@ class DatabaseRepository:
 
         return count
 
+    def batch_delete(
+        self,
+        id_values: list[Any],
+        id_column: str = "id",
+    ) -> int:
+        """
+        Delete multiple records by IDs in a single query.
+
+        More efficient than multiple delete_by_id calls for bulk operations.
+
+        Args:
+            id_values: List of ID values to delete
+            id_column: Column name to match against
+
+        Returns:
+            Number of deleted records
+        """
+        if not id_values:
+            return 0
+
+        safe_col = _validate_column_name(id_column)
+        placeholders = ",".join("?" * len(id_values))
+        # nosec B608: TABLE_NAME is class constant, safe_col is regex-validated, id_values are parameterized
+        query = f"DELETE FROM {self.TABLE_NAME} WHERE {safe_col} IN ({placeholders})"  # nosec B608
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, id_values)
+            conn.commit()
+            count = cursor.rowcount
+
+        if count > 0:
+            self._notify_change("delete")
+            logger.debug(f"Batch deleted {count}/{len(id_values)} records from {self.TABLE_NAME}")
+
+        return count
+
+    def batch_update(
+        self,
+        updates: list[tuple[Any, dict[str, Any]]],
+        id_column: str = "id",
+    ) -> int:
+        """
+        Update multiple records by ID with different values per record.
+
+        Each update is a tuple of (id_value, {column: value, ...}).
+        Uses executemany for efficient batch processing.
+
+        Args:
+            updates: List of (id_value, column_updates_dict) tuples
+            id_column: Column name used for identifying records
+
+        Returns:
+            Total number of updated records
+
+        Example:
+            repo.batch_update([
+                ("id1", {"status": "active", "count": 5}),
+                ("id2", {"status": "inactive", "count": 0}),
+            ])
+        """
+        if not updates:
+            return 0
+
+        safe_id_col = _validate_column_name(id_column)
+
+        # Group updates by the set of columns being updated (for efficient batching)
+        update_groups: dict[tuple[str, ...], list[tuple[Any, tuple]]] = {}
+
+        for id_value, column_values in updates:
+            if not column_values:
+                continue
+
+            # Validate and sort column names for consistent grouping
+            cols = tuple(sorted(column_values.keys()))
+            for col in cols:
+                _validate_column_name(col)
+
+            if cols not in update_groups:
+                update_groups[cols] = []
+
+            # Store values in column order
+            values = tuple(column_values[col] for col in cols)
+            update_groups[cols].append((id_value, values))
+
+        total_updated = 0
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            for cols, group_updates in update_groups.items():
+                # Build SET clause: "col1 = ?, col2 = ?, ..."
+                set_clause = ", ".join(f"{col} = ?" for col in cols)
+                # nosec B608: TABLE_NAME is class constant, cols are regex-validated
+                query = f"UPDATE {self.TABLE_NAME} SET {set_clause} WHERE {safe_id_col} = ?"  # nosec B608
+
+                # Build params: (val1, val2, ..., id_value) for each update
+                params_list = [values + (id_value,) for id_value, values in group_updates]
+
+                cursor.executemany(query, params_list)
+                total_updated += cursor.rowcount
+
+            conn.commit()
+
+        if total_updated > 0:
+            self._notify_change("update")
+            logger.debug(
+                f"Batch updated {total_updated}/{len(updates)} records in {self.TABLE_NAME}"
+            )
+
+        return total_updated
+
+    def batch_update_where(
+        self,
+        column_values: dict[str, Any],
+        id_values: list[Any],
+        id_column: str = "id",
+    ) -> int:
+        """
+        Update multiple records with the same values using WHERE IN.
+
+        More efficient than batch_update when all records get the same values.
+
+        Args:
+            column_values: Dict of {column_name: value} to set on all records
+            id_values: List of ID values to update
+            id_column: Column name used for identifying records
+
+        Returns:
+            Number of updated records
+
+        Example:
+            repo.batch_update_where(
+                {"status": "archived", "archived_at": datetime.now()},
+                ["id1", "id2", "id3"],
+            )
+        """
+        if not id_values or not column_values:
+            return 0
+
+        safe_id_col = _validate_column_name(id_column)
+
+        # Validate column names
+        cols = list(column_values.keys())
+        for col in cols:
+            _validate_column_name(col)
+
+        # Build SET clause
+        set_clause = ", ".join(f"{col} = ?" for col in cols)
+        placeholders = ",".join("?" * len(id_values))
+
+        # nosec B608: TABLE_NAME is class constant, cols are regex-validated, values are parameterized
+        query = f"UPDATE {self.TABLE_NAME} SET {set_clause} WHERE {safe_id_col} IN ({placeholders})"  # nosec B608
+
+        # Build params: column values followed by id values
+        params = tuple(column_values[col] for col in cols) + tuple(id_values)
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            conn.commit()
+            count = cursor.rowcount
+
+        if count > 0:
+            self._notify_change("update")
+            logger.debug(
+                f"Batch updated {count}/{len(id_values)} records in {self.TABLE_NAME}"
+            )
+
+        return count
+
     # =========================================================================
     # Utility Methods
     # =========================================================================
