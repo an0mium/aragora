@@ -14,23 +14,19 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
 import { zoom as d3Zoom } from 'd3-zoom';
-import { drag as d3Drag } from 'd3-drag';
+import { drag as d3Drag, type D3DragEvent } from 'd3-drag';
 import type { AgentState, JobState } from '@/hooks/useControlPlaneWebSocket';
 
 // Node types in the workflow
 export type WorkflowNodeType = 'ingest' | 'chunk' | 'scan' | 'verify' | 'report' | 'agent';
 
-export interface WorkflowNode {
+export interface WorkflowNode extends d3.SimulationNodeDatum {
   id: string;
   type: WorkflowNodeType;
   label: string;
   status: 'idle' | 'working' | 'error' | 'complete';
   agent?: AgentState;
   progress?: number;
-  x?: number;
-  y?: number;
-  fx?: number | null;
-  fy?: number | null;
 }
 
 export interface WorkflowLink {
@@ -227,7 +223,7 @@ export function AgentWorkflowVisualization({
     });
 
     // Create simulation
-    const simulation = d3.forceSimulation(nodes as d3.SimulationNodeDatum[])
+    const simulation = d3.forceSimulation<WorkflowNode>(nodes)
       .force(
         'link',
         d3.forceLink(links).id((d: any) => d.id).distance(80).strength(0.3)
@@ -345,19 +341,21 @@ export function AgentWorkflowVisualization({
     svg.call(zoom);
 
     // Drag behavior helper
-    function drag(simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>) {
-      function dragstarted(event: any) {
+    function drag(simulation: d3.Simulation<WorkflowNode, undefined>) {
+      type DragEvent = D3DragEvent<SVGGElement, WorkflowNode, WorkflowNode>;
+
+      function dragstarted(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
 
-      function dragged(event: any) {
+      function dragged(event: DragEvent) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
 
-      function dragended(event: any) {
+      function dragended(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0);
         // Keep pipeline stages fixed, release agents
         if (!PIPELINE_STAGES.some((s) => s.id === event.subject.id)) {
@@ -366,7 +364,7 @@ export function AgentWorkflowVisualization({
         }
       }
 
-      return d3Drag()
+      return d3Drag<SVGGElement, WorkflowNode>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended);

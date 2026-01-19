@@ -7,109 +7,19 @@ import { ForceGraph } from './ForceGraph';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 
-interface DissentRecord {
-  topic: string;
-  majority_view: string;
-  dissenting_view: string;
-  dissenting_agent: string;
-  confidence: number;
-  reasoning?: string;
-}
-
-interface ContrarianView {
-  agent: string;
-  position: string;
-  confidence: number;
-  reasoning?: string;
-  debate_id?: string;
-}
-
-interface RiskWarning {
-  domain: string;
-  risk_type: string;
-  severity: string;
-  description: string;
-  mitigation?: string;
-  detected_at: string;
-}
-
-interface ConsensusStats {
-  total_topics: number;
-  high_confidence_count: number;
-  avg_confidence: number;
-  total_dissents: number;
-  domains: string[];
-  by_strength: Record<string, number>;
-}
-
-interface EvidenceCitation {
-  source: string;
-  claim: string;
-  agent: string;
-  round: number;
-  confidence?: number;
-  source_type?: string;
-  freshness?: number;
-  authority?: number;
-  reliability_score?: number;
-  url?: string;
-}
-
-// Source type configuration with icons and colors
-const SOURCE_TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
-  agent_generated: { icon: '🤖', color: 'text-acid-cyan', label: 'Agent' },
-  user_provided: { icon: '👤', color: 'text-acid-green', label: 'User' },
-  external_api: { icon: '🔌', color: 'text-acid-yellow', label: 'API' },
-  web_search: { icon: '🌐', color: 'text-blue-400', label: 'Web' },
-  document: { icon: '📄', color: 'text-orange-400', label: 'Doc' },
-  code_analysis: { icon: '💻', color: 'text-purple-400', label: 'Code' },
-  database: { icon: '🗄️', color: 'text-emerald-400', label: 'DB' },
-  computation: { icon: '⚙️', color: 'text-pink-400', label: 'Compute' },
-  synthesis: { icon: '🔀', color: 'text-acid-cyan', label: 'Synthesis' },
-  arxiv: { icon: '📚', color: 'text-red-400', label: 'ArXiv' },
-  hackernews: { icon: '📰', color: 'text-orange-500', label: 'HN' },
-  github: { icon: '🐙', color: 'text-gray-400', label: 'GitHub' },
-  unknown: { icon: '❓', color: 'text-text-muted', label: 'Unknown' },
-};
-
-// Confidence bar component
-function ConfidenceBar({ value, label, color = 'acid-green' }: { value: number; label: string; color?: string }) {
-  const percentage = Math.round(value * 100);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="font-mono text-xs text-text-muted w-16">{label}</span>
-      <div className="flex-1 h-2 bg-surface rounded-full overflow-hidden">
-        <div
-          className={`h-full bg-${color} transition-all duration-300`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      <span className="font-mono text-xs text-text-muted w-10 text-right">{percentage}%</span>
-    </div>
-  );
-}
-
-// Source type badge component
-function SourceTypeBadge({ sourceType }: { sourceType?: string }) {
-  const config = SOURCE_TYPE_CONFIG[sourceType || 'unknown'] || SOURCE_TYPE_CONFIG.unknown;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 bg-surface rounded text-xs font-mono ${config.color}`}>
-      <span>{config.icon}</span>
-      <span>{config.label}</span>
-    </span>
-  );
-}
-
-interface GraphNode {
-  id: string;
-  agent: string;
-  content: string;
-  type: 'argument' | 'rebuttal' | 'synthesis' | 'evidence' | 'root';
-  parent_id?: string;
-  children?: string[];
-  confidence?: number;
-  branch_id?: string;
-}
+// Import from extracted modules
+import {
+  EvidenceCitationCard,
+  RiskWarningCard,
+  GraphLegend,
+  SOURCE_TYPE_CONFIG,
+  type DissentRecord,
+  type ContrarianView,
+  type RiskWarning,
+  type ConsensusStats,
+  type EvidenceCitation,
+  type GraphNode,
+} from './evidence-visualizer';
 
 interface BackendConfig {
   apiUrl: string;
@@ -121,13 +31,6 @@ interface EvidenceVisualizerPanelProps {
 }
 
 const DEFAULT_API_BASE = API_BASE_URL;
-
-const SEVERITY_COLORS: Record<string, { text: string; bg: string }> = {
-  critical: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
-  high: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
-  medium: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
-  low: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
-};
 
 export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPanelProps) {
   const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
@@ -401,30 +304,9 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
                 Risk Warnings ({riskWarnings.length})
               </h3>
               <div className="space-y-3">
-                {riskWarnings.map((warning, idx) => {
-                  const severityStyle = SEVERITY_COLORS[warning.severity] || SEVERITY_COLORS.low;
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded ${severityStyle.bg} border border-${warning.severity === 'critical' ? 'acid-red' : 'acid-green'}/30`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`font-mono text-xs uppercase ${severityStyle.text}`}>
-                          {warning.severity} - {warning.risk_type}
-                        </span>
-                        <span className="font-mono text-xs text-text-muted">
-                          {warning.domain}
-                        </span>
-                      </div>
-                      <p className="font-mono text-sm text-text">{warning.description}</p>
-                      {warning.mitigation && (
-                        <p className="font-mono text-xs text-acid-green mt-2">
-                          Mitigation: {warning.mitigation}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                {riskWarnings.map((warning, idx) => (
+                  <RiskWarningCard key={idx} warning={warning} />
+                ))}
               </div>
             </div>
           )}
@@ -591,69 +473,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
             ) : (
               <div className="space-y-4">
                 {evidence.map((citation, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-surface rounded border border-acid-green/20"
-                  >
-                    {/* Header row with round, agent, and source type */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-acid-cyan">
-                          Round {citation.round}
-                        </span>
-                        <span className="font-mono text-xs text-text-muted">
-                          {citation.agent}
-                        </span>
-                        <SourceTypeBadge sourceType={citation.source_type} />
-                      </div>
-                      {citation.reliability_score !== undefined && (
-                        <span className={`font-mono text-xs px-2 py-0.5 rounded ${
-                          citation.reliability_score >= 0.7 ? 'bg-acid-green/20 text-acid-green' :
-                          citation.reliability_score >= 0.4 ? 'bg-acid-yellow/20 text-acid-yellow' :
-                          'bg-acid-red/20 text-acid-red'
-                        }`}>
-                          {(citation.reliability_score * 100).toFixed(0)}% reliable
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Claim content */}
-                    <p className="font-mono text-sm text-text mb-3">{citation.claim}</p>
-
-                    {/* Source with optional link */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="font-mono text-xs text-text-muted">Source:</span>
-                      {citation.url ? (
-                        <a
-                          href={citation.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-xs text-acid-green hover:underline truncate max-w-md"
-                        >
-                          {citation.source}
-                        </a>
-                      ) : (
-                        <span className="font-mono text-xs text-acid-green truncate max-w-md">
-                          {citation.source}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Confidence metrics */}
-                    {(citation.confidence !== undefined || citation.freshness !== undefined || citation.authority !== undefined) && (
-                      <div className="space-y-1.5 pt-3 border-t border-acid-green/10">
-                        {citation.confidence !== undefined && (
-                          <ConfidenceBar value={citation.confidence} label="Conf." color="acid-green" />
-                        )}
-                        {citation.freshness !== undefined && (
-                          <ConfidenceBar value={citation.freshness} label="Fresh" color="acid-cyan" />
-                        )}
-                        {citation.authority !== undefined && (
-                          <ConfidenceBar value={citation.authority} label="Auth." color="acid-yellow" />
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <EvidenceCitationCard key={idx} citation={citation} />
                 ))}
               </div>
             )}
@@ -720,27 +540,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
                 />
 
                 {/* Legend */}
-                <div className="p-3 bg-surface/50 rounded">
-                  <h4 className="font-mono text-xs text-acid-cyan mb-2">Node Types</h4>
-                  <div className="flex flex-wrap gap-4 text-xs font-mono">
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-acid-green" />
-                      <span className="text-text-muted">Argument</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-acid-red" />
-                      <span className="text-text-muted">Rebuttal</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-acid-cyan" />
-                      <span className="text-text-muted">Synthesis</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-acid-yellow" />
-                      <span className="text-text-muted">Evidence</span>
-                    </span>
-                  </div>
-                </div>
+                <GraphLegend />
               </div>
             )}
           </div>

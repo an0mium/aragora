@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBanner } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -185,6 +186,17 @@ export default function AboutPage() {
         {/* Hero with Full ASCII Art */}
         <section className="py-12 px-4">
           <div className="container mx-auto max-w-4xl">
+            {/* Full Aragora Logo */}
+            <div className="flex justify-center mb-8">
+              <Image
+                src="/aragora-logo.png"
+                alt="Aragora Logo"
+                width={200}
+                height={200}
+                priority
+                className="drop-shadow-[0_0_15px_rgba(0,255,65,0.5)]"
+              />
+            </div>
             <AsciiBanner subtitle="documentation" showStatus={false} />
 
             <div className="text-center mt-8">

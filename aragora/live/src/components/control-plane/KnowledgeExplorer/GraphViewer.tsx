@@ -345,7 +345,7 @@ export function GraphViewer({
         <button
           onClick={() => {
             const svg = d3Selection.select(svgRef.current!);
-            svg.transition().call(
+            (svg as any).transition().call(
               d3Zoom.zoom<SVGSVGElement, unknown>().transform as any,
               d3Zoom.zoomIdentity
             );

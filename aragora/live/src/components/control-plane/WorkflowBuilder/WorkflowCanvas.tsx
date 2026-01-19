@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useMemo } from 'react';
+
+// Extend SVG element to include D3 zoom state
+interface SVGElementWithZoom extends SVGSVGElement {
+  __zoom?: d3Zoom.ZoomBehavior<SVGSVGElement, unknown>;
+}
 import * as d3Selection from 'd3-selection';
 import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
@@ -58,7 +63,7 @@ export function WorkflowCanvas({
   gridSize = 20,
   showGrid = true,
 }: WorkflowCanvasProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGElementWithZoom>(null);
   const containerRef = useRef<SVGGElement | null>(null);
 
   const {
@@ -177,7 +182,9 @@ export function WorkflowCanvas({
     });
 
     // Store zoom behavior for external access
-    (svgRef.current as any).__zoom = zoomBehavior;
+    if (svgRef.current) {
+      svgRef.current.__zoom = zoomBehavior;
+    }
 
   }, [width, height, gridSize, showGrid, setZoom, setPan, clearSelection]);
 

@@ -4,9 +4,9 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
 import { zoom as d3Zoom, type ZoomBehavior } from 'd3-zoom';
-import { drag as d3Drag, type DragBehavior } from 'd3-drag';
+import { drag as d3Drag, type DragBehavior, type D3DragEvent } from 'd3-drag';
 
-interface GraphNode {
+interface GraphNode extends d3.SimulationNodeDatum {
   id: string;
   type: 'argument' | 'rebuttal' | 'synthesis' | 'evidence' | 'root';
   agent: string;
@@ -15,10 +15,6 @@ interface GraphNode {
   children?: string[];
   branch_id?: string;
   confidence?: number;
-  x?: number;
-  y?: number;
-  fx?: number | null;
-  fy?: number | null;
 }
 
 interface GraphLink {
@@ -96,7 +92,7 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
       .attr('d', 'M0,-5L10,0L0,5');
 
     // Create simulation
-    const simulation = d3.forceSimulation(nodes as d3.SimulationNodeDatum[])
+    const simulation = d3.forceSimulation<GraphNode>(nodes)
       .force('link', d3.forceLink(links)
         .id((d: any) => d.id)
         .distance(100))
@@ -173,25 +169,27 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
     svg.call(zoom);
 
     // Drag behavior helper
-    function drag(simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>) {
-      function dragstarted(event: any) {
+    function drag(simulation: d3.Simulation<GraphNode, undefined>) {
+      type DragEvent = D3DragEvent<SVGGElement, GraphNode, GraphNode>;
+
+      function dragstarted(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
 
-      function dragged(event: any) {
+      function dragged(event: DragEvent) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
 
-      function dragended(event: any) {
+      function dragended(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
       }
 
-      return d3Drag()
+      return d3Drag<SVGGElement, GraphNode>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended);

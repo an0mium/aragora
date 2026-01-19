@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
 import { zoom as d3Zoom } from 'd3-zoom';
-import { drag as d3Drag } from 'd3-drag';
+import { drag as d3Drag, type D3DragEvent } from 'd3-drag';
 import { API_BASE_URL } from '@/config';
 
 // =============================================================================
@@ -27,9 +27,9 @@ interface BeliefNode extends d3.SimulationNodeDatum {
   };
 }
 
-interface InfluenceLink extends d3.SimulationLinkDatum<BeliefNode> {
-  source: string | BeliefNode;
-  target: string | BeliefNode;
+interface InfluenceLink {
+  source: string;
+  target: string;
   weight: number;
   type: 'supports' | 'opposes' | 'influences';
 }
@@ -275,25 +275,27 @@ export function InfluenceGraph({
     svg.call(zoom);
 
     // Drag helper
-    function drag(simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>) {
-      function dragstarted(event: any) {
+    function drag(simulation: d3.Simulation<BeliefNode, undefined>) {
+      type DragEvent = D3DragEvent<SVGGElement, BeliefNode, BeliefNode>;
+
+      function dragstarted(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
 
-      function dragged(event: any) {
+      function dragged(event: DragEvent) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
 
-      function dragended(event: any) {
+      function dragended(event: DragEvent) {
         if (!event.active) simulation.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
       }
 
-      return d3Drag()
+      return d3Drag<SVGGElement, BeliefNode>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended);
