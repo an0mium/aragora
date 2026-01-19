@@ -143,6 +143,11 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
         return "claude-code"
 
     @property
+    def supports_interactive(self) -> bool:
+        """Claude Code supports interactive sessions."""
+        return True
+
+    @property
     def supported_analysis_types(self) -> list[AnalysisType]:
         return list(AnalysisType)
 

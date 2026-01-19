@@ -184,6 +184,15 @@ class CodeAnalysisHarness(ABC):
         ...
 
     @property
+    def supports_interactive(self) -> bool:
+        """Return whether this harness supports interactive sessions.
+
+        Override in subclasses that implement start_interactive_session
+        and continue_session without raising NotImplementedError.
+        """
+        return False
+
+    @property
     @abstractmethod
     def supported_analysis_types(self) -> list[AnalysisType]:
         """Return list of supported analysis types."""
