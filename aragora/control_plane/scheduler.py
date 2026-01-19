@@ -21,6 +21,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
+from aragora.server.prometheus import (
+    record_control_plane_task_submitted,
+    record_control_plane_task_completed,
+    record_control_plane_task_retry,
+    record_control_plane_claim_latency,
+    record_control_plane_queue_depth,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -281,6 +289,9 @@ class TaskScheduler:
         await self._save_task(task)
         await self._enqueue_task(task)
 
+        # Record metrics
+        record_control_plane_task_submitted(task_type, priority.name.lower())
+
         logger.info(
             f"Task submitted: {task.id} (type={task_type}, priority={priority.name})"
         )
@@ -335,6 +346,10 @@ class TaskScheduler:
         await self._save_task(task)
         await self._ack_task(task)
 
+        # Record metrics
+        duration = task.completed_at - (task.started_at or task.created_at)
+        record_control_plane_task_completed(task.task_type, "completed", duration)
+
         logger.info(f"Task completed: {task_id}")
         return True
 
@@ -371,6 +386,10 @@ class TaskScheduler:
             task.metadata.pop("_stream_message_id", None)
             await self._save_task(task)
             await self._enqueue_task(task)
+
+            # Record retry metric
+            record_control_plane_task_retry(task.task_type, "error")
+
             logger.warning(
                 f"Task {task_id} failed (attempt {task.retries}/{task.max_retries}), "
                 f"requeued: {error}"
@@ -382,6 +401,11 @@ class TaskScheduler:
             await self._ack_task(task)
             # Move to dead-letter queue for later analysis
             await self._move_to_dead_letter(task, error)
+
+            # Record failed task metrics
+            duration = task.completed_at - (task.started_at or task.created_at)
+            record_control_plane_task_completed(task.task_type, "failed", duration)
+
             logger.error(f"Task {task_id} failed permanently: {error}")
 
         return True
