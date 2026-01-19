@@ -47,14 +47,24 @@ def premium_limiter():
 
 @pytest.fixture(autouse=True)
 def reset_global_limiter():
-    """Reset global limiter state between tests."""
+    """Reset global limiter state between tests.
+
+    Also clears OPENROUTER_TIER env var to ensure default tier is used.
+    """
     import aragora.agents.api_agents.rate_limiter as module
+
+    # Clear environment variable to ensure default tier
+    old_tier = os.environ.pop("OPENROUTER_TIER", None)
 
     with module._openrouter_limiter_lock:
         module._openrouter_limiter = None
     yield
     with module._openrouter_limiter_lock:
         module._openrouter_limiter = None
+
+    # Restore original env var if it existed
+    if old_tier is not None:
+        os.environ["OPENROUTER_TIER"] = old_tier
 
 
 @pytest.fixture(autouse=True)
