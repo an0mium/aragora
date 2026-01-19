@@ -73,8 +73,9 @@ describe('DocumentUpload', () => {
       render(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-      // 11MB file
-      const file = createFile('large.pdf', 'application/pdf', 11 * 1024 * 1024);
+      // Create small file but override size property to simulate large file
+      const file = createFile('large.pdf', 'application/pdf', 1024);
+      Object.defineProperty(file, 'size', { value: 11 * 1024 * 1024 }); // 11MB
 
       await waitFor(() => {
         fireEvent.change(input, { target: { files: [file] } });
