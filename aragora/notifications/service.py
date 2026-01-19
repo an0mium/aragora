@@ -40,6 +40,7 @@ import logging
 import os
 import smtplib
 import threading
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -47,7 +48,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import Enum
 from typing import Any, Optional
-import uuid
+
+from aragora.exceptions import SlackNotificationError, WebhookDeliveryError
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +351,10 @@ class SlackProvider(NotificationProvider):
             ) as response:
                 if response.status != 200:
                     text = await response.text()
-                    raise Exception(f"Slack webhook failed: {response.status} {text}")
+                    raise SlackNotificationError(
+                        f"Slack webhook failed: {text}",
+                        status_code=response.status,
+                    )
 
     async def _send_api(self, message: dict, channel: str) -> None:
         """Send via Slack API."""
@@ -365,7 +370,10 @@ class SlackProvider(NotificationProvider):
             ) as response:
                 data = await response.json()
                 if not data.get("ok"):
-                    raise Exception(f"Slack API error: {data.get('error')}")
+                    raise SlackNotificationError(
+                        f"Slack API error: {data.get('error')}",
+                        error_code=data.get("error"),
+                    )
 
 
 class EmailProvider(NotificationProvider):
@@ -581,7 +589,11 @@ class WebhookProvider(NotificationProvider):
                 ) as response:
                     if response.status >= 400:
                         text = await response.text()
-                        raise Exception(f"Webhook failed: {response.status} {text}")
+                        raise WebhookDeliveryError(
+                            webhook_url=endpoint.url,
+                            status_code=response.status,
+                            message=text,
+                        )
 
             return NotificationResult(
                 success=True,

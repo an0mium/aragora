@@ -942,6 +942,80 @@ class VerificationTimeoutError(VerificationError):
 
 
 # ============================================================================
+# Notification Errors
+# ============================================================================
+
+
+class NotificationError(AragoraError):
+    """Base exception for notification delivery errors."""
+
+    pass
+
+
+class SlackNotificationError(NotificationError):
+    """Raised when Slack webhook or API call fails."""
+
+    def __init__(self, message: str, status_code: int | None = None, error_code: str | None = None):
+        details = {}
+        if status_code is not None:
+            details["status_code"] = status_code
+        if error_code is not None:
+            details["error_code"] = error_code
+        super().__init__(message, details)
+        self.status_code = status_code
+        self.error_code = error_code
+
+
+class WebhookDeliveryError(NotificationError):
+    """Raised when a generic webhook delivery fails."""
+
+    def __init__(self, webhook_url: str, status_code: int, message: str):
+        super().__init__(
+            f"Webhook delivery failed: {message}",
+            {"webhook_url": webhook_url, "status_code": status_code},
+        )
+        self.webhook_url = webhook_url
+        self.status_code = status_code
+
+
+# ============================================================================
+# Document Processing Errors
+# ============================================================================
+
+
+class DocumentProcessingError(AragoraError):
+    """Base exception for document processing errors."""
+
+    pass
+
+
+class DocumentParseError(DocumentProcessingError):
+    """Raised when document parsing fails."""
+
+    def __init__(self, document_id: str | None, reason: str, original_error: Exception | None = None):
+        details = {"reason": reason}
+        if document_id:
+            details["document_id"] = document_id
+        super().__init__(f"Failed to parse document: {reason}", details)
+        self.document_id = document_id
+        self.reason = reason
+        self.original_error = original_error
+
+
+class DocumentChunkError(DocumentProcessingError):
+    """Raised when document chunking fails."""
+
+    def __init__(self, document_id: str | None, reason: str, original_error: Exception | None = None):
+        details = {"reason": reason}
+        if document_id:
+            details["document_id"] = document_id
+        super().__init__(f"Failed to chunk document: {reason}", details)
+        self.document_id = document_id
+        self.reason = reason
+        self.original_error = original_error
+
+
+# ============================================================================
 # Agent Errors - Usage Guide
 # ============================================================================
 # For runtime agent failures (timeouts, rate limits, connection issues), import

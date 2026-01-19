@@ -50,6 +50,7 @@ from aragora.documents.models import (
     DocumentStatus,
     IngestedDocument,
 )
+from aragora.exceptions import DocumentChunkError, DocumentParseError
 
 logger = logging.getLogger(__name__)
 
@@ -504,7 +505,11 @@ class BatchProcessor:
                 tags=job.tags,
             )
         except Exception as e:
-            raise Exception(f"Failed to parse document: {e}") from e
+            raise DocumentParseError(
+                document_id=None,
+                reason=str(e),
+                original_error=e,
+            ) from e
 
         self._update_progress(job, 0.3, "Document parsed, starting chunking...")
         job.status = JobStatus.CHUNKING
@@ -541,7 +546,11 @@ class BatchProcessor:
             document.total_tokens = sum(c.token_count for c in chunks)
 
         except Exception as e:
-            raise Exception(f"Failed to chunk document: {e}") from e
+            raise DocumentChunkError(
+                document_id=document.id if document else None,
+                reason=str(e),
+                original_error=e,
+            ) from e
 
         self._update_progress(job, 0.6, "Chunking complete, finalizing...")
         job.status = JobStatus.INDEXING

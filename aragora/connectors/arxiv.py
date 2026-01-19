@@ -30,8 +30,8 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 
-# ArXiv API endpoint
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+# ArXiv API endpoint (HTTPS for security)
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 # ArXiv category codes for filtering
 ARXIV_CATEGORIES = {
