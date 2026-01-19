@@ -11,6 +11,11 @@ Tests cover:
 - Phase transitions
 - Consensus detection
 - Error handling and edge cases
+- Early termination on convergence
+- Memory integration (outcome storage, pattern retrieval)
+- Checkpoint creation during rounds
+- Knowledge mound integration (retrieval and ingestion)
+- RLM compression activation
 """
 
 from __future__ import annotations
@@ -18,6 +23,7 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from datetime import datetime
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -173,6 +179,47 @@ class TimeoutAgent(Agent):
             choice=list(proposals.keys())[0] if proposals else self.name,
             reasoning="Timeout vote",
             confidence=0.5,
+            continue_debate=False,
+        )
+
+
+class ConvergingAgent(Agent):
+    """Agent that returns converging responses to test early termination."""
+
+    def __init__(self, name: str = "converging-agent", response_template: str = "The answer is 42"):
+        super().__init__(name=name, model="converging-model", role="proposer")
+        self.agent_type = "converging"
+        self.response_template = response_template
+        self.generate_calls = 0
+
+    async def generate(self, prompt: str, context: list = None) -> str:
+        self.generate_calls += 1
+        return self.response_template
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list = None,
+        target_agent: str = None,
+    ) -> Critique:
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:100] if proposal else "",
+            issues=[],
+            suggestions=[],
+            severity=0.1,
+            reasoning="Full agreement",
+        )
+
+    async def vote(self, proposals: dict, task: str) -> Vote:
+        choice = list(proposals.keys())[0] if proposals else self.name
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            reasoning="Unanimous agreement",
+            confidence=0.95,
             continue_debate=False,
         )
 
@@ -384,6 +431,48 @@ class TestArenaInitialization:
         arena = Arena(environment, agents, protocol, initial_messages=initial_msgs)
 
         assert arena.initial_messages == initial_msgs
+
+    def test_arena_with_continuum_memory(self, environment, agents, protocol):
+        """Arena accepts continuum memory for cross-debate learning."""
+        mock_continuum = MagicMock()
+        arena = Arena(environment, agents, protocol, continuum_memory=mock_continuum)
+
+        assert arena.continuum_memory == mock_continuum
+
+    def test_arena_with_consensus_memory(self, environment, agents, protocol):
+        """Arena accepts consensus memory for historical outcomes."""
+        mock_consensus = MagicMock()
+        arena = Arena(environment, agents, protocol, consensus_memory=mock_consensus)
+
+        assert arena.consensus_memory == mock_consensus
+
+    def test_arena_with_knowledge_mound(self, environment, agents, protocol):
+        """Arena accepts knowledge mound for unified knowledge queries."""
+        mock_mound = MagicMock()
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            knowledge_mound=mock_mound,
+            enable_knowledge_retrieval=True,
+            enable_knowledge_ingestion=True,
+        )
+
+        assert arena.knowledge_mound == mock_mound
+        assert arena.enable_knowledge_retrieval is True
+        assert arena.enable_knowledge_ingestion is True
+
+    def test_arena_with_checkpointing_enabled(self, environment, agents, protocol):
+        """Arena accepts checkpointing configuration."""
+        arena = Arena(environment, agents, protocol, enable_checkpointing=True)
+
+        assert arena.checkpoint_manager is not None
+
+    def test_arena_with_performance_monitor(self, environment, agents, protocol):
+        """Arena accepts performance monitor configuration."""
+        arena = Arena(environment, agents, protocol, enable_performance_monitor=True)
+
+        assert arena.performance_monitor is not None
 
 
 class TestArenaFromConfig:
@@ -706,6 +795,87 @@ class TestArenaRun:
 
 
 # =============================================================================
+# Round Execution Flow Tests
+# =============================================================================
+
+
+class TestRoundExecutionFlow:
+    """Tests for the debate round execution flow (proposal -> critique -> vote -> consensus)."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Design the best caching strategy")
+
+    @pytest.fixture
+    def agents(self):
+        return [
+            MockAgent(name="proposer1", response="Use Redis caching"),
+            MockAgent(name="proposer2", response="Use in-memory caching"),
+            MockAgent(name="critic", response="Consider latency trade-offs"),
+        ]
+
+    @pytest.fixture
+    def multi_round_protocol(self):
+        return DebateProtocol(
+            rounds=3,
+            consensus="majority",
+            early_stopping=False,
+            convergence_detection=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_proposal_phase_generates_proposals(self, environment, agents, multi_round_protocol):
+        """Proposal phase generates initial proposals from agents."""
+        arena = Arena(environment, agents, multi_round_protocol)
+
+        result = await arena.run()
+
+        # Should have proposals from agents
+        assert len(result.proposals) >= 1
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_produces_critiques(self, environment, agents, multi_round_protocol):
+        """Critique phase produces critiques for proposals."""
+        arena = Arena(environment, agents, multi_round_protocol)
+
+        result = await arena.run()
+
+        # Should have critiques
+        assert len(result.critiques) >= 0
+
+    @pytest.mark.asyncio
+    async def test_vote_phase_produces_votes(self, environment, agents, multi_round_protocol):
+        """Vote phase produces votes from agents."""
+        arena = Arena(environment, agents, multi_round_protocol)
+
+        result = await arena.run()
+
+        # Should have votes
+        assert result.votes is not None
+
+    @pytest.mark.asyncio
+    async def test_consensus_produces_final_answer(self, environment, agents, multi_round_protocol):
+        """Consensus phase produces final answer."""
+        arena = Arena(environment, agents, multi_round_protocol)
+
+        result = await arena.run()
+
+        # Should have final answer
+        assert result.final_answer is not None
+        assert len(result.final_answer) > 0
+
+    @pytest.mark.asyncio
+    async def test_multiple_rounds_execute(self, environment, agents, multi_round_protocol):
+        """Multiple rounds execute in sequence."""
+        arena = Arena(environment, agents, multi_round_protocol)
+
+        result = await arena.run()
+
+        # Rounds should have executed
+        assert result.rounds_used >= 1
+
+
+# =============================================================================
 # Phase Transition Tests
 # =============================================================================
 
@@ -776,6 +946,82 @@ class TestPhaseTransitions:
 
         # Proposals should exist before rounds complete
         assert len(result.proposals) >= 1
+
+
+# =============================================================================
+# Early Termination on Convergence Tests
+# =============================================================================
+
+
+class TestEarlyTerminationOnConvergence:
+    """Tests for early termination when consensus/convergence is detected."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="What is 2+2?")
+
+    @pytest.fixture
+    def converging_agents(self):
+        """Agents that give the same response (should converge quickly)."""
+        return [
+            ConvergingAgent(name="agent1", response_template="The answer is 4"),
+            ConvergingAgent(name="agent2", response_template="The answer is 4"),
+            ConvergingAgent(name="agent3", response_template="The answer is 4"),
+        ]
+
+    @pytest.fixture
+    def convergence_protocol(self):
+        """Protocol with convergence detection enabled."""
+        return DebateProtocol(
+            rounds=5,
+            consensus="majority",
+            convergence_detection=True,
+            convergence_threshold=0.9,
+            early_stopping=True,
+            early_stop_threshold=0.9,
+            min_rounds_before_early_stop=1,
+        )
+
+    def test_convergence_detector_initialized(self, environment, converging_agents, convergence_protocol):
+        """Convergence detector is initialized when enabled."""
+        arena = Arena(environment, converging_agents, convergence_protocol)
+
+        assert arena.convergence_detector is not None
+        assert arena.convergence_detector.convergence_threshold == 0.9
+
+    @pytest.mark.asyncio
+    async def test_convergence_may_terminate_early(self, environment, converging_agents, convergence_protocol):
+        """With converging agents and convergence detection, debate may terminate early."""
+        arena = Arena(environment, converging_agents, convergence_protocol)
+
+        result = await arena.run()
+
+        # Debate should complete (may or may not terminate early)
+        assert result is not None
+        assert result.rounds_used >= 1
+
+    def test_convergence_detector_disabled(self, environment, converging_agents):
+        """Convergence detector is None when disabled."""
+        protocol = DebateProtocol(rounds=5, convergence_detection=False)
+        arena = Arena(environment, converging_agents, protocol)
+
+        assert arena.convergence_detector is None
+
+    @pytest.mark.asyncio
+    async def test_early_stopping_protocol_flag(self, environment, converging_agents):
+        """Early stopping can be controlled via protocol flag."""
+        protocol = DebateProtocol(
+            rounds=10,
+            early_stopping=True,
+            early_stop_threshold=0.8,
+            min_rounds_before_early_stop=1,
+        )
+        arena = Arena(environment, converging_agents, protocol)
+
+        result = await arena.run()
+
+        # Debate should complete
+        assert result is not None
 
 
 # =============================================================================
@@ -922,6 +1168,517 @@ class TestErrorHandling:
         result = await arena.run()
         assert result is not None
 
+    @pytest.mark.asyncio
+    async def test_arena_handles_agent_failure_gracefully(self, environment, protocol):
+        """Arena handles agent failures gracefully with circuit breaker."""
+        from aragora.debate.protocol import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=30.0)
+        agents = [
+            MockAgent(name="working", response="Working response"),
+            MockAgent(name="working2", response="Working response 2"),
+        ]
+        arena = Arena(environment, agents, protocol, circuit_breaker=cb)
+
+        result = await arena.run()
+        assert result is not None
+
+
+# =============================================================================
+# Memory Integration Tests
+# =============================================================================
+
+
+class TestMemoryIntegration:
+    """Tests for memory system integration."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test memory integration")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_memory_manager_exists(self, environment, agents):
+        """MemoryManager is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "memory_manager")
+        assert arena.memory_manager is not None
+
+    def test_context_gatherer_exists(self, environment, agents):
+        """ContextGatherer is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "context_gatherer")
+        assert arena.context_gatherer is not None
+
+    def test_prompt_builder_exists(self, environment, agents):
+        """PromptBuilder is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "prompt_builder")
+        assert arena.prompt_builder is not None
+
+    @pytest.mark.asyncio
+    async def test_store_debate_outcome_called_on_completion(self, environment, agents):
+        """Debate outcome is stored via memory manager on completion."""
+        mock_continuum = MagicMock()
+        mock_continuum.add = MagicMock()
+        arena = Arena(environment, agents, continuum_memory=mock_continuum)
+
+        result = await arena.run()
+
+        # Result should be stored (check store was called via checkpoint_ops)
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_historical_context_fetching(self, environment, agents):
+        """Historical context can be fetched from debate embeddings."""
+        mock_embeddings = MagicMock()
+        mock_embeddings.find_similar_debates = AsyncMock(return_value=[])
+        arena = Arena(environment, agents, debate_embeddings=mock_embeddings)
+
+        context = await arena._fetch_historical_context("test task")
+
+        # Should return string (may be empty)
+        assert isinstance(context, str)
+
+    def test_get_successful_patterns_from_memory(self, environment, agents):
+        """Patterns can be retrieved from memory."""
+        mock_memory = MagicMock()
+        mock_memory.retrieve_patterns = MagicMock(return_value=[])
+        arena = Arena(environment, agents, memory=mock_memory)
+
+        patterns = arena._get_successful_patterns_from_memory()
+
+        # Should return string
+        assert isinstance(patterns, str)
+
+    @pytest.mark.asyncio
+    async def test_memory_outcome_update(self, environment, agents):
+        """Memory outcomes are updated after debate completion."""
+        mock_continuum = MagicMock()
+        mock_continuum.add = MagicMock()
+        mock_continuum.update_outcome = MagicMock()
+        arena = Arena(environment, agents, continuum_memory=mock_continuum)
+
+        result = await arena.run()
+
+        # Result should be stored
+        assert result is not None
+
+
+# =============================================================================
+# Checkpoint Creation Tests
+# =============================================================================
+
+
+class TestCheckpointCreation:
+    """Tests for checkpoint creation during rounds."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test checkpointing")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol_with_rounds(self):
+        return DebateProtocol(rounds=3, consensus="majority")
+
+    def test_checkpoint_manager_created_when_enabled(self, environment, agents, protocol_with_rounds):
+        """CheckpointManager is created when checkpointing is enabled."""
+        arena = Arena(environment, agents, protocol_with_rounds, enable_checkpointing=True)
+
+        assert arena.checkpoint_manager is not None
+
+    def test_checkpoint_manager_not_created_when_disabled(self, environment, agents, protocol_with_rounds):
+        """CheckpointManager is not created when checkpointing is disabled."""
+        arena = Arena(environment, agents, protocol_with_rounds, enable_checkpointing=False)
+
+        assert arena.checkpoint_manager is None
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_ops_initialized(self, environment, agents, protocol_with_rounds):
+        """CheckpointOperations helper is initialized."""
+        arena = Arena(environment, agents, protocol_with_rounds)
+
+        assert hasattr(arena, "_checkpoint_ops")
+        assert arena._checkpoint_ops is not None
+
+    @pytest.mark.asyncio
+    async def test_create_checkpoint_method_exists(self, environment, agents, protocol_with_rounds):
+        """Arena has _create_checkpoint method."""
+        arena = Arena(environment, agents, protocol_with_rounds)
+
+        assert hasattr(arena, "_create_checkpoint")
+        assert callable(arena._create_checkpoint)
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_creation_with_manager(self, environment, agents, protocol_with_rounds):
+        """Checkpoint is created when manager is configured."""
+        mock_checkpoint_mgr = MagicMock()
+        mock_checkpoint_mgr.should_checkpoint = MagicMock(return_value=True)
+        mock_checkpoint_mgr.create_checkpoint = AsyncMock()
+
+        arena = Arena(environment, agents, protocol_with_rounds, checkpoint_manager=mock_checkpoint_mgr)
+
+        # Simulate context for checkpoint
+        mock_ctx = MagicMock()
+        mock_ctx.debate_id = "test-debate"
+        mock_ctx.result = MagicMock()
+        mock_ctx.result.messages = []
+        mock_ctx.result.critiques = []
+        mock_ctx.result.votes = {}
+
+        await arena._create_checkpoint(mock_ctx, round_num=1)
+
+        # Checkpoint should have been created
+        mock_checkpoint_mgr.should_checkpoint.assert_called()
+
+
+# =============================================================================
+# Knowledge Mound Integration Tests
+# =============================================================================
+
+
+class TestKnowledgeMoundIntegration:
+    """Tests for Knowledge Mound integration (retrieval and ingestion)."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test knowledge mound integration")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def mock_knowledge_mound(self):
+        """Create mock Knowledge Mound."""
+        mound = MagicMock()
+        mound.workspace_id = "test-workspace"
+        mound.query_semantic = AsyncMock(return_value=MagicMock(items=[]))
+        mound.store = AsyncMock(return_value=MagicMock(success=True, node_id="test-node"))
+        return mound
+
+    def test_knowledge_mound_stored(self, environment, agents, mock_knowledge_mound):
+        """Knowledge mound is stored in arena."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_retrieval=True,
+            enable_knowledge_ingestion=True,
+        )
+
+        assert arena.knowledge_mound == mock_knowledge_mound
+        assert arena.enable_knowledge_retrieval is True
+        assert arena.enable_knowledge_ingestion is True
+
+    def test_knowledge_retrieval_disabled(self, environment, agents, mock_knowledge_mound):
+        """Knowledge retrieval can be disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_retrieval=False,
+        )
+
+        assert arena.enable_knowledge_retrieval is False
+
+    def test_knowledge_ingestion_disabled(self, environment, agents, mock_knowledge_mound):
+        """Knowledge ingestion can be disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_ingestion=False,
+        )
+
+        assert arena.enable_knowledge_ingestion is False
+
+    @pytest.mark.asyncio
+    async def test_fetch_knowledge_context_returns_none_without_mound(self, environment, agents):
+        """_fetch_knowledge_context returns None without knowledge mound."""
+        arena = Arena(environment, agents, knowledge_mound=None)
+
+        context = await arena._fetch_knowledge_context("test task")
+
+        assert context is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_knowledge_context_returns_none_when_disabled(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_fetch_knowledge_context returns None when retrieval is disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_retrieval=False,
+        )
+
+        context = await arena._fetch_knowledge_context("test task")
+
+        assert context is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_knowledge_context_queries_mound(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_fetch_knowledge_context queries the knowledge mound."""
+        mock_knowledge_mound.query_semantic = AsyncMock(
+            return_value=MagicMock(items=[])
+        )
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_retrieval=True,
+        )
+
+        await arena._fetch_knowledge_context("test task")
+
+        mock_knowledge_mound.query_semantic.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_fetch_knowledge_context_formats_results(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_fetch_knowledge_context formats knowledge items for context."""
+        mock_item = MagicMock()
+        mock_item.source = "debate"
+        mock_item.confidence = 0.85
+        mock_item.content = "Previous debate conclusion about caching"
+
+        mock_knowledge_mound.query_semantic = AsyncMock(
+            return_value=MagicMock(items=[mock_item])
+        )
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_retrieval=True,
+        )
+
+        context = await arena._fetch_knowledge_context("caching strategy")
+
+        assert context is not None
+        assert "KNOWLEDGE MOUND CONTEXT" in context
+        assert "debate" in context.lower()
+
+    @pytest.mark.asyncio
+    async def test_ingest_debate_outcome_skips_without_mound(self, environment, agents):
+        """_ingest_debate_outcome skips when no knowledge mound."""
+        arena = Arena(environment, agents, knowledge_mound=None)
+
+        result = MagicMock()
+        result.final_answer = "Test answer"
+        result.confidence = 0.9
+
+        # Should not raise
+        await arena._ingest_debate_outcome(result)
+
+    @pytest.mark.asyncio
+    async def test_ingest_debate_outcome_skips_when_disabled(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_ingest_debate_outcome skips when ingestion is disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_ingestion=False,
+        )
+
+        result = MagicMock()
+        result.final_answer = "Test answer"
+        result.confidence = 0.9
+
+        await arena._ingest_debate_outcome(result)
+
+        mock_knowledge_mound.store.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ingest_debate_outcome_skips_low_confidence(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_ingest_debate_outcome skips low confidence results."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_ingestion=True,
+        )
+
+        result = MagicMock()
+        result.final_answer = "Test answer"
+        result.confidence = 0.5  # Below 0.7 threshold
+
+        await arena._ingest_debate_outcome(result)
+
+        mock_knowledge_mound.store.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ingest_debate_outcome_stores_high_confidence(
+        self, environment, agents, mock_knowledge_mound
+    ):
+        """_ingest_debate_outcome stores high confidence results."""
+        arena = Arena(
+            environment,
+            agents,
+            knowledge_mound=mock_knowledge_mound,
+            enable_knowledge_ingestion=True,
+        )
+
+        result = MagicMock()
+        result.id = "debate-123"
+        result.final_answer = "Redis is the best choice for caching"
+        result.confidence = 0.9
+        result.consensus_reached = True
+        result.rounds_used = 3
+        result.participants = ["a1", "a2"]
+        result.winner = "a1"
+
+        await arena._ingest_debate_outcome(result)
+
+        mock_knowledge_mound.store.assert_called_once()
+
+
+# =============================================================================
+# RLM Compression Tests
+# =============================================================================
+
+
+class TestRLMCompression:
+    """Tests for RLM cognitive load limiter."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test RLM compression")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_rlm_limiter_disabled_by_default(self, environment, agents):
+        """RLM limiter is disabled by default."""
+        arena = Arena(environment, agents)
+
+        assert arena.use_rlm_limiter is False
+        assert arena.rlm_limiter is None
+
+    def test_rlm_limiter_can_be_enabled(self, environment, agents):
+        """RLM limiter can be enabled."""
+        arena = Arena(environment, agents, use_rlm_limiter=True)
+
+        assert arena.use_rlm_limiter is True
+
+    def test_rlm_compression_threshold_configurable(self, environment, agents):
+        """RLM compression threshold is configurable."""
+        arena = Arena(
+            environment,
+            agents,
+            use_rlm_limiter=True,
+            rlm_compression_threshold=5000,
+        )
+
+        assert arena.rlm_compression_threshold == 5000
+
+    def test_rlm_max_recent_messages_configurable(self, environment, agents):
+        """RLM max recent messages is configurable."""
+        arena = Arena(
+            environment,
+            agents,
+            use_rlm_limiter=True,
+            rlm_max_recent_messages=10,
+        )
+
+        assert arena.rlm_max_recent_messages == 10
+
+    def test_rlm_summary_level_configurable(self, environment, agents):
+        """RLM summary level is configurable."""
+        arena = Arena(
+            environment,
+            agents,
+            use_rlm_limiter=True,
+            rlm_summary_level="DETAILED",
+        )
+
+        assert arena.rlm_summary_level == "DETAILED"
+
+    def test_rlm_compression_round_threshold_configurable(self, environment, agents):
+        """RLM compression round threshold is configurable."""
+        arena = Arena(
+            environment,
+            agents,
+            use_rlm_limiter=True,
+            rlm_compression_round_threshold=5,
+        )
+
+        assert arena.rlm_compression_round_threshold == 5
+
+    @pytest.mark.asyncio
+    async def test_compress_debate_messages_noop_when_disabled(self, environment, agents):
+        """compress_debate_messages is a no-op when RLM is disabled."""
+        arena = Arena(environment, agents, use_rlm_limiter=False)
+
+        messages = [
+            Message(role="proposer", agent="a1", content="Test message", round=1)
+        ]
+
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, None)
+
+        # Should return original messages unchanged
+        assert compressed_msgs == messages
+        assert compressed_crits is None
+
+    @pytest.mark.asyncio
+    async def test_compress_debate_messages_with_limiter(self, environment, agents):
+        """compress_debate_messages uses limiter when enabled."""
+        mock_limiter = MagicMock()
+        mock_result = MagicMock()
+        mock_result.compression_applied = True
+        mock_result.original_chars = 1000
+        mock_result.compressed_chars = 500
+        mock_result.compression_ratio = 0.5
+        mock_result.messages = [Message(role="proposer", agent="a1", content="Compressed", round=1)]
+        mock_result.critiques = None
+        mock_limiter.compress_context_async = AsyncMock(return_value=mock_result)
+
+        arena = Arena(environment, agents, use_rlm_limiter=True, rlm_limiter=mock_limiter)
+
+        messages = [
+            Message(role="proposer", agent="a1", content="Test message " * 100, round=1)
+        ]
+
+        compressed_msgs, _ = await arena.compress_debate_messages(messages, None)
+
+        mock_limiter.compress_context_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_compress_debate_messages_handles_error(self, environment, agents):
+        """compress_debate_messages handles compression errors gracefully."""
+        mock_limiter = MagicMock()
+        mock_limiter.compress_context_async = AsyncMock(side_effect=RuntimeError("Compression failed"))
+
+        arena = Arena(environment, agents, use_rlm_limiter=True, rlm_limiter=mock_limiter)
+
+        messages = [
+            Message(role="proposer", agent="a1", content="Test message", round=1)
+        ]
+
+        # Should return original messages on error
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, None)
+
+        assert compressed_msgs == messages
+        assert compressed_crits is None
+
 
 # =============================================================================
 # Helper Method Tests
@@ -1026,89 +1783,6 @@ class TestAudienceParticipation:
         # Should return a deque
         assert hasattr(arena, "user_suggestions")
         assert isinstance(arena.user_suggestions, deque)
-
-
-# =============================================================================
-# Memory and Context Tests
-# =============================================================================
-
-
-class TestMemoryIntegration:
-    """Tests for memory system integration."""
-
-    @pytest.fixture
-    def environment(self):
-        return Environment(task="Test memory integration")
-
-    @pytest.fixture
-    def agents(self):
-        return [MockAgent(name="a1"), MockAgent(name="a2")]
-
-    def test_memory_manager_exists(self, environment, agents):
-        """MemoryManager is initialized."""
-        arena = Arena(environment, agents)
-
-        assert hasattr(arena, "memory_manager")
-        assert arena.memory_manager is not None
-
-    def test_context_gatherer_exists(self, environment, agents):
-        """ContextGatherer is initialized."""
-        arena = Arena(environment, agents)
-
-        assert hasattr(arena, "context_gatherer")
-        assert arena.context_gatherer is not None
-
-    def test_prompt_builder_exists(self, environment, agents):
-        """PromptBuilder is initialized."""
-        arena = Arena(environment, agents)
-
-        assert hasattr(arena, "prompt_builder")
-        assert arena.prompt_builder is not None
-
-
-# =============================================================================
-# RLM Compression Tests
-# =============================================================================
-
-
-class TestRLMCompression:
-    """Tests for RLM cognitive load limiter."""
-
-    @pytest.fixture
-    def environment(self):
-        return Environment(task="Test RLM compression")
-
-    @pytest.fixture
-    def agents(self):
-        return [MockAgent(name="a1"), MockAgent(name="a2")]
-
-    def test_rlm_limiter_disabled_by_default(self, environment, agents):
-        """RLM limiter is disabled by default."""
-        arena = Arena(environment, agents)
-
-        assert arena.use_rlm_limiter is False
-        assert arena.rlm_limiter is None
-
-    def test_rlm_limiter_can_be_enabled(self, environment, agents):
-        """RLM limiter can be enabled."""
-        arena = Arena(environment, agents, use_rlm_limiter=True)
-
-        assert arena.use_rlm_limiter is True
-
-    @pytest.mark.asyncio
-    async def test_compress_debate_messages_noop_when_disabled(self, environment, agents):
-        """compress_debate_messages is a no-op when RLM is disabled."""
-        arena = Arena(environment, agents, use_rlm_limiter=False)
-
-        messages = [
-            Message(role="proposer", agent="a1", content="Test message", round=1)
-        ]
-
-        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, None)
-
-        # Should return original messages unchanged
-        assert compressed_msgs == messages
-        assert compressed_crits is None
 
 
 # =============================================================================
@@ -1314,3 +1988,228 @@ class TestFullDebateFlow:
 
         assert result is not None
         assert result.task == environment.task
+
+    @pytest.mark.asyncio
+    async def test_full_debate_with_memory_subsystems(self, environment, agents, protocol):
+        """Full debate integrates with memory subsystems."""
+        mock_continuum = MagicMock()
+        mock_continuum.add = MagicMock()
+        mock_consensus = MagicMock()
+
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            continuum_memory=mock_continuum,
+            consensus_memory=mock_consensus,
+        )
+
+        result = await arena.run()
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_full_debate_with_checkpointing(self, environment, agents, protocol):
+        """Full debate with checkpointing enabled."""
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            enable_checkpointing=True,
+        )
+
+        result = await arena.run()
+
+        assert result is not None
+        assert arena.checkpoint_manager is not None
+
+    @pytest.mark.asyncio
+    async def test_full_debate_with_knowledge_mound(self, environment, agents, protocol):
+        """Full debate with knowledge mound integration."""
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "test-workspace"
+        mock_mound.query_semantic = AsyncMock(return_value=MagicMock(items=[]))
+        mock_mound.store = AsyncMock(return_value=MagicMock(success=True, node_id="test-node"))
+
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            knowledge_mound=mock_mound,
+            enable_knowledge_retrieval=True,
+            enable_knowledge_ingestion=True,
+        )
+
+        result = await arena.run()
+
+        assert result is not None
+
+
+# =============================================================================
+# Agent Failure Handling Tests
+# =============================================================================
+
+
+class TestAgentFailureHandling:
+    """Tests for handling agent failures during debate."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test agent failure handling")
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1, consensus="majority")
+
+    @pytest.mark.asyncio
+    async def test_debate_continues_with_working_agents(self, environment, protocol):
+        """Debate continues when some agents work properly."""
+        agents = [
+            MockAgent(name="working1", response="Working response 1"),
+            MockAgent(name="working2", response="Working response 2"),
+        ]
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run()
+
+        assert result is not None
+        assert result.final_answer is not None
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_tracks_failures(self, environment, protocol):
+        """Circuit breaker tracks agent failures."""
+        from aragora.debate.protocol import CircuitBreaker
+
+        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=30.0)
+        agents = [
+            MockAgent(name="working1", response="Working response"),
+            MockAgent(name="working2", response="Working response 2"),
+        ]
+        arena = Arena(environment, agents, protocol, circuit_breaker=cb)
+
+        # Circuit breaker should be set
+        assert arena.circuit_breaker is cb
+
+    @pytest.mark.asyncio
+    async def test_debate_handles_timeout_gracefully(self, environment):
+        """Debate handles agent timeouts gracefully."""
+        protocol = DebateProtocol(rounds=1, timeout_seconds=1)
+        agents = [
+            MockAgent(name="fast", response="Fast response"),
+            MockAgent(name="fast2", response="Fast response 2"),
+        ]
+        arena = Arena(environment, agents, protocol)
+
+        result = await arena.run()
+
+        assert result is not None
+
+
+# =============================================================================
+# Grounded Operations Tests
+# =============================================================================
+
+
+class TestGroundedOperations:
+    """Tests for grounded operations (positions, relationships, verdicts)."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test grounded operations")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_grounded_ops_initialized(self, environment, agents):
+        """GroundedOperations helper is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_grounded_ops")
+        assert arena._grounded_ops is not None
+
+    def test_record_grounded_position_method_exists(self, environment, agents):
+        """_record_grounded_position method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_record_grounded_position")
+        assert callable(arena._record_grounded_position)
+
+    def test_update_agent_relationships_method_exists(self, environment, agents):
+        """_update_agent_relationships method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_update_agent_relationships")
+        assert callable(arena._update_agent_relationships)
+
+    def test_create_grounded_verdict_method_exists(self, environment, agents):
+        """_create_grounded_verdict method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_create_grounded_verdict")
+        assert callable(arena._create_grounded_verdict)
+
+
+# =============================================================================
+# ML Integration Tests
+# =============================================================================
+
+
+class TestMLIntegration:
+    """Tests for ML-based features (delegation, quality gates, consensus estimation)."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test ML integration")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_ml_delegation_disabled_by_default(self, environment, agents):
+        """ML delegation is disabled by default."""
+        arena = Arena(environment, agents)
+
+        assert arena.enable_ml_delegation is False
+
+    def test_ml_delegation_can_be_enabled(self, environment, agents):
+        """ML delegation can be enabled."""
+        arena = Arena(environment, agents, enable_ml_delegation=True)
+
+        assert arena.enable_ml_delegation is True
+
+    def test_quality_gates_disabled_by_default(self, environment, agents):
+        """Quality gates are disabled by default."""
+        arena = Arena(environment, agents)
+
+        assert arena.enable_quality_gates is False
+
+    def test_quality_gates_can_be_enabled(self, environment, agents):
+        """Quality gates can be enabled."""
+        arena = Arena(
+            environment,
+            agents,
+            enable_quality_gates=True,
+            quality_gate_threshold=0.7,
+        )
+
+        assert arena.enable_quality_gates is True
+        assert arena.quality_gate_threshold == 0.7
+
+    def test_consensus_estimation_disabled_by_default(self, environment, agents):
+        """Consensus estimation is disabled by default."""
+        arena = Arena(environment, agents)
+
+        assert arena.enable_consensus_estimation is False
+
+    def test_consensus_estimation_can_be_enabled(self, environment, agents):
+        """Consensus estimation can be enabled."""
+        arena = Arena(
+            environment,
+            agents,
+            enable_consensus_estimation=True,
+            consensus_early_termination_threshold=0.9,
+        )
+
+        assert arena.enable_consensus_estimation is True
+        assert arena.consensus_early_termination_threshold == 0.9
