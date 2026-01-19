@@ -9,7 +9,12 @@ Tests cover:
 - Error handling
 
 NOTE: Some tests are skipped because they mock internal methods that don't exist.
-TODO: Rewrite tests to use correct mocking patterns.
+
+TODO: Rewrite skipped tests using this pattern:
+    1. Use `sys.modules` to inject mock notion_client if needed
+    2. Mock `_api_request` method with AsyncMock for API calls
+    3. Mock `_search_pages` and `_get_page_content` methods
+See test_postgres.py TestConnectionPool for similar mocking patterns.
 """
 
 import asyncio

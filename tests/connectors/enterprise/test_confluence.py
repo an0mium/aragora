@@ -10,7 +10,12 @@ Tests cover:
 - Error handling
 
 NOTE: Some tests are skipped because they mock internal methods that don't exist.
-TODO: Rewrite tests to use correct mocking patterns.
+
+TODO: Rewrite skipped tests using this pattern:
+    1. Mock `_api_request` method with AsyncMock for API calls
+    2. Mock `_get_space_pages` with proper async iteration
+    3. Use `new_callable=AsyncMock` for async method mocks
+See test_postgres.py TestSearch for async mocking patterns.
 """
 
 import asyncio

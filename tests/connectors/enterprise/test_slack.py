@@ -9,9 +9,14 @@ Tests cover:
 - User resolution
 - Incremental sync
 
-NOTE: Some tests are skipped because they were written for a WebClient-based
-implementation, but the connector uses direct HTTP via _api_request.
-TODO: Rewrite tests to use _api_request mocking pattern.
+NOTE: Some tests are skipped because they mock internal methods that don't exist.
+The connector uses direct HTTP via _api_request instead of WebClient.
+
+TODO: Rewrite skipped tests using this pattern:
+    1. Use `sys.modules` to inject mock slack_sdk if needed
+    2. Mock `_api_request` method with AsyncMock for API calls
+    3. Mock response data matching Slack API format
+See test_postgres.py TestConnectionPool for similar mocking patterns.
 """
 
 import asyncio
