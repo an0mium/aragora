@@ -60,6 +60,18 @@ export default function MLPage() {
               >
                 [RANKS]
               </Link>
+              <Link
+                href="/scheduler"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SCHEDULER]
+              </Link>
+              <Link
+                href="/selection"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SELECTION]
+              </Link>
               <BackendSelector compact />
               <ThemeToggle />
             </div>

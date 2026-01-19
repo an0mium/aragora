@@ -76,6 +76,24 @@ export default function QualityPage() {
               >
                 [RANKS]
               </Link>
+              <Link
+                href="/scheduler"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SCHEDULER]
+              </Link>
+              <Link
+                href="/selection"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SELECTION]
+              </Link>
+              <Link
+                href="/ml"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [ML]
+              </Link>
               <BackendSelector compact />
               <ThemeToggle />
             </div>

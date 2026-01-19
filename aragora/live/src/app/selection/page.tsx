@@ -60,6 +60,18 @@ export default function SelectionPage() {
               >
                 [RANKS]
               </Link>
+              <Link
+                href="/scheduler"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SCHEDULER]
+              </Link>
+              <Link
+                href="/quality"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [QUALITY]
+              </Link>
               <BackendSelector compact />
               <ThemeToggle />
             </div>

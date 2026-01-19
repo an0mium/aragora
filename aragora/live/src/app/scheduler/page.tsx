@@ -60,6 +60,18 @@ export default function SchedulerPage() {
               >
                 [INTEGRATIONS]
               </Link>
+              <Link
+                href="/selection"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [SELECTION]
+              </Link>
+              <Link
+                href="/ml"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
+                [ML]
+              </Link>
               <BackendSelector compact />
               <ThemeToggle />
             </div>
