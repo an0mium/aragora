@@ -132,7 +132,7 @@ describe('AuditTemplatesPage', () => {
       if (url.includes('/api/audit/types')) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ types: mockAuditTypes }),
+          json: () => Promise.resolve({ audit_types: mockAuditTypes }),
         });
       }
       return Promise.resolve({
@@ -146,9 +146,10 @@ describe('AuditTemplatesPage', () => {
     it('should show loading state initially', () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      render(<AuditTemplatesPage />);
+      const { container } = render(<AuditTemplatesPage />);
 
-      expect(screen.getByText(/LOADING/i)).toBeInTheDocument();
+      // Loading state shows skeleton placeholders with animate-pulse
+      expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
     });
   });
 
@@ -269,11 +270,11 @@ describe('AuditTemplatesPage', () => {
     it('should handle fetch failure gracefully', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<AuditTemplatesPage />);
+      const { container } = render(<AuditTemplatesPage />);
 
       // Should not crash and should eventually stop loading
       await waitFor(() => {
-        expect(screen.queryByText(/LOADING/i)).not.toBeInTheDocument();
+        expect(container.querySelector('.animate-pulse')).not.toBeInTheDocument();
       }, { timeout: 3000 });
     });
 
@@ -283,11 +284,11 @@ describe('AuditTemplatesPage', () => {
         json: () => Promise.resolve({ error: 'Server error' }),
       });
 
-      render(<AuditTemplatesPage />);
+      const { container } = render(<AuditTemplatesPage />);
 
       // Should not crash
       await waitFor(() => {
-        expect(screen.queryByText(/LOADING/i)).not.toBeInTheDocument();
+        expect(container.querySelector('.animate-pulse')).not.toBeInTheDocument();
       }, { timeout: 3000 });
     });
   });
@@ -312,7 +313,8 @@ describe('AuditTemplatesPage', () => {
       render(<AuditTemplatesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/AUDIT TEMPLATES/i)).toBeInTheDocument();
+        // Multiple elements contain this text (header and description)
+        expect(screen.getAllByText(/AUDIT TEMPLATES/i).length).toBeGreaterThanOrEqual(1);
       });
     });
 

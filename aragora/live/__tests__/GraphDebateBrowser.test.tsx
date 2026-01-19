@@ -60,7 +60,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Import after mocks
-import { GraphDebateBrowser } from '../src/components/GraphDebateBrowser';
+import { GraphDebateBrowser } from '@/components/graph-debate';
 import { useGraphDebateWebSocket } from '../src/hooks/useGraphDebateWebSocket';
 
 const mockGraphDebate = {

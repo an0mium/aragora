@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DebateViewer } from '../DebateViewer';
+import { DebateViewer } from '../debate-viewer/DebateViewer';
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -250,7 +250,7 @@ describe('DebateViewer', () => {
       render(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('LIVE DEBATE')).toBeInTheDocument();
-      expect(screen.getByText('Live debate task')).toBeInTheDocument();
+      expect(screen.getAllByText('Live debate task').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows complete status when done', () => {
@@ -325,7 +325,7 @@ describe('DebateViewer', () => {
 
       render(<DebateViewer debateId="adhoc_123" />);
 
-      expect(screen.getByText(/Waiting for agents to respond/)).toBeInTheDocument();
+      expect(screen.getByText(/Agents preparing proposals/)).toBeInTheDocument();
     });
 
     it('displays message count in header', () => {

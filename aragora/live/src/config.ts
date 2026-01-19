@@ -12,29 +12,67 @@
 const _API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const _WS_URL = process.env.NEXT_PUBLIC_WS_URL;
 const _CONTROL_PLANE_WS_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_WS_URL;
+const _NOMIC_LOOP_WS_URL = process.env.NEXT_PUBLIC_NOMIC_LOOP_WS_URL;
 
-// Warn in browser when env vars are missing (only warn once)
+// Detect production environment - check for production hostnames
+function isProductionEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  // Production if not localhost/127.0.0.1 and not a local IP
+  return (
+    hostname !== 'localhost' &&
+    hostname !== '127.0.0.1' &&
+    !hostname.startsWith('192.168.') &&
+    !hostname.startsWith('10.') &&
+    !hostname.endsWith('.local')
+  );
+}
+
+// CRITICAL: Fail fast in production if required env vars are missing
 if (typeof window !== 'undefined') {
-  if (!_API_BASE_URL) {
-    console.warn(
-      '[Aragora] NEXT_PUBLIC_API_URL not set, using localhost:8080 fallback. ' +
-      'This will fail in production - set the environment variable.'
+  const isProd = isProductionEnvironment();
+
+  if (isProd && (!_API_BASE_URL || !_WS_URL)) {
+    // In production, throw error to prevent silent failures
+    const missing = [];
+    if (!_API_BASE_URL) missing.push('NEXT_PUBLIC_API_URL');
+    if (!_WS_URL) missing.push('NEXT_PUBLIC_WS_URL');
+
+    console.error(
+      `[Aragora] CRITICAL: Missing required environment variables in production: ${missing.join(', ')}. ` +
+      'The application cannot connect to backend services. Please configure these in your deployment.'
     );
-  }
-  if (!_WS_URL) {
-    console.warn(
-      '[Aragora] NEXT_PUBLIC_WS_URL not set, using ws://localhost:8765/ws fallback. ' +
-      'This will fail in production - set the environment variable.'
-    );
+    // Show user-visible error instead of silent failure
+    if (document.body) {
+      const errorBanner = document.createElement('div');
+      errorBanner.id = 'aragora-config-error';
+      errorBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px;text-align:center;z-index:99999;font-family:monospace;';
+      errorBanner.textContent = `Configuration Error: Missing ${missing.join(', ')}. Contact your administrator.`;
+      document.body.prepend(errorBanner);
+    }
+  } else if (!isProd) {
+    // In development, just warn
+    if (!_API_BASE_URL) {
+      console.warn(
+        '[Aragora] NEXT_PUBLIC_API_URL not set, using localhost:8080 fallback (dev mode).'
+      );
+    }
+    if (!_WS_URL) {
+      console.warn(
+        '[Aragora] NEXT_PUBLIC_WS_URL not set, using ws://localhost:8765/ws fallback (dev mode).'
+      );
+    }
   }
 }
 
 export const API_BASE_URL = _API_BASE_URL || 'http://localhost:8080';
 export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
 export const CONTROL_PLANE_WS_URL = _CONTROL_PLANE_WS_URL || 'ws://localhost:8766/api/control-plane/stream';
+export const NOMIC_LOOP_WS_URL = _NOMIC_LOOP_WS_URL || 'ws://localhost:8767/api/nomic/stream';
 
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
+export const IS_PRODUCTION = typeof window !== 'undefined' && isProductionEnvironment();
 
 // === Debate Defaults ===
 // 9-round format: Round 0 (context), Rounds 1-7 (debate), Round 8 (adjudication)
@@ -131,46 +169,136 @@ export interface ApiFetchResult<T> {
   data: T | null;
   error: string | null;
   status?: number;
+  errorCode?: 'AUTH_REQUIRED' | 'FORBIDDEN' | 'RATE_LIMITED' | 'SERVER_ERROR' | 'NETWORK_ERROR' | 'TIMEOUT' | 'UNKNOWN';
+}
+
+// Retry configuration for API calls
+const API_RETRY_CONFIG = {
+  maxAttempts: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  // Don't retry auth errors (401) - user needs to re-login
+  shouldRetry: (error: Error) => {
+    const message = error.message.toLowerCase();
+    // Don't retry client errors (except rate limiting)
+    if (message.includes('401') || message.includes('403') || message.includes('404')) {
+      return false;
+    }
+    // Retry on network errors, timeouts, rate limiting, and server errors
+    return (
+      message.includes('failed to fetch') ||
+      message.includes('network') ||
+      message.includes('timeout') ||
+      message.includes('aborted') ||
+      message.includes('429') ||
+      message.includes('500') ||
+      message.includes('502') ||
+      message.includes('503') ||
+      message.includes('504')
+    );
+  },
+};
+
+function classifyHttpError(status: number): ApiFetchResult<never>['errorCode'] {
+  if (status === 401) return 'AUTH_REQUIRED';
+  if (status === 403) return 'FORBIDDEN';
+  if (status === 429) return 'RATE_LIMITED';
+  if (status >= 500) return 'SERVER_ERROR';
+  return 'UNKNOWN';
 }
 
 export async function apiFetch<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  retryOptions?: { maxAttempts?: number; skipRetry?: boolean }
 ): Promise<ApiFetchResult<T>> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const maxAttempts = retryOptions?.skipRetry ? 1 : (retryOptions?.maxAttempts ?? API_RETRY_CONFIG.maxAttempts);
+  let lastError: Error | null = null;
+  let lastStatus: number | undefined;
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
+      clearTimeout(timeoutId);
+      lastStatus = response.status;
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        const errorCode = classifyHttpError(response.status);
+
+        // Don't retry auth errors
+        if (errorCode === 'AUTH_REQUIRED' || errorCode === 'FORBIDDEN') {
+          return {
+            data: null,
+            error: errorText || `HTTP ${response.status}`,
+            status: response.status,
+            errorCode,
+          };
+        }
+
+        // For retryable errors, throw to trigger retry
+        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+        if (attempt < maxAttempts && API_RETRY_CONFIG.shouldRetry(lastError)) {
+          const delayMs = Math.min(
+            API_RETRY_CONFIG.initialDelayMs * Math.pow(2, attempt - 1),
+            API_RETRY_CONFIG.maxDelayMs
+          );
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+
+        return {
+          data: null,
+          error: errorText || `HTTP ${response.status}`,
+          status: response.status,
+          errorCode,
+        };
+      }
+
+      const data = await response.json();
+      return { data, error: null, status: response.status };
+    } catch (e) {
+      clearTimeout(timeoutId);
+      lastError = e instanceof Error ? e : new Error(String(e));
+
+      if (lastError.name === 'AbortError') {
+        return { data: null, error: 'Request timeout', errorCode: 'TIMEOUT' };
+      }
+
+      // Check if we should retry
+      if (attempt < maxAttempts && API_RETRY_CONFIG.shouldRetry(lastError)) {
+        const delayMs = Math.min(
+          API_RETRY_CONFIG.initialDelayMs * Math.pow(2, attempt - 1),
+          API_RETRY_CONFIG.maxDelayMs
+        );
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+
       return {
         data: null,
-        error: errorText || `HTTP ${response.status}`,
-        status: response.status,
+        error: lastError.message || 'Network error',
+        errorCode: 'NETWORK_ERROR',
       };
     }
-
-    const data = await response.json();
-    return { data, error: null, status: response.status };
-  } catch (e) {
-    clearTimeout(timeoutId);
-    if (e instanceof Error && e.name === 'AbortError') {
-      return { data: null, error: 'Request timeout' };
-    }
-    return {
-      data: null,
-      error: e instanceof Error ? e.message : 'Network error',
-    };
   }
+
+  // Exhausted all retries
+  return {
+    data: null,
+    error: lastError?.message || 'Request failed after retries',
+    status: lastStatus,
+    errorCode: lastStatus ? classifyHttpError(lastStatus) : 'NETWORK_ERROR',
+  };
 }

@@ -10,7 +10,7 @@
  */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { SettingsPanel } from '../src/components/SettingsPanel';
+import { SettingsPanel } from '@/components/settings-panel';
 
 // Mock the hooks
 jest.mock('../src/context/AuthContext', () => ({
@@ -229,7 +229,7 @@ describe('SettingsPanel', () => {
       fireEvent.click(screen.getByText('ACCOUNT'));
 
       await waitFor(() => {
-        expect(screen.getByText('Logout All Devices')).toBeInTheDocument();
+        expect(screen.getByText(/Logout All Devices/i)).toBeInTheDocument();
       });
     });
 

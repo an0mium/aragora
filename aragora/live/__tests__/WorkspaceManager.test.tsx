@@ -113,6 +113,8 @@ describe('WorkspaceManager', () => {
     mockLoading = false;
     mockError = null;
     jest.clearAllMocks();
+    // Make createWorkspace return a resolved promise
+    mockCreateWorkspace.mockResolvedValue({ id: 'ws_new', name: 'New Workspace' });
   });
 
   describe('Header', () => {

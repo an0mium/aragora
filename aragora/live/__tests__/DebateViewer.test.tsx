@@ -3,7 +3,7 @@
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
-import { DebateViewer } from '../src/components/DebateViewer';
+import { DebateViewer } from '@/components/debate-viewer/DebateViewer';
 import { useDebateWebSocket } from '../src/hooks/useDebateWebSocket';
 import { fetchDebateById } from '../src/utils/supabase';
 
@@ -79,7 +79,7 @@ describe('DebateViewer live debates', () => {
     render(<DebateViewer debateId="adhoc_live-123" wsUrl="ws://localhost:3001" />);
 
     expect(screen.getByText(/connecting\.\.\./i)).toBeInTheDocument();
-    expect(screen.getByText(/waiting for debate to start/i)).toBeInTheDocument();
+    expect(screen.getByText(/waiting for debate topic/i)).toBeInTheDocument();
   });
 
   it('renders live debate content when streaming', () => {

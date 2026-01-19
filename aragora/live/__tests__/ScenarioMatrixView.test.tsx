@@ -11,7 +11,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Import after mocks are set up
-import { ScenarioMatrixView } from '../src/components/ScenarioMatrixView';
+import { ScenarioMatrixView } from '@/components/scenario-matrix';
 
 const mockMatrixResult = {
   matrix_id: 'matrix-1',

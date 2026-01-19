@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { useNomicLoopWebSocket } from '@/hooks/useNomicLoopWebSocket';
 
 interface NomicState {
   running: boolean;
@@ -48,26 +49,69 @@ const PHASES = ['context', 'debate', 'design', 'implement', 'verify'] as const;
 
 export default function NomicControlPage() {
   const { config: backendConfig } = useBackend();
-  const [state, setState] = useState<NomicState | null>(null);
+  const [httpState, setHttpState] = useState<NomicState | null>(null);
   const [health, setHealth] = useState<NomicHealth | null>(null);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [httpProposals, setHttpProposals] = useState<Proposal[]>([]);
   const [logs, setLogs] = useState<LogEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [cycleCount, setCycleCount] = useState(1);
   const [autoApprove, setAutoApprove] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
 
-  // Fetch nomic state
+  // WebSocket hook for real-time updates
+  const {
+    isConnected: wsConnected,
+    loopState: wsLoopState,
+    proposals: wsProposals,
+    logMessages: wsLogMessages,
+  } = useNomicLoopWebSocket({
+    enabled: true,
+    autoReconnect: true,
+  });
+
+  // Merge WebSocket state with HTTP state (prefer WS when connected)
+  const state = useMemo<NomicState | null>(() => {
+    if (wsConnected && wsLoopState) {
+      return {
+        running: wsLoopState.running,
+        paused: wsLoopState.paused,
+        cycle: wsLoopState.currentCycle,
+        phase: wsLoopState.currentPhase || 'not_running',
+        started_at: wsLoopState.startedAt,
+        target_cycles: wsLoopState.totalCycles,
+      };
+    }
+    return httpState;
+  }, [wsConnected, wsLoopState, httpState]);
+
+  // Merge proposals from WebSocket and HTTP (prefer WS when available)
+  const proposals = useMemo<Proposal[]>(() => {
+    if (wsConnected && wsProposals.length > 0) {
+      return wsProposals
+        .filter(p => p.status === 'pending')
+        .map(p => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          status: p.status,
+          created_at: new Date(p.generatedAt).toISOString(),
+          category: p.phase,
+          risk_level: 'medium' as const,
+        }));
+    }
+    return httpProposals;
+  }, [wsConnected, wsProposals, httpProposals]);
+
+  // Fetch nomic state (fallback for HTTP polling)
   const fetchState = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/nomic/state`);
       if (!response.ok) throw new Error('Failed to fetch state');
       const data = await response.json();
-      setState(data);
+      setHttpState(data);
     } catch {
-      setState({
+      setHttpState({
         running: false,
         paused: false,
         cycle: 0,
@@ -93,15 +137,15 @@ export default function NomicControlPage() {
     }
   }, [backendConfig.api]);
 
-  // Fetch proposals
+  // Fetch proposals (fallback for HTTP polling)
   const fetchProposals = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/nomic/proposals`);
       if (!response.ok) throw new Error('Failed to fetch proposals');
       const data = await response.json();
-      setProposals(data.proposals || []);
+      setHttpProposals(data.proposals || []);
     } catch {
-      setProposals([]);
+      setHttpProposals([]);
     }
   }, [backendConfig.api]);
 
@@ -123,16 +167,17 @@ export default function NomicControlPage() {
     setLoading(false);
   }, [fetchState, fetchHealth, fetchProposals]);
 
+  // Initial data fetch
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
-  // Auto-refresh
+  // Fallback polling when WebSocket is disconnected
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (wsConnected) return; // Don't poll when WebSocket is connected
     const interval = setInterval(fetchAll, 3000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchAll]);
+  }, [wsConnected, fetchAll]);
 
   // Control actions
   const startLoop = async () => {
@@ -277,13 +322,10 @@ export default function NomicControlPage() {
             </Link>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
-                <button
-                  onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="text-xs font-mono text-text-muted hover:text-text transition-colors"
-                >
-                  {autoRefresh ? 'LIVE' : 'PAUSED'}
-                </button>
+                <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-success animate-pulse' : 'bg-acid-yellow'}`} />
+                <span className="text-xs font-mono text-text-muted">
+                  {wsConnected ? 'WS LIVE' : 'POLLING'}
+                </span>
               </div>
               <Link
                 href="/control-plane"

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { DeepAuditView, DeepAuditToggle } from '../src/components/DeepAuditView';
+import { DeepAuditView, DeepAuditToggle } from '@/components/deep-audit';
 import type { StreamEvent } from '../src/types/events';
 
 // Mock child components

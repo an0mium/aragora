@@ -4,15 +4,21 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 
-import { API_BASE_URL } from '@/config';
+import { API_BASE_URL, WS_URL } from '@/config';
 
-const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.aragora.ai/ws';
+// Use centralized WS_URL from config (already handles env var with fallback)
+const DEFAULT_WS_URL = WS_URL;
 
-// Timeout for waiting for debate_start event (increased for slow models like DeepSeek)
-const DEBATE_START_TIMEOUT_MS = 60000; // 60 seconds
+// Timeout for waiting for debate_start event
+// Increased to 180s for slow models like DeepSeek R1 which can take 90-120s for initial response
+// Configurable via env var for deployments with faster/slower backends
+const DEBATE_START_TIMEOUT_MS = parseInt(
+  process.env.NEXT_PUBLIC_WS_DEBATE_TIMEOUT || '180000',
+  10
+); // 180 seconds (3 minutes)
 
 // Activity timeout - how long to wait without any events before considering connection dead
-const DEBATE_ACTIVITY_TIMEOUT_MS = 120000; // 2 minutes
+const DEBATE_ACTIVITY_TIMEOUT_MS = 300000; // 5 minutes (increased for slow models)
 
 export interface TranscriptMessage {
   agent: string;
