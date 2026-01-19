@@ -54,7 +54,7 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
         role: str = "proposer",
         timeout: int = 180,  # Increased from 60s - allow more time for complex responses
         api_key: str | None = None,
-        enable_fallback: bool = True,
+        enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker_threshold: int = 5,  # Increased from 3 - less aggressive fallback
     ):
         super().__init__(
@@ -68,7 +68,13 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
             circuit_breaker_cooldown=90.0,  # Standard cooldown (was 60s)
         )
         self.agent_type = "mistral"
-        self.enable_fallback = enable_fallback
+        # Use config setting if not explicitly provided
+        if enable_fallback is None:
+            from aragora.agents.fallback import get_default_fallback_enabled
+
+            self.enable_fallback = get_default_fallback_enabled()
+        else:
+            self.enable_fallback = enable_fallback
         self._fallback_agent = None
 
 

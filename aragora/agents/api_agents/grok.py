@@ -41,7 +41,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
         role: str = "proposer",
         timeout: int = 120,
         api_key: str | None = None,
-        enable_fallback: bool = True,
+        enable_fallback: bool | None = None,  # None = use config setting
     ):
         super().__init__(
             name=name,
@@ -52,7 +52,13 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
             base_url="https://api.x.ai/v1",
         )
         self.agent_type = "grok"
-        self.enable_fallback = enable_fallback
+        # Use config setting if not explicitly provided
+        if enable_fallback is None:
+            from aragora.agents.fallback import get_default_fallback_enabled
+
+            self.enable_fallback = get_default_fallback_enabled()
+        else:
+            self.enable_fallback = enable_fallback
         self._fallback_agent = None
 
 
