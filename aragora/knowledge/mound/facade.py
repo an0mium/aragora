@@ -92,12 +92,14 @@ if TYPE_CHECKING:
     )
     from aragora.rlm.types import RLMContext
 
-# Check for RLM availability
+# Check for RLM availability (prefer factory for TRUE RLM support)
 try:
-    from aragora.rlm import HierarchicalCompressor, RLMConfig, AbstractionLevel, RLMContext
+    from aragora.rlm import get_rlm, RLMConfig, AbstractionLevel, RLMContext, HAS_OFFICIAL_RLM
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
+    HAS_OFFICIAL_RLM = False
+    get_rlm = None  # type: ignore[misc,assignment]
     HierarchicalCompressor = None  # type: ignore[misc,assignment]
     RLMConfig = None  # type: ignore[misc,assignment]
     AbstractionLevel = None  # type: ignore[misc,assignment]
@@ -125,7 +127,7 @@ class KnowledgeMound:
         self,
         config: Optional[MoundConfig] = None,
         workspace_id: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize the Knowledge Mound.
 
@@ -528,7 +530,7 @@ class KnowledgeMound:
         # Return a dict-like object that has node_type and content
         # This maintains compatibility with code expecting KnowledgeNode interface
         class NodeProxy:
-            def __init__(self, item: KnowledgeItem):
+            def __init__(self, item: KnowledgeItem) -> None:
                 self.id = item.id
                 self.content = item.content
                 self.confidence = float(item.confidence.value) if hasattr(item.confidence, "value") else item.confidence
@@ -789,14 +791,20 @@ class KnowledgeMound:
                 })
         else:
             # Get all nodes up to limit using local query
-            all_items = await self._query_local("", None, limit)
+            all_items = await self._query_local("", None, limit, self.workspace_id)
             for item in all_items[:limit]:
                 node_ids.add(item.id)
+                # KnowledgeItem uses 'source', not 'source_type'
+                source = getattr(item, 'source', None) or getattr(item, 'source_type', None)
+                source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
+                confidence = getattr(item, 'confidence', 0.0)
+                if hasattr(confidence, 'value'):
+                    confidence = confidence.value
                 nodes.append({
                     "id": item.id,
                     "label": (item.content[:100] if item.content else "")[:100],
-                    "type": item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type),
-                    "confidence": item.confidence,
+                    "type": source_str,
+                    "confidence": confidence,
                 })
 
             # Get relationships between collected nodes
@@ -805,11 +813,14 @@ class KnowledgeMound:
                 for rel in rels:
                     target = rel.target_id if rel.source_id == node_id else rel.source_id
                     if target in node_ids:
+                        # KnowledgeLink uses 'relationship', not 'relationship_type'
+                        rel_type = getattr(rel, 'relationship', None) or getattr(rel, 'relationship_type', None)
+                        rel_type_str = rel_type.value if hasattr(rel_type, 'value') else str(rel_type) if rel_type else 'related'
                         links.append({
                             "source": rel.source_id,
                             "target": rel.target_id,
-                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
-                            "strength": rel.strength if hasattr(rel, 'strength') else 0.5,
+                            "type": rel_type_str,
+                            "strength": getattr(rel, 'strength', 0.5) or getattr(rel, 'confidence', 0.5) or 0.5,
                         })
 
         return {"nodes": nodes, "links": links}
@@ -932,37 +943,47 @@ class KnowledgeMound:
 
         full_content = "\n---\n".join(content_parts)
 
-        # Create compressor
-        config = RLMConfig() if RLMConfig else None
-        compressor = HierarchicalCompressor(
-            config=config,
-            agent_call=agent_call,
-        ) if HierarchicalCompressor else None
-
-        if not compressor:
-            logger.warning("Failed to create RLM compressor")
+        # Get AragoraRLM instance (routes to TRUE RLM when available)
+        if get_rlm is None:
+            logger.warning("RLM factory not available")
             return None
 
-        # Compress into hierarchical context
         try:
-            result = await compressor.compress(
+            config = RLMConfig() if RLMConfig else None
+            rlm = get_rlm(config=config)
+        except Exception as e:
+            logger.warning(f"Failed to get RLM instance: {e}")
+            return None
+
+        # Query using AragoraRLM (routes to TRUE RLM if available)
+        try:
+            result = await rlm.compress_and_query(
+                query=f"Summarize the key knowledge from these {len(items)} items",
                 content=full_content,
                 source_type="knowledge",
-                max_levels=3,
             )
 
-            logger.info(
-                "[rlm] Built hierarchical context from %d knowledge items "
-                "(%d tokens → %d levels)",
-                len(items),
-                result.original_tokens,
-                len(result.context.levels),
-            )
+            if result and result.answer:
+                # Log which approach was used
+                if result.used_true_rlm:
+                    logger.info(
+                        "[rlm] Built knowledge context using TRUE RLM from %d items "
+                        "(model wrote code to examine content)",
+                        len(items),
+                    )
+                elif result.used_compression_fallback:
+                    logger.info(
+                        "[rlm] Built knowledge context using compression from %d items",
+                        len(items),
+                    )
 
-            return result.context
+                # Return the RLM context from the result
+                return result.context if hasattr(result, 'context') and result.context else None
+
+            return None
 
         except Exception as e:
-            logger.error(f"RLM compression failed: {e}")
+            logger.error(f"RLM query failed: {e}")
             return None
 
     def is_rlm_available(self) -> bool:
