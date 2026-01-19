@@ -54,6 +54,26 @@
 - Handler registry improvements
 - RLM cognitive load limiter integrated into Arena via `use_rlm_limiter` config
 - ArenaConfig API alignment with Arena.__init__ parameters
+- Auto-wiring of RLM compression into debate rounds (triggers after round 3)
+
+**RLM Cognitive Load Limiter** (NEW)
+
+Enables context compression for long debates using hierarchical summarization:
+
+```python
+from aragora.debate.orchestrator import Arena
+from aragora.debate.arena_config import ArenaConfig
+
+config = ArenaConfig(
+    use_rlm_limiter=True,                  # Enable RLM compression
+    rlm_compression_threshold=5000,        # Chars to trigger compression
+    rlm_max_recent_messages=3,             # Keep N recent at full detail
+    rlm_compression_round_threshold=3,     # Start after round N
+)
+arena = Arena.from_config(env, agents, protocol, config)
+```
+
+When enabled, older debate context is automatically compressed while recent messages are kept at full detail, preventing context window overflow during long debates.
 
 ---
 
