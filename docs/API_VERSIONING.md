@@ -26,9 +26,11 @@ Accept: application/json; version=2
 
 | Version | Status | Released | Sunset Date |
 |---------|--------|----------|-------------|
-| v1 | Stable | 2024-01-01 | - |
-| v2 | Beta | 2025-01-01 | - |
-| v3 | Alpha | 2026-01-01 | - |
+| v1 | **Deprecated** | 2024-01-01 | **2026-06-01** |
+| v2 | Stable (Current) | 2025-01-01 | - |
+
+> **Important:** API v1 will be removed on June 1, 2026. Please migrate to v2 before this date.
+> All v1 endpoints now return `Sunset: 2026-06-01` and `Deprecation` headers.
 
 ## Version Selection Priority
 
