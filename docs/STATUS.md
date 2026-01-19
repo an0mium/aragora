@@ -1,8 +1,59 @@
 # Aragora Project Status
 
-*Last updated: January 18, 2026 (16:30 UTC)*
+*Last updated: January 18, 2026 (22:00 UTC)*
 
 ## Current Release
+
+### v2.0.1 - Feature Integration & Consolidation Release (January 2026)
+
+**Production Ready** - Aragora 2.0.1 focuses on frontend error handling, expanded E2E testing, and feature integration improvements.
+
+#### Key Highlights
+- **34,300+ tests** collected and passing (+5,400 new tests)
+- **Production Readiness**: 99%+ (all major systems complete)
+- **Lines of Code**: 440,000+ LOC (+10,000)
+- **0 production blockers**
+- **0 uncommitted files**
+
+#### What's New in 2.0.1
+
+**Frontend Error Handling Improvements** (NEW)
+- `PluginMarketplacePanel` - Error states for installed plugins fetch
+- `GauntletPanel` - Error states with retry for details fetch
+- Eliminated silent error handling in key components
+
+**ML Dashboard UI** (NEW)
+- `/ml` page for ML routing and scoring visualization
+- `MLDashboard` component with delegation metrics
+- Real-time ML model performance monitoring
+
+**Nomic Loop WebSocket Streaming** (NEW)
+- `useNomicLoopWebSocket` hook for real-time updates
+- Server-side nomic loop stream handler
+- Enhanced nomic-control page integration
+
+**Event Emission System** (NEW)
+- `event_emission.py` - Debate lifecycle event utilities
+- `arena_hooks.py` - Server-side debate streaming hooks
+- Improved debate rounds phase event handling
+
+**Expanded E2E Test Coverage** (NEW)
+- `memory.spec.ts` - 23 tests for memory explorer page
+- `gauntlet.spec.ts` - 12 tests for gauntlet stress-testing
+- Total E2E tests: 420+ (up from 387)
+
+**New Backend Test Suites** (NEW)
+- `tests/gauntlet/` - Gauntlet stress testing (5,410+ lines)
+- `tests/memory/` - Consensus, store, tier manager tests
+- `tests/ranking/` - Calibration, leaderboard, relationships tests
+
+**Backend Improvements**
+- Auth v2 middleware for improved authentication
+- Knowledge handler enhancements
+- Server startup utilities
+- Handler registry improvements
+
+---
 
 ### v2.0.0 - Enterprise & Production Hardening Release (January 2026)
 
