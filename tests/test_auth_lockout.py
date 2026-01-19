@@ -60,7 +60,7 @@ def mock_user():
 
 @pytest.fixture
 def mock_admin_user():
-    """Create a mock admin user."""
+    """Create a mock admin user with MFA enabled."""
     user = Mock()
     user.id = "admin-001"
     user.email = "admin@example.com"
@@ -68,6 +68,7 @@ def mock_admin_user():
     user.org_id = "org-456"
     user.role = "admin"
     user.is_active = True
+    user.mfa_enabled = True  # Admin requires MFA
     return user
 
 
@@ -515,11 +516,13 @@ class TestAdminUnlockEndpoint:
         ctx = {"user_store": mock_user_store}
         handler = AdminHandler(ctx)
 
-        # Mock authentication - patch at the module where it's imported
-        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
+        # Mock authentication and MFA policy
+        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract, \
+             patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None):
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"
+            mock_auth_ctx.mfa_verified = True
             mock_extract.return_value = mock_auth_ctx
 
             # Call unlock endpoint
@@ -542,7 +545,7 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Patch at the module where it's imported
-        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
+        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = mock_user.id
@@ -563,11 +566,13 @@ class TestAdminUnlockEndpoint:
         ctx = {"user_store": mock_user_store}
         handler = AdminHandler(ctx)
 
-        # Patch at the module where it's imported
-        with patch("aragora.server.handlers.admin.extract_user_from_request") as mock_extract:
+        # Mock authentication and MFA policy
+        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract, \
+             patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None):
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"
+            mock_auth_ctx.mfa_verified = True
             mock_extract.return_value = mock_auth_ctx
 
             result = handler._unlock_user(mock_handler, "nonexistent-user")

@@ -97,7 +97,7 @@ class TestMFARateLimiting:
     @pytest.mark.skipif(
         True, reason="pyotp not installed in test environment"  # Skip if pyotp is not available
     )
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_mfa_user_rate_limit_triggered(
         self, mock_validate_pending, mock_extract_user, mock_user_store, mock_user, mock_handler
@@ -140,7 +140,7 @@ class TestMFARateLimiting:
 class TestSessionRegeneration:
     """Tests for session regeneration on privilege escalation."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_password_change_invalidates_sessions(
         self, mock_extract_user, mock_user_store, mock_user, mock_handler
     ):
@@ -209,7 +209,7 @@ class TestSessionRegeneration:
         }
 
         # Mock both extract_user and TOTP verification
-        with patch("aragora.server.handlers.auth.extract_user_from_request", return_value=auth_ctx):
+        with patch("aragora.server.handlers.auth.handler.extract_user_from_request", return_value=auth_ctx):
             with patch.object(pyotp, "TOTP") as mock_totp_class:
                 mock_totp = Mock()
                 mock_totp.verify.return_value = True

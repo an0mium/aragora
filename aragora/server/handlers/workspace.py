@@ -117,6 +117,18 @@ class WorkspaceHandler(BaseHandler):
             self._audit_log = PrivacyAuditLog()
         return self._audit_log
 
+    def _run_async(self, coro):
+        """Run an async coroutine from sync context.
+
+        Creates a new event loop, runs the coroutine, and cleans up.
+        This centralizes the async-from-sync pattern used throughout.
+        """
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
     def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
@@ -335,36 +347,26 @@ class WorkspaceHandler(BaseHandler):
         initial_members = body.get("members", [])
 
         manager = self._get_isolation_manager()
-
-        # Run async method
-        loop = asyncio.new_event_loop()
-        try:
-            workspace = loop.run_until_complete(
-                manager.create_workspace(
-                    organization_id=org_id,
-                    name=name,
-                    created_by=auth_ctx.user_id,
-                    initial_members=initial_members,
-                )
+        workspace = self._run_async(
+            manager.create_workspace(
+                organization_id=org_id,
+                name=name,
+                created_by=auth_ctx.user_id,
+                initial_members=initial_members,
             )
-        finally:
-            loop.close()
+        )
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.CREATE_WORKSPACE,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=workspace.id, type="workspace", workspace_id=workspace.id),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"name": name, "org_id": org_id},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.CREATE_WORKSPACE,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=workspace.id, type="workspace", workspace_id=workspace.id),
+                outcome=AuditOutcome.SUCCESS,
+                details={"name": name, "org_id": org_id},
             )
-        finally:
-            loop.close()
+        )
 
         logger.info(f"Created workspace {workspace.id} for org {org_id}")
 
@@ -386,17 +388,12 @@ class WorkspaceHandler(BaseHandler):
 
         org_id = query_params.get("organization_id", auth_ctx.org_id)
         manager = self._get_isolation_manager()
-
-        loop = asyncio.new_event_loop()
-        try:
-            workspaces = loop.run_until_complete(
-                manager.list_workspaces(
-                    actor=auth_ctx.user_id,
-                    organization_id=org_id,
-                )
+        workspaces = self._run_async(
+            manager.list_workspaces(
+                actor=auth_ctx.user_id,
+                organization_id=org_id,
             )
-        finally:
-            loop.close()
+        )
 
         return json_response(
             {
@@ -414,10 +411,8 @@ class WorkspaceHandler(BaseHandler):
             return error_response("Not authenticated", 401)
 
         manager = self._get_isolation_manager()
-
-        loop = asyncio.new_event_loop()
         try:
-            workspace = loop.run_until_complete(
+            workspace = self._run_async(
                 manager.get_workspace(
                     workspace_id=workspace_id,
                     actor=auth_ctx.user_id,
@@ -425,8 +420,6 @@ class WorkspaceHandler(BaseHandler):
             )
         except AccessDeniedException as e:
             return error_response(str(e), 403)
-        finally:
-            loop.close()
 
         return json_response({"workspace": workspace.to_dict()})
 
@@ -444,10 +437,8 @@ class WorkspaceHandler(BaseHandler):
         force = body.get("force", False)
 
         manager = self._get_isolation_manager()
-
-        loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(
+            self._run_async(
                 manager.delete_workspace(
                     workspace_id=workspace_id,
                     deleted_by=auth_ctx.user_id,
@@ -456,23 +447,17 @@ class WorkspaceHandler(BaseHandler):
             )
         except AccessDeniedException as e:
             return error_response(str(e), 403)
-        finally:
-            loop.close()
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.DELETE_WORKSPACE,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
-                    outcome=AuditOutcome.SUCCESS,
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.DELETE_WORKSPACE,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
+                outcome=AuditOutcome.SUCCESS,
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"message": "Workspace deleted successfully"})
 
@@ -498,10 +483,8 @@ class WorkspaceHandler(BaseHandler):
         permissions = [WorkspacePermission(p) for p in permissions_raw]
 
         manager = self._get_isolation_manager()
-
-        loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(
+            self._run_async(
                 manager.add_member(
                     workspace_id=workspace_id,
                     user_id=user_id,
@@ -511,24 +494,18 @@ class WorkspaceHandler(BaseHandler):
             )
         except AccessDeniedException as e:
             return error_response(str(e), 403)
-        finally:
-            loop.close()
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.ADD_MEMBER,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"added_user_id": user_id, "permissions": permissions_raw},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.ADD_MEMBER,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
+                outcome=AuditOutcome.SUCCESS,
+                details={"added_user_id": user_id, "permissions": permissions_raw},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"message": f"Member {user_id} added to workspace"}, status=201)
 
@@ -543,10 +520,8 @@ class WorkspaceHandler(BaseHandler):
             return error_response("Not authenticated", 401)
 
         manager = self._get_isolation_manager()
-
-        loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(
+            self._run_async(
                 manager.remove_member(
                     workspace_id=workspace_id,
                     user_id=user_id,
@@ -555,24 +530,18 @@ class WorkspaceHandler(BaseHandler):
             )
         except AccessDeniedException as e:
             return error_response(str(e), 403)
-        finally:
-            loop.close()
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.REMOVE_MEMBER,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"removed_user_id": user_id},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.REMOVE_MEMBER,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=workspace_id, type="workspace", workspace_id=workspace_id),
+                outcome=AuditOutcome.SUCCESS,
+                details={"removed_user_id": user_id},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"message": f"Member {user_id} removed from workspace"})
 
@@ -657,19 +626,15 @@ class WorkspaceHandler(BaseHandler):
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.MODIFY_POLICY,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=policy.id, type="retention_policy"),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"operation": "create", "name": name},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.MODIFY_POLICY,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=policy.id, type="retention_policy"),
+                outcome=AuditOutcome.SUCCESS,
+                details={"operation": "create", "name": name},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response(
             {
@@ -749,19 +714,15 @@ class WorkspaceHandler(BaseHandler):
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.MODIFY_POLICY,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=policy_id, type="retention_policy"),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"operation": "update", "changes": list(body.keys())},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.MODIFY_POLICY,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=policy_id, type="retention_policy"),
+                outcome=AuditOutcome.SUCCESS,
+                details={"operation": "update", "changes": list(body.keys())},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response(
             {
@@ -789,19 +750,15 @@ class WorkspaceHandler(BaseHandler):
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.MODIFY_POLICY,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=policy_id, type="retention_policy"),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"operation": "delete"},
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.MODIFY_POLICY,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=policy_id, type="retention_policy"),
+                outcome=AuditOutcome.SUCCESS,
+                details={"operation": "delete"},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"message": "Policy deleted successfully"})
 
@@ -818,33 +775,26 @@ class WorkspaceHandler(BaseHandler):
         dry_run = query_params.get("dry_run", "false").lower() == "true"
         manager = self._get_retention_manager()
 
-        loop = asyncio.new_event_loop()
         try:
-            report = loop.run_until_complete(manager.execute_policy(policy_id, dry_run=dry_run))
+            report = self._run_async(manager.execute_policy(policy_id, dry_run=dry_run))
         except ValueError as e:
             return error_response(str(e), 404)
-        finally:
-            loop.close()
 
         # Log to audit
         audit_log = self._get_audit_log()
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.EXECUTE_RETENTION,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=policy_id, type="retention_policy"),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={
-                        "dry_run": dry_run,
-                        "items_deleted": report.items_deleted,
-                        "items_evaluated": report.items_evaluated,
-                    },
-                )
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.EXECUTE_RETENTION,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=policy_id, type="retention_policy"),
+                outcome=AuditOutcome.SUCCESS,
+                details={
+                    "dry_run": dry_run,
+                    "items_deleted": report.items_deleted,
+                    "items_evaluated": report.items_evaluated,
+                },
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"report": report.to_dict(), "dry_run": dry_run})
 
@@ -860,14 +810,9 @@ class WorkspaceHandler(BaseHandler):
         days = int(query_params.get("days", "14"))
 
         manager = self._get_retention_manager()
-
-        loop = asyncio.new_event_loop()
-        try:
-            expiring = loop.run_until_complete(
-                manager.check_expiring_soon(workspace_id=workspace_id, days=days)
-            )
-        finally:
-            loop.close()
+        expiring = self._run_async(
+            manager.check_expiring_soon(workspace_id=workspace_id, days=days)
+        )
 
         return json_response({"expiring": expiring, "total": len(expiring), "days_ahead": days})
 
@@ -896,39 +841,30 @@ class WorkspaceHandler(BaseHandler):
         metadata = body.get("metadata", {})
 
         classifier = self._get_classifier()
-
-        loop = asyncio.new_event_loop()
-        try:
-            result = loop.run_until_complete(
-                classifier.classify(
-                    content=content,
-                    document_id=document_id,
-                    metadata=metadata,
-                )
+        result = self._run_async(
+            classifier.classify(
+                content=content,
+                document_id=document_id,
+                metadata=metadata,
             )
-        finally:
-            loop.close()
+        )
 
         # Log to audit if document_id provided
         if document_id:
             audit_log = self._get_audit_log()
-            loop = asyncio.new_event_loop()
-            try:
-                loop.run_until_complete(
-                    audit_log.log(
-                        action=AuditAction.CLASSIFY_DOCUMENT,
-                        actor=Actor(id=auth_ctx.user_id, type="user"),
-                        resource=Resource(
-                            id=document_id,
-                            type="document",
-                            sensitivity_level=result.level.value,
-                        ),
-                        outcome=AuditOutcome.SUCCESS,
-                        details={"level": result.level.value, "confidence": result.confidence},
-                    )
+            self._run_async(
+                audit_log.log(
+                    action=AuditAction.CLASSIFY_DOCUMENT,
+                    actor=Actor(id=auth_ctx.user_id, type="user"),
+                    resource=Resource(
+                        id=document_id,
+                        type="document",
+                        sensitivity_level=result.level.value,
+                    ),
+                    outcome=AuditOutcome.SUCCESS,
+                    details={"level": result.level.value, "confidence": result.confidence},
                 )
-            finally:
-                loop.close()
+            )
 
         return json_response({"classification": result.to_dict()})
 
@@ -982,23 +918,18 @@ class WorkspaceHandler(BaseHandler):
         outcome = AuditOutcome(outcome_str) if outcome_str else None
 
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            entries = loop.run_until_complete(
-                audit_log.query(
-                    start_date=start_date,
-                    end_date=end_date,
-                    actor_id=actor_id,
-                    resource_id=resource_id,
-                    workspace_id=workspace_id,
-                    action=action,
-                    outcome=outcome,
-                    limit=limit,
-                )
+        entries = self._run_async(
+            audit_log.query(
+                start_date=start_date,
+                end_date=end_date,
+                actor_id=actor_id,
+                resource_id=resource_id,
+                workspace_id=workspace_id,
+                action=action,
+                outcome=outcome,
+                limit=limit,
             )
-        finally:
-            loop.close()
+        )
 
         return json_response(
             {
@@ -1027,30 +958,25 @@ class WorkspaceHandler(BaseHandler):
         format_type = query_params.get("format", "json")
 
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            report = loop.run_until_complete(
-                audit_log.generate_compliance_report(
-                    start_date=start_date,
-                    end_date=end_date,
-                    workspace_id=workspace_id,
-                    format=format_type,
-                )
+        report = self._run_async(
+            audit_log.generate_compliance_report(
+                start_date=start_date,
+                end_date=end_date,
+                workspace_id=workspace_id,
+                format=format_type,
             )
+        )
 
-            # Log report generation
-            loop.run_until_complete(
-                audit_log.log(
-                    action=AuditAction.GENERATE_REPORT,
-                    actor=Actor(id=auth_ctx.user_id, type="user"),
-                    resource=Resource(id=report["report_id"], type="compliance_report"),
-                    outcome=AuditOutcome.SUCCESS,
-                    details={"workspace_id": workspace_id},
-                )
+        # Log report generation
+        self._run_async(
+            audit_log.log(
+                action=AuditAction.GENERATE_REPORT,
+                actor=Actor(id=auth_ctx.user_id, type="user"),
+                resource=Resource(id=report["report_id"], type="compliance_report"),
+                outcome=AuditOutcome.SUCCESS,
+                details={"workspace_id": workspace_id},
             )
-        finally:
-            loop.close()
+        )
 
         return json_response({"report": report})
 
@@ -1070,14 +996,9 @@ class WorkspaceHandler(BaseHandler):
             end_date = datetime.fromisoformat(query_params["end_date"])
 
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            is_valid, errors = loop.run_until_complete(
-                audit_log.verify_integrity(start_date=start_date, end_date=end_date)
-            )
-        finally:
-            loop.close()
+        is_valid, errors = self._run_async(
+            audit_log.verify_integrity(start_date=start_date, end_date=end_date)
+        )
 
         return json_response(
             {
@@ -1098,14 +1019,9 @@ class WorkspaceHandler(BaseHandler):
 
         days = int(query_params.get("days", "30"))
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            entries = loop.run_until_complete(
-                audit_log.get_actor_history(actor_id=actor_id, days=days)
-            )
-        finally:
-            loop.close()
+        entries = self._run_async(
+            audit_log.get_actor_history(actor_id=actor_id, days=days)
+        )
 
         return json_response(
             {
@@ -1128,14 +1044,9 @@ class WorkspaceHandler(BaseHandler):
 
         days = int(query_params.get("days", "30"))
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            entries = loop.run_until_complete(
-                audit_log.get_resource_history(resource_id=resource_id, days=days)
-            )
-        finally:
-            loop.close()
+        entries = self._run_async(
+            audit_log.get_resource_history(resource_id=resource_id, days=days)
+        )
 
         return json_response(
             {
@@ -1156,12 +1067,7 @@ class WorkspaceHandler(BaseHandler):
 
         days = int(query_params.get("days", "7"))
         audit_log = self._get_audit_log()
-
-        loop = asyncio.new_event_loop()
-        try:
-            entries = loop.run_until_complete(audit_log.get_denied_access_attempts(days=days))
-        finally:
-            loop.close()
+        entries = self._run_async(audit_log.get_denied_access_attempts(days=days))
 
         return json_response(
             {

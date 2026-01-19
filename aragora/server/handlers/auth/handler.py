@@ -612,9 +612,15 @@ class AuthHandler(BaseHandler):
             password_salt=password_salt,
         )
 
+        # Invalidate all existing sessions by incrementing token version
+        user_store.increment_token_version(user.id)
+
         logger.info(f"Password changed for user: {user.email}")
 
-        return json_response({"message": "Password changed successfully"})
+        return json_response({
+            "message": "Password changed successfully",
+            "sessions_invalidated": True,
+        })
 
     @rate_limit(rpm=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
@@ -849,6 +855,9 @@ class AuthHandler(BaseHandler):
             mfa_backup_codes=json_module.dumps(backup_hashes),
         )
 
+        # Invalidate all existing sessions by incrementing token version
+        user_store.increment_token_version(user.id)
+
         logger.info(f"MFA enabled for user: {user.email}")
 
         return json_response(
@@ -856,6 +865,7 @@ class AuthHandler(BaseHandler):
                 "message": "MFA enabled successfully",
                 "backup_codes": backup_codes,
                 "warning": "Save these backup codes securely. They cannot be shown again.",
+                "sessions_invalidated": True,
             }
         )
 
