@@ -473,10 +473,36 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         full_content = "\n\n".join(content_parts)
 
-        # Try RLM compression
+        # Prefer TRUE RLM via AragoraRLM if available
+        if self._aragora_rlm:
+            try:
+                logger.info(
+                    "[RLMCognitiveLoadLimiter] Using AragoraRLM for compression "
+                    "(routes to TRUE RLM if available)"
+                )
+                # Use AragoraRLM.compress_and_query - it will use true RLM if available
+                result = await self._aragora_rlm.compress_and_query(
+                    query=f"Summarize this debate at {target_level} level",
+                    content=full_content,
+                    source_type="debate",
+                )
+                if result.answer:
+                    return Message(
+                        agent="system",
+                        role="context",
+                        content=f"## Compressed Debate History ({len(messages)} messages)\n\n{result.answer}",
+                        round=-1,
+                    )
+            except Exception as e:
+                logger.warning(f"AragoraRLM compression failed: {e}")
+
+        # Fallback: Use HierarchicalCompressor directly (compression-only approach)
         if self.compressor:
             try:
-                # HierarchicalCompressor.compress() is async
+                logger.debug(
+                    "[RLMCognitiveLoadLimiter] Falling back to HierarchicalCompressor "
+                    "(compression-only, no TRUE RLM)"
+                )
                 compression_result = await self.compressor.compress(
                     content=full_content,
                     source_type="debate",
@@ -495,7 +521,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                         round=-1,
                     )
             except Exception as e:
-                logger.warning(f"RLM compression failed, using fallback: {e}")
+                logger.warning(f"HierarchicalCompressor failed, using rule-based fallback: {e}")
 
         # Fallback: rule-based summarization
         summary = self._rule_based_summarize(full_content, len(messages))
@@ -746,8 +772,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         Query compressed context for specific information.
 
         This enables agents to drill down into compressed history
-        without loading the full content. Uses RLM strategies to
-        navigate the hierarchical context efficiently.
+        without loading the full content. Uses TRUE RLM (REPL-based)
+        when available, falling back to compression-based strategies.
 
         Args:
             query: Natural language query about the context
@@ -764,38 +790,45 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             ...     detail_level="DETAILED"
             ... )
         """
-        if not self.compressor:
-            # Fallback: search in messages
-            return self._search_compressed_fallback(query, compressed_context)
+        # Build content from compressed messages
+        all_content = []
+        for msg in compressed_context.messages:
+            content = getattr(msg, "content", str(msg))
+            all_content.append(content)
 
-        try:
-            from aragora.rlm.bridge import AragoraRLM
-            from aragora.rlm.types import RLMContext
+        full_content = "\n\n".join(all_content)
 
-            # Build RLM context from compressed messages
-            all_content = []
-            for msg in compressed_context.messages:
-                content = getattr(msg, "content", str(msg))
-                all_content.append(content)
+        # Prefer using existing AragoraRLM instance (routes to TRUE RLM if available)
+        if self._aragora_rlm:
+            try:
+                logger.info(
+                    "[RLMCognitiveLoadLimiter] Querying with AragoraRLM "
+                    "(uses TRUE RLM if available)"
+                )
+                from aragora.rlm.types import RLMContext
 
-            full_content = "\n\n".join(all_content)
+                context = RLMContext(
+                    original_content=full_content,
+                    original_tokens=len(full_content) // 4,
+                    source_type="debate",
+                )
 
-            # Create RLM context
-            context = RLMContext(
-                original_content=full_content,
-                original_tokens=len(full_content) // 4,
-                source_type="debate",
-            )
+                result = await self._aragora_rlm.query(query, context, strategy="auto")
 
-            # Use AragoraRLM for query
-            rlm = AragoraRLM()
-            result = await rlm.query(query, context, strategy="auto")
+                # Log which approach was used
+                if result.used_true_rlm:
+                    logger.info("[RLMCognitiveLoadLimiter] Query used TRUE RLM (REPL-based)")
+                elif result.used_compression_fallback:
+                    logger.info("[RLMCognitiveLoadLimiter] Query used compression fallback")
 
-            return result.answer
+                return result.answer
 
-        except Exception as e:
-            logger.warning(f"RLM query failed, using fallback: {e}")
-            return self._search_compressed_fallback(query, compressed_context)
+            except Exception as e:
+                logger.warning(f"AragoraRLM query failed: {e}")
+
+        # Fallback: search in messages without RLM
+        logger.debug("[RLMCognitiveLoadLimiter] Using keyword-based fallback search")
+        return self._search_compressed_fallback(query, compressed_context)
 
     def _search_compressed_fallback(
         self,

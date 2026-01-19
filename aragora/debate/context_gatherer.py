@@ -24,12 +24,15 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 if TYPE_CHECKING:
     from aragora.rlm import HierarchicalCompressor
 
-# Check for RLM availability
+# Check for RLM availability (prefer AragoraRLM for TRUE RLM support)
 try:
+    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
     from aragora.rlm import HierarchicalCompressor as _HierarchicalCompressor
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
+    HAS_OFFICIAL_RLM = False
+    AragoraRLM = None  # type: ignore[misc,assignment]
     _HierarchicalCompressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
@@ -93,13 +96,34 @@ class ContextGatherer:
         # Cache for continuum memory context
         self._continuum_context_cache: Optional[str] = None
 
-        # RLM configuration
+        # RLM configuration - prefer AragoraRLM for TRUE RLM (REPL-based) support
         self._enable_rlm = enable_rlm_compression and HAS_RLM
         self._rlm_compressor = rlm_compressor
+        self._aragora_rlm: Optional[Any] = None
         self._rlm_threshold = rlm_compression_threshold
-        if self._enable_rlm and not self._rlm_compressor and _HierarchicalCompressor:
-            self._rlm_compressor = _HierarchicalCompressor()
-            logger.debug("[rlm] ContextGatherer: RLM compression enabled")
+
+        if self._enable_rlm:
+            # Prefer AragoraRLM which routes to TRUE RLM when available
+            if AragoraRLM is not None:
+                try:
+                    self._aragora_rlm = AragoraRLM()
+                    if HAS_OFFICIAL_RLM:
+                        logger.info(
+                            "[rlm] ContextGatherer: TRUE RLM enabled "
+                            "(REPL-based, model writes code to examine context)"
+                        )
+                    else:
+                        logger.info(
+                            "[rlm] ContextGatherer: AragoraRLM enabled "
+                            "(will use compression fallback since official RLM not installed)"
+                        )
+                except Exception as e:
+                    logger.warning(f"[rlm] Failed to initialize AragoraRLM: {e}")
+
+            # Fallback: direct HierarchicalCompressor (compression-only)
+            if not self._rlm_compressor and _HierarchicalCompressor:
+                self._rlm_compressor = _HierarchicalCompressor()
+                logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback enabled")
 
     @property
     def evidence_pack(self) -> Optional[Any]:
@@ -468,10 +492,17 @@ class ContextGatherer:
         max_chars: int = 3000,
     ) -> str:
         """
-        Compress large content using RLM hierarchical compression.
+        Compress large content using RLM.
 
-        Uses RLM to create a semantic summary instead of simple truncation.
-        Falls back to truncation if RLM is unavailable or fails.
+        Prioritizes TRUE RLM (REPL-based) via AragoraRLM when available:
+        - Model writes code to examine/summarize content
+        - Model has agency in deciding how to compress
+
+        Falls back to HierarchicalCompressor (compression-only) if:
+        - Official RLM not installed
+        - AragoraRLM fails
+
+        Falls back to truncation if all else fails.
 
         Args:
             content: The content to compress
@@ -485,45 +516,78 @@ class ContextGatherer:
         if len(content) <= self._rlm_threshold:
             return content[:max_chars] if len(content) > max_chars else content
 
-        # If RLM is not enabled or compressor unavailable, use simple truncation
-        if not self._enable_rlm or not self._rlm_compressor:
+        # If RLM is not enabled, use simple truncation
+        if not self._enable_rlm:
             return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
 
-        try:
-            # Use RLM hierarchical compression
-            compression_result = await asyncio.wait_for(
-                self._rlm_compressor.compress(
-                    content=content,
-                    source_type=source_type,
-                    max_levels=2,  # ABSTRACT and SUMMARY for faster compression
-                ),
-                timeout=10.0,  # 10 second timeout for individual document
-            )
-
-            # Get summary level (or abstract if summary is too long)
+        # PRIMARY: Try AragoraRLM (routes to TRUE RLM if available)
+        if self._aragora_rlm:
             try:
-                from aragora.rlm.types import AbstractionLevel
-                summary = compression_result.context.get_at_level(AbstractionLevel.SUMMARY)
-                if summary and len(summary) > max_chars:
-                    # Fall back to abstract
-                    summary = compression_result.context.get_at_level(AbstractionLevel.ABSTRACT)
-            except (ImportError, AttributeError):
-                # Fallback: just use any compressed content available
-                summary = None
-
-            if summary and len(summary) < len(content):
                 logger.debug(
-                    f"[rlm] Compressed {len(content)} -> {len(summary)} chars "
-                    f"({len(summary)/len(content)*100:.0f}%)"
+                    "[rlm] Using AragoraRLM for compression "
+                    "(routes to TRUE RLM if available)"
                 )
-                return summary[:max_chars] if len(summary) > max_chars else summary
+                result = await asyncio.wait_for(
+                    self._aragora_rlm.compress_and_query(
+                        query=f"Summarize this {source_type} in under {max_chars} characters",
+                        content=content,
+                        source_type=source_type,
+                    ),
+                    timeout=15.0,
+                )
 
-        except asyncio.TimeoutError:
-            logger.debug("[rlm] Document compression timed out")
-        except Exception as e:
-            logger.debug(f"[rlm] Document compression failed: {e}")
+                if result.answer and len(result.answer) < len(content):
+                    approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
+                    logger.debug(
+                        f"[rlm] Compressed {len(content)} -> {len(result.answer)} chars "
+                        f"({len(result.answer)/len(content)*100:.0f}%) via {approach}"
+                    )
+                    return result.answer[:max_chars] if len(result.answer) > max_chars else result.answer
 
-        # Fallback to truncation
+            except asyncio.TimeoutError:
+                logger.debug("[rlm] AragoraRLM compression timed out")
+            except Exception as e:
+                logger.debug(f"[rlm] AragoraRLM compression failed: {e}")
+
+        # FALLBACK: Try direct HierarchicalCompressor (compression-only)
+        if self._rlm_compressor:
+            try:
+                logger.debug(
+                    "[rlm] Falling back to HierarchicalCompressor "
+                    "(compression-only, no TRUE RLM)"
+                )
+                compression_result = await asyncio.wait_for(
+                    self._rlm_compressor.compress(
+                        content=content,
+                        source_type=source_type,
+                        max_levels=2,  # ABSTRACT and SUMMARY for faster compression
+                    ),
+                    timeout=10.0,
+                )
+
+                # Get summary level (or abstract if summary is too long)
+                try:
+                    from aragora.rlm.types import AbstractionLevel
+                    summary = compression_result.context.get_at_level(AbstractionLevel.SUMMARY)
+                    if summary and len(summary) > max_chars:
+                        summary = compression_result.context.get_at_level(AbstractionLevel.ABSTRACT)
+                except (ImportError, AttributeError):
+                    summary = None
+
+                if summary and len(summary) < len(content):
+                    logger.debug(
+                        f"[rlm] Compressed {len(content)} -> {len(summary)} chars "
+                        f"({len(summary)/len(content)*100:.0f}%) via HierarchicalCompressor"
+                    )
+                    return summary[:max_chars] if len(summary) > max_chars else summary
+
+            except asyncio.TimeoutError:
+                logger.debug("[rlm] HierarchicalCompressor timed out")
+            except Exception as e:
+                logger.debug(f"[rlm] HierarchicalCompressor failed: {e}")
+
+        # FINAL FALLBACK: Simple truncation
+        logger.debug("[rlm] All RLM approaches failed, using simple truncation")
         return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
 
     def get_continuum_context(
