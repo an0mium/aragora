@@ -313,7 +313,7 @@ class VersionedRouter:
 
     def get_all_routes(self) -> List[RouteEntry]:
         """Get all registered routes."""
-        all_routes = []
+        all_routes: List[RouteEntry] = []
         for versions in self.routes.values():
             all_routes.extend(versions.values())
         return all_routes
@@ -353,9 +353,9 @@ def version_route(
             ...
     """
     def decorator(func: Callable) -> Callable:
-        func._api_version = version
-        func._deprecated = deprecated
-        func._sunset_date = sunset_date
+        setattr(func, "_api_version", version)
+        setattr(func, "_deprecated", deprecated)
+        setattr(func, "_sunset_date", sunset_date)
 
         @wraps(func)
         def wrapper(*args, **kwargs):

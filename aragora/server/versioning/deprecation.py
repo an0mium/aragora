@@ -282,10 +282,10 @@ def deprecated(
     """
     def decorator(func: Callable) -> Callable:
         # Store deprecation info on function
-        func._deprecated = True
-        func._sunset_date = sunset_date
-        func._replacement = replacement
-        func._deprecation_message = message
+        setattr(func, "_deprecated", True)
+        setattr(func, "_sunset_date", sunset_date)
+        setattr(func, "_replacement", replacement)
+        setattr(func, "_deprecation_message", message)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
