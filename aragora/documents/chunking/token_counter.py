@@ -26,6 +26,8 @@ import re
 from functools import lru_cache
 from typing import Literal, Optional
 
+from aragora.utils.cache_registry import register_lru_cache
+
 logger = logging.getLogger(__name__)
 
 # Try to import tiktoken
@@ -90,6 +92,7 @@ def _get_model_family(model: str) -> ModelFamily:
     return "default"
 
 
+@register_lru_cache
 @lru_cache(maxsize=16)
 def _get_tiktoken_encoding(encoding_name: str):
     """Get tiktoken encoding (cached)."""
