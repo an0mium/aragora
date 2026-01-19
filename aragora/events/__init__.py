@@ -1,9 +1,16 @@
 """
 Aragora Events Package.
 
-Provides webhook delivery and event routing for external integrations.
+Provides event types, webhook delivery, and event routing for external integrations.
+
+The events layer is a shared dependency that can be imported by any layer
+(CLI, debate, memory, server) without creating circular dependencies.
 
 Usage:
+    # Import event types (available to all layers)
+    from aragora.events import StreamEvent, StreamEventType, EventEmitter
+
+    # Import webhook dispatcher
     from aragora.events import WebhookDispatcher, get_dispatcher
 
     # Get the global dispatcher
@@ -24,8 +31,20 @@ from .dispatcher import (
     get_dispatcher,
     shutdown_dispatcher,
 )
+from .types import (
+    AudienceMessage,
+    EventEmitter,
+    StreamEvent,
+    StreamEventType,
+)
 
 __all__ = [
+    # Event types (shared layer)
+    "StreamEventType",
+    "StreamEvent",
+    "AudienceMessage",
+    "EventEmitter",
+    # Webhook dispatcher
     "WebhookDispatcher",
     "get_dispatcher",
     "dispatch_event",
