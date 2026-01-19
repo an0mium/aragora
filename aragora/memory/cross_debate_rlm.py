@@ -1,8 +1,14 @@
 """
 Cross-debate RLM memory for institutional knowledge.
 
-Uses hierarchical compression to maintain context from previous debates,
-enabling agents to reference and build upon past discussions.
+Uses official RLM (when installed) or hierarchical compression as fallback
+to maintain context from previous debates, enabling agents to reference
+and build upon past discussions.
+
+The official RLM approach (github.com/alexzhang13/rlm) stores context as a
+Python variable in a REPL environment (NOT in prompts). The LLM writes code
+to programmatically examine/grep/partition the context. Compression-based
+approaches are used as fallbacks when the official library is unavailable.
 
 Usage:
     from aragora.memory.cross_debate_rlm import CrossDebateMemory
@@ -10,11 +16,14 @@ Usage:
     memory = CrossDebateMemory()
     await memory.add_debate(debate_result)
 
-    # Get relevant context for a new debate
-    context = await memory.get_relevant_context(
-        task="Design a new API",
-        max_tokens=2000,
-    )
+    # Query past debates using official RLM (preferred) or fallback
+    if memory.has_real_rlm:
+        answer = await memory.query_past_debates("What consensus was reached?")
+    else:
+        context = await memory.get_relevant_context(task="Design a new API")
+
+Install official RLM support:
+    pip install aragora[rlm]
 """
 
 from __future__ import annotations
@@ -31,6 +40,15 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
+
+# Check for official RLM library (import from bridge for proper detection)
+try:
+    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
+    HAS_ARAGORA_RLM = True
+except ImportError:
+    HAS_OFFICIAL_RLM = False
+    HAS_ARAGORA_RLM = False
+    AragoraRLM = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +179,47 @@ class CrossDebateMemory:
         self.config = config or CrossDebateConfig()
         self._entries: dict[str, DebateMemoryEntry] = {}
         self._compressor = None
+        self._rlm = None  # Official RLM instance (preferred over compression)
         self._lock = asyncio.Lock()
         self._initialized = False
+
+    @property
+    def has_real_rlm(self) -> bool:
+        """Check if official RLM library is available.
+
+        When True, query_past_debates() uses the REPL-based approach where
+        context is stored as a Python variable and queried programmatically.
+
+        When False, falls back to compression-based context retrieval.
+        """
+        return HAS_OFFICIAL_RLM
+
+    async def _get_rlm(self) -> Any:
+        """Get AragoraRLM instance (routes to TRUE RLM when available).
+
+        Returns:
+            AragoraRLM instance. Will use TRUE RLM (REPL-based) if official
+            library is installed, otherwise uses compression fallback.
+        """
+        if not HAS_ARAGORA_RLM or AragoraRLM is None:
+            return None
+
+        if self._rlm is None:
+            try:
+                self._rlm = AragoraRLM()
+                if HAS_OFFICIAL_RLM:
+                    logger.info(
+                        "[CrossDebateMemory] TRUE RLM initialized "
+                        "(REPL-based, model writes code to examine context)"
+                    )
+                else:
+                    logger.info(
+                        "[CrossDebateMemory] AragoraRLM initialized "
+                        "(will use compression fallback since official RLM not installed)"
+                    )
+            except Exception as e:
+                logger.warning(f"[CrossDebateMemory] Failed to initialize AragoraRLM: {e}")
+        return self._rlm
 
     async def initialize(self) -> None:
         """Initialize the memory system."""
@@ -304,29 +361,59 @@ class CrossDebateMemory:
         return "\n\n".join(parts)
 
     async def _compress_context(self, context: str) -> str:
-        """Compress context using RLM."""
+        """Compress context using RLM.
+
+        Prioritizes AragoraRLM (routes to TRUE RLM when available),
+        falls back to HierarchicalCompressor, then to simple truncation.
+        """
         if not context:
             return ""
 
+        # PRIMARY: Try AragoraRLM (routes to TRUE RLM if available)
+        rlm = await self._get_rlm()
+        if rlm:
+            try:
+                logger.debug(
+                    "[CrossDebateMemory] Using AragoraRLM for compression "
+                    "(routes to TRUE RLM if available)"
+                )
+                result = await rlm.compress_and_query(
+                    query="Create a concise summary of this debate context",
+                    content=context,
+                    source_type="debate_memory",
+                )
+                if result.answer and len(result.answer) < len(context):
+                    approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
+                    logger.debug(
+                        f"[CrossDebateMemory] Compressed {len(context)} -> {len(result.answer)} chars "
+                        f"via {approach}"
+                    )
+                    return result.answer
+            except Exception as e:
+                logger.warning(f"[CrossDebateMemory] AragoraRLM compression failed: {e}")
+
+        # FALLBACK: Try HierarchicalCompressor directly
         compressor = await self._get_compressor()
-        if not compressor:
-            # Simple truncation fallback
-            return context[:2000]
+        if compressor:
+            try:
+                logger.debug(
+                    "[CrossDebateMemory] Falling back to HierarchicalCompressor "
+                    "(compression-only, no TRUE RLM)"
+                )
+                result = await compressor.compress(
+                    context,
+                    source_type="debate_memory",
+                    max_levels=self.config.compression_levels,
+                )
 
-        try:
-            result = await compressor.compress(
-                context,
-                source_type="debate_memory",
-                max_levels=self.config.compression_levels,
-            )
+                if result and result.context:
+                    from aragora.rlm.types import AbstractionLevel
+                    return result.context.get_at_level(AbstractionLevel.SUMMARY) or context[:2000]
+            except Exception as e:
+                logger.warning(f"[CrossDebateMemory] HierarchicalCompressor failed: {e}")
 
-            if result and result.context:
-                from aragora.rlm.types import AbstractionLevel
-
-                return result.context.get_at_level(AbstractionLevel.SUMMARY) or context[:2000]
-        except Exception as e:
-            logger.warning(f"Failed to compress debate context: {e}")
-
+        # FINAL FALLBACK: Simple truncation
+        logger.debug("[CrossDebateMemory] All RLM approaches failed, using simple truncation")
         return context[:2000]
 
     async def get_relevant_context(
@@ -403,6 +490,141 @@ class CrossDebateMemory:
                 entry.last_accessed = datetime.now()
 
         return "\n\n---\n\n".join(parts)
+
+    async def query_past_debates(
+        self,
+        query: str,
+        max_debates: int = 5,
+        strategy: str = "auto",
+    ) -> str:
+        """
+        Query past debates using AragoraRLM (routes to TRUE RLM when available).
+
+        When official RLM is installed, uses TRUE RLM (REPL-based approach) where
+        context is stored as a Python variable and the model writes code to
+        programmatically examine/grep/partition the context.
+
+        When official RLM is unavailable, AragoraRLM falls back to compression-based
+        approach. If that fails, falls back to keyword-based search.
+
+        Args:
+            query: Natural language query about past debates
+            max_debates: Maximum number of debates to include in context
+            strategy: RLM strategy (auto, peek, grep, partition_map)
+
+        Returns:
+            Answer to the query based on past debate context
+
+        Example:
+            >>> answer = await memory.query_past_debates(
+            ...     "What consensus was reached about API design?",
+            ...     max_debates=10,
+            ... )
+        """
+        await self.initialize()
+
+        # Try AragoraRLM (routes to TRUE RLM if available, compression fallback otherwise)
+        rlm = await self._get_rlm()
+        if rlm:
+            try:
+                # Build context string
+                context_str = self._build_rlm_context(max_debates)
+                if not context_str:
+                    return "No past debates available."
+
+                # Create RLMContext object for AragoraRLM
+                from aragora.rlm.types import RLMContext
+                context = RLMContext(
+                    original_content=context_str,
+                    original_tokens=len(context_str) // 4,
+                    source_type="debate_memory",
+                )
+
+                # Query using AragoraRLM (routes to TRUE RLM if available)
+                result = await rlm.query(query, context, strategy=strategy)
+
+                # Log which approach was used
+                if result.used_true_rlm:
+                    logger.info(
+                        f"[CrossDebateMemory] query_past_debates used TRUE RLM "
+                        f"(REPL-based), strategy={strategy}"
+                    )
+                elif result.used_compression_fallback:
+                    logger.info(
+                        f"[CrossDebateMemory] query_past_debates used compression fallback, "
+                        f"strategy={strategy}"
+                    )
+
+                return result.answer if hasattr(result, "answer") else str(result)
+
+            except Exception as e:
+                logger.warning(f"[CrossDebateMemory] AragoraRLM query failed, using fallback: {e}")
+
+        # FINAL FALLBACK: keyword-based search on compressed context
+        logger.debug("[CrossDebateMemory] Using keyword-based fallback search")
+        return self._fallback_query(query, max_debates)
+
+    def _build_rlm_context(self, max_debates: int = 5) -> str:
+        """Build context string for official RLM REPL."""
+        # Get most relevant entries by recency
+        entries = sorted(
+            self._entries.values(),
+            key=lambda e: e.timestamp,
+            reverse=True,
+        )[:max_debates]
+
+        if not entries:
+            return ""
+
+        parts = []
+        for entry in entries:
+            parts.append(f"""
+## Debate: {entry.task}
+Date: {entry.timestamp.strftime('%Y-%m-%d')}
+Participants: {', '.join(entry.participants)}
+Consensus: {'Yes' if entry.consensus_reached else 'No'}
+
+### Key Insights:
+{chr(10).join(f'- {i}' for i in entry.key_insights)}
+
+### Conclusion:
+{entry.final_answer}
+
+### Context:
+{entry.compressed_context}
+""")
+        return "\n---\n".join(parts)
+
+    def _fallback_query(self, query: str, max_debates: int = 5) -> str:
+        """Keyword-based search fallback when official RLM unavailable."""
+        query_terms = set(query.lower().split())
+        relevant_entries = []
+
+        for entry in self._entries.values():
+            # Score by keyword overlap
+            entry_text = f"{entry.task} {entry.final_answer} {' '.join(entry.key_insights)}"
+            entry_words = set(entry_text.lower().split())
+            overlap = len(query_terms & entry_words)
+
+            if overlap > 0:
+                relevant_entries.append((overlap, entry))
+
+        # Sort by relevance
+        relevant_entries.sort(reverse=True, key=lambda x: x[0])
+
+        if not relevant_entries:
+            return "No relevant past debates found for this query."
+
+        # Build response from top matches
+        parts = [f"Found {len(relevant_entries[:max_debates])} relevant past debates:"]
+        for _, entry in relevant_entries[:max_debates]:
+            parts.append(f"""
+**{entry.task}** ({entry.timestamp.strftime('%Y-%m-%d')})
+Consensus: {'Yes' if entry.consensus_reached else 'No'}
+Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
+""")
+
+        return "\n".join(parts)
 
     def _format_entry(self, entry: DebateMemoryEntry, max_tokens: int) -> str:
         """Format a memory entry for context."""

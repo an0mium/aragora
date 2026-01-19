@@ -249,6 +249,178 @@ class TestQuery:
         mock_agent.assert_called_once()
 
 
+class TestGenerateSummaryAsync:
+    """Tests for TRUE RLM: LLM-first summary generation."""
+
+    @pytest.mark.asyncio
+    async def test_llm_first_summary_generation(self):
+        """Test that LLM is used FIRST for summary generation (TRUE RLM)."""
+        mock_agent = AsyncMock(return_value="LLM-generated summary of the content.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "This is a long document. " * 50
+
+        adapter.register_content("test", long_content)
+        summary = await adapter.generate_summary_async("test")
+
+        # LLM should be called for long content
+        mock_agent.assert_called_once()
+        assert summary == "LLM-generated summary of the content."
+
+    @pytest.mark.asyncio
+    async def test_llm_summary_cached(self):
+        """Test that LLM summary is cached in registered content."""
+        mock_agent = AsyncMock(return_value="Cached LLM summary.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "Long document content. " * 50
+
+        adapter.register_content("test", long_content)
+        await adapter.generate_summary_async("test")
+
+        # Summary should be cached
+        assert adapter._registry["test"].summary == "Cached LLM summary."
+
+    @pytest.mark.asyncio
+    async def test_heuristic_fallback_when_no_llm(self):
+        """Test fallback to heuristic when no LLM available."""
+        adapter = RLMContextAdapter()  # No agent_call
+        long_content = "First sentence here. Second sentence. Third sentence. " * 10
+
+        adapter.register_content("test", long_content)
+        summary = await adapter.generate_summary_async("test")
+
+        # Should use heuristic fallback
+        assert summary  # Should have some summary
+        assert len(summary) < len(long_content)
+
+    @pytest.mark.asyncio
+    async def test_llm_failure_falls_back_to_compression(self):
+        """Test fallback to compression when LLM fails (priority 2)."""
+        mock_agent = AsyncMock(side_effect=Exception("LLM error"))
+        mock_compressor = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.context.get_at_level.return_value = "Compressed summary"
+        mock_compressor.compress.return_value = mock_result
+
+        adapter = RLMContextAdapter(agent_call=mock_agent, compressor=mock_compressor)
+        long_content = "First sentence. Second sentence. Third sentence. " * 10
+
+        adapter.register_content("test", long_content)
+        summary = await adapter.generate_summary_async("test")
+
+        # Should try LLM first, then fall back to compression
+        mock_agent.assert_called_once()
+        mock_compressor.compress.assert_called_once()
+        assert summary == "Compressed summary"
+
+    @pytest.mark.asyncio
+    async def test_compression_failure_falls_back_to_truncation(self):
+        """Test fallback to truncation when both LLM and compression fail."""
+        mock_agent = AsyncMock(side_effect=Exception("LLM error"))
+        mock_compressor = AsyncMock(side_effect=Exception("Compress error"))
+
+        adapter = RLMContextAdapter(agent_call=mock_agent, compressor=mock_compressor)
+        long_content = "First sentence. Second sentence. Third sentence. " * 10
+
+        adapter.register_content("test", long_content)
+        summary = await adapter.generate_summary_async("test")
+
+        # Should try LLM, then compression, then fall back to truncation
+        mock_agent.assert_called_once()
+        mock_compressor.compress.assert_called_once()
+        assert summary  # Should still have truncated summary
+
+    @pytest.mark.asyncio
+    async def test_short_content_no_llm_needed(self):
+        """Test that short content doesn't need LLM."""
+        mock_agent = AsyncMock(return_value="Should not be called")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+
+        adapter.register_content("test", "Short content", summary="Short content")
+        summary = await adapter.generate_summary_async("test")
+
+        # LLM should NOT be called for short content
+        mock_agent.assert_not_called()
+        assert summary == "Short content"
+
+    @pytest.mark.asyncio
+    async def test_summary_with_max_chars(self):
+        """Test summary respects max_chars limit."""
+        mock_agent = AsyncMock(return_value="A very long LLM summary that exceeds the limit.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "Long content. " * 50
+
+        adapter.register_content("test", long_content)
+        summary = await adapter.generate_summary_async("test", max_chars=20)
+
+        assert len(summary) <= 23  # 20 + "..."
+
+    @pytest.mark.asyncio
+    async def test_not_found_returns_empty(self):
+        """Test summary for non-existent content."""
+        adapter = RLMContextAdapter()
+        summary = await adapter.generate_summary_async("nonexistent")
+        assert summary == ""
+
+
+class TestFormatForPromptAsync:
+    """Tests for TRUE RLM: async format with LLM summarization."""
+
+    @pytest.mark.asyncio
+    async def test_llm_first_formatting(self):
+        """Test that async format uses LLM for summary (TRUE RLM)."""
+        mock_agent = AsyncMock(return_value="LLM summary for prompt.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "Long document content. " * 50
+
+        result = await adapter.format_for_prompt_async(long_content, max_chars=200)
+
+        # LLM should be used for summary
+        mock_agent.assert_called_once()
+        assert "LLM summary for prompt" in result
+
+    @pytest.mark.asyncio
+    async def test_includes_drill_down_hint(self):
+        """Test that hint is included for long content."""
+        mock_agent = AsyncMock(return_value="Summary.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "x" * 500
+
+        result = await adapter.format_for_prompt_async(
+            long_content, max_chars=100, include_hint=True
+        )
+
+        assert "[Full" in result or "available" in result
+
+    @pytest.mark.asyncio
+    async def test_registers_content(self):
+        """Test that content is registered for later access."""
+        mock_agent = AsyncMock(return_value="Summary.")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+
+        await adapter.format_for_prompt_async("Content to register", max_chars=200)
+
+        assert len(adapter.list_registered()) == 1
+
+    @pytest.mark.asyncio
+    async def test_empty_content_returns_empty(self):
+        """Test empty content handling."""
+        adapter = RLMContextAdapter()
+        result = await adapter.format_for_prompt_async("", max_chars=100)
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_fallback_when_no_llm(self):
+        """Test heuristic fallback in async format."""
+        adapter = RLMContextAdapter()  # No agent_call
+        content = "First sentence. Second sentence. Third sentence. " * 20
+
+        result = await adapter.format_for_prompt_async(content, max_chars=100)
+
+        # Should use heuristic fallback
+        assert result
+        assert len(result) <= 100 + 50  # max_chars + hint allowance
+
+
 class TestSmartTruncate:
     """Tests for smart_truncate method."""
 
@@ -367,6 +539,50 @@ Another line about dogs."""
         content = "Line one.\nLine two.\nLine three."
         result = adapter._search_content(content, "xyz", max_chars=100)
         assert result.startswith("Line")
+
+
+class TestHeuristicFallback:
+    """Tests for heuristic methods (FALLBACK only, not TRUE RLM)."""
+
+    def test_heuristic_summary_is_last_resort(self):
+        """Verify _heuristic_summary is documented as LAST RESORT."""
+        adapter = RLMContextAdapter()
+        # The method should exist and be clearly marked as last resort
+        assert hasattr(adapter, "_heuristic_summary")
+        docstring = adapter._heuristic_summary.__doc__
+        assert "LAST RESORT" in docstring
+
+    def test_extract_summary_is_alias(self):
+        """Test _extract_summary is alias for backwards compat."""
+        adapter = RLMContextAdapter()
+        content = "First sentence. Second sentence."
+        heuristic = adapter._heuristic_summary(content, "text")
+        extract = adapter._extract_summary(content, "text")
+        assert heuristic == extract
+
+    def test_sync_get_summary_uses_heuristic(self):
+        """Test sync get_summary uses heuristic (not LLM)."""
+        mock_agent = AsyncMock(return_value="LLM response")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+        long_content = "Long content. " * 50
+
+        adapter.register_content("test", long_content)
+        summary = adapter.get_summary("test")  # Sync call
+
+        # LLM should NOT be called for sync method
+        mock_agent.assert_not_called()
+        assert summary  # Should still have heuristic summary
+
+    def test_sync_format_uses_heuristic(self):
+        """Test sync format_for_prompt uses heuristic (not LLM)."""
+        mock_agent = AsyncMock(return_value="LLM response")
+        adapter = RLMContextAdapter(agent_call=mock_agent)
+
+        result = adapter.format_for_prompt("Long content. " * 50, max_chars=100)
+
+        # LLM should NOT be called for sync method
+        mock_agent.assert_not_called()
+        assert result  # Should still have result
 
 
 class TestRegisteredContentDataclass:

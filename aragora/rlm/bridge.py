@@ -4,6 +4,22 @@ Bridge layer between official RLM library and Aragora.
 This module provides Aragora-specific adapters that work with
 the official RLM library (github.com/alexzhang13/rlm).
 
+## TRUE RLM vs COMPRESSION
+
+This module prioritizes TRUE RLM (REPL-based recursive decomposition) over
+compression-based approaches. Per the official RLM methodology:
+
+**True RLM** (primary, when `rlm` package is installed):
+- Model recursively calls itself via REPL
+- Context stored as Python variables (NOT stuffed in prompt)
+- Model WRITES CODE to query/grep/partition context
+- Model has ACTIVE AGENCY in context management
+
+**Compression** (fallback only, when `rlm` package unavailable):
+- Pre-processing hierarchical summarization
+- HierarchicalCompressor creates 5-level summaries
+- Used ONLY when official RLM is not installed
+
 The official library handles:
 - REPL environment isolation (Docker, Modal, local)
 - Backend abstraction (OpenAI, Anthropic, vLLM, etc.)
@@ -24,7 +40,7 @@ Usage:
     adapter = DebateContextAdapter()
     context = adapter.format_for_rlm(debate_result)
 
-    # Query with RLM
+    # Query with RLM (uses TRUE RLM if available, compression as fallback)
     answer = await rlm.query("What consensus was reached?", context)
 """
 
@@ -75,12 +91,21 @@ class AragoraRLM:
     """
     Aragora-integrated RLM interface.
 
-    Wraps the official RLM library with Aragora-specific features:
+    Prioritizes TRUE RLM (REPL-based recursive decomposition) over compression:
+
+    1. TRUE RLM (primary): Model writes code to query context via REPL
+       - Used when official `rlm` package is installed
+       - Model has agency in deciding how to process context
+       - Context stored as variables, not stuffed in prompt
+
+    2. COMPRESSION (fallback only): HierarchicalCompressor summarization
+       - Used ONLY when official `rlm` package is NOT installed
+       - Pre-processing that creates 5-level summaries
+
+    Also provides:
     - Debate history formatting
     - Knowledge Mound integration
-    - Aragora agent fallback
-
-    If official RLM is not installed, falls back to built-in implementation.
+    - Aragora agent wrapping
     """
 
     def __init__(
@@ -102,18 +127,23 @@ class AragoraRLM:
         self.agent_registry = agent_registry
 
         self._official_rlm: Optional[Any] = None
+        # Compressor is ONLY used as fallback when official RLM unavailable
         self._compressor = HierarchicalCompressor(
             config=self.aragora_config,
             agent_call=self._agent_call,
         )
 
+        # Track which approach was used (for debugging/telemetry)
+        self._last_query_used_true_rlm: bool = False
+        self._last_query_used_compression_fallback: bool = False
+
         if HAS_OFFICIAL_RLM:
             self._init_official_rlm()
         else:
             logger.warning(
-                "Official RLM library not installed. "
-                "Using built-in implementation. "
-                "Install with: pip install rlm"
+                "[AragoraRLM] Official RLM library not installed. "
+                "Will use compression-based FALLBACK for all queries. "
+                "For TRUE RLM (REPL-based), install with: pip install rlm"
             )
 
     def _init_official_rlm(self) -> None:
@@ -163,52 +193,94 @@ class AragoraRLM:
         """
         Query using RLM over hierarchical context.
 
+        Prioritizes TRUE RLM (REPL-based) when official library is available.
+        Falls back to compression-based approach only when unavailable.
+
         Args:
             query: The query to answer
             context: Pre-compressed hierarchical context
             strategy: Decomposition strategy (auto, peek, grep, partition_map, etc.)
 
         Returns:
-            RLMResult with answer and provenance
+            RLMResult with answer and provenance. Check `used_true_rlm` and
+            `used_compression_fallback` fields to see which approach was used.
         """
-        if self._official_rlm:
-            return await self._query_official(query, context, strategy)
-        else:
-            return await self._query_builtin(query, context, strategy)
+        # Reset tracking flags
+        self._last_query_used_true_rlm = False
+        self._last_query_used_compression_fallback = False
 
-    async def _query_official(
+        if self._official_rlm:
+            # PRIMARY: Use TRUE RLM (REPL-based recursive decomposition)
+            logger.info(
+                "[AragoraRLM] Using TRUE RLM (REPL-based) for query - "
+                "model will write code to examine context"
+            )
+            result = await self._true_rlm_query(query, context, strategy)
+            result.used_true_rlm = self._last_query_used_true_rlm
+            result.used_compression_fallback = self._last_query_used_compression_fallback
+            return result
+        else:
+            # FALLBACK: Use compression-based approach
+            logger.warning(
+                "[AragoraRLM] Using COMPRESSION FALLBACK (official RLM not available) - "
+                "context will be pre-summarized rather than model-driven"
+            )
+            self._last_query_used_compression_fallback = True
+            result = await self._compression_fallback(query, context, strategy)
+            result.used_true_rlm = False
+            result.used_compression_fallback = True
+            return result
+
+    async def _true_rlm_query(
         self,
         query: str,
         context: RLMContext,
         strategy: str,
     ) -> RLMResult:
-        """Query using official RLM library."""
+        """
+        Query using TRUE RLM (REPL-based recursive decomposition).
+
+        This is the CORRECT approach per official RLM methodology:
+        - Model has access to context as Python variables in REPL
+        - Model WRITES CODE to query/grep/partition context
+        - Model can recursively call itself on subsets
+        - Model has ACTIVE AGENCY in deciding how to process context
+
+        Falls back to compression ONLY if TRUE RLM fails.
+        """
         # Format context for RLM REPL
         formatted = self._format_context_for_repl(context)
 
-        # Build RLM prompt
+        # Build RLM prompt - note we're giving model REPL access, not stuffing context
         rlm_prompt = f"""You have access to a hierarchical context with multiple abstraction levels.
 
 ## Context Structure
 {formatted['structure']}
 
-## Available Variables
+## Available Variables (in your REPL environment)
 - CONTEXT_FULL: Full original content ({context.original_tokens} tokens)
 - CONTEXT_SUMMARY: Summary level content
 - CONTEXT_ABSTRACT: High-level abstract
+- get_node(id): Get specific node by ID
+- drill_down(id): Get children of a node
+
+## Instructions
+Use Python code to examine the context programmatically.
+You can grep, filter, partition, and recursively call yourself on subsets.
+Start with abstracts, drill down only as needed.
 
 ## Task
 Answer this question: {query}
 
-Navigate the context hierarchy efficiently. Start with abstracts, drill down as needed.
 Use FINAL(answer) when done.
 """
 
         try:
             # Run RLM completion (handles REPL internally)
+            # The model will write code to examine context
             result = self._official_rlm.completion(
                 rlm_prompt,
-                # Inject context as REPL variables
+                # Inject context as REPL variables (NOT in prompt)
                 context_vars={
                     "CONTEXT_FULL": context.original_content,
                     "CONTEXT_SUMMARY": context.get_at_level(AbstractionLevel.SUMMARY),
@@ -217,6 +289,10 @@ Use FINAL(answer) when done.
                     "drill_down": lambda nid: self._drill_down_dicts(context, nid),
                 },
             )
+
+            # TRUE RLM succeeded
+            self._last_query_used_true_rlm = True
+            logger.info("[AragoraRLM] TRUE RLM query completed successfully")
 
             return RLMResult(
                 answer=result,
@@ -231,17 +307,38 @@ Use FINAL(answer) when done.
             )
 
         except Exception as e:
-            logger.error(f"Official RLM query failed: {e}")
-            # Fall back to built-in
-            return await self._query_builtin(query, context, strategy)
+            logger.error(f"[AragoraRLM] TRUE RLM query failed: {e}")
+            logger.warning(
+                "[AragoraRLM] Falling back to COMPRESSION approach "
+                "(this is suboptimal - TRUE RLM gives model agency)"
+            )
+            # Fall back to compression-based approach
+            self._last_query_used_compression_fallback = True
+            return await self._compression_fallback(query, context, strategy)
 
-    async def _query_builtin(
+    async def _compression_fallback(
         self,
         query: str,
         context: RLMContext,
         strategy: str,
     ) -> RLMResult:
-        """Query using built-in RLM implementation."""
+        """
+        FALLBACK: Query using compression-based approach.
+
+        This is NOT true RLM - it pre-processes context via HierarchicalCompressor
+        rather than giving the model agency to examine context programmatically.
+
+        Used ONLY when:
+        1. Official RLM library is not installed
+        2. TRUE RLM query fails for some reason
+
+        For true RLM behavior, install: pip install rlm
+        """
+        logger.debug(
+            "[AragoraRLM] Executing COMPRESSION FALLBACK - "
+            "context is pre-summarized, model doesn't write code to examine it"
+        )
+
         from .types import DecompositionStrategy, RLMQuery
         from .strategies import get_strategy
 
@@ -257,7 +354,7 @@ Use FINAL(answer) when done.
             preferred_strategy=strategy_enum,
         )
 
-        # Get and execute strategy
+        # Get and execute strategy (compression-based)
         strategy_impl = get_strategy(
             strategy_enum,
             self.aragora_config,

@@ -76,16 +76,26 @@ class RLMContextHandler(BaseHandler):
         return self._compressor
 
     def _get_rlm(self) -> Any:
-        """Get or create the AragoraRLM instance."""
+        """Get AragoraRLM instance - only when official RLM available.
+
+        Returns:
+            AragoraRLM instance if official RLM is installed, None otherwise.
+            When None is returned, callers should use _get_compressor() for
+            compression-based fallback operations.
+        """
         if self._rlm is None:
             try:
                 from aragora.rlm import AragoraRLM, HAS_OFFICIAL_RLM
 
                 if HAS_OFFICIAL_RLM:
                     self._rlm = AragoraRLM()
+                    logger.info("Official RLM initialized for handler")
                 else:
-                    # Fallback mode - still usable for basic queries
-                    self._rlm = AragoraRLM()
+                    # Don't create AragoraRLM without official library
+                    # Use _get_compressor() for fallback operations
+                    logger.debug(
+                        "Official RLM not available, use compression fallback"
+                    )
             except ImportError:
                 return None
         return self._rlm

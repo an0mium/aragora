@@ -199,6 +199,10 @@ class RLMResult:
 
     Supports Prime Intellect's iterative refinement protocol where the LLM
     can signal incomplete answers via ready=False for progressive improvement.
+
+    Tracks which approach was used:
+    - TRUE RLM: REPL-based, model writes code to examine context (preferred)
+    - COMPRESSION: Pre-summarization fallback (when `rlm` package not installed)
     """
 
     answer: str
@@ -207,6 +211,10 @@ class RLMResult:
     ready: bool = True  # Whether answer is complete (False = needs refinement)
     iteration: int = 0  # Current refinement iteration (0 = first attempt)
     refinement_history: list[str] = field(default_factory=list)  # Prior answers
+
+    # Approach tracking (for debugging/telemetry)
+    used_true_rlm: bool = False  # TRUE RLM (REPL-based) was used
+    used_compression_fallback: bool = False  # Compression fallback was used
 
     # Provenance
     nodes_examined: list[str] = field(default_factory=list)  # Node IDs that contributed

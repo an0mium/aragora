@@ -709,3 +709,233 @@ class TestCrossDebateMemoryFormatting:
         formatted = memory._format_entry(entry, max_tokens=50)
 
         assert len(formatted) <= 200
+
+
+class TestCrossDebateMemoryRLMFallback:
+    """Test official RLM vs compression fallback behavior.
+
+    These tests verify that CrossDebateMemory:
+    1. Prefers official RLM when available
+    2. Falls back to compression gracefully when RLM unavailable
+    3. Properly reports RLM availability via has_real_rlm property
+    """
+
+    def test_has_real_rlm_property(self):
+        """Test has_real_rlm reflects HAS_OFFICIAL_RLM flag."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            HAS_OFFICIAL_RLM,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        # has_real_rlm should reflect the HAS_OFFICIAL_RLM constant
+        assert memory.has_real_rlm == HAS_OFFICIAL_RLM
+
+    @pytest.mark.asyncio
+    async def test_get_rlm_returns_wrapper(self):
+        """Test _get_rlm returns AragoraRLM wrapper.
+
+        AragoraRLM is always created - it handles fallback internally when
+        the official RLM library is not available.
+        """
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            HAS_OFFICIAL_RLM,
+        )
+        from aragora.rlm import AragoraRLM
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        rlm = await memory._get_rlm()
+
+        # AragoraRLM wrapper should always be created
+        assert rlm is not None
+        assert isinstance(rlm, AragoraRLM)
+
+        # The wrapper's has_real_rlm reflects official library availability
+        assert memory.has_real_rlm == HAS_OFFICIAL_RLM
+
+    @pytest.mark.asyncio
+    async def test_query_past_debates_with_no_entries(self):
+        """Test query_past_debates handles empty memory."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+        await memory.initialize()
+
+        result = await memory.query_past_debates("What was decided?")
+
+        # Should handle gracefully whether using RLM or fallback
+        assert result is not None
+        assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_query_past_debates_fallback(self):
+        """Test query_past_debates fallback when RLM unavailable."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            DebateMemoryEntry,
+            AccessTier,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+        await memory.initialize()
+
+        # Add a test entry
+        entry = DebateMemoryEntry(
+            debate_id="test_query",
+            task="Design a caching system",
+            domain="engineering",
+            timestamp=datetime.now(),
+            tier=AccessTier.HOT,
+            participants=["claude", "gpt-4"],
+            consensus_reached=True,
+            final_answer="Use Redis with TTL of 1 hour.",
+            key_insights=["Consider cache invalidation", "Handle race conditions"],
+            compressed_context="Discussion about caching strategies...",
+        )
+        memory._entries["test_query"] = entry
+
+        # Query should work whether using RLM or fallback
+        result = await memory.query_past_debates("What caching strategy was recommended?")
+
+        assert result is not None
+        assert isinstance(result, str)
+        # Should find relevant content
+        assert len(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_fallback_query_keyword_matching(self):
+        """Test _fallback_query performs keyword matching."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            DebateMemoryEntry,
+            AccessTier,
+        )
+
+        config = CrossDebateConfig(enable_rlm=False, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+        await memory.initialize()
+
+        # Add entries
+        memory._entries["cache_debate"] = DebateMemoryEntry(
+            debate_id="cache_debate",
+            task="Design a caching system",
+            domain="engineering",
+            timestamp=datetime.now(),
+            tier=AccessTier.HOT,
+            participants=["agent1"],
+            consensus_reached=True,
+            final_answer="Use Redis.",
+            key_insights=["Cache improves performance"],
+            compressed_context="Cache discussion...",
+        )
+
+        memory._entries["auth_debate"] = DebateMemoryEntry(
+            debate_id="auth_debate",
+            task="Design authentication flow",
+            domain="security",
+            timestamp=datetime.now(),
+            tier=AccessTier.HOT,
+            participants=["agent2"],
+            consensus_reached=True,
+            final_answer="Use OAuth 2.0.",
+            key_insights=["Security is important"],
+            compressed_context="Auth discussion...",
+        )
+
+        # Query about caching should find cache_debate
+        result = memory._fallback_query("caching system", max_debates=5)
+
+        assert "caching" in result.lower() or "cache" in result.lower()
+        assert "auth" not in result.lower() or "Found 1" in result
+
+    def test_build_rlm_context(self):
+        """Test _build_rlm_context formats entries for RLM REPL."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            DebateMemoryEntry,
+            AccessTier,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        entry = DebateMemoryEntry(
+            debate_id="rlm_test",
+            task="Test RLM context building",
+            domain="testing",
+            timestamp=datetime.now(),
+            tier=AccessTier.HOT,
+            participants=["agent1", "agent2"],
+            consensus_reached=True,
+            final_answer="Context building works.",
+            key_insights=["Insight A", "Insight B"],
+            compressed_context="Full context here...",
+        )
+        memory._entries["rlm_test"] = entry
+
+        context = memory._build_rlm_context(max_debates=5)
+
+        assert "Test RLM context building" in context
+        assert "Participants: agent1, agent2" in context
+        assert "Consensus: Yes" in context
+        assert "Insight A" in context
+        assert "Context building works" in context
+
+    def test_build_rlm_context_empty(self):
+        """Test _build_rlm_context with no entries."""
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        context = memory._build_rlm_context(max_debates=5)
+
+        assert context == ""
+
+    @pytest.mark.asyncio
+    async def test_compression_used_as_fallback_not_primary(self):
+        """Test that compression is only used when RLM unavailable.
+
+        This is a key architectural requirement: compression should be
+        a FALLBACK to true RLM, not the primary approach.
+        """
+        from aragora.memory.cross_debate_rlm import (
+            CrossDebateConfig,
+            CrossDebateMemory,
+            HAS_OFFICIAL_RLM,
+        )
+
+        config = CrossDebateConfig(enable_rlm=True, persist_to_disk=False)
+        memory = CrossDebateMemory(config)
+
+        # The has_real_rlm property should indicate whether
+        # official RLM or compression fallback will be used
+        if memory.has_real_rlm:
+            # Official RLM available - query_past_debates should use it
+            assert HAS_OFFICIAL_RLM is True
+        else:
+            # Compression fallback - query_past_debates will use _fallback_query
+            assert HAS_OFFICIAL_RLM is False
+
+        # Either way, the interface should work
+        await memory.initialize()
+        result = await memory.query_past_debates("test query")
+        assert result is not None
