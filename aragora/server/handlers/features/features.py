@@ -174,7 +174,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Rhetorical Observer",
         description="Detect rhetorical patterns like concession and rebuttal",
         requires=["rhetorical_observer"],
-        endpoints=[],  # Event-based only
+        endpoints=["/api/debates/{id}/rhetorical"],
         install_hint="Enable in DebateProtocol: enable_rhetorical_observer=True",
         category="analysis",
     ),
@@ -182,7 +182,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Hollow Consensus Detection",
         description="Detect and challenge artificial agreement",
         requires=["trickster"],
-        endpoints=[],  # Event-based only
+        endpoints=["/api/debates/{id}/trickster"],
         install_hint="Enable in DebateProtocol: enable_trickster=True",
         category="analysis",
     ),

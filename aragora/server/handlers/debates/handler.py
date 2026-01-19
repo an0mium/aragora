@@ -12,6 +12,8 @@ Endpoints:
 - GET /api/debates/{id}/evidence - Get comprehensive evidence trail
 - GET /api/debate/{id}/meta-critique - Get meta-level debate analysis
 - GET /api/debate/{id}/graph/stats - Get argument graph statistics
+- GET /api/debates/{id}/rhetorical - Get rhetorical pattern observations
+- GET /api/debates/{id}/trickster - Get trickster hollow consensus status
 - POST /api/debates/{id}/fork - Fork debate at a branch point
 - PATCH /api/debates/{id} - Update debate metadata (title, tags, status)
 - GET /api/search - Cross-debate search by query
@@ -140,6 +142,8 @@ class DebatesHandler(
         ("/followups", "_get_followup_suggestions", True, None),
         ("/forks", "_list_debate_forks", True, None),
         ("/summary", "_get_summary", True, None),
+        ("/rhetorical", "_get_rhetorical_observations", True, None),
+        ("/trickster", "_get_trickster_status", True, None),
     ]
 
     def _check_auth(self, handler) -> Optional[HandlerResult]:
@@ -254,6 +258,8 @@ class DebatesHandler(
                         "_get_meta_critique",
                         "_get_graph_stats",
                         "_get_followup_suggestions",
+                        "_get_rhetorical_observations",
+                        "_get_trickster_status",
                     ):
                         return method(debate_id)
                     return method(handler, debate_id)

@@ -248,4 +248,170 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
         return error_response(f"Invalid replay data: {e}", 400)
 
 
+    def _get_rhetorical_observations(
+        self: _DebatesHandlerProtocol, debate_id: str
+    ) -> HandlerResult:
+        """Get rhetorical pattern observations for a debate.
+
+        Returns detected patterns like concession, rebuttal, synthesis,
+        with audience-friendly commentary.
+        """
+        from aragora.exceptions import RecordNotFoundError
+
+        try:
+            from aragora.debate.rhetorical_observer import (
+                RhetoricalAnalysisObserver,
+                RhetoricalPattern,
+            )
+            from aragora.debate.traces import DebateTrace
+        except ImportError:
+            return error_response("Rhetorical observer module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                return error_response("Debate trace not found", 404)
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Create observer and analyze messages
+            observer = RhetoricalAnalysisObserver()
+            all_observations = []
+
+            for msg in result.messages:
+                observations = observer.observe(
+                    agent=msg.agent,
+                    content=msg.content,
+                    round_num=msg.round,
+                )
+                all_observations.extend([obs.to_dict() for obs in observations])
+
+            # Get debate dynamics summary
+            dynamics = observer.get_debate_dynamics()
+
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "observations": all_observations,
+                    "dynamics": dynamics,
+                    "pattern_counts": {
+                        pattern.value: sum(
+                            1 for o in all_observations if o["pattern"] == pattern.value
+                        )
+                        for pattern in RhetoricalPattern
+                    },
+                    "total_observations": len(all_observations),
+                }
+            )
+        except RecordNotFoundError:
+            logger.info("Rhetorical analysis failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except Exception as e:
+            logger.error(
+                "Failed to get rhetorical observations for %s: %s",
+                debate_id,
+                e,
+                exc_info=True,
+            )
+            return error_response("Error analyzing rhetorical patterns", 500)
+
+    def _get_trickster_status(
+        self: _DebatesHandlerProtocol, debate_id: str
+    ) -> HandlerResult:
+        """Get trickster intervention status for a debate.
+
+        Returns hollow consensus alerts and any interventions that were triggered.
+        """
+        from aragora.exceptions import RecordNotFoundError
+
+        try:
+            from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
+            from aragora.debate.traces import DebateTrace
+        except ImportError:
+            return error_response("Trickster module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                return error_response("Debate trace not found", 404)
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            # Create trickster and analyze the debate
+            config = TricksterConfig()
+            trickster = EvidencePoweredTrickster(config)
+
+            # Analyze evidence quality across rounds
+            alerts = []
+            interventions = []
+
+            for round_num, round_data in enumerate(result.rounds, 1):
+                # Check for hollow consensus
+                messages = [m for m in result.messages if m.round == round_num]
+                alert = trickster.check_hollow_consensus(
+                    round_num=round_num,
+                    messages=[{"agent": m.agent, "content": m.content} for m in messages],
+                )
+                if alert:
+                    alerts.append(
+                        {
+                            "round": round_num,
+                            "severity": alert.severity,
+                            "evidence_quality": alert.evidence_quality,
+                            "convergence": alert.convergence,
+                            "gaps": alert.evidence_gaps,
+                        }
+                    )
+
+                # Check for interventions
+                intervention = trickster.get_intervention(round_num)
+                if intervention:
+                    interventions.append(
+                        {
+                            "round": round_num,
+                            "type": intervention.intervention_type.value,
+                            "target_agents": intervention.target_agents,
+                            "challenge": intervention.challenge_text,
+                            "priority": intervention.priority,
+                        }
+                    )
+
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "trickster_enabled": True,
+                    "hollow_consensus_alerts": alerts,
+                    "interventions": interventions,
+                    "total_alerts": len(alerts),
+                    "total_interventions": len(interventions),
+                    "config": {
+                        "sensitivity": config.sensitivity,
+                        "min_quality_threshold": config.min_quality_threshold,
+                        "hollow_detection_threshold": config.hollow_detection_threshold,
+                    },
+                }
+            )
+        except RecordNotFoundError:
+            logger.info("Trickster analysis failed - debate not found: %s", debate_id)
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except Exception as e:
+            logger.error(
+                "Failed to get trickster status for %s: %s",
+                debate_id,
+                e,
+                exc_info=True,
+            )
+            return error_response("Error analyzing trickster status", 500)
+
+
 __all__ = ["AnalysisOperationsMixin"]
