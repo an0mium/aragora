@@ -6,6 +6,9 @@ import { TranscriptMessageCard } from './TranscriptMessageCard';
 import { DebateForkPanel } from './DebateForkPanel';
 import { DownloadSection } from './DownloadSection';
 import { BroadcastPanel } from '@/components/broadcast';
+import { RhetoricalPanel } from './RhetoricalPanel';
+import { TricksterAlert } from './TricksterAlert';
+import { EvidenceLinkGraph } from './EvidenceLinkGraph';
 import { logger } from '@/utils/logger';
 import type { ArchivedDebateViewProps, TranscriptMessage } from './types';
 
@@ -108,6 +111,11 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
           <div className="text-text whitespace-pre-wrap font-mono text-sm">{debate.winning_proposal}</div>
         </div>
       )}
+
+      {/* Debate Quality Analysis */}
+      <TricksterAlert debateId={debate.id} />
+      <RhetoricalPanel debateId={debate.id} />
+      <EvidenceLinkGraph debateId={debate.id} />
 
       {/* Transcript */}
       <div className="bg-surface border border-acid-green/30">
