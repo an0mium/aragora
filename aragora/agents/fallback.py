@@ -790,7 +790,7 @@ def get_default_fallback_enabled() -> bool:
         from aragora.config.settings import get_settings
 
         settings = get_settings()
-        return settings.agents.openrouter_fallback_enabled
+        return settings.agent.openrouter_fallback_enabled
     except Exception:
         # If settings can't be loaded, default to False (opt-in)
         return False
