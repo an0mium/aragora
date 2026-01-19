@@ -22,6 +22,10 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
+from aragora.server.prometheus import (
+    record_control_plane_agent_health,
+    record_control_plane_agent_latency,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -492,6 +496,16 @@ class HealthMonitor:
             latency_ms=latency_ms,
             error=error,
         )
+
+        # Record Prometheus metrics
+        health_value = {
+            HealthStatus.HEALTHY: 2,
+            HealthStatus.DEGRADED: 1,
+            HealthStatus.UNHEALTHY: 0,
+            HealthStatus.CRITICAL: 0,
+        }.get(status, 0)
+        record_control_plane_agent_health(agent_id, health_value)
+        record_control_plane_agent_latency(agent_id, latency_ms / 1000.0)  # Convert to seconds
 
         # Update registry if available
         if self._registry:
