@@ -131,19 +131,26 @@ class RLMContextManager:
         """Initialize the context manager."""
         self.config = config or ExtendedDebateConfig()
         self._state = ExtendedContextState()
-        self._compressor = None
+        self._rlm = None
         self._lock = asyncio.Lock()
 
-    async def _get_compressor(self):
-        """Lazy-load the RLM compressor."""
-        if self._compressor is None and self.config.enable_rlm:
+    async def _get_rlm(self):
+        """Lazy-load AragoraRLM (routes to TRUE RLM when available)."""
+        if self._rlm is None and self.config.enable_rlm:
             try:
-                from aragora.rlm import HierarchicalCompressor
+                from aragora.rlm import get_rlm
 
-                self._compressor = HierarchicalCompressor()
+                self._rlm = get_rlm()
+                logger.debug(
+                    "[ExtendedRounds] Using AragoraRLM for context compression "
+                    "(routes to TRUE RLM if available)"
+                )
             except ImportError:
-                logger.warning("RLM module not available, falling back to simple compression")
-        return self._compressor
+                logger.warning(
+                    "[ExtendedRounds] RLM module not available, "
+                    "falling back to simple compression"
+                )
+        return self._rlm
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count (approx 4 chars per token)."""
@@ -258,10 +265,14 @@ class RLMContextManager:
         debate_context: "DebateContext",
         round_num: int,
     ) -> str:
-        """Apply hierarchical RLM compression."""
-        compressor = await self._get_compressor()
+        """Apply hierarchical RLM compression.
 
-        if not compressor:
+        Uses AragoraRLM which routes to TRUE RLM (REPL-based) when available,
+        falling back to compression-based approach otherwise.
+        """
+        rlm = await self._get_rlm()
+
+        if not rlm:
             # Fallback to sliding window if RLM not available
             return await self._apply_sliding_window(debate_context, round_num)
 
@@ -272,11 +283,12 @@ class RLMContextManager:
         if old_content:
             start_time = time.perf_counter()
             try:
+                # Use AragoraRLM.compress_and_query for summarization
                 result = await asyncio.wait_for(
-                    compressor.compress(
-                        old_content,
+                    rlm.compress_and_query(
+                        query=f"Summarize the key points from debate rounds 1-{window_start}",
+                        content=old_content,
                         source_type="debate",
-                        max_levels=self.config.rlm_max_levels,
                     ),
                     timeout=self.config.compression_timeout,
                 )
@@ -284,14 +296,18 @@ class RLMContextManager:
                 self._state.compressions_performed += 1
                 self._state.compression_time_total += time.perf_counter() - start_time
 
-                if result and result.context:
-                    # Get summary level for compressed history
-                    from aragora.rlm.types import AbstractionLevel
+                if result and result.answer:
+                    self._state.compressed_history = result.answer
 
-                    self._state.compressed_history = result.context.get_at_level(
-                        AbstractionLevel.SUMMARY
-                    ) or ""
-                    self._state.rlm_context = result.context
+                    # Log which approach was used
+                    if result.used_true_rlm:
+                        logger.debug(
+                            f"[ExtendedRounds] Round {round_num}: Used TRUE RLM for compression"
+                        )
+                    elif result.used_compression_fallback:
+                        logger.debug(
+                            f"[ExtendedRounds] Round {round_num}: Used compression fallback"
+                        )
 
                     # Track token savings
                     original_tokens = self._estimate_tokens(old_content)
@@ -300,9 +316,9 @@ class RLMContextManager:
                     self._state.compressed_tokens = compressed_tokens
 
             except asyncio.TimeoutError:
-                logger.warning(f"RLM compression timed out for round {round_num}")
+                logger.warning(f"[ExtendedRounds] RLM compression timed out for round {round_num}")
             except Exception as e:
-                logger.error(f"RLM compression failed: {e}")
+                logger.error(f"[ExtendedRounds] RLM compression failed: {e}")
 
         # Build final context
         return await self._apply_sliding_window(debate_context, round_num)
@@ -333,25 +349,36 @@ class RLMContextManager:
         """
         Get detailed context for a specific query.
 
-        Allows agents to drill down into compressed context when needed.
+        Uses AragoraRLM to query the compressed history for relevant details.
+        When TRUE RLM is available, the model can programmatically examine
+        the full context. Otherwise, queries against the stored summary.
 
         Args:
             query: The query to search for
-            level: Abstraction level (ABSTRACT, SUMMARY, DETAILED, FULL)
+            level: Abstraction level hint (ABSTRACT, SUMMARY, DETAILED, FULL)
 
         Returns:
-            Relevant context at the specified detail level
+            Relevant context for the query
         """
-        if not self._state.rlm_context:
+        if not self._state.compressed_history:
             return ""
 
-        try:
-            from aragora.rlm.types import AbstractionLevel
+        rlm = await self._get_rlm()
+        if rlm:
+            try:
+                # Query the compressed history using RLM
+                result = await rlm.compress_and_query(
+                    query=query,
+                    content=self._state.compressed_history,
+                    source_type="debate",
+                )
+                if result and result.answer:
+                    return result.answer
+            except Exception as e:
+                logger.debug(f"[ExtendedRounds] Drill-down query failed: {e}")
 
-            level_enum = AbstractionLevel[level.upper()]
-            return self._state.rlm_context.get_at_level(level_enum) or ""
-        except (KeyError, AttributeError):
-            return ""
+        # Fallback: return the compressed history itself
+        return self._state.compressed_history
 
     def get_statistics(self) -> dict[str, Any]:
         """Get compression statistics."""

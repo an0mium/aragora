@@ -22,13 +22,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Check for RLM availability
+# Check for RLM availability (prefer factory for TRUE RLM support)
 try:
-    from aragora.rlm import HierarchicalCompressor, RLMConfig, RLMContext as _RLMContext
+    from aragora.rlm import get_rlm, RLMConfig, RLMContext as _RLMContext, HAS_OFFICIAL_RLM
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    HAS_OFFICIAL_RLM = False
+    get_rlm = None  # type: ignore[misc,assignment]
     RLMConfig = None  # type: ignore[misc,assignment]
     _RLMContext = None  # type: ignore[misc,assignment]
 
@@ -117,16 +118,25 @@ class ContextInitializer:
         self.knowledge_mound = knowledge_mound
         self.enable_knowledge_retrieval = enable_knowledge_retrieval
 
-        # RLM configuration
+        # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
-        self._rlm_compressor: Optional[Any] = None
-        if self.enable_rlm_compression and HierarchicalCompressor:
-            config = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
-            self._rlm_compressor = HierarchicalCompressor(
-                config=config,
-                agent_call=rlm_agent_call,
-            )
-            logger.info("[rlm] RLM compression enabled for context initialization")
+        self._rlm: Optional[Any] = None
+        if self.enable_rlm_compression and get_rlm is not None:
+            try:
+                config = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
+                self._rlm = get_rlm(config=config)
+                if HAS_OFFICIAL_RLM:
+                    logger.info(
+                        "[rlm] TRUE RLM enabled for context initialization "
+                        "(REPL-based, model writes code to examine context)"
+                    )
+                else:
+                    logger.info(
+                        "[rlm] RLM compression enabled for context initialization "
+                        "(compression fallback - install rlm for TRUE RLM)"
+                    )
+            except Exception as e:
+                logger.warning(f"[rlm] Failed to initialize AragoraRLM: {e}")
 
         # Callbacks
         self._fetch_historical_context = fetch_historical_context
@@ -237,8 +247,8 @@ class ContextInitializer:
             logger.info("background_evidence_started")
 
         # 15. Compress accumulated context with RLM (if enabled)
-        # This creates a hierarchical representation for efficient agent access
-        if self.enable_rlm_compression and self._rlm_compressor and ctx.env.context:
+        # Uses TRUE RLM when available, compression fallback otherwise
+        if self.enable_rlm_compression and self._rlm and ctx.env.context:
             await self._compress_context_with_rlm(ctx)
 
     def _inject_fork_history(self, ctx: "DebateContext") -> None:
@@ -649,20 +659,18 @@ class ContextInitializer:
         """
         Compress accumulated context using Recursive Language Models (RLM).
 
-        Based on the paper "Recursive Language Models" (arXiv:2512.24601),
-        this method creates a hierarchical representation of context that
-        enables agents to efficiently navigate long content.
+        Uses AragoraRLM which routes to TRUE RLM (REPL-based) when the official
+        library is installed, falling back to compression-based approach otherwise.
 
-        The compressed context is stored in ctx.rlm_context and can be used
-        by agents through the REPL interface to:
-        - Start with high-level abstracts
-        - Drill down into detailed sections as needed
-        - Search semantically across the hierarchy
+        Based on the paper "Recursive Language Models" (arXiv:2512.24601),
+        this enables agents to efficiently navigate long content by:
+        - TRUE RLM: Model writes code to programmatically examine context
+        - Fallback: Creates hierarchical summaries for context compression
 
         This is particularly valuable when context exceeds agent context windows,
         as it maintains semantic fidelity while enabling 100x longer content.
         """
-        if not self._rlm_compressor:
+        if not self._rlm:
             return
 
         try:
@@ -688,45 +696,48 @@ class ContextInitializer:
             elif "def " in context_content or "class " in context_content:
                 source_type = "code"
 
-            # Compress with timeout
+            # Compress using AragoraRLM (routes to TRUE RLM if available)
             compression_result = await asyncio.wait_for(
-                self._rlm_compressor.compress(
+                self._rlm.compress_and_query(
+                    query="Create a comprehensive summary preserving key information",
                     content=context_content,
                     source_type=source_type,
-                    max_levels=3,  # ABSTRACT, SUMMARY, DETAILED
                 ),
                 timeout=30.0,  # 30 second timeout for compression
             )
 
-            # Store hierarchical context in DebateContext
-            ctx.rlm_context = compression_result.context
+            # Store summary in context
+            if compression_result and compression_result.answer:
+                ctx.rlm_compressed_context = compression_result.answer
 
-            # Log compression stats
-            compression_stats = compression_result.compression_ratio
-            summary_ratio = compression_stats.get(
-                _RLMContext and list(compression_stats.keys())[1] if len(compression_stats) > 1 else None,
-                0,
-            ) if compression_stats else 0
+                # Log which approach was used
+                if compression_result.used_true_rlm:
+                    logger.info(
+                        "[rlm] Context compressed using TRUE RLM "
+                        "(model wrote code to examine content)"
+                    )
+                elif compression_result.used_compression_fallback:
+                    logger.info(
+                        "[rlm] Context compressed using compression fallback"
+                    )
 
-            logger.info(
-                "[rlm] Context compressed: %d → %d tokens at summary level (%.0f%% reduction)",
-                estimated_tokens,
-                compression_result.compressed_tokens.get(
-                    list(compression_result.compressed_tokens.keys())[1], estimated_tokens
-                ) if len(compression_result.compressed_tokens) > 1 else estimated_tokens,
-                (1 - summary_ratio) * 100 if summary_ratio else 0,
-            )
+                # Calculate compression stats
+                compressed_tokens = len(compression_result.answer) // 4
+                reduction = ((estimated_tokens - compressed_tokens) / estimated_tokens) * 100
 
-            # Optionally replace context with summary for agents with small windows
-            # Agents can still access full content via ctx.rlm_context.get_at_level()
-            if hasattr(ctx, "use_compressed_context") and ctx.use_compressed_context:
-                summary = compression_result.context.get_at_level(
-                    _RLMContext.AbstractionLevel.SUMMARY if _RLMContext else None
-                ) if _RLMContext else ctx.env.context
-                if summary and len(summary) < len(context_content):
-                    ctx.env.context = (
-                        "## COMPRESSED CONTEXT (use rlm_context for full access)\n\n"
-                        + summary
+                logger.info(
+                    "[rlm] Context compressed: %d → %d tokens (%.0f%% reduction)",
+                    estimated_tokens,
+                    compressed_tokens,
+                    reduction,
+                )
+
+                # Optionally replace context with summary for agents with small windows
+                if hasattr(ctx, "use_compressed_context") and ctx.use_compressed_context:
+                    if len(compression_result.answer) < len(context_content):
+                        ctx.env.context = (
+                            "## COMPRESSED CONTEXT (full context available on request)\n\n"
+                            + compression_result.answer
                     )
                     logger.info("[rlm] Replaced context with summary level")
 
