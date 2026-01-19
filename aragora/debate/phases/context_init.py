@@ -70,6 +70,8 @@ class ContextInitializer:
         # Knowledge Mound integration
         knowledge_mound: Any = None,  # KnowledgeMound for unified knowledge queries
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
+        # Belief Network guidance
+        enable_belief_guidance: bool = True,  # Inject historical cruxes from similar debates
         # RLM (Recursive Language Models) for context compression
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
@@ -117,6 +119,7 @@ class ContextInitializer:
         self.auto_fetch_trending = auto_fetch_trending
         self.knowledge_mound = knowledge_mound
         self.enable_knowledge_retrieval = enable_knowledge_retrieval
+        self.enable_belief_guidance = enable_belief_guidance
 
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
@@ -228,6 +231,10 @@ class ContextInitializer:
 
         # 12. Inject historical dissents from ConsensusMemory
         self._inject_historical_dissents(ctx)
+
+        # 12b. Inject belief cruxes from similar past debates (belief guidance)
+        if self.enable_belief_guidance:
+            self._inject_belief_cruxes(ctx)
 
         # 13. Start research in background (non-blocking for fast startup)
         # Research runs in parallel with proposals, results injected before round 2
@@ -516,6 +523,91 @@ class ContextInitializer:
 
         except Exception as e:
             logger.debug(f"Historical dissent injection error: {e}")
+
+    def _inject_belief_cruxes(self, ctx: "DebateContext") -> None:
+        """Inject belief cruxes from similar past debates.
+
+        Retrieves crux claims (key disagreement points) from past debates
+        on similar topics and injects them as context. This helps agents
+        focus on the most important points of contention early in the debate.
+
+        Uses the DissentRetriever's underlying ConsensusMemory to find
+        similar debates and extract their recorded belief_cruxes.
+        """
+        if not self.dissent_retriever:
+            return
+
+        try:
+            # Get the underlying ConsensusMemory from DissentRetriever
+            consensus_memory = getattr(self.dissent_retriever, "memory", None)
+            if not consensus_memory:
+                return
+
+            topic = ctx.env.task
+            domain = getattr(ctx, "domain", None)
+            if domain == "general":
+                domain = None
+
+            # Find similar debates
+            similar_debates = consensus_memory.find_similar_debates(
+                topic=topic,
+                domain=domain,
+                min_confidence=0.5,
+                limit=5,
+            )
+
+            if not similar_debates:
+                return
+
+            # Extract belief cruxes from similar debates
+            all_cruxes: list[str] = []
+            for similar in similar_debates:
+                consensus = similar.consensus
+                # Cruxes are stored in the metadata dict
+                if hasattr(consensus, "metadata") and consensus.metadata:
+                    cruxes = consensus.metadata.get("belief_cruxes", [])
+                    all_cruxes.extend(cruxes[:3])  # Max 3 per debate
+
+                # Also check key_claims as backup
+                if hasattr(consensus, "key_claims") and consensus.key_claims:
+                    # Add key claims if we don't have enough cruxes
+                    if len(all_cruxes) < 5:
+                        all_cruxes.extend(consensus.key_claims[:2])
+
+            if not all_cruxes:
+                return
+
+            # Deduplicate and limit
+            unique_cruxes = list(dict.fromkeys(all_cruxes))[:5]  # Max 5 cruxes
+
+            # Format as context
+            crux_context = "\n\n## HISTORICAL CRUXES (key points of debate from similar topics)\n"
+            crux_context += (
+                "Previous debates on similar topics identified these as critical decision points:\n"
+            )
+            for i, crux in enumerate(unique_cruxes, 1):
+                # Truncate long cruxes
+                crux_text = crux[:300] + "..." if len(crux) > 300 else crux
+                crux_context += f"\n{i}. {crux_text}"
+
+            crux_context += (
+                "\n\nConsider addressing these points explicitly in your arguments."
+            )
+
+            # Inject into context
+            if ctx.env.context:
+                ctx.env.context += crux_context
+            else:
+                ctx.env.context = crux_context.strip()
+
+            logger.info(
+                "[belief_guidance] Injected %d historical cruxes from %d similar debates",
+                len(unique_cruxes),
+                len(similar_debates),
+            )
+
+        except Exception as e:
+            logger.debug(f"[belief_guidance] Crux injection error: {e}")
 
     async def _perform_pre_debate_research(self, ctx: "DebateContext") -> None:
         """Perform pre-debate research if enabled."""

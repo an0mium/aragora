@@ -146,6 +146,9 @@ class ArenaConfig:
     enable_knowledge_retrieval: bool = True  # Query mound before debates for relevant knowledge
     enable_knowledge_ingestion: bool = True  # Store consensus outcomes in mound after debates
 
+    # Belief Network guidance (cross-debate crux injection)
+    enable_belief_guidance: bool = True  # Inject historical cruxes from similar debates as context
+
     # Genesis evolution
     population_manager: Optional[PopulationManagerProtocol] = None
     auto_evolve: bool = False  # Trigger evolution after high-quality debates
@@ -162,7 +165,7 @@ class ArenaConfig:
 
     # Debate checkpointing for resume support
     checkpoint_manager: Optional[Any] = None  # CheckpointManager for pause/resume
-    enable_checkpointing: bool = False  # Auto-create CheckpointManager if True
+    enable_checkpointing: bool = True  # Auto-create CheckpointManager if True (enables debate resume)
 
     # Performance telemetry
     performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
@@ -208,7 +211,7 @@ class ArenaConfig:
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
 
     # RLM Cognitive Load Limiter (for long debates)
-    use_rlm_limiter: bool = False  # Use RLM-enhanced cognitive limiter for context compression
+    use_rlm_limiter: bool = True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
     rlm_limiter: Optional[Any] = None  # Pre-configured RLMCognitiveLoadLimiter
     rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
     rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail
@@ -257,6 +260,7 @@ class ArenaConfig:
             "knowledge_mound": self.knowledge_mound,
             "enable_knowledge_retrieval": self.enable_knowledge_retrieval,
             "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
+            "enable_belief_guidance": self.enable_belief_guidance,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,
