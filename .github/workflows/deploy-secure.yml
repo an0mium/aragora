@@ -150,13 +150,15 @@ jobs:
               "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
               "sudo -u ec2-user git stash --include-untracked || true",
               "sudo -u ec2-user git fetch origin main",
-              "sudo -u ec2-user git checkout origin/main",
+              "sudo -u ec2-user git checkout main || sudo -u ec2-user git checkout -b main origin/main",
+              "sudo -u ec2-user git reset --hard origin/main",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
               "sudo systemctl restart aragora",
               "sleep 5",
               "systemctl is-active --quiet aragora",
+              "python scripts/seed_agents.py || echo \"Seed skipped (non-fatal)\"",
               "echo \"Deploy complete\""
             ]' \
             --timeout-seconds 300 \
@@ -304,13 +306,15 @@ jobs:
               "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
               "sudo -u ec2-user git stash --include-untracked || true",
               "sudo -u ec2-user git fetch origin main",
-              "sudo -u ec2-user git checkout origin/main",
+              "sudo -u ec2-user git checkout main || sudo -u ec2-user git checkout -b main origin/main",
+              "sudo -u ec2-user git reset --hard origin/main",
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
               "sudo systemctl restart aragora",
               "sleep 5",
               "systemctl is-active --quiet aragora",
+              "python scripts/seed_agents.py || echo \"Seed skipped (non-fatal)\"",
               "echo \"Production deploy complete\""
             ]' \
             --timeout-seconds 300 \
