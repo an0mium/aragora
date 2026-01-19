@@ -293,9 +293,7 @@ class EvidenceCollector:
                 if isinstance(result, BaseException):
                     logger.warning(f"Connector search error: {result}")
                 else:
-                    connector_snippets, searched_count = cast(
-                        Tuple[List["EvidenceSnippet"], int], result
-                    )
+                    connector_snippets, searched_count = result
                     all_snippets.extend(connector_snippets)
                     total_searched += searched_count
 

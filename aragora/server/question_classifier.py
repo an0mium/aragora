@@ -239,7 +239,7 @@ class QuestionClassifier:
             complexity = "complex"
 
         # Get relevant expertise domains
-        domains = QUESTION_CATEGORIES.get(category, {}).get("domains", [])
+        domains: list[str] = list(QUESTION_CATEGORIES.get(category, {}).get("domains", []))
 
         # Recommend personas based on domains
         personas = self._select_personas_for_domains(domains, complexity)
