@@ -6,7 +6,9 @@ enabling heterogeneous multi-model debates.
 
 Supports automatic fallback to OpenRouter API when CLI commands fail due to
 rate limits, timeouts, or other errors. Enable fallback by setting
-enable_fallback=True (default) and providing OPENROUTER_API_KEY.
+ARAGORA_OPENROUTER_FALLBACK_ENABLED=true and providing OPENROUTER_API_KEY.
+
+Note: Fallback is opt-in by default to prevent silent billing on OpenRouter.
 """
 
 from __future__ import annotations
@@ -67,7 +69,7 @@ class CLIAgent(CritiqueMixin, Agent):
     """Base class for CLI-based agents.
 
     Supports automatic fallback to OpenRouter API when CLI commands fail.
-    Enable with enable_fallback=True (default) and OPENROUTER_API_KEY env var.
+    Enable with ARAGORA_OPENROUTER_FALLBACK_ENABLED=true and OPENROUTER_API_KEY env var.
     """
 
     # Map CLI agent models to OpenRouter model identifiers
@@ -105,14 +107,20 @@ class CLIAgent(CritiqueMixin, Agent):
         model: str,
         role: str = "proposer",
         timeout: int = 300,  # Increased default for complex operations
-        enable_fallback: bool = True,
+        enable_fallback: bool | None = None,  # None = use config setting
         circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         prefer_api: bool = False,  # Skip CLI, use OpenRouter directly
     ):
         super().__init__(name, model, role)
         self.timeout = timeout
-        self.enable_fallback = enable_fallback
+        # Use config setting if not explicitly provided
+        if enable_fallback is None:
+            from aragora.agents.fallback import get_default_fallback_enabled
+
+            self.enable_fallback = get_default_fallback_enabled()
+        else:
+            self.enable_fallback = enable_fallback
         self.prefer_api = prefer_api
         self._fallback_agent: OpenRouterAgent | None = None
         self._fallback_used = False  # Track if fallback was triggered this session
