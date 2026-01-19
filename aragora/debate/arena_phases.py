@@ -335,6 +335,9 @@ def init_phases(arena: "Arena") -> None:
         refresh_evidence=arena._refresh_evidence_for_round,
         checkpoint_callback=arena._create_checkpoint if arena.checkpoint_manager else None,
         context_initializer=arena.context_initializer,
+        # RLM compression for long debates (auto-compresses context after threshold rounds)
+        compress_context=arena.compress_debate_messages if arena.use_rlm_limiter else None,
+        rlm_compression_round_threshold=getattr(arena, "rlm_compression_round_threshold", 3),
     )
 
     # Phase 3: Consensus Resolution

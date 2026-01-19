@@ -213,6 +213,7 @@ class ArenaConfig:
     rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
     rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail
     rlm_summary_level: str = "SUMMARY"  # Abstraction level for older content (ABSTRACT, SUMMARY, DETAILED)
+    rlm_compression_round_threshold: int = 3  # Start auto-compression after this many rounds
 
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
@@ -302,6 +303,7 @@ class ArenaConfig:
             "rlm_compression_threshold": self.rlm_compression_threshold,
             "rlm_max_recent_messages": self.rlm_max_recent_messages,
             "rlm_summary_level": self.rlm_summary_level,
+            "rlm_compression_round_threshold": self.rlm_compression_round_threshold,
             # Note: broadcast_platforms, training_export_path not yet in Arena.__init__
         }
 

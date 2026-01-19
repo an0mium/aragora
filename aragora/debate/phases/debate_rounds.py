@@ -112,6 +112,8 @@ class DebateRoundsPhase:
             Callable
         ] = None,  # Async callback to save checkpoint after each round
         context_initializer: Any = None,  # ContextInitializer for background task awaiting
+        compress_context: Optional[Callable] = None,  # Async callback to compress debate messages
+        rlm_compression_round_threshold: int = 3,  # Start compression after this many rounds
     ):
         """
         Initialize the debate rounds phase.
@@ -141,6 +143,8 @@ class DebateRoundsPhase:
             refresh_evidence: Async callback to refresh evidence based on round claims
             checkpoint_callback: Async callback to save checkpoint after each round
             context_initializer: ContextInitializer for awaiting background research/evidence
+            compress_context: Async callback to compress debate messages using RLM
+            rlm_compression_round_threshold: Start compression after this many rounds (default 3)
         """
         self.protocol = protocol
         self.circuit_breaker = circuit_breaker
@@ -168,6 +172,8 @@ class DebateRoundsPhase:
         self._refresh_evidence = refresh_evidence
         self._checkpoint_callback = checkpoint_callback
         self._context_initializer = context_initializer
+        self._compress_context = compress_context
+        self._rlm_compression_round_threshold = rlm_compression_round_threshold
 
         # Internal state
         self._partial_messages: list["Message"] = []
@@ -314,6 +320,14 @@ class DebateRoundsPhase:
             # This ensures research context is available for critique prompts
             if round_num == 1 and self._context_initializer:
                 await self._context_initializer.await_background_context(ctx)
+
+            # Compress context messages using RLM after threshold rounds
+            # This keeps context manageable for long debates
+            if (
+                self._compress_context
+                and round_num >= self._rlm_compression_round_threshold
+            ):
+                await self._compress_debate_context(ctx, round_num)
 
             # Round 7 special handling: Final Synthesis
             # Each agent synthesizes the discussion and revises their proposal to final form
@@ -1083,6 +1097,70 @@ class DebateRoundsPhase:
     def get_partial_critiques(self) -> list["Critique"]:
         """Get partial critiques for timeout recovery."""
         return self._partial_critiques
+
+    async def _compress_debate_context(
+        self,
+        ctx: "DebateContext",
+        round_num: int,
+    ) -> None:
+        """Compress debate context using RLM cognitive load limiter.
+
+        Called at the start of each round after the threshold to keep
+        context manageable for long debates. Old messages are summarized
+        while recent messages are kept at full detail.
+
+        Args:
+            ctx: The DebateContext with messages to compress
+            round_num: Current round number
+        """
+        if not self._compress_context:
+            return
+
+        # Only compress if there are enough messages to warrant it
+        if len(ctx.context_messages) < 10:
+            return
+
+        try:
+            # Emit heartbeat to signal compression is happening
+            self._emit_heartbeat(f"round_{round_num}", "compressing_context")
+
+            # Call Arena's compress_debate_messages method
+            compressed_msgs, compressed_crits = await _with_callback_timeout(
+                self._compress_context(
+                    messages=ctx.context_messages,
+                    critiques=self._partial_critiques,
+                ),
+                timeout=DEFAULT_CALLBACK_TIMEOUT,
+                default=(ctx.context_messages, self._partial_critiques),
+            )
+
+            # Update context with compressed messages
+            if compressed_msgs is not ctx.context_messages:
+                original_count = len(ctx.context_messages)
+                ctx.context_messages = list(compressed_msgs)
+                logger.info(
+                    f"[rlm] Compressed context: {original_count} → {len(ctx.context_messages)} messages"
+                )
+
+                # Notify spectator about compression
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "context_compression",
+                        details=f"Compressed {original_count} → {len(ctx.context_messages)} messages",
+                        agent="system",
+                    )
+
+                # Emit hook for WebSocket clients
+                if "on_context_compression" in self.hooks:
+                    self.hooks["on_context_compression"](
+                        round_num=round_num,
+                        original_count=original_count,
+                        compressed_count=len(ctx.context_messages),
+                    )
+
+        except Exception as e:
+            logger.warning(f"[rlm] Context compression failed: {e}")
+            # Continue without compression - don't break the debate
 
     async def _execute_final_synthesis_round(
         self,

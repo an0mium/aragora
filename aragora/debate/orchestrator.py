@@ -213,6 +213,7 @@ class Arena:
         rlm_compression_threshold: int = 3000,  # Chars above which to trigger RLM compression
         rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
         rlm_summary_level: str = "SUMMARY",  # Abstraction level for older content
+        rlm_compression_round_threshold: int = 3,  # Start auto-compression after this many rounds
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -323,6 +324,17 @@ class Arena:
         # Initialize grounded operations helper (uses position_ledger, elo_system)
         self._init_grounded_operations()
 
+        # Initialize RLM cognitive load limiter for context compression
+        # Must be before _init_phases() since phases need use_rlm_limiter
+        self._init_rlm_limiter(
+            use_rlm_limiter=use_rlm_limiter,
+            rlm_limiter=rlm_limiter,
+            rlm_compression_threshold=rlm_compression_threshold,
+            rlm_max_recent_messages=rlm_max_recent_messages,
+            rlm_summary_level=rlm_summary_level,
+        )
+        self.rlm_compression_round_threshold = rlm_compression_round_threshold
+
         # Initialize phase classes for orchestrator decomposition
         self._init_phases()
 
@@ -334,15 +346,6 @@ class Arena:
 
         # Initialize termination checker
         self._init_termination_checker()
-
-        # Initialize RLM cognitive load limiter for context compression
-        self._init_rlm_limiter(
-            use_rlm_limiter=use_rlm_limiter,
-            rlm_limiter=rlm_limiter,
-            rlm_compression_threshold=rlm_compression_threshold,
-            rlm_max_recent_messages=rlm_max_recent_messages,
-            rlm_summary_level=rlm_summary_level,
-        )
 
     @classmethod
     def from_config(

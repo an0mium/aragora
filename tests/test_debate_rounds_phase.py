@@ -34,6 +34,7 @@ class MockProtocol:
     rounds: int = 3
     asymmetric_stances: bool = False
     rotate_stances: bool = False
+    use_structured_phases: bool = False
 
 
 @dataclass
@@ -94,6 +95,11 @@ class MockDebateContext:
         self.env = env or MockEnvironment()
         self.result = result or MockResult()
         self.context_messages = []
+        self.cancellation_token = None  # For cancellation support
+        self.hook_manager = None  # For pre/post round hooks
+        self.per_agent_novelty = {}  # For novelty tracking
+        self.avg_novelty = 0.0
+        self.low_novelty_agents = []
 
     def add_message(self, msg):
         self.context_messages.append(msg)
