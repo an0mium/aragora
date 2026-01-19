@@ -107,13 +107,32 @@ export default function BroadcastPage() {
   const fetchEpisodes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${backendUrl}/api/broadcast/episodes?limit=50`);
+      const res = await fetch(`${backendUrl}/api/podcast/episodes?limit=50`);
       if (res.ok) {
         const data = await res.json();
-        setEpisodes(data.episodes || []);
+        // Map podcast episode format to our Episode interface
+        const mappedEpisodes = (data.episodes || []).map((ep: {
+          debate_id: string;
+          task?: string;
+          agents?: string[];
+          audio_url?: string;
+          duration_seconds?: number;
+          file_size_bytes?: number;
+          generated_at?: string;
+        }) => ({
+          id: ep.debate_id,
+          title: ep.task || ep.debate_id,
+          debate_id: ep.debate_id,
+          duration_seconds: ep.duration_seconds || 0,
+          file_size_bytes: ep.file_size_bytes || 0,
+          format: 'mp3',
+          created_at: ep.generated_at || new Date().toISOString(),
+          agents: ep.agents || [],
+        }));
+        setEpisodes(mappedEpisodes);
         setError(null);
       } else if (res.status === 503) {
-        setError('Broadcast module not available. Install with: pip install aragora[broadcast]');
+        setError('Podcast module not available. Audio storage may not be configured.');
       } else {
         setError('Failed to load episodes');
       }
@@ -405,16 +424,16 @@ export default function BroadcastPage() {
                     <audio
                       controls
                       className="w-full"
-                      src={`/api/broadcast/audio/${selectedEpisode.debate_id}.${selectedEpisode.format || 'mp3'}`}
+                      src={`${backendUrl}/audio/${selectedEpisode.debate_id}.mp3`}
                     />
 
                     <div className="flex flex-col gap-2">
                       <a
-                        href={`/api/broadcast/audio/${selectedEpisode.debate_id}.${selectedEpisode.format || 'mp3'}`}
+                        href={`${backendUrl}/audio/${selectedEpisode.debate_id}.mp3`}
                         download
                         className="w-full px-3 py-2 text-xs font-mono text-center border border-acid-green/40 hover:bg-acid-green/10 transition-colors"
                       >
-                        [DOWNLOAD {selectedEpisode.format?.toUpperCase() || 'MP3'}]
+                        [DOWNLOAD MP3]
                       </a>
                       <Link
                         href={`/debates/${selectedEpisode.debate_id}`}

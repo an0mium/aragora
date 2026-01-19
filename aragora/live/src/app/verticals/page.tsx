@@ -39,6 +39,21 @@ interface Suggestion {
 
 type TabType = 'browse' | 'suggest' | 'detail';
 
+interface AgentCreationState {
+  isOpen: boolean;
+  loading: boolean;
+  error: string | null;
+  result: { agent_id: string; name: string } | null;
+}
+
+interface DebateCreationState {
+  isOpen: boolean;
+  question: string;
+  loading: boolean;
+  error: string | null;
+  result: { debate_id: string } | null;
+}
+
 export default function VerticalsPage() {
   const { config } = useBackend();
   const backendUrl = config.api;
@@ -52,6 +67,23 @@ export default function VerticalsPage() {
   const [loading, setLoading] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Agent creation state
+  const [agentCreation, setAgentCreation] = useState<AgentCreationState>({
+    isOpen: false,
+    loading: false,
+    error: null,
+    result: null,
+  });
+
+  // Debate creation state
+  const [debateCreation, setDebateCreation] = useState<DebateCreationState>({
+    isOpen: false,
+    question: '',
+    loading: false,
+    error: null,
+    result: null,
+  });
 
   const fetchVerticals = useCallback(async () => {
     try {
@@ -125,6 +157,69 @@ export default function VerticalsPage() {
       setError(err instanceof Error ? err.message : 'Suggestion failed');
     } finally {
       setSuggesting(false);
+    }
+  };
+
+  const handleCreateAgent = async () => {
+    if (!selectedVertical) return;
+
+    setAgentCreation(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const response = await fetch(`${backendUrl}/api/verticals/${selectedVertical.id}/agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      setAgentCreation(prev => ({
+        ...prev,
+        loading: false,
+        result: { agent_id: data.agent_id, name: data.agent_name || selectedVertical.name },
+      }));
+    } catch (err) {
+      setAgentCreation(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Agent creation failed',
+      }));
+    }
+  };
+
+  const handleCreateDebate = async () => {
+    if (!selectedVertical || !debateCreation.question.trim()) return;
+
+    setDebateCreation(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const response = await fetch(`${backendUrl}/api/verticals/${selectedVertical.id}/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: debateCreation.question,
+          rounds: 3,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      setDebateCreation(prev => ({
+        ...prev,
+        loading: false,
+        result: { debate_id: data.debate_id },
+      }));
+    } catch (err) {
+      setDebateCreation(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : 'Debate creation failed',
+      }));
     }
   };
 
@@ -340,18 +435,103 @@ export default function VerticalsPage() {
           </div>
         )}
 
+        {/* Create Specialist Agent */}
+        <div className="p-4 bg-surface border border-acid-cyan/30 rounded-lg">
+          <h3 className="text-sm font-mono font-bold text-acid-cyan uppercase mb-3">Create Specialist Agent</h3>
+          <p className="text-sm text-text-muted mb-4">
+            Instantiate a new specialist agent configured for {selectedVertical.name.toLowerCase()} tasks.
+          </p>
+
+          {agentCreation.result ? (
+            <div className="p-3 bg-acid-green/10 border border-acid-green/30 rounded mb-3">
+              <p className="text-sm font-mono text-acid-green">
+                Agent created: {agentCreation.result.name} ({agentCreation.result.agent_id})
+              </p>
+              <Link
+                href={`/agents/${agentCreation.result.agent_id}`}
+                className="text-xs font-mono text-acid-cyan hover:underline mt-2 inline-block"
+              >
+                [VIEW AGENT]
+              </Link>
+            </div>
+          ) : agentCreation.error ? (
+            <div className="p-3 bg-warning/10 border border-warning/30 rounded mb-3">
+              <p className="text-sm font-mono text-warning">{agentCreation.error}</p>
+            </div>
+          ) : null}
+
+          <button
+            onClick={handleCreateAgent}
+            disabled={agentCreation.loading}
+            className={`px-4 py-2 font-mono text-sm rounded transition-colors ${
+              agentCreation.loading
+                ? 'bg-surface border border-border text-text-muted cursor-wait'
+                : 'bg-acid-cyan/20 border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/30'
+            }`}
+          >
+            {agentCreation.loading ? 'Creating...' : 'Create Agent Instance'}
+          </button>
+        </div>
+
         {/* Start Debate */}
         <div className="p-4 bg-surface border border-acid-green/30 rounded-lg">
           <h3 className="text-sm font-mono font-bold text-acid-green uppercase mb-3">Start Specialist Debate</h3>
           <p className="text-sm text-text-muted mb-4">
             Launch a debate using agents specialized for {selectedVertical.name.toLowerCase()} tasks.
           </p>
-          <Link
-            href={`/debate?vertical=${selectedVertical.id}`}
-            className="inline-block px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
-          >
-            Start {selectedVertical.name} Debate
-          </Link>
+
+          {debateCreation.result ? (
+            <div className="p-3 bg-acid-green/10 border border-acid-green/30 rounded mb-3">
+              <p className="text-sm font-mono text-acid-green">
+                Debate created successfully!
+              </p>
+              <Link
+                href={`/debate/${debateCreation.result.debate_id}`}
+                className="text-xs font-mono text-acid-cyan hover:underline mt-2 inline-block"
+              >
+                [VIEW DEBATE]
+              </Link>
+            </div>
+          ) : debateCreation.error ? (
+            <div className="p-3 bg-warning/10 border border-warning/30 rounded mb-3">
+              <p className="text-sm font-mono text-warning">{debateCreation.error}</p>
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                Debate Question
+              </label>
+              <textarea
+                value={debateCreation.question}
+                onChange={(e) => setDebateCreation(prev => ({ ...prev, question: e.target.value }))}
+                placeholder={`e.g., What are the key ${selectedVertical.category} considerations for...`}
+                rows={3}
+                className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green/50 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreateDebate}
+                disabled={debateCreation.loading || !debateCreation.question.trim()}
+                className={`flex-1 px-4 py-2 font-mono text-sm rounded transition-colors ${
+                  debateCreation.loading || !debateCreation.question.trim()
+                    ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
+                    : 'bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30'
+                }`}
+              >
+                {debateCreation.loading ? 'Creating Debate...' : 'Start Debate'}
+              </button>
+              <Link
+                href={`/debate?vertical=${selectedVertical.id}`}
+                className="px-4 py-2 font-mono text-sm bg-surface border border-border text-text-muted hover:text-text rounded transition-colors"
+              >
+                Quick Start
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
