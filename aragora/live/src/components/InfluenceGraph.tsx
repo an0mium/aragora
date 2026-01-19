@@ -11,7 +11,7 @@ import { API_BASE_URL } from '@/config';
 // Types
 // =============================================================================
 
-interface BeliefNode {
+interface BeliefNode extends d3.SimulationNodeDatum {
   id: string;
   claim_id: string;
   statement: string;
@@ -25,15 +25,11 @@ interface BeliefNode {
     false_prob: number;
     uncertain_prob: number;
   };
-  x?: number;
-  y?: number;
-  fx?: number | null;
-  fy?: number | null;
 }
 
-interface InfluenceLink {
-  source: string;
-  target: string;
+interface InfluenceLink extends d3.SimulationLinkDatum<BeliefNode> {
+  source: string | BeliefNode;
+  target: string | BeliefNode;
   weight: number;
   type: 'supports' | 'opposes' | 'influences';
 }
@@ -174,17 +170,17 @@ export function InfluenceGraph({
       .attr('fill', d => d === 'opposes' ? '#ff3939' : d === 'supports' ? '#39ff14' : '#666')
       .attr('d', 'M0,-5L10,0L0,5');
 
-    // Create simulation
-    const simulation = d3.forceSimulation(data.nodes as d3.SimulationNodeDatum[])
-      .force('link', d3.forceLink(data.links)
-        .id((d: any) => d.id)
-        .distance(d => 150 - (d as any).weight * 50)
-        .strength(d => (d as any).weight * 0.5))
-      .force('charge', d3.forceManyBody()
-        .strength(d => -200 - (d as any).centrality * 300))
+    // Create simulation with proper typing
+    const simulation = d3.forceSimulation<BeliefNode>(data.nodes)
+      .force('link', d3.forceLink<BeliefNode, InfluenceLink>(data.links)
+        .id(d => d.id)
+        .distance(d => 150 - d.weight * 50)
+        .strength(d => d.weight * 0.5))
+      .force('charge', d3.forceManyBody<BeliefNode>()
+        .strength(d => -200 - d.centrality * 300))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide()
-        .radius(d => 20 + (d as any).centrality * 30));
+      .force('collision', d3.forceCollide<BeliefNode>()
+        .radius(d => 20 + d.centrality * 30));
 
     // Draw links
     const link = g.append('g')
