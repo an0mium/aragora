@@ -12,6 +12,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { TopNavigation } from '@/components/navigation/TopNavigation';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
+import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
+import { CommandPalette } from '@/components/command-palette';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -68,18 +70,21 @@ export default function RootLayout({
               <ProgressiveModeProvider>
                 <AdaptiveModeProvider>
                   <SidebarProvider>
-                    <ToastProvider>
-                      <ErrorBoundary>
-                        <Sidebar />
-                        <GlobalConnectionStatus />
-                        <div id="main-content" tabIndex={-1} className="flex flex-col min-h-screen">
-                          <TopNavigation />
-                          <main className="flex-1">
-                            {children}
-                          </main>
-                        </div>
-                      </ErrorBoundary>
-                    </ToastProvider>
+                    <CommandPaletteProvider>
+                      <ToastProvider>
+                        <ErrorBoundary>
+                          <Sidebar />
+                          <GlobalConnectionStatus />
+                          <CommandPalette />
+                          <div id="main-content" tabIndex={-1} className="flex flex-col min-h-screen">
+                            <TopNavigation />
+                            <main className="flex-1">
+                              {children}
+                            </main>
+                          </div>
+                        </ErrorBoundary>
+                      </ToastProvider>
+                    </CommandPaletteProvider>
                   </SidebarProvider>
                 </AdaptiveModeProvider>
               </ProgressiveModeProvider>
