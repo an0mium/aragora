@@ -823,6 +823,10 @@ export default function Home() {
               <Link href="/scheduler" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[SCHEDULER]</Link>
               <Link href="/selection" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[SELECTION]</Link>
               <Link href="/ml" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[ML]</Link>
+              <Link href="/receipts" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-cyan hover:bg-acid-cyan/5 transition-colors shrink-0">[RECEIPTS]</Link>
+              <Link href="/knowledge" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-purple hover:bg-acid-purple/5 transition-colors shrink-0">[KNOWLEDGE]</Link>
+              <Link href="/broadcast" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-gold hover:bg-gold/5 transition-colors shrink-0">[BROADCAST]</Link>
+              <Link href="/verification" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[VERIFY]</Link>
               <Link href="/admin" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-warning hover:bg-warning/5 transition-colors shrink-0">[ADMIN]</Link>
               <Link href="/developer" className="px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-acid-green hover:bg-acid-green/5 transition-colors shrink-0">[DEV]</Link>
             </div>
