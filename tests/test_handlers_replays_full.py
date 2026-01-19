@@ -13,9 +13,17 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from aragora.server.handlers.replays import ReplaysHandler
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.handlers.replays import ReplaysHandler, _replays_limiter
+from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.handlers.base import clear_cache
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the rate limiter before each test to avoid cross-test pollution."""
+    _replays_limiter.clear()
+    yield
+    _replays_limiter.clear()
 
 
 @pytest.fixture

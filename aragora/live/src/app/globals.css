@@ -782,6 +782,13 @@ input:focus, textarea:focus {
   }
 }
 
+/* Sidebar: solid backdrop without blur in light mode */
+[data-theme="light"] [data-theme-backdrop] {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ========================================
    Mobile Responsive Utilities
    ======================================== */

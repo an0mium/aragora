@@ -336,7 +336,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.return_value = sample_jwt_payload
 
                 user = validator.validate_jwt("test-token")
@@ -359,7 +359,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.return_value = sample_jwt_payload
 
                 # First call
@@ -376,7 +376,7 @@ class TestSupabaseAuthValidator:
         validator._cache_ttl = 0  # Immediate expiration
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.return_value = sample_jwt_payload
 
                 # First call
@@ -393,7 +393,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 from aragora.server.middleware.auth_v2 import ExpiredSignatureError
 
                 mock_jwt.decode.side_effect = ExpiredSignatureError("Token expired")
@@ -407,7 +407,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 from aragora.server.middleware.auth_v2 import InvalidSignatureError
 
                 mock_jwt.decode.side_effect = InvalidSignatureError("Bad signature")
@@ -421,7 +421,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 from aragora.server.middleware.auth_v2 import InvalidAudienceError
 
                 mock_jwt.decode.side_effect = InvalidAudienceError("Wrong audience")
@@ -435,7 +435,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 from aragora.server.middleware.auth_v2 import DecodeError
 
                 mock_jwt.decode.side_effect = DecodeError("Malformed")
@@ -449,7 +449,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 from aragora.server.middleware.auth_v2 import InvalidTokenError
 
                 mock_jwt.decode.side_effect = InvalidTokenError("Invalid")
@@ -526,7 +526,7 @@ class TestSupabaseAuthValidator:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.return_value = sample_jwt_payload
 
                 validator.validate_jwt("token1")
@@ -548,7 +548,7 @@ class TestSupabaseAuthValidator:
         nearly_expired_payload["exp"] = time.time() + 0.01  # Expires in 10ms
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.return_value = nearly_expired_payload
 
                 # First call - caches the result
@@ -1179,7 +1179,7 @@ class TestEdgeCases:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 # Missing required fields
                 mock_jwt.decode.return_value = {}
 
@@ -1195,7 +1195,7 @@ class TestEdgeCases:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.side_effect = RuntimeError("System error")
 
                 with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "production"}):
@@ -1207,7 +1207,7 @@ class TestEdgeCases:
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.auth_v2.HAS_JWT", True):
-            with patch("aragora.server.middleware.auth_v2.jwt") as mock_jwt:
+            with patch("aragora.server.middleware.auth_v2._jwt_module") as mock_jwt:
                 mock_jwt.decode.side_effect = RuntimeError("System error")
 
                 with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
