@@ -333,17 +333,32 @@ class SentenceTransformerBackend(SimilarityBackend):
         - Embeddings are cached at text level (EmbeddingCache)
         - Similarity results are cached at pair level (256 pairs)
         - Expected speedup: 10-100x for repeated text comparisons
+
+    Optional NLI (Natural Language Inference) support:
+        - Uses cross-encoder model for accurate contradiction detection
+        - Classifies pairs as entailment/neutral/contradiction
+        - ~5-10ms per pair, deterministic, local (no API calls)
     """
 
     _model_cache: Optional[Any] = None
     _model_name_cache: Optional[str] = None
+    _nli_model_cache: Optional[Any] = None
+    _nli_model_name_cache: Optional[str] = None
     _similarity_cache: dict[tuple[str, str], float] = {}
+    _contradiction_cache: dict[tuple[str, str], bool] = {}
     _cache_max_size: int = 256
     _cache_lock = threading.RLock()
+
+    # NLI label indices (model-specific, but standard for most NLI models)
+    _NLI_CONTRADICTION_LABEL = 0  # "contradiction"
+    _NLI_ENTAILMENT_LABEL = 1  # "entailment"
+    _NLI_NEUTRAL_LABEL = 2  # "neutral"
 
     model: Any
     cosine_similarity: Any
     embedding_cache: Optional[EmbeddingCache]
+    nli_model: Optional[Any]
+    use_nli: bool
 
     def __init__(
         self,
@@ -351,15 +366,19 @@ class SentenceTransformerBackend(SimilarityBackend):
         use_embedding_cache: bool = True,
         persist_embeddings: bool = False,
         debate_id: Optional[str] = None,
+        use_nli: bool = True,
+        nli_model_name: str = "cross-encoder/nli-deberta-v3-small",
     ):
         """
         Initialize sentence transformer backend.
 
         Args:
-            model_name: Sentence transformer model name
+            model_name: Sentence transformer model name for embeddings
             use_embedding_cache: Enable embedding-level caching (default True)
             persist_embeddings: Persist embeddings to database (default False)
             debate_id: Debate ID for scoped cache (prevents cross-debate contamination)
+            use_nli: Enable NLI model for contradiction detection (default True)
+            nli_model_name: NLI cross-encoder model name (default: nli-deberta-v3-small)
         """
         try:
             from sentence_transformers import SentenceTransformer
@@ -379,6 +398,12 @@ class SentenceTransformerBackend(SimilarityBackend):
 
             self.cosine_similarity = cosine_similarity
             self.debate_id = debate_id
+            self.use_nli = use_nli
+            self.nli_model = None
+
+            # Initialize NLI model for contradiction detection
+            if use_nli:
+                self._init_nli_model(nli_model_name)
 
             # Initialize embedding cache
             if use_embedding_cache:
@@ -400,6 +425,31 @@ class SentenceTransformerBackend(SimilarityBackend):
                 "SentenceTransformerBackend requires sentence-transformers. "
                 f"Install with: pip install sentence-transformers. Error: {e}"
             ) from e
+
+    def _init_nli_model(self, nli_model_name: str) -> None:
+        """Initialize the NLI cross-encoder model for contradiction detection."""
+        try:
+            from sentence_transformers import CrossEncoder
+
+            if (
+                SentenceTransformerBackend._nli_model_cache is not None
+                and SentenceTransformerBackend._nli_model_name_cache == nli_model_name
+            ):
+                logger.debug(f"Reusing cached NLI model: {nli_model_name}")
+                self.nli_model = SentenceTransformerBackend._nli_model_cache
+            else:
+                logger.info(f"Loading NLI model for contradiction detection: {nli_model_name}")
+                self.nli_model = CrossEncoder(nli_model_name)
+                SentenceTransformerBackend._nli_model_cache = self.nli_model
+                SentenceTransformerBackend._nli_model_name_cache = nli_model_name
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to load NLI model '{nli_model_name}': {e}. "
+                "Falling back to pattern-based contradiction detection."
+            )
+            self.nli_model = None
+            self.use_nli = False
 
     def _get_embedding(self, text: str) -> np.ndarray:
         """Get embedding for text, using cache if available."""
@@ -458,11 +508,88 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         return result
 
+    def is_contradictory(self, text1: str, text2: str) -> bool:
+        """
+        Check if two texts are semantically contradictory using NLI model.
+
+        Uses a cross-encoder NLI model to classify the relationship as
+        entailment/neutral/contradiction. Falls back to pattern-based
+        detection if NLI model is not available.
+
+        Args:
+            text1: First text
+            text2: Second text
+
+        Returns:
+            True if the texts are contradictory
+        """
+        if not text1 or not text2:
+            return False
+
+        # Normalize key order for symmetric cache hits
+        cache_key = (text1, text2) if text1 <= text2 else (text2, text1)
+
+        # Check contradiction cache first
+        with SentenceTransformerBackend._cache_lock:
+            if cache_key in SentenceTransformerBackend._contradiction_cache:
+                return SentenceTransformerBackend._contradiction_cache[cache_key]
+
+        # Use NLI model if available
+        if self.nli_model is not None:
+            result = self._nli_is_contradictory(text1, text2)
+        else:
+            # Fall back to pattern-based detection
+            result = super().is_contradictory(text1, text2)
+
+        # Cache result
+        with SentenceTransformerBackend._cache_lock:
+            if (
+                len(SentenceTransformerBackend._contradiction_cache)
+                >= SentenceTransformerBackend._cache_max_size
+            ):
+                # Clear oldest half when full
+                keys = list(SentenceTransformerBackend._contradiction_cache.keys())
+                for k in keys[: len(keys) // 2]:
+                    del SentenceTransformerBackend._contradiction_cache[k]
+            SentenceTransformerBackend._contradiction_cache[cache_key] = result
+
+        return result
+
+    def _nli_is_contradictory(self, text1: str, text2: str) -> bool:
+        """
+        Use NLI model to detect contradiction.
+
+        The model outputs scores for [contradiction, entailment, neutral].
+        We check if contradiction has the highest score.
+        """
+        try:
+            # CrossEncoder expects list of (text1, text2) pairs
+            scores = self.nli_model.predict([(text1, text2)])
+
+            # scores is array of shape (1, 3) for [contradiction, entailment, neutral]
+            if hasattr(scores, "__len__") and len(scores) > 0:
+                if hasattr(scores[0], "__len__"):
+                    # Shape (1, 3) - get the contradiction score
+                    contradiction_score = scores[0][self._NLI_CONTRADICTION_LABEL]
+                    # Consider it a contradiction if that's the highest-scoring label
+                    is_contradiction = contradiction_score == max(scores[0])
+                    if is_contradiction:
+                        logger.debug(
+                            f"NLI detected contradiction: '{text1[:50]}...' vs '{text2[:50]}...' "
+                            f"(scores: contra={scores[0][0]:.3f}, entail={scores[0][1]:.3f}, neutral={scores[0][2]:.3f})"
+                        )
+                    return is_contradiction
+            return False
+        except Exception as e:
+            logger.warning(f"NLI prediction failed: {e}. Using pattern fallback.")
+            return super().is_contradictory(text1, text2)
+
     @classmethod
     def clear_cache(cls) -> None:
-        """Clear the similarity cache (thread-safe)."""
+        """Clear the similarity and contradiction caches (thread-safe)."""
         with cls._cache_lock:
             cls._similarity_cache.clear()
+            cls._contradiction_cache.clear()
 
     def compute_batch_similarity(self, texts: list[str]) -> float:
         """

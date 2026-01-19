@@ -587,6 +587,69 @@ class TestContradictionDetection:
         assert not backend.is_contradictory("Python is great", "Python works well")
 
 
+class TestNLIContradictionDetection:
+    """Tests for NLI-based contradiction detection."""
+
+    @pytest.fixture
+    def nli_backend(self):
+        """Create a SentenceTransformerBackend with NLI enabled."""
+        try:
+            from aragora.debate.similarity.backends import SentenceTransformerBackend
+
+            return SentenceTransformerBackend(use_nli=True)
+        except ImportError:
+            pytest.skip("sentence-transformers not installed")
+
+    def test_nli_detects_accept_reject(self, nli_backend):
+        """NLI should detect accept/reject as contradictions."""
+        assert nli_backend.is_contradictory(
+            "We should accept the proposal",
+            "We should reject the proposal"
+        )
+
+    def test_nli_detects_semantic_opposites(self, nli_backend):
+        """NLI should detect nuanced semantic opposites."""
+        # These wouldn't be caught by simple pattern matching
+        assert nli_backend.is_contradictory(
+            "We should proceed cautiously",
+            "We should move quickly without hesitation"
+        )
+
+    def test_nli_detects_agreement_disagreement(self, nli_backend):
+        """NLI should detect agreement vs disagreement."""
+        assert nli_backend.is_contradictory(
+            "I agree with the proposal",
+            "I disagree with the proposal"
+        )
+
+    def test_nli_allows_paraphrases(self, nli_backend):
+        """NLI should NOT flag paraphrases as contradictions."""
+        # These are saying the same thing differently
+        assert not nli_backend.is_contradictory(
+            "Using a vector database is the best approach",
+            "A vector DB would be ideal for this"
+        )
+
+    def test_nli_allows_unrelated_statements(self, nli_backend):
+        """NLI should NOT flag unrelated statements as contradictions."""
+        assert not nli_backend.is_contradictory(
+            "Python is a programming language",
+            "The weather is nice today"
+        )
+
+    def test_nli_fallback_when_disabled(self):
+        """Should fall back to pattern matching when NLI is disabled."""
+        try:
+            from aragora.debate.similarity.backends import SentenceTransformerBackend
+
+            backend = SentenceTransformerBackend(use_nli=False)
+
+            # Should still work with pattern matching
+            assert backend.is_contradictory("Accept this", "Reject this")
+        except ImportError:
+            pytest.skip("sentence-transformers not installed")
+
+
 class TestVotingEngineCounting:
     """Tests for vote counting functionality."""
 
