@@ -362,8 +362,8 @@ Guidelines:
         Returns comma-separated agent identifiers like:
         "anthropic-api:claude,openai-api:codex,gemini:gemini"
         """
-        agents = []
-        seen_providers = set()
+        agents: list[str] = []
+        seen_providers: set[str] = set()
 
         for persona in classification.recommended_personas:
             provider = PERSONA_TO_AGENT.get(persona, "anthropic-api")

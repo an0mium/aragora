@@ -374,7 +374,7 @@ class SECConnector(BaseConnector):
         date_to: Optional[str],
     ) -> list[Evidence]:
         """Parse SEC submissions JSON into Evidence objects."""
-        results = []
+        results: list[Evidence] = []
 
         company_name = data.get("name", "Unknown Company")
         cik = data.get("cik", "")

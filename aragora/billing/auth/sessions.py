@@ -124,12 +124,13 @@ def _parse_device_name(user_agent: Optional[str]) -> str:
         return "Mac"
 
     if "windows" in ua_lower:
+        # Check Edge before Chrome since Edge UA contains "Chrome"
+        if "edg/" in ua_lower or "edge/" in ua_lower:
+            return "Edge on Windows"
         if "chrome" in ua_lower:
             return "Chrome on Windows"
         if "firefox" in ua_lower:
             return "Firefox on Windows"
-        if "edge" in ua_lower:
-            return "Edge on Windows"
         return "Windows"
 
     if "linux" in ua_lower:

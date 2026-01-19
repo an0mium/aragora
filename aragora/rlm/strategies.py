@@ -408,8 +408,8 @@ class SummarizeStrategy(BaseStrategy):
     ) -> StrategyResult:
         """Use hierarchical summaries to answer."""
         # Start at abstract level and work down if needed
-        answer_parts = []
-        nodes_used = []
+        answer_parts: list[str] = []
+        nodes_used: list[str] = []
         examined_tokens = 0
 
         # Try abstract level first

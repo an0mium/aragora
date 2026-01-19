@@ -450,7 +450,7 @@ Provide a single, definitive answer that:
 
     async def _extract_facts(self, ctx: QueryContext, answer: str) -> list[Fact]:
         """Extract facts from the answer and chunks."""
-        facts = []
+        facts: list[Fact] = []
 
         if not ctx.options.use_agents or not self._default_agent:
             return facts

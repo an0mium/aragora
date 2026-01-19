@@ -247,7 +247,7 @@ Conclusion:""",
                 previous_nodes = level_nodes
 
         # Extract key topics from metadata level
-        key_topics = []
+        key_topics: list[str] = []
         if AbstractionLevel.METADATA in context.levels:
             for node in context.levels[AbstractionLevel.METADATA]:
                 key_topics.extend(

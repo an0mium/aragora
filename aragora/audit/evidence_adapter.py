@@ -377,7 +377,7 @@ class FindingEvidenceCollector:
         finding: Any,
     ) -> list[EvidenceSource]:
         """Collect evidence from external sources."""
-        sources = []
+        sources: list[EvidenceSource] = []
 
         collector = await self._get_evidence_collector()
         if collector is None:

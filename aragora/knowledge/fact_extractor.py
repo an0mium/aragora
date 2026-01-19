@@ -326,7 +326,7 @@ class FactExtractor:
         filename: str,
     ) -> list[ExtractedFact]:
         """Parse the agent's extraction response."""
-        facts = []
+        facts: list[ExtractedFact] = []
 
         # Try to extract JSON from response
         json_match = re.search(r"\{[\s\S]*\}", response)
