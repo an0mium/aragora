@@ -177,7 +177,6 @@ class TestConfluenceAuthentication:
         assert "Authorization" in headers
 
 
-@NEEDS_REWRITE
 class TestConfluenceSpaceOperations:
     """Tests for space operations."""
 
@@ -200,9 +199,9 @@ class TestConfluenceSpaceOperations:
         with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
-            spaces = await connector._list_spaces()
+            spaces = await connector._get_spaces()
 
-            assert len(spaces) >= 0
+            assert len(spaces) == 2
 
     @pytest.mark.asyncio
     async def test_filter_spaces_by_key(self, mock_credentials):
@@ -226,27 +225,30 @@ class TestConfluenceSpaceOperations:
         assert filtered[0].key == "ENG"
 
 
-@NEEDS_REWRITE
 class TestConfluencePageOperations:
     """Tests for page operations."""
 
     @pytest.mark.asyncio
     async def test_get_space_pages(self, mock_confluence_pages, mock_credentials):
-        """Should get pages from a space."""
+        """Should get pages from a space using async iterator."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
         connector = ConfluenceConnector(base_url="https://test.atlassian.net/wiki")
         connector.credentials = mock_credentials
 
+        # _get_pages returns an AsyncIterator, so we mock _api_request with paginated response
         mock_response = {
             "results": mock_confluence_pages,
-            "_links": {},
+            "_links": {},  # No next link = end of pagination
         }
 
         with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
-            pages = await connector._get_space_pages("ENG")
+            # Collect pages from async iterator
+            pages = []
+            async for page in connector._get_pages("ENG"):
+                pages.append(page)
 
             assert len(pages) >= 0
 
@@ -330,14 +332,13 @@ class TestConfluenceContentExtraction:
         assert "Text content" in text
 
 
-@NEEDS_REWRITE
 class TestConfluenceSyncItems:
     """Tests for sync_items generator."""
 
     @pytest.mark.asyncio
-    async def test_sync_items_yields_pages(self, mock_confluence_pages, mock_credentials):
+    async def test_sync_items_yields_pages(self, mock_credentials):
         """Should yield sync items for pages."""
-        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
+        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector, ConfluenceSpace
 
         connector = ConfluenceConnector(
             base_url="https://test.atlassian.net/wiki",
@@ -347,10 +348,15 @@ class TestConfluenceSyncItems:
         )
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_list_spaces', new_callable=AsyncMock) as mock_spaces:
-            with patch.object(connector, '_get_space_pages', new_callable=AsyncMock) as mock_pages:
-                mock_spaces.return_value = []
-                mock_pages.return_value = []
+        # Mock _get_spaces to return a space
+        mock_spaces = [ConfluenceSpace(id="1", key="ENG", name="Engineering", type="global", status="current")]
+
+        # Mock _api_request to return empty pages (simulating end of pagination)
+        with patch.object(connector, '_get_spaces', new_callable=AsyncMock) as mock_get_spaces:
+            mock_get_spaces.return_value = mock_spaces
+
+            with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+                mock_api.return_value = {"results": [], "_links": {}}
 
                 state = SyncState(connector_id="confluence_test")
                 items = []
@@ -382,13 +388,12 @@ class TestConfluenceSyncItems:
         assert page.version == 5
 
 
-@NEEDS_REWRITE
 class TestConfluenceIncrementalSync:
     """Tests for incremental sync."""
 
     @pytest.mark.asyncio
-    async def test_uses_cql_for_incremental(self, mock_credentials):
-        """Should use CQL query for incremental sync."""
+    async def test_uses_modified_since_for_incremental(self, mock_credentials):
+        """Should filter by modified_since for incremental sync."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
         connector = ConfluenceConnector(base_url="https://test.atlassian.net/wiki")
@@ -399,13 +404,15 @@ class TestConfluenceIncrementalSync:
         with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"results": [], "_links": {}}
 
-            await connector._get_modified_pages(since=last_sync)
+            # _get_pages accepts modified_since parameter
+            pages = []
+            async for page in connector._get_pages("ENG", modified_since=last_sync):
+                pages.append(page)
 
-            # Should have been called with CQL parameter
+            # API should have been called
             mock_api.assert_called()
 
 
-@NEEDS_REWRITE
 class TestConfluenceErrorHandling:
     """Tests for error handling."""
 
@@ -421,14 +428,14 @@ class TestConfluenceErrorHandling:
             mock_api.side_effect = Exception("API Error")
 
             try:
-                spaces = await connector._list_spaces()
+                spaces = await connector._get_spaces()
                 assert spaces == [] or spaces is None
             except Exception:
-                pass
+                pass  # Expected - API error propagates
 
     @pytest.mark.asyncio
     async def test_handles_space_not_found(self, mock_credentials):
-        """Should handle space not found errors."""
+        """Should handle space not found - returns empty results."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
         connector = ConfluenceConnector(
@@ -440,9 +447,12 @@ class TestConfluenceErrorHandling:
         with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"results": [], "_links": {}}
 
-            pages = await connector._get_space_pages("NONEXISTENT")
+            # _get_pages is an async iterator
+            pages = []
+            async for page in connector._get_pages("NONEXISTENT"):
+                pages.append(page)
 
-            assert pages == [] or pages is None or isinstance(pages, list)
+            assert pages == []
 
     @pytest.mark.asyncio
     async def test_handles_permission_denied(self, mock_credentials):
@@ -456,10 +466,10 @@ class TestConfluenceErrorHandling:
             mock_api.side_effect = Exception("403 Forbidden")
 
             try:
-                spaces = await connector._list_spaces()
+                spaces = await connector._get_spaces()
                 assert spaces == [] or spaces is None
             except Exception:
-                pass
+                pass  # Expected - permission error propagates
 
 
 class TestConfluenceWebhooks:

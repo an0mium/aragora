@@ -579,3 +579,185 @@ class TestKnowledgeHandlerIntegration:
         # 5. Verify fact is gone
         verify_result = knowledge_handler.handle(f"/api/knowledge/facts/{fact_id}", {}, read_handler)
         assert verify_result.status_code == 404
+
+
+# ============================================================================
+# Knowledge Mound Handler Tests
+# ============================================================================
+
+from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+
+
+@pytest.fixture
+def mound_handler():
+    """Create a knowledge mound handler with mocked dependencies."""
+    ctx = {"storage": None, "elo_system": None, "nomic_dir": None}
+    handler = KnowledgeMoundHandler(ctx)
+    return handler
+
+
+class TestKnowledgeMoundHandlerCanHandle:
+    """Test KnowledgeMoundHandler.can_handle method."""
+
+    def test_can_handle_mound_query(self, mound_handler):
+        """Test can_handle returns True for mound query endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/query")
+
+    def test_can_handle_mound_nodes(self, mound_handler):
+        """Test can_handle returns True for mound nodes endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/nodes")
+
+    def test_can_handle_mound_node_by_id(self, mound_handler):
+        """Test can_handle returns True for mound node by ID endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123")
+
+    def test_can_handle_mound_node_relationships(self, mound_handler):
+        """Test can_handle returns True for node relationships endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123/relationships")
+
+    def test_can_handle_mound_relationships(self, mound_handler):
+        """Test can_handle returns True for mound relationships endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/relationships")
+
+    def test_can_handle_mound_stats(self, mound_handler):
+        """Test can_handle returns True for mound stats endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/stats")
+
+    def test_can_handle_mound_graph(self, mound_handler):
+        """Test can_handle returns True for mound graph endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/graph/node-123")
+
+    def test_cannot_handle_non_mound(self, mound_handler):
+        """Test can_handle returns False for non-mound endpoints."""
+        assert not mound_handler.can_handle("/api/knowledge/facts")
+        assert not mound_handler.can_handle("/api/debates")
+
+
+class TestKnowledgeMoundNodeRelationships:
+    """Test GET /api/knowledge/mound/nodes/:id/relationships endpoint."""
+
+    def test_get_node_relationships_mound_unavailable(self, mound_handler, mock_http_handler):
+        """Test getting relationships when mound not available returns 503."""
+        # Don't initialize mound
+        with patch.object(mound_handler, '_get_mound', return_value=None):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_get_node_relationships_node_not_found(self, mound_handler, mock_http_handler):
+        """Test getting relationships for non-existent node returns 404."""
+        from unittest.mock import AsyncMock
+
+        mock_mound = MagicMock()
+        mock_mound.get_node = AsyncMock(return_value=None)
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/nodes/nonexistent/relationships", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 404
+        body = json.loads(result.body)
+        assert "error" in body
+
+    def test_get_node_relationships_success(self, mound_handler, mock_http_handler):
+        """Test getting relationships for existing node."""
+        from unittest.mock import AsyncMock
+        from datetime import datetime
+
+        # Create mock node
+        mock_node = MagicMock()
+        mock_node.id = "node-123"
+
+        # Create mock relationships
+        mock_rel = MagicMock()
+        mock_rel.id = "rel-1"
+        mock_rel.from_node_id = "node-123"
+        mock_rel.to_node_id = "node-456"
+        mock_rel.relationship_type = "supports"
+        mock_rel.strength = 0.8
+        mock_rel.created_at = datetime(2024, 1, 15)
+        mock_rel.created_by = "test-user"
+        mock_rel.metadata = {"note": "test"}
+
+        mock_mound = MagicMock()
+        mock_mound.get_node = AsyncMock(return_value=mock_node)
+        mock_mound.get_relationships = AsyncMock(return_value=[mock_rel])
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["node_id"] == "node-123"
+        assert "relationships" in body
+        assert body["count"] == 1
+        assert body["relationships"][0]["from_node_id"] == "node-123"
+        assert body["relationships"][0]["to_node_id"] == "node-456"
+        assert body["relationships"][0]["relationship_type"] == "supports"
+
+    def test_get_node_relationships_with_filters(self, mound_handler, mock_http_handler):
+        """Test getting relationships with direction filter."""
+        from unittest.mock import AsyncMock
+
+        mock_node = MagicMock()
+        mock_node.id = "node-123"
+
+        mock_mound = MagicMock()
+        mock_mound.get_node = AsyncMock(return_value=mock_node)
+        mock_mound.get_relationships = AsyncMock(return_value=[])
+
+        query_params = {
+            "direction": "outgoing",
+            "relationship_type": "supports",
+        }
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/nodes/node-123/relationships",
+                query_params,
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["direction"] == "outgoing"
+
+        # Verify the mound method was called with correct params
+        mock_mound.get_relationships.assert_called_once()
+        call_kwargs = mock_mound.get_relationships.call_args
+        assert call_kwargs[1]["direction"] == "outgoing"
+        assert call_kwargs[1]["relationship_type"] == "supports"
+
+    def test_get_node_relationships_invalid_direction(self, mound_handler, mock_http_handler):
+        """Test getting relationships with invalid direction returns 400."""
+        from unittest.mock import AsyncMock
+
+        mock_node = MagicMock()
+        mock_node.id = "node-123"
+
+        mock_mound = MagicMock()
+        mock_mound.get_node = AsyncMock(return_value=mock_node)
+
+        query_params = {"direction": "invalid"}
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/nodes/node-123/relationships",
+                query_params,
+                mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+        assert "direction" in body["error"]

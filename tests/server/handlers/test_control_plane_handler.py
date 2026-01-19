@@ -828,3 +828,50 @@ class TestControlPlaneHandlerEmitEvent:
 
         # Should not raise
         control_plane_handler._emit_event("nonexistent_method", {"data": "test"})
+
+
+class TestControlPlaneStartupWiring:
+    """Test Control Plane coordinator startup wiring."""
+
+    @pytest.mark.asyncio
+    async def test_init_control_plane_coordinator(self):
+        """Test init_control_plane_coordinator function."""
+        from aragora.server.startup import init_control_plane_coordinator
+
+        # This may return None if Redis is not available
+        coordinator = await init_control_plane_coordinator()
+
+        # Either we get a coordinator or None (Redis not available)
+        # In CI/local dev without Redis, this should gracefully return None
+        assert coordinator is None or hasattr(coordinator, "register_agent")
+
+    @pytest.mark.asyncio
+    async def test_startup_sequence_includes_coordinator(self):
+        """Test that run_startup_sequence includes control_plane_coordinator."""
+        from aragora.server.startup import run_startup_sequence
+
+        status = await run_startup_sequence(nomic_dir=None, stream_emitter=None)
+
+        # Should include control_plane_coordinator key
+        assert "control_plane_coordinator" in status
+
+    def test_handler_class_level_coordinator(self):
+        """Test that handler can access class-level coordinator."""
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        # Verify class has coordinator attribute
+        assert hasattr(ControlPlaneHandler, "coordinator")
+
+        # Test setting coordinator at class level
+        mock_coordinator = MagicMock()
+        ControlPlaneHandler.coordinator = mock_coordinator
+
+        ctx = {"storage": None}
+        handler = ControlPlaneHandler(ctx)
+
+        # _get_coordinator should return the class-level coordinator
+        result = handler._get_coordinator()
+        assert result is mock_coordinator
+
+        # Clean up
+        ControlPlaneHandler.coordinator = None

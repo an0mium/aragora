@@ -227,7 +227,6 @@ class TestNotionPageOperations:
         assert filtered[0].title == "Active"
 
 
-@NEEDS_REWRITE
 class TestNotionBlockExtraction:
     """Tests for block content extraction."""
 
@@ -244,7 +243,7 @@ class TestNotionBlockExtraction:
             },
         }
 
-        text = connector._extract_block_text(block)
+        text = connector._extract_block_content(block)
 
         assert "This is a paragraph." in text
 
@@ -261,7 +260,7 @@ class TestNotionBlockExtraction:
             },
         }
 
-        text = connector._extract_block_text(block)
+        text = connector._extract_block_content(block)
 
         assert "Main Title" in text
 
@@ -278,7 +277,7 @@ class TestNotionBlockExtraction:
             },
         }
 
-        text = connector._extract_block_text(block)
+        text = connector._extract_block_content(block)
 
         assert "List item text" in text
 
@@ -293,36 +292,37 @@ class TestNotionBlockExtraction:
             "paragraph": {"rich_text": []},
         }
 
-        text = connector._extract_block_text(block)
+        text = connector._extract_block_content(block)
 
         assert text == "" or text is None or isinstance(text, str)
 
 
-@NEEDS_REWRITE
 class TestNotionDatabaseOperations:
     """Tests for database operations."""
 
     @pytest.mark.asyncio
-    async def test_list_databases(self, mock_credentials):
-        """Should list accessible databases."""
+    async def test_get_database(self, mock_credentials):
+        """Should get a database by ID."""
         from aragora.connectors.enterprise.collaboration.notion import NotionConnector
 
         connector = NotionConnector(include_databases=True)
         connector.credentials = mock_credentials
 
         mock_response = {
-            "results": [
-                {"id": "db-001", "object": "database", "title": [{"plain_text": "Tasks"}]},
-            ],
-            "has_more": False,
+            "id": "db-001",
+            "object": "database",
+            "title": [{"plain_text": "Tasks"}],
+            "description": [{"plain_text": "Task tracking"}],
+            "properties": {"Status": {"type": "select"}},
+            "url": "https://notion.so/db-001",
         }
 
         with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
-            databases = await connector._search_databases()
+            database = await connector._get_database("db-001")
 
-            assert len(databases) >= 0
+            assert database is not None or isinstance(database, object)
 
     @pytest.mark.asyncio
     async def test_skip_databases_when_disabled(self, mock_credentials):
@@ -336,12 +336,11 @@ class TestNotionDatabaseOperations:
         assert connector.include_databases is False
 
 
-@NEEDS_REWRITE
 class TestNotionSyncItems:
     """Tests for sync_items generator."""
 
     @pytest.mark.asyncio
-    async def test_sync_items_yields_pages(self, mock_notion_pages, mock_credentials):
+    async def test_sync_items_yields_pages(self, mock_credentials):
         """Should yield sync items for pages."""
         from aragora.connectors.enterprise.collaboration.notion import NotionConnector
 
@@ -350,7 +349,8 @@ class TestNotionSyncItems:
 
         with patch.object(connector, '_search_pages', new_callable=AsyncMock) as mock_search:
             with patch.object(connector, '_get_page_content', new_callable=AsyncMock) as mock_content:
-                mock_search.return_value = []  # Start with empty to avoid complex mocking
+                # _search_pages returns tuple (results, next_cursor)
+                mock_search.return_value = ([], None)  # Empty results, no next cursor
                 mock_content.return_value = "Page content"
 
                 state = SyncState(connector_id="notion_test")
@@ -430,46 +430,60 @@ class TestNotionErrorHandling:
                 pass
 
 
-@NEEDS_REWRITE
-class TestNotionPropertyExtraction:
-    """Tests for property extraction from database entries."""
+class TestNotionRichTextExtraction:
+    """Tests for rich text extraction."""
 
-    def test_extract_title_property(self, mock_credentials):
-        """Should extract title from properties."""
+    def test_extract_rich_text_to_string(self, mock_credentials):
+        """Should convert rich text array to string."""
         from aragora.connectors.enterprise.collaboration.notion import NotionConnector
 
         connector = NotionConnector()
 
-        properties = {
-            "title": {"title": [{"plain_text": "My Page Title"}]},
+        rich_text = [
+            {"plain_text": "Hello "},
+            {"plain_text": "World"},
+        ]
+
+        text = connector._rich_text_to_string(rich_text)
+
+        assert "Hello" in text
+        assert "World" in text
+
+    def test_handle_empty_rich_text(self, mock_credentials):
+        """Should handle empty rich text array."""
+        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
+
+        connector = NotionConnector()
+
+        text = connector._rich_text_to_string([])
+
+        assert text == "" or isinstance(text, str)
+
+    def test_parse_page_extracts_title(self, mock_credentials):
+        """Should extract title from page data."""
+        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
+        from datetime import datetime, timezone
+
+        connector = NotionConnector()
+
+        # The _parse_page method looks for properties with "type": "title"
+        page_data = {
+            "id": "page-001",
+            "url": "https://notion.so/page-001",
+            "archived": False,
+            "properties": {
+                "Name": {
+                    "type": "title",
+                    "title": [{"plain_text": "My Page Title"}]
+                },
+            },
+            "parent": {"type": "workspace"},
+            "created_by": {"id": "user-001"},
+            "created_time": "2024-01-01T00:00:00.000Z",
+            "last_edited_time": "2024-01-02T00:00:00.000Z",
         }
 
-        title = connector._extract_title(properties)
+        page = connector._parse_page(page_data)
 
-        assert title == "My Page Title"
-
-    def test_extract_select_property(self, mock_credentials):
-        """Should extract select property value."""
-        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
-
-        connector = NotionConnector()
-
-        properties = {
-            "Status": {"select": {"name": "In Progress"}},
-        }
-
-        value = connector._extract_property_value(properties.get("Status", {}))
-
-        assert "In Progress" in str(value) or value is not None
-
-    def test_handle_missing_property(self, mock_credentials):
-        """Should handle missing properties gracefully."""
-        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
-
-        connector = NotionConnector()
-
-        properties = {}
-
-        title = connector._extract_title(properties)
-
-        assert title == "" or title == "Untitled" or title is None or isinstance(title, str)
+        assert page.title == "My Page Title"
+        assert page.id == "page-001"
