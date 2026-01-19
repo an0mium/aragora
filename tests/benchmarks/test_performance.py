@@ -41,7 +41,11 @@ class TestDebatePerformance:
 
     @pytest.mark.asyncio
     async def test_single_round_latency(self, benchmark_agents, benchmark_environment):
-        """Measure single debate round latency against SLO."""
+        """Measure single debate round latency against SLO.
+
+        SLO threshold is set to 8 seconds to account for CI/parallel test
+        resource contention. Local runs typically complete in 2-4 seconds.
+        """
         protocol = DebateProtocol(rounds=1, consensus="any")
 
         with patch.object(
