@@ -14,7 +14,7 @@ __all__ = [
 import hashlib
 import logging
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique
@@ -161,7 +161,7 @@ class CritiquePhase:
 
         return result
 
-    def get_critique_stats(self, critiques: list["Critique"]) -> dict:
+    def get_critique_stats(self, critiques: list["Critique"]) -> dict[str, Any]:
         """Compute statistics about the critiques in a round.
 
         Args:

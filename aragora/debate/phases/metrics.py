@@ -92,7 +92,7 @@ class MetricsHelper:
         try:
             rating = self.elo_system.get_rating(agent_name)
             # calibration_score is 0-1, with 0 for agents with < MIN_COUNT predictions
-            cal_score = rating.calibration_score
+            cal_score: float = float(rating.calibration_score)
             # Map 0-1 to configured range (default: 0.5-1.5)
             range_size = self._max_cal_weight - self._min_cal_weight
             return self._min_cal_weight + (cal_score * range_size)
@@ -120,11 +120,11 @@ class MetricsHelper:
             rating = self.elo_system.get_rating(agent_name)
 
             # Normalize ELO: 1000 is baseline, 500 is typical deviation
-            elo_normalized = (rating.elo - 1000) / 500  # ~-1 to 3 range typically
-            elo_normalized = max(0, elo_normalized)  # Floor at 0
+            elo_normalized: float = (float(rating.elo) - 1000) / 500  # ~-1 to 3 range typically
+            elo_normalized = max(0.0, elo_normalized)  # Floor at 0
 
             # Calibration score is already 0-1
-            cal_score = rating.calibration_score
+            cal_score: float = float(rating.calibration_score)
 
             # Weighted combination
             return (elo_normalized * self._elo_weight) + (cal_score * self._calibration_weight)
@@ -198,7 +198,8 @@ class MetricsHelper:
             return {}
 
         try:
-            return self.elo_system.get_ratings_batch(agent_names)
+            result: dict[str, Any] = self.elo_system.get_ratings_batch(agent_names)
+            return result
         except Exception as e:
             logger.debug(f"Batch ratings lookup failed: {e}")
             return {}
@@ -208,7 +209,7 @@ def build_relationship_updates(
     participants: list[str],
     vote_choices: dict[str, str],
     winner: Optional[str] = None,
-) -> list[dict]:
+) -> list[dict[str, str | int]]:
     """
     Build batch of relationship updates from debate results.
 
@@ -223,7 +224,7 @@ def build_relationship_updates(
     Returns:
         List of update dicts suitable for elo_system.update_relationships_batch()
     """
-    updates = []
+    updates: list[dict[str, str | int]] = []
     for i, agent_a in enumerate(participants):
         for agent_b in participants[i + 1 :]:
             # Check if both agents voted and agreed

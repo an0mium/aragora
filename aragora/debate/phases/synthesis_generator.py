@@ -43,7 +43,7 @@ class SynthesisGenerator:
         self,
         *,
         protocol: Any = None,
-        hooks: Optional[dict] = None,
+        hooks: Optional[dict[str, Any]] = None,
         notify_spectator: Optional[Callable[..., Any]] = None,
     ) -> None:
         """Initialize the synthesis generator.

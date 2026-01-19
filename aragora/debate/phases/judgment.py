@@ -63,7 +63,7 @@ class JudgmentPhase:
         self,
         proposals: dict[str, str],
         context: list["Message"],
-        vote_for_judge_fn: Optional[Callable] = None,
+        vote_for_judge_fn: Optional[Callable[..., Any]] = None,
     ) -> "Agent":
         """Select judge based on protocol.judge_selection setting.
 
