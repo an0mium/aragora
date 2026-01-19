@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { useEvidence, type CitedClaim, type EvidenceCitation, type RelatedEvidence } from '@/hooks/useEvidence';
 
 interface EvidencePanelProps {
@@ -46,7 +46,7 @@ function GroundingScoreBar({ score }: { score: number }) {
   );
 }
 
-function CitationCard({ citation }: { citation: EvidenceCitation }) {
+const CitationCard = memo(function CitationCard({ citation }: { citation: EvidenceCitation }) {
   const [expanded, setExpanded] = useState(false);
   const quality = QUALITY_COLORS[citation.quality] || QUALITY_COLORS.unverified;
   const typeIcon = TYPE_ICONS[citation.citation_type] || '?';
@@ -91,7 +91,7 @@ function CitationCard({ citation }: { citation: EvidenceCitation }) {
       )}
     </div>
   );
-}
+});
 
 function ClaimCard({ claim }: { claim: CitedClaim }) {
   const [expanded, setExpanded] = useState(false);

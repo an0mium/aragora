@@ -8,7 +8,7 @@ interface BootSequenceProps {
 }
 
 const BOOT_LINES = [
-  { text: 'ARAGORA SYSTEM v1.1.0', delay: 0, style: 'title' },
+  { text: 'ARAGORA SYSTEM v1.5.2', delay: 0, style: 'title' },
   { text: '═══════════════════════════════════════════════', delay: 100, style: 'divider' },
   { text: '', delay: 200, style: 'normal' },
   { text: '[INIT] Loading kernel modules...', delay: 300, style: 'system' },
@@ -58,7 +58,7 @@ const BOOT_LINES = [
   { text: '[OK] 20+ models across 7 providers online', delay: 2800, style: 'success' },
   { text: '', delay: 2850, style: 'normal' },
   { text: '[INIT] Starting nomic loop...', delay: 2900, style: 'system' },
-  { text: '[OK] API endpoints (106+) mounted', delay: 3000, style: 'success' },
+  { text: '[OK] API endpoints (1285+) mounted', delay: 3000, style: 'success' },
   { text: '[OK] Real-time event streaming active', delay: 3100, style: 'success' },
   { text: '', delay: 3150, style: 'normal' },
   { text: '═══════════════════════════════════════════════', delay: 3200, style: 'divider' },

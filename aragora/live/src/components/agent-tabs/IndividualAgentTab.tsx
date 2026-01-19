@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { RoleBadge } from '../RoleBadge';
 import { AgentRelationships } from '../AgentRelationships';
 import { getConfidenceColor } from '@/utils/colors';
@@ -175,20 +175,23 @@ function PositionsView({ positions, loading }: { positions: PositionEntry[]; loa
 }
 
 function HistoryView({ messages }: { messages: AgentData['allMessages'] }) {
+  const sortedMessages = useMemo(
+    () => [...messages].sort((a, b) => b.timestamp - a.timestamp),
+    [messages]
+  );
+
   return (
     <div className="space-y-4">
-      {messages
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .map((msg, idx) => (
-          <div key={idx} className="border-l-2 border-border pl-4">
-            <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">
-              <span>Round {msg.round}</span>
-              <span>•</span>
-              <span>{new Date(msg.timestamp * 1000).toLocaleTimeString()}</span>
-            </div>
-            <div className="agent-output whitespace-pre-wrap break-words">{msg.content}</div>
+      {sortedMessages.map((msg, idx) => (
+        <div key={idx} className="border-l-2 border-border pl-4">
+          <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">
+            <span>Round {msg.round}</span>
+            <span>•</span>
+            <span>{new Date(msg.timestamp * 1000).toLocaleTimeString()}</span>
           </div>
-        ))}
+          <div className="agent-output whitespace-pre-wrap break-words">{msg.content}</div>
+        </div>
+      ))}
     </div>
   );
 }

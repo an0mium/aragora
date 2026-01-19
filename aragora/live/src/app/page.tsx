@@ -437,8 +437,8 @@ export default function Home() {
       // aragora.ai, www.aragora.ai, localhost all show landing page
       setSiteMode('landing');
     }
-    // Show ASCII art on live.aragora.ai (monitoring dashboard)
-    setShowHeaderAscii(hostname === 'live.aragora.ai');
+    // Disable ASCII art in header
+    setShowHeaderAscii(false);
   }, []);
 
   // Handle debate started from landing page - navigate to debate viewer

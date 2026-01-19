@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
@@ -64,6 +64,12 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'cache' | 'system'>('overview');
   const [expanded, setExpanded] = useState(true);
+
+  // Memoize sorted cache entries to prevent re-sorting on every render
+  const sortedCacheEntries = useMemo(() => {
+    if (!cache?.entries_by_prefix) return [];
+    return Object.entries(cache.entries_by_prefix).sort(([, a], [, b]) => b - a);
+  }, [cache?.entries_by_prefix]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -360,18 +366,16 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
                     </div>
                   </div>
 
-                  {Object.keys(cache.entries_by_prefix).length > 0 && (
+                  {sortedCacheEntries.length > 0 && (
                     <div className="p-3 bg-bg border border-border rounded-lg">
                       <div className="text-sm font-mono text-text-muted mb-3">Entries by Type</div>
                       <div className="space-y-2">
-                        {Object.entries(cache.entries_by_prefix)
-                          .sort(([, a], [, b]) => b - a)
-                          .map(([prefix, count]) => (
-                            <div key={prefix} className="flex items-center justify-between text-xs font-mono">
-                              <span className="text-text">{prefix}</span>
-                              <span className="text-purple-400">{count}</span>
-                            </div>
-                          ))}
+                        {sortedCacheEntries.map(([prefix, count]) => (
+                          <div key={prefix} className="flex items-center justify-between text-xs font-mono">
+                            <span className="text-text">{prefix}</span>
+                            <span className="text-purple-400">{count}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

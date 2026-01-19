@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { VirtualList } from './VirtualList';
 import { API_BASE_URL } from '@/config';
 
@@ -67,11 +67,13 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
     fetchDebates(true);
   }, [fetchDebates]);
 
-  const filteredDebates = debates.filter(debate => {
-    if (filter === 'consensus') return debate.consensus_reached;
-    if (filter === 'no-consensus') return !debate.consensus_reached;
-    return true;
-  });
+  const filteredDebates = useMemo(() => {
+    return debates.filter(debate => {
+      if (filter === 'consensus') return debate.consensus_reached;
+      if (filter === 'no-consensus') return !debate.consensus_reached;
+      return true;
+    });
+  }, [debates, filter]);
 
   const formatDate = (dateStr: string) => {
     try {

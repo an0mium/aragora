@@ -63,6 +63,96 @@ const USE_CASES = [
       'Confidence scores and evidence chains for audit',
     ],
   },
+  {
+    icon: '🏥',
+    title: 'Healthcare Decisions',
+    subtitle: 'Multi-agent clinical reasoning',
+    examples: [
+      'Evidence-grounded treatment recommendations',
+      'HIPAA-compliant audit trails with PHI redaction',
+    ],
+  },
+  {
+    icon: '📊',
+    title: 'Financial Analysis',
+    subtitle: 'Investment due diligence',
+    examples: [
+      'Multi-model risk assessment and stress testing',
+      'Adversarial analysis of investment theses',
+    ],
+  },
+  {
+    icon: '🔬',
+    title: 'Research Synthesis',
+    subtitle: 'Literature review at scale',
+    examples: [
+      'Cross-paper consensus with citation verification',
+      'Scholarly evidence grounding and provenance',
+    ],
+  },
+  {
+    icon: '📝',
+    title: 'Contract Negotiation',
+    subtitle: 'Adversarial clause analysis',
+    examples: [
+      'Multi-agent risk identification',
+      'Precedent recall from organizational memory',
+    ],
+  },
+  {
+    icon: '🐛',
+    title: 'Software QA & Debugging',
+    subtitle: 'Root cause analysis at scale',
+    examples: [
+      'Multi-agent hypothesis testing for bug isolation',
+      'Test coverage gaps and regression detection',
+    ],
+  },
+  {
+    icon: '🧮',
+    title: 'Accounting Reconciliation',
+    subtitle: 'Transaction verification',
+    examples: [
+      'Benford\'s Law fraud detection and anomaly flagging',
+      'Journal entry balance verification and duplicate detection',
+    ],
+  },
+  {
+    icon: '🏪',
+    title: 'Vendor Evaluation',
+    subtitle: 'Multi-criteria comparison',
+    examples: [
+      'Scenario matrix testing across constraints',
+      'Weighted evaluation with adversarial stress testing',
+    ],
+  },
+  {
+    icon: '🔎',
+    title: 'Discrepancy Detection',
+    subtitle: 'Cross-document consistency',
+    examples: [
+      'Number, date, and definition drift across versions',
+      'Specification conflicts and calculation errors',
+    ],
+  },
+  {
+    icon: '📑',
+    title: 'Regulatory Filings',
+    subtitle: 'SOX, GDPR, PCI-DSS verification',
+    examples: [
+      'Control requirement pattern matching',
+      'Multi-framework compliance gap analysis',
+    ],
+  },
+  {
+    icon: '⚙️',
+    title: 'Business Process Audit',
+    subtitle: 'Workflow and control review',
+    examples: [
+      'Approval chain gaps and segregation of duties',
+      'Control deficiency tracking with remediation',
+    ],
+  },
 ];
 
 // Document library categories
@@ -133,6 +223,10 @@ const CAPABILITIES = [
   { label: 'Memory Tiers', value: '4', desc: 'Fast, medium, slow, glacial' },
   { label: 'REST Endpoints', value: '1285+', desc: 'Full API coverage' },
   { label: 'Tests', value: '34,300+', desc: 'Comprehensive coverage' },
+  { label: 'Data Connectors', value: '25+', desc: 'GitHub, S3, SharePoint, FHIR, PostgreSQL, ArXiv, Confluence...' },
+  { label: 'WebSocket Events', value: '50+', desc: 'Real-time streaming with audience participation' },
+  { label: 'Compliance Presets', value: '5', desc: 'GDPR, HIPAA, SOX, AI Act, Security gauntlets' },
+  { label: 'API Handlers', value: '78', desc: 'Modular endpoint handlers' },
 ];
 
 export default function AboutPage() {
@@ -454,8 +548,72 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
           </div>
         </section>
 
-        {/* Philosophical Foundations */}
+        {/* Advanced Capabilities */}
         <section className="py-16 px-4">
+          <div className="container mx-auto max-w-4xl">
+            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Advanced Capabilities</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                { title: 'Enterprise Control Plane', desc: 'Service discovery, distributed task scheduling, and health monitoring for agent pools.' },
+                { title: 'Continuum Memory', desc: '4-tier learning system (fast/medium/slow/glacial) with automatic promotion based on utility.' },
+                { title: 'ELO Calibration', desc: 'Skill ratings, confidence calibration, and tournament brackets for agent performance tracking.' },
+                { title: 'Gauntlet Validation', desc: 'Pre-built compliance gauntlets for GDPR, HIPAA, SOX, AI Act, and security testing.' },
+                { title: 'Knowledge Mound', desc: 'Organizational memory with cross-debate learning and automatic fact extraction.' },
+                { title: 'Belief Propagation', desc: 'Bayesian graphical model for probabilistic reasoning chains across agent networks.' },
+              ].map((feature) => (
+                <div key={feature.title} className="border border-acid-cyan/20 p-4 bg-bg/50">
+                  <h3 className="text-acid-yellow font-mono text-sm mb-2">{feature.title}</h3>
+                  <p className="text-text-muted text-xs font-mono">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Enterprise Ready */}
+        <section className="py-16 px-4 bg-surface/30">
+          <div className="container mx-auto max-w-4xl">
+            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Enterprise Ready</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { icon: '🔐', title: 'Multi-Tenant Isolation', desc: 'Workspace-based data segregation with role-based access control.' },
+                { icon: '📋', title: 'Audit Logging', desc: 'SOC 2 compliant immutable audit trails for compliance.' },
+                { icon: '🔌', title: '25+ Data Connectors', desc: 'FHIR, SharePoint, Confluence, PostgreSQL, GitHub, S3, ArXiv...' },
+                { icon: '🛡️', title: 'Fault Tolerance', desc: 'Circuit breakers, automatic failover, OpenRouter fallback.' },
+              ].map((feature) => (
+                <div key={feature.title} className="border border-acid-green/20 p-4 bg-bg/50">
+                  <div className="text-xl mb-2">{feature.icon}</div>
+                  <h3 className="text-acid-cyan font-mono text-sm mb-2">{feature.title}</h3>
+                  <p className="text-text-muted text-xs font-mono">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Integrations */}
+        <section className="py-16 px-4">
+          <div className="container mx-auto max-w-4xl">
+            <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Integrations</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { icon: '🧠', title: 'Tinker', desc: 'Model fine-tuning from debate transcripts via thinkingmachines.ai' },
+                { icon: '🔗', title: 'MCP Protocol', desc: 'Native Claude Code integration for agentic workflows' },
+                { icon: '🎙️', title: 'Podcast Generator', desc: 'Audio synthesis from debate transcripts' },
+                { icon: '🧩', title: 'Plugin System', desc: 'Extensible architecture with sandboxed plugin execution' },
+              ].map((integration) => (
+                <div key={integration.title} className="border border-acid-cyan/20 p-4 bg-surface/30">
+                  <div className="text-xl mb-2">{integration.icon}</div>
+                  <h3 className="text-acid-yellow font-mono text-sm mb-2">{integration.title}</h3>
+                  <p className="text-text-muted text-xs font-mono">{integration.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Philosophical Foundations */}
+        <section className="py-16 px-4 bg-surface/30">
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl font-mono text-acid-green mb-4 text-center">Philosophical Foundations</h2>
             <p className="text-center text-text-muted font-mono italic mb-8">
