@@ -94,7 +94,8 @@ aragora/
 │   └── positions.py       # PositionTracker (position history)
 │
 ├── debate/                 # Core debate infrastructure
-│   ├── orchestrator.py    # Arena class (~1,877 LOC - coordinator role)
+│   ├── orchestrator.py    # Arena class (~1,500 LOC - coordinator role)
+│   ├── arena_initializer.py # ArenaInitializer (extracted initialization)
 │   ├── phase_executor.py  # PhaseExecutor (orchestrates all phases)
 │   ├── context.py         # DebateContext (shared state across phases)
 │   ├── memory_manager.py  # MemoryManager (extracted from orchestrator)
