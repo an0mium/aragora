@@ -454,7 +454,8 @@ class WorkflowEngine:
 
         try:
             # Create step instance with config
-            step = step_class(name=step_def.name, config=step_def.config)
+            # Step classes are registered dynamically and may have various signatures
+            step = step_class(name=step_def.name, config=step_def.config)  # type: ignore[call-arg]
             self._step_instances[cache_key] = step
             return step
         except Exception as e:

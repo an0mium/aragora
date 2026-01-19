@@ -98,9 +98,9 @@ try:
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None
-    RLMConfig = None
-    AbstractionLevel = None
+    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    RLMConfig = None  # type: ignore[misc,assignment]
+    AbstractionLevel = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -475,6 +475,67 @@ class KnowledgeMound:
         result = await self.store(request)
         return result.node_id
 
+    async def add_node(self, node: Any) -> str:
+        """
+        Add a KnowledgeNode to the mound.
+
+        This is an adapter method for compatibility with checkpoint_store
+        and other components that use the KnowledgeNode interface.
+
+        Args:
+            node: KnowledgeNode with node_type, content, confidence, etc.
+
+        Returns:
+            The created node ID
+        """
+        from aragora.knowledge.mound_core import KnowledgeNode
+
+        if not isinstance(node, KnowledgeNode):
+            raise TypeError(f"Expected KnowledgeNode, got {type(node)}")
+
+        # Convert tier to string if it's an enum
+        tier_str = node.tier.value if hasattr(node.tier, "value") else str(node.tier)
+
+        return await self.add(
+            content=node.content,
+            metadata={
+                "provenance": node.provenance.__dict__ if node.provenance else None,
+                "node_type": node.node_type,
+            },
+            workspace_id=node.workspace_id or self.workspace_id,
+            node_type=node.node_type if isinstance(node.node_type, str) else node.node_type,
+            confidence=node.confidence,
+            tier=tier_str,
+        )
+
+    async def get_node(self, node_id: str) -> Optional[Any]:
+        """
+        Get a KnowledgeNode by ID.
+
+        This is an adapter method for compatibility with checkpoint_store
+        and other components that use the KnowledgeNode interface.
+
+        Args:
+            node_id: The node ID to retrieve
+
+        Returns:
+            A dict-like object with node_type, content, etc., or None
+        """
+        item = await self.get(node_id)
+        if item is None:
+            return None
+
+        # Return a dict-like object that has node_type and content
+        # This maintains compatibility with code expecting KnowledgeNode interface
+        class NodeProxy:
+            def __init__(self, item: KnowledgeItem):
+                self.id = item.id
+                self.content = item.content
+                self.confidence = float(item.confidence.value) if hasattr(item.confidence, "value") else item.confidence
+                self.node_type = item.metadata.get("node_type", "fact")
+
+        return NodeProxy(item)
+
     # =========================================================================
     # Query Operations
     # =========================================================================
@@ -647,6 +708,127 @@ class KnowledgeMound:
             total_nodes=len(nodes),
             total_edges=len(edges),
         )
+
+    async def export_graph_d3(
+        self,
+        start_node_id: Optional[str] = None,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Export graph in D3.js-compatible format for visualization.
+
+        Args:
+            start_node_id: Starting node for traversal (None for all nodes)
+            depth: Maximum traversal depth
+            limit: Maximum number of nodes
+
+        Returns:
+            Dict with 'nodes' and 'links' arrays for D3 force-directed graph
+        """
+        self._ensure_initialized()
+
+        nodes: List[Dict[str, Any]] = []
+        links: List[Dict[str, Any]] = []
+        node_ids: set = set()
+
+        if start_node_id:
+            # Traverse from starting node
+            result = await self.query_graph(start_node_id, depth=depth, max_nodes=limit)
+            for node in result.nodes:
+                if node.id not in node_ids:
+                    node_ids.add(node.id)
+                    nodes.append({
+                        "id": node.id,
+                        "label": (node.content[:100] if node.content else "")[:100],
+                        "type": node.source_type.value if hasattr(node.source_type, 'value') else str(node.source_type),
+                        "confidence": node.confidence,
+                    })
+            for edge in result.edges:
+                links.append({
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "type": edge.relationship_type.value if hasattr(edge.relationship_type, 'value') else str(edge.relationship_type),
+                    "strength": edge.strength if hasattr(edge, 'strength') else 0.5,
+                })
+        else:
+            # Get all nodes up to limit using local query
+            all_items = await self._query_local("", None, limit)
+            for item in all_items[:limit]:
+                node_ids.add(item.id)
+                nodes.append({
+                    "id": item.id,
+                    "label": (item.content[:100] if item.content else "")[:100],
+                    "type": item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type),
+                    "confidence": item.confidence,
+                })
+
+            # Get relationships between collected nodes
+            for node_id in list(node_ids)[:50]:  # Limit relationship queries
+                rels = await self._get_relationships(node_id)
+                for rel in rels:
+                    target = rel.target_id if rel.source_id == node_id else rel.source_id
+                    if target in node_ids:
+                        links.append({
+                            "source": rel.source_id,
+                            "target": rel.target_id,
+                            "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                            "strength": rel.strength if hasattr(rel, 'strength') else 0.5,
+                        })
+
+        return {"nodes": nodes, "links": links}
+
+    async def export_graph_graphml(
+        self,
+        start_node_id: Optional[str] = None,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> str:
+        """
+        Export graph in GraphML format for external tools.
+
+        Args:
+            start_node_id: Starting node for traversal (None for all nodes)
+            depth: Maximum traversal depth
+            limit: Maximum number of nodes
+
+        Returns:
+            GraphML XML string
+        """
+        d3_data = await self.export_graph_d3(start_node_id, depth, limit)
+
+        # Build GraphML XML
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<graphml xmlns="http://graphml.graphdrawing.org/xmlns">',
+            '  <key id="label" for="node" attr.name="label" attr.type="string"/>',
+            '  <key id="type" for="node" attr.name="type" attr.type="string"/>',
+            '  <key id="confidence" for="node" attr.name="confidence" attr.type="double"/>',
+            '  <key id="rel_type" for="edge" attr.name="type" attr.type="string"/>',
+            '  <key id="strength" for="edge" attr.name="strength" attr.type="double"/>',
+            '  <graph id="knowledge_graph" edgedefault="directed">',
+        ]
+
+        # Add nodes
+        for node in d3_data["nodes"]:
+            label = (node.get("label", "") or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+            lines.append(f'    <node id="{node["id"]}">')
+            lines.append(f'      <data key="label">{label}</data>')
+            lines.append(f'      <data key="type">{node.get("type", "unknown")}</data>')
+            lines.append(f'      <data key="confidence">{node.get("confidence", 0.0)}</data>')
+            lines.append('    </node>')
+
+        # Add edges
+        for i, link in enumerate(d3_data["links"]):
+            lines.append(f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">')
+            lines.append(f'      <data key="rel_type">{link.get("type", "related")}</data>')
+            lines.append(f'      <data key="strength">{link.get("strength", 0.5)}</data>')
+            lines.append('    </edge>')
+
+        lines.append('  </graph>')
+        lines.append('</graphml>')
+
+        return '\n'.join(lines)
 
     # =========================================================================
     # RLM Integration (Recursive Language Models)

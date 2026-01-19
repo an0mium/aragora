@@ -344,7 +344,7 @@ class StigmergyManager:
         """Get statistics about signals."""
         active_signals = [s for s in self._signals.values() if not s.is_expired]
 
-        by_type = {}
+        by_type: dict[str, int] = {}
         for signal in active_signals:
             by_type[signal.signal_type.value] = by_type.get(signal.signal_type.value, 0) + 1
 

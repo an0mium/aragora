@@ -138,30 +138,37 @@ def _parse_workflow_definition(data: Dict[str, Any]) -> WorkflowDefinition:
     from aragora.workflow.types import StepDefinition, TransitionRule
 
     steps = []
+    transitions = []
+
     for step_data in data.get("steps", []):
+        step_id = step_data.get("id", "")
         step = StepDefinition(
-            id=step_data.get("id", ""),
+            id=step_id,
+            name=step_data.get("name", step_id),  # Use id as fallback for name
             step_type=step_data.get("type", "task"),
             config=step_data.get("config", {}),
             next_steps=[step_data.get("next")] if step_data.get("next") else [],
-            conditions=[],
         )
 
-        # Parse transitions
+        # Parse transitions - add to workflow-level transitions list
         if "on_success" in step_data:
             step.next_steps = [step_data["on_success"]]
         if "on_failure" in step_data:
-            step.conditions.append(
+            transitions.append(
                 TransitionRule(
+                    id=f"{step_id}_failure",
+                    from_step=step_id,
+                    to_step=step_data["on_failure"],
                     condition="failure",
-                    target_step=step_data["on_failure"],
                 )
             )
         if "on_reject" in step_data:
-            step.conditions.append(
+            transitions.append(
                 TransitionRule(
+                    id=f"{step_id}_reject",
+                    from_step=step_id,
+                    to_step=step_data["on_reject"],
                     condition="rejected",
-                    target_step=step_data["on_reject"],
                 )
             )
 
@@ -173,7 +180,8 @@ def _parse_workflow_definition(data: Dict[str, Any]) -> WorkflowDefinition:
         description=data.get("description", ""),
         version=data.get("version", "1.0"),
         steps=steps,
-        entry_point=data.get("entry_point", steps[0].id if steps else ""),
+        transitions=transitions,
+        entry_step=data.get("entry_point", steps[0].id if steps else ""),
         metadata=data.get("metadata", {}),
     )
 

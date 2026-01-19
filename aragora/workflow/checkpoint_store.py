@@ -122,8 +122,8 @@ class KnowledgeMoundCheckpointStore:
                 chain=[
                     {
                         "workflow_id": checkpoint.workflow_id,
-                        "step_id": checkpoint.current_step_id,
-                        "status": checkpoint.status,
+                        "step_id": checkpoint.current_step,
+                        "steps_completed": len(checkpoint.completed_steps),
                     }
                 ],
                 metadata={
@@ -146,7 +146,7 @@ class KnowledgeMoundCheckpointStore:
             node_id = await self.mound.add_node(node)
             logger.info(
                 f"Saved workflow checkpoint: workflow={checkpoint.workflow_id}, "
-                f"step={checkpoint.current_step_id}, node_id={node_id}"
+                f"step={checkpoint.current_step}, node_id={node_id}"
             )
             return node_id
 
@@ -257,30 +257,42 @@ class KnowledgeMoundCheckpointStore:
         elif hasattr(checkpoint, "__dataclass_fields__"):
             return asdict(checkpoint)
         else:
+            # Fallback for objects without to_dict - matches WorkflowCheckpoint fields
             return {
+                "id": getattr(checkpoint, "id", ""),
                 "workflow_id": checkpoint.workflow_id,
                 "definition_id": checkpoint.definition_id,
-                "current_step_id": checkpoint.current_step_id,
+                "current_step": checkpoint.current_step,
                 "completed_steps": list(checkpoint.completed_steps),
                 "step_outputs": dict(checkpoint.step_outputs),
-                "state": dict(checkpoint.state),
-                "status": checkpoint.status,
-                "created_at": checkpoint.created_at,
-                "updated_at": checkpoint.updated_at,
+                "context_state": dict(getattr(checkpoint, "context_state", {})),
+                "created_at": checkpoint.created_at.isoformat() if hasattr(checkpoint.created_at, "isoformat") else str(checkpoint.created_at),
+                "checksum": getattr(checkpoint, "checksum", ""),
             }
 
     def _dict_to_checkpoint(self, data: Dict[str, Any]) -> WorkflowCheckpoint:
         """Convert dictionary back to WorkflowCheckpoint."""
+        from datetime import datetime
+
+        created_at = data.get("created_at", "")
+        if isinstance(created_at, str) and created_at:
+            try:
+                created_at = datetime.fromisoformat(created_at)
+            except ValueError:
+                created_at = datetime.now()
+        elif not isinstance(created_at, datetime):
+            created_at = datetime.now()
+
         return WorkflowCheckpoint(
+            id=data.get("id", ""),
             workflow_id=data.get("workflow_id", ""),
             definition_id=data.get("definition_id", ""),
-            current_step_id=data.get("current_step_id"),
-            completed_steps=set(data.get("completed_steps", [])),
+            current_step=data.get("current_step", ""),
+            completed_steps=list(data.get("completed_steps", [])),
             step_outputs=data.get("step_outputs", {}),
-            state=data.get("state", {}),
-            status=data.get("status", "pending"),
-            created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", ""),
+            context_state=data.get("context_state", {}),
+            created_at=created_at,
+            checksum=data.get("checksum", ""),
         )
 
 
@@ -361,30 +373,42 @@ class FileCheckpointStore:
         elif hasattr(checkpoint, "__dataclass_fields__"):
             return asdict(checkpoint)
         else:
+            # Fallback for objects without to_dict - matches WorkflowCheckpoint fields
             return {
+                "id": getattr(checkpoint, "id", ""),
                 "workflow_id": checkpoint.workflow_id,
                 "definition_id": checkpoint.definition_id,
-                "current_step_id": checkpoint.current_step_id,
+                "current_step": checkpoint.current_step,
                 "completed_steps": list(checkpoint.completed_steps),
                 "step_outputs": dict(checkpoint.step_outputs),
-                "state": dict(checkpoint.state),
-                "status": checkpoint.status,
-                "created_at": checkpoint.created_at,
-                "updated_at": checkpoint.updated_at,
+                "context_state": dict(getattr(checkpoint, "context_state", {})),
+                "created_at": checkpoint.created_at.isoformat() if hasattr(checkpoint.created_at, "isoformat") else str(checkpoint.created_at),
+                "checksum": getattr(checkpoint, "checksum", ""),
             }
 
     def _dict_to_checkpoint(self, data: Dict[str, Any]) -> WorkflowCheckpoint:
         """Convert dictionary to WorkflowCheckpoint."""
+        from datetime import datetime
+
+        created_at = data.get("created_at", "")
+        if isinstance(created_at, str) and created_at:
+            try:
+                created_at = datetime.fromisoformat(created_at)
+            except ValueError:
+                created_at = datetime.now()
+        elif not isinstance(created_at, datetime):
+            created_at = datetime.now()
+
         return WorkflowCheckpoint(
+            id=data.get("id", ""),
             workflow_id=data.get("workflow_id", ""),
             definition_id=data.get("definition_id", ""),
-            current_step_id=data.get("current_step_id"),
-            completed_steps=set(data.get("completed_steps", [])),
+            current_step=data.get("current_step", ""),
+            completed_steps=list(data.get("completed_steps", [])),
             step_outputs=data.get("step_outputs", {}),
-            state=data.get("state", {}),
-            status=data.get("status", "pending"),
-            created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", ""),
+            context_state=data.get("context_state", {}),
+            created_at=created_at,
+            checksum=data.get("checksum", ""),
         )
 
 

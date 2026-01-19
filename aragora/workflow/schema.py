@@ -43,7 +43,7 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    BaseModel = object
+    BaseModel = object  # type: ignore[misc,assignment]
 
 
 class ValidationSeverity(Enum):
@@ -517,9 +517,9 @@ class WorkflowValidator:
 
     def _find_cycle(self, start: str, graph: Dict[str, Set[str]]) -> Optional[List[str]]:
         """Find a cycle in the graph, if any."""
-        visited = set()
-        path = []
-        path_set = set()
+        visited: set[str] = set()
+        path: List[str] = []
+        path_set: set[str] = set()
 
         def dfs(node: str) -> Optional[List[str]]:
             if node in path_set:

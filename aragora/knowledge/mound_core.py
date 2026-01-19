@@ -1230,6 +1230,127 @@ class KnowledgeMound:
 
         return created_ids
 
+    async def export_graph_d3(
+        self,
+        start_node_id: Optional[str] = None,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """
+        Export graph in D3.js-compatible format.
+
+        Args:
+            start_node_id: Starting node for traversal (None for all nodes)
+            depth: Maximum traversal depth
+            limit: Maximum number of nodes
+
+        Returns:
+            Dict with 'nodes' and 'links' arrays for D3 force-directed graph
+        """
+        self._ensure_initialized()
+        assert self._meta_store is not None
+
+        nodes: list[dict[str, Any]] = []
+        links: list[dict[str, Any]] = []
+        node_ids: set[str] = set()
+
+        if start_node_id:
+            # Traverse from starting node
+            traversed = await self.query_graph(
+                start_node_id, depth=depth, direction="both"
+            )
+            for node in traversed[:limit]:
+                if node.id not in node_ids:
+                    node_ids.add(node.id)
+                    nodes.append({
+                        "id": node.id,
+                        "label": node.content[:100] if node.content else "",
+                        "type": node.node_type,
+                        "confidence": node.confidence,
+                        "tier": node.tier.value if node.tier else "medium",
+                        "validation": node.validation_status.value if node.validation_status else "pending",
+                    })
+        else:
+            # Get all nodes up to limit
+            all_nodes = await self.query_nodes(limit=limit)
+            for node in all_nodes:
+                node_ids.add(node.id)
+                nodes.append({
+                    "id": node.id,
+                    "label": node.content[:100] if node.content else "",
+                    "type": node.node_type,
+                    "confidence": node.confidence,
+                    "tier": node.tier.value if node.tier else "medium",
+                    "validation": node.validation_status.value if node.validation_status else "pending",
+                })
+
+        # Get relationships between collected nodes
+        for node_id in node_ids:
+            rels = self._meta_store.get_relationships(node_id, direction="outgoing")
+            for rel in rels:
+                if rel.to_node_id in node_ids:
+                    links.append({
+                        "source": rel.from_node_id,
+                        "target": rel.to_node_id,
+                        "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
+                        "strength": rel.strength,
+                    })
+
+        return {"nodes": nodes, "links": links}
+
+    async def export_graph_graphml(
+        self,
+        start_node_id: Optional[str] = None,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> str:
+        """
+        Export graph in GraphML format.
+
+        Args:
+            start_node_id: Starting node for traversal (None for all nodes)
+            depth: Maximum traversal depth
+            limit: Maximum number of nodes
+
+        Returns:
+            GraphML XML string
+        """
+        d3_data = await self.export_graph_d3(start_node_id, depth, limit)
+
+        # Build GraphML XML
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<graphml xmlns="http://graphml.graphdrawing.org/xmlns">',
+            '  <key id="label" for="node" attr.name="label" attr.type="string"/>',
+            '  <key id="type" for="node" attr.name="type" attr.type="string"/>',
+            '  <key id="confidence" for="node" attr.name="confidence" attr.type="double"/>',
+            '  <key id="rel_type" for="edge" attr.name="type" attr.type="string"/>',
+            '  <key id="strength" for="edge" attr.name="strength" attr.type="double"/>',
+            '  <graph id="knowledge_graph" edgedefault="directed">',
+        ]
+
+        # Add nodes
+        for node in d3_data["nodes"]:
+            # Escape XML special characters in label
+            label = (node.get("label", "") or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+            lines.append(f'    <node id="{node["id"]}">')
+            lines.append(f'      <data key="label">{label}</data>')
+            lines.append(f'      <data key="type">{node.get("type", "unknown")}</data>')
+            lines.append(f'      <data key="confidence">{node.get("confidence", 0.0)}</data>')
+            lines.append('    </node>')
+
+        # Add edges
+        for i, link in enumerate(d3_data["links"]):
+            lines.append(f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">')
+            lines.append(f'      <data key="rel_type">{link.get("type", "related")}</data>')
+            lines.append(f'      <data key="strength">{link.get("strength", 0.5)}</data>')
+            lines.append('    </edge>')
+
+        lines.append('  </graph>')
+        lines.append('</graphml>')
+
+        return '\n'.join(lines)
+
     async def close(self) -> None:
         """Close connections."""
         if self._vector_store:
