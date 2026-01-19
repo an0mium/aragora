@@ -2,9 +2,15 @@
 Integration tests for AI Red Team PR Review feature.
 """
 
+import os
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
+
+# Check if we have API keys for integration tests
+HAS_API_KEYS = bool(
+    os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY")
+)
 
 from aragora.cli.review import (
     build_review_prompt,
@@ -395,8 +401,9 @@ class TestConstants:
         assert MAX_DIFF_SIZE <= 100000  # At most 100KB
 
 
-# Integration test that requires API keys (skipped by default)
-@pytest.mark.skip(reason="Requires API keys")
+# Integration test that requires API keys
+@pytest.mark.integration
+@pytest.mark.skipif(not HAS_API_KEYS, reason="Requires ANTHROPIC_API_KEY or OPENAI_API_KEY")
 class TestReviewIntegration:
     """Integration tests that run actual reviews."""
 

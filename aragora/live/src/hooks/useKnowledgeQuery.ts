@@ -158,7 +158,7 @@ export function useKnowledgeQuery({
     if (autoLoadStats) {
       loadStats();
     }
-  }, [autoLoadStats]);
+  }, [autoLoadStats, loadStats]);
 
   // Set query text with optional debounced execution
   const setQueryText = useCallback(
