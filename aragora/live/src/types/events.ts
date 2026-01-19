@@ -15,6 +15,7 @@ export type StreamEventType =
   | 'cycle_end'
   | 'phase_start'
   | 'phase_end'
+  | 'phase_timeout'
   | 'task_start'
   | 'task_complete'
   | 'task_retry'
@@ -40,8 +41,17 @@ export type StreamEventType =
   // Ranking/insight events
   | 'match_recorded'
   | 'leaderboard_update'
+  | 'moment_detected'
+  | 'agent_elo_updated'
   | 'flip_detected'
   | 'memory_recall'
+  | 'insight_extracted'
+  // Claim verification events
+  | 'claim_verification_result'
+  | 'formal_verification_result'
+  // Memory tier events
+  | 'memory_tier_promotion'
+  | 'memory_tier_demotion'
   // Trickster/hollow consensus events
   | 'hollow_consensus'
   | 'trickster_intervention'
@@ -71,12 +81,18 @@ export type StreamEventType =
   | 'evidence_found'
   | 'calibration_update'
   | 'genesis_evolution'
+  | 'training_data_exported'
+  // Human intervention breakpoint events
+  | 'breakpoint'
+  | 'breakpoint_resolved'
   // Uncertainty quantification events
   | 'uncertainty_analysis'
   // Graph debate events
   | 'debate_branch'
   | 'debate_merge'
   | 'graph_node_added'
+  | 'graph_branch_created'
+  | 'graph_branch_merged'
   // Matrix debate events
   | 'scenario_complete'
   | 'matrix_complete'
@@ -87,7 +103,44 @@ export type StreamEventType =
   // Quick preview events (shown in first 5 seconds)
   | 'quick_classification'
   | 'agent_preview'
-  | 'context_preview';
+  | 'context_preview'
+  // Gauntlet events (Adversarial Validation)
+  | 'gauntlet_start'
+  | 'gauntlet_phase'
+  | 'gauntlet_agent_active'
+  | 'gauntlet_attack'
+  | 'gauntlet_finding'
+  | 'gauntlet_probe'
+  | 'gauntlet_verification'
+  | 'gauntlet_risk'
+  | 'gauntlet_progress'
+  | 'gauntlet_verdict'
+  | 'gauntlet_complete'
+  // Workflow Builder events
+  | 'workflow_created'
+  | 'workflow_updated'
+  | 'workflow_deleted'
+  | 'workflow_start'
+  | 'workflow_step_start'
+  | 'workflow_step_progress'
+  | 'workflow_step_complete'
+  | 'workflow_step_failed'
+  | 'workflow_step_skipped'
+  | 'workflow_transition'
+  | 'workflow_checkpoint'
+  | 'workflow_resumed'
+  | 'workflow_human_approval_required'
+  | 'workflow_human_approval_received'
+  | 'workflow_human_approval_timeout'
+  | 'workflow_debate_start'
+  | 'workflow_debate_round'
+  | 'workflow_debate_complete'
+  | 'workflow_memory_read'
+  | 'workflow_memory_write'
+  | 'workflow_complete'
+  | 'workflow_failed'
+  | 'workflow_terminated'
+  | 'workflow_metrics';
 
 // Base interface for all stream events
 interface StreamEventBase {

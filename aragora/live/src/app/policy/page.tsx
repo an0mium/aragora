@@ -175,7 +175,7 @@ export default function PolicyPage() {
           </div>
 
           {error && (
-            <ErrorWithRetry message={error} onRetry={fetchData} className="mb-6" />
+            <ErrorWithRetry error={error} onRetry={fetchData} className="mb-6" />
           )}
 
           {loading ? (

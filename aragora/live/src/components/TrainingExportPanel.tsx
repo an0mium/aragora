@@ -4,140 +4,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ApiError } from './ApiError';
-
-type ExportType = 'sft' | 'dpo' | 'gauntlet';
-type OutputFormat = 'json' | 'jsonl';
-
-// Pipeline status types
-type PipelineStage = 'idle' | 'collecting' | 'filtering' | 'transforming' | 'exporting' | 'complete' | 'error';
-
-interface PipelineStatus {
-  stage: PipelineStage;
-  progress: number;
-  message: string;
-  recordsProcessed: number;
-  totalRecords: number;
-}
-
-interface ExportStats {
-  available_exporters: string[];
-  export_directory: string;
-  exported_files: Array<{
-    name: string;
-    size_bytes: number;
-    created_at: string;
-    modified_at: string;
-  }>;
-  sft_available?: boolean;
-}
-
-interface ExportFormat {
-  description: string;
-  schema: Record<string, unknown>;
-  use_case: string;
-}
-
-interface FormatsResponse {
-  formats: {
-    sft: ExportFormat;
-    dpo: ExportFormat;
-    gauntlet: ExportFormat;
-  };
-  output_formats: string[];
-  endpoints: Record<string, string>;
-}
-
-interface ExportResult {
-  export_type: string;
-  total_records: number;
-  parameters: Record<string, unknown>;
-  exported_at: string;
-  format: string;
-  records?: unknown[];
-  data?: string;
-}
-
-// Pipeline Progress Bar Component
-function PipelineProgress({ status }: { status: PipelineStatus }) {
-  const stageLabels: Record<PipelineStage, string> = {
-    idle: 'Ready',
-    collecting: 'Collecting data...',
-    filtering: 'Applying filters...',
-    transforming: 'Transforming records...',
-    exporting: 'Generating export...',
-    complete: 'Export complete!',
-    error: 'Export failed',
-  };
-
-  const stageColors: Record<PipelineStage, string> = {
-    idle: 'bg-slate-500',
-    collecting: 'bg-blue-500',
-    filtering: 'bg-cyan-500',
-    transforming: 'bg-purple-500',
-    exporting: 'bg-green-500',
-    complete: 'bg-green-400',
-    error: 'bg-red-500',
-  };
-
-  return (
-    <div className="bg-slate-800 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-white">
-          {status.message || stageLabels[status.stage]}
-        </span>
-        <span className="text-xs text-slate-400">
-          {status.recordsProcessed > 0 && (
-            <>{status.recordsProcessed.toLocaleString()} / {status.totalRecords.toLocaleString()} records</>
-          )}
-        </span>
-      </div>
-      <div className="w-full bg-slate-700 rounded-full h-2">
-        <div
-          className={`h-2 rounded-full transition-all duration-300 ${stageColors[status.stage]}`}
-          style={{ width: `${Math.min(status.progress, 100)}%` }}
-        />
-      </div>
-      <div className="flex justify-between mt-2 text-xs text-slate-500">
-        <span className={status.stage !== 'idle' ? 'text-blue-400' : ''}>Collect</span>
-        <span className={['filtering', 'transforming', 'exporting', 'complete'].includes(status.stage) ? 'text-cyan-400' : ''}>Filter</span>
-        <span className={['transforming', 'exporting', 'complete'].includes(status.stage) ? 'text-purple-400' : ''}>Transform</span>
-        <span className={['exporting', 'complete'].includes(status.stage) ? 'text-green-400' : ''}>Export</span>
-      </div>
-    </div>
-  );
-}
-
-// Data Preview Component
-function DataPreview({ records, exportType }: { records: unknown[]; exportType: ExportType }) {
-  if (!records.length) return null;
-
-  const sample = records.slice(0, 3);
-
-  return (
-    <div className="bg-slate-800 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-white">Data Preview</h4>
-        <span className="text-xs text-slate-400">
-          Showing {sample.length} of {records.length} records
-        </span>
-      </div>
-      <div className="space-y-2 max-h-60 overflow-y-auto">
-        {sample.map((record, i) => (
-          <div key={i} className="bg-slate-900 rounded p-2 text-xs font-mono text-slate-300 overflow-x-auto">
-            <pre className="whitespace-pre-wrap break-words">
-              {JSON.stringify(record, null, 2).slice(0, 500)}
-              {JSON.stringify(record, null, 2).length > 500 && '...'}
-            </pre>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-2 text-xs">
-        <span className="text-slate-400">Format:</span>
-        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">{exportType.toUpperCase()}</span>
-      </div>
-    </div>
-  );
-}
+import {
+  PipelineProgress,
+  DataPreview,
+  type ExportType,
+  type OutputFormat,
+  type PipelineStage,
+  type PipelineStatus,
+  type ExportStats,
+  type FormatsResponse,
+  type ExportResult,
+} from './training-export';
 
 export function TrainingExportPanel() {
   const client = useAragoraClient();

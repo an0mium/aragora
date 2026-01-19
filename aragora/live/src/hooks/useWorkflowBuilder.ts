@@ -133,7 +133,7 @@ export function useWorkflowBuilder({
     if (workflowId) {
       loadWorkflow(workflowId);
     }
-  }, [workflowId]);
+  }, [workflowId, loadWorkflow]);
 
   // Auto-save when dirty
   useEffect(() => {
@@ -154,7 +154,7 @@ export function useWorkflowBuilder({
         clearTimeout(saveTimerRef.current);
       }
     };
-  }, [autoSave, isDirty, currentWorkflow, autoSaveDelay]);
+  }, [autoSave, isDirty, currentWorkflow, autoSaveDelay, saveWorkflow]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -188,7 +188,7 @@ export function useWorkflowBuilder({
 
     window.addEventListener('keydown', handleKeyboard);
     return () => window.removeEventListener('keydown', handleKeyboard);
-  }, [enableKeyboardShortcuts, undo, redo]);
+  }, [enableKeyboardShortcuts, undo, redo, saveWorkflow]);
 
   // Load a specific workflow
   const loadWorkflow = useCallback(
@@ -285,7 +285,7 @@ export function useWorkflowBuilder({
         setCurrentWorkflow(null);
       }
     },
-    [api, currentWorkflow, setCurrentWorkflow]
+    [api, currentWorkflow, setCurrentWorkflow, loadWorkflows]
   );
 
   // Duplicate a workflow
@@ -309,7 +309,7 @@ export function useWorkflowBuilder({
 
       return saved;
     },
-    [api, workflows]
+    [api, workflows, loadWorkflows]
   );
 
   // Load workflow templates
@@ -343,7 +343,7 @@ export function useWorkflowBuilder({
 
       return saved;
     },
-    [api, templates, setCurrentWorkflow]
+    [api, templates, setCurrentWorkflow, loadWorkflows]
   );
 
   // Load all workflows
