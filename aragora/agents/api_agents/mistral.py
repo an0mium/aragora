@@ -104,7 +104,7 @@ class CodestralAgent(MistralAPIAgent):
             role=role,
             timeout=timeout,
             api_key=api_key,
-            enable_fallback=True,
+            # Use config-based default (same as MistralAPIAgent)
         )
         self.agent_type = "codestral"
 
