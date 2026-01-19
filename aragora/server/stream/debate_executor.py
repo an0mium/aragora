@@ -34,7 +34,7 @@ from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,
     MAX_AGENTS_PER_DEBATE,
 )
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.stream.arena_hooks import (
     create_arena_hooks,
     wrap_agent_for_streaming,

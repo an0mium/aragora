@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, Optional
 
-from aragora.server.error_utils import safe_error_message
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.utils.params import (
     get_bool_param,
     get_float_param,

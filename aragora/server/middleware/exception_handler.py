@@ -40,7 +40,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Callable, Optional, TypeVar, cast
 
-from aragora.server.error_utils import safe_error_message
+from aragora.server.errors import safe_error_message
 
 logger = logging.getLogger(__name__)
 

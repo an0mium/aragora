@@ -46,7 +46,7 @@ _relationship_imports, RELATIONSHIP_TRACKER_AVAILABLE = try_import(
 RelationshipTracker = _relationship_imports["RelationshipTracker"]  # type: ignore[misc]
 AgentRelationship = _relationship_imports["AgentRelationship"]  # type: ignore[misc]
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.errors import safe_error_message as _safe_error_message
 
 # =============================================================================
 # Score Computation Utilities

@@ -400,7 +400,7 @@ class DocumentHandler(BaseHandler):
             ).to_response(400)
 
         # Parse and store document
-        from aragora.server.error_utils import safe_error_message
+        from aragora.server.errors import safe_error_message
 
         try:
             doc = parse_document(file_content, filename)

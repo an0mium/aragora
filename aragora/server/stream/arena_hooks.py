@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Callable, Generator, Optional, cast
 
 from aragora.debate.hooks import HookManager
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.stream.events import StreamEvent, StreamEventType
 

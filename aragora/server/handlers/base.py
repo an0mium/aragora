@@ -138,7 +138,7 @@ class ServerContext(TypedDict, total=False):
 
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
-from aragora.server.error_utils import safe_error_message
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.admin.cache import (
     CACHE_INVALIDATION_MAP,
     BoundedTTLCache,
@@ -465,7 +465,7 @@ def safe_error_response(
         except Exception as e:
             return safe_error_response(e, "debate creation", 500, handler)
     """
-    from aragora.server.error_utils import ErrorFormatter
+    from aragora.server.errors import ErrorFormatter
 
     # Generate or extract trace ID
     trace_id = None

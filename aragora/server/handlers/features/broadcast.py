@@ -14,7 +14,7 @@ from typing import Any, Coroutine, Optional, TypeVar
 
 T = TypeVar("T")
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
 

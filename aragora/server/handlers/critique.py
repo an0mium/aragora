@@ -38,7 +38,7 @@ _critique_limiter = RateLimiter(requests_per_minute=60)
 # Lazy import for optional dependency using centralized utility
 CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store", "CritiqueStore")
 
-from aragora.server.error_utils import safe_error_message as _safe_error_message
+from aragora.server.errors import safe_error_message as _safe_error_message
 
 
 class CritiqueHandler(BaseHandler):

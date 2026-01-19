@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from aragora.server.error_utils import safe_error_message
+from aragora.server.errors import safe_error_message
 
 if TYPE_CHECKING:
     from typing import TypeAlias

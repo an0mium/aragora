@@ -1,7 +1,8 @@
 """Tests for error sanitization utilities."""
 
 import pytest
-from aragora.server.error_utils import sanitize_error_text, safe_error_message
+from aragora.server.errors import safe_error_message
+from aragora.utils.error_sanitizer import sanitize_error_text
 
 
 class TestSanitizeErrorText:
