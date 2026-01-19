@@ -185,6 +185,9 @@ from .stability import (
     stability_marker,
 )
 
+# Re-export centralized timeout configuration
+from .timeouts import Timeouts
+
 __all__ = [
     # Main settings
     "Settings",
@@ -213,6 +216,8 @@ __all__ = [
     "list_features_by_stability",
     "get_stability_badge",
     "get_stability_color",
+    # Timeouts
+    "Timeouts",
     # Constants
     "ALLOWED_AGENT_TYPES",
 ]

@@ -1,3 +1,25 @@
+"""
+Replay Storage - Manages debate replay persistence and retrieval.
+
+Handles storage, indexing, and pruning of debate recordings. Each recording
+is stored as a directory containing metadata (meta.json) and events
+(events.jsonl).
+
+Usage:
+    from aragora.replay.storage import ReplayStorage
+
+    storage = ReplayStorage(storage_dir=".nomic/replays")
+
+    # List available recordings
+    recordings = storage.list_recordings(limit=50)
+
+    # Load a specific recording
+    meta, events = storage.load("debate-123")
+
+    # Prune old recordings
+    storage.prune(keep_last=100)
+"""
+
 import json
 import logging
 from pathlib import Path

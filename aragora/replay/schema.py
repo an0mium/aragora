@@ -1,3 +1,30 @@
+"""
+Replay Schema - Data structures for debate recordings.
+
+Defines the schema for replay events and metadata, supporting versioned
+serialization to JSON/JSONL formats for persistence and playback.
+
+Event Types:
+    - turn: Agent message during debate round
+    - vote: Agent or user vote on a position
+    - audience_input: User suggestion or feedback
+    - phase_change: Transition between debate phases
+    - system: System-generated events (start, end, errors)
+
+Usage:
+    from aragora.replay.schema import ReplayEvent, ReplayMeta
+
+    event = ReplayEvent(
+        event_id="evt-1",
+        timestamp=time.time(),
+        offset_ms=0,
+        event_type="turn",
+        source="claude",
+        content="My proposal is...",
+    )
+    line = event.to_jsonl()
+"""
+
 import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional

@@ -22,6 +22,15 @@ from aragora.db.backends import (
     configure_database,
     get_database,
 )
+from aragora.db.profiling import (
+    QueryProfiler,
+    QueryProfile,
+    profile_queries,
+    profile_function,
+    instrument_sqlite_connection,
+    get_index_recommendations,
+    apply_recommended_indexes,
+)
 
 __all__ = [
     "DatabaseBackend",
@@ -30,4 +39,12 @@ __all__ = [
     "get_database",
     "configure_database",
     "DatabaseConfig",
+    # Profiling utilities
+    "QueryProfiler",
+    "QueryProfile",
+    "profile_queries",
+    "profile_function",
+    "instrument_sqlite_connection",
+    "get_index_recommendations",
+    "apply_recommended_indexes",
 ]

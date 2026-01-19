@@ -1,3 +1,25 @@
+"""
+Replay Recorder - Non-blocking debate event recording.
+
+Captures debate events (turns, votes, phase changes) in real-time with
+a background writer thread that persists to JSONL files without blocking
+the main debate loop.
+
+Usage:
+    from aragora.replay.recorder import ReplayRecorder
+
+    recorder = ReplayRecorder(
+        debate_id="debate-123",
+        topic="API design patterns",
+        proposal="Use REST over GraphQL",
+        agents=[{"id": "claude", "name": "Claude"}],
+    )
+
+    recorder.start()
+    recorder.record_turn(agent_id="claude", content="I propose...", round_num=1)
+    recorder.stop()
+"""
+
 import logging
 import queue
 import threading
