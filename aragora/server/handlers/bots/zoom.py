@@ -1,0 +1,187 @@
+"""
+Zoom Bot endpoint handler.
+
+Handles incoming events from Zoom's webhook API for chat messages
+and meeting events.
+
+Endpoints:
+- POST /api/bots/zoom/events - Handle Zoom events/webhooks
+- GET /api/bots/zoom/status - Bot status
+
+Environment Variables:
+- ZOOM_CLIENT_ID - Required for OAuth
+- ZOOM_CLIENT_SECRET - Required for OAuth
+- ZOOM_BOT_JID - Bot's JID
+- ZOOM_SECRET_TOKEN - Webhook signature verification
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+from typing import Any, Dict, Optional
+
+from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    json_response,
+)
+
+logger = logging.getLogger(__name__)
+
+# Environment variables
+ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID", "")
+ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET", "")
+ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID", "")
+ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
+
+
+class ZoomHandler(BaseHandler):
+    """Handler for Zoom Bot endpoints."""
+
+    ROUTES = [
+        "/api/bots/zoom/events",
+        "/api/bots/zoom/status",
+    ]
+
+    def __init__(self):
+        self._bot: Optional[Any] = None
+        self._bot_initialized = False
+
+    def _ensure_bot(self) -> Optional[Any]:
+        """Lazily initialize the Zoom bot."""
+        if self._bot_initialized:
+            return self._bot
+
+        self._bot_initialized = True
+
+        if not ZOOM_CLIENT_ID or not ZOOM_CLIENT_SECRET:
+            logger.warning("Zoom credentials not configured")
+            return None
+
+        try:
+            from aragora.bots.zoom_bot import create_zoom_bot
+            self._bot = create_zoom_bot()
+            logger.info("Zoom bot initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Zoom bot: {e}")
+            self._bot = None
+
+        return self._bot
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can process the given path."""
+        return path in self.ROUTES
+
+    def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route Zoom requests."""
+        if path == "/api/bots/zoom/status":
+            return self._get_status()
+
+        return None
+
+    def handle_post(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests."""
+        if path == "/api/bots/zoom/events":
+            return self._handle_events(handler)
+
+        return None
+
+    def _get_status(self) -> HandlerResult:
+        """Get Zoom bot status."""
+        return json_response({
+            "enabled": bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET),
+            "client_id_configured": bool(ZOOM_CLIENT_ID),
+            "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
+            "bot_jid_configured": bool(ZOOM_BOT_JID),
+            "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
+        })
+
+    def _handle_events(self, handler: Any) -> HandlerResult:
+        """Handle incoming Zoom webhook events.
+
+        This endpoint receives events from Zoom including:
+        - endpoint.url_validation (initial verification)
+        - bot_notification (chat messages)
+        - meeting.ended (meeting ended)
+        - bot_installed (bot was installed)
+        """
+        bot = self._ensure_bot()
+        if not bot:
+            # For URL validation, we still need to respond even without full bot
+            pass
+
+        try:
+            # Get verification headers
+            timestamp = handler.headers.get("x-zm-request-timestamp", "")
+            signature = handler.headers.get("x-zm-signature", "")
+
+            # Read body
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length)
+
+            # Verify signature if bot is configured
+            if bot and signature and not bot.verify_webhook(body, timestamp, signature):
+                logger.warning("Zoom webhook signature verification failed")
+                return error_response("Invalid signature", 401)
+
+            # Parse event
+            try:
+                event = json.loads(body.decode("utf-8"))
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in Zoom event: {e}")
+                return error_response("Invalid JSON", 400)
+
+            event_type = event.get("event", "")
+            logger.info(f"Zoom event received: {event_type}")
+
+            # Handle URL validation even without full bot
+            if event_type == "endpoint.url_validation":
+                payload = event.get("payload", {})
+                plain_token = payload.get("plainToken", "")
+
+                if ZOOM_SECRET_TOKEN:
+                    import hashlib
+                    import hmac
+                    encrypted = hmac.new(
+                        ZOOM_SECRET_TOKEN.encode(),
+                        plain_token.encode(),
+                        hashlib.sha256,
+                    ).hexdigest()
+                    return json_response({
+                        "plainToken": plain_token,
+                        "encryptedToken": encrypted,
+                    })
+                else:
+                    return json_response({"plainToken": plain_token})
+
+            # For other events, require bot
+            if not bot:
+                return json_response({
+                    "error": "Zoom bot not configured",
+                    "details": "Set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET environment variables",
+                }, status_code=503)
+
+            # Process event asynchronously
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(bot.handle_event(event))
+            finally:
+                loop.close()
+
+            return json_response(result)
+
+        except Exception as e:
+            logger.error(f"Zoom event error: {e}", exc_info=True)
+            return error_response(f"Error: {str(e)[:100]}", 500)
+
+
+__all__ = ["ZoomHandler"]
