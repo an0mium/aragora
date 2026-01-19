@@ -283,8 +283,9 @@ class AuthHandler(BaseHandler):
             return error_response("Invalid email or password", 401)
 
         # Check if account is active
+        # 401: account disabled means the user cannot authenticate
         if not user.is_active:
-            return error_response("Account is disabled", 403)
+            return error_response("Account is disabled", 401)
 
         # Verify password
         if not user.verify_password(password):
@@ -373,8 +374,9 @@ class AuthHandler(BaseHandler):
         if not user:
             return error_response("User not found", 401)
 
+        # 401: account disabled means the user cannot authenticate
         if not user.is_active:
-            return error_response("Account is disabled", 403)
+            return error_response("Account is disabled", 401)
 
         # Revoke the old refresh token to prevent reuse
         # IMPORTANT: Persist first, then in-memory. This ensures atomic revocation:

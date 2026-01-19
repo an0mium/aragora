@@ -295,7 +295,7 @@ class PluginsHandler(BaseHandler):
         """
         user_id = self.get_user_id(handler)
         if not user_id:
-            return error_response("User ID not found", 401)
+            return error_response("Authentication required", 401)
 
         user_plugins = _installed_plugins.get(user_id, {})
 
@@ -338,7 +338,7 @@ class PluginsHandler(BaseHandler):
 
         user_id = self.get_user_id(handler)
         if not user_id:
-            return error_response("User ID not found", 401)
+            return error_response("Authentication required", 401)
 
         registry = get_registry()
         manifest = registry.get(plugin_name)
@@ -396,7 +396,7 @@ class PluginsHandler(BaseHandler):
         """
         user_id = self.get_user_id(handler)
         if not user_id:
-            return error_response("User ID not found", 401)
+            return error_response("Authentication required", 401)
 
         user_plugins = _installed_plugins.get(user_id, {})
 
@@ -431,7 +431,7 @@ class PluginsHandler(BaseHandler):
 
         user_id = self.get_user_id(handler)
         if not user_id:
-            return error_response("User ID not found", 401)
+            return error_response("Authentication required", 401)
 
         # Read request body
         body = self.read_json_body(handler)
@@ -512,7 +512,7 @@ class PluginsHandler(BaseHandler):
         """
         user_id = self.get_user_id(handler)
         if not user_id:
-            return error_response("User ID not found", 401)
+            return error_response("Authentication required", 401)
 
         user_submissions = [
             sub for sub in _plugin_submissions.values() if sub.get("submitted_by") == user_id
