@@ -379,10 +379,9 @@ def _handler_set_state(context: WorkflowContext, key: str = "", value: Any = Non
     return {"key": key, "value": value}
 
 
-def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> Dict[str, Any]:
-    """Delay execution (use in async context)."""
-    import time
-    time.sleep(seconds)
+async def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> Dict[str, Any]:
+    """Delay execution (async-safe)."""
+    await asyncio.sleep(seconds)
     return {"delayed_seconds": seconds}
 
 
