@@ -97,28 +97,56 @@ class TestExtractContentText:
         assert result == "Fallback"
 
 
+def _make_event(
+    event_type: EventType,
+    agent: str,
+    content: str,
+    event_id: str = "evt-001",
+    round_num: int = 1,
+    timestamp: str = "2025-01-18T12:00:00Z",
+) -> TraceEvent:
+    """Helper to create TraceEvent with required fields."""
+    return TraceEvent(
+        event_id=event_id,
+        event_type=event_type,
+        timestamp=timestamp,
+        round_num=round_num,
+        agent=agent,
+        content={"text": content},
+    )
+
+
+def _make_trace(
+    debate_id: str,
+    task: str,
+    agents: list,
+    events: list = None,
+    trace_id: str = "trace-001",
+    random_seed: int = 42,
+) -> DebateTrace:
+    """Helper to create DebateTrace with required fields."""
+    return DebateTrace(
+        trace_id=trace_id,
+        debate_id=debate_id,
+        task=task,
+        agents=agents,
+        random_seed=random_seed,
+        events=events or [],
+    )
+
+
 class TestExtractSpeakerTurns:
     """Test speaker turn extraction from debate trace."""
 
     def test_basic_extraction(self):
         """Test basic extraction from trace."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test-1",
             task="Test debate",
             agents=["claude", "gpt"],
             events=[
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="claude",
-                    content="Hello from Claude",
-                    timestamp=1000.0,
-                ),
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="gpt",
-                    content="Hello from GPT",
-                    timestamp=1001.0,
-                ),
+                _make_event(EventType.MESSAGE, "claude", "Hello from Claude", "evt-1"),
+                _make_event(EventType.MESSAGE, "gpt", "Hello from GPT", "evt-2"),
             ],
         )
         segments = _extract_speaker_turns(trace)
@@ -133,23 +161,13 @@ class TestExtractSpeakerTurns:
 
     def test_includes_transitions(self):
         """Test transitions are added between different speakers."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test-2",
             task="Test",
             agents=["a", "b"],
             events=[
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="a",
-                    content="From A",
-                    timestamp=1.0,
-                ),
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="b",
-                    content="From B",
-                    timestamp=2.0,
-                ),
+                _make_event(EventType.MESSAGE, "a", "From A", "evt-1"),
+                _make_event(EventType.MESSAGE, "b", "From B", "evt-2"),
             ],
         )
         segments = _extract_speaker_turns(trace)
@@ -160,23 +178,13 @@ class TestExtractSpeakerTurns:
 
     def test_no_transition_same_speaker(self):
         """Test no transition when same speaker continues."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test-3",
             task="Test",
             agents=["a"],
             events=[
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="a",
-                    content="First",
-                    timestamp=1.0,
-                ),
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="a",
-                    content="Second",
-                    timestamp=2.0,
-                ),
+                _make_event(EventType.MESSAGE, "a", "First", "evt-1"),
+                _make_event(EventType.MESSAGE, "a", "Second", "evt-2"),
             ],
         )
         segments = _extract_speaker_turns(trace)
@@ -187,23 +195,13 @@ class TestExtractSpeakerTurns:
 
     def test_skips_non_message_events(self):
         """Test non-MESSAGE events are skipped."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test-4",
             task="Test",
             agents=["a"],
             events=[
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="a",
-                    content="Message",
-                    timestamp=1.0,
-                ),
-                TraceEvent(
-                    event_type=EventType.VOTE,
-                    agent="a",
-                    content={"vote": "yes"},
-                    timestamp=2.0,
-                ),
+                _make_event(EventType.MESSAGE, "a", "Message", "evt-1"),
+                _make_event(EventType.CONSENSUS_CHECK, "a", "yes", "evt-2"),
             ],
         )
         segments = _extract_speaker_turns(trace)
@@ -218,17 +216,12 @@ class TestGenerateScript:
 
     def test_generate_basic_script(self):
         """Test generating a basic script."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test-script",
             task="Discuss testing",
             agents=["tester"],
             events=[
-                TraceEvent(
-                    event_type=EventType.MESSAGE,
-                    agent="tester",
-                    content="Testing is important",
-                    timestamp=1.0,
-                ),
+                _make_event(EventType.MESSAGE, "tester", "Testing is important", "evt-1"),
             ],
         )
         script = generate_script(trace)
@@ -239,7 +232,7 @@ class TestGenerateScript:
 
     def test_script_includes_task_in_opening(self):
         """Test script opening includes the task."""
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test",
             task="Design a rate limiter algorithm",
             agents=["engineer"],
@@ -253,7 +246,7 @@ class TestGenerateScript:
     def test_script_truncates_long_task(self):
         """Test very long tasks are truncated in opening."""
         long_task = "x" * 500
-        trace = DebateTrace(
+        trace = _make_trace(
             debate_id="test",
             task=long_task,
             agents=["agent"],

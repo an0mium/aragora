@@ -163,11 +163,17 @@ class TestEscapeCdata:
         assert _escape_cdata("Hello World") == "Hello World"
 
     def test_escapes_cdata_end(self):
-        """Test CDATA end sequence is escaped."""
+        """Test CDATA end sequence is escaped.
+
+        The escape mechanism replaces ]]> with ]]]]><![CDATA[> which
+        splits the CDATA section and reopens it, preventing premature
+        CDATA termination.
+        """
         result = _escape_cdata("Text with ]]> inside")
-        assert "]]>" not in result or result.count("]]>") == 0
-        # Should split the CDATA sequence
+        # Should contain the escape sequence
         assert "]]]]><![CDATA[>" in result
+        # Original "Text with ]]> inside" becomes "Text with ]]]]><![CDATA[> inside"
+        assert result == "Text with ]]]]><![CDATA[> inside"
 
     def test_empty_string(self):
         """Test empty string returns empty."""
