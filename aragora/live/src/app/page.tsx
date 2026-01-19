@@ -251,7 +251,7 @@ const BatchDebatePanel = dynamic(() => import('@/components/BatchDebatePanel').t
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
-const SettingsPanel = dynamic(() => import('@/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })), {
+const SettingsPanel = dynamic(() => import('@/components/settings-panel').then(m => ({ default: m.SettingsPanel })), {
   ssr: false,
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
@@ -357,7 +357,7 @@ const GraphDebateBrowser = dynamic(() => import('@/components/graph-debate').the
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });
 
-const ScenarioMatrixView = dynamic(() => import('@/components/ScenarioMatrixView').then(m => ({ default: m.ScenarioMatrixView })), {
+const ScenarioMatrixView = dynamic(() => import('@/components/scenario-matrix').then(m => ({ default: m.ScenarioMatrixView })), {
   ssr: false,
   loading: () => <div className="card p-4 animate-pulse"><div className="h-32 bg-surface rounded" /></div>,
 });

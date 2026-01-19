@@ -9,7 +9,7 @@ import { BackendSelector } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 
 const SettingsPanel = dynamic(
-  () => import('@/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })),
+  () => import('@/components/settings-panel').then(m => ({ default: m.SettingsPanel })),
   {
     ssr: false,
     loading: () => (

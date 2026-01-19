@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { ScenarioMatrixView } from '@/components/ScenarioMatrixView';
+import { ScenarioMatrixView } from '@/components/scenario-matrix';
 
 function MatrixDebatesContent() {
   const searchParams = useSearchParams();
