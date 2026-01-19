@@ -1,8 +1,84 @@
 # Aragora Project Status
 
-*Last updated: January 19, 2026 (00:00 UTC)*
+*Last updated: January 19, 2026 (12:00 UTC)*
 
 ## Current Release
+
+### v2.0.2 - UI Enhancement Release (January 2026)
+
+**Production Ready** - Aragora 2.0.2 adds 3 new pages and enhances 4 existing pages to surface previously hidden backend capabilities.
+
+#### Key Highlights
+- **34,400+ tests** collected and passing (+100 new tests)
+- **3 new pages**: Receipts Browser, Training Explorer, Model Registry
+- **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
+- **Lines of Code**: 443,000+ LOC (+3,000)
+- **0 production blockers**
+- **0 uncommitted files**
+
+#### What's New in 2.0.2
+
+**Decision Receipt Browser** (`/receipts`) - NEW
+- Browse gauntlet receipts with verdict badges (PASS/FAIL/WARN)
+- Filter by date range and verdict type
+- Full receipt viewer with artifact hash verification
+- Export as HTML/JSON for compliance documentation
+- Provenance chain visualization
+
+**Training Data Explorer** (`/training/explorer`) - NEW
+- Dataset statistics dashboard (total debates, topics, win rates)
+- Format documentation for SFT, DPO, Gauntlet exports
+- Live preview of training examples
+- Confidence threshold filtering
+- Bulk export with format selection
+
+**Model Registry** (`/training/models`) - NEW
+- Track fine-tuned specialist models
+- Job status badges (pending, training, completed, failed)
+- Performance metrics (ELO, win rate, accuracy, loss)
+- Training progress visualization
+- Start/cancel job controls
+- Artifact download links
+
+**Risk Heatmap Enhancement** (`/gauntlet`) - ENHANCED
+- Interactive risk heatmap visualization
+- Rows = categories (Security, Logic, Compliance)
+- Columns = severity levels (critical, high, medium, low)
+- Click cell to filter findings
+- Export as SVG for reports
+
+**Belief Network Dashboard** (`/crux`) - ENHANCED
+- New tabs: Cruxes | Load-Bearing | Contested | Stats
+- Contested claims panel with confidence delta
+- Graph statistics (nodes, edges, depth, centrality)
+- Network export options (JSON, GraphML, CSV)
+- Enhanced sensitivity analysis
+
+**Episode Generator** (`/broadcast`) - ENHANCED
+- Generate podcast episodes from debates
+- Debate selector dropdown
+- Custom title and description
+- Optional video flag
+- Generation progress indicator
+- Direct play/download after generation
+
+**Knowledge Graph Export** (`/knowledge`) - ENHANCED
+- Export buttons (D3 JSON, GraphML)
+- Staleness panel with aging/stale/expired indicators
+- Color-coded freshness badges
+- Batch refresh operations
+
+**Navigation Improvements**
+- Added [EXPLORER] and [MODELS] links to `/training`
+- Added [RECEIPTS] link to `/gauntlet`
+- Cross-page navigation consistency
+
+**RLM Training Module** - NEW
+- `aragora/rlm/training/buffer.py` - Experience replay storage with prioritization
+- `aragora/rlm/training/reward.py` - Reward signal computation from debate outcomes
+- Entropy bonuses, temporal discounting, margin-based rewards
+
+---
 
 ### v2.0.1 - Feature Integration & Consolidation Release (January 2026)
 
@@ -688,7 +764,7 @@ All stabilization items addressed:
 
 ## Feature Integration Status
 
-### Fully Integrated (63)
+### Fully Integrated (74)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -761,6 +837,15 @@ All stabilization items addressed:
 | PublicGallery | Active | `aragora/live/src/components/PublicGallery.tsx` (debate browsing) |
 | Token Revocation UI | Active | `aragora/live/src/components/SettingsPanel.tsx` (Logout All Devices) |
 | Production Checklist | Active | `docs/PRODUCTION_CHECKLIST.md` (deployment guide) |
+| Decision Receipt Browser | Active | `aragora/live/src/app/receipts/page.tsx` (compliance receipts) |
+| Training Data Explorer | Active | `aragora/live/src/app/training/explorer/page.tsx` (ML data preview) |
+| Model Registry | Active | `aragora/live/src/app/training/models/page.tsx` (fine-tuned models) |
+| Risk Heatmap | Active | `aragora/live/src/components/GauntletPanel.tsx` (security visualization) |
+| Belief Network Dashboard | Active | `aragora/live/src/components/CruxPanel.tsx` (enhanced crux analysis) |
+| Episode Generator | Active | `aragora/live/src/app/broadcast/page.tsx` (podcast generation) |
+| Knowledge Graph Export | Active | `aragora/live/src/app/knowledge/page.tsx` (export & staleness) |
+| RLM Training Buffer | Active | `aragora/rlm/training/buffer.py` (experience replay) |
+| RLM Reward Computation | Active | `aragora/rlm/training/reward.py` (debate outcome rewards) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
