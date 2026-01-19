@@ -417,7 +417,8 @@ class TestDatabaseManager:
 
             # Verify data persisted
             cursor = manager.get_connection().execute("SELECT * FROM test")
-            assert cursor.fetchone() == (1,)
+            row = cursor.fetchone()
+            assert row[0] == 1  # sqlite3.Row supports indexing
 
             DatabaseManager.clear_instances()
 
@@ -468,7 +469,8 @@ class TestDatabaseManager:
             manager.get_connection().commit()
 
             cursor = manager.execute("SELECT * FROM test")
-            assert cursor.fetchone() == (42,)
+            row = cursor.fetchone()
+            assert row[0] == 42  # sqlite3.Row supports indexing
 
             DatabaseManager.clear_instances()
 
@@ -483,7 +485,7 @@ class TestDatabaseManager:
                 conn.execute("INSERT INTO test VALUES (1, 'Alice')")
 
             result = manager.fetch_one("SELECT * FROM test WHERE id = ?", (1,))
-            assert result == (1, "Alice")
+            assert result[0] == 1 and result[1] == "Alice"  # sqlite3.Row supports indexing
 
             DatabaseManager.clear_instances()
 
@@ -498,7 +500,8 @@ class TestDatabaseManager:
                 conn.executemany("INSERT INTO test VALUES (?)", [(1,), (2,), (3,)])
 
             results = manager.fetch_all("SELECT * FROM test ORDER BY id")
-            assert results == [(1,), (2,), (3,)]
+            # sqlite3.Row objects support indexing
+            assert [row[0] for row in results] == [1, 2, 3]
 
             DatabaseManager.clear_instances()
 

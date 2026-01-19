@@ -828,7 +828,7 @@ class TestProviderRateLimiter:
         initial_tokens = limiter._tokens
 
         # Consume one token manually
-        with limiter._lock:
+        with limiter._sync_lock:
             limiter._tokens -= 1
 
         tokens_after_consume = limiter._tokens
@@ -1077,3 +1077,177 @@ class TestGlobalProviderFunctions:
 
         # Registry should be cleared
         assert len(registry.providers()) == 0
+
+
+# =============================================================================
+# Concurrency Regression Tests
+# =============================================================================
+
+
+class TestConcurrencyRegression:
+    """Tests to verify rate limiter doesn't block event loop under concurrent load.
+
+    These tests verify the fix for the HIGH severity issue where threading.Lock
+    was used in async code, which could stall the event loop and serialize
+    unrelated calls under load.
+    """
+
+    @pytest.mark.asyncio
+    async def test_concurrent_acquires_dont_block_event_loop(self):
+        """Multiple concurrent acquires should not block the event loop.
+
+        This test verifies that the rate limiter uses asyncio.Lock instead of
+        threading.Lock, allowing concurrent coroutines to make progress.
+        """
+        from aragora.agents.api_agents.rate_limiter import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="premium")  # High limits for testing
+        num_tasks = 20
+
+        # Track timing to detect event loop blocking
+        start_time = time.monotonic()
+
+        # Launch many concurrent acquire attempts
+        tasks = [limiter.acquire(timeout=0.5) for _ in range(num_tasks)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        elapsed = time.monotonic() - start_time
+
+        # Count successes
+        successes = sum(1 for r in results if r is True)
+
+        # Should complete quickly - if event loop was blocked, this would take much longer
+        # With asyncio.Lock, concurrent acquires yield to each other
+        assert elapsed < 2.0, f"Concurrent acquires took too long: {elapsed:.2f}s (event loop may be blocked)"
+
+        # All tasks should succeed since burst_size (50) > num_tasks (20)
+        assert successes == num_tasks, f"Only {successes}/{num_tasks} acquires succeeded"
+
+    @pytest.mark.asyncio
+    async def test_provider_limiter_concurrent_acquires(self):
+        """ProviderRateLimiter should also handle concurrent acquires without blocking."""
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        num_tasks = 30
+        limiter = ProviderRateLimiter(provider="test_concurrent", rpm=1000, burst=50)
+
+        start_time = time.monotonic()
+
+        # Launch concurrent acquire attempts
+        tasks = [limiter.acquire(timeout=0.5) for _ in range(num_tasks)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        elapsed = time.monotonic() - start_time
+
+        successes = sum(1 for r in results if r is True)
+
+        # Should complete quickly with asyncio.Lock
+        assert elapsed < 2.0, f"Concurrent acquires took too long: {elapsed:.2f}s"
+        # All tasks should succeed since burst_size (50) > num_tasks (30)
+        assert successes == num_tasks, f"Only {successes}/{num_tasks} acquires succeeded"
+
+    @pytest.mark.asyncio
+    async def test_event_loop_responsive_during_rate_limit_wait(self):
+        """Event loop should remain responsive while rate limiter waits.
+
+        This test verifies that other coroutines can run while one is waiting
+        for rate limiter tokens.
+        """
+        from aragora.agents.api_agents.rate_limiter import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="free")  # Low limits to trigger waiting
+
+        # Exhaust tokens
+        for _ in range(limiter.tier.burst_size):
+            await limiter.acquire(timeout=0.1)
+
+        # Track whether background task runs while rate limiter waits
+        background_ran = False
+
+        async def background_task():
+            nonlocal background_ran
+            await asyncio.sleep(0.05)
+            background_ran = True
+
+        async def rate_limited_task():
+            # This will wait because tokens are exhausted
+            await limiter.acquire(timeout=0.5)
+
+        # Start both tasks concurrently
+        await asyncio.gather(
+            rate_limited_task(),
+            background_task(),
+            return_exceptions=True,
+        )
+
+        # Background task should have run while rate limiter was waiting
+        assert background_ran, "Background task didn't run - event loop may have been blocked"
+
+    @pytest.mark.asyncio
+    async def test_no_deadlock_under_high_concurrency(self):
+        """High concurrency should not cause deadlock.
+
+        With the old threading.Lock, many concurrent acquires could cause
+        contention issues. With asyncio.Lock, this should work smoothly.
+        """
+        from aragora.agents.api_agents.rate_limiter import ProviderRateLimiter
+
+        limiter = ProviderRateLimiter(provider="deadlock_test", rpm=500, burst=20)
+
+        async def acquire_and_release():
+            """Acquire token and simulate some work."""
+            acquired = await limiter.acquire(timeout=1.0)
+            if acquired:
+                await asyncio.sleep(0.01)  # Simulate API call
+            return acquired
+
+        # Launch many concurrent tasks
+        tasks = [acquire_and_release() for _ in range(100)]
+
+        # Set a timeout to detect deadlock
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            pytest.fail("Deadlock detected - concurrent acquires did not complete")
+
+        # Some should succeed, some may timeout - but no exceptions from deadlock
+        errors = [r for r in results if isinstance(r, Exception)]
+        assert len(errors) == 0, f"Unexpected errors: {errors}"
+
+    @pytest.mark.asyncio
+    async def test_asyncio_lock_allows_interleaving(self):
+        """Verify that asyncio.Lock allows coroutine interleaving.
+
+        This directly tests that the lock is an asyncio.Lock (not threading.Lock)
+        by checking that multiple coroutines can interleave their execution.
+        """
+        from aragora.agents.api_agents.rate_limiter import OpenRouterRateLimiter
+
+        limiter = OpenRouterRateLimiter(tier="premium")
+
+        # Track execution order
+        execution_order = []
+
+        async def task(task_id: int):
+            execution_order.append(f"start_{task_id}")
+            await limiter.acquire(timeout=1.0)
+            await asyncio.sleep(0.01)  # Yield to other tasks
+            execution_order.append(f"end_{task_id}")
+
+        # Run tasks concurrently
+        await asyncio.gather(*[task(i) for i in range(5)])
+
+        # With asyncio.Lock, starts should interleave before all ends
+        # (threading.Lock would serialize: start_0, end_0, start_1, end_1, ...)
+        start_indices = [execution_order.index(f"start_{i}") for i in range(5)]
+        end_indices = [execution_order.index(f"end_{i}") for i in range(5)]
+
+        # At least some starts should happen before the first end
+        first_end = min(end_indices)
+        starts_before_first_end = sum(1 for s in start_indices if s < first_end)
+        assert starts_before_first_end >= 2, (
+            f"Expected interleaving but got sequential execution: {execution_order}"
+        )

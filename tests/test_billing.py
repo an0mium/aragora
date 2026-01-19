@@ -70,9 +70,7 @@ class TestUserModel:
 
         assert api_key.startswith("ara_")
         assert len(api_key) > 10
-        # Plaintext key is NOT stored (security best practice)
-        # Only hash and prefix are stored for verification
-        assert user.api_key is None  # Plaintext not stored
+        # Only hash and prefix are stored for verification (plaintext is never stored)
         assert user.api_key_hash is not None  # Hash stored
         assert user.api_key_prefix == api_key[:12]  # Prefix stored
         assert user.api_key_created_at is not None
@@ -84,7 +82,8 @@ class TestUserModel:
         user.generate_api_key()
         user.revoke_api_key()
 
-        assert user.api_key is None
+        assert user.api_key_hash is None
+        assert user.api_key_prefix is None
         assert user.api_key_created_at is None
 
     def test_user_to_dict(self):
@@ -106,14 +105,12 @@ class TestUserModel:
         api_key = user.generate_api_key()
         data = user.to_dict(include_sensitive=True)
 
-        # Sensitive mode includes api_key field (None for new secure storage)
-        # and api_key_prefix for identification
-        assert "api_key" in data
+        # Sensitive mode includes api_key_prefix for identification
+        # (plaintext is never stored, only the hash)
         assert "api_key_prefix" in data
         assert data["api_key_prefix"].startswith("ara_")
         # The hash is NOT exposed in to_dict for security
-        # api_key is None because plaintext is not stored
-        assert data["api_key"] is None
+        assert "api_key_hash" not in data
 
     def test_user_from_dict(self):
         from aragora.billing.models import User

@@ -761,3 +761,244 @@ class TestKnowledgeMoundNodeRelationships:
         body = json.loads(result.body)
         assert "error" in body
         assert "direction" in body["error"]
+
+
+class TestKnowledgeMoundExport:
+    """Test Knowledge Mound graph export endpoints (D3 and GraphML)."""
+
+    def test_can_handle_export_d3(self, mound_handler):
+        """Test can_handle returns True for D3 export endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/export/d3")
+
+    def test_can_handle_export_graphml(self, mound_handler):
+        """Test can_handle returns True for GraphML export endpoint."""
+        assert mound_handler.can_handle("/api/knowledge/mound/export/graphml")
+
+    def test_export_d3_mound_unavailable(self, mound_handler, mock_http_handler):
+        """Test D3 export returns 503 when mound not available."""
+        with patch.object(mound_handler, '_get_mound', return_value=None):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+        body = json.loads(result.body)
+        assert "error" in body
+
+    def test_export_d3_default_params(self, mound_handler, mock_http_handler):
+        """Test D3 export with default parameters."""
+        from unittest.mock import AsyncMock
+
+        mock_d3_result = {
+            "nodes": [
+                {"id": "node-1", "label": "Test Node", "type": "fact"},
+                {"id": "node-2", "label": "Another Node", "type": "debate"},
+            ],
+            "links": [
+                {"source": "node-1", "target": "node-2", "type": "supports", "weight": 0.8},
+            ],
+        }
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_d3 = AsyncMock(return_value=mock_d3_result)
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["format"] == "d3"
+        assert body["total_nodes"] == 2
+        assert body["total_links"] == 1
+        assert len(body["nodes"]) == 2
+        assert len(body["links"]) == 1
+        assert body["nodes"][0]["id"] == "node-1"
+        assert body["links"][0]["source"] == "node-1"
+
+        # Verify default params were passed
+        mock_mound.export_graph_d3.assert_called_once()
+        call_kwargs = mock_mound.export_graph_d3.call_args[1]
+        assert call_kwargs["start_node_id"] is None
+        assert call_kwargs["depth"] == 3
+        assert call_kwargs["limit"] == 100
+
+    def test_export_d3_with_start_node(self, mound_handler, mock_http_handler):
+        """Test D3 export starting from specific node."""
+        from unittest.mock import AsyncMock
+
+        mock_d3_result = {
+            "nodes": [{"id": "start-node", "label": "Start", "type": "fact"}],
+            "links": [],
+        }
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_d3 = AsyncMock(return_value=mock_d3_result)
+
+        query_params = {
+            "start_node_id": "start-node",
+            "depth": "5",
+            "limit": "50",
+        }
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        # Verify custom params were passed
+        mock_mound.export_graph_d3.assert_called_once()
+        call_kwargs = mock_mound.export_graph_d3.call_args[1]
+        assert call_kwargs["start_node_id"] == "start-node"
+        assert call_kwargs["depth"] == 5
+        assert call_kwargs["limit"] == 50
+
+    def test_export_d3_handles_error(self, mound_handler, mock_http_handler):
+        """Test D3 export handles errors gracefully."""
+        from unittest.mock import AsyncMock
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_d3 = AsyncMock(side_effect=Exception("Export failed"))
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 500
+        body = json.loads(result.body)
+        assert "error" in body
+        assert "Export failed" in body["error"]
+
+    def test_export_graphml_mound_unavailable(self, mound_handler, mock_http_handler):
+        """Test GraphML export returns 503 when mound not available."""
+        with patch.object(mound_handler, '_get_mound', return_value=None):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_export_graphml_returns_xml(self, mound_handler, mock_http_handler):
+        """Test GraphML export returns valid XML with correct content type."""
+        from unittest.mock import AsyncMock
+
+        graphml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <graph id="knowledge-graph" edgedefault="directed">
+    <node id="node-1">
+      <data key="label">Test Node</data>
+    </node>
+  </graph>
+</graphml>'''
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_graphml = AsyncMock(return_value=graphml_content)
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        assert result.content_type == "application/xml"
+        assert '<?xml version="1.0"' in result.body
+        assert '<graphml' in result.body
+        assert '<node id="node-1">' in result.body
+
+    def test_export_graphml_with_params(self, mound_handler, mock_http_handler):
+        """Test GraphML export with custom parameters."""
+        from unittest.mock import AsyncMock
+
+        graphml_content = '<?xml version="1.0"?><graphml></graphml>'
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_graphml = AsyncMock(return_value=graphml_content)
+
+        query_params = {
+            "start_node_id": "custom-start",
+            "depth": "7",
+            "limit": "200",
+        }
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/graphml", query_params, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        # Verify params were passed
+        mock_mound.export_graph_graphml.assert_called_once()
+        call_kwargs = mock_mound.export_graph_graphml.call_args[1]
+        assert call_kwargs["start_node_id"] == "custom-start"
+        assert call_kwargs["depth"] == 7
+        assert call_kwargs["limit"] == 200
+
+    def test_export_graphml_handles_error(self, mound_handler, mock_http_handler):
+        """Test GraphML export handles errors gracefully."""
+        from unittest.mock import AsyncMock
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_graphml = AsyncMock(side_effect=Exception("GraphML failed"))
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 500
+        body = json.loads(result.body)
+        assert "error" in body
+        assert "GraphML failed" in body["error"]
+
+    def test_export_d3_depth_clamping(self, mound_handler, mock_http_handler):
+        """Test D3 export clamps depth parameter to valid range."""
+        from unittest.mock import AsyncMock
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_d3 = AsyncMock(return_value={"nodes": [], "links": []})
+
+        # Test depth too high (should clamp to 10)
+        query_params = {"depth": "999"}
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        call_kwargs = mock_mound.export_graph_d3.call_args[1]
+        assert call_kwargs["depth"] == 10  # Clamped to max
+
+    def test_export_d3_limit_clamping(self, mound_handler, mock_http_handler):
+        """Test D3 export clamps limit parameter to valid range."""
+        from unittest.mock import AsyncMock
+
+        mock_mound = MagicMock()
+        mock_mound.export_graph_d3 = AsyncMock(return_value={"nodes": [], "links": []})
+
+        # Test limit too high (should clamp to 500)
+        query_params = {"limit": "10000"}
+
+        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+            result = mound_handler.handle(
+                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        call_kwargs = mock_mound.export_graph_d3.call_args[1]
+        assert call_kwargs["limit"] == 500  # Clamped to max

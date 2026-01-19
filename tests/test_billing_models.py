@@ -103,9 +103,7 @@ class TestUser:
 
         assert api_key.startswith("ara_")
         assert len(api_key) > 15
-        # API key is NOT stored in plaintext (security)
-        assert user.api_key is None
-        # Hash is stored instead
+        # Only hash and prefix are stored (plaintext never stored)
         assert user.api_key_hash is not None
         assert user.api_key_prefix == api_key[:12]
         assert user.api_key_created_at is not None
@@ -118,7 +116,8 @@ class TestUser:
         user.generate_api_key()
         user.revoke_api_key()
 
-        assert user.api_key is None
+        assert user.api_key_hash is None
+        assert user.api_key_prefix is None
         assert user.api_key_created_at is None
 
     def test_user_to_dict_excludes_sensitive(self):
@@ -138,11 +137,10 @@ class TestUser:
 
         data = user.to_dict(include_sensitive=True)
 
-        # api_key is None (not stored in plaintext for security)
-        assert "api_key" in data
-        assert data["api_key"] is None
-        # But prefix is available for identification
+        # Prefix is available for identification (plaintext never stored)
         assert data["api_key_prefix"] == api_key[:12]
+        # Hash is NOT exposed in to_dict for security
+        assert "api_key_hash" not in data
 
     def test_user_from_dict(self):
         """Should reconstruct user from dict."""

@@ -364,7 +364,6 @@ class TestInitPhases:
         # Should not raise even if observer import fails
         init_phases(minimal_arena)
 
-    @pytest.mark.skip(reason="Trickster import causes slow loading")
     def test_init_phases_with_trickster(self, minimal_arena):
         """Should initialize trickster when enabled."""
         minimal_arena.protocol.enable_trickster = True
@@ -376,9 +375,12 @@ class TestInitPhases:
         # Should not raise even if trickster import fails
         init_phases(minimal_arena)
 
-    @pytest.mark.skip(reason="PopulationManager import causes slow loading")
+    @pytest.mark.slow
     def test_init_phases_with_auto_evolve(self, minimal_arena):
-        """Should initialize population manager when auto_evolve is enabled."""
+        """Should initialize population manager when auto_evolve is enabled.
+
+        Note: PopulationManager import takes ~1.3s due to scipy/numpy dependencies.
+        """
         minimal_arena.auto_evolve = True
 
         from aragora.debate.arena_phases import init_phases

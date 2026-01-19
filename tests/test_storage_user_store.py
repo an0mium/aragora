@@ -192,22 +192,6 @@ class TestAPIKeyValidation:
         result = store.get_user_by_api_key(api_key)
         assert result is None
 
-    def test_get_user_by_legacy_plaintext_api_key(self, store, sample_user_data):
-        """Test that legacy plaintext API keys still work (for migration)."""
-        user = store.create_user(**sample_user_data)
-
-        # Store only plaintext (no hash) - legacy behavior
-        api_key = f"ara_{os.urandom(16).hex()}"
-        store.update_user(
-            user.id,
-            api_key=api_key,
-            api_key_created_at=datetime.utcnow(),
-        )
-
-        retrieved = store.get_user_by_api_key(api_key)
-        assert retrieved is not None
-        assert retrieved.id == user.id
-
 
 class TestUserUpdate:
     """Tests for user updates."""
