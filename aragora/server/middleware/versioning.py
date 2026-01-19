@@ -1,6 +1,15 @@
 """
 API Versioning Middleware.
 
+DEPRECATED: This module is not used in the codebase.
+The canonical versioning system is in aragora/server/versioning/ directory.
+Use `from aragora.server.versioning import ...` instead.
+This file is kept for reference only and will be removed in a future version.
+
+See: aragora/server/versioning/__init__.py for the canonical API.
+
+---
+
 Provides infrastructure for API versioning with these features:
 1. Version prefix routing (/api/v1/*, /api/v2/*)
 2. Version header injection (X-API-Version)

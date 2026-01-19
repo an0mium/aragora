@@ -25,8 +25,6 @@ from aragora.server.prometheus import (
     record_control_plane_task_submitted,
     record_control_plane_task_completed,
     record_control_plane_task_retry,
-    record_control_plane_claim_latency,
-    record_control_plane_queue_depth,
 )
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,14 @@
 """
 API Versioning middleware for Aragora.
 
+DEPRECATED: This module is shadowed by the aragora/server/versioning/ directory.
+Use `from aragora.server.versioning import ...` which resolves to the directory package.
+This file is kept for reference only and will be removed in a future version.
+
+See: aragora/server/versioning/__init__.py for the canonical API.
+
+---
+
 Supports:
 - Path-based versioning: /api/v1/debates
 - Header-based version: Accept: application/vnd.aragora.v1+json

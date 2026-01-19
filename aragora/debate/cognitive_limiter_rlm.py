@@ -348,8 +348,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         lines = content.split("\n")
 
         # Find consensus/agreement indicators
-        agreements = [l for l in lines if "agree" in l.lower() or "consensus" in l.lower()]
-        disagreements = [l for l in lines if "disagree" in l.lower() or "however" in l.lower()]
+        agreements = [line for line in lines if "agree" in line.lower() or "consensus" in line.lower()]
+        disagreements = [line for line in lines if "disagree" in line.lower() or "however" in line.lower()]
 
         # Build summary
         summary_parts = [f"Summary of {message_count} messages:"]

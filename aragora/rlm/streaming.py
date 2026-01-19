@@ -118,7 +118,7 @@ class StreamingRLMQuery:
         all_levels = ["ABSTRACT", "SUMMARY", "DETAILED", "FULL"]
 
         if self.config.levels:
-            return [l for l in all_levels if l in self.config.levels]
+            return [level for level in all_levels if level in self.config.levels]
 
         if self.config.mode == StreamMode.BOTTOM_UP:
             return list(reversed(all_levels))

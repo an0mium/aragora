@@ -43,7 +43,6 @@ Production Usage (PostgreSQL + Redis):
 
 # Re-export from core module for backward compatibility
 from aragora.knowledge.mound_core import (
-    KnowledgeMound as _LegacyKnowledgeMound,
     KnowledgeMoundMetaStore,
     KnowledgeNode,
     KnowledgeQueryResult,

@@ -56,7 +56,6 @@ from .auth_v2 import (
     User,
     Workspace,
     authenticate_request,
-    extract_auth_token,
     extract_client_ip,
     extract_token,
     get_current_user,

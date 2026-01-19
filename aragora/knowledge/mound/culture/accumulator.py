@@ -41,27 +41,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DebateObservation:
-    """
-    Observation about a debate for pattern extraction.
-
-    Captures key metrics and characteristics that can inform
-    pattern extraction from debate outcomes.
-    """
-
-    debate_id: str
-    consensus_reached: bool
-    confidence: float
-    rounds_used: int
-    agent_names: list[str]
-    final_answer: str = ""
-    had_dissent: bool = False
-    task_description: str = ""
-    topics: list[str] = field(default_factory=list)
-    verticals: list[str] = field(default_factory=list)
-
-
 class CultureDocumentCategory(str, Enum):
     """Categories for explicit culture documents."""
 
