@@ -4,9 +4,16 @@
   ],
   "rules": {
     "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "warn",
-    "react/no-unescaped-entities": "off",
-    "react/jsx-no-comment-textnodes": "off"
+    "react-hooks/exhaustive-deps": "error",
+    "react/no-unescaped-entities": "warn",
+    "react/jsx-no-comment-textnodes": "off",
+    "@typescript-eslint/no-unused-vars": ["error", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_"
+    }],
+    "no-console": ["warn", {
+      "allow": ["warn", "error"]
+    }]
   },
   "ignorePatterns": [
     "node_modules/",
