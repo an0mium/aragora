@@ -402,7 +402,7 @@ Be concise - this is a quality gate, not a full review."""
             from aragora.audit.document_auditor import AuditSession, AuditType
 
             session = AuditSession(
-                session_id=f"verify_{self.cycle_count}",
+                id=f"verify_{self.cycle_count}",
                 document_ids=[str(self.aragora_path / f) for f in relevant_files],
             )
 

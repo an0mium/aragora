@@ -48,6 +48,7 @@ case "$tier" in
   ci)
     # CI tier - balanced coverage vs speed
     # Skip slow and e2e tests, but include integration tests
+    # Coverage threshold: 30% (raised from 19% - Sprint 2.1)
     pytest tests/ \
       -m "not slow and not load and not e2e" \
       --timeout=120 \
@@ -55,7 +56,7 @@ case "$tier" in
       --cov-report=term-missing \
       --cov-report=xml \
       --cov-report=html \
-      --cov-fail-under=19 \
+      --cov-fail-under=30 \
       -v \
       --tb=short \
       -x

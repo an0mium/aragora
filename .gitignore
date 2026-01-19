@@ -111,6 +111,10 @@ aragora/live/playwright-report/
 aragora/live/test-results/
 aragora/live/playwright/.cache/
 
+# Test caches
+.test_cache/
+.benchmarks/
+
 # Nomic loop state (runtime artifacts, not needed in git)
 # All .nomic state should be excluded - keep only schema/config templates
 .nomic/backups/

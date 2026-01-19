@@ -36,15 +36,14 @@ repos:
     rev: v1.10.0
     hooks:
       - id: mypy
-        args: [--config-file=pyproject.toml]
+        args: [--config-file=pyproject.toml, --ignore-missing-imports]
         additional_dependencies:
           - types-requests
           - types-python-dateutil
-        pass_filenames: false
         # Only run on staged Python files in key directories
         files: ^(aragora/|scripts/).*\.py$
-        # Skip slow type checking on every commit - run via CI instead
-        stages: [manual]
+        # Run on pre-push to catch type errors before they hit CI
+        stages: [pre-push]
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
