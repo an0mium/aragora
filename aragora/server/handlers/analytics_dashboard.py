@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Coroutine, Optional, TypeVar
 
 from .base import (
     BaseHandler,
@@ -27,6 +27,17 @@ from .base import (
 )
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. Safe to call from sync handlers.
+    """
+    return asyncio.run(coro)
 
 
 class AnalyticsDashboardHandler(BaseHandler):
@@ -101,7 +112,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            summary = asyncio.run(dashboard.get_summary(workspace_id, time_range))
+            summary = _run_async(dashboard.get_summary(workspace_id, time_range))
 
             return json_response(summary.to_dict())
 
@@ -204,7 +215,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_remediation_metrics(workspace_id, time_range))
+            metrics = _run_async(dashboard.get_remediation_metrics(workspace_id, time_range))
 
             return json_response(
                 {
@@ -255,7 +266,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_agent_metrics(workspace_id, time_range))
+            metrics = _run_async(dashboard.get_agent_metrics(workspace_id, time_range))
 
             return json_response(
                 {
@@ -300,7 +311,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            metrics = asyncio.run(dashboard.get_cost_metrics(workspace_id, time_range))
+            metrics = _run_async(dashboard.get_cost_metrics(workspace_id, time_range))
 
             return json_response(
                 {
@@ -350,7 +361,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             dashboard = get_analytics_dashboard()
 
-            scores = asyncio.run(dashboard.get_compliance_scorecard(workspace_id, frameworks))
+            scores = _run_async(dashboard.get_compliance_scorecard(workspace_id, frameworks))
 
             return json_response(
                 {
@@ -398,7 +409,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             dashboard = get_analytics_dashboard()
             time_range = TimeRange(time_range_str)
 
-            cells = asyncio.run(dashboard.get_risk_heatmap(workspace_id, time_range))
+            cells = _run_async(dashboard.get_risk_heatmap(workspace_id, time_range))
 
             return json_response(
                 {

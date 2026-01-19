@@ -13,10 +13,22 @@ Provides CRUD operations and execution control for workflows:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Coroutine, Dict, List, Optional, TypeVar
+
+T = TypeVar("T")
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. Safe to call from sync handlers.
+    """
+    return asyncio.run(coro)
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -975,11 +987,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_list_workflows(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows."""
-        import asyncio
-
         try:
             limit, offset = self.get_pagination(query_params)
-            result = asyncio.run(list_workflows(
+            result = _run_async(list_workflows(
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
                 category=get_string_param(query_params, "category", None),
                 search=get_string_param(query_params, "search", None),
@@ -993,10 +1003,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
-        import asyncio
-
         try:
-            result = asyncio.run(get_workflow(
+            result = _run_async(get_workflow(
                 workflow_id,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
             ))
@@ -1009,10 +1017,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_create_workflow(self, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows."""
-        import asyncio
-
         try:
-            result = asyncio.run(create_workflow(
+            result = _run_async(create_workflow(
                 body,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
                 created_by=get_string_param(query_params, "user_id", ""),
@@ -1026,10 +1032,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_update_workflow(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle PATCH /api/workflows/{id}."""
-        import asyncio
-
         try:
-            result = asyncio.run(update_workflow(
+            result = _run_async(update_workflow(
                 workflow_id,
                 body,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
@@ -1045,10 +1049,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_delete_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
-        import asyncio
+        
 
         try:
-            deleted = asyncio.run(delete_workflow(
+            deleted = _run_async(delete_workflow(
                 workflow_id,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
             ))
@@ -1061,10 +1065,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_execute(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
-        import asyncio
+        
 
         try:
-            result = asyncio.run(execute_workflow(
+            result = _run_async(execute_workflow(
                 workflow_id,
                 inputs=body.get("inputs"),
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
@@ -1078,10 +1082,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
-        import asyncio
+        
 
         try:
-            workflow_dict = asyncio.run(get_workflow(
+            workflow_dict = _run_async(get_workflow(
                 workflow_id,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
             ))
@@ -1125,10 +1129,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_status(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
-        import asyncio
+        
 
         try:
-            executions = asyncio.run(list_executions(workflow_id=workflow_id, limit=1))
+            executions = _run_async(list_executions(workflow_id=workflow_id, limit=1))
             if executions:
                 return json_response(executions[0])
             return json_response({
@@ -1142,10 +1146,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_versions(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
-        import asyncio
+        
 
         try:
-            versions = asyncio.run(get_workflow_versions(
+            versions = _run_async(get_workflow_versions(
                 workflow_id,
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
                 limit=get_int_param(query_params, "limit", 20),
@@ -1157,10 +1161,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_list_templates(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
-        import asyncio
+        
 
         try:
-            templates = asyncio.run(list_templates(
+            templates = _run_async(list_templates(
                 category=get_string_param(query_params, "category", None),
             ))
             return json_response({"templates": templates, "count": len(templates)})
@@ -1170,10 +1174,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_list_approvals(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
-        import asyncio
+        
 
         try:
-            approvals = asyncio.run(list_pending_approvals(
+            approvals = _run_async(list_pending_approvals(
                 workflow_id=get_string_param(query_params, "workflow_id", None),
                 tenant_id=get_string_param(query_params, "tenant_id", "default"),
             ))
@@ -1188,14 +1192,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Returns all workflow executions across all workflows, filtered by status.
         Used by the runtime monitoring dashboard.
         """
-        import asyncio
+        
 
         try:
             status_filter = get_string_param(query_params, "status", None)
             workflow_id = get_string_param(query_params, "workflow_id", None)
             limit = get_int_param(query_params, "limit", 50)
 
-            executions = asyncio.run(list_executions(
+            executions = _run_async(list_executions(
                 workflow_id=workflow_id,
                 limit=limit,
             ))
@@ -1214,10 +1218,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_resolve_approval(self, request_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflow-approvals/{id}/resolve."""
-        import asyncio
+        
 
         try:
-            resolved = asyncio.run(resolve_approval(
+            resolved = _run_async(resolve_approval(
                 request_id,
                 status=body.get("status", "approved"),
                 responder_id=get_string_param(query_params, "user_id", ""),

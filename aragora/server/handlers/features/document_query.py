@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Coroutine, Optional, TypeVar
 
 from ..base import (
     BaseHandler,
@@ -24,6 +24,17 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. Safe to call from sync handlers.
+    """
+    return asyncio.run(coro)
 
 
 class DocumentQueryHandler(BaseHandler):
@@ -99,7 +110,7 @@ class DocumentQueryHandler(BaseHandler):
 
         # Run async query
         try:
-            result = asyncio.run(
+            result = _run_async(
                 self._run_query(
                     question=question,
                     document_ids=document_ids,
@@ -174,7 +185,7 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(
+            result = _run_async(
                 self._run_summarize(
                     document_ids=document_ids,
                     focus=focus,
@@ -239,7 +250,7 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(
+            result = _run_async(
                 self._run_compare(
                     document_ids=document_ids,
                     aspects=aspects,
@@ -314,7 +325,7 @@ class DocumentQueryHandler(BaseHandler):
         config_dict = body.get("config", {})
 
         try:
-            result = asyncio.run(
+            result = _run_async(
                 self._run_extract(
                     document_ids=document_ids,
                     fields=fields,

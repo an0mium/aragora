@@ -78,6 +78,7 @@ class ConfigValidator:
         "ARAGORA_IP_RATE_LIMIT",
         "ARAGORA_PORT",
         "ARAGORA_TOKEN_TTL",
+        "ARAGORA_INSTANCE_COUNT",
     ]
 
     @classmethod
@@ -189,6 +190,32 @@ class ConfigValidator:
                     errors.append("ARAGORA_RATE_LIMIT must be positive")
             except ValueError:
                 pass  # Already checked in INTEGER_VARS
+
+        # Check Redis configuration for production multi-instance deployments
+        # In-memory rate limiting and session storage don't work across instances
+        if is_production:
+            redis_url = os.getenv("REDIS_URL")
+            instance_count = os.getenv("ARAGORA_INSTANCE_COUNT", "1")
+
+            # Check if running multiple instances without Redis
+            try:
+                instances = int(instance_count)
+            except ValueError:
+                instances = 1
+
+            if instances > 1 and not redis_url:
+                errors.append(
+                    "REDIS_URL is required when running multiple instances (ARAGORA_INSTANCE_COUNT > 1). "
+                    "In-memory rate limiting and session storage don't work across instances. "
+                    "Set REDIS_URL to a Redis connection string (e.g., redis://localhost:6379/0)"
+                )
+            elif not redis_url:
+                # Single instance but still production - warn about stateful data
+                warnings.append(
+                    "REDIS_URL not set in production. Rate limiting and session data "
+                    "will be stored in-memory and lost on restart. Consider configuring Redis "
+                    "for persistent state (set REDIS_URL=redis://host:port/db)"
+                )
 
         return ValidationResult(
             is_valid=len(errors) == 0,

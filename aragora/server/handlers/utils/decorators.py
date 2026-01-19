@@ -690,6 +690,87 @@ def with_error_recovery(
     return decorator
 
 
+# =============================================================================
+# Deprecation Decorator
+# =============================================================================
+
+
+def deprecated_endpoint(
+    replacement: Optional[str] = None,
+    sunset_date: Optional[str] = None,
+    message: Optional[str] = None,
+) -> Callable[[Callable], Callable]:
+    """
+    Decorator for marking endpoints as deprecated.
+
+    Adds RFC 8594 deprecation headers to responses and logs usage warnings.
+    Use this on endpoints scheduled for removal.
+
+    Args:
+        replacement: URL path of the replacement endpoint (e.g., "/api/v2/debates")
+        sunset_date: ISO 8601 date when endpoint will be removed (e.g., "2025-06-01")
+        message: Custom deprecation message for logging
+
+    Returns:
+        Decorated function that adds deprecation headers to responses.
+
+    Example:
+        @deprecated_endpoint(replacement="/api/debates", sunset_date="2025-06-01")
+        def _create_debate_legacy(self, handler, user=None):
+            ...
+
+    Response Headers Added:
+        - Deprecation: true
+        - Sunset: Sat, 01 Jun 2025 00:00:00 GMT (if sunset_date provided)
+        - Link: </api/debates>; rel="successor-version" (if replacement provided)
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Log deprecation warning
+            endpoint_name = func.__name__
+            log_msg = message or f"Deprecated endpoint used: {endpoint_name}"
+            if replacement:
+                log_msg += f". Use {replacement} instead."
+            logger.warning(log_msg)
+
+            # Execute the handler
+            result = func(*args, **kwargs)
+
+            # Add deprecation headers to result
+            if result is not None and isinstance(result, dict):
+                # Get or create headers dict
+                headers = result.get("headers", {})
+
+                # Add Deprecation header (RFC 8594)
+                headers["Deprecation"] = "true"
+
+                # Add Sunset header if date provided
+                if sunset_date:
+                    try:
+                        from datetime import datetime
+
+                        # Parse ISO date and format as HTTP-date
+                        dt = datetime.fromisoformat(sunset_date)
+                        # Format: Sat, 01 Jun 2025 00:00:00 GMT
+                        headers["Sunset"] = dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
+                    except ValueError:
+                        logger.warning(f"Invalid sunset_date format: {sunset_date}")
+
+                # Add Link header for replacement
+                if replacement:
+                    headers["Link"] = f'<{replacement}>; rel="successor-version"'
+
+                result["headers"] = headers
+
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 __all__ = [
     # Trace ID
     "generate_trace_id",
@@ -714,4 +795,6 @@ __all__ = [
     # Error recovery
     "safe_fetch",
     "with_error_recovery",
+    # Deprecation
+    "deprecated_endpoint",
 ]

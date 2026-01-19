@@ -430,7 +430,6 @@ class PrivacyHandler(BaseHandler):
             if user.api_key_hash:
                 user_store.update_user(
                     user.id,
-                    api_key=None,
                     api_key_hash=None,
                     api_key_prefix=None,
                     api_key_created_at=None,

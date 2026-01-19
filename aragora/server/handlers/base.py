@@ -161,6 +161,7 @@ from aragora.server.handlers.utils.database import (
 from aragora.server.handlers.utils.decorators import (
     PERMISSION_MATRIX,
     auto_error_response,
+    deprecated_endpoint,
     generate_trace_id,
     handle_errors,
     has_permission,
@@ -216,6 +217,7 @@ __all__ = [
     "require_permission",
     "has_permission",
     "PERMISSION_MATRIX",
+    "deprecated_endpoint",
     "error_response",
     "json_response",
     "HandlerResult",

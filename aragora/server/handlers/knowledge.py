@@ -650,6 +650,9 @@ class KnowledgeMoundHandler(BaseHandler):
         "/api/knowledge/mound/sync/*",
         "/api/knowledge/mound/graph/*/lineage",
         "/api/knowledge/mound/graph/*/related",
+        # Graph export endpoints
+        "/api/knowledge/mound/export/d3",
+        "/api/knowledge/mound/export/graphml",
     ]
 
     def __init__(self, server_context: dict):
@@ -749,6 +752,13 @@ class KnowledgeMoundHandler(BaseHandler):
 
         if path == "/api/knowledge/mound/sync/facts":
             return self._handle_sync_facts(handler)
+
+        # Graph export endpoints
+        if path == "/api/knowledge/mound/export/d3":
+            return self._handle_export_d3(query_params)
+
+        if path == "/api/knowledge/mound/export/graphml":
+            return self._handle_export_graphml(query_params)
 
         return None
 
@@ -1669,3 +1679,70 @@ class KnowledgeMoundHandler(BaseHandler):
             "relationship_type": relationship_type,
             "total": len(result.nodes) - 1,  # Exclude start node
         })
+
+    # =========================================================================
+    # Graph Export Endpoints
+    # =========================================================================
+
+    @handle_errors("D3 graph export")
+    def _handle_export_d3(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/export/d3 - Export graph as D3 JSON."""
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        # Parse parameters
+        start_node_id = query_params.get("start_node_id")
+        depth = get_clamped_int_param(query_params, "depth", default=3, min_val=1, max_val=10)
+        limit = get_clamped_int_param(query_params, "limit", default=100, min_val=1, max_val=500)
+
+        try:
+            result = _run_async(
+                mound.export_graph_d3(
+                    start_node_id=start_node_id,
+                    depth=depth,
+                    limit=limit,
+                )
+            )
+        except Exception as e:
+            logger.error(f"D3 graph export failed: {e}")
+            return error_response(f"D3 graph export failed: {e}", 500)
+
+        return json_response({
+            "format": "d3",
+            "nodes": result["nodes"],
+            "links": result["links"],
+            "total_nodes": len(result["nodes"]),
+            "total_links": len(result["links"]),
+        })
+
+    @handle_errors("GraphML export")
+    def _handle_export_graphml(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/export/graphml - Export graph as GraphML."""
+        mound = self._get_mound()
+        if not mound:
+            return error_response("Knowledge Mound not available", 503)
+
+        # Parse parameters
+        start_node_id = query_params.get("start_node_id")
+        depth = get_clamped_int_param(query_params, "depth", default=3, min_val=1, max_val=10)
+        limit = get_clamped_int_param(query_params, "limit", default=100, min_val=1, max_val=500)
+
+        try:
+            graphml_content = _run_async(
+                mound.export_graph_graphml(
+                    start_node_id=start_node_id,
+                    depth=depth,
+                    limit=limit,
+                )
+            )
+        except Exception as e:
+            logger.error(f"GraphML export failed: {e}")
+            return error_response(f"GraphML export failed: {e}", 500)
+
+        # Return GraphML as XML with proper content type
+        return HandlerResult(
+            status_code=200,
+            body=graphml_content,
+            content_type="application/xml",
+        )

@@ -28,7 +28,7 @@ class _HTTPHandlerProtocol(Protocol):
     def end_headers(self) -> None: ...
 
 
-class ResponseHelpersMixin:
+class ResponseHelpersMixin(_HTTPHandlerProtocol if TYPE_CHECKING else object):
     """Mixin providing HTTP response helper methods.
 
     This mixin expects the following methods from the parent class:
@@ -41,18 +41,10 @@ class ResponseHelpersMixin:
     And these class attributes:
     - _rate_limit_result: Optional[RateLimitResult]
     - _response_status: int
+
+    Uses Protocol inheritance during type checking to satisfy mypy while
+    avoiding runtime interference with BaseHTTPRequestHandler.
     """
-
-    # Type annotations for expected attributes from the parent class
-    # These are declared as ClassVars to avoid interfering with instance attributes
-    _rate_limit_result: Optional["RateLimitResult"]
-    _response_status: int
-    headers: Any
-    wfile: BinaryIO
-
-    # NOTE: We do NOT declare stub methods here (send_response, send_header, end_headers)
-    # because doing so would override the actual implementations from BaseHTTPRequestHandler.
-    # The parent class provides these methods; we just use them.
 
     def _send_json(self, data: Any, status: int = 200) -> None:
         """Send JSON response with all standard headers."""

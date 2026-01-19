@@ -24,6 +24,7 @@ from aragora.utils.optional_imports import try_import
 from ..base import (
     BaseHandler,
     HandlerResult,
+    deprecated_endpoint,
     error_response,
     handle_errors,
     invalidate_leaderboard_cache,
@@ -82,9 +83,21 @@ class ProbesHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path in ("/api/probes/capability", "/api/probes/run"):
+        if path == "/api/probes/capability":
             return self._run_capability_probe(handler)
+        if path == "/api/probes/run":
+            # Legacy endpoint
+            return self._run_capability_probe_legacy(handler)
         return None
+
+    @deprecated_endpoint(
+        replacement="/api/probes/capability",
+        sunset_date="2026-06-01",
+        message="Legacy /api/probes/run endpoint used",
+    )
+    def _run_capability_probe_legacy(self, handler) -> HandlerResult:
+        """Legacy endpoint for capability probes. Use /api/probes/capability instead."""
+        return self._run_capability_probe(handler)
 
     @require_user_auth
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="capability_probe")

@@ -700,7 +700,6 @@ class AuthHandler(BaseHandler):
         # Persist the hashed key fields (api_key_hash, api_key_prefix, expiry)
         user_store.update_user(
             user.id,
-            api_key=None,  # Clear legacy plaintext field
             api_key_hash=user.api_key_hash,
             api_key_prefix=user.api_key_prefix,
             api_key_created_at=user.api_key_created_at,
@@ -740,10 +739,9 @@ class AuthHandler(BaseHandler):
         if not user:
             return error_response("User not found", 404)
 
-        # Revoke API key - clear both legacy and hashed fields
+        # Revoke API key - clear all hashed fields
         user_store.update_user(
             user.id,
-            api_key=None,
             api_key_hash=None,
             api_key_prefix=None,
             api_key_created_at=None,

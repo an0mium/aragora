@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Coroutine, Optional, TYPE_CHECKING, TypeVar
 
 from ..base import (
     BaseHandler,
@@ -21,6 +21,18 @@ from ..base import (
     json_response,
     require_user_auth,
 )
+
+T = TypeVar("T")
+
+
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from sync context safely.
+
+    Uses asyncio.run() which creates a new event loop, runs the coroutine,
+    and closes the loop. Safe to call from sync handlers.
+    """
+    return asyncio.run(coro)
+
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding
@@ -178,7 +190,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         try:
             # Get document store from handler context
             document_store = self._get_document_store()
-            result = asyncio.run(
+            result = _run_async(
                 self._run_enrichment(
                     finding_id=finding_id,
                     document_content=document_content,
@@ -286,7 +298,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         try:
             # Get document store from handler context
             document_store = self._get_document_store()
-            result = asyncio.run(
+            result = _run_async(
                 self._run_batch_enrichment(
                     finding_ids=finding_ids,
                     config_dict=config_dict,

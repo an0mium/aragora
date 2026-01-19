@@ -7,6 +7,8 @@ This package contains authentication-related handlers split by domain:
 - store: In-memory user store for development/testing
 """
 
+from aragora.billing.jwt_auth import extract_user_from_request
+
 from .handler import AuthHandler
 from .store import InMemoryUserStore
 from .validation import (
@@ -25,4 +27,5 @@ __all__ = [
     "validate_email",
     "validate_password",
     "InMemoryUserStore",
+    "extract_user_from_request",
 ]
