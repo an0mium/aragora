@@ -736,9 +736,9 @@ try:
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None
-    RLMConfig = None
-    AbstractionLevel = None
+    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    RLMConfig = None  # type: ignore[misc,assignment]
+    AbstractionLevel = None  # type: ignore[misc,assignment]
 
 
 class RLMChunking(ChunkingStrategy):

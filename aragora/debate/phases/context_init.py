@@ -28,9 +28,9 @@ try:
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    HierarchicalCompressor = None
-    RLMConfig = None
-    _RLMContext = None
+    HierarchicalCompressor = None  # type: ignore[misc,assignment]
+    RLMConfig = None  # type: ignore[misc,assignment]
+    _RLMContext = None  # type: ignore[misc,assignment]
 
 
 class ContextInitializer:

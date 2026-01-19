@@ -287,7 +287,7 @@ class AgentRouter:
             ],
         }
 
-        scores = defaultdict(float)
+        scores: defaultdict[TaskType, float] = defaultdict(float)
         for task_type, pattern_list in patterns.items():
             for pattern in pattern_list:
                 if re.search(pattern, task_lower):
@@ -504,7 +504,7 @@ class AgentRouter:
         )
 
         # Optimize for diversity if enabled
-        selected = []
+        selected: list[str] = []
         for agent_id in sorted_agents:
             if len(selected) >= team_size:
                 break

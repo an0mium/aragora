@@ -30,7 +30,7 @@ try:
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
-    _HierarchicalCompressor = None
+    _HierarchicalCompressor = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 

@@ -41,7 +41,6 @@ class UserRepository:
         "role": "role",
         "is_active": "is_active",
         "email_verified": "email_verified",
-        "api_key": "api_key",
         "api_key_hash": "api_key_hash",
         "api_key_prefix": "api_key_prefix",
         "api_key_created_at": "api_key_created_at",
@@ -112,9 +111,9 @@ class UserRepository:
                     """
                     INSERT INTO users (
                         id, email, password_hash, password_salt, name, org_id, role,
-                        is_active, email_verified, api_key, api_key_created_at,
+                        is_active, email_verified, api_key_created_at,
                         created_at, updated_at, last_login_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         user.id,
@@ -126,7 +125,6 @@ class UserRepository:
                         user.role,
                         1 if user.is_active else 0,
                         1 if user.email_verified else 0,
-                        user.api_key,
                         user.api_key_created_at.isoformat() if user.api_key_created_at else None,
                         user.created_at.isoformat(),
                         user.updated_at.isoformat(),
@@ -157,13 +155,10 @@ class UserRepository:
 
     def get_by_api_key(self, api_key: str) -> Optional["User"]:
         """
-        Get user by API key.
-
-        Supports both hash-based lookup (preferred) and legacy plaintext
-        lookup for backward compatibility during migration.
+        Get user by API key using hash-based lookup.
 
         Args:
-            api_key: The plaintext API key
+            api_key: The plaintext API key to verify
 
         Returns:
             User if found and key is valid/not expired, None otherwise
@@ -171,7 +166,6 @@ class UserRepository:
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         with self._transaction() as cursor:
-            # Try hash-based lookup first (preferred)
             cursor.execute("SELECT * FROM users WHERE api_key_hash = ?", (key_hash,))
             row = cursor.fetchone()
 
@@ -181,17 +175,6 @@ class UserRepository:
                 if user.api_key_expires_at and datetime.utcnow() > user.api_key_expires_at:
                     logger.debug(f"API key expired for user {user.id}")
                     return None
-                return user
-
-            # Fall back to legacy plaintext lookup
-            cursor.execute("SELECT * FROM users WHERE api_key = ?", (api_key,))
-            row = cursor.fetchone()
-            if row:
-                user = self._row_to_user(row)
-                logger.warning(
-                    f"Legacy plaintext API key lookup for user {user.id}. "
-                    "Run migrate_plaintext_api_keys() to upgrade."
-                )
                 return user
 
         return None
@@ -423,7 +406,6 @@ class UserRepository:
             role=row["role"] or "member",
             is_active=bool(row["is_active"]),
             email_verified=bool(row["email_verified"]),
-            api_key=row["api_key"],
             api_key_hash=safe_get("api_key_hash"),
             api_key_prefix=safe_get("api_key_prefix"),
             api_key_created_at=(

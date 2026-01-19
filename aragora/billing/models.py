@@ -304,9 +304,6 @@ class User:
     api_key_created_at: Optional[datetime] = None
     api_key_expires_at: Optional[datetime] = None  # Expiration time
 
-    # Legacy field for backward compatibility during migration
-    api_key: Optional[str] = None  # DEPRECATED: Plaintext key, will be removed
-
     # MFA/2FA fields
     mfa_secret: Optional[str] = None  # TOTP secret (encrypted)
     mfa_enabled: bool = False
@@ -314,18 +311,6 @@ class User:
 
     # Token revocation - increment to invalidate all existing tokens
     token_version: int = 1
-
-    def __post_init__(self) -> None:
-        """Warn about deprecated field usage."""
-        if self.api_key is not None:
-            import warnings
-
-            warnings.warn(
-                "User.api_key is deprecated and will be removed. "
-                "Use generate_api_key() to create hashed API keys.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
     def set_password(self, password: str) -> None:
         """Set user password."""
@@ -382,9 +367,6 @@ class User:
         self.api_key_expires_at = datetime.utcnow() + timedelta(days=expires_days)
         self.updated_at = datetime.utcnow()
 
-        # Clear legacy field
-        self.api_key = None
-
         return api_key  # Returned to user once, never stored
 
     def verify_api_key(self, api_key: str) -> bool:
@@ -400,10 +382,6 @@ class User:
             True if key is valid and not expired
         """
         if not self.api_key_hash:
-            # Check legacy plaintext key for backward compatibility
-            if self.api_key and secrets.compare_digest(self.api_key, api_key):
-                logger.warning(f"Legacy plaintext API key used for user {self.id}")
-                return True
             return False
 
         # Check expiration
@@ -427,7 +405,6 @@ class User:
         self.api_key_prefix = None
         self.api_key_created_at = None
         self.api_key_expires_at = None
-        self.api_key = None  # Also clear legacy field
         self.updated_at = datetime.utcnow()
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
@@ -443,12 +420,10 @@ class User:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
-            "has_api_key": self.api_key_hash is not None or self.api_key is not None,
+            "has_api_key": self.api_key_hash is not None,
             "token_version": self.token_version,
         }
         if include_sensitive:
-            # API key is only available if stored in legacy format
-            data["api_key"] = self.api_key
             data["api_key_prefix"] = self.api_key_prefix
         return data
 
@@ -465,7 +440,6 @@ class User:
             role=data.get("role", "member"),
             is_active=data.get("is_active", True),
             email_verified=data.get("email_verified", False),
-            api_key=data.get("api_key"),
             token_version=data.get("token_version", 1),
         )
         if "created_at" in data and data["created_at"]:

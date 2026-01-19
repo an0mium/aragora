@@ -271,18 +271,24 @@ ALLOWED_AGENT_TYPES = frozenset(
         "anthropic-api",
         "openai-api",
         "grok",
-        "mistral-api",
-        "codestral",
-        "kimi",
+        "mistral-api",  # Legacy - use "mistral" via OpenRouter
+        "codestral",  # Legacy - use Mistral API directly
         # API-based (via OpenRouter)
         "deepseek",
         "deepseek-r1",
         "llama",
         "mistral",
-        "openrouter",
         "qwen",
         "qwen-max",
         "yi",
+        "kimi",
+        "kimi-thinking",
+        "llama4-maverick",
+        "llama4-scout",
+        "sonar",
+        "command-r",
+        "jamba",
+        "openrouter",
     }
 )
 
