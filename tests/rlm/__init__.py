@@ -1,1 +1,1 @@
-"""RLM module tests."""
+"""Tests for RLM (Recursive Language Models) integration."""

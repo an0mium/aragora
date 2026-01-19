@@ -98,6 +98,12 @@ from .adapter import (
     RegisteredContent,
     get_adapter,
 )
+from .factory import (
+    get_rlm,
+    get_compressor,
+    compress_and_query,
+    reset_singleton,
+)
 
 __all__ = [
     # Types
@@ -142,4 +148,9 @@ __all__ = [
     "RLMContextAdapter",
     "RegisteredContent",
     "get_adapter",
+    # Factory (preferred entry point)
+    "get_rlm",
+    "get_compressor",
+    "compress_and_query",
+    "reset_singleton",
 ]
