@@ -53,6 +53,9 @@ from .cost_adapter import CostAdapter, CostAnomaly, AlertSearchResult
 from .ranking_adapter import RankingAdapter, AgentExpertise, ExpertiseSearchResult
 from .rlm_adapter import RlmAdapter, CompressionPattern, ContentPriority
 
+# Factory for auto-creating adapters from Arena subsystems
+from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
+
 __all__ = [
     # Core memory adapters
     "ContinuumAdapter",
@@ -83,4 +86,9 @@ __all__ = [
     "RlmAdapter",
     "CompressionPattern",
     "ContentPriority",
+    # Factory for auto-creating adapters
+    "AdapterFactory",
+    "AdapterSpec",
+    "CreatedAdapter",
+    "ADAPTER_SPECS",
 ]
