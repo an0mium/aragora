@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-from aragora.server.prometheus import (
+from aragora.server.prometheus_control_plane import (
     record_control_plane_task_submitted,
     record_control_plane_task_completed,
     record_control_plane_task_retry,

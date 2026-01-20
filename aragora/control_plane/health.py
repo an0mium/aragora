@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
-from aragora.server.prometheus import (
+from aragora.server.prometheus_control_plane import (
     record_control_plane_agent_health,
     record_control_plane_agent_latency,
 )
