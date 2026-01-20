@@ -1016,10 +1016,27 @@ Examples:
     improve_parser.set_defaults(func=cmd_improve)
 
     # Serve command (live debate server)
-    serve_parser = subparsers.add_parser("serve", help="Run live debate server")
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Run live debate server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Production deployment:
+    aragora serve --workers 4 --host 0.0.0.0
+
+    Use a load balancer to distribute traffic across workers.
+        """,
+    )
     serve_parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port")
     serve_parser.add_argument("--api-port", type=int, default=8080, help="HTTP API port")
     serve_parser.add_argument("--host", default="localhost", help="Host to bind to")
+    serve_parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=1,
+        help="Number of worker processes (default: 1). For production, use 2-4x CPU cores.",
+    )
     serve_parser.set_defaults(func=cmd_serve)
 
     # Init command (project scaffolding)

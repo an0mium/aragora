@@ -205,13 +205,15 @@ else:
 - Integration with quota enforcement
 - **Two-phase commit sync** - Crash-safe Stripe reporting with `usage_sync_records` table
 - **Content-based idempotency** - Stable keys prevent double-billing across restarts
+- **Watermark persistence** - SQLite-backed sync watermarks survive service restarts
 
-**Agent Specification Parsing** (NEW)
+**Agent Specification Parsing** (STABLE)
 - `aragora/agents/spec.py` - Unified AgentSpec class
 - Pipe-delimited format: `provider|model|persona|role`
 - Legacy colon format support: `provider:persona` (backward compatible)
 - Clear separation of provider, model, persona, and role concepts
-- 34 comprehensive parsing tests
+- Fixed: PERSONA_TO_AGENT now maps to registered agent types (2-part specs)
+- 43 comprehensive parsing tests
 
 **Extended Debates (50+ Rounds)** (NEW)
 - `aragora/debate/extended_rounds.py` - RLM context management
@@ -224,10 +226,11 @@ else:
 - Top-down, bottom-up, and targeted streaming modes
 - Real-time drill-down during debates
 
-**Cross-Debate Memory** (NEW)
+**Cross-Debate Memory** (STABLE)
 - `aragora/memory/cross_debate_rlm.py` - Institutional memory
 - Tiered storage (hot/warm/cold/archive)
 - Relevance-based context retrieval
+- Fixed: Race condition in concurrent reads via snapshot pattern
 
 **API Versioning** (NEW)
 - `aragora/server/versioning/` - URL prefix versioning
