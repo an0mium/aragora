@@ -29,6 +29,7 @@ from .base import (
     get_int_param,
     get_string_param,
     json_response,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -216,7 +217,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Repository indexing failed: {e}")
-            return error_response(f"Indexing failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "indexing"), 500)
 
     async def _incremental_update(self, body: Dict[str, Any]) -> HandlerResult:
         """Perform incremental repository update."""
