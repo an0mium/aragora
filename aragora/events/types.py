@@ -89,6 +89,14 @@ class StreamEventType(Enum):
     KNOWLEDGE_INDEXED = "knowledge_indexed"  # Document/chunk indexed in Knowledge Mound
     KNOWLEDGE_QUERIED = "knowledge_queried"  # Knowledge Mound semantic search executed
     MOUND_UPDATED = "mound_updated"  # Knowledge Mound structure updated
+    KNOWLEDGE_STALE = "knowledge_stale"  # Knowledge item detected as stale
+
+    # Belief Network events (bidirectional KM integration)
+    BELIEF_CONVERGED = "belief_converged"  # Belief network propagation converged
+    CRUX_DETECTED = "crux_detected"  # Crux claim identified in debate
+
+    # RLM events (bidirectional KM integration)
+    RLM_COMPRESSION_COMPLETE = "rlm_compression_complete"  # RLM finished compression
 
     # Claim verification events
     CLAIM_VERIFICATION_RESULT = "claim_verification_result"  # Claim verification outcome

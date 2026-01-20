@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 
 export function TopBar() {

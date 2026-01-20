@@ -1,0 +1,632 @@
+"""
+CostAdapter - Bridges Billing/Cost Tracking to the Knowledge Mound.
+
+This adapter enables bidirectional integration between the cost tracking
+system and the Knowledge Mound:
+
+- Data flow IN: Budget alerts and cost anomalies stored in KM
+- Data flow OUT: Historical cost patterns retrieved for anomaly detection
+- Reverse flow: KM patterns inform budget alert thresholds
+
+The adapter provides:
+- Budget alert storage (WARNING level and above)
+- Cost anomaly detection and persistence
+- Historical cost pattern retrieval
+- Agent cost analytics
+
+ID Prefix: ct_
+
+Note: This adapter is opt-in (enable_cost_adapter: bool = False in config)
+as cost data may be sensitive.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from aragora.billing.cost_tracker import (
+        BudgetAlert,
+        BudgetAlertLevel,
+        CostReport,
+        CostTracker,
+        TokenUsage,
+    )
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AlertSearchResult:
+    """Wrapper for alert search results with adapter metadata."""
+
+    alert: Dict[str, Any]
+    relevance_score: float = 0.0
+
+    def __post_init__(self) -> None:
+        pass
+
+
+@dataclass
+class CostAnomaly:
+    """A detected cost anomaly."""
+
+    id: str
+    workspace_id: Optional[str]
+    agent_id: Optional[str]
+    anomaly_type: str  # "spike", "unusual_model", "high_latency", etc.
+    severity: float  # 0-1
+    description: str
+    expected_value: float
+    actual_value: float
+    variance_ratio: float  # actual/expected
+    detected_at: datetime
+    metadata: Dict[str, Any] = None
+
+    def __post_init__(self) -> None:
+        if self.metadata is None:
+            self.metadata = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "agent_id": self.agent_id,
+            "anomaly_type": self.anomaly_type,
+            "severity": self.severity,
+            "description": self.description,
+            "expected_value": self.expected_value,
+            "actual_value": self.actual_value,
+            "variance_ratio": self.variance_ratio,
+            "detected_at": self.detected_at.isoformat() if self.detected_at else None,
+            "metadata": self.metadata,
+        }
+
+
+class CostAdapter:
+    """
+    Adapter that bridges CostTracker to the Knowledge Mound.
+
+    Provides methods for the Knowledge Mound's federated query system:
+    - store_alert: Store budget alerts (WARNING+ level)
+    - store_anomaly: Store cost anomalies
+    - get_cost_patterns: Retrieve historical cost patterns
+    - get_agent_costs: Retrieve agent cost history
+
+    Note: This adapter is opt-in due to cost data sensitivity.
+
+    Usage:
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters import CostAdapter
+
+        tracker = CostTracker()
+        adapter = CostAdapter(tracker)
+
+        # Store budget alert
+        adapter.store_alert(alert)
+
+        # Get cost patterns for anomaly detection
+        patterns = adapter.get_cost_patterns(workspace_id)
+    """
+
+    ID_PREFIX = "ct_"
+
+    # Thresholds
+    MIN_ALERT_LEVEL = "warning"  # Store WARNING and above
+    MIN_ANOMALY_VARIANCE = 2.0  # Store anomalies with 2x+ variance
+
+    # Alert level ordering for comparison
+    ALERT_LEVELS = ["info", "warning", "critical", "exceeded"]
+
+    def __init__(
+        self,
+        cost_tracker: Optional["CostTracker"] = None,
+        enable_dual_write: bool = False,
+    ):
+        """
+        Initialize the adapter.
+
+        Args:
+            cost_tracker: Optional CostTracker instance
+            enable_dual_write: If True, writes go to both systems during migration
+        """
+        self._cost_tracker = cost_tracker
+        self._enable_dual_write = enable_dual_write
+
+        # In-memory storage for queries (will be replaced by KM backend)
+        self._alerts: Dict[str, Dict[str, Any]] = {}
+        self._anomalies: Dict[str, Dict[str, Any]] = {}
+        self._cost_snapshots: Dict[str, Dict[str, Any]] = {}
+
+        # Indices for fast lookup
+        self._workspace_alerts: Dict[str, List[str]] = {}  # workspace -> [alert_ids]
+        self._workspace_anomalies: Dict[str, List[str]] = {}  # workspace -> [anomaly_ids]
+        self._agent_costs: Dict[str, List[str]] = {}  # agent -> [snapshot_ids]
+
+    @property
+    def cost_tracker(self) -> Optional["CostTracker"]:
+        """Access the underlying CostTracker."""
+        return self._cost_tracker
+
+    def _alert_level_meets_threshold(self, level: str) -> bool:
+        """Check if alert level meets minimum threshold."""
+        try:
+            level_idx = self.ALERT_LEVELS.index(level.lower())
+            threshold_idx = self.ALERT_LEVELS.index(self.MIN_ALERT_LEVEL)
+            return level_idx >= threshold_idx
+        except ValueError:
+            return False
+
+    def store_alert(
+        self,
+        alert: "BudgetAlert",
+    ) -> Optional[str]:
+        """
+        Store a budget alert in the Knowledge Mound.
+
+        Only stores alerts at WARNING level or above.
+
+        Args:
+            alert: The BudgetAlert to store
+
+        Returns:
+            The alert ID if stored, None if below threshold
+        """
+        level = alert.level.value if hasattr(alert.level, 'value') else str(alert.level)
+
+        if not self._alert_level_meets_threshold(level):
+            logger.debug(f"Alert {alert.id} below level threshold: {level}")
+            return None
+
+        alert_id = f"{self.ID_PREFIX}alert_{alert.id}"
+
+        alert_data = {
+            "id": alert_id,
+            "original_id": alert.id,
+            "budget_id": alert.budget_id,
+            "workspace_id": alert.workspace_id,
+            "org_id": alert.org_id,
+            "level": level,
+            "message": alert.message,
+            "current_spend": str(alert.current_spend),
+            "limit": str(alert.limit),
+            "percentage": alert.percentage,
+            "created_at": alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
+            "acknowledged": alert.acknowledged,
+            "stored_at": datetime.utcnow().isoformat(),
+        }
+
+        self._alerts[alert_id] = alert_data
+
+        # Update indices
+        if alert.workspace_id:
+            if alert.workspace_id not in self._workspace_alerts:
+                self._workspace_alerts[alert.workspace_id] = []
+            self._workspace_alerts[alert.workspace_id].append(alert_id)
+
+        logger.info(f"Stored budget alert: {alert_id} (level={level})")
+        return alert_id
+
+    def store_anomaly(
+        self,
+        anomaly: CostAnomaly,
+    ) -> Optional[str]:
+        """
+        Store a cost anomaly in the Knowledge Mound.
+
+        Only stores anomalies with variance > 2x.
+
+        Args:
+            anomaly: The CostAnomaly to store
+
+        Returns:
+            The anomaly ID if stored, None if below threshold
+        """
+        if anomaly.variance_ratio < self.MIN_ANOMALY_VARIANCE:
+            logger.debug(f"Anomaly {anomaly.id} below variance threshold: {anomaly.variance_ratio:.2f}")
+            return None
+
+        anomaly_id = f"{self.ID_PREFIX}anomaly_{anomaly.id}"
+
+        anomaly_data = anomaly.to_dict()
+        anomaly_data["id"] = anomaly_id
+        anomaly_data["original_id"] = anomaly.id
+        anomaly_data["stored_at"] = datetime.utcnow().isoformat()
+
+        self._anomalies[anomaly_id] = anomaly_data
+
+        # Update indices
+        if anomaly.workspace_id:
+            if anomaly.workspace_id not in self._workspace_anomalies:
+                self._workspace_anomalies[anomaly.workspace_id] = []
+            self._workspace_anomalies[anomaly.workspace_id].append(anomaly_id)
+
+        logger.info(f"Stored cost anomaly: {anomaly_id} (variance={anomaly.variance_ratio:.2f}x)")
+        return anomaly_id
+
+    def store_cost_snapshot(
+        self,
+        workspace_id: str,
+        agent_id: Optional[str],
+        total_cost_usd: float,
+        tokens_in: int,
+        tokens_out: int,
+        api_calls: int,
+        period: str = "daily",
+    ) -> str:
+        """
+        Store a cost snapshot for historical tracking.
+
+        Args:
+            workspace_id: Workspace ID
+            agent_id: Optional agent ID
+            total_cost_usd: Total cost in USD
+            tokens_in: Input tokens used
+            tokens_out: Output tokens generated
+            api_calls: Number of API calls
+            period: Aggregation period (hourly, daily, weekly)
+
+        Returns:
+            The snapshot ID
+        """
+        timestamp = datetime.utcnow().isoformat()
+        snapshot_id = f"{self.ID_PREFIX}snap_{workspace_id}_{timestamp.replace(':', '-')}"
+
+        snapshot_data = {
+            "id": snapshot_id,
+            "workspace_id": workspace_id,
+            "agent_id": agent_id,
+            "total_cost_usd": total_cost_usd,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "api_calls": api_calls,
+            "period": period,
+            "created_at": timestamp,
+        }
+
+        self._cost_snapshots[snapshot_id] = snapshot_data
+
+        # Update indices
+        if agent_id:
+            if agent_id not in self._agent_costs:
+                self._agent_costs[agent_id] = []
+            self._agent_costs[agent_id].append(snapshot_id)
+
+        logger.debug(f"Stored cost snapshot: {snapshot_id}")
+        return snapshot_id
+
+    def get_alert(self, alert_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific alert by ID.
+
+        Args:
+            alert_id: The alert ID
+
+        Returns:
+            Alert dict or None
+        """
+        if not alert_id.startswith(self.ID_PREFIX):
+            alert_id = f"{self.ID_PREFIX}alert_{alert_id}"
+        return self._alerts.get(alert_id)
+
+    def get_anomaly(self, anomaly_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific anomaly by ID.
+
+        Args:
+            anomaly_id: The anomaly ID
+
+        Returns:
+            Anomaly dict or None
+        """
+        if not anomaly_id.startswith(self.ID_PREFIX):
+            anomaly_id = f"{self.ID_PREFIX}anomaly_{anomaly_id}"
+        return self._anomalies.get(anomaly_id)
+
+    def get_workspace_alerts(
+        self,
+        workspace_id: str,
+        min_level: str = "warning",
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get alerts for a workspace.
+
+        Args:
+            workspace_id: The workspace ID
+            min_level: Minimum alert level to include
+            limit: Maximum results
+
+        Returns:
+            List of alert dicts ordered by time (newest first)
+        """
+        alert_ids = self._workspace_alerts.get(workspace_id, [])
+        results = []
+
+        for alert_id in alert_ids:
+            alert = self._alerts.get(alert_id)
+            if not alert:
+                continue
+
+            if not self._alert_level_meets_threshold(alert.get("level", "info")):
+                continue
+
+            results.append(alert)
+
+        results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return results[:limit]
+
+    def get_workspace_anomalies(
+        self,
+        workspace_id: str,
+        min_severity: float = 0.0,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get anomalies for a workspace.
+
+        Args:
+            workspace_id: The workspace ID
+            min_severity: Minimum severity threshold
+            limit: Maximum results
+
+        Returns:
+            List of anomaly dicts
+        """
+        anomaly_ids = self._workspace_anomalies.get(workspace_id, [])
+        results = []
+
+        for anomaly_id in anomaly_ids:
+            anomaly = self._anomalies.get(anomaly_id)
+            if not anomaly:
+                continue
+
+            if anomaly.get("severity", 0) < min_severity:
+                continue
+
+            results.append(anomaly)
+
+        results.sort(key=lambda x: x.get("detected_at", ""), reverse=True)
+
+        return results[:limit]
+
+    def get_cost_patterns(
+        self,
+        workspace_id: str,
+        agent_id: Optional[str] = None,
+        limit: int = 30,
+    ) -> Dict[str, Any]:
+        """
+        Get historical cost patterns for anomaly detection.
+
+        Returns average costs and variance for comparison.
+
+        Args:
+            workspace_id: The workspace ID
+            agent_id: Optional agent filter
+            limit: Number of recent snapshots to analyze
+
+        Returns:
+            Pattern dict with avg, stddev, etc.
+        """
+        # Get relevant snapshots
+        snapshots = []
+        for snap in self._cost_snapshots.values():
+            if snap.get("workspace_id") != workspace_id:
+                continue
+            if agent_id and snap.get("agent_id") != agent_id:
+                continue
+            snapshots.append(snap)
+
+        if not snapshots:
+            return {
+                "workspace_id": workspace_id,
+                "agent_id": agent_id,
+                "sample_size": 0,
+                "avg_cost": 0.0,
+                "avg_tokens": 0,
+                "avg_calls": 0,
+            }
+
+        # Sort by time and take recent
+        snapshots.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        recent = snapshots[:limit]
+
+        # Calculate stats
+        costs = [s.get("total_cost_usd", 0) for s in recent]
+        tokens = [s.get("tokens_in", 0) + s.get("tokens_out", 0) for s in recent]
+        calls = [s.get("api_calls", 0) for s in recent]
+
+        avg_cost = sum(costs) / len(costs) if costs else 0
+        avg_tokens = sum(tokens) / len(tokens) if tokens else 0
+        avg_calls = sum(calls) / len(calls) if calls else 0
+
+        # Calculate variance
+        if len(costs) > 1:
+            import statistics
+            cost_stddev = statistics.stdev(costs)
+        else:
+            cost_stddev = 0.0
+
+        return {
+            "workspace_id": workspace_id,
+            "agent_id": agent_id,
+            "sample_size": len(recent),
+            "avg_cost": avg_cost,
+            "cost_stddev": cost_stddev,
+            "avg_tokens": avg_tokens,
+            "avg_calls": avg_calls,
+            "min_cost": min(costs) if costs else 0,
+            "max_cost": max(costs) if costs else 0,
+        }
+
+    def get_agent_cost_history(
+        self,
+        agent_id: str,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get cost history for an agent.
+
+        Args:
+            agent_id: The agent ID
+            limit: Maximum snapshots to return
+
+        Returns:
+            List of snapshot dicts ordered by time (newest first)
+        """
+        snapshot_ids = self._agent_costs.get(agent_id, [])
+        results = []
+
+        for snap_id in snapshot_ids:
+            snap = self._cost_snapshots.get(snap_id)
+            if snap:
+                results.append(snap)
+
+        results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return results[:limit]
+
+    def detect_anomalies(
+        self,
+        workspace_id: str,
+        current_cost: float,
+        current_tokens: int,
+        current_calls: int,
+    ) -> List[CostAnomaly]:
+        """
+        Detect cost anomalies compared to historical patterns.
+
+        Args:
+            workspace_id: The workspace ID
+            current_cost: Current period cost
+            current_tokens: Current period tokens
+            current_calls: Current period API calls
+
+        Returns:
+            List of detected anomalies
+        """
+        import uuid
+        patterns = self.get_cost_patterns(workspace_id)
+
+        if patterns["sample_size"] < 5:
+            return []  # Not enough data
+
+        anomalies = []
+
+        # Check cost spike
+        if patterns["avg_cost"] > 0:
+            cost_ratio = current_cost / patterns["avg_cost"]
+            if cost_ratio > self.MIN_ANOMALY_VARIANCE:
+                anomalies.append(CostAnomaly(
+                    id=str(uuid.uuid4())[:12],
+                    workspace_id=workspace_id,
+                    agent_id=None,
+                    anomaly_type="cost_spike",
+                    severity=min(1.0, cost_ratio / 5),  # Scale severity
+                    description=f"Cost spike detected: {cost_ratio:.1f}x normal",
+                    expected_value=patterns["avg_cost"],
+                    actual_value=current_cost,
+                    variance_ratio=cost_ratio,
+                    detected_at=datetime.utcnow(),
+                ))
+
+        # Check API call spike
+        if patterns["avg_calls"] > 0:
+            call_ratio = current_calls / patterns["avg_calls"]
+            if call_ratio > self.MIN_ANOMALY_VARIANCE:
+                anomalies.append(CostAnomaly(
+                    id=str(uuid.uuid4())[:12],
+                    workspace_id=workspace_id,
+                    agent_id=None,
+                    anomaly_type="call_spike",
+                    severity=min(1.0, call_ratio / 5),
+                    description=f"API call spike detected: {call_ratio:.1f}x normal",
+                    expected_value=patterns["avg_calls"],
+                    actual_value=current_calls,
+                    variance_ratio=call_ratio,
+                    detected_at=datetime.utcnow(),
+                ))
+
+        return anomalies
+
+    def to_knowledge_item(self, alert: Dict[str, Any]) -> "KnowledgeItem":
+        """
+        Convert an alert dict to a KnowledgeItem.
+
+        Args:
+            alert: The alert dictionary
+
+        Returns:
+            KnowledgeItem for unified knowledge mound API
+        """
+        from aragora.knowledge.unified.types import (
+            ConfidenceLevel,
+            KnowledgeItem,
+            KnowledgeSource,
+        )
+
+        level = alert.get("level", "info")
+        if level == "exceeded":
+            confidence = ConfidenceLevel.VERIFIED
+        elif level == "critical":
+            confidence = ConfidenceLevel.HIGH
+        elif level == "warning":
+            confidence = ConfidenceLevel.MEDIUM
+        else:
+            confidence = ConfidenceLevel.LOW
+
+        created_at = alert.get("created_at")
+        if isinstance(created_at, str):
+            try:
+                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            except ValueError:
+                created_at = datetime.utcnow()
+        elif created_at is None:
+            created_at = datetime.utcnow()
+
+        return KnowledgeItem(
+            id=alert["id"],
+            content=alert.get("message", "Budget alert"),
+            source=KnowledgeSource.COST,
+            source_id=alert.get("original_id", alert["id"]),
+            confidence=confidence,
+            created_at=created_at,
+            updated_at=created_at,
+            metadata={
+                "workspace_id": alert.get("workspace_id", ""),
+                "level": level,
+                "percentage": alert.get("percentage", 0),
+                "current_spend": alert.get("current_spend", "0"),
+                "limit": alert.get("limit", "0"),
+            },
+            importance=alert.get("percentage", 0) / 100,  # Normalize to 0-1
+        )
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about stored cost data."""
+        level_counts = {}
+        for alert in self._alerts.values():
+            lvl = alert.get("level", "unknown")
+            level_counts[lvl] = level_counts.get(lvl, 0) + 1
+
+        return {
+            "total_alerts": len(self._alerts),
+            "total_anomalies": len(self._anomalies),
+            "total_snapshots": len(self._cost_snapshots),
+            "workspaces_with_alerts": len(self._workspace_alerts),
+            "agents_tracked": len(self._agent_costs),
+            "alert_levels": level_counts,
+        }
+
+
+__all__ = [
+    "CostAdapter",
+    "CostAnomaly",
+    "AlertSearchResult",
+]
