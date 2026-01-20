@@ -954,7 +954,7 @@ class TestAuthHandlerApiKey:
 
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_revoke_api_key_success(self, mock_auth, auth_handler):
-        user = MockUser(api_key="existing_key")
+        user = MockUser(api_key_hash="existing_hash", api_key_prefix="ara_")
         auth_handler.ctx["user_store"].users["user-123"] = user
 
         mock_auth.return_value = MockAuthContext()
