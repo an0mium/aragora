@@ -278,6 +278,122 @@ class TestAgentSpecRepr:
         assert "persona" not in r
 
 
+class TestAgentSpecCreateTeam:
+    """Tests for create_team() factory method (preferred over parse_list)."""
+
+    def test_create_team_from_dicts(self):
+        """Create team from list of dicts with explicit fields."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "persona": "philosopher"},
+            {"provider": "openai-api", "persona": "skeptic"},
+            {"provider": "gemini"},
+        ])
+
+        assert len(team) == 3
+        # Default role rotation
+        assert team[0].role == "proposer"
+        assert team[1].role == "critic"
+        assert team[2].role == "synthesizer"
+
+    def test_create_team_explicit_roles(self):
+        """Explicit roles override default rotation."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "role": "judge"},
+            {"provider": "openai-api", "role": "judge"},
+        ])
+
+        assert team[0].role == "judge"
+        assert team[1].role == "judge"
+
+    def test_create_team_mixed_explicit_default(self):
+        """Mix of explicit roles and default rotation."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "role": "judge"},  # Explicit
+            {"provider": "openai-api"},  # Should get critic (position 1)
+            {"provider": "gemini"},  # Should get synthesizer (position 2)
+        ])
+
+        assert team[0].role == "judge"
+        assert team[1].role == "critic"
+        assert team[2].role == "synthesizer"
+
+    def test_create_team_with_model(self):
+        """Create team with model specified."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "model": "claude-opus-4-5", "role": "proposer"},
+        ])
+
+        assert team[0].model == "claude-opus-4-5"
+
+    def test_create_team_with_custom_name(self):
+        """Create team with custom agent names."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "name": "lead_researcher"},
+        ])
+
+        assert team[0].name == "lead_researcher"
+
+    def test_create_team_from_agentspec_instances(self):
+        """Create team from existing AgentSpec instances."""
+        spec1 = AgentSpec(provider="anthropic-api", role="proposer")
+        spec2 = AgentSpec(provider="gemini", role="critic")
+
+        team = AgentSpec.create_team([spec1, spec2])
+
+        assert team[0] is spec1  # Same instance
+        assert team[1] is spec2
+
+    def test_create_team_mixed_dict_and_spec(self):
+        """Create team from mix of dicts and AgentSpec instances."""
+        spec1 = AgentSpec(provider="anthropic-api", role="judge")
+        team = AgentSpec.create_team([
+            spec1,
+            {"provider": "openai-api"},
+        ])
+
+        assert team[0] is spec1
+        assert team[1].provider == "openai-api"
+
+    def test_create_team_disable_role_rotation(self):
+        """Disable default role rotation."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api"},
+            {"provider": "openai-api"},
+        ], default_role_rotation=False)
+
+        # All should be proposer (default) when rotation disabled
+        assert team[0].role == "proposer"
+        assert team[1].role == "proposer"
+
+    def test_create_team_missing_provider_raises(self):
+        """Missing provider field raises ValueError."""
+        with pytest.raises(ValueError, match="missing required 'provider' field"):
+            AgentSpec.create_team([
+                {"persona": "philosopher"},  # No provider
+            ])
+
+    def test_create_team_empty_list(self):
+        """Empty list returns empty team."""
+        team = AgentSpec.create_team([])
+        assert team == []
+
+    def test_create_team_role_rotation_cycles(self):
+        """Role rotation cycles through all 4 roles."""
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api"},
+            {"provider": "openai-api"},
+            {"provider": "gemini"},
+            {"provider": "grok"},
+            {"provider": "deepseek"},  # Wraps to proposer
+        ])
+
+        assert team[0].role == "proposer"
+        assert team[1].role == "critic"
+        assert team[2].role == "synthesizer"
+        assert team[3].role == "judge"
+        assert team[4].role == "proposer"  # Cycles back
+
+
 class TestQuestionClassifierIntegration:
     """Tests for integration with question_classifier output format."""
 

@@ -11,6 +11,7 @@ Tests cover:
 - EvidenceCollector snippet truncation
 - EvidenceCollector reliability calculation
 - EvidenceCollector snippet ranking
+- SSRF protection: URL allowlist and feature flag
 """
 
 import pytest
@@ -21,6 +22,7 @@ from aragora.evidence.collector import (
     EvidenceSnippet,
     EvidencePack,
     EvidenceCollector,
+    DEFAULT_ALLOWED_DOMAINS,
 )
 
 
@@ -616,3 +618,123 @@ class TestEvidenceCollectorIntegration:
 
         pack = await collector.collect_evidence("test")
         assert len(pack.snippets) <= collector.max_total_snippets
+
+
+# =============================================================================
+# URL Allowlist and SSRF Protection Tests
+# =============================================================================
+
+
+class TestSSRFProtection:
+    """Tests for SSRF protection via URL allowlist and feature flag."""
+
+    def test_default_allowed_domains_exist(self):
+        """Should have default allowed domains."""
+        assert len(DEFAULT_ALLOWED_DOMAINS) > 0
+        assert "github.com" in DEFAULT_ALLOWED_DOMAINS
+        assert "stackoverflow.com" in DEFAULT_ALLOWED_DOMAINS
+        assert "arxiv.org" in DEFAULT_ALLOWED_DOMAINS
+
+    def test_domain_allowlist_check(self):
+        """Should correctly check domain allowlist."""
+        collector = EvidenceCollector()
+
+        # Allowed domains
+        assert collector._is_domain_allowed("github.com") is True
+        assert collector._is_domain_allowed("raw.githubusercontent.com") is True
+        assert collector._is_domain_allowed("stackoverflow.com") is True
+
+        # Not allowed
+        assert collector._is_domain_allowed("malicious.com") is False
+        assert collector._is_domain_allowed("random-site.io") is False
+
+    def test_custom_allowed_domains(self):
+        """Should merge custom allowed domains with defaults."""
+        custom_domains = {"custom-site.com", "internal-docs.company.com"}
+        collector = EvidenceCollector(allowed_domains=custom_domains)
+
+        # Custom domains should be allowed
+        assert collector._is_domain_allowed("custom-site.com") is True
+        assert collector._is_domain_allowed("internal-docs.company.com") is True
+
+        # Default domains should still be allowed
+        assert collector._is_domain_allowed("github.com") is True
+
+    def test_safe_url_blocks_localhost(self):
+        """Should block localhost URLs."""
+        collector = EvidenceCollector()
+
+        assert collector._is_safe_url("http://localhost/admin") is False
+        assert collector._is_safe_url("http://127.0.0.1/admin") is False
+        assert collector._is_safe_url("http://0.0.0.0/admin") is False
+        assert collector._is_safe_url("http://[::1]/admin") is False
+
+    def test_safe_url_blocks_private_ips(self):
+        """Should block private IP ranges."""
+        collector = EvidenceCollector()
+
+        # Private ranges
+        assert collector._is_safe_url("http://10.0.0.1/") is False
+        assert collector._is_safe_url("http://172.16.0.1/") is False
+        assert collector._is_safe_url("http://192.168.1.1/") is False
+        assert collector._is_safe_url("http://169.254.0.1/") is False
+
+    def test_safe_url_blocks_non_http_schemes(self):
+        """Should block non-HTTP schemes."""
+        collector = EvidenceCollector()
+
+        assert collector._is_safe_url("file:///etc/passwd") is False
+        assert collector._is_safe_url("ftp://server/file") is False
+        assert collector._is_safe_url("gopher://server/") is False
+
+    def test_safe_url_blocks_non_standard_ports(self):
+        """Should block non-standard ports."""
+        collector = EvidenceCollector()
+
+        assert collector._is_safe_url("http://example.com:8080/") is False
+        assert collector._is_safe_url("http://example.com:22/") is False
+
+        # Standard ports are allowed
+        assert collector._is_safe_url("http://example.com:80/") is True
+        assert collector._is_safe_url("https://example.com:443/") is True
+
+    def test_safe_url_allows_valid_public_urls(self):
+        """Should allow valid public URLs."""
+        collector = EvidenceCollector()
+
+        assert collector._is_safe_url("https://github.com/user/repo") is True
+        assert collector._is_safe_url("https://stackoverflow.com/questions") is True
+        assert collector._is_safe_url("https://example.com/page") is True
+
+    def test_feature_flag_default_disabled(self):
+        """Feature flag should be disabled by default."""
+        collector = EvidenceCollector()
+        assert collector._url_fetch_all_enabled is False
+
+    @patch("aragora.config.settings.get_settings")
+    def test_feature_flag_from_settings(self, mock_get_settings):
+        """Should read feature flag from settings."""
+        mock_settings = Mock()
+        mock_settings.evidence.url_fetch_all_enabled = True
+        mock_settings.evidence.additional_allowed_domains = ["custom.com"]
+        mock_get_settings.return_value = mock_settings
+
+        collector = EvidenceCollector()
+
+        assert collector._url_fetch_all_enabled is True
+        assert "custom.com" in collector._allowed_domains
+
+    @patch("aragora.config.settings.get_settings")
+    def test_additional_domains_from_settings(self, mock_get_settings):
+        """Should merge additional domains from settings."""
+        mock_settings = Mock()
+        mock_settings.evidence.url_fetch_all_enabled = False
+        mock_settings.evidence.additional_allowed_domains = ["docs.mycompany.com"]
+        mock_get_settings.return_value = mock_settings
+
+        collector = EvidenceCollector()
+
+        # Custom domain should be allowed
+        assert collector._is_domain_allowed("docs.mycompany.com") is True
+        # But feature flag should be off
+        assert collector._url_fetch_all_enabled is False
