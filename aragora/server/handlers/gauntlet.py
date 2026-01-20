@@ -160,9 +160,27 @@ def _cleanup_gauntlet_runs() -> None:
 
 
 class GauntletHandler(BaseHandler):
-    """Handler for gauntlet stress-testing endpoints."""
+    """Handler for gauntlet stress-testing endpoints.
 
+    Supports both versioned (/api/v1/gauntlet/*) and legacy (/api/gauntlet/*) routes.
+    Legacy routes return a Deprecation header and should be migrated to v1.
+    """
+
+    # API version for this handler
+    API_VERSION = "v1"
+
+    # Both versioned and legacy routes for backward compatibility
     ROUTES = [
+        # Versioned routes (preferred)
+        "/api/v1/gauntlet/run",
+        "/api/v1/gauntlet/personas",
+        "/api/v1/gauntlet/results",
+        "/api/v1/gauntlet/*/receipt",
+        "/api/v1/gauntlet/*/heatmap",
+        "/api/v1/gauntlet/*/export",
+        "/api/v1/gauntlet/*/compare/*",
+        "/api/v1/gauntlet/*",
+        # Legacy routes (deprecated, will be removed in v2)
         "/api/gauntlet/run",
         "/api/gauntlet/personas",
         "/api/gauntlet/results",
@@ -175,6 +193,8 @@ class GauntletHandler(BaseHandler):
 
     # All gauntlet endpoints require authentication
     AUTH_REQUIRED_ENDPOINTS = [
+        "/api/v1/gauntlet/run",
+        "/api/v1/gauntlet/",
         "/api/gauntlet/run",
         "/api/gauntlet/",
     ]
@@ -185,22 +205,63 @@ class GauntletHandler(BaseHandler):
         if emitter and hasattr(emitter, "emit"):
             set_gauntlet_broadcast_fn(emitter.emit)
 
+    def _is_legacy_route(self, path: str) -> bool:
+        """Check if this is a legacy (non-versioned) route."""
+        return path.startswith("/api/gauntlet/") and not path.startswith("/api/v1/")
+
+    def _normalize_path(self, path: str) -> str:
+        """Normalize path by removing version prefix for routing logic."""
+        if path.startswith("/api/v1/gauntlet/"):
+            return path.replace("/api/v1/gauntlet/", "/api/gauntlet/")
+        return path
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
-        """Check if this handler can handle the request."""
+        """Check if this handler can handle the request.
+
+        Supports both versioned (/api/v1/gauntlet/*) and legacy (/api/gauntlet/*) routes.
+        """
+        # Normalize path for matching
+        normalized = self._normalize_path(path)
+
         # When called without method (e.g., from route index), just check path prefix
-        if method == "GET" and path.startswith("/api/gauntlet/"):
+        if method == "GET" and normalized.startswith("/api/gauntlet/"):
             return True
-        if path == "/api/gauntlet/run" and method == "POST":
+        if normalized == "/api/gauntlet/run" and method == "POST":
             return True
-        if path == "/api/gauntlet/personas" and method == "GET":
+        if normalized == "/api/gauntlet/personas" and method == "GET":
             return True
-        if path == "/api/gauntlet/results" and method == "GET":
+        if normalized == "/api/gauntlet/results" and method == "GET":
             return True
-        if path.startswith("/api/gauntlet/") and method == "GET":
+        if normalized.startswith("/api/gauntlet/") and method == "GET":
             return True
-        if path.startswith("/api/gauntlet/") and method == "DELETE":
+        if normalized.startswith("/api/gauntlet/") and method == "DELETE":
             return True
         return False
+
+    def _add_version_headers(
+        self, result: HandlerResult, original_path: str
+    ) -> HandlerResult:
+        """Add API version headers and deprecation warning for legacy routes."""
+        if result is None:
+            return result
+
+        # Initialize headers if needed
+        if result.headers is None:
+            result.headers = {}
+
+        # Add API version header
+        result.headers["X-API-Version"] = self.API_VERSION
+
+        # Add deprecation header for legacy routes
+        if self._is_legacy_route(original_path):
+            result.headers["Deprecation"] = "true"
+            result.headers["Sunset"] = "2026-06-01"  # 6 months notice
+            result.headers["Link"] = (
+                f'</api/v1{original_path[4:]}>; rel="successor-version"'
+            )
+            logger.debug(f"Legacy route accessed: {original_path}")
+
+        return result
 
     @rate_limit(rpm=10)
     async def handle(  # type: ignore[override]
@@ -212,7 +273,10 @@ class GauntletHandler(BaseHandler):
         because it needs the HTTP method to route requests appropriately.
         The unified server calls this with (path, method, handler) for
         handlers that implement can_handle with method support.
+
+        Supports both versioned (/api/v1/gauntlet/*) and legacy (/api/gauntlet/*) routes.
         """
+        original_path = path
         query_params: dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
@@ -220,44 +284,49 @@ class GauntletHandler(BaseHandler):
 
             query_params = parse_qs(query_str)
 
+        # Normalize path for routing (remove version prefix)
+        path = self._normalize_path(path)
+
+        result: Optional[HandlerResult] = None
+
         # POST /api/gauntlet/run
         if path == "/api/gauntlet/run" and method == "POST":
-            return await self._start_gauntlet(handler)
+            result = await self._start_gauntlet(handler)
 
         # GET /api/gauntlet/personas
-        if path == "/api/gauntlet/personas":
-            return self._list_personas()
+        elif path == "/api/gauntlet/personas":
+            result = self._list_personas()
 
         # GET /api/gauntlet/results - List with pagination
-        if path == "/api/gauntlet/results":
-            return self._list_results(query_params)
+        elif path == "/api/gauntlet/results":
+            result = self._list_results(query_params)
 
         # GET /api/gauntlet/{id}/receipt
-        if path.endswith("/receipt"):
+        elif path.endswith("/receipt"):
             gauntlet_id = path.split("/")[-2]
             is_valid, err = validate_gauntlet_id(gauntlet_id)
             if not is_valid:
                 return error_response(err, 400)
-            return await self._get_receipt(gauntlet_id, query_params)
+            result = await self._get_receipt(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}/heatmap
-        if path.endswith("/heatmap"):
+        elif path.endswith("/heatmap"):
             gauntlet_id = path.split("/")[-2]
             is_valid, err = validate_gauntlet_id(gauntlet_id)
             if not is_valid:
                 return error_response(err, 400)
-            return await self._get_heatmap(gauntlet_id, query_params)
+            result = await self._get_heatmap(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}/export
-        if path.endswith("/export"):
+        elif path.endswith("/export"):
             gauntlet_id = path.split("/")[-2]
             is_valid, err = validate_gauntlet_id(gauntlet_id)
             if not is_valid:
                 return error_response(err, 400)
-            return await self._export_report(gauntlet_id, query_params, handler)
+            result = await self._export_report(gauntlet_id, query_params, handler)
 
         # GET /api/gauntlet/{id}/compare/{id2}
-        if "/compare/" in path:
+        elif "/compare/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 gauntlet_id = parts[-3]
@@ -269,27 +338,31 @@ class GauntletHandler(BaseHandler):
                 is_valid, err = validate_gauntlet_id(compare_id)
                 if not is_valid:
                     return error_response(f"Invalid compare ID: {err}", 400)
-                return self._compare_results(gauntlet_id, compare_id, query_params)
+                result = self._compare_results(gauntlet_id, compare_id, query_params)
 
         # DELETE /api/gauntlet/{id}
-        if method == "DELETE" and path.startswith("/api/gauntlet/"):
+        elif method == "DELETE" and path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
                 is_valid, err = validate_gauntlet_id(gauntlet_id)
                 if not is_valid:
                     return error_response(err, 400)
-                return self._delete_result(gauntlet_id, query_params)
+                result = self._delete_result(gauntlet_id, query_params)
 
         # GET /api/gauntlet/{id}
-        if path.startswith("/api/gauntlet/"):
+        elif path.startswith("/api/gauntlet/"):
             gauntlet_id = path.split("/")[-1]
             if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
                 is_valid, err = validate_gauntlet_id(gauntlet_id)
                 if not is_valid:
                     return error_response(err, 400)
-                return await self._get_status(gauntlet_id)
+                result = await self._get_status(gauntlet_id)
 
-        return None
+        # Add version headers to result
+        if result is not None:
+            result = self._add_version_headers(result, original_path)
+
+        return result
 
     def _list_personas(self) -> HandlerResult:
         """List available regulatory personas."""
@@ -618,6 +691,7 @@ class GauntletHandler(BaseHandler):
 
     async def _get_receipt(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get decision receipt for gauntlet run."""
+        from aragora.gauntlet.errors import gauntlet_error_response
         from aragora.gauntlet.receipt import DecisionReceipt
 
         run = None
@@ -628,7 +702,8 @@ class GauntletHandler(BaseHandler):
         if gauntlet_id in _gauntlet_runs:
             run = _gauntlet_runs[gauntlet_id]
             if run["status"] != "completed":
-                return error_response("Gauntlet run not completed", 400)
+                body, status = gauntlet_error_response("not_completed", {"gauntlet_id": gauntlet_id})
+                return json_response(body, status=status)
             result = run["result"]
             result_obj = run.get("result_obj")
         else:
@@ -639,10 +714,12 @@ class GauntletHandler(BaseHandler):
                 if stored:
                     result = stored
                 else:
-                    return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
+                    body, status = gauntlet_error_response("gauntlet_not_found", {"gauntlet_id": gauntlet_id})
+                    return json_response(body, status=status)
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
-                return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
+                body, status = gauntlet_error_response("storage_error", {"reason": str(e)})
+                return json_response(body, status=status)
 
         # Generate receipt
         if result_obj:
@@ -678,7 +755,22 @@ class GauntletHandler(BaseHandler):
             )
 
         # Return format based on query param
+        # Supported formats: json (default), html, md, sarif, pdf, csv
         format_type = get_string_param(query_params, "format", "json")
+        # Check if cryptographic signing is requested
+        signed = get_string_param(query_params, "signed", "false") == "true"
+
+        # Prepare receipt data (potentially signed)
+        receipt_data = receipt.to_dict()
+        if signed:
+            try:
+                from aragora.gauntlet.signing import sign_receipt
+
+                signed_receipt = sign_receipt(receipt_data)
+                receipt_data = signed_receipt.to_dict()
+            except (ImportError, ValueError) as e:
+                logger.warning(f"Receipt signing failed: {e}")
+                # Continue with unsigned receipt
 
         if format_type == "html":
             return HandlerResult(
@@ -692,8 +784,45 @@ class GauntletHandler(BaseHandler):
                 content_type="text/markdown",
                 body=receipt.to_markdown().encode("utf-8"),
             )
+        elif format_type == "sarif":
+            # SARIF 2.1.0 format for security tool integration
+            return HandlerResult(
+                status_code=200,
+                content_type="application/sarif+json",
+                body=receipt.to_sarif_json().encode("utf-8"),
+                headers={
+                    "Content-Disposition": f'attachment; filename="{gauntlet_id}.sarif"'
+                },
+            )
+        elif format_type == "pdf":
+            # PDF format (requires weasyprint)
+            try:
+                pdf_bytes = receipt.to_pdf()
+                return HandlerResult(
+                    status_code=200,
+                    content_type="application/pdf",
+                    body=pdf_bytes,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{gauntlet_id}-receipt.pdf"'
+                    },
+                )
+            except ImportError:
+                return error_response(
+                    "PDF export requires weasyprint. Install with: pip install weasyprint",
+                    501,
+                )
+        elif format_type == "csv":
+            # CSV format for spreadsheet import
+            return HandlerResult(
+                status_code=200,
+                content_type="text/csv",
+                body=receipt.to_csv().encode("utf-8"),
+                headers={
+                    "Content-Disposition": f'attachment; filename="{gauntlet_id}-findings.csv"'
+                },
+            )
         else:
-            return json_response(receipt.to_dict())
+            return json_response(receipt_data)
 
     async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""

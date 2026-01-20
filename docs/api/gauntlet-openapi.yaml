@@ -1,0 +1,962 @@
+openapi: 3.1.0
+info:
+  title: Aragora Gauntlet API
+  description: |
+    Adversarial stress-testing API for validating decisions, specifications, and policies.
+
+    The Gauntlet runs 9 regulatory personas (GDPR, HIPAA, SOC2, FINRA, PCI-DSS,
+    ISO 27001, NIST, FedRAMP, ADA) against your input to identify risks, vulnerabilities,
+    and compliance gaps.
+
+    ## Key Features
+
+    - **Multi-Persona Validation**: 9 regulatory compliance personas
+    - **Decision Receipts**: Cryptographically-signed audit artifacts
+    - **Risk Heatmaps**: Visual risk distribution analysis
+    - **Provenance Chains**: Complete audit trails
+
+    ## Authentication
+
+    All endpoints require a Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer <your-api-key>
+    ```
+
+    ## Rate Limits
+
+    - 10 requests per minute per API key
+    - Rate limit headers included in responses:
+      - `X-RateLimit-Limit`: Maximum requests per minute
+      - `X-RateLimit-Remaining`: Remaining requests
+      - `X-RateLimit-Reset`: Unix timestamp when limit resets
+  version: 2.0.0
+  contact:
+    name: Aragora API Support
+    url: https://aragora.ai/support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.aragora.ai
+    description: Production server
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Gauntlet
+    description: Adversarial stress-testing operations
+  - name: Receipts
+    description: Decision receipt generation and export
+  - name: Analysis
+    description: Risk analysis and comparison tools
+
+paths:
+  /api/gauntlet/run:
+    post:
+      operationId: runGauntlet
+      summary: Start a new gauntlet stress-test
+      description: |
+        Initiates an adversarial stress-test against the provided input.
+        Returns immediately with a gauntlet_id for polling status.
+
+        The gauntlet runs asynchronously and typically completes within 30-300 seconds
+        depending on input size and complexity.
+      tags:
+        - Gauntlet
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GauntletRunRequest'
+            examples:
+              spec:
+                summary: Test a specification
+                value:
+                  input_content: "The system shall authenticate users via OAuth 2.0..."
+                  input_type: spec
+                  agents: ["anthropic-api", "openai-api"]
+              policy:
+                summary: Test a security policy
+                value:
+                  input_content: "All user data must be encrypted at rest..."
+                  input_type: policy
+                  persona: gdpr_auditor
+      responses:
+        '202':
+          description: Gauntlet started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GauntletStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/gauntlet/{gauntlet_id}:
+    get:
+      operationId: getGauntletStatus
+      summary: Get gauntlet run status
+      description: |
+        Returns the current status of a gauntlet run.
+        Poll this endpoint to track progress until status is "completed" or "failed".
+      tags:
+        - Gauntlet
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+      responses:
+        '200':
+          description: Gauntlet status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GauntletStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteGauntlet
+      summary: Delete a gauntlet run
+      description: Permanently deletes a gauntlet run and all associated data.
+      tags:
+        - Gauntlet
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+      responses:
+        '200':
+          description: Gauntlet deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+                  gauntlet_id:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/gauntlet/{gauntlet_id}/receipt:
+    get:
+      operationId: getGauntletReceipt
+      summary: Get decision receipt
+      description: |
+        Returns an audit-ready decision receipt for a completed gauntlet run.
+
+        The receipt includes:
+        - Complete findings summary
+        - Risk scores and confidence levels
+        - Provenance chain for audit trails
+        - Cryptographic integrity hash
+
+        Receipts can optionally be cryptographically signed for tamper-evidence.
+      tags:
+        - Receipts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, html, md]
+            default: json
+        - name: signed
+          in: query
+          description: Include cryptographic signature
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Receipt retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionReceipt'
+            text/html:
+              schema:
+                type: string
+            text/markdown:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/gauntlet/{gauntlet_id}/heatmap:
+    get:
+      operationId: getGauntletHeatmap
+      summary: Get risk heatmap
+      description: |
+        Returns a risk heatmap showing the distribution of findings
+        by category and severity.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, svg, ascii]
+            default: json
+      responses:
+        '200':
+          description: Heatmap retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskHeatmap'
+            image/svg+xml:
+              schema:
+                type: string
+            text/plain:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/gauntlet/{gauntlet_id}/export:
+    get:
+      operationId: exportGauntletReport
+      summary: Export comprehensive report
+      description: |
+        Exports a comprehensive gauntlet report combining all analysis results.
+
+        Includes summary, findings, heatmap, and enhanced analysis data.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, html, full_html]
+            default: json
+        - name: include_heatmap
+          in: query
+          description: Include heatmap data
+          schema:
+            type: boolean
+            default: true
+        - name: include_findings
+          in: query
+          description: Include detailed findings
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Report exported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GauntletReport'
+            text/html:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/gauntlet/{gauntlet_id}/compare/{compare_id}:
+    get:
+      operationId: compareGauntlets
+      summary: Compare two gauntlet runs
+      description: |
+        Compares two gauntlet runs to identify changes in risk profile,
+        new findings, resolved issues, and score deltas.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GauntletId'
+        - name: compare_id
+          in: path
+          required: true
+          description: ID of the gauntlet run to compare against
+          schema:
+            type: string
+            pattern: '^gauntlet-\d{14}-[a-f0-9]{6}$'
+      responses:
+        '200':
+          description: Comparison completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GauntletComparison'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/gauntlet/results:
+    get:
+      operationId: listGauntletResults
+      summary: List recent gauntlet results
+      description: Returns a paginated list of recent gauntlet runs.
+      tags:
+        - Gauntlet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum results to return (1-100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Results offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: verdict
+          in: query
+          description: Filter by verdict
+          schema:
+            type: string
+            enum: [approved, approved_with_conditions, needs_review, rejected]
+        - name: min_severity
+          in: query
+          description: Filter by minimum severity found
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+      responses:
+        '200':
+          description: Results listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GauntletResultsList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/gauntlet/personas:
+    get:
+      operationId: listPersonas
+      summary: List available personas
+      description: |
+        Returns the list of available regulatory personas that can be used
+        for stress-testing. Each persona represents a specific compliance
+        framework or regulatory perspective.
+      tags:
+        - Gauntlet
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Personas listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonasList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    GauntletId:
+      name: gauntlet_id
+      in: path
+      required: true
+      description: Unique identifier for the gauntlet run
+      schema:
+        type: string
+        pattern: '^gauntlet-\d{14}-[a-f0-9]{6}$'
+        example: gauntlet-20260120153045-a1b2c3
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalid_input:
+              value:
+                error: true
+                code: GAUNTLET_100
+                message: Invalid input content
+            invalid_type:
+              value:
+                error: true
+                code: GAUNTLET_102
+                message: Invalid input type
+                details:
+                  valid_types: [spec, architecture, policy, code, strategy, contract]
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: true
+            code: GAUNTLET_200
+            message: Authentication required
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: true
+            code: GAUNTLET_300
+            message: Gauntlet run not found
+
+    PayloadTooLarge:
+      description: Input exceeds size limit
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: true
+            code: GAUNTLET_101
+            message: Input exceeds maximum size limit
+            details:
+              max_size_kb: 1024
+
+    TooManyRequests:
+      description: Rate limit or quota exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            rate_limited:
+              value:
+                error: true
+                code: GAUNTLET_304
+                message: Rate limit exceeded, please retry later
+            quota_exceeded:
+              value:
+                error: true
+                code: GAUNTLET_303
+                message: Monthly gauntlet quota exceeded
+                details:
+                  limit: 100
+                  used: 100
+                  remaining: 0
+                  tier: professional
+                  upgrade_url: /pricing
+
+    InternalError:
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: true
+            code: GAUNTLET_500
+            message: Internal server error
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - code
+        - message
+      properties:
+        error:
+          type: boolean
+          example: true
+        code:
+          type: string
+          description: Machine-parseable error code
+          example: GAUNTLET_300
+        message:
+          type: string
+          description: Human-readable error message
+          example: Gauntlet run not found
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+    GauntletRunRequest:
+      type: object
+      required:
+        - input_content
+      properties:
+        input_content:
+          type: string
+          description: The content to stress-test
+          maxLength: 1048576
+          example: "The system shall authenticate users via OAuth 2.0..."
+        input_type:
+          type: string
+          description: Type of input content
+          enum: [spec, architecture, policy, code, strategy, contract]
+          default: spec
+        persona:
+          type: string
+          description: Specific persona to use (optional, uses all if not specified)
+          example: gdpr_auditor
+        agents:
+          type: array
+          description: Agents to use for analysis
+          items:
+            type: string
+          default: ["anthropic-api"]
+          example: ["anthropic-api", "openai-api"]
+        profile:
+          type: string
+          description: Configuration profile
+          default: default
+          example: compliance
+
+    GauntletStartResponse:
+      type: object
+      properties:
+        gauntlet_id:
+          type: string
+          description: Unique identifier for tracking this run
+          example: gauntlet-20260120153045-a1b2c3
+        status:
+          type: string
+          enum: [pending]
+          example: pending
+        message:
+          type: string
+          example: Gauntlet stress-test started
+
+    GauntletStatus:
+      type: object
+      properties:
+        gauntlet_id:
+          type: string
+          example: gauntlet-20260120153045-a1b2c3
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+          example: completed
+        input_type:
+          type: string
+        input_summary:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        error:
+          type: string
+          description: Error message if status is failed
+        result:
+          $ref: '#/components/schemas/GauntletResult'
+
+    GauntletResult:
+      type: object
+      properties:
+        gauntlet_id:
+          type: string
+        verdict:
+          type: string
+          enum: [approved, approved_with_conditions, needs_review, rejected]
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence in the verdict (0-1)
+        risk_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        robustness_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        coverage_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        total_findings:
+          type: integer
+        critical_count:
+          type: integer
+        high_count:
+          type: integer
+        medium_count:
+          type: integer
+        low_count:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+          maxItems: 20
+
+    Finding:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          example: data_privacy
+        severity:
+          type: string
+        severity_level:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        title:
+          type: string
+          example: Missing data encryption
+        description:
+          type: string
+
+    DecisionReceipt:
+      type: object
+      description: Audit-ready decision receipt
+      properties:
+        receipt_id:
+          type: string
+          example: receipt-20260120153045-a1b2c3
+        gauntlet_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        input_summary:
+          type: string
+        input_hash:
+          type: string
+          description: SHA-256 hash of input for integrity
+        risk_summary:
+          type: object
+          properties:
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+            total:
+              type: integer
+        verdict:
+          type: string
+          enum: [PASS, CONDITIONAL, FAIL]
+        confidence:
+          type: number
+          format: float
+        robustness_score:
+          type: number
+          format: float
+        verdict_reasoning:
+          type: string
+        vulnerability_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        dissenting_views:
+          type: array
+          items:
+            type: string
+        consensus_proof:
+          $ref: '#/components/schemas/ConsensusProof'
+        provenance_chain:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProvenanceRecord'
+        artifact_hash:
+          type: string
+          description: Content-addressable hash of the entire receipt
+        config_used:
+          type: object
+        signature:
+          type: string
+          description: Base64-encoded cryptographic signature (when signed=true)
+        signature_metadata:
+          $ref: '#/components/schemas/SignatureMetadata'
+
+    ConsensusProof:
+      type: object
+      properties:
+        reached:
+          type: boolean
+        confidence:
+          type: number
+          format: float
+        supporting_agents:
+          type: array
+          items:
+            type: string
+        dissenting_agents:
+          type: array
+          items:
+            type: string
+        method:
+          type: string
+        evidence_hash:
+          type: string
+
+    ProvenanceRecord:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        event_type:
+          type: string
+          enum: [attack, probe, scenario, verdict, finding]
+        agent:
+          type: string
+        description:
+          type: string
+        evidence_hash:
+          type: string
+
+    SignatureMetadata:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          enum: [HMAC-SHA256, RSA-SHA256, Ed25519]
+        timestamp:
+          type: string
+          format: date-time
+        key_id:
+          type: string
+        version:
+          type: string
+          default: "1.0"
+
+    RiskHeatmap:
+      type: object
+      properties:
+        cells:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              severity:
+                type: string
+              count:
+                type: integer
+        categories:
+          type: array
+          items:
+            type: string
+        severities:
+          type: array
+          items:
+            type: string
+        total_findings:
+          type: integer
+
+    GauntletReport:
+      type: object
+      properties:
+        gauntlet_id:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          properties:
+            verdict:
+              type: string
+            confidence:
+              type: number
+            robustness_score:
+              type: number
+            risk_score:
+              type: number
+            coverage_score:
+              type: number
+        findings_summary:
+          type: object
+          properties:
+            total:
+              type: integer
+            critical:
+              type: integer
+            high:
+              type: integer
+            medium:
+              type: integer
+            low:
+              type: integer
+        input:
+          type: object
+          properties:
+            summary:
+              type: string
+            type:
+              type: string
+            hash:
+              type: string
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        heatmap:
+          $ref: '#/components/schemas/RiskHeatmap'
+
+    GauntletComparison:
+      type: object
+      properties:
+        base_id:
+          type: string
+        compare_id:
+          type: string
+        score_deltas:
+          type: object
+          properties:
+            confidence:
+              type: number
+            robustness:
+              type: number
+            risk:
+              type: number
+        new_findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        resolved_findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        severity_changes:
+          type: object
+          additionalProperties:
+            type: integer
+
+    GauntletResultsList:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              gauntlet_id:
+                type: string
+              input_summary:
+                type: string
+              verdict:
+                type: string
+              confidence:
+                type: number
+              robustness_score:
+                type: number
+              critical_count:
+                type: integer
+              high_count:
+                type: integer
+              total_findings:
+                type: integer
+              created_at:
+                type: string
+                format: date-time
+              duration_seconds:
+                type: number
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PersonasList:
+      type: object
+      properties:
+        personas:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                example: gdpr_auditor
+              name:
+                type: string
+                example: GDPR Compliance Auditor
+              description:
+                type: string
+              regulation:
+                type: string
+                example: GDPR
+              attack_count:
+                type: integer
+              categories:
+                type: array
+                items:
+                  type: string
+        count:
+          type: integer

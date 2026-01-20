@@ -223,6 +223,26 @@ PERM_CHECKPOINT_DELETE = _permission(
     ResourceType.CHECKPOINT, Action.DELETE, "Delete Checkpoints", "Remove saved checkpoints"
 )
 
+# Gauntlet permissions (adversarial stress-testing)
+PERM_GAUNTLET_RUN = _permission(
+    ResourceType.GAUNTLET, Action.RUN, "Run Gauntlet", "Execute adversarial stress-tests"
+)
+PERM_GAUNTLET_READ = _permission(
+    ResourceType.GAUNTLET, Action.READ, "View Gauntlet Results", "View gauntlet results and receipts"
+)
+PERM_GAUNTLET_DELETE = _permission(
+    ResourceType.GAUNTLET, Action.DELETE, "Delete Gauntlet Results", "Delete gauntlet runs"
+)
+PERM_GAUNTLET_SIGN = _permission(
+    ResourceType.GAUNTLET, Action.SIGN, "Sign Receipts", "Cryptographically sign decision receipts"
+)
+PERM_GAUNTLET_COMPARE = _permission(
+    ResourceType.GAUNTLET, Action.COMPARE, "Compare Gauntlets", "Compare gauntlet run results"
+)
+PERM_GAUNTLET_EXPORT = _permission(
+    ResourceType.GAUNTLET, Action.EXPORT_DATA, "Export Gauntlet Data", "Export gauntlet reports"
+)
+
 
 # All permissions as a dictionary for easy lookup
 SYSTEM_PERMISSIONS: dict[str, Permission] = {
@@ -292,6 +312,13 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CHECKPOINT_READ,
         PERM_CHECKPOINT_CREATE,
         PERM_CHECKPOINT_DELETE,
+        # Gauntlet (adversarial stress-testing)
+        PERM_GAUNTLET_RUN,
+        PERM_GAUNTLET_READ,
+        PERM_GAUNTLET_DELETE,
+        PERM_GAUNTLET_SIGN,
+        PERM_GAUNTLET_COMPARE,
+        PERM_GAUNTLET_EXPORT,
     ]
 }
 
@@ -375,6 +402,13 @@ ROLE_ADMIN = Role(
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
         PERM_CHECKPOINT_DELETE.key,
+        # Gauntlet (all operations)
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_GAUNTLET_DELETE.key,
+        PERM_GAUNTLET_SIGN.key,
+        PERM_GAUNTLET_COMPARE.key,
+        PERM_GAUNTLET_EXPORT.key,
         # Admin (limited)
         PERM_ADMIN_METRICS.key,
     },
@@ -414,6 +448,11 @@ ROLE_DEBATE_CREATOR = Role(
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
+        # Gauntlet (run and read)
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_GAUNTLET_COMPARE.key,
+        PERM_GAUNTLET_EXPORT.key,
         # User (self only - enforced at resource level)
         PERM_USER_READ.key,
         # Org (read only)
@@ -449,6 +488,8 @@ ROLE_ANALYST = Role(
         PERM_EVIDENCE_READ.key,
         # Checkpoint read
         PERM_CHECKPOINT_READ.key,
+        # Gauntlet (read only)
+        PERM_GAUNTLET_READ.key,
         # User/Org read
         PERM_USER_READ.key,
         PERM_ORG_READ.key,
@@ -501,6 +542,9 @@ ROLE_MEMBER = Role(
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
+        # Gauntlet (run and read)
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
         # Basic access
         PERM_USER_READ.key,
         PERM_ORG_READ.key,

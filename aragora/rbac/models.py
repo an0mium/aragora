@@ -34,6 +34,7 @@ class ResourceType(str, Enum):
     CONNECTOR = "connectors"
     WEBHOOK = "webhooks"
     CHECKPOINT = "checkpoints"
+    GAUNTLET = "gauntlet"  # Adversarial stress-testing
 
 
 class Action(str, Enum):
@@ -75,6 +76,10 @@ class Action(str, Enum):
     SYSTEM_CONFIG = "system_config"
     VIEW_METRICS = "view_metrics"
     MANAGE_FEATURES = "manage_features"
+
+    # Gauntlet-specific
+    SIGN = "sign"  # Sign receipts cryptographically
+    COMPARE = "compare"  # Compare gauntlet runs
 
     # Wildcard
     ALL = "*"
