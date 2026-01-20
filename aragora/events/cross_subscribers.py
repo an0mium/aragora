@@ -23,7 +23,6 @@ Usage:
 """
 
 import logging
-from dataclasses import field
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -52,7 +51,6 @@ try:
         record_event_dispatched,
         record_handler_call,
         set_circuit_breaker_state,
-        update_subscriber_count,
         # KM bidirectional flow metrics
         record_km_inbound_event,
         record_km_outbound_event,
@@ -1618,7 +1616,7 @@ class CrossSubscriberManager:
         # Dissent data
         dissents = data.get("dissents", [])
         dissenting_agents = data.get("dissenting_agents", [])
-        dissent_ids = data.get("dissent_ids", [])
+        _dissent_ids = data.get("dissent_ids", [])  # Preserved for future linking
 
         # Evolution data
         supersedes = data.get("supersedes", None)

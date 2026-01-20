@@ -353,6 +353,74 @@ class ContinuumAdapter:
         """Get per-tier metrics."""
         return self._continuum.get_tier_metrics()
 
+    def search_similar(
+        self,
+        content: str,
+        limit: int = 5,
+        min_similarity: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find similar memory entries for deduplication.
+
+        Args:
+            content: Content to find similar entries for
+            limit: Maximum results
+            min_similarity: Minimum similarity threshold (currently uses keyword match)
+
+        Returns:
+            List of similar memory entries as dicts
+        """
+        # Extract key terms for search (first 10 words)
+        words = content.split()[:10]
+        query = " ".join(words)
+
+        entries = self.search_by_keyword(query, limit=limit)
+
+        # Convert to dict format for consistency with other adapters
+        return [
+            {
+                "id": e.id,
+                "content": e.content,
+                "tier": e.tier.value,
+                "importance": e.importance,
+                "surprise_score": e.surprise_score,
+                "consolidation_score": e.consolidation_score,
+                "update_count": e.update_count,
+                "success_rate": e.success_rate,
+                "created_at": e.created_at,
+                "updated_at": e.updated_at,
+                "metadata": e.metadata,
+            }
+            for e in entries
+        ]
+
+    def store_memory(self, entry: "ContinuumMemoryEntry") -> None:
+        """
+        Store a memory entry in the Knowledge Mound (forward flow).
+
+        This is called by ContinuumMemory when a high-importance memory
+        is added and should be synced to KM for cross-session persistence.
+
+        Args:
+            entry: The ContinuumMemoryEntry to store in KM
+        """
+        # This method is a hook for KM sync. The actual KM storage happens
+        # when sync_memory_to_mound is called with a mound instance.
+        # For now, we just log the intent - actual sync requires mound reference.
+        logger.debug(
+            f"Memory marked for KM sync: {entry.id} "
+            f"(tier={entry.tier.value}, importance={entry.importance:.2f})"
+        )
+        # Mark the entry as pending KM sync in metadata
+        if not entry.metadata.get("km_sync_pending"):
+            entry.metadata["km_sync_pending"] = True
+            entry.metadata["km_sync_requested_at"] = datetime.now().isoformat()
+            # Update the entry in the store
+            self._continuum.update(
+                entry.id,
+                metadata=entry.metadata,
+            )
+
     # =========================================================================
     # Reverse Flow Methods (KM → ContinuumMemory)
     # =========================================================================

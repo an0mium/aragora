@@ -525,6 +525,16 @@ module = [
     "aragora.rlm.knowledge_adapter",
     "aragora.rlm.hierarchy_cache",
     "aragora.rlm.types",
+    # Added strict - Phase 25 extracted modules (Jan 2026)
+    "aragora.reasoning.crux_detector",
+    "aragora.observability.metrics.bridge",
+    "aragora.observability.metrics.km",
+    "aragora.observability.metrics.notification",
+    "aragora.rlm.streaming_mixin",
+    "aragora.client.resources.gauntlet",
+    "aragora.client.resources.graph_debates",
+    "aragora.client.resources.matrix_debates",
+    "aragora.client.resources.replay",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

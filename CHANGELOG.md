@@ -55,6 +55,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Extracted `BeliefPropagationAnalyzer` to `crux_detector.py`
   - Backward compatible re-exports maintained
 
+- **Strict Type Checking Expansion** - Added 9 modules to strict mypy configuration:
+  - `aragora/reasoning/crux_detector.py` - Crux detection module
+  - `aragora/observability/metrics/bridge.py` - Cross-pollination metrics
+  - `aragora/observability/metrics/km.py` - Knowledge Mound metrics
+  - `aragora/observability/metrics/notification.py` - Notification metrics
+  - `aragora/rlm/streaming_mixin.py` - RLM streaming methods
+  - `aragora/client/resources/gauntlet.py` - Gauntlet API client
+  - `aragora/client/resources/graph_debates.py` - Graph debates API client
+  - `aragora/client/resources/matrix_debates.py` - Matrix debates API client
+  - `aragora/client/resources/replay.py` - Replay API client
+
 ### Documentation
 
 - Updated `docs/ENVIRONMENT.md` with Redis cluster configuration variables

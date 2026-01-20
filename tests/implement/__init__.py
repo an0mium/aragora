@@ -1,1 +1,1 @@
-"""Tests for hybrid implementation system."""
+"""Tests for implementation module."""

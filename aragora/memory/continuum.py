@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDic
 
 if TYPE_CHECKING:
     from aragora.types.protocols import EventEmitterProtocol
+    from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +316,7 @@ class ContinuumMemory(SQLiteStore):
         event_emitter: Optional["EventEmitterProtocol"] = None,
         storage_path: Optional[str] = None,
         base_dir: Optional[str] = None,
+        km_adapter: Optional["ContinuumAdapter"] = None,
     ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
@@ -363,6 +365,46 @@ class ContinuumMemory(SQLiteStore):
 
         # Lock for atomic tier transitions (prevents TOCTOU race in promote/demote)
         self._tier_lock = threading.Lock()
+
+        # Optional Knowledge Mound adapter for bidirectional integration
+        self._km_adapter: Optional["ContinuumAdapter"] = km_adapter
+
+    def set_km_adapter(self, adapter: "ContinuumAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: ContinuumAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
+
+    def query_km_for_similar(
+        self,
+        content: str,
+        limit: int = 5,
+        min_similarity: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """Query Knowledge Mound for similar memories (reverse flow).
+
+        Args:
+            content: Content to find similar memories for
+            limit: Maximum results
+            min_similarity: Minimum similarity threshold
+
+        Returns:
+            List of similar memory items from KM
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_similar(
+                content=content,
+                limit=limit,
+                min_similarity=min_similarity,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for similar memories: {e}")
+            return []
 
     def register_migrations(self, manager: SchemaManager) -> None:
         """Register schema migrations for ContinuumMemory."""
@@ -449,6 +491,13 @@ class ContinuumMemory(SQLiteStore):
                 )
             except (ImportError, AttributeError, TypeError):
                 pass  # Events module not available
+
+        # Sync to Knowledge Mound if adapter is configured and importance is high
+        if self._km_adapter and importance >= 0.7:
+            try:
+                self._km_adapter.store_memory(entry)
+            except Exception as e:
+                logger.debug(f"Failed to sync memory to KM: {e}")
 
         return entry
 

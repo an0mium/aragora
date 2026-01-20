@@ -24,7 +24,6 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import (
     RateLimiter,
-    get_client_ip,
     rate_limit,
 )
 from aragora.observability.metrics import (

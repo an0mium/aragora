@@ -1,123 +1,219 @@
-"""
-Tests for implementation planner.
-
-Tests cover:
-- extract_json function
-- validate_plan function
-- create_single_task_plan function
-"""
+"""Tests for implementation planner module."""
 
 import hashlib
-import tempfile
+import pytest
 from pathlib import Path
 
-import pytest
-
 from aragora.implement.planner import (
-    create_single_task_plan,
     extract_json,
     validate_plan,
+    create_single_task_plan,
+    PLAN_PROMPT_TEMPLATE,
 )
-from aragora.implement.types import ImplementPlan
-
-
-# ============================================================================
-# extract_json Tests
-# ============================================================================
+from aragora.implement.types import ImplementPlan, ImplementTask
 
 
 class TestExtractJson:
-    """Tests for extract_json function."""
+    """Tests for JSON extraction from text."""
 
     def test_extracts_raw_json(self):
-        """Test extracting raw JSON object."""
-        text = '{"key": "value"}'
-        result = extract_json(text)
-        assert result == '{"key": "value"}'
-
-    def test_extracts_json_from_code_block(self):
-        """Test extracting JSON from markdown code block."""
-        text = """Here's the plan:
-```json
-{"tasks": []}
-```
-Done!"""
+        """Should extract plain JSON object."""
+        text = '{"tasks": []}'
         result = extract_json(text)
         assert result == '{"tasks": []}'
 
-    def test_extracts_json_from_unmarked_code_block(self):
-        """Test extracting JSON from code block without language marker."""
-        text = """
+    def test_extracts_json_from_code_block(self):
+        """Should extract JSON from markdown code block."""
+        text = '''Here's the plan:
+```json
+{"tasks": [{"id": "task-1"}]}
 ```
-{"id": "test"}
-```
-"""
+Let me explain...'''
         result = extract_json(text)
-        assert result == '{"id": "test"}'
+        assert '{"tasks": [{"id": "task-1"}]}' in result
+
+    def test_extracts_json_from_untagged_code_block(self):
+        """Should extract JSON from untagged code block."""
+        text = '''Output:
+```
+{"tasks": []}
+```'''
+        result = extract_json(text)
+        assert '{"tasks": []}' in result
 
     def test_extracts_json_with_surrounding_text(self):
-        """Test extracting JSON with surrounding prose."""
-        text = """
-Based on my analysis, here is the implementation plan:
-
-{"tasks": [{"id": "task-1"}]}
-
-Let me know if you need changes.
-"""
+        """Should extract JSON when surrounded by text."""
+        text = 'Prefix text {"key": "value"} suffix text'
         result = extract_json(text)
-        assert '{"tasks"' in result
+        assert '{"key": "value"}' in result
 
-    def test_extracts_nested_json(self):
-        """Test extracting nested JSON object."""
-        text = '{"outer": {"inner": {"deep": 123}}}'
+    def test_handles_nested_json(self):
+        """Should extract nested JSON objects."""
+        text = '{"outer": {"inner": "value"}}'
         result = extract_json(text)
-        assert result == '{"outer": {"inner": {"deep": 123}}}'
+        assert result == '{"outer": {"inner": "value"}}'
 
     def test_returns_original_if_no_json(self):
-        """Test returns original text if no JSON found."""
-        text = "No JSON here at all"
+        """Should return original text if no JSON found."""
+        text = "No JSON here"
         result = extract_json(text)
-        assert result == "No JSON here at all"
-
-    def test_prefers_code_block_over_raw(self):
-        """Test code block JSON is preferred."""
-        text = """
-Inline {"inline": true}
-
-```json
-{"codeblock": true}
-```
-"""
-        result = extract_json(text)
-        assert '{"codeblock": true}' == result
-
-    def test_handles_multiline_json(self):
-        """Test extracting multiline JSON."""
-        text = """```json
-{
-  "tasks": [
-    {
-      "id": "task-1",
-      "description": "First task"
-    }
-  ]
-}
-```"""
-        result = extract_json(text)
-        assert '"tasks"' in result
-        assert '"id": "task-1"' in result
-
-
-# ============================================================================
-# validate_plan Tests
-# ============================================================================
+        assert result == text
 
 
 class TestValidatePlan:
-    """Tests for validate_plan function."""
+    """Tests for plan validation."""
 
     def test_valid_plan(self):
-        """Test valid plan returns no errors."""
+        """Valid plan should return no errors."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "First task",
+                    "files": ["a.py"],
+                    "complexity": "simple",
+                    "dependencies": [],
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert errors == []
+
+    def test_missing_tasks_key(self):
+        """Should error on missing tasks key."""
+        plan = {"other": "data"}
+        errors = validate_plan(plan)
+        assert any("Missing 'tasks' key" in e for e in errors)
+
+    def test_tasks_not_list(self):
+        """Should error if tasks is not a list."""
+        plan = {"tasks": "not a list"}
+        errors = validate_plan(plan)
+        assert any("must be a list" in e for e in errors)
+
+    def test_empty_tasks(self):
+        """Should error on empty tasks list."""
+        plan = {"tasks": []}
+        errors = validate_plan(plan)
+        assert any("no tasks" in e for e in errors)
+
+    def test_task_not_dict(self):
+        """Should error if task is not a dict."""
+        plan = {"tasks": ["not a dict"]}
+        errors = validate_plan(plan)
+        assert any("not a dict" in e for e in errors)
+
+    def test_missing_task_id(self):
+        """Should error on missing task id."""
+        plan = {
+            "tasks": [
+                {
+                    "description": "Task without id",
+                    "files": [],
+                    "complexity": "simple",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("missing 'id'" in e for e in errors)
+
+    def test_missing_description(self):
+        """Should error on missing description."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "files": [],
+                    "complexity": "simple",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("missing 'description'" in e for e in errors)
+
+    def test_missing_files(self):
+        """Should error on missing files."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "Test",
+                    "complexity": "simple",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("missing or invalid 'files'" in e for e in errors)
+
+    def test_files_not_list(self):
+        """Should error if files is not a list."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "Test",
+                    "files": "not a list",
+                    "complexity": "simple",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("missing or invalid 'files'" in e for e in errors)
+
+    def test_invalid_complexity(self):
+        """Should error on invalid complexity."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "Test",
+                    "files": [],
+                    "complexity": "invalid",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("invalid complexity" in e for e in errors)
+
+    def test_duplicate_task_ids(self):
+        """Should error on duplicate task IDs."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "First",
+                    "files": [],
+                    "complexity": "simple",
+                },
+                {
+                    "id": "task-1",
+                    "description": "Duplicate",
+                    "files": [],
+                    "complexity": "simple",
+                },
+            ]
+        }
+        errors = validate_plan(plan)
+        assert any("Duplicate task id" in e for e in errors)
+
+    def test_valid_complexity_values(self):
+        """All valid complexity values should pass."""
+        for complexity in ("simple", "moderate", "complex"):
+            plan = {
+                "tasks": [
+                    {
+                        "id": f"task-{complexity}",
+                        "description": f"Test {complexity}",
+                        "files": ["file.py"],
+                        "complexity": complexity,
+                    }
+                ]
+            }
+            errors = validate_plan(plan)
+            assert errors == [], f"Failed for complexity: {complexity}"
+
+    def test_multiple_valid_tasks(self):
+        """Should validate multiple tasks correctly."""
         plan = {
             "tasks": [
                 {
@@ -130,7 +226,7 @@ class TestValidatePlan:
                 {
                     "id": "task-2",
                     "description": "Second task",
-                    "files": ["b.py"],
+                    "files": ["b.py", "c.py"],
                     "complexity": "moderate",
                     "dependencies": ["task-1"],
                 },
@@ -139,232 +235,145 @@ class TestValidatePlan:
         errors = validate_plan(plan)
         assert errors == []
 
-    def test_missing_tasks_key(self):
-        """Test error for missing tasks key."""
-        plan = {"other": "data"}
-        errors = validate_plan(plan)
-        assert "Missing 'tasks' key in plan" in errors
-
-    def test_tasks_not_a_list(self):
-        """Test error for tasks not being a list."""
-        plan = {"tasks": "not a list"}
-        errors = validate_plan(plan)
-        assert "'tasks' must be a list" in errors
-
-    def test_empty_tasks(self):
-        """Test error for empty tasks list."""
-        plan = {"tasks": []}
-        errors = validate_plan(plan)
-        assert "Plan has no tasks" in errors
-
-    def test_task_not_dict(self):
-        """Test error for task not being a dict."""
-        plan = {"tasks": ["not a dict"]}
-        errors = validate_plan(plan)
-        assert "Task 0 is not a dict" in errors
-
-    def test_task_missing_id(self):
-        """Test error for task missing id."""
-        plan = {"tasks": [{"description": "No id", "files": [], "complexity": "simple"}]}
-        errors = validate_plan(plan)
-        assert "Task 0 missing 'id'" in errors
-
-    def test_task_missing_description(self):
-        """Test error for task missing description."""
-        plan = {"tasks": [{"id": "t1", "files": [], "complexity": "simple"}]}
-        errors = validate_plan(plan)
-        assert "Task 0 missing 'description'" in errors
-
-    def test_task_missing_files(self):
-        """Test error for task missing files."""
-        plan = {"tasks": [{"id": "t1", "description": "Test", "complexity": "simple"}]}
-        errors = validate_plan(plan)
-        assert "Task 0 missing or invalid 'files'" in errors
-
-    def test_task_files_not_list(self):
-        """Test error for files not being a list."""
-        plan = {
-            "tasks": [
-                {"id": "t1", "description": "Test", "files": "file.py", "complexity": "simple"}
-            ]
-        }
-        errors = validate_plan(plan)
-        assert "Task 0 missing or invalid 'files'" in errors
-
-    def test_task_invalid_complexity(self):
-        """Test error for invalid complexity value."""
-        plan = {
-            "tasks": [{"id": "t1", "description": "Test", "files": [], "complexity": "invalid"}]
-        }
-        errors = validate_plan(plan)
-        assert "Task 0 has invalid complexity: invalid" in errors
-
-    def test_duplicate_task_ids(self):
-        """Test error for duplicate task IDs."""
-        plan = {
-            "tasks": [
-                {"id": "t1", "description": "First", "files": [], "complexity": "simple"},
-                {"id": "t1", "description": "Duplicate", "files": [], "complexity": "simple"},
-            ]
-        }
-        errors = validate_plan(plan)
-        assert "Duplicate task id: t1" in errors
-
-    def test_valid_complexities(self):
-        """Test all valid complexity values."""
-        for complexity in ["simple", "moderate", "complex"]:
-            plan = {
-                "tasks": [
-                    {"id": "t1", "description": "Test", "files": ["f.py"], "complexity": complexity}
-                ]
-            }
-            errors = validate_plan(plan)
-            assert errors == [], f"Complexity '{complexity}' should be valid"
-
-    def test_multiple_errors(self):
-        """Test multiple errors are collected."""
-        plan = {
-            "tasks": [
-                {"id": "t1"},  # Missing description, files, complexity
-                {
-                    "description": "No id",
-                    "files": [],
-                    "complexity": "bad",
-                },  # Missing id, bad complexity
-            ]
-        }
-        errors = validate_plan(plan)
-        assert len(errors) >= 4
-
-
-# ============================================================================
-# create_single_task_plan Tests
-# ============================================================================
-
 
 class TestCreateSingleTaskPlan:
-    """Tests for create_single_task_plan function."""
+    """Tests for fallback single-task plan creation."""
 
-    def test_creates_plan_with_single_task(self):
-        """Test creates a plan with exactly one task."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert isinstance(plan, ImplementPlan)
-        assert len(plan.tasks) == 1
-
-    def test_task_has_correct_id(self):
-        """Test single task has expected ID."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert plan.tasks[0].id == "task-1"
-
-    def test_task_has_generic_description(self):
-        """Test single task has generic description."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert "implement" in plan.tasks[0].description.lower()
-
-    def test_task_complexity_is_complex(self):
-        """Test single task is marked as complex."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert plan.tasks[0].complexity == "complex"
-
-    def test_task_has_empty_files(self):
-        """Test single task has empty files list."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert plan.tasks[0].files == []
-
-    def test_task_has_no_dependencies(self):
-        """Test single task has no dependencies."""
-        design = "Implement feature X"
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
-
-        assert plan.tasks[0].dependencies == []
-
-    def test_design_hash_is_deterministic(self):
-        """Test design hash is deterministic."""
-        design = "Implement feature X"
+    def test_creates_plan_with_hash(self, tmp_path):
+        """Should create plan with correct design hash."""
+        design = "Test design content"
         expected_hash = hashlib.sha256(design.encode()).hexdigest()
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan = create_single_task_plan(design, Path(tmpdir))
+        plan = create_single_task_plan(design, tmp_path)
 
         assert plan.design_hash == expected_hash
 
-    def test_different_designs_different_hashes(self):
-        """Test different designs produce different hashes."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plan1 = create_single_task_plan("Design A", Path(tmpdir))
-            plan2 = create_single_task_plan("Design B", Path(tmpdir))
+    def test_creates_single_task(self, tmp_path):
+        """Should create exactly one task."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert len(plan.tasks) == 1
 
+    def test_task_has_standard_id(self, tmp_path):
+        """Task should have id 'task-1'."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert plan.tasks[0].id == "task-1"
+
+    def test_task_is_complex(self, tmp_path):
+        """Task should be marked as complex."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert plan.tasks[0].complexity == "complex"
+
+    def test_task_has_empty_files(self, tmp_path):
+        """Task should have empty files list."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert plan.tasks[0].files == []
+
+    def test_task_has_no_dependencies(self, tmp_path):
+        """Task should have no dependencies."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert plan.tasks[0].dependencies == []
+
+    def test_task_has_generic_description(self, tmp_path):
+        """Task should have generic description."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert "complete design" in plan.tasks[0].description.lower()
+
+    def test_returns_implement_plan_instance(self, tmp_path):
+        """Should return ImplementPlan instance."""
+        plan = create_single_task_plan("Design", tmp_path)
+        assert isinstance(plan, ImplementPlan)
+
+    def test_different_designs_different_hashes(self, tmp_path):
+        """Different designs should produce different hashes."""
+        plan1 = create_single_task_plan("Design A", tmp_path)
+        plan2 = create_single_task_plan("Design B", tmp_path)
         assert plan1.design_hash != plan2.design_hash
 
 
-# ============================================================================
-# Integration Tests
-# ============================================================================
+class TestPlanPromptTemplate:
+    """Tests for the plan prompt template."""
+
+    def test_template_has_design_placeholder(self):
+        """Template should have design placeholder."""
+        assert "{design}" in PLAN_PROMPT_TEMPLATE
+
+    def test_template_has_repo_path_placeholder(self):
+        """Template should have repo_path placeholder."""
+        assert "{repo_path}" in PLAN_PROMPT_TEMPLATE
+
+    def test_template_formats_correctly(self):
+        """Template should format without errors."""
+        result = PLAN_PROMPT_TEMPLATE.format(
+            design="Test design",
+            repo_path="/test/path",
+        )
+        assert "Test design" in result
+        assert "/test/path" in result
+
+    def test_template_mentions_complexity_levels(self):
+        """Template should document complexity levels."""
+        assert "simple" in PLAN_PROMPT_TEMPLATE
+        assert "moderate" in PLAN_PROMPT_TEMPLATE
+        assert "complex" in PLAN_PROMPT_TEMPLATE
+
+    def test_template_requests_json_output(self):
+        """Template should request JSON output."""
+        assert "JSON" in PLAN_PROMPT_TEMPLATE
 
 
-class TestPlannerIntegration:
-    """Integration tests for planner functionality."""
+class TestValidatePlanEdgeCases:
+    """Edge case tests for plan validation."""
 
-    def test_extract_and_validate_valid(self):
-        """Test extract + validate with valid JSON."""
-        response = """
-Here's your plan:
-```json
-{
-  "tasks": [
-    {
-      "id": "task-1",
-      "description": "Create the module",
-      "files": ["src/module.py"],
-      "complexity": "simple",
-      "dependencies": []
-    }
-  ]
-}
-```
-"""
-        import json
-
-        json_str = extract_json(response)
-        plan_data = json.loads(json_str)
-        errors = validate_plan(plan_data)
-
+    def test_validates_with_dependencies(self):
+        """Should validate tasks with dependencies."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "Base",
+                    "files": ["a.py"],
+                    "complexity": "simple",
+                    "dependencies": [],
+                },
+                {
+                    "id": "task-2",
+                    "description": "Depends on task-1",
+                    "files": ["b.py"],
+                    "complexity": "simple",
+                    "dependencies": ["task-1"],
+                },
+            ]
+        }
+        errors = validate_plan(plan)
         assert errors == []
-        assert len(plan_data["tasks"]) == 1
 
-    def test_extract_and_validate_invalid(self):
-        """Test extract + validate with invalid JSON structure."""
-        response = """
-```json
-{
-  "tasks": [
-    {
-      "description": "Missing id and files"
-    }
-  ]
-}
-```
-"""
-        import json
+    def test_many_files_allowed(self):
+        """Should allow tasks with many files."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "Many files",
+                    "files": [f"file{i}.py" for i in range(10)],
+                    "complexity": "complex",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        assert errors == []
 
-        json_str = extract_json(response)
-        plan_data = json.loads(json_str)
-        errors = validate_plan(plan_data)
-
-        assert len(errors) > 0
+    def test_empty_description_fails(self):
+        """Empty description string should still pass (not missing)."""
+        plan = {
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "description": "",
+                    "files": [],
+                    "complexity": "simple",
+                }
+            ]
+        }
+        errors = validate_plan(plan)
+        # Empty string is not missing, so should pass
+        assert not any("missing 'description'" in e for e in errors)

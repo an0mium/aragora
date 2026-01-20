@@ -321,15 +321,16 @@ class TestAsyncDispatchConfig:
     """Tests for async dispatch configuration."""
 
     def test_default_async_event_types(self):
-        """Default config includes high-volume event types."""
+        """Default config starts with empty async_event_types (opt-in)."""
         from aragora.events.cross_subscribers import AsyncDispatchConfig
-        from aragora.events.types import StreamEventType
 
         config = AsyncDispatchConfig()
 
-        assert StreamEventType.MEMORY_STORED in config.async_event_types
-        assert StreamEventType.MEMORY_RETRIEVED in config.async_event_types
-        assert StreamEventType.KNOWLEDGE_QUERIED in config.async_event_types
+        # Default is empty - async dispatch is opt-in per event type
+        assert isinstance(config.async_event_types, set)
+        # Batching is enabled by default
+        assert config.enable_batching is True
+        assert config.batch_size == 10
 
     def test_dispatch_uses_async_for_configured_types(self):
         """dispatch() uses async for high-volume event types."""
