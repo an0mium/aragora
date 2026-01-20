@@ -528,7 +528,7 @@ class ChatPlatformConnector(ABC):
             return True
 
         query_lower = query.lower()
-        text_lower = (message.text or "").lower()
+        text_lower = (message.content or "").lower()
 
         # Simple keyword matching
         keywords = query_lower.split()
@@ -545,7 +545,7 @@ class ChatPlatformConnector(ABC):
 
         # Simple TF-based relevance
         query_lower = query.lower()
-        text_lower = (message.text or "").lower()
+        text_lower = (message.content or "").lower()
 
         keywords = query_lower.split()
         if not keywords or not text_lower:

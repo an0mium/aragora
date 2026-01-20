@@ -116,6 +116,68 @@ class EvidenceStore(SQLiteStore):
         """
         self._km_adapter = adapter
 
+    def query_km_for_similar(
+        self,
+        content: str,
+        limit: int = 5,
+        min_similarity: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """Query Knowledge Mound for similar evidence (reverse flow).
+
+        This enables cross-session deduplication and context enrichment.
+
+        Args:
+            content: Content to find similar evidence for
+            limit: Maximum results
+            min_similarity: Minimum similarity threshold
+
+        Returns:
+            List of similar evidence from Knowledge Mound
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_similar(
+                content=content,
+                limit=limit,
+                min_similarity=min_similarity,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for similar evidence: {e}")
+            return []
+
+    def query_km_for_topic(
+        self,
+        topic: str,
+        limit: int = 10,
+        min_reliability: float = 0.0,
+    ) -> List[Dict[str, Any]]:
+        """Query Knowledge Mound for evidence on a topic (reverse flow).
+
+        This enables context enrichment before debates.
+
+        Args:
+            topic: Topic to search for
+            limit: Maximum results
+            min_reliability: Minimum reliability threshold
+
+        Returns:
+            List of relevant evidence from Knowledge Mound
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_by_topic(
+                query=topic,
+                limit=limit,
+                min_reliability=min_reliability,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for topic evidence: {e}")
+            return []
+
     def save_evidence(
         self,
         evidence_id: str,

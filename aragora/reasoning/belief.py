@@ -346,6 +346,106 @@ class BeliefNetwork:
         """
         self._km_adapter = adapter
 
+    def query_km_related_beliefs(
+        self,
+        topic: str,
+        limit: int = 10,
+        min_confidence: float = 0.7,
+    ) -> list[dict]:
+        """Query Knowledge Mound for related beliefs (reverse flow).
+
+        This enables seeding the belief network with prior knowledge.
+
+        Args:
+            topic: Topic to search for related beliefs
+            limit: Maximum results
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            List of related beliefs from Knowledge Mound
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_beliefs(
+                query=topic,
+                limit=limit,
+                min_confidence=min_confidence,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for related beliefs: {e}")
+            return []
+
+    def query_km_historical_cruxes(
+        self,
+        topic: str,
+        limit: int = 5,
+    ) -> list[dict]:
+        """Query Knowledge Mound for historical cruxes (reverse flow).
+
+        This enables predicting which claims are likely to be cruxes
+        based on past debates.
+
+        Args:
+            topic: Topic to search for historical cruxes
+            limit: Maximum results
+
+        Returns:
+            List of historical cruxes from Knowledge Mound
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_cruxes(
+                query=topic,
+                limit=limit,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for historical cruxes: {e}")
+            return []
+
+    def seed_from_km(self, topic: str, min_confidence: float = 0.7) -> int:
+        """Seed the belief network with prior beliefs from Knowledge Mound.
+
+        This is the primary reverse flow integration - setting up the network
+        with cross-session knowledge before propagation.
+
+        Args:
+            topic: Topic to seed beliefs for
+            min_confidence: Minimum confidence for beliefs to include
+
+        Returns:
+            Number of beliefs seeded from KM
+        """
+        beliefs = self.query_km_related_beliefs(
+            topic=topic,
+            limit=20,
+            min_confidence=min_confidence,
+        )
+
+        seeded_count = 0
+        for belief in beliefs:
+            try:
+                # Add belief as a node with prior from KM confidence
+                node = self.add_claim(
+                    claim_id=belief.get("claim_id", f"km-{seeded_count}"),
+                    statement=belief.get("statement", ""),
+                    author=belief.get("author", "knowledge_mound"),
+                    initial_confidence=belief.get("confidence", 0.5),
+                )
+                node.metadata["source"] = "knowledge_mound"
+                node.metadata["km_belief_id"] = belief.get("id")
+                seeded_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to seed belief from KM: {e}")
+
+        if seeded_count > 0:
+            logger.info(f"Seeded {seeded_count} beliefs from Knowledge Mound for topic: {topic[:50]}...")
+
+        return seeded_count
+
     def add_node_from_claim(
         self,
         claim: TypedClaim,

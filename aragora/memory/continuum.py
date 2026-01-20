@@ -957,6 +957,114 @@ class ContinuumMemory(SQLiteStore):
 
         return AwaitableList(entries)
 
+    def prewarm_for_query(
+        self,
+        query: str,
+        workspace_id: str | None = None,
+        limit: int = 20,
+    ) -> int:
+        """
+        Pre-warm the memory cache for a given query.
+
+        Called by KM→Memory cross-subscriber when Knowledge Mound is queried.
+        This ensures related memories are loaded into faster access patterns.
+
+        Args:
+            query: The search query to pre-warm for
+            workspace_id: Optional workspace filter
+            limit: Maximum entries to pre-warm
+
+        Returns:
+            Number of entries pre-warmed
+        """
+        if not query:
+            return 0
+
+        try:
+            # Retrieve relevant memories to warm cache
+            entries = self.retrieve(
+                query=query,
+                limit=limit,
+                min_importance=0.3,  # Only cache moderately important memories
+            )
+
+            # Touch entries to update their access time
+            count = 0
+            for entry in entries:
+                # Update metadata to mark as pre-warmed
+                if entry.metadata is None:
+                    entry.metadata = {}
+                entry.metadata["last_prewarm"] = datetime.now().isoformat()
+
+                # Update in database to refresh recency
+                self.update(
+                    entry.id,
+                    metadata=entry.metadata,
+                )
+                count += 1
+
+            logger.debug(f"Pre-warmed {count} memories for query: '{query[:50]}...'")
+            return count
+
+        except Exception as e:
+            logger.warning(f"Memory pre-warm failed: {e}")
+            return 0
+
+    def invalidate_reference(self, node_id: str) -> bool:
+        """
+        Invalidate any memory references to a KM node.
+
+        Called when a KM node is deleted to clear stale cross-references.
+
+        Args:
+            node_id: The Knowledge Mound node ID to invalidate
+
+        Returns:
+            True if any references were invalidated
+        """
+        try:
+            updated_count = 0
+            # Find entries that reference this node
+            with self.connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT id, metadata FROM continuum_memory
+                    WHERE metadata LIKE ?
+                    """,
+                    (f'%{node_id}%',),
+                )
+
+                rows = cursor.fetchall()
+
+                for row in rows:
+                    entry_id = row[0]
+                    metadata = safe_json_loads(row[1], {})
+
+                    # Remove km_node_id reference if present
+                    if metadata.get("km_node_id") == node_id:
+                        del metadata["km_node_id"]
+                        metadata["km_synced"] = False
+                        self.update(entry_id, metadata=metadata)
+                        updated_count += 1
+
+                    # Remove from cross_references if present
+                    cross_refs = metadata.get("cross_references", [])
+                    if node_id in cross_refs:
+                        cross_refs.remove(node_id)
+                        metadata["cross_references"] = cross_refs
+                        self.update(entry_id, metadata=metadata)
+                        updated_count += 1
+
+            if updated_count > 0:
+                logger.debug(f"Invalidated {updated_count} references to KM node {node_id}")
+
+            return updated_count > 0
+
+        except Exception as e:
+            logger.warning(f"Failed to invalidate KM reference {node_id}: {e}")
+            return False
+
     def update_outcome(
         self,
         id: str,

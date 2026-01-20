@@ -23,11 +23,14 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any, Callable, Coroutine, Dict, List, Optional, TYPE_CHECKING
 
 from aragora.exceptions import ConfigurationError
 from aragora.pulse.ingestor import PulseManager, TrendingTopic
 from aragora.pulse.store import ScheduledDebateRecord, ScheduledDebateStore
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.pulse_adapter import PulseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +327,7 @@ class PulseDebateScheduler:
         pulse_manager: PulseManager,
         store: ScheduledDebateStore,
         config: Optional[SchedulerConfig] = None,
+        km_adapter: Optional["PulseAdapter"] = None,
     ):
         """Initialize the scheduler.
 
@@ -331,10 +335,12 @@ class PulseDebateScheduler:
             pulse_manager: PulseManager instance for fetching trending topics
             store: ScheduledDebateStore for persistence and deduplication
             config: Optional configuration (uses defaults if not provided)
+            km_adapter: Optional Knowledge Mound adapter for bidirectional sync
         """
         self.pulse_manager = pulse_manager
         self.store = store
         self.config = config or SchedulerConfig()
+        self._km_adapter = km_adapter
 
         self._state = SchedulerState.STOPPED
         self._task: Optional[asyncio.Task] = None
@@ -346,6 +352,43 @@ class PulseDebateScheduler:
         self._debates_this_hour: List[float] = []
 
         logger.info("PulseDebateScheduler initialized")
+
+    def set_km_adapter(self, adapter: "PulseAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: PulseAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
+
+    def query_km_for_past_debates(
+        self,
+        topic: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Query Knowledge Mound for past debates on a topic (reverse flow).
+
+        This enables cross-session deduplication - avoid re-debating
+        topics that have already been resolved.
+
+        Args:
+            topic: Topic to search for
+            limit: Maximum results
+
+        Returns:
+            List of past debates on similar topics from Knowledge Mound
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_past_debates(
+                query=topic,
+                limit=limit,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for past debates: {e}")
+            return []
 
     @property
     def state(self) -> SchedulerState:
@@ -602,6 +645,26 @@ class PulseDebateScheduler:
                     f"Debate created: {debate_id} "
                     f"(consensus={consensus_reached}, confidence={confidence:.2f})"
                 )
+
+                # Sync to Knowledge Mound if adapter configured
+                if self._km_adapter:
+                    try:
+                        # Store scheduled debate record
+                        self._km_adapter.store_scheduled_debate(record)
+
+                        # Store debate outcome if consensus was reached
+                        if consensus_reached:
+                            self._km_adapter.store_debate_outcome(
+                                debate_id=debate_id,
+                                topic=topic.topic,
+                                platform=topic.platform,
+                                consensus_reached=consensus_reached,
+                                confidence=confidence,
+                                rounds_used=rounds_used,
+                            )
+                        logger.debug(f"Pulse debate synced to Knowledge Mound: {debate_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to sync pulse debate to KM: {e}")
             else:
                 # Debate creation returned None
                 self._metrics.debates_failed += 1

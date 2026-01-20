@@ -288,16 +288,19 @@ class ContextGatherer:
             # 5. Gather belief crux context for debate guidance (fast, cached)
             belief_task = asyncio.create_task(self._gather_belief_with_timeout(task))
 
-            # 6. Gather additional evidence in parallel (fallback if Claude search weak)
+            # 6. Gather culture patterns for organizational learning
+            culture_task = asyncio.create_task(self._gather_culture_with_timeout(task))
+
+            # 7. Gather additional evidence in parallel (fallback if Claude search weak)
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
                 results = await asyncio.gather(
-                    evidence_task, trending_task, knowledge_task, belief_task, return_exceptions=True
+                    evidence_task, trending_task, knowledge_task, belief_task, culture_task, return_exceptions=True
                 )
             else:
-                # Still wait for trending, knowledge, and belief even if Claude search succeeded
+                # Still wait for trending, knowledge, belief, and culture even if Claude search succeeded
                 results = await asyncio.gather(
-                    trending_task, knowledge_task, belief_task, return_exceptions=True
+                    trending_task, knowledge_task, belief_task, culture_task, return_exceptions=True
                 )
 
             for result in results:
@@ -860,6 +863,87 @@ class ContextGatherer:
             )
         except asyncio.TimeoutError:
             logger.warning(f"[belief] Crux gathering timed out after {BELIEF_CRUX_TIMEOUT}s")
+            return None
+
+    async def _gather_culture_with_timeout(self, task: str) -> Optional[str]:
+        """Gather culture patterns context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_culture_patterns_context(task),
+                timeout=5.0,  # Culture patterns should be fast (local query)
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[culture] Culture pattern gathering timed out")
+            return None
+
+    async def gather_culture_patterns_context(
+        self,
+        task: str,
+        workspace_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Gather learned culture patterns from Knowledge Mound.
+
+        Retrieves organizational patterns learned from previous debates:
+        - Successful argumentation strategies
+        - Consensus-building patterns
+        - Domain-specific debate styles
+        - Protocol effectiveness patterns
+
+        Args:
+            task: The debate task description.
+            workspace_id: Optional workspace filter.
+
+        Returns:
+            Formatted culture patterns context, or None if unavailable.
+        """
+        try:
+            from aragora.knowledge.mound.culture.accumulator import CultureAccumulator
+
+            # Get or create accumulator
+            accumulator = CultureAccumulator(workspace_id=workspace_id or "default")
+
+            # Query for patterns relevant to this task
+            patterns = accumulator.get_patterns(
+                query=task,
+                limit=5,
+            )
+
+            if not patterns:
+                logger.debug("[culture] No relevant culture patterns found")
+                return None
+
+            context_parts = [
+                "## ORGANIZATIONAL CULTURE PATTERNS",
+                "Learned patterns from previous debates in this workspace:",
+                "",
+            ]
+
+            for pattern in patterns:
+                pattern_type = pattern.get("type", "general")
+                description = pattern.get("description", "")
+                confidence = pattern.get("confidence", 0.5)
+                applications = pattern.get("applications", 0)
+
+                if not description:
+                    continue
+
+                conf_label = "Strong" if confidence > 0.7 else "Moderate" if confidence > 0.4 else "Emerging"
+                context_parts.append(
+                    f"- **{pattern_type.title()}** [{conf_label}, {applications} uses]: {description}"
+                )
+
+            if len(context_parts) <= 3:
+                return None
+
+            logger.info(f"[culture] Injected {len(patterns)} culture patterns")
+            return "\n".join(context_parts)
+
+        except ImportError:
+            logger.debug("[culture] CultureAccumulator not available")
+            return None
+        except Exception as e:
+            logger.warning(f"[culture] Failed to gather culture patterns: {e}")
             return None
 
     def clear_cache(self, task: Optional[str] = None) -> None:

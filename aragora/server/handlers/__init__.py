@@ -79,6 +79,7 @@ from .cross_pollination import (
     CrossPollinationBridgeHandler,
     CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
+    CrossPollinationKMHandler,
 )
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
@@ -167,6 +168,7 @@ ALL_HANDLERS = [
     CrossPollinationBridgeHandler,
     CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
+    CrossPollinationKMHandler,
     ConsensusHandler,
     BeliefHandler,
     ControlPlaneHandler,  # Enterprise control plane API
