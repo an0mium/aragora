@@ -1,8 +1,73 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (23:00 UTC)*
+*Last updated: January 20, 2026 (24:00 UTC)*
 
 ## Current Release
+
+### v2.0.9 - Phase 5 Autonomous Operations (January 2026)
+
+**Production Ready** - Aragora 2.0.9 completes Phase 5: Autonomous Operations with self-improvement capabilities, continuous learning, and proactive intelligence.
+
+#### Key Highlights
+- **38,400+ tests** collected and passing (+200 new tests)
+- **1,055 test files** across all modules
+- **Phase 5 complete** - Autonomous Operations fully implemented
+- **Human-in-the-loop** - Approval flows with risk assessment
+- **Continuous learning** - Real-time ELO updates and pattern extraction
+- **Proactive intelligence** - Scheduled triggers, alerts, anomaly detection
+- **Lines of Code**: 450,000+ LOC (+2,000)
+- **0 production blockers**
+- **106 fully integrated features** (+4 autonomous capabilities)
+
+#### What's New in 2.0.9
+
+**Autonomous Loop Enhancement** (Phase 5.1 - COMPLETE)
+- `aragora/autonomous/loop_enhancement.py`:
+  - `SelfImprovementManager` - Orchestrates autonomous improvement cycles
+  - `CodeVerifier` - AST syntax validation and test execution
+  - `RollbackManager` - File backup, restore, and cleanup
+  - `ApprovalFlow` - Human-in-the-loop with risk levels and timeouts
+- 27 tests in `tests/autonomous/test_loop_enhancement.py`
+
+**Continuous Learning** (Phase 5.2 - COMPLETE)
+- `aragora/autonomous/continuous_learning.py`:
+  - `EloUpdater` - Real-time ELO rating adjustments
+  - `PatternExtractor` - Cross-debate pattern discovery
+  - `KnowledgeDecayManager` - Confidence decay with refresh
+  - `ContinuousLearner` - Unified learning orchestration
+- 35 tests in `tests/autonomous/test_continuous_learning.py`
+
+**Proactive Intelligence** (Phase 5.3 - COMPLETE)
+- `aragora/autonomous/proactive_intelligence.py`:
+  - `ScheduledTrigger` - Cron and interval-based debate triggers
+  - `AlertAnalyzer` - Threshold monitoring with auto-debate
+  - `TrendMonitor` - Direction detection (increasing/decreasing/stable/volatile)
+  - `AnomalyDetector` - Z-score based anomaly detection with severity
+- 40 tests in `tests/autonomous/test_proactive_intelligence.py`
+
+**Autonomous Server Handlers**
+- `aragora/server/handlers/autonomous/`:
+  - `approvals.py` - GET/POST approval management endpoints
+  - `alerts.py` - Alert monitoring and acknowledgment
+  - `triggers.py` - Scheduled trigger CRUD and scheduler control
+  - `monitoring.py` - Metrics recording, trends, anomalies
+  - `learning.py` - ELO ratings, calibrations, patterns, learning cycles
+
+**Autonomous WebSocket Streaming**
+- `aragora/server/stream/autonomous_stream.py`:
+  - Real-time event emission for approvals, alerts, triggers, monitoring, learning
+  - 40+ new event types in `aragora/events/types.py`
+
+**Autonomous Dashboard UI**
+- `aragora/live/src/components/autonomous/`:
+  - `AutonomousDashboard.tsx` - Main tabbed dashboard with WebSocket updates
+  - `ApprovalPanel.tsx` - Human-in-the-loop approval management
+  - `AlertsPanel.tsx` - Alert monitoring with severity sorting
+  - `TriggersPanel.tsx` - Scheduled trigger configuration
+  - `MonitoringPanel.tsx` - Trends and anomaly visualization
+  - `LearningPanel.tsx` - ELO ratings, calibrations, patterns
+
+---
 
 ### v2.0.8 - Strategic API Consolidation (January 2026)
 
