@@ -91,6 +91,7 @@ class IntrospectionHandler(BaseHandler):
         elif path == "/api/introspection/agents":
             return self._list_agents()
         elif path.startswith("/api/introspection/agents/"):
+            # Path: /api/introspection/agents/{name} -> stripped path index 3 is name
             agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
@@ -187,6 +188,8 @@ class IntrospectionHandler(BaseHandler):
             snapshot = get_agent_introspection(
                 agent, memory=memory, persona_manager=persona_manager
             )
+            if snapshot is None:
+                return error_response(f"Agent '{agent}' not found", 404)
             return json_response(snapshot.to_dict())
         except Exception as e:
             logger.error(f"Error getting introspection for {agent}: {e}", exc_info=True)
