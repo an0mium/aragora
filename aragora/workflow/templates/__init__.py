@@ -6,6 +6,9 @@ Pre-built workflow templates for common enterprise use cases:
 - Healthcare: HIPAA assessment, medical record review
 - Code: Security audit, architecture review, code quality
 - Accounting: Financial audit, tax compliance
+- AI/ML: Model deployment, bias audit, AI governance
+- DevOps: CI/CD review, incident response, infrastructure audit
+- Product: PRD review, feature specs, launch readiness
 """
 
 from aragora.workflow.templates.legal import (
@@ -27,6 +30,22 @@ from aragora.workflow.templates.accounting import (
     FINANCIAL_AUDIT_TEMPLATE,
     SOX_COMPLIANCE_TEMPLATE,
 )
+from aragora.workflow.templates.ai_ml import (
+    MODEL_DEPLOYMENT_TEMPLATE,
+    AI_GOVERNANCE_TEMPLATE,
+    PROMPT_ENGINEERING_TEMPLATE,
+)
+from aragora.workflow.templates.devops import (
+    CICD_PIPELINE_REVIEW_TEMPLATE,
+    INCIDENT_RESPONSE_TEMPLATE,
+    INFRASTRUCTURE_AUDIT_TEMPLATE,
+)
+from aragora.workflow.templates.product import (
+    PRD_REVIEW_TEMPLATE,
+    FEATURE_SPEC_TEMPLATE,
+    USER_RESEARCH_TEMPLATE,
+    LAUNCH_READINESS_TEMPLATE,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -45,6 +64,19 @@ WORKFLOW_TEMPLATES = {
     # Accounting
     "accounting/financial-audit": FINANCIAL_AUDIT_TEMPLATE,
     "accounting/sox-compliance": SOX_COMPLIANCE_TEMPLATE,
+    # AI/ML
+    "ai_ml/model-deployment": MODEL_DEPLOYMENT_TEMPLATE,
+    "ai_ml/ai-governance": AI_GOVERNANCE_TEMPLATE,
+    "ai_ml/prompt-engineering": PROMPT_ENGINEERING_TEMPLATE,
+    # DevOps
+    "devops/cicd-review": CICD_PIPELINE_REVIEW_TEMPLATE,
+    "devops/incident-response": INCIDENT_RESPONSE_TEMPLATE,
+    "devops/infrastructure-audit": INFRASTRUCTURE_AUDIT_TEMPLATE,
+    # Product
+    "product/prd-review": PRD_REVIEW_TEMPLATE,
+    "product/feature-spec": FEATURE_SPEC_TEMPLATE,
+    "product/user-research": USER_RESEARCH_TEMPLATE,
+    "product/launch-readiness": LAUNCH_READINESS_TEMPLATE,
 }
 
 
@@ -87,4 +119,17 @@ __all__ = [
     # Accounting
     "FINANCIAL_AUDIT_TEMPLATE",
     "SOX_COMPLIANCE_TEMPLATE",
+    # AI/ML
+    "MODEL_DEPLOYMENT_TEMPLATE",
+    "AI_GOVERNANCE_TEMPLATE",
+    "PROMPT_ENGINEERING_TEMPLATE",
+    # DevOps
+    "CICD_PIPELINE_REVIEW_TEMPLATE",
+    "INCIDENT_RESPONSE_TEMPLATE",
+    "INFRASTRUCTURE_AUDIT_TEMPLATE",
+    # Product
+    "PRD_REVIEW_TEMPLATE",
+    "FEATURE_SPEC_TEMPLATE",
+    "USER_RESEARCH_TEMPLATE",
+    "LAUNCH_READINESS_TEMPLATE",
 ]

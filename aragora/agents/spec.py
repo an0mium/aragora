@@ -49,6 +49,43 @@ AgentRole = Literal["proposer", "critic", "synthesizer", "judge"]
 VALID_ROLES: frozenset[str] = frozenset({"proposer", "critic", "synthesizer", "judge"})
 
 
+def _find_similar(value: str, options: frozenset[str] | set[str], threshold: float = 0.6) -> Optional[str]:
+    """Find the most similar option to a value using simple character matching.
+
+    Args:
+        value: The value to match
+        options: Set of valid options
+        threshold: Minimum similarity ratio (0.0 to 1.0) to return a suggestion
+
+    Returns:
+        Most similar option if above threshold, else None
+    """
+    if not value or not options:
+        return None
+
+    value_lower = value.lower()
+    best_match = None
+    best_score = 0.0
+
+    for option in options:
+        option_lower = option.lower()
+
+        # Quick check: exact prefix match
+        if option_lower.startswith(value_lower) or value_lower.startswith(option_lower):
+            return option
+
+        # Simple similarity: count matching characters
+        shorter, longer = (value_lower, option_lower) if len(value_lower) <= len(option_lower) else (option_lower, value_lower)
+        matches = sum(1 for c in shorter if c in longer)
+        score = matches / len(longer) if longer else 0.0
+
+        if score > best_score and score >= threshold:
+            best_score = score
+            best_match = option
+
+    return best_match
+
+
 @dataclass
 class AgentSpec:
     """
@@ -86,18 +123,23 @@ class AgentSpec:
         # Normalize provider to lowercase
         self.provider = self.provider.lower()
 
-        # Validate provider
+        # Validate provider with helpful suggestions
         if self.provider not in ALLOWED_AGENT_TYPES:
-            raise ValueError(
-                f"Invalid agent provider: '{self.provider}'. "
-                f"Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
-            )
+            suggestion = _find_similar(self.provider, ALLOWED_AGENT_TYPES)
+            msg = f"Invalid agent provider: '{self.provider}'. "
+            if suggestion:
+                msg += f"Did you mean '{suggestion}'? "
+            msg += f"Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
+            raise ValueError(msg)
 
         # Validate role (None is allowed to indicate "assign automatically")
         if self.role is not None and self.role not in VALID_ROLES:
-            raise ValueError(
-                f"Invalid agent role: '{self.role}'. " f"Allowed: {', '.join(sorted(VALID_ROLES))}"
-            )
+            suggestion = _find_similar(self.role, VALID_ROLES)
+            msg = f"Invalid agent role: '{self.role}'. "
+            if suggestion:
+                msg += f"Did you mean '{suggestion}'? "
+            msg += f"Allowed: {', '.join(sorted(VALID_ROLES))}"
+            raise ValueError(msg)
 
         # Generate default name if not provided
         if self.name is None:
