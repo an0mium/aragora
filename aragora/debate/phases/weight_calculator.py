@@ -63,39 +63,57 @@ class WeightFactors:
 
 @dataclass
 class WeightCalculatorConfig:
-    """Configuration for weight calculation.
+    """Configuration for vote weight calculation.
 
-    Controls which weight factors are enabled and their bounds.
+    Controls which weight factors are enabled, their parameters, and bounds.
+
+    Weight Factors (all multiply together):
+    - reputation: From memory vote history (0.5-1.5)
+    - reliability: From capability probing (0.0-1.0)
+    - consistency: From FlipDetector (0.5-1.0)
+    - calibration: From ELO calibration score (0.5-1.5)
+    - elo_skill: From agent's ELO rating (elo_min_weight to elo_max_weight)
+    - self_vote: Penalty if voting for own proposal (0.0-1.0)
+    - verbosity: Penalty for excessively long proposals (0.7-1.0)
+
+    Example configurations:
+    - Default: reputation * reliability * consistency * calibration * elo_skill
+    - Production: Add self_vote and verbosity mitigation
+    - Testing: Disable all factors (all weights = 1.0)
     """
 
-    enable_reputation: bool = True
-    enable_reliability: bool = True
-    enable_consistency: bool = True
-    enable_calibration: bool = True
+    # Enable/disable individual weight factors
+    enable_reputation: bool = True  # Use memory-based vote history
+    enable_reliability: bool = True  # Use capability probing results
+    enable_consistency: bool = True  # Use FlipDetector consistency scores
+    enable_calibration: bool = True  # Use ELO calibration scores
     enable_elo_skill: bool = True  # Use ELO rating for skill-based weighting
 
     # ELO skill weighting parameters
-    elo_baseline: float = 1500.0  # Baseline ELO (maps to 1.0 weight)
-    elo_scale: float = 500.0  # ELO range for normalization
-    elo_weight_factor: float = 0.3  # How much ELO affects weight (0.3 = ±30%)
-    elo_min_weight: float = 0.5  # Minimum ELO skill weight
-    elo_max_weight: float = 2.0  # Maximum ELO skill weight
+    # Formula: weight = 1.0 + ((elo - baseline) / scale) * factor
+    # Example: ELO=2000, baseline=1500, scale=500, factor=0.3
+    #          weight = 1.0 + ((2000-1500)/500) * 0.3 = 1.0 + 0.3 = 1.3
+    elo_baseline: float = 1500.0  # ELO that maps to weight 1.0
+    elo_scale: float = 500.0  # ELO points for full factor effect
+    elo_weight_factor: float = 0.3  # Max adjustment at ±1 scale (1.0 ± 0.3)
+    elo_min_weight: float = 0.5  # Floor for ELO skill weight
+    elo_max_weight: float = 2.0  # Ceiling for ELO skill weight
 
-    # Bounds for weight factors
-    min_weight: float = 0.1
-    max_weight: float = 5.0
+    # Bounds for final combined weight
+    min_weight: float = 0.1  # Minimum final vote weight
+    max_weight: float = 5.0  # Maximum final vote weight
 
-    # Agent-as-a-Judge bias mitigation
+    # Agent-as-a-Judge bias mitigation (recommended for production)
     # Self-vote detection (penalize agents voting for own proposals)
-    enable_self_vote_mitigation: bool = False
+    enable_self_vote_mitigation: bool = False  # Enable in production
     self_vote_mode: str = "downweight"  # "exclude", "downweight", "log_only"
-    self_vote_downweight: float = 0.5
+    self_vote_downweight: float = 0.5  # Weight multiplier for self-votes
 
     # Verbosity normalization (penalize excessively long proposals)
-    enable_verbosity_normalization: bool = False
-    verbosity_target_length: int = 1000
-    verbosity_penalty_threshold: float = 3.0
-    verbosity_max_penalty: float = 0.3
+    enable_verbosity_normalization: bool = False  # Enable in production
+    verbosity_target_length: int = 1000  # Target proposal length (chars)
+    verbosity_penalty_threshold: float = 3.0  # Penalty starts at 3x target
+    verbosity_max_penalty: float = 0.3  # Max penalty (weight floor = 0.7)
 
 
 class WeightCalculator:
