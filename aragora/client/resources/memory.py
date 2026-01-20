@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from ..models import (
     MemoryAnalyticsResponse,
@@ -51,14 +51,14 @@ class MemoryAPI:
         response = self._client._get(
             f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
         )
-        return response
+        return cast(dict[str, Any], response)
 
     async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict[str, Any]:
         """Async version of tier_stats()."""
         response = await self._client._get_async(
             f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
         )
-        return response
+        return cast(dict[str, Any], response)
 
     def snapshot(self) -> MemorySnapshotResponse:
         """
