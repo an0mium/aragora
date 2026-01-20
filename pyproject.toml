@@ -92,7 +92,10 @@ postgres = [
 ]
 documents = [
     "pypdf>=6.6,<7.0",  # CVE fixes require 6.6+
-    "python-docx>=0.8,<2.0",
+    "pdfplumber>=0.10,<1.0",  # Better PDF table extraction
+    "python-docx>=0.8,<2.0",  # Word document parsing
+    "openpyxl>=3.1,<4.0",  # Excel spreadsheet parsing
+    "python-pptx>=0.6,<1.0",  # PowerPoint presentation parsing
 ]
 broadcast = [
     "edge-tts>=6.1.0,<7.0",
