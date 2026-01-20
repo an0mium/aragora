@@ -753,7 +753,7 @@ class TestAutotunedDebateRunnerIntegration(unittest.TestCase):
 
         runner = AutotunedDebateRunner(mock_arena)
 
-        self.assertIsNotNone(runner.autotuner)
+        self.assertIsNotNone(runner.tuner)
 
     def test_runner_with_custom_config(self):
         """Test runner respects custom config."""
@@ -764,8 +764,8 @@ class TestAutotunedDebateRunnerIntegration(unittest.TestCase):
 
         runner = AutotunedDebateRunner(mock_arena, config)
 
-        self.assertEqual(runner.autotuner._config.max_rounds, 5)
-        self.assertEqual(runner.autotuner._config.max_cost_dollars, 0.10)
+        self.assertEqual(runner.tuner._config.max_rounds, 5)
+        self.assertEqual(runner.tuner._config.max_cost_dollars, 0.10)
 
 
 class TestAutotunerRealisticScenarios(unittest.TestCase):
