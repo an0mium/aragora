@@ -371,7 +371,7 @@ function AddConnectorModal({
             <label className="block text-xs font-mono text-text-muted uppercase mb-2">
               Connector Type
             </label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
               {Object.entries(CONNECTOR_TYPE_ICONS).map(([t, icon]) => (
                 <button
                   key={t}
@@ -492,7 +492,7 @@ function ConnectorDetailsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[90vh] bg-surface border border-border rounded-lg shadow-2xl flex flex-col">
+      <div className="w-full max-w-3xl max-h-[90vh] mx-4 sm:mx-0 bg-surface border border-border rounded-lg shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-3">

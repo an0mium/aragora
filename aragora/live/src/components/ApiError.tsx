@@ -30,12 +30,16 @@ export function ApiError({
     return (
       <div
         className={`bg-warning/10 border border-warning/30 p-2 text-warning text-xs font-mono ${className}`}
+        role="alert"
+        aria-live="assertive"
       >
-        <span className="font-bold">{'>'} ERROR:</span> {errorMessage}
+        <span className="font-bold" aria-hidden="true">{'>'}</span>
+        <span className="font-bold"> ERROR:</span> {errorMessage}
         {onRetry && (
           <button
             onClick={onRetry}
             className="ml-2 underline hover:text-warning/80 transition-colors"
+            aria-label={`Retry after error: ${errorMessage}`}
           >
             RETRY
           </button>
@@ -47,9 +51,11 @@ export function ApiError({
   return (
     <div
       className={`bg-warning/10 border border-warning/30 p-4 font-mono ${className}`}
+      role="alert"
+      aria-live="assertive"
     >
       <div className="flex items-start gap-2 mb-3">
-        <div className="text-warning text-xl">{'>'}</div>
+        <div className="text-warning text-xl" aria-hidden="true">{'>'}</div>
         <div>
           <div className="text-warning font-bold mb-1">ERROR</div>
           <div className="text-text text-sm">{errorMessage}</div>
@@ -60,8 +66,9 @@ export function ApiError({
         <button
           onClick={onRetry}
           className="w-full border border-warning text-warning py-2 px-4 hover:bg-warning hover:text-bg transition-colors font-bold"
+          aria-label={`Retry after error: ${errorMessage}`}
         >
-          {'>'} RETRY_REQUEST
+          <span aria-hidden="true">{'>'}</span> RETRY_REQUEST
         </button>
       )}
     </div>

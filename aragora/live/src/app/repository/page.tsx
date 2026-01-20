@@ -590,7 +590,7 @@ export default function RepositoryPage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="p-3 bg-bg rounded border border-border">
                         <div className="text-xs font-mono text-text-muted mb-1">Files Discovered</div>
                         <div className="text-xl font-mono text-acid-green">{progress.files_discovered}</div>

@@ -21,20 +21,30 @@ export function LoadingSpinner({
 }: LoadingSpinnerProps) {
   if (compact) {
     return (
-      <div className={`text-accent text-xs font-mono animate-pulse ${className}`}>
-        {'>'} {message}
+      <div
+        className={`text-accent text-xs font-mono animate-pulse ${className}`}
+        role="status"
+        aria-live="polite"
+        aria-label={message}
+      >
+        <span aria-hidden="true">{'>'}</span> {message}
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center justify-center p-8 ${className}`}>
+    <div
+      className={`flex items-center justify-center p-8 ${className}`}
+      role="status"
+      aria-live="polite"
+      aria-label={message}
+    >
       <div className="text-accent font-mono text-center">
         <div className="text-lg mb-2 flex items-center justify-center gap-2">
-          <span className="animate-pulse">{'>'}</span>
+          <span className="animate-pulse" aria-hidden="true">{'>'}</span>
           <span>{message}</span>
         </div>
-        <div className="flex gap-1 justify-center">
+        <div className="flex gap-1 justify-center" aria-hidden="true">
           <span
             className="animate-pulse"
             style={{ animationDelay: '0ms' }}

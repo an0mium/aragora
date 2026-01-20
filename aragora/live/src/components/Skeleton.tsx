@@ -8,6 +8,8 @@ interface SkeletonProps {
   height?: string | number;
   rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
   animate?: boolean;
+  /** Accessible label for the loading element */
+  label?: string;
 }
 
 function SkeletonComponent({
@@ -16,6 +18,7 @@ function SkeletonComponent({
   height,
   rounded = 'md',
   animate = true,
+  label = 'Loading content',
 }: SkeletonProps) {
   const roundedClass = {
     none: '',
@@ -33,6 +36,9 @@ function SkeletonComponent({
     <div
       className={`bg-surface/50 ${roundedClass} ${animate ? 'animate-pulse' : ''} ${className}`}
       style={style}
+      role="status"
+      aria-busy="true"
+      aria-label={label}
     />
   );
 }
