@@ -43,6 +43,7 @@ class HealthHandler(BaseHandler):
         "/api/health/deep",
         "/api/health/stores",
         "/api/health/sync",
+        "/api/health/circuits",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -61,6 +62,7 @@ class HealthHandler(BaseHandler):
             "/api/health/deep": self._deep_health_check,
             "/api/health/stores": self._database_stores_health,
             "/api/health/sync": self._sync_status,
+            "/api/health/circuits": self._circuit_breakers_status,
         }
 
         endpoint_handler = handlers.get(path)
@@ -1015,6 +1017,55 @@ class HealthHandler(BaseHandler):
             return json_response(
                 {
                     "enabled": False,
+                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+
+    def _circuit_breakers_status(self) -> HandlerResult:
+        """Get detailed circuit breaker status for all registered breakers.
+
+        Returns comprehensive metrics including:
+        - summary: Counts of open, closed, half-open circuits
+        - circuit_breakers: Per-breaker details with failures, cooldowns, entity tracking
+        - health: Overall health status and high-failure circuit warnings
+
+        This endpoint is useful for:
+        - Monitoring dashboards
+        - Debugging cascading failures
+        - Tuning circuit breaker thresholds
+
+        Returns:
+            JSON response with detailed circuit breaker metrics
+        """
+        try:
+            from aragora.resilience import get_circuit_breaker_metrics
+
+            metrics = get_circuit_breaker_metrics()
+
+            return json_response(
+                {
+                    "status": metrics.get("health", {}).get("status", "unknown"),
+                    "summary": metrics.get("summary", {}),
+                    "circuit_breakers": metrics.get("circuit_breakers", {}),
+                    "health": metrics.get("health", {}),
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+
+        except ImportError:
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "error": "resilience module not available",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Circuit breaker status check failed: {e}")
+            return json_response(
+                {
+                    "status": "error",
                     "error": f"{type(e).__name__}: {str(e)[:80]}",
                     "timestamp": datetime.utcnow().isoformat() + "Z",
                 }
