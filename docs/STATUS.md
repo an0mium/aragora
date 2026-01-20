@@ -1,20 +1,34 @@
 # Aragora Project Status
 
-*Last updated: January 19, 2026 (23:59 UTC)*
+*Last updated: January 20, 2026 (09:00 UTC)*
 
 ## Current Release
 
-### v2.0.2 - UI Enhancement Release (January 2026)
+### v2.0.3 - Cross-Pollination Release (January 2026)
 
-**Production Ready** - Aragora 2.0.2 adds 3 new pages and enhances 4 existing pages to surface previously hidden backend capabilities.
+**Production Ready** - Aragora 2.0.3 completes feature cross-pollination, connecting isolated subsystems for mutual benefit.
 
 #### Key Highlights
-- **34,500+ tests** collected and passing (+200 new tests)
+- **36,900+ tests** collected and passing (+2,400 new tests)
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
 - **Lines of Code**: 443,000+ LOC (+3,000)
 - **0 production blockers**
 - **0 uncommitted files**
+- **92 fully integrated features** (+4 cross-pollination)
+
+#### What's New in 2.0.3
+
+**Cross-Pollination Integrations** - 4 new feature connections
+- **Calibration → Proposals**: Temperature scaling applied to initial proposal confidence
+- **Learning Efficiency → ELO**: Agents who improve consistently get ELO bonuses
+- **Memory Checkpoint Snapshots**: Export/restore ContinuumMemory with debate state
+- **Knowledge Mound Federation**: Multi-region sync for institutional knowledge
+
+**Feedback Loop Completions**
+- Voting accuracy tracking feeds back to agent skill assessment
+- Verification results adjust vote confidence (verified → +30%, disproven → -70%)
+- Debate outcomes inform learning efficiency metrics
 
 #### What's New in 2.0.2
 
@@ -310,6 +324,22 @@ else:
 - SharePoint, Confluence, Notion, Slack, Google Drive
 - Sync persistence with SQLite/PostgreSQL
 - Health monitoring and metrics
+
+**Phase 8: Cross-Pollination Integrations** (NEW)
+- `aragora/debate/hook_handlers.py` - HookHandlerRegistry for automatic subsystem wiring
+- `aragora/ranking/performance_integrator.py` - PerformanceEloIntegrator for K-factor modulation
+- `aragora/memory/outcome_bridge.py` - OutcomeMemoryBridge for outcome-based memory promotion
+- `aragora/debate/trickster_calibrator.py` - TricksterCalibrator for auto-tuning detection
+- Checkpoint memory state - Complete debate restoration with memory context
+- 113 tests across all Phase 8 integrations
+- New ArenaConfig fields: `enable_hook_handlers`, `enable_performance_elo`, `enable_outcome_memory`, `enable_trickster_calibration`, `checkpoint_include_memory`
+
+**Phase 7: Memory Coordination & Feedback** (COMPLETE)
+- `aragora/memory/coordinator.py` - MemoryCoordinator for atomic multi-system writes
+- `aragora/debate/selection_feedback.py` - SelectionFeedbackLoop for performance-based selection
+- `aragora/knowledge/mound/ops/sync.py` - Incremental knowledge sync methods
+- Pulse/trending context integration enabled by default
+- 60+ tests for coordination and feedback systems
 
 ---
 
@@ -821,7 +851,7 @@ All stabilization items addressed:
 
 ## Feature Integration Status
 
-### Fully Integrated (88)
+### Fully Integrated (92)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -917,6 +947,10 @@ All stabilization items addressed:
 | EvidenceBridge Storage | Active | `aragora/knowledge/bridges.py:207-336` (persist evidence in mound) |
 | CultureAccumulator | Active | `aragora/knowledge/mound/ops/culture.py` (organizational pattern extraction) |
 | Post-Debate Workflows | Active | `aragora/debate/phases/feedback_phase.py` (automated refinement triggers) |
+| Calibration → Proposals | Active | `aragora/debate/phases/proposal_phase.py` (temperature scaling for proposal confidence) |
+| Learning Efficiency Tracking | Active | `aragora/ranking/elo.py` (learning rate → ELO bonus) |
+| Memory Checkpoint Snapshot | Active | `aragora/memory/continuum.py` (export/restore for debate state) |
+| Knowledge Mound Federation | Active | `aragora/server/handlers/knowledge_base/mound/federation.py` (multi-region sync) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
