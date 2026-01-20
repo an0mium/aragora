@@ -294,3 +294,86 @@ groups:
         annotations:
           summary: "Unbalanced agent token usage"
           description: "One agent is using 5x more tokens than average. Consider rebalancing."
+
+  # =========================================================================
+  # Cross-Functional Feature Alerts (v2.0.3+)
+  # =========================================================================
+  - name: aragora_cross_functional
+    rules:
+      - alert: LowKnowledgeCacheHitRate
+        expr: |
+          (
+            sum(rate(aragora_knowledge_cache_hits_total[5m]))
+            /
+            (sum(rate(aragora_knowledge_cache_hits_total[5m])) + sum(rate(aragora_knowledge_cache_misses_total[5m])))
+          ) < 0.5
+        for: 15m
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "Low knowledge cache hit rate ({{ $value | humanizePercentage }})"
+          description: "Knowledge cache hit rate is below 50%. Consider increasing cache TTL or size."
+
+      - alert: MemoryCoordinatorFailures
+        expr: |
+          sum(rate(aragora_memory_coordinator_writes_total{status="failed"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "Memory coordinator write failures"
+          description: "{{ $value }} failed atomic writes per second. Check memory system connectivity."
+
+      - alert: HighSelectionFeedbackVolatility
+        expr: |
+          sum(rate(aragora_selection_feedback_adjustments_total[5m])) > 10
+        for: 10m
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "High agent selection feedback volatility"
+          description: "{{ $value }} selection weight adjustments per second. May indicate unstable agent performance."
+
+      - alert: WorkflowTriggerFailures
+        expr: |
+          (
+            sum(rate(aragora_workflow_triggers_total{status="failed"}[5m]))
+            /
+            sum(rate(aragora_workflow_triggers_total[5m]))
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+        annotations:
+          summary: "High workflow trigger failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 20% of post-debate workflows are failing. Check workflow engine logs."
+
+      - alert: NoEvidenceBeingStored
+        expr: |
+          increase(aragora_evidence_stored_total[1h]) == 0
+          and
+          increase(aragora_debates_completed_total[1h]) > 10
+        for: 30m
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "No evidence stored despite active debates"
+          description: "Evidence collection may be disabled or misconfigured."
+
+      - alert: NoCulturePatternsExtracted
+        expr: |
+          increase(aragora_culture_patterns_total[6h]) == 0
+          and
+          increase(aragora_debates_completed_total[6h]) > 20
+        for: 1h
+        labels:
+          severity: info
+          service: aragora
+        annotations:
+          summary: "No culture patterns extracted"
+          description: "Culture observation may be disabled. Check KnowledgeMound configuration."

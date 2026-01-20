@@ -9,14 +9,8 @@ Tests cover:
 - User resolution
 - Incremental sync
 
-NOTE: Some tests are skipped because they mock internal methods that don't exist.
-The connector uses direct HTTP via _api_request instead of WebClient.
-
-TODO: Rewrite skipped tests using this pattern:
-    1. Use `sys.modules` to inject mock slack_sdk if needed
-    2. Mock `_api_request` method with AsyncMock for API calls
-    3. Mock response data matching Slack API format
-See test_postgres.py TestConnectionPool for similar mocking patterns.
+Tests use `patch.object(connector, '_api_request', new_callable=AsyncMock)` pattern
+to mock the HTTP API calls made by the connector.
 """
 
 import asyncio
@@ -27,11 +21,6 @@ import pytest
 
 from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.reasoning.provenance import SourceType
-
-# Skip reason for tests that need WebClient pattern rewrite
-NEEDS_REWRITE = pytest.mark.skip(
-    reason="Test uses _get_client pattern but connector uses _api_request. Needs rewrite."
-)
 
 
 class TestSlackConnectorInitialization:

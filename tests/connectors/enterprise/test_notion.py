@@ -8,13 +8,8 @@ Tests cover:
 - Incremental sync
 - Error handling
 
-NOTE: Some tests are skipped because they mock internal methods that don't exist.
-
-TODO: Rewrite skipped tests using this pattern:
-    1. Use `sys.modules` to inject mock notion_client if needed
-    2. Mock `_api_request` method with AsyncMock for API calls
-    3. Mock `_search_pages` and `_get_page_content` methods
-See test_postgres.py TestConnectionPool for similar mocking patterns.
+Tests use `patch.object(connector, '_api_request', new_callable=AsyncMock)` pattern
+to mock the HTTP API calls made by the connector.
 """
 
 import asyncio
@@ -25,11 +20,6 @@ import pytest
 
 from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.reasoning.provenance import SourceType
-
-# Skip reason for tests that need implementation pattern rewrite
-NEEDS_REWRITE = pytest.mark.skip(
-    reason="Test mocks methods that don't exist in connector. Needs rewrite."
-)
 
 
 class TestNotionConnectorInitialization:

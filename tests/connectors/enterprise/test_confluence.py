@@ -9,13 +9,8 @@ Tests cover:
 - Incremental sync
 - Error handling
 
-NOTE: Some tests are skipped because they mock internal methods that don't exist.
-
-TODO: Rewrite skipped tests using this pattern:
-    1. Mock `_api_request` method with AsyncMock for API calls
-    2. Mock `_get_space_pages` with proper async iteration
-    3. Use `new_callable=AsyncMock` for async method mocks
-See test_postgres.py TestSearch for async mocking patterns.
+Tests use `patch.object(connector, '_api_request', new_callable=AsyncMock)` pattern
+to mock the HTTP API calls made by the connector.
 """
 
 import asyncio
@@ -26,11 +21,6 @@ import pytest
 
 from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.reasoning.provenance import SourceType
-
-# Skip reason for tests that need implementation pattern rewrite
-NEEDS_REWRITE = pytest.mark.skip(
-    reason="Test mocks methods that don't exist in connector. Needs rewrite."
-)
 
 
 class TestConfluenceConnectorInitialization:

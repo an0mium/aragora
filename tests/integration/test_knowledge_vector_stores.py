@@ -351,20 +351,24 @@ class TestMemoryVectorStore:
     async def test_memory_store_basic(self):
         """Test basic operations with in-memory store."""
         from aragora.knowledge.mound.vector_abstraction.memory import InMemoryVectorStore
+        from aragora.knowledge.mound.vector_abstraction.base import VectorStoreConfig
 
-        store = InMemoryVectorStore(dimension=384)
+        config = VectorStoreConfig(embedding_dimensions=384)
+        store = InMemoryVectorStore(config)
+        await store.connect()
 
         # Add vectors
         for i in range(100):
-            await store.add(
+            await store.upsert(
                 id=f"doc_{i}",
-                vector=generate_embedding(seed=i),
-                metadata={"content": f"Document {i}", "index": i},
+                embedding=generate_embedding(seed=i),
+                content=f"Document {i}",
+                metadata={"index": i},
             )
 
         # Search
         results = await store.search(
-            vector=generate_embedding(seed=0),
+            embedding=generate_embedding(seed=0),
             limit=5,
         )
 
@@ -376,23 +380,27 @@ class TestMemoryVectorStore:
     async def test_memory_store_filtering(self):
         """Test filtering with in-memory store."""
         from aragora.knowledge.mound.vector_abstraction.memory import InMemoryVectorStore
+        from aragora.knowledge.mound.vector_abstraction.base import VectorStoreConfig
 
-        store = InMemoryVectorStore(dimension=384)
+        config = VectorStoreConfig(embedding_dimensions=384)
+        store = InMemoryVectorStore(config)
+        await store.connect()
 
         # Add documents with categories
         for i in range(20):
             category = "A" if i % 2 == 0 else "B"
-            await store.add(
+            await store.upsert(
                 id=f"doc_{i}",
-                vector=generate_embedding(seed=i),
+                embedding=generate_embedding(seed=i),
+                content=f"Document {i}",
                 metadata={"category": category},
             )
 
         # Search with filter
         results = await store.search(
-            vector=generate_embedding(seed=0),
+            embedding=generate_embedding(seed=0),
             limit=10,
-            filter_dict={"category": "A"},
+            filters={"category": "A"},
         )
 
         assert len(results) == 10
@@ -403,39 +411,44 @@ class TestMemoryVectorStore:
     async def test_memory_store_namespaces(self):
         """Test namespace isolation in memory store."""
         from aragora.knowledge.mound.vector_abstraction.memory import InMemoryVectorStore
+        from aragora.knowledge.mound.vector_abstraction.base import VectorStoreConfig
 
-        store = InMemoryVectorStore(dimension=384)
+        config = VectorStoreConfig(embedding_dimensions=384)
+        store = InMemoryVectorStore(config)
+        await store.connect()
 
         # Add to different namespaces
         for i in range(10):
-            await store.add(
+            await store.upsert(
                 id=f"doc_{i}",
-                vector=generate_embedding(seed=i),
-                metadata={"content": f"Doc {i}"},
+                embedding=generate_embedding(seed=i),
+                content=f"Doc {i}",
+                metadata={},
                 namespace="ns_a",
             )
-            await store.add(
+            await store.upsert(
                 id=f"doc_{i}",
-                vector=generate_embedding(seed=i + 100),
-                metadata={"content": f"Doc {i} B"},
+                embedding=generate_embedding(seed=i + 100),
+                content=f"Doc {i} B",
+                metadata={},
                 namespace="ns_b",
             )
 
         # Search in namespace A
         results_a = await store.search(
-            vector=generate_embedding(seed=0),
+            embedding=generate_embedding(seed=0),
             limit=5,
             namespace="ns_a",
         )
 
         # Search in namespace B
         results_b = await store.search(
-            vector=generate_embedding(seed=100),
+            embedding=generate_embedding(seed=100),
             limit=5,
             namespace="ns_b",
         )
 
         # Results should be from respective namespaces
-        assert all("Doc" in r.metadata["content"] and "B" not in r.metadata["content"]
+        assert all("Doc" in r.content and "B" not in r.content
                    for r in results_a)
-        assert all("B" in r.metadata["content"] for r in results_b)
+        assert all("B" in r.content for r in results_b)
