@@ -43,6 +43,7 @@ class WeightFactors:
     reliability: float = 1.0  # 0.0-1.0 from capability probing
     consistency: float = 1.0  # 0.5-1.0 from FlipDetector
     calibration: float = 1.0  # 0.5-1.5 from ELO calibration score
+    elo_skill: float = 1.0  # 0.5-2.0 from ELO domain skill rating
     self_vote: float = 1.0  # 0.0-1.0 penalty if voting for own proposal
     verbosity: float = 1.0  # 0.7-1.0 penalty for excessively long proposals
 
@@ -54,6 +55,7 @@ class WeightFactors:
             * self.reliability
             * self.consistency
             * self.calibration
+            * self.elo_skill
             * self.self_vote
             * self.verbosity
         )
@@ -70,6 +72,14 @@ class WeightCalculatorConfig:
     enable_reliability: bool = True
     enable_consistency: bool = True
     enable_calibration: bool = True
+    enable_elo_skill: bool = True  # Use ELO rating for skill-based weighting
+
+    # ELO skill weighting parameters
+    elo_baseline: float = 1500.0  # Baseline ELO (maps to 1.0 weight)
+    elo_scale: float = 500.0  # ELO range for normalization
+    elo_weight_factor: float = 0.3  # How much ELO affects weight (0.3 = ±30%)
+    elo_min_weight: float = 0.5  # Minimum ELO skill weight
+    elo_max_weight: float = 2.0  # Maximum ELO skill weight
 
     # Bounds for weight factors
     min_weight: float = 0.1
@@ -115,17 +125,19 @@ class WeightCalculator:
         calibration_tracker: Any = None,
         get_calibration_weight: Optional[Callable[[str], float]] = None,
         config: Optional[WeightCalculatorConfig] = None,
+        domain: str = "general",
     ):
         """Initialize the weight calculator.
 
         Args:
             memory: Memory system with get_vote_weight method
-            elo_system: ELO system for calibration scores
+            elo_system: ELO system for calibration and skill scores
             flip_detector: FlipDetector for consistency scores
             agent_weights: Pre-computed reliability weights from probing
             calibration_tracker: CalibrationTracker for calibration scores
             get_calibration_weight: Fallback callback for calibration
             config: Configuration for weight calculation
+            domain: Debate domain for domain-specific ELO lookup
         """
         self.memory = memory
         self.elo_system = elo_system
@@ -134,6 +146,7 @@ class WeightCalculator:
         self.calibration_tracker = calibration_tracker
         self._get_calibration_weight = get_calibration_weight
         self.config = config or WeightCalculatorConfig()
+        self.domain = domain
 
         # Cache for batch operations
         self._ratings_cache: dict[str, Any] = {}
@@ -285,6 +298,10 @@ class WeightCalculator:
         # Calibration weight (0.5-1.5)
         if self.config.enable_calibration:
             factors.calibration = self._get_calibration_weight_for_agent(agent_name)
+
+        # ELO skill weight (0.5-2.0)
+        if self.config.enable_elo_skill:
+            factors.elo_skill = self._get_elo_skill_weight(agent_name)
 
         return factors
 
@@ -449,6 +466,82 @@ class WeightCalculator:
                 logger.debug(f"Calibration weight callback error for {agent_name}: {e}")
 
         return 1.0
+
+    def _get_elo_skill_weight(self, agent_name: str) -> float:
+        """Get ELO skill weight based on agent's domain-specific rating.
+
+        Higher-rated agents (better historical performance) get more voting
+        weight. The weight is bounded to prevent extreme influence.
+
+        Formula:
+            elo_factor = (elo - baseline) / scale
+            weight = 1.0 + (elo_factor * weight_factor)
+            weight = clamp(weight, min_weight, max_weight)
+
+        Example with defaults (baseline=1500, scale=500, factor=0.3):
+            - ELO 1000 → factor=-1.0 → weight=0.7
+            - ELO 1500 → factor=0.0  → weight=1.0
+            - ELO 2000 → factor=1.0  → weight=1.3
+
+        Returns:
+            Weight factor between elo_min_weight and elo_max_weight
+        """
+        if not self.elo_system:
+            return 1.0
+
+        try:
+            # Try to get domain-specific ELO first
+            elo = None
+
+            # Check cached ratings
+            if agent_name in self._ratings_cache:
+                rating = self._ratings_cache[agent_name]
+                # Try domain-specific ELO
+                if hasattr(rating, "domain_elos") and rating.domain_elos:
+                    domain_elos = rating.domain_elos
+                    if isinstance(domain_elos, str):
+                        import json
+                        domain_elos = json.loads(domain_elos)
+                    elo = domain_elos.get(self.domain)
+                # Fallback to overall ELO
+                if elo is None:
+                    elo = getattr(rating, "elo", None)
+
+            # If not in cache, query directly
+            if elo is None and hasattr(self.elo_system, "get_rating"):
+                rating = self.elo_system.get_rating(agent_name)
+                if rating:
+                    # Try domain-specific
+                    if hasattr(rating, "domain_elos") and rating.domain_elos:
+                        domain_elos = rating.domain_elos
+                        if isinstance(domain_elos, str):
+                            import json
+                            domain_elos = json.loads(domain_elos)
+                        elo = domain_elos.get(self.domain)
+                    if elo is None:
+                        elo = getattr(rating, "elo", self.config.elo_baseline)
+
+            if elo is None:
+                return 1.0
+
+            # Calculate weight factor
+            elo_factor = (elo - self.config.elo_baseline) / self.config.elo_scale
+            weight = 1.0 + (elo_factor * self.config.elo_weight_factor)
+
+            # Clamp to bounds
+            weight = max(self.config.elo_min_weight, min(self.config.elo_max_weight, weight))
+
+            if weight != 1.0:
+                logger.debug(
+                    f"elo_skill_weight agent={agent_name} domain={self.domain} "
+                    f"elo={elo:.0f} weight={weight:.3f}"
+                )
+
+            return weight
+
+        except Exception as e:
+            logger.debug(f"ELO skill weight error for {agent_name}: {e}")
+            return 1.0
 
     def clear_cache(self) -> None:
         """Clear the ratings cache."""

@@ -1172,7 +1172,16 @@ class ConsensusPhase:
         vote_counts: dict[str, float],
         choice_mapping: dict[str, str],
     ) -> dict[str, float]:
-        """Apply evidence citation bonuses to vote counts."""
+        """Apply evidence citation bonuses to vote counts.
+
+        Enhanced to use evidence quality scores when available:
+        - semantic_relevance: How relevant the evidence is to the topic (0.4 weight)
+        - authority: Source credibility (0.3 weight)
+        - freshness: How recent the evidence is (0.2 weight)
+        - completeness: Evidence completeness (0.1 weight)
+
+        Quality-weighted bonus = base_bonus * quality_score^0.5
+        """
         if not self.protocol or not getattr(self.protocol, "enable_evidence_weighting", False):
             return vote_counts
 
@@ -1180,46 +1189,88 @@ class ConsensusPhase:
         if not evidence_pack or not hasattr(evidence_pack, "snippets"):
             return vote_counts
 
-        evidence_ids = {s.id for s in evidence_pack.snippets}
-        if not evidence_ids:
+        # Build evidence lookup with quality scores
+        evidence_lookup: dict[str, dict] = {}
+        for snippet in evidence_pack.snippets:
+            evidence_lookup[snippet.id] = {
+                "snippet": snippet,
+                "quality_scores": getattr(snippet, "quality_scores", {}),
+            }
+
+        if not evidence_lookup:
             return vote_counts
 
         evidence_bonus = getattr(self.protocol, "evidence_citation_bonus", 0.15)
+        use_quality_scores = getattr(self.protocol, "enable_evidence_quality_weighting", True)
         evidence_citations: dict[str, int] = {}
+        evidence_quality_totals: dict[str, float] = {}
 
         for vote in votes:
             if isinstance(vote, Exception):
                 continue
 
             cited_ids = set(re.findall(r"EVID-([a-zA-Z0-9]+)", vote.reasoning))
-            valid_citations = len(cited_ids & evidence_ids)
+            valid_citation_ids = cited_ids & set(evidence_lookup.keys())
+            valid_citations = len(valid_citation_ids)
 
             if valid_citations > 0:
                 canonical = choice_mapping.get(vote.choice, vote.choice)
                 if canonical in vote_counts:
+                    # Calculate quality-weighted bonus
+                    total_quality = 0.0
+                    for evid_id in valid_citation_ids:
+                        evid_data = evidence_lookup.get(evid_id, {})
+                        quality_scores = evid_data.get("quality_scores", {})
+
+                        if use_quality_scores and quality_scores:
+                            # Weighted quality score
+                            quality = (
+                                quality_scores.get("semantic_relevance", 0.5) * 0.4 +
+                                quality_scores.get("authority", 0.5) * 0.3 +
+                                quality_scores.get("freshness", 0.5) * 0.2 +
+                                quality_scores.get("completeness", 0.5) * 0.1
+                            )
+                        else:
+                            quality = 0.5  # Default quality
+
+                        total_quality += quality
+
+                    # Quality-adjusted bonus (diminishing returns via sqrt)
+                    if use_quality_scores and total_quality > 0:
+                        quality_factor = (total_quality / valid_citations) ** 0.5
+                        bonus = evidence_bonus * valid_citations * quality_factor
+                    else:
+                        bonus = evidence_bonus * valid_citations
+
                     current_count = vote_counts[canonical]
-                    bonus = evidence_bonus * valid_citations
                     vote_counts[canonical] = current_count + bonus
 
                     evidence_citations[vote.agent] = valid_citations
+                    evidence_quality_totals[vote.agent] = total_quality
+
                     logger.debug(
                         f"evidence_citation_bonus agent={vote.agent} "
-                        f"citations={valid_citations} bonus={bonus:.2f}"
+                        f"citations={valid_citations} quality={total_quality:.2f} bonus={bonus:.3f}"
                     )
 
         result = ctx.result
         if result is not None and evidence_citations:
-            # Store evidence citations in verification_results as a workaround
-            # since DebateResult doesn't have a metadata field
+            # Store evidence citations and quality in verification_results
             if not result.verification_results:
                 result.verification_results = {}
             for agent, count in evidence_citations.items():
                 result.verification_results[f"evidence_{agent}"] = count
+                if agent in evidence_quality_totals:
+                    result.verification_results[f"evidence_quality_{agent}"] = round(
+                        evidence_quality_totals[agent], 3
+                    )
 
         if evidence_citations:
+            total_quality = sum(evidence_quality_totals.values())
             logger.info(
                 f"evidence_weighting applied: {len(evidence_citations)} agents cited evidence, "
-                f"total citations={sum(evidence_citations.values())}"
+                f"total citations={sum(evidence_citations.values())}, "
+                f"total quality={total_quality:.2f}"
             )
 
         return vote_counts
