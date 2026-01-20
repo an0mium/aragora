@@ -747,12 +747,14 @@ Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
         tier_stats = {tier.value: 0 for tier in MemoryTier}
         total_tokens = 0
 
-        for entry in self._entries.values():
+        # Take snapshot to avoid race conditions with concurrent modifications
+        entries_snapshot = list(self._entries.values())
+        for entry in entries_snapshot:
             tier_stats[entry.tier.value] += 1
             total_tokens += entry.token_count
 
         return {
-            "total_entries": len(self._entries),
+            "total_entries": len(entries_snapshot),
             "tier_distribution": tier_stats,
             "total_tokens": total_tokens,
         }
