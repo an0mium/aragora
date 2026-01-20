@@ -330,7 +330,7 @@ def _register_pruning_handlers():
         step = KnowledgePruningStep("prune_task", context)
         from aragora.workflow.step import WorkflowContext
 
-        wf_context = WorkflowContext(workflow_id="task_handler")
+        wf_context = WorkflowContext(workflow_id="task_handler", definition_id="knowledge_prune")
         return await step.execute(wf_context)
 
     async def dedup_handler(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -338,7 +338,7 @@ def _register_pruning_handlers():
         step = KnowledgeDedupStep("dedup_task", context)
         from aragora.workflow.step import WorkflowContext
 
-        wf_context = WorkflowContext(workflow_id="task_handler")
+        wf_context = WorkflowContext(workflow_id="task_handler", definition_id="knowledge_dedup")
         return await step.execute(wf_context)
 
     async def decay_handler(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -346,7 +346,7 @@ def _register_pruning_handlers():
         step = ConfidenceDecayStep("decay_task", context)
         from aragora.workflow.step import WorkflowContext
 
-        wf_context = WorkflowContext(workflow_id="task_handler")
+        wf_context = WorkflowContext(workflow_id="task_handler", definition_id="knowledge_decay")
         return await step.execute(wf_context)
 
     register_task_handler("knowledge_prune", prune_handler)

@@ -161,7 +161,7 @@ class GauntletStep(BaseStep):
             def agent_factory(agent_type: str):
                 from aragora.agents import create_agent
 
-                return create_agent(agent_type)
+                return create_agent(agent_type)  # type: ignore[arg-type]
 
             # Create runner
             runner = GauntletRunner(

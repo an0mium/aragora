@@ -1428,6 +1428,9 @@ class CrossSubscriberManager:
 
         Store ALL flip events for meta-learning and consistency tracking.
         """
+        if not self._is_km_handler_enabled("flip_to_mound"):
+            return
+
         data = event.data
         agent_name = data.get("agent_name", "")
         flip_type = data.get("flip_type", "")
@@ -1454,6 +1457,9 @@ class CrossSubscriberManager:
 
         Retrieve agent flip history for consistency prediction.
         """
+        if not self._is_km_handler_enabled("mound_to_trickster"):
+            return
+
         data = event.data
         data.get("debate_id", "")
         agents = data.get("agents", [])
@@ -1491,6 +1497,9 @@ class CrossSubscriberManager:
         When culture patterns emerge, inform debate protocol selection.
         Only handles MOUND_UPDATED events with type=culture_patterns.
         """
+        if not self._is_km_handler_enabled("culture_to_debate"):
+            return
+
         data = event.data
         update_type = data.get("update_type", "")
 
@@ -1513,6 +1522,9 @@ class CrossSubscriberManager:
 
         When knowledge becomes stale, check if any active debate cites it.
         """
+        if not self._is_km_handler_enabled("staleness_to_debate"):
+            return
+
         data = event.data
         node_id = data.get("node_id", "")
         staleness_reason = data.get("reason", "")
@@ -1546,6 +1558,9 @@ class CrossSubscriberManager:
 
         After debate consensus, store verified provenance chains in KM.
         """
+        if not self._is_km_handler_enabled("provenance_to_mound"):
+            return
+
         data = event.data
         debate_id = data.get("debate_id", "")
         consensus_reached = data.get("consensus_reached", False)
@@ -1587,6 +1602,9 @@ class CrossSubscriberManager:
 
         When verifying claims, check KM for related verified chains.
         """
+        if not self._is_km_handler_enabled("mound_to_provenance"):
+            return
+
         data = event.data
         claim_id = data.get("claim_id", "")
         claim_text = data.get("claim", "")

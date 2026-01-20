@@ -265,7 +265,7 @@ class QuickDebateStep(BaseStep):
             # Get responses in parallel
             async def get_response(agent_type: str) -> Dict[str, Any]:
                 try:
-                    agent = create_agent(agent_type)
+                    agent = create_agent(agent_type)  # type: ignore[arg-type]
                     response = await agent.generate(question)
                     return {
                         "agent": agent_type,
