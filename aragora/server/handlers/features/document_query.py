@@ -22,6 +22,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class DocumentQueryHandler(BaseHandler):
             return json_response(result)
         except Exception as e:
             logger.error(f"Query failed: {e}")
-            return error_response(f"Query failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Query"), 500)
 
     async def _run_query(
         self,
@@ -185,7 +186,7 @@ class DocumentQueryHandler(BaseHandler):
             return json_response(result)
         except Exception as e:
             logger.error(f"Summarize failed: {e}")
-            return error_response(f"Summarize failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Summarize"), 500)
 
     async def _run_summarize(
         self,
@@ -250,7 +251,7 @@ class DocumentQueryHandler(BaseHandler):
             return json_response(result)
         except Exception as e:
             logger.error(f"Compare failed: {e}")
-            return error_response(f"Compare failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Compare"), 500)
 
     async def _run_compare(
         self,
@@ -325,7 +326,7 @@ class DocumentQueryHandler(BaseHandler):
             return json_response(result)
         except Exception as e:
             logger.error(f"Extract failed: {e}")
-            return error_response(f"Extract failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Extract"), 500)
 
     async def _run_extract(
         self,

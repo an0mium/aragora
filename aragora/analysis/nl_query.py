@@ -25,8 +25,11 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import lru_cache
 from typing import Any, AsyncIterator, Optional
 from uuid import uuid4
+
+from aragora.utils.cache_registry import register_lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +150,44 @@ class StreamingChunk:
     text: str
     is_final: bool = False
     citations: list[Citation] = field(default_factory=list)
+
+
+# =============================================================================
+# Cached Query Mode Detection
+# =============================================================================
+
+
+@register_lru_cache
+@lru_cache(maxsize=512)
+def _detect_query_mode_cached(question_lower: str) -> str:
+    """Cached query mode detection based on keyword patterns.
+
+    Args:
+        question_lower: Lowercase question string (truncated to 500 chars)
+
+    Returns:
+        QueryMode value string
+    """
+    # Summary indicators
+    if any(word in question_lower for word in ["summarize", "summary", "overview", "main points"]):
+        return QueryMode.SUMMARY.value
+
+    # Comparison indicators
+    if any(word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]):
+        return QueryMode.COMPARATIVE.value
+
+    # Analysis indicators
+    if any(
+        word in question_lower for word in ["why", "analyze", "explain", "implications", "impact"]
+    ):
+        return QueryMode.ANALYTICAL.value
+
+    # Extraction indicators
+    if any(word in question_lower for word in ["list", "extract", "find all", "identify"]):
+        return QueryMode.EXTRACTIVE.value
+
+    # Default to factual
+    return QueryMode.FACTUAL.value
 
 
 class DocumentQueryEngine:
@@ -409,34 +450,15 @@ class DocumentQueryEngine:
         return results
 
     def _detect_query_mode(self, question: str) -> QueryMode:
-        """Detect the type/intent of the question."""
-        question_lower = question.lower()
+        """Detect the type/intent of the question.
 
-        # Summary indicators
-        if any(
-            word in question_lower for word in ["summarize", "summary", "overview", "main points"]
-        ):
-            return QueryMode.SUMMARY
-
-        # Comparison indicators
-        if any(
-            word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]
-        ):
-            return QueryMode.COMPARATIVE
-
-        # Analysis indicators
-        if any(
-            word in question_lower
-            for word in ["why", "analyze", "explain", "implications", "impact"]
-        ):
-            return QueryMode.ANALYTICAL
-
-        # Extraction indicators
-        if any(word in question_lower for word in ["list", "extract", "find all", "identify"]):
-            return QueryMode.EXTRACTIVE
-
-        # Default to factual
-        return QueryMode.FACTUAL
+        Uses cached detection for performance on repeated queries.
+        Truncates to 500 chars to bound cache key size.
+        """
+        # Truncate to bound cache key size and lowercase
+        question_key = question.lower()[:500]
+        mode_value = _detect_query_mode_cached(question_key)
+        return QueryMode(mode_value)
 
     def _expand_query(self, question: str) -> list[str]:
         """Generate query variations for better retrieval."""

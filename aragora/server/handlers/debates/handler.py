@@ -47,6 +47,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_storage,
+    safe_error_message,
     safe_json_parse,
     ttl_cache,
 )
@@ -930,7 +931,7 @@ class DebatesHandler(
             response = controller.start_debate(request)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to start debate: {e}")
-            return error_response(f"Failed to start debate: {str(e)}", 500)
+            return error_response(safe_error_message(e, "start debate"), 500)
 
         # Note: Usage increment is handled by @require_quota decorator on success
         return json_response(response.to_dict(), status=response.status_code)

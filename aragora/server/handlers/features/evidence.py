@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
     json_response,
+    safe_error_message,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.security import (
@@ -339,7 +340,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             )
         except Exception as e:
             logger.exception(f"Evidence collection failed: {e}")
-            return error_response(f"Evidence collection failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Evidence collection"), 500)
 
         # Save to store if debate_id provided
         saved_ids = []

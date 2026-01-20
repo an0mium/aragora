@@ -29,6 +29,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ class FolderUploadHandler(BaseHandler):
             return error_response(str(e), 400)
         except Exception as e:
             logger.error(f"Folder scan error: {e}")
-            return error_response(f"Scan failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Scan"), 500)
 
     @require_user_auth
     @handle_errors("folder upload")

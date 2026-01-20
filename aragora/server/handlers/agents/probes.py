@@ -30,6 +30,7 @@ from ..base import (
     invalidate_leaderboard_cache,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,7 +194,7 @@ class ProbesHandler(BaseHandler):
         except Exception as e:
             return json_response(
                 {
-                    "error": f"Failed to create agent: {str(e)}",
+                    "error": safe_error_message(e, "create agent"),
                     "hint": f"model_type '{model_type}' may not be available",
                 },
                 status=400,

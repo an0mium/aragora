@@ -25,6 +25,12 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorNotFoundError,
+    ConnectorRateLimitError,
+)
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -285,7 +291,28 @@ class DropboxConnector(EnterpriseConnector):
             if resp.status >= 400:
                 error = await resp.text()
                 logger.error(f"API request failed: {resp.status} {error}")
-                raise Exception(f"Dropbox API error: {resp.status}")
+                # Map HTTP status to appropriate exception type
+                if resp.status in (401, 403):
+                    raise ConnectorAuthError(
+                        f"Dropbox authentication failed: {resp.status}",
+                        connector_name="dropbox",
+                    )
+                elif resp.status == 429:
+                    raise ConnectorRateLimitError(
+                        f"Dropbox rate limit exceeded",
+                        connector_name="dropbox",
+                    )
+                elif resp.status == 404:
+                    raise ConnectorNotFoundError(
+                        f"Dropbox resource not found",
+                        connector_name="dropbox",
+                    )
+                else:
+                    raise ConnectorAPIError(
+                        f"Dropbox API error: {resp.status}",
+                        connector_name="dropbox",
+                        status_code=resp.status,
+                    )
             return await resp.json()
 
     async def get_account_info(self) -> Dict[str, Any]:
@@ -421,7 +448,29 @@ class DropboxConnector(EnterpriseConnector):
         async with session.post(url, headers=headers) as resp:
             if resp.status >= 400:
                 error = await resp.text()
-                raise Exception(f"Download failed: {resp.status} {error}")
+                # Map HTTP status to appropriate exception type
+                if resp.status in (401, 403):
+                    raise ConnectorAuthError(
+                        f"Dropbox download auth failed: {resp.status}",
+                        connector_name="dropbox",
+                    )
+                elif resp.status == 429:
+                    raise ConnectorRateLimitError(
+                        f"Dropbox download rate limited",
+                        connector_name="dropbox",
+                    )
+                elif resp.status == 404:
+                    raise ConnectorNotFoundError(
+                        f"Dropbox file not found: {file_path}",
+                        connector_name="dropbox",
+                        resource_id=file_path,
+                    )
+                else:
+                    raise ConnectorAPIError(
+                        f"Dropbox download failed: {resp.status} {error}",
+                        connector_name="dropbox",
+                        status_code=resp.status,
+                    )
             return await resp.read()
 
     async def get_file_metadata(self, file_path: str) -> DropboxFile:

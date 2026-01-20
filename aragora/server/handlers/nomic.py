@@ -43,6 +43,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ class NomicHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
+    @rate_limit(rpm=30)
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route nomic endpoint requests."""
         handlers = {
@@ -441,6 +443,7 @@ class NomicHandler(BaseHandler):
     # POST Handlers - Control Operations
     # =========================================================================
 
+    @rate_limit(rpm=30)
     def handle_post(
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:

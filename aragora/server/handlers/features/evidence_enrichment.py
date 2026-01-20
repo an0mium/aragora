@@ -21,6 +21,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 if TYPE_CHECKING:
@@ -140,7 +141,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get evidence for {finding_id}: {e}")
-            return error_response(f"Failed to get evidence: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Failed to get evidence"), 500)
 
     @require_user_auth
     @handle_errors("enrich finding")
@@ -193,7 +194,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             return error_response(str(e), 404)
         except Exception as e:
             logger.error(f"Failed to enrich finding {finding_id}: {e}")
-            return error_response(f"Enrichment failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Enrichment"), 500)
 
     async def _run_enrichment(
         self,
@@ -297,7 +298,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             return json_response(result)
         except Exception as e:
             logger.error(f"Batch enrichment failed: {e}")
-            return error_response(f"Batch enrichment failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Batch enrichment"), 500)
 
     async def _run_batch_enrichment(
         self,

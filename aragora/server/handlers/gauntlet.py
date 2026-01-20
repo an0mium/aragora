@@ -34,6 +34,7 @@ from .base import (
     get_int_param,
     get_string_param,
     json_response,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -829,7 +830,7 @@ class GauntletHandler(BaseHandler):
             )
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to list results: {e}")
-            return error_response(f"Failed to list results: {e}", 500)
+            return error_response(safe_error_message(e, "list results"), 500)
 
     def _compare_results(self, id1: str, id2: str, query_params: dict) -> HandlerResult:
         """Compare two gauntlet results."""
@@ -843,7 +844,7 @@ class GauntletHandler(BaseHandler):
             return json_response(comparison)
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to compare results: {e}")
-            return error_response(f"Failed to compare results: {e}", 500)
+            return error_response(safe_error_message(e, "compare results"), 500)
 
     def _delete_result(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Delete a gauntlet result."""
@@ -862,7 +863,7 @@ class GauntletHandler(BaseHandler):
                 return error_response(f"Gauntlet run not found: {gauntlet_id}", 404)
         except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to delete result: {e}")
-            return error_response(f"Failed to delete result: {e}", 500)
+            return error_response(safe_error_message(e, "delete result"), 500)
 
     async def _export_report(
         self, gauntlet_id: str, query_params: dict, handler: Any = None

@@ -24,6 +24,7 @@ from .base import (
     handle_errors,
     json_response,
     require_auth,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -269,7 +270,7 @@ class TrainingHandler(BaseHandler):
 
         except Exception as e:
             logger.error("training_sft_export_failed error=%s", e)
-            return error_response(f"Export failed: {e}", 500)
+            return error_response(safe_error_message(e, "SFT export"), 500)
 
     @require_auth
     @rate_limit(rpm=10, limiter_name="training_export")
@@ -347,7 +348,7 @@ class TrainingHandler(BaseHandler):
 
         except Exception as e:
             logger.error("training_dpo_export_failed error=%s", e)
-            return error_response(f"Export failed: {e}", 500)
+            return error_response(safe_error_message(e, "DPO export"), 500)
 
     @require_auth
     @rate_limit(rpm=10, limiter_name="training_export")
@@ -437,7 +438,7 @@ class TrainingHandler(BaseHandler):
 
         except Exception as e:
             logger.error("training_gauntlet_export_failed error=%s", e)
-            return error_response(f"Export failed: {e}", 500)
+            return error_response(safe_error_message(e, "Gauntlet export"), 500)
 
     @rate_limit(rpm=30, limiter_name="training_stats")
     @handle_errors("get training stats")
@@ -644,7 +645,7 @@ class TrainingHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to list training jobs: {e}")
-            return error_response(f"Failed to list jobs: {str(e)}", 500)
+            return error_response(safe_error_message(e, "list training jobs"), 500)
 
     def _get_job(
         self,
@@ -667,7 +668,7 @@ class TrainingHandler(BaseHandler):
             return error_response(str(e), 404)
         except Exception as e:
             logger.error(f"Failed to get job {job_id}: {e}")
-            return error_response(f"Failed to get job: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get training job"), 500)
 
     def _cancel_job(
         self,
@@ -688,7 +689,7 @@ class TrainingHandler(BaseHandler):
             return error_response(str(e), 404)
         except Exception as e:
             logger.error(f"Failed to cancel job {job_id}: {e}")
-            return error_response(f"Failed to cancel job: {str(e)}", 500)
+            return error_response(safe_error_message(e, "cancel training job"), 500)
 
     @require_auth
     @rate_limit(rpm=10, limiter_name="training_job_export")
@@ -717,7 +718,7 @@ class TrainingHandler(BaseHandler):
             return error_response(str(e), 404)
         except Exception as e:
             logger.error(f"Failed to export data for job {job_id}: {e}")
-            return error_response(f"Failed to export data: {str(e)}", 500)
+            return error_response(safe_error_message(e, "export training data"), 500)
 
     @require_auth
     @rate_limit(rpm=5, limiter_name="training_job_start")
@@ -747,7 +748,7 @@ class TrainingHandler(BaseHandler):
             return error_response(str(e), 400)
         except Exception as e:
             logger.error(f"Failed to start training for job {job_id}: {e}")
-            return error_response(f"Failed to start training: {str(e)}", 500)
+            return error_response(safe_error_message(e, "start training"), 500)
 
     @require_auth
     @rate_limit(rpm=10, limiter_name="training_job_complete")
@@ -792,7 +793,7 @@ class TrainingHandler(BaseHandler):
             return error_response(str(e), 404)
         except Exception as e:
             logger.error(f"Failed to complete job {job_id}: {e}")
-            return error_response(f"Failed to complete job: {str(e)}", 500)
+            return error_response(safe_error_message(e, "complete training job"), 500)
 
     def _get_job_metrics(
         self,
@@ -824,7 +825,7 @@ class TrainingHandler(BaseHandler):
             return json_response(metrics)
         except Exception as e:
             logger.error(f"Failed to get metrics for job {job_id}: {e}")
-            return error_response(f"Failed to get metrics: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get training metrics"), 500)
 
     def _get_job_artifacts(
         self,
@@ -865,4 +866,4 @@ class TrainingHandler(BaseHandler):
             return json_response(artifacts)
         except Exception as e:
             logger.error(f"Failed to get artifacts for job {job_id}: {e}")
-            return error_response(f"Failed to get artifacts: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get training artifacts"), 500)

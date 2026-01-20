@@ -29,6 +29,7 @@ from .base import (
     error_response,
     get_string_param,
     json_response,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -167,7 +168,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             })
         except Exception as e:
             logger.error(f"Failed to get queue stats: {e}")
-            return error_response(f"Failed to get queue stats: {e}", 500)
+            return error_response(safe_error_message(e, "get queue stats"), 500)
 
     async def _get_workers(self) -> HandlerResult:
         """Get worker status.
@@ -268,7 +269,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to submit job: {e}")
-            return error_response(f"Failed to submit job: {e}", 500)
+            return error_response(safe_error_message(e, "submit job"), 500)
 
     async def _list_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
         """List jobs with optional filtering."""
@@ -349,7 +350,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to list jobs: {e}")
-            return error_response(f"Failed to list jobs: {e}", 500)
+            return error_response(safe_error_message(e, "list jobs"), 500)
 
     async def _get_job(self, job_id: str) -> HandlerResult:
         """Get a specific job's status."""
@@ -389,7 +390,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to get job {job_id}: {e}")
-            return error_response(f"Failed to get job: {e}", 500)
+            return error_response(safe_error_message(e, "get job"), 500)
 
     async def _retry_job(self, job_id: str) -> HandlerResult:
         """Retry a failed job."""
@@ -432,7 +433,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to retry job {job_id}: {e}")
-            return error_response(f"Failed to retry job: {e}", 500)
+            return error_response(safe_error_message(e, "retry job"), 500)
 
     async def _cancel_job(self, job_id: str) -> HandlerResult:
         """Cancel a pending job."""
@@ -462,4 +463,4 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to cancel job {job_id}: {e}")
-            return error_response(f"Failed to cancel job: {e}", 500)
+            return error_response(safe_error_message(e, "cancel job"), 500)

@@ -26,6 +26,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 
 # Knowledge processing enabled by default
@@ -318,7 +319,7 @@ class DocumentBatchHandler(BaseHandler):
 
         except Exception as e:
             logger.exception("Batch upload failed")
-            return error_response(f"Batch upload failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Batch upload"), 500)
 
     def _get_job_status(self, job_id: str) -> HandlerResult:
         """Get status of a batch processing job."""
@@ -641,7 +642,7 @@ class DocumentBatchHandler(BaseHandler):
             return error_response("Knowledge pipeline not available", 503)
         except Exception as e:
             logger.error(f"Error listing knowledge jobs: {e}")
-            return error_response(f"Failed to list jobs: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Failed to list jobs"), 500)
 
     def _get_knowledge_job_status(self, job_id: str) -> HandlerResult:
         """Get status of a specific knowledge processing job."""
@@ -656,7 +657,7 @@ class DocumentBatchHandler(BaseHandler):
             return error_response("Knowledge pipeline not available", 503)
         except Exception as e:
             logger.error(f"Error getting knowledge job status: {e}")
-            return error_response(f"Failed to get job status: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Failed to get job status"), 500)
 
 
 # Export for handler registration

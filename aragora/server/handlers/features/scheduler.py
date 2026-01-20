@@ -29,6 +29,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -290,7 +291,7 @@ class SchedulerHandler(BaseHandler):
                 return error_response("Failed to trigger job", 500)
         except Exception as e:
             logger.error(f"Failed to trigger job {job_id}: {e}")
-            return error_response(f"Failed to trigger job: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Failed to trigger job"), 500)
 
     @require_user_auth
     @handle_errors("pause job")
@@ -394,7 +395,7 @@ class SchedulerHandler(BaseHandler):
             )
         except Exception as e:
             logger.error(f"Webhook handling failed: {e}")
-            return error_response(f"Webhook handling failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Webhook handling"), 500)
 
     @handle_errors("git push event")
     def _handle_git_push(self, handler) -> HandlerResult:
@@ -448,7 +449,7 @@ class SchedulerHandler(BaseHandler):
             )
         except Exception as e:
             logger.error(f"Git push handling failed: {e}")
-            return error_response(f"Git push handling failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Git push handling"), 500)
 
     @require_user_auth
     @handle_errors("file upload event")
@@ -495,4 +496,4 @@ class SchedulerHandler(BaseHandler):
             )
         except Exception as e:
             logger.error(f"File upload handling failed: {e}")
-            return error_response(f"File upload handling failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "File upload handling"), 500)

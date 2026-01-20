@@ -20,6 +20,7 @@ from ..base import (
     error_response,
     handle_errors,
     json_response,
+    safe_error_message,
 )
 
 # Suspicious patterns for task sanitization
@@ -246,7 +247,7 @@ class GraphDebatesHandler(BaseHandler):
             return error_response("Graph debate module not available", 500)
         except Exception as e:
             logger.exception(f"Graph debate failed: {e}")
-            return error_response(f"Graph debate failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "graph debate"), 500)
 
     async def _load_agents(self, agent_names: list[str]) -> list:
         """Load agents by name."""

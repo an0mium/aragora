@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,7 +182,7 @@ class ZoomHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Zoom event error: {e}", exc_info=True)
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response(safe_error_message(e, "Zoom event"), 500)
 
 
 __all__ = ["ZoomHandler"]

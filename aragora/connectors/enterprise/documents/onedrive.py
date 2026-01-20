@@ -26,6 +26,12 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorNotFoundError,
+    ConnectorRateLimitError,
+)
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -295,7 +301,28 @@ class OneDriveConnector(EnterpriseConnector):
             if resp.status >= 400:
                 error = await resp.text()
                 logger.error(f"API request failed: {resp.status} {error}")
-                raise Exception(f"OneDrive API error: {resp.status}")
+                # Map HTTP status to appropriate exception type
+                if resp.status in (401, 403):
+                    raise ConnectorAuthError(
+                        f"OneDrive authentication failed: {resp.status}",
+                        connector_name="onedrive",
+                    )
+                elif resp.status == 429:
+                    raise ConnectorRateLimitError(
+                        f"OneDrive rate limit exceeded",
+                        connector_name="onedrive",
+                    )
+                elif resp.status == 404:
+                    raise ConnectorNotFoundError(
+                        f"OneDrive resource not found",
+                        connector_name="onedrive",
+                    )
+                else:
+                    raise ConnectorAPIError(
+                        f"OneDrive API error: {resp.status}",
+                        connector_name="onedrive",
+                        status_code=resp.status,
+                    )
             return await resp.json()
 
     def _get_drive_path(self) -> str:
@@ -438,7 +465,29 @@ class OneDriveConnector(EnterpriseConnector):
 
         async with session.get(url, headers=headers, allow_redirects=True) as resp:
             if resp.status >= 400:
-                raise Exception(f"Download failed: {resp.status}")
+                # Map HTTP status to appropriate exception type
+                if resp.status in (401, 403):
+                    raise ConnectorAuthError(
+                        f"OneDrive download auth failed: {resp.status}",
+                        connector_name="onedrive",
+                    )
+                elif resp.status == 429:
+                    raise ConnectorRateLimitError(
+                        f"OneDrive download rate limited",
+                        connector_name="onedrive",
+                    )
+                elif resp.status == 404:
+                    raise ConnectorNotFoundError(
+                        f"OneDrive file not found: {file_id}",
+                        connector_name="onedrive",
+                        resource_id=file_id,
+                    )
+                else:
+                    raise ConnectorAPIError(
+                        f"OneDrive download failed: {resp.status}",
+                        connector_name="onedrive",
+                        status_code=resp.status,
+                    )
             return await resp.read()
 
     async def get_file_metadata(self, file_id: str) -> OneDriveFile:

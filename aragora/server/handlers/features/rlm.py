@@ -24,6 +24,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ class RLMHandler(BaseHandler):
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"RLM query failed: {e}")
-            return error_response(f"RLM query failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "RLM query"), 500)
 
     async def _execute_rlm_query(
         self,
@@ -249,7 +250,7 @@ class RLMHandler(BaseHandler):
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"RLM compression failed: {e}")
-            return error_response(f"Compression failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Compression"), 500)
 
     async def _execute_compression(
         self,
@@ -318,7 +319,7 @@ class RLMHandler(BaseHandler):
             return json_response(result)
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"Failed to get context level: {e}")
-            return error_response(f"Failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Get context level"), 500)
 
     async def _get_level_content(self, debate_id: str, level_name: str) -> dict:
         """Get content at specific abstraction level."""
@@ -429,7 +430,7 @@ class RLMHandler(BaseHandler):
             return json_response(result)
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"Knowledge RLM query failed: {e}")
-            return error_response(f"Query failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Query"), 500)
 
     async def _execute_knowledge_query(
         self,
@@ -631,7 +632,7 @@ class RLMHandler(BaseHandler):
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"Failed to get RLM metrics: {e}")
-            return error_response(f"Failed to get metrics: {str(e)}", 500)
+            return error_response(safe_error_message(e, "Failed to get metrics"), 500)
 
     def _get_counter_value(self, counter) -> float:
         """Extract total value from a Prometheus Counter."""

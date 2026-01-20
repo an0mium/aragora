@@ -24,7 +24,8 @@ from urllib.parse import urlparse
 
 from aragora.exceptions import ConfigurationError
 
-from .base import BaseHandler, HandlerResult, error_response, json_response
+from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,7 @@ class SSOHandler(BaseHandler):
             ("GET", "/auth/sso/status", "handle_status"),
         ]
 
+    @rate_limit(rpm=10)
     async def handle_login(
         self, handler: Any, params: Dict[str, Any]
     ) -> Union[HandlerResult, Dict[str, Any]]:
@@ -252,9 +254,10 @@ class SSOHandler(BaseHandler):
         except Exception as e:
             logger.error(f"SSO login error: {e}")
             return self._format_response(
-                handler, error_response(f"SSO login failed: {e}", 500, code="SSO_LOGIN_ERROR")
+                handler, error_response(safe_error_message(e, "SSO login"), 500, code="SSO_LOGIN_ERROR")
             )
 
+    @rate_limit(rpm=10)
     async def handle_callback(
         self, handler: Any, params: Dict[str, Any]
     ) -> Union[HandlerResult, Dict[str, Any]]:
@@ -393,9 +396,10 @@ class SSOHandler(BaseHandler):
                 )
 
             return self._format_response(
-                handler, error_response(f"Authentication failed: {e}", 401, code="SSO_AUTH_FAILED")
+                handler, error_response(safe_error_message(e, "authentication"), 401, code="SSO_AUTH_FAILED")
             )
 
+    @rate_limit(rpm=10)
     async def handle_logout(
         self, handler: Any, params: Dict[str, Any]
     ) -> Union[HandlerResult, Dict[str, Any]]:
@@ -469,6 +473,7 @@ class SSOHandler(BaseHandler):
                 ),
             )
 
+    @rate_limit(rpm=10)
     async def handle_metadata(
         self, handler: Any, params: Dict[str, Any]
     ) -> Union[HandlerResult, Dict[str, Any]]:
@@ -524,6 +529,7 @@ class SSOHandler(BaseHandler):
 
         return self._format_response(handler, error_response("Metadata not available", 400))
 
+    @rate_limit(rpm=10)
     async def handle_status(
         self, handler: Any, params: Dict[str, Any]
     ) -> Union[HandlerResult, Dict[str, Any]]:

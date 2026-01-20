@@ -28,6 +28,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -363,7 +364,7 @@ class GmailIngestHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"[Gmail] OAuth completion failed: {e}")
-            return error_response(f"Authentication failed: {e}", 500)
+            return error_response(safe_error_message(e, "Authentication"), 500)
 
     def _start_sync(self, body: Dict[str, Any], user_id: str) -> HandlerResult:
         """Start email sync for user."""
@@ -537,7 +538,7 @@ class GmailIngestHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"[Gmail] List messages failed: {e}")
-            return error_response(f"Failed to list messages: {e}", 500)
+            return error_response(safe_error_message(e, "Failed to list messages"), 500)
 
     def _get_message(self, user_id: str, message_id: str) -> HandlerResult:
         """Get a single message by ID."""
@@ -566,7 +567,7 @@ class GmailIngestHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"[Gmail] Get message failed: {e}")
-            return error_response(f"Failed to get message: {e}", 500)
+            return error_response(safe_error_message(e, "Failed to get message"), 500)
 
     def _search(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Search emails."""
@@ -617,7 +618,7 @@ class GmailIngestHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"[Gmail] Search failed: {e}")
-            return error_response(f"Search failed: {e}", 500)
+            return error_response(safe_error_message(e, "Search"), 500)
 
     def _disconnect(self, user_id: str) -> HandlerResult:
         """Disconnect Gmail account."""

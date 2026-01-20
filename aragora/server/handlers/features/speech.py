@@ -27,6 +27,7 @@ from ..base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -212,7 +213,7 @@ class SpeechHandler(BaseHandler):
                 "error": "aiohttp package required for URL transcription"
             }, status=500)
         except Exception as e:
-            return json_response({"error": f"Failed to fetch audio: {str(e)}"}, status=400)
+            return json_response({"error": safe_error_message(e, "Failed to fetch audio")}, status=400)
 
         # Extract filename from URL
         filename = url.split("/")[-1].split("?")[0] or "audio.mp3"

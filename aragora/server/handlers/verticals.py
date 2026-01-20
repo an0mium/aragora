@@ -26,6 +26,7 @@ from .base import (
     error_response,
     get_string_param,
     json_response,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -168,7 +169,7 @@ class VerticalsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to list verticals: {e}")
-            return error_response(f"Failed to list verticals: {e}", 500)
+            return error_response(safe_error_message(e, "list verticals"), 500)
 
     def _get_vertical(self, vertical_id: str) -> HandlerResult:
         """Get a specific vertical's configuration."""
@@ -204,7 +205,7 @@ class VerticalsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get vertical {vertical_id}: {e}")
-            return error_response(f"Failed to get vertical: {e}", 500)
+            return error_response(safe_error_message(e, "get vertical"), 500)
 
     def _get_tools(self, vertical_id: str) -> HandlerResult:
         """Get tools available for a vertical."""
@@ -229,7 +230,7 @@ class VerticalsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get tools for {vertical_id}: {e}")
-            return error_response(f"Failed to get tools: {e}", 500)
+            return error_response(safe_error_message(e, "get vertical tools"), 500)
 
     def _get_compliance(self, vertical_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get compliance frameworks for a vertical."""
@@ -269,7 +270,7 @@ class VerticalsHandler(BaseHandler):
             return error_response("Compliance module not available", 503)
         except Exception as e:
             logger.error(f"Failed to get compliance for {vertical_id}: {e}")
-            return error_response(f"Failed to get compliance: {e}", 500)
+            return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
     def _suggest_vertical(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Suggest the best vertical for a task description."""
@@ -306,7 +307,7 @@ class VerticalsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to suggest vertical: {e}")
-            return error_response(f"Failed to suggest vertical: {e}", 500)
+            return error_response(safe_error_message(e, "suggest vertical"), 500)
 
     async def _create_debate(self, vertical_id: str, handler: Any) -> HandlerResult:
         """Create a debate using a vertical specialist."""
@@ -389,7 +390,7 @@ class VerticalsHandler(BaseHandler):
             return error_response("Debate infrastructure not available", 503)
         except Exception as e:
             logger.error(f"Failed to create debate for {vertical_id}: {e}")
-            return error_response(f"Failed to create debate: {e}", 500)
+            return error_response(safe_error_message(e, "create vertical debate"), 500)
 
     def _create_agent(self, vertical_id: str, handler: Any) -> HandlerResult:
         """Create a specialist agent instance."""
@@ -434,4 +435,4 @@ class VerticalsHandler(BaseHandler):
             return error_response(str(e), 400)
         except Exception as e:
             logger.error(f"Failed to create agent for {vertical_id}: {e}")
-            return error_response(f"Failed to create agent: {e}", 500)
+            return error_response(safe_error_message(e, "create vertical agent"), 500)

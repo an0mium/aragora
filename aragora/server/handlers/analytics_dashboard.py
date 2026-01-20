@@ -27,6 +27,7 @@ from .base import (
     require_user_auth,
     safe_error_message,
 )
+from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @rate_limit(rpm=60)
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         if path == "/api/analytics/summary":

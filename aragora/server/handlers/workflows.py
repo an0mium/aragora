@@ -793,6 +793,7 @@ from aragora.server.handlers.base import (
     json_response,
     get_int_param,
     get_string_param,
+    safe_error_message,
 )
 
 
@@ -989,7 +990,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response(result)
         except Exception as e:
             logger.exception(f"Failed to list workflows: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "list workflows"), 500)
 
     def _handle_get_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
@@ -1003,7 +1004,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except Exception as e:
             logger.exception(f"Failed to get workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "get workflow"), 500)
 
     def _handle_create_workflow(self, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows."""
@@ -1018,7 +1019,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(str(e), 400)
         except Exception as e:
             logger.exception(f"Failed to create workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "create workflow"), 500)
 
     def _handle_update_workflow(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle PATCH /api/workflows/{id}."""
@@ -1035,7 +1036,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(str(e), 400)
         except Exception as e:
             logger.exception(f"Failed to update workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "update workflow"), 500)
 
     def _handle_delete_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
@@ -1051,7 +1052,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except Exception as e:
             logger.exception(f"Failed to delete workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "delete workflow"), 500)
 
     def _handle_execute(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
@@ -1068,7 +1069,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(str(e), 404)
         except Exception as e:
             logger.exception(f"Failed to execute workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "execute workflow"), 500)
 
     def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
@@ -1115,7 +1116,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.exception(f"Failed to simulate workflow: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "simulate workflow"), 500)
 
     def _handle_get_status(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
@@ -1132,7 +1133,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             })
         except Exception as e:
             logger.exception(f"Failed to get workflow status: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "get workflow status"), 500)
 
     def _handle_get_versions(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
@@ -1147,7 +1148,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response({"versions": versions, "workflow_id": workflow_id})
         except Exception as e:
             logger.exception(f"Failed to get workflow versions: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "get workflow versions"), 500)
 
     def _handle_list_templates(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
@@ -1160,7 +1161,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response({"templates": templates, "count": len(templates)})
         except Exception as e:
             logger.exception(f"Failed to list templates: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "list workflow templates"), 500)
 
     def _handle_list_approvals(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
@@ -1174,7 +1175,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response({"approvals": approvals, "count": len(approvals)})
         except Exception as e:
             logger.exception(f"Failed to list approvals: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "list workflow approvals"), 500)
 
     def _handle_list_executions(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-executions.
@@ -1204,7 +1205,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             })
         except Exception as e:
             logger.exception(f"Failed to list executions: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "list workflow executions"), 500)
 
     def _handle_resolve_approval(self, request_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflow-approvals/{id}/resolve."""
@@ -1225,4 +1226,4 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(str(e), 400)
         except Exception as e:
             logger.exception(f"Failed to resolve approval: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "resolve workflow approval"), 500)

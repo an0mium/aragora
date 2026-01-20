@@ -15,7 +15,6 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from aragora.server.errors import safe_error_message
 
 if TYPE_CHECKING:
     from typing import TypeAlias
@@ -69,6 +68,7 @@ from ..base import (
     error_response,
     handle_errors,
     json_response,
+    safe_error_message,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -374,7 +374,7 @@ class MatrixDebatesHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Matrix debate fallback failed: {e}")
-            return error_response(f"Matrix debate failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "matrix debate"), 500)
 
     def _find_universal_conclusions(self, results: list[dict]) -> list[str]:
         """Find conclusions that are consistent across all scenarios."""
