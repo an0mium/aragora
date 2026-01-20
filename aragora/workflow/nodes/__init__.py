@@ -10,6 +10,7 @@ Phase 2 step implementations for the Enterprise Control Plane:
 - NomicLoopStep: Self-improvement cycle execution
 - KnowledgePipelineStep: Document ingestion and processing
 - GauntletStep: Adversarial validation and compliance checking
+- KnowledgePruningStep: Automatic knowledge maintenance (pruning, dedup, decay)
 """
 
 from aragora.workflow.nodes.human_checkpoint import HumanCheckpointStep
@@ -20,6 +21,11 @@ from aragora.workflow.nodes.task import TaskStep
 from aragora.workflow.nodes.nomic import NomicLoopStep
 from aragora.workflow.nodes.knowledge_pipeline import KnowledgePipelineStep
 from aragora.workflow.nodes.gauntlet import GauntletStep
+from aragora.workflow.nodes.knowledge_pruning import (
+    KnowledgePruningStep,
+    KnowledgeDedupStep,
+    ConfidenceDecayStep,
+)
 
 __all__ = [
     "HumanCheckpointStep",
@@ -31,4 +37,7 @@ __all__ = [
     "NomicLoopStep",
     "KnowledgePipelineStep",
     "GauntletStep",
+    "KnowledgePruningStep",
+    "KnowledgeDedupStep",
+    "ConfidenceDecayStep",
 ]

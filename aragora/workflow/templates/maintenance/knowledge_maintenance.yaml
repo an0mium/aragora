@@ -1,0 +1,145 @@
+name: knowledge_maintenance
+description: Scheduled knowledge maintenance workflow for pruning, deduplication, and confidence decay
+version: "1.0"
+author: aragora
+
+# This workflow performs routine knowledge maintenance tasks
+# Schedule: Run daily or weekly via cron trigger
+
+inputs:
+  workspace_id:
+    type: string
+    description: Workspace to maintain
+    required: true
+  dry_run:
+    type: boolean
+    description: Report only without making changes
+    default: true
+  prune_enabled:
+    type: boolean
+    description: Enable pruning step
+    default: true
+  dedup_enabled:
+    type: boolean
+    description: Enable deduplication step
+    default: true
+  decay_enabled:
+    type: boolean
+    description: Enable confidence decay step
+    default: true
+
+outputs:
+  pruning_result:
+    type: object
+    description: Results from pruning operation
+  dedup_result:
+    type: object
+    description: Results from deduplication operation
+  decay_result:
+    type: object
+    description: Results from confidence decay operation
+  summary:
+    type: object
+    description: Overall maintenance summary
+
+steps:
+  - name: check_prune_enabled
+    type: decision
+    config:
+      expression: "inputs.prune_enabled"
+      true_branch: run_pruning
+      false_branch: check_dedup_enabled
+
+  - name: run_pruning
+    type: knowledge_pruning
+    config:
+      workspace_id: "{{ inputs.workspace_id }}"
+      staleness_threshold: 0.9
+      min_age_days: 30
+      action: archive
+      dry_run: "{{ inputs.dry_run }}"
+      max_items: 100
+    outputs:
+      pruning_result: result
+
+  - name: check_dedup_enabled
+    type: decision
+    depends_on:
+      - run_pruning
+    config:
+      expression: "inputs.dedup_enabled"
+      true_branch: run_dedup
+      false_branch: check_decay_enabled
+
+  - name: run_dedup
+    type: knowledge_dedup
+    config:
+      workspace_id: "{{ inputs.workspace_id }}"
+      similarity_threshold: 0.95
+      auto_merge: true
+      dry_run: "{{ inputs.dry_run }}"
+      max_clusters: 50
+    outputs:
+      dedup_result: result
+
+  - name: check_decay_enabled
+    type: decision
+    depends_on:
+      - run_dedup
+    config:
+      expression: "inputs.decay_enabled"
+      true_branch: run_decay
+      false_branch: summarize
+
+  - name: run_decay
+    type: confidence_decay
+    config:
+      workspace_id: "{{ inputs.workspace_id }}"
+      decay_rate: 0.01
+      min_confidence: 0.1
+    outputs:
+      decay_result: result
+
+  - name: summarize
+    type: task
+    depends_on:
+      - run_decay
+    config:
+      task_type: transform
+      transform: |
+        {
+          "workspace_id": inputs.workspace_id,
+          "dry_run": inputs.dry_run,
+          "pruning": steps.run_pruning.pruning_result or {"skipped": True},
+          "dedup": steps.run_dedup.dedup_result or {"skipped": True},
+          "decay": steps.run_decay.decay_result or {"skipped": True},
+          "completed_at": datetime.now().isoformat()
+        }
+    outputs:
+      summary: result
+
+triggers:
+  - type: cron
+    schedule: "0 2 * * *"  # Run at 2 AM daily
+    inputs:
+      dry_run: false
+      prune_enabled: true
+      dedup_enabled: true
+      decay_enabled: true
+
+  - type: webhook
+    path: /api/workflows/maintenance/trigger
+    method: POST
+
+notifications:
+  - type: slack
+    channel: "#knowledge-ops"
+    on:
+      - complete
+      - failure
+    message: |
+      Knowledge Maintenance {{ status }}
+      Workspace: {{ inputs.workspace_id }}
+      Pruned: {{ outputs.pruning_result.items_pruned or 0 }} items
+      Deduped: {{ outputs.dedup_result.merges_performed or 0 }} items
+      Decayed: {{ outputs.decay_result.items_decayed or 0 }} items
