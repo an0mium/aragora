@@ -118,6 +118,10 @@ research = [
     "duckduckgo-search>=6.0,<8.0",
     "beautifulsoup4>=4.12,<5.0",
 ]
+gauntlet = [
+    # Minimal dependencies for standalone Gauntlet CLI
+    # Core package includes all required dependencies
+]
 ml = [
     "scipy>=1.14.0,<2.0",  # 1.14.0+ required for NumPy 2.x support
     "scikit-learn>=1.5.0,<2.0",  # 1.5.0+ required for NumPy 2.x support
@@ -140,6 +144,7 @@ all = [
 
 [project.scripts]
 aragora = "aragora.cli.main:main"
+gauntlet = "aragora.gauntlet.__main__:main"
 
 [project.urls]
 Homepage = "https://aragora.ai"

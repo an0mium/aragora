@@ -103,9 +103,18 @@
   - Added "auto" backend selection support to `get_transcription_backend()`
   - Fixed file size validation test to use configurable limits
   - All 24 whisper backend tests now pass (4 skipped due to optional deps)
+- **Memory Embeddings Tests** - 52 new tests for `aragora/memory/embeddings.py`:
+  - `tests/memory/test_embeddings.py` covering all providers and utilities
+  - Tests for EmbeddingProvider, OpenAIEmbedding, GeminiEmbedding, OllamaEmbedding
+  - SemanticRetriever database operations fully tested
+  - Integration tests for concurrent embeddings and provider fallback
 - **Billing & AgentSpec Verified** - Code audit confirmed proper implementation:
   - Usage sync correctly handles token delta flooring and remainder preservation
   - AgentSpec model/persona properly wired through to agent creation
+- **Connector Exception Hierarchy** - Already complete (`aragora/connectors/exceptions.py`):
+  - 10 exception types with `is_retryable` and `retry_after` attributes
+  - `classify_exception()` utility for converting generic exceptions
+  - `connector_error_handler` context manager for consistent error handling
 - **New Test Suites** - 5 new test modules with 260+ tests:
   - `tests/runtime/test_autotune.py` - 58 tests for budget-aware debate autotuning
   - `tests/scheduler/test_audit_scheduler.py` - 67 tests for cron/webhook scheduling
