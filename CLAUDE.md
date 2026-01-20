@@ -9,13 +9,15 @@ Context for Claude Code when working with the Aragora codebase.
 | Debate engine | `aragora/debate/` | `orchestrator.py`, `consensus.py` |
 | Agents | `aragora/agents/` | `cli_agents.py`, `api_agents/` |
 | Server | `aragora/server/` | `unified_server.py`, `handlers/` |
-| Memory | `aragora/memory/` | `continuum.py`, `consensus.py` |
+| Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
 | RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
+| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `ops/` |
 | Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
-| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `teams.py` |
+| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/` |
+| Control Plane | `aragora/control_plane/` | `leader.py`, `registry.py`, `scheduler.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
@@ -50,7 +52,13 @@ aragora/
 │   └── airlock.py          # AirlockProxy for agent resilience
 ├── memory/           # Learning and persistence
 │   ├── continuum.py        # Multi-tier memory (fast/medium/slow/glacial)
-│   └── consensus.py        # Historical debate outcomes
+│   ├── consensus.py        # Historical debate outcomes
+│   └── coordinator.py      # Atomic cross-system memory writes
+├── knowledge/        # Unified knowledge management
+│   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
+│   └── mound/              # KnowledgeMound with sync, revalidation
+├── connectors/       # External integrations
+│   └── chat/               # Telegram, WhatsApp connectors
 ├── server/           # HTTP/WebSocket API
 │   ├── unified_server.py   # Main server (~275 endpoints)
 │   ├── handlers/           # HTTP endpoint handlers (119 modules)
@@ -192,6 +200,13 @@ See `docs/ENVIRONMENT.md` for full reference.
 - RLM (Recursive Language Models) - REPL-based programmatic context access (NOT compression)
 - Belief Network - claim provenance tracking
 - Workflow Engine - DAG-based automation
+- KnowledgeBridgeHub - unified access to MetaLearner, Evidence, Pattern bridges
+- MemoryCoordinator - atomic cross-system writes via `enable_coordinated_writes`
+- SelectionFeedbackLoop - performance-based agent selection via `enable_performance_feedback`
+- CrossDebateMemory - institutional knowledge injection via `enable_cross_debate_memory`
+- Post-debate workflows - automated processing via `enable_post_debate_workflow`
+- Chat connectors - Telegram, WhatsApp integration for debate interfaces
+- Leader election - distributed coordination via `aragora.control_plane.leader`
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management
