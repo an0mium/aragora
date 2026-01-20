@@ -211,11 +211,14 @@ class StreamEventType(Enum):
 
     WORKFLOW_METRICS = "workflow_metrics"  # Workflow execution metrics
 
-    # Voice/Transcription events (Speech-to-Text)
+    # Voice/Transcription events (Speech-to-Text and Text-to-Speech)
     VOICE_START = "voice_start"  # Voice input session started
     VOICE_CHUNK = "voice_chunk"  # Audio chunk received
     VOICE_TRANSCRIPT = "voice_transcript"  # Real-time transcription segment
     VOICE_END = "voice_end"  # Voice input session ended
+    VOICE_RESPONSE = "voice_response"  # TTS audio response being sent to client
+    VOICE_RESPONSE_START = "voice_response_start"  # TTS synthesis started
+    VOICE_RESPONSE_END = "voice_response_end"  # TTS synthesis completed
     TRANSCRIPTION_QUEUED = "transcription_queued"  # File transcription job queued
     TRANSCRIPTION_STARTED = "transcription_started"  # Transcription processing began
     TRANSCRIPTION_PROGRESS = "transcription_progress"  # Transcription progress update

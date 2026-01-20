@@ -1,19 +1,24 @@
 """
 WebSocket handler for live voice streaming and transcription.
 
-Provides real-time speech-to-text via OpenAI Whisper API for:
+Provides bidirectional voice I/O:
+- Speech-to-text (STT) via OpenAI Whisper API for live voice input
+- Text-to-speech (TTS) via configurable backends for audio responses
+
+Features:
 - Live voice input during debates
 - Recording and transcribing spoken arguments
 - Voice-controlled debate participation
+- Synthesized audio responses from agent messages
 
 Architecture:
     Browser -> WebSocket -> VoiceStreamHandler -> WhisperConnector -> Transcription
+                                    |                                   |
+                                    v                                   v
+                              StreamEvent (VOICE_TRANSCRIPT)    Debate Context
                                     |
                                     v
-                              StreamEvent (VOICE_TRANSCRIPT)
-                                    |
-                                    v
-                              Debate Context / Arena
+                          TTS Backend -> Audio Response -> Browser
 
 Usage:
     # Register in unified server routes
@@ -38,6 +43,10 @@ from aragora.connectors.whisper import (
 from aragora.connectors.exceptions import ConnectorConfigError, ConnectorRateLimitError
 from aragora.server.stream.events import StreamEvent, StreamEventType
 
+# TTS backend imports - lazy loaded for optional dependency
+_tts_backend = None
+_tts_available = None
+
 if TYPE_CHECKING:
     from aiohttp import web
     from aragora.server.stream.server_base import ServerBase
@@ -59,6 +68,40 @@ VOICE_MAX_SESSIONS_PER_IP = int(os.getenv("ARAGORA_VOICE_MAX_SESSIONS_IP", "3"))
 VOICE_MAX_BYTES_PER_MINUTE = int(
     os.getenv("ARAGORA_VOICE_RATE_BYTES", str(5 * 1024 * 1024))
 )  # 5MB/min
+
+# TTS configuration
+VOICE_TTS_ENABLED = os.getenv("ARAGORA_VOICE_TTS_ENABLED", "true").lower() == "true"
+VOICE_TTS_DEFAULT_VOICE = os.getenv("ARAGORA_VOICE_TTS_DEFAULT_VOICE", "narrator")
+
+
+def _get_tts_backend():
+    """Lazily load and return TTS backend."""
+    global _tts_backend, _tts_available
+
+    if _tts_available is False:
+        return None
+
+    if _tts_backend is not None:
+        return _tts_backend
+
+    try:
+        from aragora.broadcast.tts_backends import get_fallback_backend
+
+        _tts_backend = get_fallback_backend()
+        _tts_available = _tts_backend.is_available()
+        if not _tts_available:
+            logger.warning("[Voice] TTS backends not available")
+            return None
+        logger.info(f"[Voice] TTS backend initialized: {_tts_backend.name}")
+        return _tts_backend
+    except ImportError as e:
+        logger.warning(f"[Voice] TTS backends not available: {e}")
+        _tts_available = False
+        return None
+    except Exception as e:
+        logger.error(f"[Voice] Failed to initialize TTS backend: {e}")
+        _tts_available = False
+        return None
 
 
 @dataclass
@@ -155,8 +198,16 @@ class VoiceStreamHandler:
 
     @property
     def is_available(self) -> bool:
-        """Check if voice streaming is available."""
+        """Check if voice streaming (STT) is available."""
         return self.whisper.is_available
+
+    @property
+    def is_tts_available(self) -> bool:
+        """Check if TTS is available for voice responses."""
+        if not VOICE_TTS_ENABLED:
+            return False
+        tts = _get_tts_backend()
+        return tts is not None and tts.is_available()
 
     async def handle_websocket(
         self,
@@ -228,6 +279,8 @@ class VoiceStreamHandler:
                     "max_buffer_bytes": VOICE_MAX_BUFFER_BYTES,
                     "transcribe_interval_ms": VOICE_TRANSCRIBE_INTERVAL_MS,
                     "max_session_seconds": VOICE_MAX_SESSION_SECONDS,
+                    "tts_enabled": VOICE_TTS_ENABLED,
+                    "tts_available": self.is_tts_available,
                 },
             }
         )
@@ -333,6 +386,20 @@ class VoiceStreamHandler:
 
             elif msg_type == "ping":
                 await ws.send_json({"type": "pong", "timestamp": time.time()})
+
+            elif msg_type == "synthesize":
+                # Client requesting TTS synthesis
+                text = msg.get("text", "")
+                voice = msg.get("voice", VOICE_TTS_DEFAULT_VOICE)
+                agent = msg.get("agent", "")
+                if text:
+                    await self._synthesize_and_send(session, ws, text, voice, agent)
+                else:
+                    await ws.send_json({
+                        "type": "error",
+                        "code": "empty_text",
+                        "message": "No text provided for synthesis",
+                    })
 
         except json.JSONDecodeError:
             logger.warning(f"[Voice] Invalid JSON message: {data[:100]}")
@@ -482,6 +549,141 @@ class VoiceStreamHandler:
                     "message": f"Transcription failed: {e}",
                 }
             )
+
+    async def _synthesize_and_send(
+        self,
+        session: VoiceSession,
+        ws: "web.WebSocketResponse",
+        text: str,
+        voice: str = "narrator",
+        agent: str = "",
+    ) -> None:
+        """
+        Synthesize text to speech and send audio back to client.
+
+        Args:
+            session: Voice session
+            ws: WebSocket response
+            text: Text to synthesize
+            voice: Voice/speaker identifier for TTS
+            agent: Optional agent name for event tracking
+        """
+        if not VOICE_TTS_ENABLED:
+            await ws.send_json({
+                "type": "error",
+                "code": "tts_disabled",
+                "message": "TTS is disabled",
+            })
+            return
+
+        tts = _get_tts_backend()
+        if tts is None:
+            await ws.send_json({
+                "type": "error",
+                "code": "tts_unavailable",
+                "message": "TTS backends not available. Check TTS configuration.",
+            })
+            return
+
+        # Emit TTS start event
+        self._emit_event(
+            StreamEventType.VOICE_RESPONSE_START,
+            {
+                "session_id": session.session_id,
+                "debate_id": session.debate_id,
+                "text_length": len(text),
+                "voice": voice,
+                "agent": agent,
+            },
+            session.debate_id,
+        )
+
+        # Notify client that synthesis is starting
+        await ws.send_json({
+            "type": "tts_start",
+            "session_id": session.session_id,
+            "voice": voice,
+            "agent": agent,
+            "text_length": len(text),
+        })
+
+        try:
+            # Synthesize audio
+            audio_path = await tts.synthesize(
+                text,
+                voice=voice,
+                output_path=None,  # Auto-generate temp file
+            )
+
+            if audio_path is None or not audio_path.exists():
+                raise RuntimeError("TTS synthesis returned no audio")
+
+            # Read audio file and send as binary chunks
+            audio_bytes = audio_path.read_bytes()
+            audio_size = len(audio_bytes)
+
+            # Determine audio format from file extension
+            audio_format = audio_path.suffix.lstrip(".") or "mp3"
+
+            logger.info(
+                f"[Voice] TTS synthesized: {len(text)} chars -> {audio_size} bytes ({audio_format})"
+            )
+
+            # Send audio metadata
+            await ws.send_json({
+                "type": "tts_audio_start",
+                "session_id": session.session_id,
+                "format": audio_format,
+                "size": audio_size,
+                "voice": voice,
+                "agent": agent,
+            })
+
+            # Send audio data as binary
+            # For large files, chunk it (64KB chunks)
+            chunk_size = 64 * 1024
+            offset = 0
+            while offset < audio_size:
+                chunk = audio_bytes[offset:offset + chunk_size]
+                await ws.send_bytes(chunk)
+                offset += len(chunk)
+
+            # Send audio complete message
+            await ws.send_json({
+                "type": "tts_audio_end",
+                "session_id": session.session_id,
+                "total_bytes": audio_size,
+                "format": audio_format,
+            })
+
+            # Emit TTS complete event
+            self._emit_event(
+                StreamEventType.VOICE_RESPONSE_END,
+                {
+                    "session_id": session.session_id,
+                    "debate_id": session.debate_id,
+                    "text_length": len(text),
+                    "audio_size": audio_size,
+                    "format": audio_format,
+                    "voice": voice,
+                    "agent": agent,
+                },
+                session.debate_id,
+            )
+
+            # Clean up temp file
+            try:
+                audio_path.unlink()
+            except Exception:
+                pass
+
+        except Exception as e:
+            logger.error(f"[Voice] TTS synthesis failed: {e}")
+            await ws.send_json({
+                "type": "error",
+                "code": "tts_failed",
+                "message": f"TTS synthesis failed: {e}",
+            })
 
     def _create_wav_header(
         self,
