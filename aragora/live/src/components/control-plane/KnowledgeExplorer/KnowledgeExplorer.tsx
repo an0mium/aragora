@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useKnowledgeQuery } from '@/hooks/useKnowledgeQuery';
+import { useSharing } from '@/hooks/useSharing';
+import { useFederation } from '@/hooks/useFederation';
 import { useKnowledgeExplorerStore } from '@/store/knowledgeExplorerStore';
 import { QueryInterface } from './QueryInterface';
 import { NodeBrowser } from './NodeBrowser';
@@ -59,10 +61,24 @@ export function KnowledgeExplorer({
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedNodeForShare, setSelectedNodeForShare] = useState<KnowledgeNode | null>(null);
-  const [sharedItems, setSharedItems] = useState<SharedItem[]>([]);
-  const [sharedItemsLoading, setSharedItemsLoading] = useState(false);
-  const [federatedRegions, setFederatedRegions] = useState<FederatedRegion[]>([]);
-  const [federationLoading, setFederationLoading] = useState(false);
+
+  // Use hooks for sharing and federation
+  const {
+    sharedItems,
+    isLoading: sharedItemsLoading,
+    loadSharedWithMe,
+    acceptSharedItem,
+    declineSharedItem,
+  } = useSharing({ workspaceId });
+
+  const {
+    regions: federatedRegions,
+    isLoading: federationLoading,
+    loadRegions,
+    syncPush,
+    syncPull,
+    toggleRegionEnabled,
+  } = useFederation({ workspaceId });
 
   // Store state
   const { activeTab, setActiveTab } = useKnowledgeExplorerStore();
@@ -148,39 +164,30 @@ export function KnowledgeExplorer({
     [selectedNodeForShare, onShare]
   );
 
-  // Load shared items (placeholder - would connect to API)
-  const loadSharedItems = useCallback(async () => {
-    setSharedItemsLoading(true);
-    try {
-      // TODO: Connect to /api/knowledge/mound/shared-with-me
-      // const response = await fetch(`/api/knowledge/mound/shared-with-me?workspace_id=${workspaceId}`);
-      // const data = await response.json();
-      // setSharedItems(data.items);
-      setSharedItems([]);
-    } finally {
-      setSharedItemsLoading(false);
+  // Load shared items and federation status on mount and tab change
+  useEffect(() => {
+    if (activeTab === 'shared') {
+      loadSharedWithMe();
+    } else if (activeTab === 'federation' && isAdmin) {
+      loadRegions();
     }
-  }, [workspaceId]);
-
-  // Load federation status (placeholder - would connect to API)
-  const loadFederationStatus = useCallback(async () => {
-    setFederationLoading(true);
-    try {
-      // TODO: Connect to /api/knowledge/mound/federation/status
-      // const response = await fetch('/api/knowledge/mound/federation/status');
-      // const data = await response.json();
-      // setFederatedRegions(data.regions);
-      setFederatedRegions([]);
-    } finally {
-      setFederationLoading(false);
-    }
-  }, []);
+  }, [activeTab, isAdmin, loadSharedWithMe, loadRegions]);
 
   // Handle federation sync
-  const handleFederationSync = useCallback(async (regionId: string, direction: 'push' | 'pull') => {
-    // TODO: Connect to /api/knowledge/mound/federation/sync/{direction}
-    console.log(`Syncing ${direction} with region ${regionId}`);
-  }, []);
+  const handleFederationSync = useCallback(
+    async (regionId: string, direction: 'push' | 'pull') => {
+      try {
+        if (direction === 'push') {
+          await syncPush(regionId);
+        } else {
+          await syncPull(regionId);
+        }
+      } catch (error) {
+        console.error(`Failed to sync ${direction} with region ${regionId}:`, error);
+      }
+    },
+    [syncPush, syncPull]
+  );
 
   // Stats summary
   const statsSummary = stats ? (
@@ -320,7 +327,7 @@ export function KnowledgeExplorer({
 
     shared: (
       <SharedWithMeTab
-        items={sharedItems}
+        items={sharedItems as unknown as SharedItem[]}
         isLoading={sharedItemsLoading}
         onItemClick={(item) => {
           // Navigate to the shared item
@@ -337,13 +344,18 @@ export function KnowledgeExplorer({
           } as unknown as KnowledgeNode);
         }}
         onAccept={async (item) => {
-          // TODO: Accept shared item into workspace
-          console.log('Accept shared item:', item.id);
+          try {
+            await acceptSharedItem(item.id);
+          } catch (error) {
+            console.error('Failed to accept shared item:', error);
+          }
         }}
         onDecline={async (item) => {
-          // TODO: Decline/hide shared item
-          console.log('Decline shared item:', item.id);
-          setSharedItems((prev) => prev.filter((i) => i.id !== item.id));
+          try {
+            await declineSharedItem(item.id);
+          } catch (error) {
+            console.error('Failed to decline shared item:', error);
+          }
         }}
       />
     ),
@@ -355,15 +367,19 @@ export function KnowledgeExplorer({
         isAdmin={isAdmin}
         onSync={handleFederationSync}
         onToggleEnabled={async (regionId, enabled) => {
-          // TODO: Toggle region enabled state
-          console.log(`Toggle region ${regionId} to ${enabled}`);
+          try {
+            await toggleRegionEnabled(regionId, enabled);
+          } catch (error) {
+            console.error(`Failed to toggle region ${regionId}:`, error);
+          }
         }}
         onAddRegion={() => {
-          // TODO: Open add region dialog
-          console.log('Add region clicked');
+          // Open add region dialog - handled by parent component
+          // The admin page has RegionDialog for this
+          console.log('Add region clicked - use RegionDialog in admin page');
         }}
         onEditRegion={(regionId) => {
-          // TODO: Open edit region dialog
+          // Open edit region dialog - handled by parent component
           console.log('Edit region:', regionId);
         }}
       />
@@ -401,11 +417,11 @@ export function KnowledgeExplorer({
         activeTab={activeTab}
         onTabChange={(tab) => {
           setActiveTab(tab as ExplorerTab);
-          // Load data for new tabs
+          // Load data for new tabs (also handled by useEffect but this ensures immediate load)
           if (tab === 'shared') {
-            loadSharedItems();
+            loadSharedWithMe();
           } else if (tab === 'federation' && isAdmin) {
-            loadFederationStatus();
+            loadRegions();
           }
         }}
       >

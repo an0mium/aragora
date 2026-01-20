@@ -113,11 +113,17 @@
   - Run with `pytest -n auto` for parallel execution
 - **Benchmark Fix** - Relaxed concurrent debate SLO from 0.3 to 0.15 debates/sec
   - Reduces flaky test failures in CI environments
-- **Code Coverage Analysis** - Module-level coverage metrics:
-  - Ranking module: 53% coverage (ELO, calibration, leaderboard)
-  - Memory module: 26% coverage (consensus at 88%, continuum at 22%)
-  - Connectors module: 14% coverage (base/arxiv well-tested, enterprise partial)
+- **Code Coverage Analysis** - Module-level coverage metrics (dedicated test files):
+  - `memory/streams.py`: 94% coverage (56 tests)
+  - `memory/coordinator.py`: 86% coverage (17 tests)
+  - `memory/consensus.py`: 88% coverage
+  - `visualization/mapper.py`: 97% coverage (109 tests)
+  - `ranking/`: 53% aggregate coverage
   - Coverage tool: `pytest --cov=aragora.<module> --cov-report=term-missing`
+- **Dependency Audit** - No known vulnerabilities found (pip-audit)
+  - 10 packages have non-critical updates available
+- **Type Coverage** - 689 mypy errors in core modules (baseline for improvement)
+- **Test Parallelization Verified** - 758 tests passed with `pytest -n auto`
 
 #### Recent Changes (2026-01-19)
 - **Cross-Functional Integration** - Wired 7 cross-functional features:
@@ -307,12 +313,21 @@ else:
 - Relevance-based context retrieval
 - Fixed: Race condition in concurrent reads via snapshot pattern
 
-**Knowledge Mound** (PHASE 1 COMPLETE)
+**Knowledge Mound** (PHASE 2 COMPLETE)
 - `aragora/knowledge/mound/` - Unified enterprise knowledge storage
 - SemanticStore with mandatory embeddings for semantic search
 - KnowledgeGraphStore for relationship tracking and lineage
 - DomainTaxonomy for hierarchical organization
 - KnowledgeMoundMetaLearner for cross-memory optimization
+- **Visibility Levels** (PHASE 2): private, workspace, organization, public, system
+- **Access Grants**: Fine-grained permissions with expiration
+- **Cross-Workspace Sharing**: Share items between workspaces with permission tracking
+- **Global Knowledge**: System-wide verified facts in `__system__` workspace
+- **Federation**: Multi-region sync with push/pull/bidirectional modes
+- React hooks: `useVisibility`, `useSharing`, `useFederation`, `useGlobalKnowledge`
+- TypeScript types: `aragora/live/src/types/knowledge.ts` (50+ type definitions)
+- Backend handlers: visibility.py, sharing.py, global_knowledge.py, federation.py
+- Integration tests: 23 tests covering visibility, sharing, global knowledge, federation
 - Staleness detection with automatic revalidation scheduling
 - Culture accumulation for organizational learning
 - Multi-backend support (SQLite, PostgreSQL, Redis)
