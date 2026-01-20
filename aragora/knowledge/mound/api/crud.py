@@ -216,6 +216,25 @@ class CRUDOperationsMixin:
         if self._cache:
             await self._cache.invalidate_node(node_id)
 
+        # Emit MOUND_UPDATED event for structural change
+        if result and self.event_emitter:
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.MOUND_UPDATED,
+                        data={
+                            "node_id": node_id,
+                            "update_type": "node_deleted",
+                            "archived": archive,
+                            "workspace_id": self.workspace_id,
+                        },
+                    )
+                )
+            except (ImportError, AttributeError, TypeError):
+                pass
+
         return result
 
     async def add(

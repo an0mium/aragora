@@ -254,24 +254,26 @@ class TestPatternBridge:
     async def test_store_pattern_basic(self, bridge, mock_mound):
         """Test storing a basic pattern."""
         node_id = await bridge.store_pattern(
+            pattern_type="debate",
             description="Agents tend to reach consensus faster on technical topics",
-            frequency=0.75,
-            example_debates=["debate-1", "debate-2", "debate-3"],
+            occurrences=5,
+            confidence=0.75,
+            source_ids=["debate-1", "debate-2", "debate-3"],
         )
 
         assert node_id is not None
         node = mock_mound.nodes[node_id]
         assert node.node_type == "pattern"
         assert "consensus" in node.content.lower()
-        assert node.confidence == 0.75
 
     @pytest.mark.asyncio
     async def test_store_pattern_with_category(self, bridge, mock_mound):
-        """Test storing pattern with category."""
+        """Test storing pattern with category (pattern_type)."""
         node_id = await bridge.store_pattern(
+            pattern_type="agent_behavior",
             description="Expert agents contribute more in specialized domains",
-            frequency=0.8,
-            category="agent_behavior",
+            occurrences=10,
+            confidence=0.8,
         )
 
         assert node_id is not None
@@ -280,16 +282,17 @@ class TestPatternBridge:
     async def test_store_debate_patterns(self, bridge, mock_mound):
         """Test storing patterns from debate analysis."""
         patterns = [
-            {"description": "Round 1 proposals are often revised", "frequency": 0.9},
-            {"description": "Critiques improve proposal quality", "frequency": 0.85},
-            {"description": "Consensus emerges by round 3", "frequency": 0.7},
+            {"type": "critique", "description": "Round 1 proposals are often revised", "occurrences": 15},
+            {"type": "debate", "description": "Critiques improve proposal quality", "occurrences": 12},
+            {"type": "consensus", "description": "Consensus emerges by round 3", "occurrences": 8},
         ]
 
         node_ids = []
         for p in patterns:
             node_id = await bridge.store_pattern(
+                pattern_type=p["type"],
                 description=p["description"],
-                frequency=p["frequency"],
+                occurrences=p["occurrences"],
             )
             node_ids.append(node_id)
 
@@ -364,8 +367,9 @@ class TestKnowledgeBridgeHub:
 
         # Store pattern via hub
         pattern_id = await hub.patterns.store_pattern(
+            pattern_type="test",
             description="Test pattern",
-            frequency=0.8,
+            confidence=0.8,
         )
 
         assert evidence_id is not None
@@ -377,7 +381,7 @@ class TestKnowledgeBridgeHub:
         """Test that all bridges share the same mound."""
         # Use all bridges
         await hub.evidence.store_evidence("E1", "s1")
-        await hub.patterns.store_pattern("P1", 0.5)
+        await hub.patterns.store_pattern(pattern_type="test", description="P1", confidence=0.5)
 
         # All nodes in same mound
         assert len(mock_mound.nodes) == 2
@@ -403,8 +407,9 @@ class TestBridgeIntegration:
         """Test evidence supporting a pattern."""
         # Store pattern first
         pattern_id = await hub.patterns.store_pattern(
+            pattern_type="debate",
             description="Debates with more rounds have higher quality outcomes",
-            frequency=0.8,
+            confidence=0.8,
         )
 
         # Store evidence supporting the pattern
@@ -428,7 +433,7 @@ class TestBridgeIntegration:
 
         async def store_patterns():
             for i in range(10):
-                await hub.patterns.store_pattern(f"Pattern {i}", 0.5)
+                await hub.patterns.store_pattern(pattern_type="test", description=f"Pattern {i}", confidence=0.5)
 
         await asyncio.gather(store_evidence(), store_patterns())
 

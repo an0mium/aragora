@@ -108,24 +108,25 @@ class MetaLearnerBridge:
         content = "\n".join(content_parts)
 
         # Create provenance chain
-        from aragora.knowledge.mound import ProvenanceChain
+        from aragora.knowledge.mound import ProvenanceChain, ProvenanceType
 
         provenance = ProvenanceChain(
-            source_type="meta_learner",
-            source_id=f"cycle_{cycle_number}",
-            timestamp=datetime.now().isoformat(),
-            chain=[
+            source_type=ProvenanceType.AGENT,  # Meta-learner is an agent-type source
+            source_id=f"meta_learner_cycle_{cycle_number}",
+            transformations=[
                 {
-                    "step": "evaluation",
-                    "metrics": {
+                    "type": "evaluation",
+                    "details": {
                         "retention": metrics.pattern_retention_rate,
                         "forgetting": metrics.forgetting_rate,
                         "accuracy": metrics.prediction_accuracy,
                     },
+                    "timestamp": datetime.now().isoformat(),
                 },
                 {
-                    "step": "adjustment",
-                    "changes": adjustments,
+                    "type": "adjustment",
+                    "details": {"changes": adjustments},
+                    "timestamp": datetime.now().isoformat(),
                 },
             ],
         )
@@ -134,7 +135,8 @@ class MetaLearnerBridge:
         confidence = (metrics.prediction_accuracy + metrics.pattern_retention_rate) / 2
 
         # Create pattern node
-        from aragora.knowledge.mound import KnowledgeNode, MemoryTier
+        from aragora.knowledge.mound import KnowledgeNode
+        from aragora.memory.tier_manager import MemoryTier
 
         node = KnowledgeNode(
             node_type="pattern",
@@ -175,12 +177,12 @@ class MetaLearnerBridge:
         ]
         content = "\n".join(content_parts)
 
-        from aragora.knowledge.mound import KnowledgeNode, MemoryTier, ProvenanceChain
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
 
         provenance = ProvenanceChain(
-            source_type="meta_learner",
-            source_id="summary",
-            timestamp=datetime.now().isoformat(),
+            source_type=ProvenanceType.AGENT,
+            source_id="meta_learner_summary",
         )
 
         # Confidence based on retention and trend
@@ -249,21 +251,25 @@ class EvidenceBridge:
         Returns:
             Node ID
         """
-        from aragora.knowledge.mound import KnowledgeNode, MemoryTier, ProvenanceChain
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
 
         provenance = ProvenanceChain(
-            source_type="evidence_collector",
+            source_type=ProvenanceType.DOCUMENT,  # Evidence comes from documents/external sources
             source_id=source,
-            timestamp=datetime.now().isoformat(),
-            chain=[
+            transformations=[
                 {
-                    "source": source,
-                    "evidence_type": evidence_type,
-                    "supports": supports_claim,
-                    "strength": strength,
+                    "type": "collection",
+                    "details": {
+                        "source": source,
+                        "evidence_type": evidence_type,
+                        "supports": supports_claim,
+                        "strength": strength,
+                        "metadata": metadata or {},
+                    },
+                    "timestamp": datetime.now().isoformat(),
                 }
             ],
-            metadata=metadata or {},
         )
 
         node = KnowledgeNode(
@@ -294,20 +300,24 @@ class EvidenceBridge:
         Returns:
             Node ID
         """
-        from aragora.knowledge.mound import KnowledgeNode, MemoryTier, ProvenanceChain
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
 
         provenance = ProvenanceChain(
-            source_type="evidence_collector",
+            source_type=ProvenanceType.DOCUMENT,
             source_id=evidence.evidence_id,
-            timestamp=evidence.timestamp if hasattr(evidence, 'timestamp') else datetime.now().isoformat(),
-            chain=[
+            transformations=[
                 {
-                    "source": evidence.source,
-                    "evidence_type": evidence.evidence_type,
-                    "supports": evidence.supports_claim,
+                    "type": "collection",
+                    "details": {
+                        "source": evidence.source,
+                        "evidence_type": evidence.evidence_type,
+                        "supports": evidence.supports_claim,
+                        "metadata": evidence.metadata if hasattr(evidence, 'metadata') else {},
+                    },
+                    "timestamp": evidence.timestamp if hasattr(evidence, 'timestamp') else datetime.now().isoformat(),
                 }
             ],
-            metadata=evidence.metadata if hasattr(evidence, 'metadata') else {},
         )
 
         # Build relationship based on support/refute
@@ -380,22 +390,26 @@ class PatternBridge:
         Returns:
             Node ID
         """
-        from aragora.knowledge.mound import KnowledgeNode, MemoryTier, ProvenanceChain
+        from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+        from aragora.memory.tier_manager import MemoryTier
 
         content = f"[{pattern_type}] {description}\nObserved {occurrences} time(s)"
 
         provenance = ProvenanceChain(
-            source_type="pattern_extractor",
+            source_type=ProvenanceType.INFERENCE,  # Patterns are inferred from data
             source_id=f"pattern_{pattern_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            timestamp=datetime.now().isoformat(),
-            chain=[
+            transformations=[
                 {
-                    "pattern_type": pattern_type,
-                    "occurrences": occurrences,
-                    "source_ids": source_ids or [],
+                    "type": "extraction",
+                    "details": {
+                        "pattern_type": pattern_type,
+                        "occurrences": occurrences,
+                        "source_ids": source_ids or [],
+                        "metadata": metadata or {},
+                    },
+                    "timestamp": datetime.now().isoformat(),
                 }
             ],
-            metadata=metadata or {},
         )
 
         # Adjust tier based on occurrences

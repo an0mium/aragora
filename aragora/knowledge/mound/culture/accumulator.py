@@ -212,10 +212,45 @@ class CultureAccumulator:
                 f"Extracted {len(patterns_updated)} patterns from debate {observation.debate_id}"
             )
 
+            # Emit MOUND_UPDATED event when culture patterns change
+            if patterns_updated:
+                self._emit_mound_updated(
+                    workspace_id=workspace_id,
+                    update_type="culture_patterns",
+                    patterns_count=len(patterns_updated),
+                    debate_id=observation.debate_id,
+                )
+
         except Exception as e:
             logger.warning(f"Failed to observe debate: {e}")
 
         return patterns_updated
+
+    def _emit_mound_updated(
+        self,
+        workspace_id: str,
+        update_type: str,
+        **kwargs,
+    ) -> None:
+        """Emit MOUND_UPDATED event for cross-subsystem tracking."""
+        if not hasattr(self._mound, "event_emitter") or not self._mound.event_emitter:
+            return
+
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            self._mound.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.MOUND_UPDATED,
+                    data={
+                        "workspace_id": workspace_id,
+                        "update_type": update_type,
+                        **kwargs,
+                    },
+                )
+            )
+        except (ImportError, AttributeError, TypeError):
+            pass  # Events module not available
 
     def _extract_observation(self, debate_result: Any) -> Optional[DebateObservation]:
         """Extract observation data from debate result."""

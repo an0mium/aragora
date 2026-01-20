@@ -109,6 +109,13 @@ class CrossSubscriberManager:
             self._handle_evidence_to_insight,
         )
 
+        # Mound structure → Memory/Debate sync
+        self.register(
+            "mound_to_memory",
+            StreamEventType.MOUND_UPDATED,
+            self._handle_mound_to_memory,
+        )
+
         logger.debug("Registered built-in cross-subsystem subscribers")
 
     def register(
@@ -195,95 +202,226 @@ class CrossSubscriberManager:
         Memory retrieval → RLM feedback.
 
         When memory is retrieved, inform RLM about retrieval patterns
-        to optimize compression strategies.
+        to optimize compression strategies. Tracks access patterns
+        for adaptive compression.
         """
         data = event.data
         tier = data.get("tier", "unknown")
         hit = data.get("cache_hit", False)
+        importance = data.get("importance", 0.5)
 
-        # Log retrieval pattern for RLM analysis
+        # Track access pattern for RLM optimization
         logger.debug(f"Memory retrieval: tier={tier}, cache_hit={hit}")
 
-        # Future: Update RLM compression hints based on access patterns
-        # from aragora.rlm import get_compressor
-        # compressor = get_compressor()
-        # compressor.record_access_pattern(tier, hit)
+        # Update RLM compression hints based on access patterns
+        try:
+            from aragora.rlm.compressor import get_compressor
+
+            compressor = get_compressor()
+            if compressor and hasattr(compressor, "record_access_pattern"):
+                compressor.record_access_pattern(
+                    tier=tier,
+                    cache_hit=hit,
+                    importance=importance,
+                )
+        except ImportError:
+            pass  # RLM not available
+        except Exception as e:
+            logger.debug(f"RLM pattern recording failed: {e}")
 
     def _handle_elo_to_debate(self, event: StreamEvent) -> None:
         """
         ELO update → Debate team selection weights.
 
         When agent ELO changes, update team selection weights
-        for future debates.
+        for future debates. Significant changes are logged.
         """
         data = event.data
         agent_name = data.get("agent", "")
         new_elo = data.get("elo", 1500)
         delta = data.get("delta", 0)
+        debate_id = data.get("debate_id", "")
 
+        # Log significant ELO changes
         if abs(delta) > 50:
-            logger.info(f"Significant ELO change: {agent_name} -> {new_elo} (Δ{delta:+.0f})")
+            logger.info(
+                f"Significant ELO change: {agent_name} -> {new_elo} "
+                f"(Δ{delta:+.0f}) in debate {debate_id}"
+            )
 
-        # Future: Update TeamSelector weights
-        # from aragora.debate.team_selector import get_team_selector
-        # selector = get_team_selector()
-        # selector.update_weight(agent_name, new_elo)
+        # Update agent pool weights for future team selection
+        try:
+            from aragora.debate.agent_pool import get_agent_pool
+
+            pool = get_agent_pool()
+            if pool and hasattr(pool, "update_elo_weight"):
+                pool.update_elo_weight(agent_name, new_elo)
+        except ImportError:
+            pass  # AgentPool not available
+        except Exception as e:
+            logger.debug(f"AgentPool weight update failed: {e}")
 
     def _handle_knowledge_to_memory(self, event: StreamEvent) -> None:
         """
         Knowledge indexed → Memory sync.
 
         When new knowledge is indexed, create corresponding
-        memory entries for cross-referencing.
+        memory entries for cross-referencing in debates.
         """
         data = event.data
         node_id = data.get("node_id", "")
-        content = data.get("content", "")[:200]
+        content = data.get("content", "")
         node_type = data.get("node_type", "fact")
+        workspace_id = data.get("workspace_id", "default")
 
         logger.debug(f"Knowledge indexed: {node_type} {node_id}")
 
-        # Future: Create memory entry referencing knowledge node
-        # from aragora.memory import get_continuum_memory
-        # memory = get_continuum_memory()
-        # memory.store_reference(node_id, content)
+        # Create memory entry referencing knowledge node
+        try:
+            from aragora.memory import get_continuum_memory
+
+            memory = get_continuum_memory()
+            if memory:
+                # Store a reference to the knowledge node in memory
+                memory_content = f"[Knowledge:{node_type}] {content[:500]}"
+                metadata = {
+                    "source": "knowledge_mound",
+                    "node_id": node_id,
+                    "node_type": node_type,
+                    "workspace_id": workspace_id,
+                }
+                memory.store(
+                    content=memory_content,
+                    importance=0.6,  # Default importance for knowledge references
+                    metadata=metadata,
+                )
+                logger.debug(f"Created memory reference for knowledge node {node_id}")
+        except ImportError:
+            pass  # ContinuumMemory not available
+        except Exception as e:
+            logger.debug(f"Memory sync for knowledge failed: {e}")
 
     def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
         """
         Calibration update → Agent confidence weights.
 
         When calibration data changes, update agent confidence
-        weights for vote weighting.
+        weights for vote weighting and team selection.
         """
         data = event.data
         agent_name = data.get("agent", "")
         calibration_score = data.get("score", 0.5)
+        brier_score = data.get("brier_score", None)
+        prediction_count = data.get("prediction_count", 0)
 
-        logger.debug(f"Calibration update: {agent_name} -> {calibration_score:.2f}")
+        logger.debug(
+            f"Calibration update: {agent_name} -> {calibration_score:.2f} "
+            f"(predictions: {prediction_count})"
+        )
 
-        # Future: Update vote weights based on calibration
-        # from aragora.debate.voting_engine import get_vote_weighter
-        # weighter = get_vote_weighter()
-        # weighter.set_agent_calibration(agent_name, calibration_score)
+        # Update agent pool with calibration data
+        try:
+            from aragora.debate.agent_pool import get_agent_pool
+
+            pool = get_agent_pool()
+            if pool and hasattr(pool, "update_calibration"):
+                pool.update_calibration(
+                    agent_name=agent_name,
+                    score=calibration_score,
+                    brier_score=brier_score,
+                )
+        except ImportError:
+            pass  # AgentPool not available
+        except Exception as e:
+            logger.debug(f"AgentPool calibration update failed: {e}")
 
     def _handle_evidence_to_insight(self, event: StreamEvent) -> None:
         """
         Evidence found → Insight extraction.
 
         When new evidence is collected, attempt to extract
-        insights that can be stored in memory.
+        insights that can be stored in memory for future debates.
         """
         data = event.data
         evidence_id = data.get("evidence_id", "")
         source = data.get("source", "")
+        content = data.get("content", "")
+        claim = data.get("claim", "")
+        confidence = data.get("confidence", 0.5)
 
         logger.debug(f"Evidence collected: {evidence_id} from {source}")
 
-        # Future: Extract and store insights
-        # from aragora.insights import extract_insight
-        # insight = extract_insight(data.get("content", ""))
-        # if insight:
-        #     memory.store_insight(insight)
+        # Skip if no meaningful content
+        if not content or len(content) < 50:
+            return
+
+        # Store evidence-backed insight in memory
+        try:
+            from aragora.memory import get_continuum_memory
+
+            memory = get_continuum_memory()
+            if memory and confidence >= 0.7:  # Only store high-confidence evidence
+                insight_content = (
+                    f"[Evidence from {source}] "
+                    f"Claim: {claim[:200] if claim else 'N/A'} | "
+                    f"Evidence: {content[:300]}"
+                )
+                metadata = {
+                    "source": source,
+                    "evidence_id": evidence_id,
+                    "confidence": confidence,
+                    "type": "evidence_insight",
+                }
+                memory.store(
+                    content=insight_content,
+                    importance=confidence,
+                    metadata=metadata,
+                )
+                logger.debug(f"Stored evidence insight from {source}")
+        except ImportError:
+            pass  # ContinuumMemory not available
+        except Exception as e:
+            logger.debug(f"Evidence insight storage failed: {e}")
+
+    def _handle_mound_to_memory(self, event: StreamEvent) -> None:
+        """
+        Mound structure update → Memory/Debate sync.
+
+        When the Knowledge Mound structure changes significantly,
+        notify memory and debate systems to refresh their context.
+        """
+        data = event.data
+        update_type = data.get("update_type", "unknown")
+        workspace_id = data.get("workspace_id", "")
+
+        logger.debug(f"Mound updated: type={update_type}, workspace={workspace_id}")
+
+        # Handle culture pattern updates
+        if update_type == "culture_patterns":
+            patterns_count = data.get("patterns_count", 0)
+            debate_id = data.get("debate_id", "")
+            logger.info(
+                f"Culture patterns updated: {patterns_count} patterns "
+                f"from debate {debate_id}"
+            )
+
+        # Handle node deletions
+        elif update_type == "node_deleted":
+            node_id = data.get("node_id", "")
+            archived = data.get("archived", False)
+            logger.debug(
+                f"Knowledge node removed: {node_id} (archived={archived})"
+            )
+
+            # Clear any cached references to this node
+            try:
+                from aragora.memory import get_continuum_memory
+
+                memory = get_continuum_memory()
+                if memory and hasattr(memory, "invalidate_reference"):
+                    memory.invalidate_reference(node_id)
+            except (ImportError, AttributeError):
+                pass
 
     # =========================================================================
     # Management Methods

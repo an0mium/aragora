@@ -73,6 +73,12 @@ from .composite import CompositeHandler
 from .consensus import ConsensusHandler
 from .control_plane import ControlPlaneHandler
 from .critique import CritiqueHandler
+from .cross_pollination import (
+    CrossPollinationStatsHandler,
+    CrossPollinationSubscribersHandler,
+    CrossPollinationBridgeHandler,
+    CrossPollinationResetHandler,
+)
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
 from .docs import DocsHandler
@@ -154,6 +160,10 @@ ALL_HANDLERS = [
     AnalyticsHandler,
     AnalyticsDashboardHandler,  # Enterprise analytics dashboard
     MetricsHandler,
+    CrossPollinationStatsHandler,  # Cross-subsystem event observability
+    CrossPollinationSubscribersHandler,
+    CrossPollinationBridgeHandler,
+    CrossPollinationResetHandler,
     ConsensusHandler,
     BeliefHandler,
     ControlPlaneHandler,  # Enterprise control plane API
