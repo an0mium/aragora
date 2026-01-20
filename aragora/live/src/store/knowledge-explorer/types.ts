@@ -168,7 +168,7 @@ export interface KnowledgeExplorerState {
   nodeEditor: NodeEditorState;
   stats: MoundStats | null;
   statsLoading: boolean;
-  activeTab: 'search' | 'browse' | 'graph' | 'stale';
+  activeTab: 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation';
 }
 
 export interface KnowledgeExplorerActions {
@@ -226,7 +226,7 @@ export interface KnowledgeExplorerActions {
   setStatsLoading: (loading: boolean) => void;
 
   // Tab navigation
-  setActiveTab: (tab: 'search' | 'browse' | 'graph' | 'stale') => void;
+  setActiveTab: (tab: 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation') => void;
 
   // Reset
   resetExplorer: () => void;

@@ -8,9 +8,14 @@ import { QueryInterface } from './QueryInterface';
 import { NodeBrowser } from './NodeBrowser';
 import { GraphViewer } from './GraphViewer';
 import { StaleKnowledgeTab, type StaleNode } from './StaleKnowledgeTab';
+import { SharedWithMeTab, type SharedItem } from './SharedWithMeTab';
+import { FederationStatus, type FederatedRegion } from './FederationStatus';
+import { ShareDialog, type ShareGrant } from './ShareDialog';
+import { VisibilitySelector, type VisibilityLevel } from './VisibilitySelector';
+import { AccessGrantsList, type AccessGrant } from './AccessGrantsList';
 import type { KnowledgeNode, GraphNode } from '@/store/knowledgeExplorerStore';
 
-export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale';
+export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation';
 
 export interface KnowledgeExplorerProps {
   /** Initial tab to show */
@@ -23,6 +28,16 @@ export interface KnowledgeExplorerProps {
   showStats?: boolean;
   /** Custom CSS classes */
   className?: string;
+  /** Whether user is admin (shows federation tab) */
+  isAdmin?: boolean;
+  /** Current workspace ID */
+  workspaceId?: string;
+  /** Available workspaces for sharing */
+  availableWorkspaces?: Array<{ id: string; name: string }>;
+  /** Callback when item visibility changes */
+  onVisibilityChange?: (nodeId: string, visibility: VisibilityLevel) => void;
+  /** Callback when sharing an item */
+  onShare?: (nodeId: string, grant: ShareGrant) => void;
 }
 
 /**
@@ -35,8 +50,19 @@ export function KnowledgeExplorer({
   height = 500,
   showStats = true,
   className = '',
+  isAdmin = false,
+  workspaceId,
+  availableWorkspaces = [],
+  onVisibilityChange,
+  onShare,
 }: KnowledgeExplorerProps) {
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [selectedNodeForShare, setSelectedNodeForShare] = useState<KnowledgeNode | null>(null);
+  const [sharedItems, setSharedItems] = useState<SharedItem[]>([]);
+  const [sharedItemsLoading, setSharedItemsLoading] = useState(false);
+  const [federatedRegions, setFederatedRegions] = useState<FederatedRegion[]>([]);
+  const [federationLoading, setFederationLoading] = useState(false);
 
   // Store state
   const { activeTab, setActiveTab } = useKnowledgeExplorerStore();
@@ -103,6 +129,58 @@ export function KnowledgeExplorer({
     },
     [onSelectNode]
   );
+
+  // Handle share button click
+  const handleShareClick = useCallback((node: KnowledgeNode) => {
+    setSelectedNodeForShare(node);
+    setShareDialogOpen(true);
+  }, []);
+
+  // Handle share dialog submit
+  const handleShare = useCallback(
+    (grant: ShareGrant) => {
+      if (selectedNodeForShare && onShare) {
+        onShare(selectedNodeForShare.id, grant);
+      }
+      setShareDialogOpen(false);
+      setSelectedNodeForShare(null);
+    },
+    [selectedNodeForShare, onShare]
+  );
+
+  // Load shared items (placeholder - would connect to API)
+  const loadSharedItems = useCallback(async () => {
+    setSharedItemsLoading(true);
+    try {
+      // TODO: Connect to /api/knowledge/mound/shared-with-me
+      // const response = await fetch(`/api/knowledge/mound/shared-with-me?workspace_id=${workspaceId}`);
+      // const data = await response.json();
+      // setSharedItems(data.items);
+      setSharedItems([]);
+    } finally {
+      setSharedItemsLoading(false);
+    }
+  }, [workspaceId]);
+
+  // Load federation status (placeholder - would connect to API)
+  const loadFederationStatus = useCallback(async () => {
+    setFederationLoading(true);
+    try {
+      // TODO: Connect to /api/knowledge/mound/federation/status
+      // const response = await fetch('/api/knowledge/mound/federation/status');
+      // const data = await response.json();
+      // setFederatedRegions(data.regions);
+      setFederatedRegions([]);
+    } finally {
+      setFederationLoading(false);
+    }
+  }, []);
+
+  // Handle federation sync
+  const handleFederationSync = useCallback(async (regionId: string, direction: 'push' | 'pull') => {
+    // TODO: Connect to /api/knowledge/mound/federation/sync/{direction}
+    console.log(`Syncing ${direction} with region ${regionId}`);
+  }, []);
 
   // Stats summary
   const statsSummary = stats ? (
@@ -239,26 +317,114 @@ export function KnowledgeExplorer({
         onRefresh={loadStats}
       />
     ),
+
+    shared: (
+      <SharedWithMeTab
+        items={sharedItems}
+        isLoading={sharedItemsLoading}
+        onItemClick={(item) => {
+          // Navigate to the shared item
+          onSelectNode?.({
+            id: item.id,
+            content: item.content,
+            node_type: 'shared',
+            confidence: 1,
+            created_at: item.sharedAt.toISOString(),
+            tier: 'medium',
+            workspace_id: workspaceId || 'default',
+            topics: [],
+            metadata: {},
+          } as unknown as KnowledgeNode);
+        }}
+        onAccept={async (item) => {
+          // TODO: Accept shared item into workspace
+          console.log('Accept shared item:', item.id);
+        }}
+        onDecline={async (item) => {
+          // TODO: Decline/hide shared item
+          console.log('Decline shared item:', item.id);
+          setSharedItems((prev) => prev.filter((i) => i.id !== item.id));
+        }}
+      />
+    ),
+
+    federation: (
+      <FederationStatus
+        regions={federatedRegions}
+        isLoading={federationLoading}
+        isAdmin={isAdmin}
+        onSync={handleFederationSync}
+        onToggleEnabled={async (regionId, enabled) => {
+          // TODO: Toggle region enabled state
+          console.log(`Toggle region ${regionId} to ${enabled}`);
+        }}
+        onAddRegion={() => {
+          // TODO: Open add region dialog
+          console.log('Add region clicked');
+        }}
+        onEditRegion={(regionId) => {
+          // TODO: Open edit region dialog
+          console.log('Edit region:', regionId);
+        }}
+      />
+    ),
   };
 
+  // Build tabs array based on permissions
+  const tabs = [
+    { id: 'search', label: 'Search', content: tabContent.search },
+    { id: 'browse', label: 'Browse', badge: totalNodes, content: tabContent.browse },
+    { id: 'graph', label: 'Graph', content: tabContent.graph },
+    { id: 'stale', label: 'Stale', badge: stats?.stale_nodes_count, content: tabContent.stale },
+    { id: 'shared', label: 'Shared', badge: sharedItems.length || undefined, content: tabContent.shared },
+  ];
+
+  // Add federation tab for admins
+  if (isAdmin) {
+    tabs.push({
+      id: 'federation',
+      label: 'Federation',
+      badge: federatedRegions.filter((r) => r.health !== 'healthy').length || undefined,
+      content: tabContent.federation,
+    });
+  }
+
   return (
-    <PanelTemplate
-      title="Knowledge Explorer"
-      icon="🧠"
-      loading={statsLoading && showStats}
-      onRefresh={loadStats}
-      className={className}
-      tabs={[
-        { id: 'search', label: 'Search', content: tabContent.search },
-        { id: 'browse', label: 'Browse', badge: totalNodes, content: tabContent.browse },
-        { id: 'graph', label: 'Graph', content: tabContent.graph },
-        { id: 'stale', label: 'Stale', badge: stats?.stale_nodes_count, content: tabContent.stale },
-      ]}
-      activeTab={activeTab}
-      onTabChange={(tab) => setActiveTab(tab as ExplorerTab)}
-    >
-      {showStats && !statsLoading && stats && statsSummary}
-    </PanelTemplate>
+    <>
+      <PanelTemplate
+        title="Knowledge Explorer"
+        icon="🧠"
+        loading={statsLoading && showStats}
+        onRefresh={loadStats}
+        className={className}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab as ExplorerTab);
+          // Load data for new tabs
+          if (tab === 'shared') {
+            loadSharedItems();
+          } else if (tab === 'federation' && isAdmin) {
+            loadFederationStatus();
+          }
+        }}
+      >
+        {showStats && !statsLoading && stats && statsSummary}
+      </PanelTemplate>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        isOpen={shareDialogOpen}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setSelectedNodeForShare(null);
+        }}
+        onShare={handleShare}
+        itemId={selectedNodeForShare?.id || ''}
+        itemTitle={selectedNodeForShare?.content?.slice(0, 100)}
+        availableWorkspaces={availableWorkspaces}
+      />
+    </>
   );
 }
 
