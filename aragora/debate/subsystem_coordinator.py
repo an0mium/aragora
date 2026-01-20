@@ -176,6 +176,31 @@ class SubsystemCoordinator:
     # calibration_tracker already defined above (source)
     cost_tracker: Optional[Any] = None  # CostTracker (target)
 
+    # ==========================================================================
+    # Phase 10: Bidirectional Knowledge Mound Integration
+    # ==========================================================================
+
+    # Knowledge Mound core
+    knowledge_mound: Optional[Any] = None  # KnowledgeMound instance
+    enable_km_bidirectional: bool = True  # Master switch for bidirectional sync
+
+    # Bidirectional Coordinator
+    km_coordinator: Optional[Any] = None  # BidirectionalCoordinator
+    enable_km_coordinator: bool = True  # Auto-create if KM available
+
+    # KM Adapters (for manual configuration)
+    km_continuum_adapter: Optional[Any] = None
+    km_elo_adapter: Optional[Any] = None
+    km_belief_adapter: Optional[Any] = None
+    km_insights_adapter: Optional[Any] = None
+    km_critique_adapter: Optional[Any] = None
+    km_pulse_adapter: Optional[Any] = None
+
+    # KM Configuration
+    km_sync_interval_seconds: int = 300  # 5 minutes
+    km_min_confidence_for_reverse: float = 0.7
+    km_parallel_sync: bool = True
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _init_errors: list = field(default_factory=list, repr=False)
@@ -271,15 +296,36 @@ class SubsystemCoordinator:
     @property
     def active_bridges_count(self) -> int:
         """Count of active cross-pollination bridges."""
-        return sum([
-            self.has_performance_router_bridge,
-            self.has_outcome_complexity_bridge,
-            self.has_analytics_selection_bridge,
-            self.has_novelty_selection_bridge,
-            self.has_relationship_bias_bridge,
-            self.has_rlm_selection_bridge,
-            self.has_calibration_cost_bridge,
-        ])
+        return sum(
+            [
+                self.has_performance_router_bridge,
+                self.has_outcome_complexity_bridge,
+                self.has_analytics_selection_bridge,
+                self.has_novelty_selection_bridge,
+                self.has_relationship_bias_bridge,
+                self.has_rlm_selection_bridge,
+                self.has_calibration_cost_bridge,
+            ]
+        )
+
+    # =========================================================================
+    # Phase 10: Knowledge Mound Capability Checks
+    # =========================================================================
+
+    @property
+    def has_knowledge_mound(self) -> bool:
+        """Check if Knowledge Mound is available."""
+        return self.knowledge_mound is not None
+
+    @property
+    def has_km_coordinator(self) -> bool:
+        """Check if KM bidirectional coordinator is available."""
+        return self.km_coordinator is not None
+
+    @property
+    def has_km_bidirectional(self) -> bool:
+        """Check if full KM bidirectional sync is available."""
+        return self.has_knowledge_mound and self.has_km_coordinator
 
     # =========================================================================
     # Auto-initialization methods
@@ -338,6 +384,15 @@ class SubsystemCoordinator:
         # Calibration → Cost bridge
         if self.enable_calibration_cost and self.calibration_cost_bridge is None:
             self._auto_init_calibration_cost_bridge()
+
+        # =======================================================================
+        # Phase 10: Bidirectional Knowledge Mound
+        # =======================================================================
+
+        # KM Bidirectional Coordinator
+        if self.enable_km_coordinator and self.enable_km_bidirectional:
+            if self.km_coordinator is None:
+                self._auto_init_km_coordinator()
 
     def _auto_init_position_ledger(self) -> None:
         """Auto-initialize PositionLedger for tracking agent positions.
@@ -602,6 +657,25 @@ class SubsystemCoordinator:
             logger.debug("CalibrationCostBridge auto-init failed: %s", e)
             self._init_errors.append(f"CalibrationCostBridge init failed: {e}")
 
+    def _auto_init_km_coordinator(self) -> None:
+        """Auto-initialize BidirectionalCoordinator for KM sync.
+
+        BidirectionalCoordinator manages bidirectional data flow between
+        the Knowledge Mound and connected subsystems (adapters).
+        """
+        try:
+            from aragora.knowledge.mound.bidirectional_coordinator import (
+                BidirectionalCoordinator,
+            )
+
+            self.km_coordinator = BidirectionalCoordinator()
+            logger.debug("Auto-initialized BidirectionalCoordinator for KM sync")
+        except ImportError:
+            logger.debug("BidirectionalCoordinator not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("BidirectionalCoordinator auto-init failed: %s", e)
+            self._init_errors.append(f"BidirectionalCoordinator init failed: {e}")
+
     # =========================================================================
     # Lifecycle hooks
     # =========================================================================
@@ -847,9 +921,8 @@ class SubsystemCoordinator:
     @property
     def has_hook_handlers(self) -> bool:
         """Check if hook handlers are registered."""
-        return (
-            self.hook_handler_registry is not None
-            and getattr(self.hook_handler_registry, "is_registered", False)
+        return self.hook_handler_registry is not None and getattr(
+            self.hook_handler_registry, "is_registered", False
         )
 
     def get_status(self) -> dict:
