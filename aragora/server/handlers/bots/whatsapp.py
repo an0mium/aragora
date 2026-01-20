@@ -139,8 +139,8 @@ class WhatsAppHandler(BaseHandler):
                 logger.info("WhatsApp webhook verification successful")
                 # Return challenge as plain text
                 return HandlerResult(
-                    status=200,
-                    headers={"Content-Type": "text/plain"},
+                    status_code=200,
+                    content_type="text/plain",
                     body=challenge.encode(),
                 )
             else:
