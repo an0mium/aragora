@@ -211,7 +211,7 @@ class TestPatternExtractor:
 
         expertise_patterns = [p for p in patterns if p.pattern_type == "topic_expertise"]
         assert len(expertise_patterns) >= 1
-        assert any("claude" in p.agents for p in expertise_patterns)
+        assert any("claude" in p.agents_involved for p in expertise_patterns)
 
     def test_min_evidence_count_enforced(self, pattern_extractor):
         """Test patterns require minimum evidence."""
@@ -277,7 +277,7 @@ class TestKnowledgeDecayManager:
 
         new_confidence = decay_manager.refresh_knowledge("fact1", boost=0.1)
 
-        assert new_confidence == 0.8
+        assert new_confidence == pytest.approx(0.8)
 
     def test_refresh_knowledge_capped(self, decay_manager):
         """Test refresh doesn't exceed 1.0."""
@@ -503,10 +503,10 @@ class TestExtractedPattern:
             evidence_count=10,
             first_seen=now - timedelta(days=7),
             last_seen=now,
-            agents=["claude", "gpt"],
+            agents_involved=["claude", "gpt"],
             topics=["coding"],
         )
 
         assert pattern.id == "pattern_1"
         assert pattern.confidence == 0.85
-        assert len(pattern.agents) == 2
+        assert len(pattern.agents_involved) == 2

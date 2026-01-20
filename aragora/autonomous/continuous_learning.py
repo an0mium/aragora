@@ -332,7 +332,7 @@ class PatternExtractor:
                         evidence_count=len(obs_list),
                         first_seen=min(o["timestamp"] for o in obs_list),
                         last_seen=max(o["timestamp"] for o in obs_list),
-                        agents=list(set(a for o in obs_list for a in o["agents"])),
+                        agents_involved=list(set(a for o in obs_list for a in o["agents"])),
                         topics=list(set(t for o in obs_list for t in o["topics"])),
                     )
                     patterns.append(pattern)
@@ -371,7 +371,7 @@ class PatternExtractor:
                         evidence_count=len(scores),
                         first_seen=datetime.now() - timedelta(days=30),
                         last_seen=datetime.now(),
-                        agents=[agent],
+                        agents_involved=[agent],
                         topics=[topic],
                     )
                     patterns.append(pattern)
@@ -402,7 +402,7 @@ class PatternExtractor:
                     evidence_count=len(obs_list),
                     first_seen=min(o["timestamp"] for o in obs_list),
                     last_seen=max(o["timestamp"] for o in obs_list),
-                    agents=list(set(a for o in obs_list for a in o["agents"])),
+                    agents_involved=list(set(a for o in obs_list for a in o["agents"])),
                     topics=list(set(t for o in obs_list for t in o["topics"])),
                 )
                 patterns.append(pattern)
@@ -430,7 +430,7 @@ class PatternExtractor:
                 "evidence_count": p.evidence_count,
                 "first_seen": p.first_seen.isoformat(),
                 "last_seen": p.last_seen.isoformat(),
-                "agents": p.agents,
+                "agents_involved": p.agents_involved,
                 "topics": p.topics,
                 "metadata": p.metadata,
             }
