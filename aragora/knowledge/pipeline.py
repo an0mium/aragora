@@ -840,7 +840,8 @@ Include dates, numbers, names, and specific claims where possible."""
                     "enabled": True,
                     "synced_items": self._stats.get("mound_synced", 0),
                 }
-            except Exception:
+            except (RuntimeError, AttributeError, KeyError) as e:
+                logger.debug(f"Could not get mound stats: {e}")
                 mound_stats = {"enabled": True, "error": "stats unavailable"}
         else:
             mound_stats = {"enabled": False}

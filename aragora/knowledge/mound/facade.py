@@ -56,6 +56,9 @@ from aragora.knowledge.mound.api.rlm import RLMOperationsMixin
 from aragora.knowledge.mound.ops.staleness import StalenessOperationsMixin
 from aragora.knowledge.mound.ops.culture import CultureOperationsMixin
 from aragora.knowledge.mound.ops.sync import SyncOperationsMixin
+from aragora.knowledge.mound.ops.global_knowledge import GlobalKnowledgeMixin
+from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+from aragora.knowledge.mound.ops.federation import KnowledgeFederationMixin
 from aragora.knowledge.mound.types import MoundConfig
 
 
@@ -66,6 +69,9 @@ class KnowledgeMound(
     StalenessOperationsMixin,
     CultureOperationsMixin,
     SyncOperationsMixin,
+    GlobalKnowledgeMixin,
+    KnowledgeSharingMixin,
+    KnowledgeFederationMixin,
     KnowledgeMoundCore,
 ):
     """
@@ -85,11 +91,14 @@ class KnowledgeMound(
 
     This class composes functionality from modular mixins:
     - CRUDOperationsMixin: store, get, update, delete, add, add_node, get_node
-    - QueryOperationsMixin: query, query_semantic, query_graph, export_graph_*
+    - QueryOperationsMixin: query, query_semantic, query_graph, export_graph_*, query_with_visibility
     - RLMOperationsMixin: query_with_rlm, is_rlm_available
     - StalenessOperationsMixin: get_stale_knowledge, mark_validated, schedule_revalidation
     - CultureOperationsMixin: get_culture_profile, observe_debate, recommend_agents, org culture
     - SyncOperationsMixin: sync_from_*, sync_all
+    - GlobalKnowledgeMixin: store_verified_fact, query_global_knowledge, promote_to_global
+    - KnowledgeSharingMixin: share_with_workspace, share_with_user, get_shared_with_me, revoke_share
+    - KnowledgeFederationMixin: register_federated_region, sync_to_region, pull_from_region
     - KnowledgeMoundCore: initialize, close, session, get_stats, storage adapters
     """
 

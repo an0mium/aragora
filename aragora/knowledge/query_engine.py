@@ -224,8 +224,11 @@ class DatasetQueryEngine:
                 },
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Query processing error: {e}")
+            return self._error_result(ctx, str(e))
         except Exception as e:
-            logger.error(f"Query failed: {e}")
+            logger.exception(f"Unexpected query failure: {e}")
             return self._error_result(ctx, str(e))
 
     async def _search_chunks(self, ctx: QueryContext) -> list[ChunkMatch]:
@@ -238,7 +241,7 @@ class DatasetQueryEngine:
                 alpha=ctx.options.search_alpha,
                 min_score=ctx.options.min_chunk_score,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Embedding search failed, trying keyword: {e}")
             return await self._embedding_service.keyword_search(
                 query=ctx.query,
@@ -295,8 +298,11 @@ Include references to excerpt numbers [N] when citing information."""
             response = await agent.generate(prompt, [])
             ctx.agent_responses[agent.name] = response
             return response
+        except (RuntimeError, TimeoutError, ConnectionError) as e:
+            logger.warning(f"Agent generation failed: {e}")
+            return self._synthesize_from_chunks(ctx)
         except Exception as e:
-            logger.error(f"Agent generation failed: {e}")
+            logger.exception(f"Unexpected agent generation error: {e}")
             return self._synthesize_from_chunks(ctx)
 
     async def _generate_with_debate(self, ctx: QueryContext) -> str:
@@ -409,8 +415,11 @@ Provide a single, definitive answer that:
         """Safely generate a response, returning None on failure."""
         try:
             return await agent.generate(prompt, [])
-        except Exception as e:
+        except (RuntimeError, TimeoutError, ConnectionError) as e:
             logger.warning(f"Agent {agent.name} failed: {e}")
+            return None
+        except Exception as e:
+            logger.exception(f"Unexpected error in agent {agent.name}: {e}")
             return None
 
     def _format_responses(self, responses: dict[str, str]) -> str:
@@ -485,8 +494,10 @@ Only include facts that are directly supported by the source material."""
                         )
                         facts.append(fact)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, TimeoutError) as e:
             logger.warning(f"Fact extraction failed: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected fact extraction error: {e}")
 
         return facts
 
@@ -620,8 +631,10 @@ Then briefly explain your reasoning."""
                     votes[agent.name] = False
                 # UNCERTAIN doesn't vote
 
-            except Exception as e:
+            except (RuntimeError, TimeoutError, ConnectionError) as e:
                 logger.warning(f"Agent {agent.name} verification failed: {e}")
+            except Exception as e:
+                logger.exception(f"Unexpected verification error for agent {agent.name}: {e}")
 
         # Calculate new status based on votes
         if votes:
@@ -653,7 +666,7 @@ Then briefly explain your reasoning."""
         """Close resources."""
         try:
             self._embedding_service.close()
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError) as e:
             # Ignore cleanup errors but log for debugging
             logger.debug(f"Error closing embedding service: {e}")
 
@@ -759,6 +772,6 @@ class SimpleQueryEngine:
         """Close resources."""
         try:
             self._embedding_service.close()
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError) as e:
             # Ignore cleanup errors but log for debugging
             logger.debug(f"Error closing embedding service: {e}")

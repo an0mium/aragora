@@ -16,6 +16,8 @@ from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.knowledge.mound.types import (
+    AccessGrant,
+    AccessGrantType,
     KnowledgeItem,
     KnowledgeLink,
     KnowledgeSource,
@@ -23,6 +25,7 @@ from aragora.knowledge.mound.types import (
     MoundStats,
     QueryFilters,
     RelationshipType,
+    VisibilityLevel,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +51,11 @@ CREATE TABLE IF NOT EXISTS knowledge_nodes (
     revalidation_requested BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    metadata JSONB DEFAULT '{}'
+    metadata JSONB DEFAULT '{}',
+    -- Visibility and access control (Phase 2)
+    visibility TEXT DEFAULT 'workspace' CHECK (visibility IN ('private', 'workspace', 'organization', 'public', 'system')),
+    visibility_set_by TEXT,
+    is_discoverable BOOLEAN DEFAULT TRUE
 );
 
 -- Provenance tracking
@@ -123,6 +130,19 @@ CREATE TABLE IF NOT EXISTS archived_nodes (
     archived_by TEXT
 );
 
+-- Access grants for fine-grained sharing (Phase 2)
+CREATE TABLE IF NOT EXISTS access_grants (
+    id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+    grantee_type TEXT NOT NULL CHECK (grantee_type IN ('user', 'role', 'workspace', 'organization')),
+    grantee_id TEXT NOT NULL,
+    permissions TEXT[] DEFAULT '{read}',
+    granted_by TEXT,
+    granted_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP,
+    UNIQUE(item_id, grantee_type, grantee_id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON knowledge_nodes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_type ON knowledge_nodes(node_type);
@@ -147,6 +167,13 @@ CREATE INDEX IF NOT EXISTS idx_culture_workspace ON culture_patterns(workspace_i
 
 CREATE INDEX IF NOT EXISTS idx_staleness_node ON staleness_checks(node_id);
 CREATE INDEX IF NOT EXISTS idx_staleness_pending ON staleness_checks(revalidation_requested) WHERE revalidation_requested = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_grants_item ON access_grants(item_id);
+CREATE INDEX IF NOT EXISTS idx_grants_grantee ON access_grants(grantee_id);
+CREATE INDEX IF NOT EXISTS idx_grants_expires ON access_grants(expires_at) WHERE expires_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_nodes_visibility ON knowledge_nodes(visibility);
+CREATE INDEX IF NOT EXISTS idx_nodes_public ON knowledge_nodes(workspace_id) WHERE visibility = 'public' OR visibility = 'system';
 
 -- Full-text search index
 CREATE INDEX IF NOT EXISTS idx_nodes_content_fts ON knowledge_nodes USING gin(to_tsvector('english', content));
@@ -203,8 +230,11 @@ class PostgresStore:
 
         except ImportError:
             raise ImportError("asyncpg required for PostgreSQL backend. Install with: pip install asyncpg")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"PostgreSQL connection failed: {e}")
+            raise
         except Exception as e:
-            logger.error(f"PostgreSQL initialization failed: {e}")
+            logger.exception(f"Unexpected PostgreSQL initialization error: {e}")
             raise
 
     @asynccontextmanager
@@ -628,6 +658,188 @@ class PostgresStore:
                 }
                 for row in rows
             ]
+
+    # =========================================================================
+    # Access Grants (Phase 2)
+    # =========================================================================
+
+    async def save_access_grant_async(self, grant: AccessGrant) -> str:
+        """Save an access grant."""
+        async with self.connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO access_grants (
+                    id, item_id, grantee_type, grantee_id, permissions,
+                    granted_by, granted_at, expires_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (item_id, grantee_type, grantee_id) DO UPDATE SET
+                    permissions = EXCLUDED.permissions,
+                    granted_by = EXCLUDED.granted_by,
+                    granted_at = EXCLUDED.granted_at,
+                    expires_at = EXCLUDED.expires_at
+                """,
+                grant.id,
+                grant.item_id,
+                grant.grantee_type.value,
+                grant.grantee_id,
+                grant.permissions,
+                grant.granted_by,
+                grant.granted_at,
+                grant.expires_at,
+            )
+        return grant.id
+
+    async def get_access_grants_async(self, item_id: str) -> List[AccessGrant]:
+        """Get all access grants for an item."""
+        async with self.connection() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM access_grants WHERE item_id = $1",
+                item_id,
+            )
+            return [
+                AccessGrant(
+                    id=row["id"],
+                    item_id=row["item_id"],
+                    grantee_type=AccessGrantType(row["grantee_type"]),
+                    grantee_id=row["grantee_id"],
+                    permissions=list(row["permissions"]) if row["permissions"] else ["read"],
+                    granted_by=row["granted_by"],
+                    granted_at=row["granted_at"],
+                    expires_at=row["expires_at"],
+                )
+                for row in rows
+            ]
+
+    async def get_grants_for_grantee_async(
+        self, grantee_id: str, grantee_type: Optional[AccessGrantType] = None
+    ) -> List[AccessGrant]:
+        """Get all grants for a specific grantee."""
+        async with self.connection() as conn:
+            if grantee_type:
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM access_grants
+                    WHERE grantee_id = $1 AND grantee_type = $2
+                    AND (expires_at IS NULL OR expires_at > NOW())
+                    """,
+                    grantee_id,
+                    grantee_type.value,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM access_grants
+                    WHERE grantee_id = $1
+                    AND (expires_at IS NULL OR expires_at > NOW())
+                    """,
+                    grantee_id,
+                )
+            return [
+                AccessGrant(
+                    id=row["id"],
+                    item_id=row["item_id"],
+                    grantee_type=AccessGrantType(row["grantee_type"]),
+                    grantee_id=row["grantee_id"],
+                    permissions=list(row["permissions"]) if row["permissions"] else ["read"],
+                    granted_by=row["granted_by"],
+                    granted_at=row["granted_at"],
+                    expires_at=row["expires_at"],
+                )
+                for row in rows
+            ]
+
+    async def delete_access_grant_async(self, item_id: str, grantee_id: str) -> bool:
+        """Delete an access grant."""
+        async with self.connection() as conn:
+            result = await conn.execute(
+                "DELETE FROM access_grants WHERE item_id = $1 AND grantee_id = $2",
+                item_id,
+                grantee_id,
+            )
+            return "DELETE 1" in result
+
+    async def query_with_visibility_async(
+        self,
+        query: str,
+        workspace_id: str,
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[KnowledgeItem]:
+        """Query nodes with visibility filtering."""
+        async with self.connection() as conn:
+            # Build visibility filter SQL
+            # Items are visible if:
+            # 1. visibility is 'public' or 'system'
+            # 2. visibility is 'workspace' and workspace_id matches
+            # 3. visibility is 'organization' and org matches (via metadata)
+            # 4. visibility is 'private' and there's an access grant
+            rows = await conn.fetch(
+                """
+                SELECT DISTINCT n.*, ts_rank(to_tsvector('english', n.content), plainto_tsquery('english', $1)) as rank
+                FROM knowledge_nodes n
+                LEFT JOIN access_grants g ON n.id = g.item_id
+                WHERE (
+                    -- Public or system visibility
+                    n.visibility IN ('public', 'system')
+                    -- Workspace visibility
+                    OR (n.visibility = 'workspace' AND n.workspace_id = $2)
+                    -- Organization visibility (check metadata for org_id)
+                    OR (n.visibility = 'organization' AND n.metadata->>'org_id' = $4)
+                    -- Private with explicit grant
+                    OR (n.visibility = 'private' AND g.grantee_id = $3 AND (g.expires_at IS NULL OR g.expires_at > NOW()))
+                )
+                AND n.is_discoverable = TRUE
+                AND to_tsvector('english', n.content) @@ plainto_tsquery('english', $1)
+                ORDER BY rank DESC
+                LIMIT $5
+                """,
+                query,
+                workspace_id,
+                actor_id,
+                actor_org_id or "",
+                limit,
+            )
+
+            return [
+                KnowledgeItem(
+                    id=row["id"],
+                    content=row["content"],
+                    source=KnowledgeSource.FACT,
+                    source_id=row["id"],
+                    confidence=self._validation_to_confidence(row["validation_status"]),
+                    created_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                    metadata={
+                        "node_type": row["node_type"],
+                        "tier": row["tier"],
+                        "visibility": row["visibility"],
+                        **(json.loads(row["metadata"]) if row["metadata"] else {}),
+                    },
+                    importance=row["confidence"],
+                )
+                for row in rows
+            ]
+
+    async def update_visibility_async(
+        self,
+        node_id: str,
+        visibility: VisibilityLevel,
+        set_by: Optional[str] = None,
+    ) -> None:
+        """Update the visibility of a knowledge node."""
+        async with self.connection() as conn:
+            await conn.execute(
+                """
+                UPDATE knowledge_nodes
+                SET visibility = $2, visibility_set_by = $3, updated_at = NOW()
+                WHERE id = $1
+                """,
+                node_id,
+                visibility.value,
+                set_by,
+            )
 
     # =========================================================================
     # Helpers

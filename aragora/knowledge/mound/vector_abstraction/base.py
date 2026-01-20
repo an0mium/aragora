@@ -432,5 +432,6 @@ class BaseVectorStore(ABC):
         try:
             health = await self.health_check()
             return health.get("status") == "healthy"
-        except Exception:
+        except (ConnectionError, TimeoutError, RuntimeError) as e:
+            logger.debug(f"Ping failed: {e}")
             return False

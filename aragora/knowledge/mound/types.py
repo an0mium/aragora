@@ -57,6 +57,79 @@ class StalenessReason(str, Enum):
     MANUAL = "manual"
 
 
+# =============================================================================
+# Visibility and Access Control Types (Phase 2)
+# =============================================================================
+
+
+class VisibilityLevel(str, Enum):
+    """Visibility level for knowledge items.
+
+    Controls who can see and access knowledge items:
+    - PRIVATE: Only the creator and users with explicit access grants
+    - WORKSPACE: All members of the workspace (default)
+    - ORGANIZATION: All members of the organization
+    - PUBLIC: Anyone, including unauthenticated users
+    - SYSTEM: System-wide verified facts (global knowledge)
+    """
+
+    PRIVATE = "private"
+    WORKSPACE = "workspace"
+    ORGANIZATION = "organization"
+    PUBLIC = "public"
+    SYSTEM = "system"
+
+
+class AccessGrantType(str, Enum):
+    """Type of entity receiving an access grant."""
+
+    USER = "user"
+    ROLE = "role"
+    WORKSPACE = "workspace"
+    ORGANIZATION = "organization"
+
+
+@dataclass
+class AccessGrant:
+    """Explicit access grant to a knowledge item.
+
+    Allows fine-grained sharing of knowledge items with specific users,
+    roles, workspaces, or organizations.
+    """
+
+    id: str
+    item_id: str
+    grantee_type: AccessGrantType
+    grantee_id: str
+    permissions: List[str] = field(default_factory=lambda: ["read"])
+    granted_by: Optional[str] = None
+    granted_at: datetime = field(default_factory=datetime.now)
+    expires_at: Optional[datetime] = None
+
+    def is_expired(self) -> bool:
+        """Check if this grant has expired."""
+        if self.expires_at is None:
+            return False
+        return datetime.now() > self.expires_at
+
+    def has_permission(self, permission: str) -> bool:
+        """Check if this grant includes a specific permission."""
+        return permission in self.permissions or "admin" in self.permissions
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "id": self.id,
+            "item_id": self.item_id,
+            "grantee_type": self.grantee_type.value,
+            "grantee_id": self.grantee_id,
+            "permissions": self.permissions,
+            "granted_by": self.granted_by,
+            "granted_at": self.granted_at.isoformat(),
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+        }
+
+
 @dataclass
 class MoundConfig:
     """Configuration for the enhanced Knowledge Mound."""
@@ -261,6 +334,12 @@ class EnhancedKnowledgeItem(KnowledgeItem):
     last_retrieved_at: Optional[datetime] = None
     avg_retrieval_rank: float = 0.0  # Average position in search results
 
+    # Visibility and access control (Phase 2)
+    visibility: VisibilityLevel = VisibilityLevel.WORKSPACE
+    visibility_set_by: Optional[str] = None
+    access_grants: List[AccessGrant] = field(default_factory=list)
+    is_discoverable: bool = True  # Whether item shows in search results
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         base_dict = super().to_dict()
@@ -278,6 +357,11 @@ class EnhancedKnowledgeItem(KnowledgeItem):
                 if self.last_retrieved_at else None
             ),
             "avg_retrieval_rank": self.avg_retrieval_rank,
+            # Visibility fields
+            "visibility": self.visibility.value,
+            "visibility_set_by": self.visibility_set_by,
+            "access_grants": [g.to_dict() for g in self.access_grants],
+            "is_discoverable": self.is_discoverable,
         })
         # Note: embedding intentionally excluded from dict to save space
         return base_dict
@@ -443,4 +527,8 @@ __all__ = [
     "DomainNode",
     "UnifiedQueryRequest",
     "UnifiedQueryResult",
+    # Phase 2: Visibility and access control
+    "VisibilityLevel",
+    "AccessGrantType",
+    "AccessGrant",
 ]

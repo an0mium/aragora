@@ -150,7 +150,8 @@ class ChromaVectorStore(BaseVectorStore):
             self._client.delete_collection(name)
             self._collections.pop(name, None)
             return True
-        except Exception:
+        except (ValueError, KeyError, RuntimeError) as e:
+            logger.debug(f"Failed to delete collection {name}: {e}")
             return False
 
     async def collection_exists(self, name: str) -> bool:
@@ -161,7 +162,8 @@ class ChromaVectorStore(BaseVectorStore):
         try:
             self._client.get_collection(name)
             return True
-        except Exception:
+        except (ValueError, KeyError) as e:
+            logger.debug(f"Collection {name} does not exist: {e}")
             return False
 
     async def list_collections(self) -> list[str]:

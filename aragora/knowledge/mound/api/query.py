@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
+        AccessGrant,
         GraphQueryResult,
         KnowledgeItem,
         KnowledgeLink,
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
         QueryResult,
         RelationshipType,
         SourceFilter,
+        VisibilityLevel,
     )
 
 logger = logging.getLogger(__name__)
@@ -438,3 +440,213 @@ class QueryOperationsMixin:
         lines.append('</graphml>')
 
         return '\n'.join(lines)
+
+    # =========================================================================
+    # Visibility-Aware Query Operations (Phase 2)
+    # =========================================================================
+
+    async def query_with_visibility(
+        self: QueryProtocol,
+        query: str,
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: Optional[str] = None,
+        sources: Sequence["SourceFilter"] = ("all",),
+        filters: Optional["QueryFilters"] = None,
+        limit: int = 20,
+        workspace_id: Optional[str] = None,
+    ) -> "QueryResult":
+        """
+        Query across knowledge sources with visibility filtering.
+
+        This method respects visibility levels:
+        - PUBLIC/SYSTEM: Visible to everyone
+        - WORKSPACE: Visible to workspace members
+        - ORGANIZATION: Visible to organization members
+        - PRIVATE: Only visible with explicit access grant
+
+        Args:
+            query: Natural language query string
+            actor_id: ID of the user making the query
+            actor_workspace_id: Workspace ID of the querying user
+            actor_org_id: Organization ID of the querying user (optional)
+            sources: Which sources to query ("all" or specific sources)
+            filters: Optional filters to apply
+            limit: Maximum number of results
+            workspace_id: Workspace to query (defaults to actor's workspace)
+
+        Returns:
+            QueryResult with visibility-filtered items
+        """
+        from aragora.knowledge.mound.types import KnowledgeSource, QueryResult, VisibilityLevel
+
+        self._ensure_initialized()
+
+        start_time = time.time()
+        ws_id = workspace_id or actor_workspace_id
+        limit = min(limit, self.config.max_query_limit)
+
+        # First, get regular query results
+        result = await self.query(query, sources, filters, limit * 2, ws_id)  # Get extra for filtering
+
+        # Filter by visibility
+        filtered_items = await self._filter_by_visibility(
+            items=result.items,
+            actor_id=actor_id,
+            actor_workspace_id=actor_workspace_id,
+            actor_org_id=actor_org_id,
+        )
+
+        execution_time = (time.time() - start_time) * 1000
+
+        return QueryResult(
+            items=filtered_items[:limit],
+            total_count=len(filtered_items),
+            query=query,
+            filters=filters,
+            execution_time_ms=execution_time,
+            sources_queried=result.sources_queried,
+        )
+
+    async def _filter_by_visibility(
+        self: QueryProtocol,
+        items: List["KnowledgeItem"],
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: Optional[str] = None,
+    ) -> List["KnowledgeItem"]:
+        """
+        Filter items based on visibility and access grants.
+
+        Args:
+            items: List of items to filter
+            actor_id: ID of the user requesting access
+            actor_workspace_id: Workspace ID of the requesting user
+            actor_org_id: Organization ID of the requesting user
+
+        Returns:
+            Filtered list of visible items
+        """
+        from aragora.knowledge.mound.types import VisibilityLevel
+
+        result = []
+
+        for item in items:
+            # Get visibility from item metadata or default to WORKSPACE
+            vis_str = (item.metadata or {}).get("visibility", "workspace")
+            try:
+                vis = VisibilityLevel(vis_str)
+            except ValueError:
+                vis = VisibilityLevel.WORKSPACE
+
+            item_workspace = (item.metadata or {}).get("workspace_id", "")
+            item_org = (item.metadata or {}).get("org_id", "")
+
+            # Check visibility rules
+            if vis == VisibilityLevel.PUBLIC or vis == VisibilityLevel.SYSTEM:
+                # Public and system items are always visible
+                result.append(item)
+            elif vis == VisibilityLevel.WORKSPACE:
+                # Workspace items visible to workspace members
+                if item_workspace == actor_workspace_id:
+                    result.append(item)
+            elif vis == VisibilityLevel.ORGANIZATION:
+                # Organization items visible to org members
+                if actor_org_id and item_org == actor_org_id:
+                    result.append(item)
+            elif vis == VisibilityLevel.PRIVATE:
+                # Private items require explicit grant - check access_grants
+                grants = (item.metadata or {}).get("access_grants", [])
+                if self._has_access_grant(grants, actor_id, actor_workspace_id, actor_org_id):
+                    result.append(item)
+
+        return result
+
+    def _has_access_grant(
+        self: QueryProtocol,
+        grants: List[dict],
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: Optional[str],
+    ) -> bool:
+        """
+        Check if actor has an access grant in the grants list.
+
+        Args:
+            grants: List of grant dictionaries
+            actor_id: User ID to check
+            actor_workspace_id: Workspace ID to check
+            actor_org_id: Organization ID to check
+
+        Returns:
+            True if actor has valid access grant
+        """
+        from datetime import datetime
+
+        for grant in grants:
+            # Check if grant is expired
+            expires_at = grant.get("expires_at")
+            if expires_at:
+                try:
+                    if datetime.fromisoformat(expires_at.replace("Z", "+00:00")) < datetime.now():
+                        continue
+                except (ValueError, TypeError):
+                    pass
+
+            grantee_type = grant.get("grantee_type", "")
+            grantee_id = grant.get("grantee_id", "")
+
+            if grantee_type == "user" and grantee_id == actor_id:
+                return True
+            elif grantee_type == "workspace" and grantee_id == actor_workspace_id:
+                return True
+            elif grantee_type == "organization" and actor_org_id and grantee_id == actor_org_id:
+                return True
+
+        return False
+
+    async def get_shared_items(
+        self: QueryProtocol,
+        actor_id: str,
+        actor_workspace_id: str,
+        limit: int = 50,
+    ) -> List["KnowledgeItem"]:
+        """
+        Get items that have been explicitly shared with the actor.
+
+        This retrieves PRIVATE items where the actor has an access grant,
+        from ANY workspace.
+
+        Args:
+            actor_id: ID of the user
+            actor_workspace_id: Workspace ID of the user
+            limit: Maximum number of items to return
+
+        Returns:
+            List of shared items
+        """
+        self._ensure_initialized()
+
+        # If the postgres store has the method, use it
+        if hasattr(self._meta_store, "get_grants_for_grantee_async"):
+            grants = await self._meta_store.get_grants_for_grantee_async(actor_id)
+            workspace_grants = await self._meta_store.get_grants_for_grantee_async(
+                actor_workspace_id, grantee_type="workspace"
+            )
+
+            all_item_ids = set()
+            for grant in grants + workspace_grants:
+                if not grant.is_expired():
+                    all_item_ids.add(grant.item_id)
+
+            # Fetch items
+            items = []
+            for item_id in list(all_item_ids)[:limit]:
+                item = await self.get(item_id)
+                if item:
+                    items.append(item)
+
+            return items
+
+        # Fallback: return empty list if store doesn't support grants
+        return []

@@ -751,7 +751,10 @@ class KnowledgeVectorStore:
                 "workspace": self.workspace_id,
                 "node_count": node_count,
             }
+        except (RuntimeError, ConnectionError, TimeoutError) as e:
+            return {"healthy": False, "error": str(e)}
         except Exception as e:
+            logger.exception(f"Unexpected error in health check: {e}")
             return {"healthy": False, "error": str(e)}
 
     @staticmethod

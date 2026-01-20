@@ -134,8 +134,10 @@ class RevalidationScheduler:
         while self._running:
             try:
                 await self.check_and_schedule_revalidations()
+            except (RuntimeError, ConnectionError, TimeoutError) as e:
+                logger.warning(f"Revalidation check failed: {e}")
             except Exception as e:
-                logger.error(f"Revalidation check failed: {e}")
+                logger.exception(f"Unexpected revalidation check error: {e}")
 
             # Wait for next check interval
             await asyncio.sleep(self._check_interval)
@@ -189,8 +191,11 @@ class RevalidationScheduler:
 
             return task_ids
 
+        except (RuntimeError, ValueError, KeyError) as e:
+            logger.warning(f"Failed to check/schedule revalidations: {e}")
+            return []
         except Exception as e:
-            logger.error(f"Failed to check/schedule revalidations: {e}")
+            logger.exception(f"Unexpected revalidation scheduling error: {e}")
             return []
 
     async def _create_revalidation_task(self, stale_item: Any) -> Optional[str]:
@@ -256,8 +261,10 @@ class RevalidationScheduler:
                 )
                 return task_id
 
+            except (RuntimeError, ConnectionError, TimeoutError) as e:
+                logger.warning(f"Failed to submit revalidation task: {e}")
             except Exception as e:
-                logger.error(f"Failed to submit revalidation task: {e}")
+                logger.exception(f"Unexpected task submission error: {e}")
 
         # Fallback: use knowledge mound's schedule_revalidation
         try:
@@ -267,8 +274,11 @@ class RevalidationScheduler:
             )
             return task_ids[0] if task_ids else None
 
+        except (RuntimeError, ValueError, AttributeError) as e:
+            logger.warning(f"Failed to schedule revalidation via mound: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Failed to schedule revalidation via mound: {e}")
+            logger.exception(f"Unexpected mound revalidation error: {e}")
             return None
 
     def mark_revalidation_complete(self, node_id: str) -> None:
@@ -358,8 +368,11 @@ async def handle_revalidation_task(
 
         return result
 
+    except (RuntimeError, ValueError, KeyError) as e:
+        logger.warning(f"Revalidation failed for {node_id}: {e}")
+        return {"success": False, "error": str(e)}
     except Exception as e:
-        logger.error(f"Revalidation failed for {node_id}: {e}")
+        logger.exception(f"Unexpected revalidation failure for {node_id}: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -446,10 +459,16 @@ async def _revalidate_via_evidence(
                 "message": "No supporting evidence found - may need review",
             }
 
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError) as e:
         return {
             "success": False,
             "error": f"Evidence collection failed: {e}",
+        }
+    except Exception as e:
+        logger.exception(f"Unexpected evidence collection error: {e}")
+        return {
+            "success": False,
+            "error": f"Unexpected evidence collection error: {e}",
         }
 
 

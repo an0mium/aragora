@@ -106,8 +106,12 @@ class QdrantVectorStore(BaseVectorStore):
 
             logger.info(f"Connected to Qdrant at {url}")
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            self._connected = False
+            raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e
         except Exception as e:
             self._connected = False
+            logger.exception(f"Unexpected Qdrant connection error: {e}")
             raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e
 
     async def disconnect(self) -> None:
@@ -115,7 +119,7 @@ class QdrantVectorStore(BaseVectorStore):
         if self._client:
             try:
                 await self._client.close()
-            except Exception as e:
+            except (RuntimeError, ConnectionError, OSError) as e:
                 logger.warning(f"Error closing Qdrant connection: {e}")
             finally:
                 self._client = None
@@ -166,7 +170,8 @@ class QdrantVectorStore(BaseVectorStore):
         try:
             await self._client.delete_collection(name)
             return True
-        except Exception:
+        except (RuntimeError, ConnectionError, KeyError) as e:
+            logger.debug(f"Delete collection failed: {e}")
             return False
 
     async def collection_exists(self, name: str) -> bool:
@@ -433,7 +438,7 @@ class QdrantVectorStore(BaseVectorStore):
                     },
                     embedding=point.vector if isinstance(point.vector, list) else None,
                 )
-        except Exception as e:
+        except (RuntimeError, ConnectionError, KeyError) as e:
             logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
@@ -508,7 +513,7 @@ class QdrantVectorStore(BaseVectorStore):
                 "backend": "qdrant",
                 "collections": len(info.collections),
             }
-        except Exception as e:
+        except (RuntimeError, ConnectionError, TimeoutError) as e:
             return {
                 "status": "unhealthy",
                 "backend": "qdrant",

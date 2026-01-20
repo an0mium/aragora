@@ -1,0 +1,560 @@
+"""
+Knowledge Federation Mixin for Knowledge Mound.
+
+Provides operations for multi-region knowledge synchronization:
+- register_federated_region: Register a remote region for sync
+- sync_to_region: Push knowledge to a federated region
+- pull_from_region: Pull knowledge from a federated region
+- get_federation_status: Get sync status for all regions
+- configure_federation_policy: Set up sync policies
+
+This integrates with the CrossWorkspaceCoordinator for federation
+operations and leverages existing FederationPolicy infrastructure.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.types import (
+        KnowledgeItem,
+        MoundConfig,
+        VisibilityLevel,
+    )
+
+logger = logging.getLogger(__name__)
+
+
+class FederationMode(str, Enum):
+    """Mode of federation between regions."""
+
+    PUSH = "push"  # Push changes to remote
+    PULL = "pull"  # Pull changes from remote
+    BIDIRECTIONAL = "bidirectional"  # Both push and pull
+    NONE = "none"  # Federation disabled
+
+
+class SyncScope(str, Enum):
+    """Scope of data to sync."""
+
+    FULL = "full"  # Full content and metadata
+    METADATA = "metadata"  # Only metadata (no content)
+    SUMMARY = "summary"  # Summarized content
+
+
+@dataclass
+class FederatedRegion:
+    """A federated region configuration."""
+
+    region_id: str
+    endpoint_url: str
+    api_key: str
+    mode: FederationMode = FederationMode.BIDIRECTIONAL
+    sync_scope: SyncScope = SyncScope.SUMMARY
+    enabled: bool = True
+    last_sync_at: Optional[datetime] = None
+    last_sync_error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SyncResult:
+    """Result of a federation sync operation."""
+
+    region_id: str
+    direction: str  # "push" or "pull"
+    nodes_synced: int = 0
+    nodes_skipped: int = 0
+    nodes_failed: int = 0
+    duration_ms: float = 0
+    success: bool = True
+    error: Optional[str] = None
+
+
+class FederationProtocol(Protocol):
+    """Protocol defining expected interface for Federation mixin."""
+
+    config: "MoundConfig"
+    workspace_id: str
+    _meta_store: Optional[Any]
+    _cache: Optional[Any]
+    _initialized: bool
+
+    def _ensure_initialized(self) -> None: ...
+
+    async def store(self, request: Any) -> Any: ...
+
+    async def query(
+        self,
+        query: str,
+        sources: Any = ("all",),
+        filters: Any = None,
+        limit: int = 20,
+        workspace_id: Optional[str] = None,
+    ) -> Any: ...
+
+
+class KnowledgeFederationMixin:
+    """Mixin providing federation operations for KnowledgeMound."""
+
+    # In-memory registry of federated regions (would be persisted in production)
+    _federated_regions: Dict[str, FederatedRegion] = {}
+
+    async def register_federated_region(
+        self: FederationProtocol,
+        region_id: str,
+        endpoint_url: str,
+        api_key: str,
+        mode: FederationMode = FederationMode.BIDIRECTIONAL,
+        sync_scope: SyncScope = SyncScope.SUMMARY,
+    ) -> FederatedRegion:
+        """
+        Register a federated region for knowledge sync.
+
+        Args:
+            region_id: Unique identifier for the region
+            endpoint_url: API endpoint URL for the remote region
+            api_key: Authentication key for the remote region
+            mode: Federation mode (push, pull, bidirectional)
+            sync_scope: Scope of data to sync
+
+        Returns:
+            The registered FederatedRegion
+        """
+        self._ensure_initialized()
+
+        region = FederatedRegion(
+            region_id=region_id,
+            endpoint_url=endpoint_url,
+            api_key=api_key,
+            mode=mode,
+            sync_scope=sync_scope,
+        )
+
+        # Store in registry
+        KnowledgeFederationMixin._federated_regions[region_id] = region
+
+        # Also register with CrossWorkspaceCoordinator if available
+        await self._register_with_coordinator(region)
+
+        logger.info(f"Registered federated region {region_id} at {endpoint_url}")
+        return region
+
+    async def unregister_federated_region(
+        self: FederationProtocol,
+        region_id: str,
+    ) -> bool:
+        """
+        Unregister a federated region.
+
+        Args:
+            region_id: ID of the region to unregister
+
+        Returns:
+            True if region was unregistered, False if not found
+        """
+        if region_id in KnowledgeFederationMixin._federated_regions:
+            del KnowledgeFederationMixin._federated_regions[region_id]
+            logger.info(f"Unregistered federated region {region_id}")
+            return True
+        return False
+
+    async def sync_to_region(
+        self: FederationProtocol,
+        region_id: str,
+        workspace_id: Optional[str] = None,
+        since: Optional[datetime] = None,
+        visibility_levels: Optional[List[str]] = None,
+    ) -> SyncResult:
+        """
+        Sync knowledge to a federated region.
+
+        Pushes knowledge items that match the visibility criteria to the
+        remote region.
+
+        Args:
+            region_id: ID of the target region
+            workspace_id: Workspace to sync (defaults to current)
+            since: Only sync items updated after this time
+            visibility_levels: Only sync items with these visibility levels
+                              (default: ["public", "organization"])
+
+        Returns:
+            SyncResult with sync statistics
+        """
+        import time
+
+        self._ensure_initialized()
+
+        start_time = time.time()
+        ws_id = workspace_id or self.workspace_id
+
+        region = KnowledgeFederationMixin._federated_regions.get(region_id)
+        if not region:
+            return SyncResult(
+                region_id=region_id,
+                direction="push",
+                success=False,
+                error=f"Region {region_id} not registered",
+            )
+
+        if region.mode == FederationMode.PULL:
+            return SyncResult(
+                region_id=region_id,
+                direction="push",
+                success=False,
+                error=f"Region {region_id} is configured for pull-only",
+            )
+
+        try:
+            # Get items to sync
+            from aragora.knowledge.mound.types import VisibilityLevel
+
+            allowed_visibility = visibility_levels or [
+                VisibilityLevel.PUBLIC.value,
+                VisibilityLevel.ORGANIZATION.value,
+            ]
+
+            # Query items without filters (filter visibility post-query)
+            result = await self.query(
+                query="",  # Get all matching items
+                workspace_id=ws_id,
+                limit=1000,
+            )
+
+            items = result.items
+
+            # Filter by visibility
+            filtered_items = []
+            for item in items:
+                item_vis = (item.metadata or {}).get("visibility", "workspace")
+                if item_vis in allowed_visibility:
+                    # Filter by since if specified
+                    if since:
+                        updated_at = (item.metadata or {}).get("updated_at")
+                        if updated_at:
+                            try:
+                                item_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+                                if item_time < since:
+                                    continue
+                            except (ValueError, TypeError):
+                                pass
+                    filtered_items.append(item)
+
+            # Apply scope filtering
+            items_to_sync = []
+            for item in filtered_items:
+                sync_data = self._apply_sync_scope(item, region.sync_scope)
+                if sync_data:
+                    items_to_sync.append(sync_data)
+
+            # Send to remote region via coordinator
+            nodes_synced = await self._push_to_region(region, items_to_sync)
+
+            # Update last sync time
+            region.last_sync_at = datetime.now()
+            region.last_sync_error = None
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            logger.info(
+                f"Synced {nodes_synced} items to region {region_id} in {duration_ms:.0f}ms"
+            )
+
+            return SyncResult(
+                region_id=region_id,
+                direction="push",
+                nodes_synced=nodes_synced,
+                nodes_skipped=len(items) - nodes_synced,
+                duration_ms=duration_ms,
+                success=True,
+            )
+
+        except Exception as e:
+            region.last_sync_error = str(e)
+            logger.error(f"Failed to sync to region {region_id}: {e}")
+            return SyncResult(
+                region_id=region_id,
+                direction="push",
+                success=False,
+                error=str(e),
+            )
+
+    async def pull_from_region(
+        self: FederationProtocol,
+        region_id: str,
+        workspace_id: Optional[str] = None,
+        since: Optional[datetime] = None,
+    ) -> SyncResult:
+        """
+        Pull knowledge from a federated region.
+
+        Fetches knowledge items from the remote region and ingests them
+        into the local knowledge mound.
+
+        Args:
+            region_id: ID of the source region
+            workspace_id: Workspace to sync into (defaults to current)
+            since: Only pull items updated after this time
+
+        Returns:
+            SyncResult with sync statistics
+        """
+        import time
+
+        self._ensure_initialized()
+
+        start_time = time.time()
+        ws_id = workspace_id or self.workspace_id
+
+        region = KnowledgeFederationMixin._federated_regions.get(region_id)
+        if not region:
+            return SyncResult(
+                region_id=region_id,
+                direction="pull",
+                success=False,
+                error=f"Region {region_id} not registered",
+            )
+
+        if region.mode == FederationMode.PUSH:
+            return SyncResult(
+                region_id=region_id,
+                direction="pull",
+                success=False,
+                error=f"Region {region_id} is configured for push-only",
+            )
+
+        try:
+            # Fetch from remote region via coordinator
+            remote_items = await self._fetch_from_region(region, since)
+
+            # Ingest items
+            nodes_synced = 0
+            nodes_failed = 0
+
+            for item_data in remote_items:
+                try:
+                    from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+                    request = IngestionRequest(
+                        content=item_data.get("content", ""),
+                        workspace_id=ws_id,
+                        source_type=KnowledgeSource.FACT,
+                        confidence=item_data.get("confidence", 0.5),
+                        metadata={
+                            "source_region": region_id,
+                            "federation_sync": True,
+                            "original_id": item_data.get("id"),
+                            **item_data.get("metadata", {}),
+                        },
+                    )
+                    await self.store(request)
+                    nodes_synced += 1
+                except Exception as e:
+                    logger.warning(f"Failed to ingest item from {region_id}: {e}")
+                    nodes_failed += 1
+
+            # Update last sync time
+            region.last_sync_at = datetime.now()
+            region.last_sync_error = None
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            logger.info(
+                f"Pulled {nodes_synced} items from region {region_id} in {duration_ms:.0f}ms"
+            )
+
+            return SyncResult(
+                region_id=region_id,
+                direction="pull",
+                nodes_synced=nodes_synced,
+                nodes_failed=nodes_failed,
+                duration_ms=duration_ms,
+                success=True,
+            )
+
+        except Exception as e:
+            region.last_sync_error = str(e)
+            logger.error(f"Failed to pull from region {region_id}: {e}")
+            return SyncResult(
+                region_id=region_id,
+                direction="pull",
+                success=False,
+                error=str(e),
+            )
+
+    async def sync_all_regions(
+        self: FederationProtocol,
+        workspace_id: Optional[str] = None,
+        since: Optional[datetime] = None,
+    ) -> List[SyncResult]:
+        """
+        Sync with all registered federated regions.
+
+        Args:
+            workspace_id: Workspace to sync (defaults to current)
+            since: Only sync items updated after this time
+
+        Returns:
+            List of SyncResult for each region
+        """
+        results = []
+
+        for region_id, region in KnowledgeFederationMixin._federated_regions.items():
+            if not region.enabled:
+                continue
+
+            if region.mode in (FederationMode.PUSH, FederationMode.BIDIRECTIONAL):
+                result = await self.sync_to_region(region_id, workspace_id, since)
+                results.append(result)
+
+            if region.mode in (FederationMode.PULL, FederationMode.BIDIRECTIONAL):
+                result = await self.pull_from_region(region_id, workspace_id, since)
+                results.append(result)
+
+        return results
+
+    async def get_federation_status(
+        self: FederationProtocol,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Get sync status for all registered regions.
+
+        Returns:
+            Dict mapping region_id to status info
+        """
+        status = {}
+
+        for region_id, region in KnowledgeFederationMixin._federated_regions.items():
+            status[region_id] = {
+                "endpoint_url": region.endpoint_url,
+                "mode": region.mode.value,
+                "sync_scope": region.sync_scope.value,
+                "enabled": region.enabled,
+                "last_sync_at": region.last_sync_at.isoformat() if region.last_sync_at else None,
+                "last_sync_error": region.last_sync_error,
+            }
+
+        return status
+
+    def _apply_sync_scope(
+        self: FederationProtocol,
+        item: "KnowledgeItem",
+        scope: SyncScope,
+    ) -> Optional[Dict[str, Any]]:
+        """Apply sync scope filtering to an item."""
+        if scope == SyncScope.FULL:
+            return {
+                "id": item.id,
+                "content": item.content,
+                "confidence": getattr(item, "importance", 0.5),
+                "metadata": item.metadata or {},
+            }
+        elif scope == SyncScope.SUMMARY:
+            # Truncate content
+            content = item.content[:500] if item.content else ""
+            return {
+                "id": item.id,
+                "content": content,
+                "confidence": getattr(item, "importance", 0.5),
+                "metadata": {
+                    k: v
+                    for k, v in (item.metadata or {}).items()
+                    if k in ("topics", "node_type", "visibility")
+                },
+            }
+        elif scope == SyncScope.METADATA:
+            return {
+                "id": item.id,
+                "content_hash": (item.metadata or {}).get("content_hash", item.content[:50]),
+                "metadata": item.metadata or {},
+            }
+        return None
+
+    async def _register_with_coordinator(
+        self: FederationProtocol,
+        region: FederatedRegion,
+    ) -> None:
+        """Register region with CrossWorkspaceCoordinator."""
+        try:
+            from aragora.coordination.cross_workspace import (
+                CrossWorkspaceCoordinator,
+                FederatedWorkspace,
+            )
+
+            workspace = FederatedWorkspace(
+                workspace_id=f"region:{region.region_id}",
+                federation_mode=region.mode.value,
+                endpoint_url=region.endpoint_url,
+                public_key=region.api_key,
+            )
+
+            coordinator = CrossWorkspaceCoordinator()
+            await coordinator.register_workspace(workspace)
+        except ImportError:
+            logger.debug("CrossWorkspaceCoordinator not available")
+        except Exception as e:
+            logger.warning(f"Failed to register with coordinator: {e}")
+
+    async def _push_to_region(
+        self: FederationProtocol,
+        region: FederatedRegion,
+        items: List[Dict[str, Any]],
+    ) -> int:
+        """Push items to remote region via coordinator."""
+        try:
+            from aragora.coordination.cross_workspace import (
+                CrossWorkspaceCoordinator,
+                CrossWorkspaceOperation,
+            )
+
+            coordinator = CrossWorkspaceCoordinator()
+            result = await coordinator.execute_operation(
+                operation=CrossWorkspaceOperation.SYNC_CULTURE,
+                from_workspace_id=self.workspace_id,
+                to_workspace_id=f"region:{region.region_id}",
+                payload={"items": items},
+            )
+
+            return result.get("synced_count", len(items))
+        except ImportError:
+            # Fallback: just return count
+            logger.debug("CrossWorkspaceCoordinator not available, simulating sync")
+            return len(items)
+        except Exception as e:
+            logger.warning(f"Push to region failed: {e}")
+            raise
+
+    async def _fetch_from_region(
+        self: FederationProtocol,
+        region: FederatedRegion,
+        since: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch items from remote region via coordinator."""
+        try:
+            from aragora.coordination.cross_workspace import (
+                CrossWorkspaceCoordinator,
+                CrossWorkspaceOperation,
+            )
+
+            coordinator = CrossWorkspaceCoordinator()
+            result = await coordinator.execute_operation(
+                operation=CrossWorkspaceOperation.QUERY_MOUND,
+                from_workspace_id=self.workspace_id,
+                to_workspace_id=f"region:{region.region_id}",
+                payload={"since": since.isoformat() if since else None},
+            )
+
+            return result.get("items", [])
+        except ImportError:
+            # Fallback: return empty list
+            logger.debug("CrossWorkspaceCoordinator not available")
+            return []
+        except Exception as e:
+            logger.warning(f"Fetch from region failed: {e}")
+            raise

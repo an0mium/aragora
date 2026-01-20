@@ -414,8 +414,11 @@ class KnowledgeMoundMetaLearner:
                     )
 
             return True
+        except (AttributeError, KeyError, ValueError) as e:
+            logger.warning(f"Failed to apply tier recommendations: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to apply tier recommendations: {e}")
+            logger.exception(f"Unexpected error applying tier recommendations: {e}")
             return False
 
     # =========================================================================

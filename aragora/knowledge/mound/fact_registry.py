@@ -597,8 +597,10 @@ class FactRegistry:
         if self._embedding_service:
             try:
                 return await self._embedding_service.embed(text)
-            except Exception as e:
+            except (RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Failed to generate embedding: {e}")
+            except Exception as e:
+                logger.exception(f"Unexpected embedding generation error: {e}")
         return None
 
     def _search_memory(
@@ -651,5 +653,6 @@ class FactRegistry:
                 workspace_id=result.metadata.get("workspace_id", ""),
                 embedding=result.embedding,
             )
-        except Exception:
+        except (KeyError, AttributeError, ValueError) as e:
+            logger.debug(f"Could not convert search result to fact: {e}")
             return None

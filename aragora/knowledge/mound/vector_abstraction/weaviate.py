@@ -218,8 +218,9 @@ class WeaviateVectorStore(BaseVectorStore):
                     properties=properties,
                     vector=embedding,
                 )
-        except Exception:
+        except (KeyError, RuntimeError) as e:
             # Insert if fetch failed
+            logger.debug(f"Vector fetch failed, inserting new: {e}")
             collection.data.insert(
                 uuid=id,
                 properties=properties,
@@ -267,7 +268,7 @@ class WeaviateVectorStore(BaseVectorStore):
             try:
                 collection.data.delete_by_id(id)
                 deleted += 1
-            except Exception as e:
+            except (KeyError, RuntimeError, ValueError) as e:
                 logger.debug(f"Error deleting vector {id}: {e}")
 
         return deleted

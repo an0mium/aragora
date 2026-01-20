@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -173,8 +174,11 @@ class KnowledgeMoundCore:
         except ImportError:
             logger.warning("asyncpg not available, falling back to SQLite")
             await self._init_sqlite()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"PostgreSQL init failed: {e}, falling back to SQLite")
+            await self._init_sqlite()
+        except Exception as e:
+            logger.exception(f"Unexpected PostgreSQL init error: {e}, falling back to SQLite")
             await self._init_sqlite()
 
     async def _init_redis(self) -> None:
@@ -194,7 +198,7 @@ class KnowledgeMoundCore:
             logger.debug("Redis cache initialized")
         except ImportError:
             logger.warning("redis not available, caching disabled")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis init failed: {e}, caching disabled")
 
     async def _init_weaviate(self) -> None:
@@ -212,7 +216,7 @@ class KnowledgeMoundCore:
             logger.debug("Weaviate vector store initialized")
         except ImportError:
             logger.warning("Weaviate not available")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Weaviate init failed: {e}")
 
     async def _init_semantic_store(self) -> None:
@@ -231,7 +235,7 @@ class KnowledgeMoundCore:
             logger.debug(f"Semantic store initialized at {semantic_db_path}")
         except ImportError:
             logger.warning("Semantic store dependencies not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Semantic store init failed: {e}")
 
     def _ensure_initialized(self) -> None:
@@ -250,7 +254,7 @@ class KnowledgeMoundCore:
         if self._vector_store:
             try:
                 await self._vector_store.close()
-            except Exception as e:
+            except (RuntimeError, ConnectionError, OSError) as e:
                 logger.debug(f"Error closing vector store: {e}")
         if hasattr(self._meta_store, "close"):
             await self._meta_store.close()
@@ -456,8 +460,11 @@ class KnowledgeMoundCore:
                     ))
                     conn.commit()
                 logger.debug(f"Archived node {node_id} to knowledge_archive table")
-            except Exception as e:
+            except (RuntimeError, OSError, sqlite3.Error) as e:
                 logger.warning(f"Failed to archive node {node_id}: {e}")
+                # Don't block deletion on archive failure
+            except Exception as e:
+                logger.exception(f"Unexpected archive error for node {node_id}: {e}")
                 # Don't block deletion on archive failure
 
     async def _save_relationship(
@@ -540,8 +547,11 @@ class KnowledgeMoundCore:
         try:
             entries = self._continuum.search_by_keyword(query, limit=limit)
             return [self._continuum_to_item(e) for e in entries]
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.warning(f"Continuum query failed: {e}")
+            return []
+        except Exception as e:
+            logger.exception(f"Unexpected continuum query error: {e}")
             return []
 
     async def _query_consensus(
@@ -553,8 +563,11 @@ class KnowledgeMoundCore:
         try:
             entries = await self._consensus.search_by_topic(query, limit=limit)
             return [self._consensus_to_item(e) for e in entries]
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.warning(f"Consensus query failed: {e}")
+            return []
+        except Exception as e:
+            logger.exception(f"Unexpected consensus query error: {e}")
             return []
 
     async def _query_facts(
@@ -570,8 +583,11 @@ class KnowledgeMoundCore:
         try:
             facts = self._facts.query_facts(query, workspace_id=workspace_id, limit=limit)
             return [self._fact_to_item(f) for f in facts]
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.warning(f"Facts query failed: {e}")
+            return []
+        except Exception as e:
+            logger.exception(f"Unexpected facts query error: {e}")
             return []
 
     async def _query_evidence(
@@ -588,8 +604,11 @@ class KnowledgeMoundCore:
             # EvidenceStore.search returns evidence snippets
             evidence_list = self._evidence.search(query, limit=limit)
             return [self._evidence_to_item(e) for e in evidence_list]
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.warning(f"Evidence query failed: {e}")
+            return []
+        except Exception as e:
+            logger.exception(f"Unexpected evidence query error: {e}")
             return []
 
     async def _query_critique(
@@ -605,8 +624,11 @@ class KnowledgeMoundCore:
             # CritiqueStore.search_patterns returns critique patterns
             patterns = self._critique.search_patterns(query, limit=limit)
             return [self._critique_to_item(p) for p in patterns]
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.warning(f"Critique query failed: {e}")
+            return []
+        except Exception as e:
+            logger.exception(f"Unexpected critique query error: {e}")
             return []
 
     # =========================================================================
