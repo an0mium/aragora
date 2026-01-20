@@ -1,22 +1,43 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (11:30 UTC)*
+*Last updated: January 20, 2026 (12:00 UTC)*
 
 ## Current Release
 
-### v2.0.3 - Cross-Pollination Release (January 2026)
+### v2.0.4 - Stability Release (January 2026)
 
-**Production Ready** - Aragora 2.0.3 completes feature cross-pollination, connecting isolated subsystems for mutual benefit.
+**Production Ready** - Aragora 2.0.4 promotes Pulse to stable and completes Phase 3 feedback loops.
 
 #### Key Highlights
-- **37,800+ tests** collected and passing (+3,300 new tests)
+- **37,800+ tests** collected and passing (+400 new tests)
 - **1,002 test files** across all modules
-- **3 new pages**: Receipts Browser, Training Explorer, Model Registry
-- **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
-- **Lines of Code**: 443,000+ LOC (+3,000)
+- **Pulse promoted to STABLE** (358+ tests passing)
+- **ANN similarity backend** for fast convergence detection
+- **Lines of Code**: 444,000+ LOC (+1,000)
 - **0 production blockers**
 - **0 uncommitted files**
-- **96 fully integrated features** (+8 cross-pollination)
+- **97 fully integrated features** (+1 Pulse)
+
+#### What's New in 2.0.4
+
+**Pulse Promotion to Stable**
+- 358+ tests passing across quality, freshness, weighting, scheduling
+- HackerNews, Reddit, Twitter ingestors fully functional
+- Quality filtering with clickbait/spam detection
+- Source weighting with credibility scores
+- Freshness scoring with configurable decay curves
+
+**ANN Similarity Backend**
+- Fast approximate nearest neighbor search for convergence detection
+- FAISS index integration for large-scale similarity
+- 26 ANN-specific tests
+
+**Test Infrastructure Improvements**
+- Fast Jaccard convergence backend for tests (avoids ML model loading)
+- Fixed deprecated asyncio patterns in tests
+- Cross-pollination benchmark suite (12 benchmarks)
+
+---
 
 #### What's New in 2.0.3
 

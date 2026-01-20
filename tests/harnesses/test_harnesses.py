@@ -460,12 +460,12 @@ class TestCodeAnalysisHarnessBase:
         context = SessionContext(session_id="s1", repo_path=Path("."))
 
         with pytest.raises(NotImplementedError):
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 harness.start_interactive_session(context)
             )
 
         with pytest.raises(NotImplementedError):
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 harness.continue_session(context, "test input")
             )
 

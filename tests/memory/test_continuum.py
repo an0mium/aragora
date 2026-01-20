@@ -276,7 +276,7 @@ def populated_memory(memory):
         await memory.store("id3", "Third entry about databases", MemoryTier.SLOW)
         return memory
 
-    return asyncio.get_event_loop().run_until_complete(populate())
+    return asyncio.run(populate())
 
 
 # =============================================================================

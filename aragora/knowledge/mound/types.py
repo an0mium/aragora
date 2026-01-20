@@ -26,6 +26,9 @@ from aragora.knowledge.unified.types import (
     StoreResult,
 )
 
+# Alias for backward compatibility with adapters
+SourceType = KnowledgeSource
+
 
 class MoundBackend(str, Enum):
     """Backend storage options for Knowledge Mound."""
@@ -517,6 +520,7 @@ __all__ = [
     "KnowledgeItem",
     "KnowledgeLink",
     "KnowledgeSource",
+    "SourceType",  # Alias for KnowledgeSource
     "LinkResult",
     "QueryFilters",
     "QueryResult",

@@ -392,3 +392,414 @@ class CritiqueAdapter:
     def get_archive_stats(self) -> Dict[str, Any]:
         """Get statistics about archived patterns."""
         return self._store.get_archive_stats()
+
+    # ========================================================================
+    # Reverse Flow Methods (KM → CritiqueStore)
+    # ========================================================================
+
+    def __init_reverse_flow_state(self) -> None:
+        """Initialize reverse flow state if not already done."""
+        if not hasattr(self, "_km_boosts_applied"):
+            self._km_boosts_applied = 0
+        if not hasattr(self, "_km_reputation_adjustments"):
+            self._km_reputation_adjustments = 0
+        if not hasattr(self, "_km_validations"):
+            self._km_validations: List[KMPatternValidation] = []
+        if not hasattr(self, "_pattern_usage"):
+            self._pattern_usage: Dict[str, List[Dict[str, Any]]] = {}
+
+    def record_pattern_usage(
+        self,
+        pattern_id: str,
+        debate_id: str,
+        was_successful: bool,
+        confidence: float = 0.7,
+    ) -> None:
+        """
+        Record that a pattern was used in a debate.
+
+        This enables outcome-based pattern boosting.
+
+        Args:
+            pattern_id: The pattern ID
+            debate_id: The debate where this pattern was used
+            was_successful: Whether the pattern helped achieve success
+            confidence: Confidence in the assessment
+        """
+        self.__init_reverse_flow_state()
+
+        if pattern_id not in self._pattern_usage:
+            self._pattern_usage[pattern_id] = []
+
+        self._pattern_usage[pattern_id].append({
+            "debate_id": debate_id,
+            "was_successful": was_successful,
+            "confidence": confidence,
+            "recorded_at": datetime.utcnow().isoformat(),
+        })
+
+    async def validate_pattern_from_km(
+        self,
+        pattern_id: str,
+        km_cross_references: List[Dict[str, Any]],
+    ) -> KMPatternValidation:
+        """
+        Validate a critique pattern based on KM cross-references.
+
+        Examines how this pattern performs across debates to determine
+        if it should be boosted or archived.
+
+        Args:
+            pattern_id: The pattern ID to validate
+            km_cross_references: Related KM items for cross-referencing
+
+        Returns:
+            KMPatternValidation with recommendation
+        """
+        self.__init_reverse_flow_state()
+
+        pattern = self.get(pattern_id)
+
+        # Analyze cross-references
+        success_count = 0
+        total_outcomes = 0
+        debate_ids = set()
+
+        for ref in km_cross_references:
+            meta = ref.get("metadata", {})
+
+            if debate_id := meta.get("debate_id"):
+                debate_ids.add(debate_id)
+
+            if "outcome_success" in meta:
+                total_outcomes += 1
+                if meta["outcome_success"]:
+                    success_count += 1
+
+        # Also check recorded usage
+        if pattern_id in self._pattern_usage:
+            for usage in self._pattern_usage[pattern_id]:
+                total_outcomes += 1
+                if usage["was_successful"]:
+                    success_count += 1
+                debate_ids.add(usage["debate_id"])
+
+        # Compute metrics
+        cross_debate_usage = len(debate_ids)
+        outcome_success_rate = success_count / total_outcomes if total_outcomes > 0 else 0.0
+
+        # Determine recommendation
+        if total_outcomes >= 5 and outcome_success_rate >= 0.8:
+            recommendation = "boost"
+            # Boost proportional to usage and success
+            boost_amount = min(int(success_count * 0.5), 5)
+        elif total_outcomes >= 5 and outcome_success_rate < 0.3:
+            recommendation = "archive"
+            boost_amount = 0
+        else:
+            recommendation = "keep"
+            boost_amount = 0
+
+        # KM confidence based on evidence
+        km_confidence = min(total_outcomes / 10, 1.0) if total_outcomes > 0 else 0.5
+
+        validation = KMPatternValidation(
+            pattern_id=pattern_id,
+            km_confidence=km_confidence,
+            cross_debate_usage=cross_debate_usage,
+            outcome_success_rate=outcome_success_rate,
+            recommendation=recommendation,
+            boost_amount=boost_amount,
+            metadata={
+                "success_count": success_count,
+                "total_outcomes": total_outcomes,
+                "pattern_found": pattern is not None,
+            },
+        )
+
+        self._km_validations.append(validation)
+
+        return validation
+
+    async def apply_pattern_boost(
+        self,
+        validation: KMPatternValidation,
+    ) -> KMPatternBoost:
+        """
+        Apply a KM validation to boost a pattern's success count.
+
+        Args:
+            validation: The validation result to apply
+
+        Returns:
+            KMPatternBoost with application result
+        """
+        self.__init_reverse_flow_state()
+
+        boost = KMPatternBoost(
+            pattern_id=validation.pattern_id,
+            boost_amount=validation.boost_amount,
+            km_confidence=validation.km_confidence,
+            was_applied=False,
+        )
+
+        if validation.recommendation != "boost" or validation.boost_amount <= 0:
+            return boost
+
+        pattern = self.get(validation.pattern_id)
+        if not pattern:
+            boost.metadata["error"] = "pattern_not_found"
+            return boost
+
+        # Apply the boost via the store
+        # Note: CritiqueStore.record_pattern_outcome is the API for this
+        try:
+            for _ in range(validation.boost_amount):
+                self._store.record_pattern_outcome(
+                    issue_type=pattern.issue_type,
+                    issue_text=pattern.issue_text,
+                    suggestion=pattern.suggestion_text,
+                    severity=pattern.avg_severity,
+                    accepted=True,  # Boost = successful outcomes
+                )
+            boost.was_applied = True
+            self._km_boosts_applied += 1
+
+            logger.info(
+                f"Applied KM boost to pattern {validation.pattern_id}: "
+                f"+{validation.boost_amount} successes"
+            )
+        except Exception as e:
+            boost.metadata["error"] = str(e)
+
+        return boost
+
+    async def compute_reputation_adjustment(
+        self,
+        agent_name: str,
+        km_items: List[Dict[str, Any]],
+    ) -> KMReputationAdjustment:
+        """
+        Compute a reputation adjustment for an agent based on KM patterns.
+
+        Analyzes the agent's pattern contributions and their success rates
+        to recommend reputation adjustments.
+
+        Args:
+            agent_name: The agent name
+            km_items: KM items with pattern and outcome data
+
+        Returns:
+            KMReputationAdjustment with recommendation
+        """
+        self.__init_reverse_flow_state()
+
+        # Count patterns contributed by this agent
+        pattern_contributions = 0
+        success_count = 0
+        total_outcomes = 0
+
+        for item in km_items:
+            meta = item.get("metadata", {})
+
+            # Check if this agent contributed
+            if meta.get("agent_name") == agent_name or agent_name in meta.get("agents_involved", []):
+                pattern_contributions += 1
+
+                if "outcome_success" in meta:
+                    total_outcomes += 1
+                    if meta["outcome_success"]:
+                        success_count += 1
+
+        # Compute adjustment
+        if total_outcomes == 0:
+            return KMReputationAdjustment(
+                agent_name=agent_name,
+                pattern_contributions=pattern_contributions,
+                km_confidence=0.5,
+                recommendation="keep",
+            )
+
+        success_rate = success_count / total_outcomes
+        km_confidence = min(total_outcomes / 10, 1.0)
+
+        # Determine adjustment
+        if success_rate >= 0.8 and total_outcomes >= 5:
+            recommendation = "boost"
+            adjustment = 0.1 * min(pattern_contributions / 5, 1.0)
+        elif success_rate < 0.3 and total_outcomes >= 5:
+            recommendation = "penalize"
+            adjustment = -0.05 * min(pattern_contributions / 5, 1.0)
+        else:
+            recommendation = "keep"
+            adjustment = 0.0
+
+        return KMReputationAdjustment(
+            agent_name=agent_name,
+            adjustment=adjustment,
+            pattern_contributions=pattern_contributions,
+            km_confidence=km_confidence,
+            recommendation=recommendation,
+            metadata={
+                "success_count": success_count,
+                "total_outcomes": total_outcomes,
+                "success_rate": success_rate,
+            },
+        )
+
+    async def apply_reputation_adjustment(
+        self,
+        adjustment: KMReputationAdjustment,
+    ) -> bool:
+        """
+        Apply a reputation adjustment to an agent.
+
+        Args:
+            adjustment: The adjustment to apply
+
+        Returns:
+            True if applied successfully
+        """
+        self.__init_reverse_flow_state()
+
+        if adjustment.adjustment == 0.0:
+            return False
+
+        try:
+            reputation = self._store.get_reputation(adjustment.agent_name)
+            if not reputation:
+                return False
+
+            # CritiqueStore doesn't have direct reputation adjustment
+            # We simulate by recording outcomes
+            if adjustment.adjustment > 0:
+                # Record positive outcomes
+                for _ in range(int(abs(adjustment.adjustment) * 10)):
+                    self._store.update_reputation(
+                        agent_name=adjustment.agent_name,
+                        accepted=True,
+                    )
+            else:
+                # Record negative outcomes
+                for _ in range(int(abs(adjustment.adjustment) * 10)):
+                    self._store.update_reputation(
+                        agent_name=adjustment.agent_name,
+                        accepted=False,
+                    )
+
+            self._km_reputation_adjustments += 1
+
+            logger.info(
+                f"Applied KM reputation adjustment to {adjustment.agent_name}: "
+                f"{adjustment.adjustment:+.2f} ({adjustment.recommendation})"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to apply reputation adjustment: {e}")
+            return False
+
+    async def sync_validations_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> CritiqueKMSyncResult:
+        """
+        Batch sync KM validations to CritiqueStore.
+
+        Args:
+            km_items: KM items with validation data
+            min_confidence: Minimum confidence for applying changes
+
+        Returns:
+            CritiqueKMSyncResult with sync details
+        """
+        import time
+
+        self.__init_reverse_flow_state()
+
+        start_time = time.time()
+        result = CritiqueKMSyncResult()
+        errors = []
+
+        # Group items by pattern_id
+        items_by_pattern: Dict[str, List[Dict[str, Any]]] = {}
+        agents_seen = set()
+
+        for item in km_items:
+            meta = item.get("metadata", {})
+
+            pattern_id = meta.get("pattern_id") or meta.get("source_id")
+            if pattern_id:
+                if pattern_id not in items_by_pattern:
+                    items_by_pattern[pattern_id] = []
+                items_by_pattern[pattern_id].append(item)
+
+            if agent_name := meta.get("agent_name"):
+                agents_seen.add(agent_name)
+            for agent in meta.get("agents_involved", []):
+                agents_seen.add(agent)
+
+        # Validate and boost patterns
+        for pattern_id, cross_refs in items_by_pattern.items():
+            try:
+                result.patterns_analyzed += 1
+
+                validation = await self.validate_pattern_from_km(pattern_id, cross_refs)
+
+                if validation.km_confidence >= min_confidence and validation.recommendation == "boost":
+                    boost = await self.apply_pattern_boost(validation)
+                    if boost.was_applied:
+                        result.patterns_boosted += 1
+
+            except Exception as e:
+                errors.append(f"Error validating pattern {pattern_id}: {e}")
+
+        # Compute and apply reputation adjustments
+        for agent_name in agents_seen:
+            try:
+                result.agents_analyzed += 1
+
+                adjustment = await self.compute_reputation_adjustment(agent_name, km_items)
+
+                if adjustment.km_confidence >= min_confidence and adjustment.adjustment != 0:
+                    if await self.apply_reputation_adjustment(adjustment):
+                        result.reputation_adjustments += 1
+
+            except Exception as e:
+                errors.append(f"Error adjusting reputation for {agent_name}: {e}")
+
+        result.errors = errors
+        result.duration_ms = (time.time() - start_time) * 1000
+
+        return result
+
+    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+        """Get statistics about reverse flow operations."""
+        self.__init_reverse_flow_state()
+
+        return {
+            "km_boosts_applied": self._km_boosts_applied,
+            "km_reputation_adjustments": self._km_reputation_adjustments,
+            "validations_stored": len(self._km_validations),
+            "patterns_tracked": len(self._pattern_usage),
+            "total_usage_records": sum(len(v) for v in self._pattern_usage.values()),
+        }
+
+    def clear_reverse_flow_state(self) -> None:
+        """Clear all reverse flow state (for testing)."""
+        self._km_boosts_applied = 0
+        self._km_reputation_adjustments = 0
+        self._km_validations = []
+        self._pattern_usage = {}
+
+
+__all__ = [
+    "CritiqueAdapter",
+    "CritiqueSearchResult",
+    # Reverse flow dataclasses
+    "KMPatternBoost",
+    "KMReputationAdjustment",
+    "KMPatternValidation",
+    "CritiqueKMSyncResult",
+]

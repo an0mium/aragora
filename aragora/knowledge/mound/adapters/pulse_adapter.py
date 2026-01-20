@@ -20,7 +20,8 @@ ID Prefix: pl_
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -29,6 +30,82 @@ if TYPE_CHECKING:
     from aragora.pulse.store import ScheduledDebateRecord
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Reverse Flow Dataclasses (KM → Pulse)
+# =============================================================================
+
+
+@dataclass
+class KMQualityThresholdUpdate:
+    """Result of updating quality thresholds from KM patterns."""
+
+    old_min_quality: float
+    new_min_quality: float
+    old_category_bonuses: Dict[str, float] = field(default_factory=dict)
+    new_category_bonuses: Dict[str, float] = field(default_factory=dict)
+    patterns_analyzed: int = 0
+    adjustments_made: int = 0
+    confidence: float = 0.7
+    recommendation: str = "keep"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMTopicCoverage:
+    """Analysis of KM coverage for a potential debate topic."""
+
+    topic_text: str
+    coverage_score: float = 0.0
+    related_debates_count: int = 0
+    avg_outcome_confidence: float = 0.0
+    consensus_rate: float = 0.0
+    km_items_found: int = 0
+    recommendation: str = "proceed"  # proceed, skip, defer
+    priority_adjustment: float = 0.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMSchedulingRecommendation:
+    """Recommendation for scheduling adjustments from KM."""
+
+    topic_id: str
+    original_priority: float = 0.5
+    adjusted_priority: float = 0.5
+    reason: str = "no_change"
+    km_confidence: float = 0.7
+    coverage: Optional[KMTopicCoverage] = None
+    was_applied: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMTopicValidation:
+    """Validation result for a topic from KM patterns."""
+
+    topic_id: str
+    km_confidence: float = 0.7
+    outcome_success_rate: float = 0.0
+    similar_debates_count: int = 0
+    avg_rounds_needed: float = 0.0
+    recommendation: str = "keep"  # keep, boost, demote, skip
+    priority_adjustment: float = 0.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PulseKMSyncResult:
+    """Result of batch sync from KM validations."""
+
+    topics_analyzed: int = 0
+    topics_adjusted: int = 0
+    threshold_updates: int = 0
+    scheduling_changes: int = 0
+    errors: List[str] = field(default_factory=list)
+    duration_ms: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

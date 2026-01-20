@@ -376,6 +376,7 @@ class TestRoleRotation:
             rounds=3,
             consensus="majority",
             role_rotation=True,
+            role_matching=False,  # Disable role_matching so role_rotator is used
             **TEST_PROTOCOL_DEFAULTS,
         )
         arena = Arena(
@@ -384,7 +385,7 @@ class TestRoleRotation:
             protocol=protocol,
         )
 
-        # Should have role rotator initialized
+        # Should have role rotator initialized (role_matching must be False)
         assert arena.role_rotator is not None
 
         await arena.run()

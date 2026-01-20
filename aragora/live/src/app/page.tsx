@@ -123,9 +123,9 @@ export default function Home() {
   const { isMobile } = useLayout();
   const { setContext: setRightSidebarContext, clearContext: clearRightSidebarContext } = useRightSidebar();
 
-  // Boot sequence state (must be declared before useEffect that uses it)
-  const [showBoot, setShowBoot] = useState(true);
-  const [skipBoot, setSkipBoot] = useState(false);
+  // Boot sequence state - disabled by default for cleaner UX
+  const [showBoot, setShowBoot] = useState(false);
+  const [skipBoot, setSkipBoot] = useState(true);
 
   // Show onboarding for new users (after boot sequence completes)
   useEffect(() => {
@@ -150,20 +150,16 @@ export default function Home() {
   // Site mode - preference-based (no hostname detection)
   const [siteMode, setSiteMode] = useState<SiteMode>('loading');
 
-  // Load site mode from localStorage or default based on returning user
+  // Load site mode from localStorage - default to landing page
   useEffect(() => {
     const savedMode = localStorage.getItem('aragora-site-mode');
-    const hasVisited = localStorage.getItem('aragora-has-visited');
 
-    if (savedMode === 'dashboard' || savedMode === 'landing') {
-      setSiteMode(savedMode);
-    } else if (hasVisited === 'true') {
-      // Returning users go straight to dashboard
+    if (savedMode === 'dashboard') {
+      // Only go to dashboard if explicitly set
       setSiteMode('dashboard');
     } else {
-      // First-time visitors see landing page
+      // Default: show landing page for all visitors
       setSiteMode('landing');
-      localStorage.setItem('aragora-has-visited', 'true');
     }
   }, []);
 

@@ -325,7 +325,7 @@ class TestAsyncBenchmarks:
             async with MockClient() as client:
                 return client
 
-        result = benchmark(lambda: asyncio.get_event_loop().run_until_complete(use_client()))
+        result = benchmark(lambda: asyncio.run(use_client()))
         assert result is not None
 
 

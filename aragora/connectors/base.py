@@ -11,6 +11,12 @@ __all__ = [
     "BaseConnector",
     "Connector",
     "Evidence",
+    # Re-export exceptions for backward compatibility
+    "ConnectorError",
+    "ConnectorAuthError",
+    "ConnectorRateLimitError",
+    "ConnectorAPIError",
+    "ConnectorTimeoutError",
 ]
 
 import asyncio
@@ -31,6 +37,15 @@ from aragora.reasoning.provenance import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export exceptions from dedicated module
+from aragora.connectors.exceptions import (
+    ConnectorError,
+    ConnectorAuthError,
+    ConnectorRateLimitError,
+    ConnectorAPIError,
+    ConnectorTimeoutError,
+)
 
 
 @dataclass

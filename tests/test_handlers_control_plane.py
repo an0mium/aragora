@@ -236,10 +236,10 @@ class TestListAgents:
         """Test listing agents with registered agents."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate", "critique"])
         )
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-2", ["debate"])
         )
 
@@ -254,10 +254,10 @@ class TestListAgents:
         """Test filtering agents by capability."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate", "critique"])
         )
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-2", ["debate"])
         )
 
@@ -287,7 +287,7 @@ class TestGetAgent:
         """Test getting agent by ID."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate"])
         )
 
@@ -354,7 +354,7 @@ class TestUnregisterAgent:
         """Test unregistering an agent."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate"])
         )
 
@@ -382,7 +382,7 @@ class TestAgentHeartbeat:
         """Test sending heartbeat."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate"])
         )
 
@@ -462,7 +462,7 @@ class TestGetTask:
         """Test getting task by ID."""
         import asyncio
 
-        task_id = asyncio.get_event_loop().run_until_complete(
+        task_id = asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 
@@ -488,7 +488,7 @@ class TestCompleteTask:
         """Test completing a task."""
         import asyncio
 
-        task_id = asyncio.get_event_loop().run_until_complete(
+        task_id = asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 
@@ -522,7 +522,7 @@ class TestFailTask:
         """Test failing a task."""
         import asyncio
 
-        task_id = asyncio.get_event_loop().run_until_complete(
+        task_id = asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 
@@ -545,7 +545,7 @@ class TestCancelTask:
         """Test cancelling a task."""
         import asyncio
 
-        task_id = asyncio.get_event_loop().run_until_complete(
+        task_id = asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 
@@ -577,7 +577,7 @@ class TestAgentHealth:
         """Test getting agent health."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate"])
         )
 
@@ -605,10 +605,10 @@ class TestStats:
         """Test getting control plane statistics."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.register_agent("agent-1", ["debate"])
         )
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 
@@ -627,7 +627,7 @@ class TestClaimTask:
         """Test claiming a task."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             mock_coordinator.submit_task("debate", {"topic": "AI"})
         )
 

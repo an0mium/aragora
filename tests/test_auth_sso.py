@@ -1069,7 +1069,7 @@ class TestSSOSecurityEdgeCases:
         # Should not error even without provider
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(handler.handle_logout(MagicMock(), {}))
+        result = asyncio.run(handler.handle_logout(MagicMock(), {}))
 
         body = result.get("body", {}) if isinstance(result, dict) else getattr(result, "body", {})
         if isinstance(body, bytes):

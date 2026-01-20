@@ -400,9 +400,9 @@ class TestKnowledgeMound:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test_mound.db"
             m = KnowledgeMound(workspace_id="test", db_path=db_path)
-            asyncio.get_event_loop().run_until_complete(m.initialize())
+            asyncio.run(m.initialize())
             yield m
-            asyncio.get_event_loop().run_until_complete(m.close())
+            asyncio.run(m.close())
 
     @pytest.mark.asyncio
     async def test_add_and_get_node(self, mound):

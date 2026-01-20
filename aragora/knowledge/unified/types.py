@@ -40,6 +40,9 @@ class KnowledgeSource(str, Enum):
     BELIEF = "belief"  # Belief network nodes and cruxes
     PROVENANCE = "provenance"  # Evidence provenance chains
     COST = "cost"  # Cost patterns and anomalies
+    RANKING = "ranking"  # Agent domain expertise profiles
+    RLM = "rlm"  # RLM compression patterns
+    EXTRACTION = "extraction"  # Extracted content from documents
 
 
 class RelationshipType(str, Enum):

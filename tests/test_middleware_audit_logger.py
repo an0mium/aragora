@@ -644,7 +644,7 @@ class TestAuditActionDecorator:
         async def async_func():
             return "result"
 
-        result = asyncio.get_event_loop().run_until_complete(async_func())
+        result = asyncio.run(async_func())
 
         assert result == "result"
         events = memory_backend.query()
@@ -667,7 +667,7 @@ class TestAuditActionDecorator:
         async def create_debate(debate_type: str, debate_id: str):
             return f"Created {debate_id}"
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             create_debate(debate_type="standard", debate_id="dbt-123")
         )
 
@@ -686,7 +686,7 @@ class TestAuditActionDecorator:
             raise ValueError("Test error")
 
         with pytest.raises(ValueError):
-            asyncio.get_event_loop().run_until_complete(failing_func())
+            asyncio.run(failing_func())
 
         events = memory_backend.query()
         assert len(events) == 1
@@ -705,7 +705,7 @@ class TestAuditActionDecorator:
             raise PermissionError("Access denied")
 
         with pytest.raises(PermissionError):
-            asyncio.get_event_loop().run_until_complete(protected_func())
+            asyncio.run(protected_func())
 
         events = memory_backend.query()
         assert events[0].outcome == "denied"

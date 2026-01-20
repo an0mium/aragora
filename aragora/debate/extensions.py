@@ -137,6 +137,9 @@ class ArenaExtensions:
         # Export training data if configured
         self._export_training_data(ctx, result)
 
+        # Sync KM adapters (expertise, patterns) learned during debate
+        self._sync_km_adapters(ctx, result)
+
         # Trigger broadcast if configured (not implemented here - kept in Arena for now)
         # The broadcast pipeline requires more complex integration
 
@@ -308,6 +311,72 @@ class ArenaExtensions:
         except Exception as e:
             # Don't fail the debate if Stripe sync fails
             logger.warning("usage_sync_failed org=%s error=%s", self.org_id, e)
+
+    def _sync_km_adapters(
+        self,
+        ctx: "DebateContext",
+        result: "DebateResult",
+    ) -> None:
+        """Sync Knowledge Mound adapters after debate completion.
+
+        Persists expertise profiles and compression patterns learned during
+        the debate to the Knowledge Mound for cross-debate learning.
+
+        Args:
+            ctx: The debate context with workspace info
+            result: The final debate result
+        """
+        try:
+            import asyncio
+
+            workspace_id = self.workspace_id or "default"
+
+            # Get cross-subscriber manager to access adapter instances
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+
+            # Sync RankingAdapter if expertise was recorded
+            try:
+                from aragora.knowledge.mound.adapters import RankingAdapter
+
+                ranking_adapter = getattr(manager, "_ranking_adapter", None)
+                if ranking_adapter is None:
+                    ranking_adapter = RankingAdapter()
+                    manager._ranking_adapter = ranking_adapter
+
+                stats = ranking_adapter.get_stats()
+                if stats.get("total_expertise_records", 0) > 0:
+                    logger.debug(
+                        "km_adapter_sync: %d expertise records to sync",
+                        stats["total_expertise_records"],
+                    )
+            except (ImportError, AttributeError) as e:
+                logger.debug("ranking_adapter_sync_skipped: %s", e)
+
+            # Sync RlmAdapter if compression patterns were recorded
+            try:
+                from aragora.knowledge.mound.adapters import RlmAdapter
+
+                rlm_adapter = getattr(manager, "_rlm_adapter", None)
+                if rlm_adapter is None:
+                    rlm_adapter = RlmAdapter()
+                    manager._rlm_adapter = rlm_adapter
+
+                stats = rlm_adapter.get_stats()
+                if stats.get("total_patterns", 0) > 0:
+                    logger.debug(
+                        "km_adapter_sync: %d compression patterns to sync",
+                        stats["total_patterns"],
+                    )
+            except (ImportError, AttributeError) as e:
+                logger.debug("rlm_adapter_sync_skipped: %s", e)
+
+            logger.debug("km_adapter_sync_complete workspace=%s", workspace_id)
+
+        except Exception as e:
+            # Don't fail the debate if KM sync fails
+            logger.warning("km_adapter_sync_failed: %s", e)
 
     def _evaluate_debate(
         self,

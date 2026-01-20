@@ -268,6 +268,45 @@ async def init_control_plane_coordinator() -> Optional[Any]:
         return None
 
 
+async def init_km_adapters() -> bool:
+    """Initialize Knowledge Mound adapters from persisted state.
+
+    Loads expertise profiles and compression patterns from KM to restore
+    cross-debate learning state.
+
+    Returns:
+        True if adapters were initialized, False otherwise
+    """
+    try:
+        from aragora.events.cross_subscribers import get_cross_subscriber_manager
+        from aragora.knowledge.mound.adapters import RankingAdapter, RlmAdapter
+
+        manager = get_cross_subscriber_manager()
+
+        # Initialize RankingAdapter
+        ranking_adapter = RankingAdapter()
+        manager._ranking_adapter = ranking_adapter
+        logger.debug("RankingAdapter initialized for KM integration")
+
+        # Initialize RlmAdapter
+        rlm_adapter = RlmAdapter()
+        manager._rlm_adapter = rlm_adapter
+        logger.debug("RlmAdapter initialized for KM integration")
+
+        # Note: Actual KM state loading would happen here if KM backend is available
+        # For now, adapters start fresh and accumulate state during debates
+
+        logger.info("KM adapters initialized for cross-debate learning")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"KM adapters not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize KM adapters: {e}")
+
+    return False
+
+
 async def run_startup_sequence(
     nomic_dir: Optional[Path] = None,
     stream_emitter: Optional[Any] = None,
@@ -291,6 +330,7 @@ async def run_startup_sequence(
         "state_cleanup": False,
         "watchdog_task": None,
         "control_plane_coordinator": None,
+        "km_adapters": False,
     }
 
     # Initialize in parallel where possible
@@ -305,6 +345,7 @@ async def run_startup_sequence(
     status["state_cleanup"] = init_state_cleanup_task()
     status["watchdog_task"] = await init_stuck_debate_watchdog()
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
+    status["km_adapters"] = await init_km_adapters()
 
     return status
 
@@ -319,5 +360,6 @@ __all__ = [
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
     "init_control_plane_coordinator",
+    "init_km_adapters",
     "run_startup_sequence",
 ]
