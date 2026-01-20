@@ -128,8 +128,9 @@ class TestNoneConsensusMode:
 
         await phase.execute(ctx)
 
-        assert "[claude]" in ctx.result.final_answer
-        assert "[gpt4]" in ctx.result.final_answer
+        # Synthesis uses markdown format: **agent:** or just agent name
+        assert "claude" in ctx.result.final_answer
+        assert "gpt4" in ctx.result.final_answer
         assert ctx.result.consensus_reached is False
         assert ctx.result.confidence == 0.5
 

@@ -67,6 +67,7 @@ class MockProtocol:
     rounds: int = 2
     asymmetric_stances: bool = False
     rotate_stances: bool = False
+    use_structured_phases: bool = False
 
 
 @dataclass
@@ -322,9 +323,13 @@ class TestRevisionPhase:
         """Should generate revisions after critiques."""
         protocol = MockProtocol(rounds=1)
 
+        # Create a mock that returns critiques with correct target_agent
+        async def mock_critique(*args, target_agent=None, **kwargs):
+            return MockCritique(target_agent=target_agent or "unknown")
+
         phase = DebateRoundsPhase(
             protocol=protocol,
-            critique_with_agent=AsyncMock(return_value=MockCritique()),
+            critique_with_agent=mock_critique,
             build_revision_prompt=MagicMock(return_value="Revise"),
             generate_with_agent=AsyncMock(return_value="Revised proposal content"),
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
@@ -351,6 +356,10 @@ class TestRevisionPhase:
                 raise Exception("Revision error")
             return "Revised"
 
+        # Create a mock that returns critiques with correct target_agent
+        async def mock_critique(*args, target_agent=None, **kwargs):
+            return MockCritique(target_agent=target_agent or "unknown")
+
         agents = [MockAgent(name="claude"), MockAgent(name="error_agent")]
         # Mock filter_available_agents to return actual list
         cb.filter_available_agents.return_value = agents
@@ -358,7 +367,7 @@ class TestRevisionPhase:
         phase = DebateRoundsPhase(
             protocol=protocol,
             circuit_breaker=cb,
-            critique_with_agent=AsyncMock(return_value=MockCritique()),
+            critique_with_agent=mock_critique,
             build_revision_prompt=MagicMock(return_value="Revise"),
             generate_with_agent=generate_with_error,
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
@@ -380,10 +389,14 @@ class TestRevisionPhase:
         protocol = MockProtocol(rounds=1)
         on_message = MagicMock()
 
+        # Create a mock that returns critiques with correct target_agent
+        async def mock_critique(*args, target_agent=None, **kwargs):
+            return MockCritique(target_agent=target_agent or "unknown")
+
         phase = DebateRoundsPhase(
             protocol=protocol,
             hooks={"on_message": on_message},
-            critique_with_agent=AsyncMock(return_value=MockCritique()),
+            critique_with_agent=mock_critique,
             build_revision_prompt=MagicMock(return_value="Revise"),
             generate_with_agent=AsyncMock(return_value="Revised"),
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
@@ -406,9 +419,13 @@ class TestRevisionPhase:
         protocol = MockProtocol(rounds=1)
         record_position = MagicMock()
 
+        # Create a mock that returns critiques with correct target_agent
+        async def mock_critique(*args, target_agent=None, **kwargs):
+            return MockCritique(target_agent=target_agent or "unknown")
+
         phase = DebateRoundsPhase(
             protocol=protocol,
-            critique_with_agent=AsyncMock(return_value=MockCritique()),
+            critique_with_agent=mock_critique,
             build_revision_prompt=MagicMock(return_value="Revise"),
             generate_with_agent=AsyncMock(return_value="Revised"),
             record_grounded_position=record_position,
@@ -657,10 +674,14 @@ class TestRecorder:
         protocol = MockProtocol(rounds=1)
         recorder = MagicMock()
 
+        # Create a mock that returns critiques with correct target_agent
+        async def mock_critique(*args, target_agent=None, **kwargs):
+            return MockCritique(target_agent=target_agent or "unknown")
+
         phase = DebateRoundsPhase(
             protocol=protocol,
             recorder=recorder,
-            critique_with_agent=AsyncMock(return_value=MockCritique()),
+            critique_with_agent=mock_critique,
             build_revision_prompt=MagicMock(return_value="Revise"),
             generate_with_agent=AsyncMock(return_value="Revised"),
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
