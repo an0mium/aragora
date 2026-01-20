@@ -197,6 +197,21 @@ class DebateStateCache:
         self._lock = threading.Lock()
         self._last_access: dict[str, float] = {}
 
+        # TTS callback for live voice response synthesis
+        # Signature: async def callback(loop_id: str, agent: str, content: str)
+        self._tts_callback: Optional[Any] = None
+
+    def set_tts_callback(self, callback: Any) -> None:
+        """Set callback for TTS synthesis when agent messages arrive.
+
+        The callback is invoked for each agent message and can trigger
+        TTS synthesis for active voice sessions.
+
+        Args:
+            callback: Async function(loop_id, agent, content) to call
+        """
+        self._tts_callback = callback
+
     def update_from_event(self, event: StreamEvent) -> None:
         """Update debate state based on emitted event.
 
@@ -253,19 +268,32 @@ class DebateStateCache:
         if loop_id not in self.debate_states:
             return
 
+        agent = event.agent
+        content = event.data.get("content", "")
+
         state = self.debate_states[loop_id]
         state["messages"].append(
             {
-                "agent": event.agent,
+                "agent": agent,
                 "role": event.data.get("role"),
                 "round": event.round,
-                "content": event.data.get("content"),
+                "content": content,
             }
         )
         # Cap at last 1000 messages
         if len(state["messages"]) > 1000:
             state["messages"] = state["messages"][-1000:]
         self._last_access[loop_id] = time.time()
+
+        # Trigger TTS synthesis for live voice sessions (fire-and-forget)
+        if self._tts_callback and content:
+            try:
+                asyncio.create_task(self._tts_callback(loop_id, agent, content))
+            except RuntimeError:
+                # No event loop running - skip TTS
+                pass
+            except Exception as e:
+                logger.debug(f"TTS callback failed: {e}")
 
     def _handle_round_start(self, loop_id: str, event: StreamEvent) -> None:
         """Update round count."""

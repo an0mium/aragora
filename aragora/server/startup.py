@@ -268,6 +268,65 @@ async def init_control_plane_coordinator() -> Optional[Any]:
         return None
 
 
+async def init_shared_control_plane_state() -> bool:
+    """Initialize the shared control plane state for the AgentDashboardHandler.
+
+    Connects to Redis for multi-instance state sharing. Falls back to in-memory
+    for single-instance deployments.
+
+    Returns:
+        True if Redis connected, False if using in-memory fallback
+    """
+    try:
+        from aragora.control_plane.shared_state import get_shared_state, set_shared_state
+
+        state = await get_shared_state(auto_connect=True)
+        if state.is_persistent:
+            logger.info("Shared control plane state connected to Redis (HA enabled)")
+            return True
+        else:
+            logger.info("Shared control plane state using in-memory fallback (single-instance)")
+            return False
+    except ImportError as e:
+        logger.debug(f"Shared control plane state not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Shared control plane state initialization failed: {e}")
+        return False
+
+
+async def init_tts_integration() -> bool:
+    """Initialize TTS integration for live voice responses.
+
+    Wires the TTS synthesis system to the event bus so that agent messages
+    can automatically trigger voice synthesis for active voice sessions.
+
+    Returns:
+        True if TTS integration was initialized, False otherwise
+    """
+    try:
+        from aragora.debate.event_bus import get_event_bus
+        from aragora.server.stream.tts_integration import init_tts_integration as _init_tts
+
+        # Initialize TTS integration with event bus
+        event_bus = get_event_bus()
+        integration = _init_tts(event_bus=event_bus)
+
+        if integration.is_available:
+            logger.info("TTS integration initialized (voice synthesis enabled)")
+            return True
+        else:
+            logger.info("TTS integration initialized (voice synthesis unavailable)")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"TTS integration not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize TTS integration: {e}")
+
+    return False
+
+
 async def init_km_adapters() -> bool:
     """Initialize Knowledge Mound adapters from persisted state.
 
@@ -364,6 +423,8 @@ async def run_startup_sequence(
         "control_plane_coordinator": None,
         "km_adapters": False,
         "workflow_checkpoint_persistence": False,
+        "shared_control_plane_state": False,
+        "tts_integration": False,
     }
 
     # Initialize in parallel where possible
@@ -378,8 +439,10 @@ async def run_startup_sequence(
     status["state_cleanup"] = init_state_cleanup_task()
     status["watchdog_task"] = await init_stuck_debate_watchdog()
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
+    status["shared_control_plane_state"] = await init_shared_control_plane_state()
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
+    status["tts_integration"] = await init_tts_integration()
 
     return status
 
@@ -394,6 +457,8 @@ __all__ = [
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
     "init_control_plane_coordinator",
+    "init_shared_control_plane_state",
+    "init_tts_integration",
     "init_km_adapters",
     "init_workflow_checkpoint_persistence",
     "run_startup_sequence",

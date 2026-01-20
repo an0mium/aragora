@@ -13,6 +13,7 @@ from .relationship import (
 from .sharing import DebateVisibility, ShareSettings, SharingHandler
 from .slack import SlackHandler
 from .telegram import TelegramHandler, get_telegram_handler
+from .whatsapp import WhatsAppHandler, get_whatsapp_handler
 from .relationship import _safe_error_message
 from .social_media import (
     ALLOWED_OAUTH_HOSTS,
@@ -38,6 +39,7 @@ __all__ = [
     "SlackHandler",
     "SocialMediaHandler",
     "TelegramHandler",
+    "WhatsAppHandler",
     "_OAUTH_STATE_TTL",
     "_oauth_states",
     "_oauth_states_lock",
@@ -50,4 +52,5 @@ __all__ = [
     "determine_relationship_type",
     "get_collaboration_handlers",
     "get_telegram_handler",
+    "get_whatsapp_handler",
 ]

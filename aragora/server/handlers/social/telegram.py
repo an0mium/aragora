@@ -57,6 +57,9 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 
+# TTS support
+TTS_VOICE_ENABLED = os.environ.get("TELEGRAM_TTS_ENABLED", "false").lower() == "true"
+
 # Environment variables for Telegram integration
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
@@ -482,6 +485,17 @@ class TelegramHandler(BaseHandler):
                 reply_markup=keyboard,
             )
 
+            # Send voice summary if TTS is enabled
+            if TTS_VOICE_ENABLED:
+                await self._send_voice_summary(
+                    chat_id,
+                    topic,
+                    result.final_answer,
+                    result.consensus_reached,
+                    result.confidence,
+                    result.rounds_used,
+                )
+
         except Exception as e:
             logger.error(f"Telegram debate failed: {e}", exc_info=True)
             await self._send_message_async(
@@ -884,6 +898,83 @@ class TelegramHandler(BaseHandler):
                         logger.warning(f"Telegram inline answer failed: {result.get('description')}")
         except Exception as e:
             logger.error(f"Error answering Telegram inline query: {e}")
+
+    async def _send_voice_summary(
+        self,
+        chat_id: int,
+        topic: str,
+        final_answer: Optional[str],
+        consensus_reached: bool,
+        confidence: float,
+        rounds_used: int,
+    ) -> None:
+        """Send a voice summary of the debate result."""
+        try:
+            from .tts_helper import get_tts_helper
+
+            helper = get_tts_helper()
+            if not helper.is_available:
+                logger.debug("TTS not available for voice summary")
+                return
+
+            result = await helper.synthesize_debate_result(
+                task=topic,
+                final_answer=final_answer,
+                consensus_reached=consensus_reached,
+                confidence=confidence,
+                rounds_used=rounds_used,
+            )
+
+            if result:
+                await self._send_voice_async(
+                    chat_id,
+                    result.audio_bytes,
+                    result.duration_seconds,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to send voice summary: {e}")
+
+    async def _send_voice_async(
+        self,
+        chat_id: int,
+        audio_bytes: bytes,
+        duration: float,
+    ) -> None:
+        """Send a voice message to Telegram chat."""
+        import aiohttp
+        import io
+
+        if not TELEGRAM_BOT_TOKEN:
+            logger.warning("Cannot send voice: TELEGRAM_BOT_TOKEN not configured")
+            return
+
+        try:
+            url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendVoice"
+
+            # Create form data with audio file
+            data = aiohttp.FormData()
+            data.add_field("chat_id", str(chat_id))
+            data.add_field(
+                "voice",
+                io.BytesIO(audio_bytes),
+                filename="voice.ogg",
+                content_type="audio/ogg",
+            )
+            data.add_field("duration", str(int(duration)))
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    data=data,
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as response:
+                    result = await response.json()
+                    if not result.get("ok"):
+                        logger.warning(f"Telegram sendVoice failed: {result.get('description')}")
+                    else:
+                        logger.info(f"Voice message sent to chat {chat_id}")
+        except Exception as e:
+            logger.error(f"Error sending Telegram voice: {e}")
 
 
 # Export handler factory

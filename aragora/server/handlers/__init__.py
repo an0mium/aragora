@@ -149,7 +149,7 @@ from .verification import VerificationHandler
 from .webhooks import WebhookHandler
 from .workflows import WorkflowHandler
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
-from .bots import DiscordHandler, TeamsHandler, ZoomHandler  # Bot platform handlers
+from .bots import DiscordHandler, TeamsHandler, TelegramHandler, WhatsAppHandler, ZoomHandler  # Bot platform handlers
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -248,6 +248,8 @@ ALL_HANDLERS = [
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
     TeamsHandler,  # Microsoft Teams Bot Framework
+    TelegramHandler,  # Telegram Bot API webhooks
+    WhatsAppHandler,  # WhatsApp Cloud API
     ZoomHandler,  # Zoom webhooks and chat
 ]
 
@@ -346,6 +348,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     # Bot platform handlers
     "DiscordHandler": Stability.EXPERIMENTAL,  # Discord Interactions API - new
     "TeamsHandler": Stability.EXPERIMENTAL,  # Microsoft Teams Bot Framework - new
+    "TelegramHandler": Stability.EXPERIMENTAL,  # Telegram Bot API webhooks - new
+    "WhatsAppHandler": Stability.EXPERIMENTAL,  # WhatsApp Cloud API - new
     "ZoomHandler": Stability.EXPERIMENTAL,  # Zoom webhooks and chat - new
 }
 
@@ -483,6 +487,8 @@ __all__ = [
     # Bot platform handlers
     "DiscordHandler",
     "TeamsHandler",
+    "TelegramHandler",
+    "WhatsAppHandler",
     "ZoomHandler",
     # Stability utilities
     "HANDLER_STABILITY",

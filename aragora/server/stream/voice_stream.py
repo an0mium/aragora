@@ -120,6 +120,8 @@ class VoiceSession:
     segments: list[TranscriptionSegment] = field(default_factory=list)
     language: str = ""
     is_active: bool = True
+    auto_synthesize: bool = True  # Auto-synthesize agent messages as TTS
+    tts_voice_map: Dict[str, str] = field(default_factory=dict)  # agent -> voice mapping
 
     def add_chunk(self, chunk: bytes) -> bool:
         """Add audio chunk to buffer, return False if buffer overflow."""
@@ -377,7 +379,16 @@ class VoiceStreamHandler:
             if msg_type == "config":
                 # Client sending audio format configuration
                 session.language = msg.get("language", "")
-                await ws.send_json({"type": "config_ack"})
+                # Enable/disable auto-synthesis of agent responses
+                if "auto_synthesize" in msg:
+                    session.auto_synthesize = bool(msg["auto_synthesize"])
+                # Voice map for specific agents
+                if "voice_map" in msg and isinstance(msg["voice_map"], dict):
+                    session.tts_voice_map.update(msg["voice_map"])
+                await ws.send_json({
+                    "type": "config_ack",
+                    "auto_synthesize": session.auto_synthesize,
+                })
 
             elif msg_type == "end":
                 # Client requesting end of session
@@ -765,6 +776,102 @@ class VoiceStreamHandler:
             loop_id=debate_id,
         )
         self.server.emitter.emit(event)
+
+    async def synthesize_agent_message(
+        self,
+        debate_id: str,
+        agent_name: str,
+        message: str,
+        voice: Optional[str] = None,
+    ) -> int:
+        """
+        Synthesize and send an agent message to all active voice sessions for a debate.
+
+        This enables live TTS responses - when an agent produces a message during
+        a debate, it can be automatically synthesized and sent to connected voice
+        clients.
+
+        Args:
+            debate_id: The debate ID
+            agent_name: Name of the agent
+            message: Text message to synthesize
+            voice: Optional voice override (defaults to agent's configured voice)
+
+        Returns:
+            Number of sessions that received the audio
+        """
+        if not VOICE_TTS_ENABLED:
+            return 0
+
+        sessions_sent = 0
+
+        async with self._sessions_lock:
+            for session in self._sessions.values():
+                if session.debate_id != debate_id:
+                    continue
+                if not session.is_active:
+                    continue
+                if not session.auto_synthesize:
+                    continue
+
+                # Determine voice for this agent
+                agent_voice = voice or session.tts_voice_map.get(agent_name, VOICE_TTS_DEFAULT_VOICE)
+
+                # Find the WebSocket for this session (stored in server connections)
+                ws = self._get_ws_for_session(session.session_id)
+                if ws is None or ws.closed:
+                    continue
+
+                try:
+                    await self._synthesize_and_send(session, ws, message, agent_voice, agent_name)
+                    sessions_sent += 1
+                except Exception as e:
+                    logger.error(f"[Voice] Failed to synthesize for session {session.session_id}: {e}")
+
+        if sessions_sent > 0:
+            logger.info(f"[Voice] Synthesized agent message for {sessions_sent} voice session(s)")
+
+        return sessions_sent
+
+    def _get_ws_for_session(self, session_id: str) -> Optional["web.WebSocketResponse"]:
+        """Get WebSocket connection for a session ID.
+
+        Note: This requires the server to track WebSocket connections per session.
+        Override this method or use the server's connection registry.
+        """
+        # Try to get from server's connection registry
+        if hasattr(self.server, "ws_connections"):
+            return self.server.ws_connections.get(session_id)
+        # Alternative: try voice_connections
+        if hasattr(self.server, "voice_connections"):
+            return self.server.voice_connections.get(session_id)
+        return None
+
+    def get_active_voice_debates(self) -> Set[str]:
+        """Get set of debate IDs with active voice sessions.
+
+        Useful for checking if a debate has voice listeners before
+        triggering TTS synthesis.
+
+        Returns:
+            Set of debate IDs with active voice sessions
+        """
+        return {
+            session.debate_id
+            for session in self._sessions.values()
+            if session.is_active and session.auto_synthesize
+        }
+
+    def has_voice_session(self, debate_id: str) -> bool:
+        """Check if a debate has any active voice sessions.
+
+        Args:
+            debate_id: The debate ID to check
+
+        Returns:
+            True if the debate has at least one active voice session
+        """
+        return debate_id in self.get_active_voice_debates()
 
     async def get_session_info(self, session_id: str) -> Optional[dict]:
         """Get information about an active voice session."""

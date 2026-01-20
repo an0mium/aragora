@@ -355,12 +355,118 @@ class WhatsAppHandler(BaseHandler):
             )
             return
 
-        # TODO: Integrate with debate starter
+        # Start debate via queue system
+        debate_id = self._start_debate_async(to_number, contact_name, topic)
+
         self._send_message(
             to_number,
             f"Starting debate on:\n\n{topic[:200]}\n\n"
             "I'll notify you when the AI agents reach consensus. "
-            "This typically takes 2-5 minutes."
+            f"Debate ID: {debate_id[:8]}..."
         )
 
         logger.info(f"Debate requested from WhatsApp {contact_name} ({to_number}): {topic[:100]}")
+
+    def _start_debate_async(self, to_number: str, contact_name: str, topic: str) -> str:
+        """Start a debate asynchronously via the queue system."""
+        import uuid
+
+        debate_id = str(uuid.uuid4())
+
+        try:
+            from aragora.queue import create_debate_job
+            import asyncio
+
+            job = create_debate_job(
+                question=topic,
+                agents=None,  # Use default agents
+                rounds=3,
+                consensus="majority",
+                protocol="standard",
+                user_id=f"whatsapp:{to_number}",
+                webhook_url=None,  # TODO: Add callback webhook for results
+            )
+
+            # Fire and forget - enqueue the job
+            async def enqueue_job():
+                try:
+                    from aragora.queue import create_redis_queue
+                    queue = await create_redis_queue()
+                    await queue.enqueue(job)
+                    logger.info(f"WhatsApp debate job enqueued: {job.job_id}")
+                except Exception as e:
+                    logger.error(f"Failed to enqueue debate job: {e}")
+                    self._send_message(
+                        to_number,
+                        "Sorry, I couldn't start the debate. Please try again later."
+                    )
+
+            # Run async enqueue in background
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(enqueue_job())
+                else:
+                    asyncio.run(enqueue_job())
+            except RuntimeError:
+                # No event loop, create one
+                asyncio.run(enqueue_job())
+
+            return job.job_id
+
+        except ImportError:
+            logger.warning("Queue system not available, using direct execution")
+            # Fallback: run debate directly (blocking)
+            return self._run_debate_direct(to_number, contact_name, topic, debate_id)
+        except Exception as e:
+            logger.error(f"Failed to start debate: {e}")
+            return debate_id
+
+    def _run_debate_direct(
+        self, to_number: str, contact_name: str, topic: str, debate_id: str
+    ) -> str:
+        """Run debate directly without queue (fallback)."""
+        import asyncio
+        import threading
+
+        def run_in_thread():
+            try:
+                from aragora.debate.orchestrator import Arena
+                from aragora import Environment, DebateProtocol
+                from aragora.agents.cli_agents import get_default_agents
+
+                async def execute():
+                    env = Environment(task=topic)
+                    protocol = DebateProtocol(rounds=3, consensus="majority")
+                    agents = get_default_agents()[:3]  # Use first 3 agents
+                    arena = Arena(env, agents, protocol)
+                    result = await arena.run()
+
+                    # Send result back to user
+                    if result and result.consensus_reached:
+                        self._send_message(
+                            to_number,
+                            f"Debate Complete!\n\n"
+                            f"Topic: {topic[:100]}\n\n"
+                            f"Consensus: {result.final_answer[:500]}\n\n"
+                            f"Confidence: {result.confidence:.0%}"
+                        )
+                    else:
+                        self._send_message(
+                            to_number,
+                            f"Debate Complete!\n\n"
+                            f"Topic: {topic[:100]}\n\n"
+                            "No consensus was reached. The agents had differing views."
+                        )
+
+                asyncio.run(execute())
+
+            except Exception as e:
+                logger.error(f"Direct debate execution failed: {e}")
+                self._send_message(to_number, f"Debate failed: {str(e)[:100]}")
+
+        # Run in background thread to not block webhook response
+        thread = threading.Thread(target=run_in_thread, daemon=True)
+        thread.start()
+
+        return debate_id
