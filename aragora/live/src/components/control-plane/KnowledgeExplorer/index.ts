@@ -13,3 +13,4 @@ export { AccessGrantsList, type AccessGrantsListProps, type AccessGrant } from '
 
 // Federation components
 export { FederationStatus, type FederationStatusProps, type FederatedRegion, type SyncMode, type SyncScope, type RegionHealth } from './FederationStatus';
+export { RegionDialog, type RegionDialogProps, type RegionFormData } from './RegionDialog';

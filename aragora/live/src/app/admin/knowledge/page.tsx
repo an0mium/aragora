@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useAuth } from '@/context/AuthContext';
-import { FederationStatus, type FederatedRegion } from '@/components/control-plane/KnowledgeExplorer';
+import { FederationStatus, RegionDialog, type FederatedRegion, type RegionFormData } from '@/components/control-plane/KnowledgeExplorer';
 import { useFederation } from '@/hooks/useFederation';
 import { useGlobalKnowledge } from '@/hooks/useGlobalKnowledge';
 
@@ -47,6 +47,11 @@ export default function KnowledgeAdminPage() {
   const [newFactSource, setNewFactSource] = useState('');
   const [newFactConfidence, setNewFactConfidence] = useState(0.95);
   const [isStoringFact, setIsStoringFact] = useState(false);
+
+  // State for region dialog
+  const [regionDialogOpen, setRegionDialogOpen] = useState(false);
+  const [editingRegion, setEditingRegion] = useState<FederatedRegion | undefined>(undefined);
+  const [isSavingRegion, setIsSavingRegion] = useState(false);
 
   const isAdmin = isAuthenticated && user?.role === 'admin';
 
@@ -93,6 +98,67 @@ export default function KnowledgeAdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to store fact');
     } finally {
       setIsStoringFact(false);
+    }
+  };
+
+  const handleAddRegion = () => {
+    setEditingRegion(undefined);
+    setRegionDialogOpen(true);
+  };
+
+  const handleEditRegion = (regionId: string) => {
+    const region = federation.regions.find((r) => r.id === regionId);
+    if (region) {
+      setEditingRegion(region);
+      setRegionDialogOpen(true);
+    }
+  };
+
+  const handleSaveRegion = async (data: RegionFormData) => {
+    setIsSavingRegion(true);
+    try {
+      if (editingRegion) {
+        // Update existing region
+        await federation.updateRegion(editingRegion.id, {
+          name: data.name,
+          mode: data.mode,
+          scope: data.scope,
+          enabled: data.enabled,
+        });
+      } else {
+        // Register new region
+        await federation.registerRegion({
+          regionId: data.regionId,
+          name: data.name,
+          endpointUrl: data.endpointUrl,
+          apiKey: data.apiKey,
+          mode: data.mode,
+          scope: data.scope,
+        });
+      }
+      setRegionDialogOpen(false);
+      setEditingRegion(undefined);
+      // Refresh stats
+      await fetchStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save region');
+    } finally {
+      setIsSavingRegion(false);
+    }
+  };
+
+  const handleDeleteRegion = async (regionId: string) => {
+    setIsSavingRegion(true);
+    try {
+      await federation.deleteRegion(regionId);
+      setRegionDialogOpen(false);
+      setEditingRegion(undefined);
+      // Refresh stats
+      await fetchStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete region');
+    } finally {
+      setIsSavingRegion(false);
     }
   };
 
@@ -299,14 +365,8 @@ export default function KnowledgeAdminPage() {
                 onToggleEnabled={async (regionId, enabled) => {
                   await federation.toggleRegionEnabled(regionId, enabled);
                 }}
-                onAddRegion={() => {
-                  // TODO: Open add region dialog
-                  alert('Add region dialog coming soon');
-                }}
-                onEditRegion={(regionId) => {
-                  // TODO: Open edit region dialog
-                  alert(`Edit region ${regionId} dialog coming soon`);
-                }}
+                onAddRegion={handleAddRegion}
+                onEditRegion={handleEditRegion}
                 error={federation.error || undefined}
               />
             </div>
@@ -394,6 +454,19 @@ export default function KnowledgeAdminPage() {
           </p>
         </footer>
       </main>
+
+      {/* Region Dialog */}
+      <RegionDialog
+        isOpen={regionDialogOpen}
+        region={editingRegion}
+        onClose={() => {
+          setRegionDialogOpen(false);
+          setEditingRegion(undefined);
+        }}
+        onSave={handleSaveRegion}
+        onDelete={handleDeleteRegion}
+        isSaving={isSavingRegion}
+      />
     </>
   );
 }

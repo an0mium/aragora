@@ -44,6 +44,7 @@ dependencies = [
     "pydantic-settings>=2.0,<3.0",
     "bcrypt>=4.0,<5.0",  # Secure password hashing
     "markupsafe>=2.1.0,<3.0",  # HTML escaping for XSS prevention
+    "defusedxml>=0.7,<1.0",  # Safe XML parsing to prevent XXE attacks
     "pyotp>=2.9,<3.0",  # TOTP/HOTP for MFA
     "jinja2>=3.1.6,<4.0",  # CVE-2024-56326 fix
     "urllib3>=2.6.3,<3.0",  # CVE fix
@@ -60,6 +61,7 @@ dev = [
     "pytest-benchmark>=4.0,<5.0",
     "pytest-cov>=4.0,<6.0",
     "pytest-timeout>=2.0,<3.0",
+    "pytest-xdist>=3.5,<4.0",  # Parallel test execution
     "black>=23.0,<25.0",
     "ruff>=0.1,<1.0",
     "bandit>=1.7,<2.0",
@@ -197,7 +199,11 @@ markers = [
     "load: marks tests as load/stress tests (deselect with '-m \"not load\"')",
     "integration: marks tests as integration tests",
     "e2e: marks tests as end-to-end tests",
+    "serial: marks tests that must run serially (use with 'pytest -p no:xdist' or '-n0')",
+    "knowledge: marks tests for knowledge mound features",
 ]
+# Parallel test execution: pip install pytest-xdist && pytest -n auto
+# To run serial-only tests: pytest -m serial -n0
 
 [tool.mypy]
 python_version = "3.11"

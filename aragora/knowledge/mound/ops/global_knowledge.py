@@ -138,15 +138,27 @@ class GlobalKnowledgeMixin:
         Returns:
             List of matching knowledge items from the global workspace
         """
-        from aragora.knowledge.mound.types import QueryFilters
+        from aragora.knowledge.mound.types import ConfidenceLevel, QueryFilters
 
         self._ensure_initialized()
 
         filters = None
         if min_confidence > 0 or topics:
+            # Map float confidence to ConfidenceLevel enum
+            confidence_level = None
+            if min_confidence > 0:
+                if min_confidence >= 0.9:
+                    confidence_level = ConfidenceLevel.VERIFIED
+                elif min_confidence >= 0.7:
+                    confidence_level = ConfidenceLevel.HIGH
+                elif min_confidence >= 0.5:
+                    confidence_level = ConfidenceLevel.MEDIUM
+                else:
+                    confidence_level = ConfidenceLevel.LOW
+
             filters = QueryFilters(
-                min_confidence=min_confidence if min_confidence > 0 else None,
-                topics=topics,
+                min_confidence=confidence_level,
+                tags=topics,  # QueryFilters uses 'tags', not 'topics'
             )
 
         result = await self.query(
