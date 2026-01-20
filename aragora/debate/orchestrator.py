@@ -368,7 +368,10 @@ class Arena:
         config: ArenaConfig = None,
     ) -> "Arena":
         """Create an Arena from an ArenaConfig for cleaner dependency injection."""
+        from aragora.debate.feature_validator import validate_and_warn
+
         config = config or ArenaConfig()
+        validate_and_warn(config)
         return cls(
             environment=environment,
             agents=agents,
