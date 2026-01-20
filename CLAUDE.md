@@ -17,6 +17,8 @@ Context for Claude Code when working with the Aragora codebase.
 | Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
 | Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `teams.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
+| RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
+| Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 
 ## Project Overview
 
@@ -56,6 +58,15 @@ aragora/
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
+├── rbac/             # Role-based access control v2
+│   ├── models.py           # Permission, Role, RoleAssignment dataclasses
+│   ├── defaults.py         # 6 default roles, 50+ permissions
+│   ├── checker.py          # PermissionChecker with caching
+│   ├── decorators.py       # @require_permission, @require_role
+│   ├── middleware.py       # HTTP route protection
+│   └── audit.py            # Authorization audit logging
+├── backup/           # Disaster recovery
+│   └── manager.py          # BackupManager with incremental support
 └── verification/     # Proof generation
     └── formal.py           # Z3/Lean verification backends
 ```
@@ -183,6 +194,8 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Security - AES-256-GCM encryption, rate limiting, circuit breakers
 - Compliance - SOC 2 controls, GDPR support, audit trails
 - Observability - Prometheus metrics, Grafana dashboards, OpenTelemetry tracing
+- RBAC v2 - Fine-grained permissions (50+), role hierarchy, decorators, middleware
+- Backup/DR - Incremental backups, retention policies, disaster recovery drills
 
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
