@@ -200,7 +200,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
 - Evidence collection - functional but limited connectors
-- Knowledge Mound - experimental (Phase A1)
+- Knowledge Mound - Phase 1 complete (357 tests passing)
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.
 
