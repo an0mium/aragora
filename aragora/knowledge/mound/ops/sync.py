@@ -553,3 +553,423 @@ class SyncOperationsMixin:
         )
 
         return results
+
+    # =========================================================================
+    # Handler-Compatible Sync Methods
+    # These methods use internally connected stores and support incremental sync
+    # with `since` parameter for API handler integration.
+    # =========================================================================
+
+    async def sync_continuum_incremental(
+        self: SyncProtocol,
+        workspace_id: Optional[str] = None,
+        since: Optional[str] = None,
+        limit: int = 1000,
+    ) -> "SyncResult":
+        """
+        Handler-compatible incremental sync from ContinuumMemory.
+
+        Uses the internally connected _continuum store. Supports incremental
+        sync via the `since` parameter (ISO timestamp or entry ID).
+
+        Args:
+            workspace_id: Override workspace ID for this sync
+            since: ISO timestamp or entry ID to sync from (incremental)
+            limit: Maximum entries to sync in this batch
+
+        Returns:
+            SyncResult with counts of synced/updated/skipped nodes
+        """
+        from datetime import datetime
+        from aragora.knowledge.mound.types import (
+            IngestionRequest,
+            KnowledgeSource,
+            SyncResult,
+        )
+
+        self._ensure_initialized()
+
+        if not self._continuum:
+            return SyncResult(
+                source="continuum",
+                nodes_synced=0,
+                nodes_updated=0,
+                nodes_skipped=0,
+                relationships_created=0,
+                duration_ms=0,
+                errors=["ContinuumMemory not connected"],
+            )
+
+        start_time = time.time()
+        ws_id = workspace_id or self.workspace_id
+        nodes_synced = 0
+        nodes_updated = 0
+        nodes_skipped = 0
+        errors: List[str] = []
+
+        try:
+            # Parse since timestamp if provided
+            since_dt = None
+            if since:
+                try:
+                    since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                except ValueError:
+                    pass  # Not a timestamp, could be an ID
+
+            # Retrieve entries from continuum
+            entries = self._continuum.retrieve(
+                query=None,
+                tiers=None,
+                limit=limit,
+                min_importance=0.0,
+                include_glacial=True,
+            )
+
+            # Filter by since if provided
+            if since_dt:
+                entries = [
+                    e for e in entries
+                    if hasattr(e, 'updated_at') and e.updated_at >= since_dt.isoformat()
+                ]
+
+            for entry in entries:
+                try:
+                    request = IngestionRequest(
+                        content=entry.content,
+                        workspace_id=ws_id,
+                        source_type=KnowledgeSource.CONTINUUM,
+                        node_type="memory",
+                        confidence=entry.importance,
+                        tier=entry.tier.value,
+                        metadata={
+                            "continuum_id": entry.id,
+                            "surprise_score": entry.surprise_score,
+                            "consolidation_score": entry.consolidation_score,
+                            "update_count": entry.update_count,
+                            "success_rate": entry.success_rate,
+                            "original_metadata": entry.metadata,
+                        },
+                    )
+
+                    result = await self.store(request)
+
+                    if result.deduplicated:
+                        nodes_updated += 1
+                    else:
+                        nodes_synced += 1
+
+                except Exception as e:
+                    nodes_skipped += 1
+                    errors.append(f"continuum:{entry.id}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"continuum:retrieve: {str(e)}")
+
+        return SyncResult(
+            source="continuum",
+            nodes_synced=nodes_synced,
+            nodes_updated=nodes_updated,
+            nodes_skipped=nodes_skipped,
+            relationships_created=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            errors=errors,
+        )
+
+    async def sync_consensus_incremental(
+        self: SyncProtocol,
+        workspace_id: Optional[str] = None,
+        since: Optional[str] = None,
+        limit: int = 1000,
+    ) -> "SyncResult":
+        """
+        Handler-compatible incremental sync from ConsensusMemory.
+
+        Uses the internally connected _consensus store. Supports incremental
+        sync via the `since` parameter (ISO timestamp).
+
+        Args:
+            workspace_id: Override workspace ID for this sync
+            since: ISO timestamp to sync from (incremental)
+            limit: Maximum entries to sync in this batch
+
+        Returns:
+            SyncResult with counts of synced/updated/skipped nodes
+        """
+        from aragora.knowledge.mound.types import (
+            IngestionRequest,
+            KnowledgeSource,
+            SyncResult,
+        )
+
+        self._ensure_initialized()
+
+        if not self._consensus:
+            return SyncResult(
+                source="consensus",
+                nodes_synced=0,
+                nodes_updated=0,
+                nodes_skipped=0,
+                relationships_created=0,
+                duration_ms=0,
+                errors=["ConsensusMemory not connected"],
+            )
+
+        start_time = time.time()
+        ws_id = workspace_id or self.workspace_id
+        nodes_synced = 0
+        nodes_updated = 0
+        nodes_skipped = 0
+        relationships_created = 0
+        errors: List[str] = []
+
+        try:
+            # Build query with since filter
+            query = """
+                SELECT id, topic, conclusion, strength, confidence,
+                       participating_agents, agreeing_agents, domain, tags,
+                       timestamp, supersedes, metadata
+                FROM consensus_records
+            """
+            params: List[Any] = []
+
+            if since:
+                query += " WHERE timestamp >= ?"
+                params.append(since)
+
+            query += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+
+            if hasattr(self._consensus, '_store') and self._consensus._store:
+                with self._consensus._store.connection() as conn:
+                    cursor = conn.execute(query, params)
+                    rows = cursor.fetchall()
+
+                from aragora.utils.json_helpers import safe_json_loads
+
+                for row in rows:
+                    try:
+                        record_id = row[0]
+                        topic = row[1]
+                        conclusion = row[2]
+                        strength = row[3]
+                        confidence = row[4]
+                        domain = row[7]
+                        tags_json = row[8]
+                        supersedes = row[10]
+                        metadata_json = row[11]
+
+                        tags = safe_json_loads(tags_json, [])
+                        metadata = safe_json_loads(metadata_json, {})
+
+                        request = IngestionRequest(
+                            content=f"{topic}: {conclusion}",
+                            workspace_id=ws_id,
+                            source_type=KnowledgeSource.CONSENSUS,
+                            debate_id=record_id,
+                            node_type="consensus",
+                            confidence=confidence,
+                            tier="slow",
+                            topics=tags,
+                            metadata={
+                                "consensus_id": record_id,
+                                "strength": strength,
+                                "domain": domain,
+                                "original_metadata": metadata,
+                            },
+                        )
+
+                        if supersedes:
+                            request.derived_from = [f"cs_{supersedes}"]
+
+                        result = await self.store(request)
+
+                        if result.deduplicated:
+                            nodes_updated += 1
+                        else:
+                            nodes_synced += 1
+
+                        relationships_created += result.relationships_created
+
+                    except Exception as e:
+                        nodes_skipped += 1
+                        errors.append(f"consensus:{row[0]}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"consensus:query: {str(e)}")
+
+        return SyncResult(
+            source="consensus",
+            nodes_synced=nodes_synced,
+            nodes_updated=nodes_updated,
+            nodes_skipped=nodes_skipped,
+            relationships_created=relationships_created,
+            duration_ms=int((time.time() - start_time) * 1000),
+            errors=errors,
+        )
+
+    async def sync_facts_incremental(
+        self: SyncProtocol,
+        workspace_id: Optional[str] = None,
+        since: Optional[str] = None,
+        limit: int = 1000,
+    ) -> "SyncResult":
+        """
+        Handler-compatible incremental sync from FactStore.
+
+        Uses the internally connected _facts store. Supports incremental
+        sync via the `since` parameter.
+
+        Args:
+            workspace_id: Override workspace ID for this sync
+            since: ISO timestamp to sync from (incremental)
+            limit: Maximum entries to sync in this batch
+
+        Returns:
+            SyncResult with counts of synced/updated/skipped nodes
+        """
+        from aragora.knowledge.mound.types import (
+            IngestionRequest,
+            KnowledgeSource,
+            SyncResult,
+        )
+
+        self._ensure_initialized()
+
+        if not self._facts:
+            return SyncResult(
+                source="facts",
+                nodes_synced=0,
+                nodes_updated=0,
+                nodes_skipped=0,
+                relationships_created=0,
+                duration_ms=0,
+                errors=["FactStore not connected"],
+            )
+
+        start_time = time.time()
+        ws_id = workspace_id or self.workspace_id
+        nodes_synced = 0
+        nodes_updated = 0
+        nodes_skipped = 0
+        errors: List[str] = []
+
+        try:
+            if hasattr(self._facts, 'query_facts'):
+                all_facts = self._facts.query_facts(
+                    query="",
+                    workspace_id=ws_id,
+                    limit=limit,
+                    since=since,  # Pass since to the query if supported
+                )
+
+                for fact in all_facts:
+                    try:
+                        request = IngestionRequest(
+                            content=fact.statement,
+                            workspace_id=ws_id,
+                            source_type=KnowledgeSource.FACT,
+                            document_id=fact.source_documents[0] if fact.source_documents else None,
+                            node_type="fact",
+                            confidence=fact.confidence,
+                            tier="slow",
+                            topics=fact.topics,
+                            metadata={
+                                "fact_id": fact.id,
+                                "validation_status": (
+                                    fact.validation_status.value
+                                    if hasattr(fact.validation_status, 'value')
+                                    else str(fact.validation_status)
+                                ),
+                                "evidence_ids": fact.evidence_ids,
+                                "source_documents": fact.source_documents,
+                            },
+                        )
+
+                        result = await self.store(request)
+
+                        if result.deduplicated:
+                            nodes_updated += 1
+                        else:
+                            nodes_synced += 1
+
+                    except Exception as e:
+                        nodes_skipped += 1
+                        errors.append(f"facts:{fact.id}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"facts:query: {str(e)}")
+
+        return SyncResult(
+            source="facts",
+            nodes_synced=nodes_synced,
+            nodes_updated=nodes_updated,
+            nodes_skipped=nodes_skipped,
+            relationships_created=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+            errors=errors,
+        )
+
+    async def connect_memory_stores(
+        self: SyncProtocol,
+        continuum: Optional["ContinuumMemory"] = None,
+        consensus: Optional["ConsensusMemory"] = None,
+        facts: Optional["FactStore"] = None,
+        evidence: Optional["EvidenceStore"] = None,
+        critique: Optional["CritiqueStore"] = None,
+    ) -> Dict[str, bool]:
+        """
+        Connect memory stores for use with incremental sync methods.
+
+        Args:
+            continuum: ContinuumMemory instance
+            consensus: ConsensusMemory instance
+            facts: FactStore instance
+            evidence: EvidenceStore instance
+            critique: CritiqueStore instance
+
+        Returns:
+            Dict mapping store name to connection status
+        """
+        status = {}
+
+        if continuum:
+            self._continuum = continuum
+            status["continuum"] = True
+
+        if consensus:
+            self._consensus = consensus
+            status["consensus"] = True
+
+        if facts:
+            self._facts = facts
+            status["facts"] = True
+
+        if evidence:
+            self._evidence = evidence
+            status["evidence"] = True
+
+        if critique:
+            self._critique = critique
+            status["critique"] = True
+
+        logger.info(
+            "Connected %d memory stores to Knowledge Mound",
+            len(status),
+        )
+
+        return status
+
+    def get_connected_stores(self: SyncProtocol) -> List[str]:
+        """Get list of connected memory store names."""
+        connected = []
+        if self._continuum:
+            connected.append("continuum")
+        if self._consensus:
+            connected.append("consensus")
+        if self._facts:
+            connected.append("facts")
+        if self._evidence:
+            connected.append("evidence")
+        if self._critique:
+            connected.append("critique")
+        return connected
