@@ -1353,3 +1353,113 @@ class EloSystem:
         """Get summary of verification impact on an agent's ELO. Delegates to verification module."""
         _validate_agent_name(agent_name)
         return calculate_verification_impact(self._db, agent_name)
+
+    # =========================================================================
+    # Voting Accuracy Tracking (Feature Cross-Pollination)
+    # Tracks whether agents consistently vote for the consensus winner.
+    # =========================================================================
+
+    def update_voting_accuracy(
+        self,
+        agent_name: str,
+        voted_for_consensus: bool,
+        domain: str = "general",
+        debate_id: Optional[str] = None,
+        apply_elo_bonus: bool = True,
+        bonus_k_factor: float = 4.0,
+    ) -> float:
+        """
+        Update an agent's voting accuracy and optionally apply ELO bonus.
+
+        Agents who consistently vote for the winning consensus demonstrate
+        good judgment and should be rewarded. This creates a feedback loop
+        where voting patterns inform agent skill assessment.
+
+        Args:
+            agent_name: Name of the agent
+            voted_for_consensus: Whether the agent voted for the consensus winner
+            domain: Debate domain for domain-specific tracking
+            debate_id: Optional debate ID for history tracking
+            apply_elo_bonus: Whether to apply ELO bonus/penalty
+            bonus_k_factor: K-factor for voting bonus (lower = smaller impact)
+
+        Returns:
+            ELO change applied (may be 0 if bonuses disabled)
+        """
+        _validate_agent_name(agent_name)
+
+        rating = self.get_rating(agent_name, use_cache=False)
+
+        # Update calibration-style tracking (reusing existing fields for voting accuracy)
+        rating.calibration_total += 1
+        if voted_for_consensus:
+            rating.calibration_correct += 1
+
+        # Calculate voting accuracy rate
+        voting_accuracy = rating.calibration_correct / rating.calibration_total
+
+        elo_change = 0.0
+        if apply_elo_bonus:
+            # Apply small ELO bonus for consistent correct voting
+            # Bonus scales with voting accuracy and sample size
+            if rating.calibration_total >= 5:  # Minimum samples for meaningful bonus
+                if voted_for_consensus:
+                    # Bonus for voting with consensus
+                    # Scale by how much above 50% the agent is
+                    accuracy_bonus = (voting_accuracy - 0.5) * 2  # 0-1 range
+                    elo_change = bonus_k_factor * accuracy_bonus
+                else:
+                    # Small penalty for voting against consensus
+                    # Less severe since dissent can be valuable
+                    elo_change = -bonus_k_factor * 0.25
+
+                if elo_change != 0:
+                    # Update domain ELO
+                    domain_elos = rating.domain_elos or {}
+                    domain_elo = domain_elos.get(domain, DEFAULT_ELO)
+                    domain_elos[domain] = domain_elo + elo_change
+                    rating.domain_elos = domain_elos
+
+        # Save updated rating
+        self._save_rating(rating)
+
+        # Record history
+        if debate_id:
+            self._record_elo_history(
+                agent_name,
+                rating.elo,
+                debate_id=f"voting:{debate_id}:{'correct' if voted_for_consensus else 'incorrect'}",
+            )
+
+        logger.debug(
+            "voting_accuracy_update agent=%s voted_for_consensus=%s "
+            "accuracy=%.2f total=%d elo_change=%.2f",
+            agent_name,
+            voted_for_consensus,
+            voting_accuracy,
+            rating.calibration_total,
+            elo_change,
+        )
+
+        return elo_change
+
+    def get_voting_accuracy(self, agent_name: str) -> dict:
+        """
+        Get voting accuracy statistics for an agent.
+
+        Returns:
+            Dict with voting accuracy metrics
+        """
+        _validate_agent_name(agent_name)
+        rating = self.get_rating(agent_name)
+
+        total = rating.calibration_total
+        correct = rating.calibration_correct
+
+        return {
+            "agent_name": agent_name,
+            "total_votes": total,
+            "correct_votes": correct,
+            "accuracy": correct / total if total > 0 else 0.0,
+            "has_meaningful_data": total >= 5,
+        }

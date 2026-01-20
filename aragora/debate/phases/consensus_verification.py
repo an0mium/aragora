@@ -212,6 +212,93 @@ class ConsensusVerifier:
             except Exception as e:
                 logger.debug(f"verification_elo_error agent={agent_name} error={e}")
 
+    def adjust_vote_confidence_from_verification(
+        self,
+        votes: list,
+        verification_results: dict[str, Any],
+        proposals: dict[str, str],
+    ) -> list:
+        """
+        Adjust individual vote confidence based on verification results.
+
+        When a proposal has verified claims, votes supporting it get confidence boost.
+        When a proposal has disproven claims, votes supporting it get confidence reduction.
+
+        This implements the cross-pollination between formal verification and
+        vote confidence, making verified answers more influential in consensus.
+
+        Args:
+            votes: List of Vote objects to adjust
+            verification_results: Dict of agent_name -> verification data
+            proposals: Dict of agent_name -> proposal text
+
+        Returns:
+            Adjusted list of votes (modified in place and returned)
+        """
+        # Build a mapping from proposal agent to verification status
+        verification_status: dict[str, tuple[int, int]] = {}  # agent -> (verified, disproven)
+
+        for agent_name, verification_data in verification_results.items():
+            if isinstance(verification_data, dict):
+                verified = verification_data.get("verified", 0)
+                disproven = verification_data.get("disproven", 0)
+            else:
+                # Legacy format: int value, skip timeouts
+                if verification_data < 0:
+                    continue
+                verified = verification_data
+                disproven = 0
+
+            verification_status[agent_name] = (verified, disproven)
+
+        # Adjust vote confidence based on what proposal they voted for
+        adjusted_count = 0
+        for vote in votes:
+            if not hasattr(vote, "confidence") or not hasattr(vote, "choice"):
+                continue
+
+            # Find which agent's proposal this vote supports
+            # Vote choice may be agent name or proposal summary
+            voted_agent = None
+            for agent_name in proposals.keys():
+                if agent_name.lower() in str(vote.choice).lower():
+                    voted_agent = agent_name
+                    break
+
+            if voted_agent and voted_agent in verification_status:
+                verified, disproven = verification_status[voted_agent]
+                original_confidence = vote.confidence
+
+                if verified > 0 and disproven == 0:
+                    # Proposal verified - boost confidence
+                    # Multiply by 1.3 for each verified claim, cap at 0.99
+                    boost = 1.3 ** verified
+                    vote.confidence = min(0.99, vote.confidence * boost)
+                    logger.debug(
+                        f"[verification] Boosted vote confidence for {voted_agent}: "
+                        f"{original_confidence:.2f} -> {vote.confidence:.2f} (verified={verified})"
+                    )
+                    adjusted_count += 1
+
+                elif disproven > 0:
+                    # Proposal disproven - reduce confidence
+                    # Multiply by 0.3 for each disproven claim, floor at 0.01
+                    penalty = 0.3 ** disproven
+                    vote.confidence = max(0.01, vote.confidence * penalty)
+                    logger.debug(
+                        f"[verification] Reduced vote confidence for {voted_agent}: "
+                        f"{original_confidence:.2f} -> {vote.confidence:.2f} (disproven={disproven})"
+                    )
+                    adjusted_count += 1
+
+        if adjusted_count > 0:
+            logger.info(
+                f"[verification] Adjusted confidence for {adjusted_count} votes "
+                f"based on verification results"
+            )
+
+        return votes
+
     def _emit_verification_event(
         self,
         ctx: "DebateContext",
