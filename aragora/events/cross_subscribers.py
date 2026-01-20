@@ -128,6 +128,28 @@ class SubscriberStats:
         return self.get_percentile(99)
 
 
+@dataclass
+class AsyncDispatchConfig:
+    """Configuration for async/batched event dispatch."""
+
+    # Event types that should always use async dispatch
+    async_event_types: set = field(default_factory=lambda: {
+        StreamEventType.MEMORY_STORED,
+        StreamEventType.MEMORY_RETRIEVED,
+        StreamEventType.KNOWLEDGE_QUERIED,
+        StreamEventType.RLM_COMPRESSION_COMPLETE,
+    })
+
+    # Batch size before auto-flush (0 = no batching)
+    batch_size: int = 10
+
+    # Maximum time (seconds) to hold events before flush
+    batch_timeout_seconds: float = 1.0
+
+    # Enable batching (groups similar events)
+    enable_batching: bool = True
+
+
 class CrossSubscriberManager:
     """
     Manages cross-subsystem event subscribers.
@@ -153,6 +175,7 @@ class CrossSubscriberManager:
         failure_threshold: int = 5,
         cooldown_seconds: float = 60.0,
         default_retry_config: Optional[RetryConfig] = None,
+        async_config: Optional[AsyncDispatchConfig] = None,
     ):
         """Initialize the cross-subscriber manager.
 
@@ -160,6 +183,7 @@ class CrossSubscriberManager:
             failure_threshold: Consecutive failures before circuit opens (default: 5)
             cooldown_seconds: Seconds before attempting recovery (default: 60)
             default_retry_config: Default retry configuration for handlers (default: 3 retries)
+            async_config: Configuration for async/batched event dispatch
         """
         self._subscribers: dict[StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]] = {}
         self._stats: dict[str, SubscriberStats] = {}
@@ -168,6 +192,13 @@ class CrossSubscriberManager:
 
         # Default retry configuration
         self._default_retry_config = default_retry_config or RetryConfig()
+
+        # Async dispatch configuration
+        self._async_config = async_config or AsyncDispatchConfig()
+
+        # Event batch queue for high-volume events
+        self._event_batch: dict[StreamEventType, list[StreamEvent]] = {}
+        self._batch_last_flush: float = 0.0
 
         # Circuit breaker for handler failure protection
         self._circuit_breaker = CircuitBreaker(
@@ -587,6 +618,94 @@ class CrossSubscriberManager:
         except RuntimeError:
             # No running loop - fall back to sync dispatch
             self._dispatch_event(event)
+
+    def dispatch(self, event: StreamEvent) -> None:
+        """Smart dispatch that routes events based on configuration.
+
+        For high-volume event types (configured in async_config), uses async
+        dispatch or batching. For other events, uses synchronous dispatch.
+
+        Args:
+            event: The event to dispatch
+        """
+        import time
+
+        # Check if this event type should use async dispatch
+        if event.type in self._async_config.async_event_types:
+            # Check if batching is enabled
+            if self._async_config.enable_batching and self._async_config.batch_size > 0:
+                self._add_to_batch(event)
+            else:
+                # Direct async dispatch
+                self.dispatch_async(event)
+        else:
+            # Synchronous dispatch for normal events
+            self._dispatch_event(event)
+
+    def _add_to_batch(self, event: StreamEvent) -> None:
+        """Add event to batch queue, flushing if thresholds are met."""
+        import time
+
+        event_type = event.type
+        if event_type not in self._event_batch:
+            self._event_batch[event_type] = []
+
+        self._event_batch[event_type].append(event)
+
+        # Check if we should flush (batch size or timeout)
+        should_flush = (
+            len(self._event_batch[event_type]) >= self._async_config.batch_size
+            or (time.time() - self._batch_last_flush) >= self._async_config.batch_timeout_seconds
+        )
+
+        if should_flush:
+            self._flush_batch(event_type)
+
+    def _flush_batch(self, event_type: StreamEventType) -> None:
+        """Flush batched events for a specific type."""
+        import time
+
+        events = self._event_batch.get(event_type, [])
+        if not events:
+            return
+
+        # Clear batch before processing
+        self._event_batch[event_type] = []
+        self._batch_last_flush = time.time()
+
+        logger.debug(f"Flushing batch of {len(events)} {event_type.value} events")
+
+        # Dispatch all events asynchronously
+        for event in events:
+            self.dispatch_async(event)
+
+    def flush_all_batches(self) -> int:
+        """Flush all pending batched events.
+
+        Returns:
+            Total number of events flushed
+        """
+        total = 0
+        for event_type in list(self._event_batch.keys()):
+            count = len(self._event_batch.get(event_type, []))
+            if count > 0:
+                self._flush_batch(event_type)
+                total += count
+        return total
+
+    def get_batch_stats(self) -> dict:
+        """Get statistics about pending batched events."""
+        return {
+            "pending_batches": {
+                event_type.value: len(events)
+                for event_type, events in self._event_batch.items()
+                if events
+            },
+            "async_event_types": [et.value for et in self._async_config.async_event_types],
+            "batch_size": self._async_config.batch_size,
+            "batch_timeout_seconds": self._async_config.batch_timeout_seconds,
+            "batching_enabled": self._async_config.enable_batching,
+        }
 
     # =========================================================================
     # Built-in Cross-Subsystem Handlers

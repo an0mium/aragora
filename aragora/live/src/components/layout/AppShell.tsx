@@ -5,6 +5,7 @@ import { useLayout } from '@/context/LayoutContext';
 import { TopBar } from './TopBar';
 import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -39,6 +40,12 @@ export function AppShell({ children }: AppShellProps) {
           }}
         >
           <div className="h-[calc(100vh-48px)] overflow-auto">
+            {/* Breadcrumbs */}
+            <div className="border-b border-[var(--border)] bg-[var(--surface)]/30 px-3 sm:px-4 lg:px-6 py-2">
+              <Breadcrumbs />
+            </div>
+
+            {/* Page content */}
             <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
               {children}
             </div>

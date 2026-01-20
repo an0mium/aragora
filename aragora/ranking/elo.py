@@ -260,7 +260,10 @@ class EloSystem:
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
     def __init__(
-        self, db_path: str | Path | None = None, event_emitter: Optional["EventEmitterProtocol"] = None
+        self,
+        db_path: str | Path | None = None,
+        event_emitter: Optional["EventEmitterProtocol"] = None,
+        km_adapter: Optional["EloAdapter"] = None,
     ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.ELO)
@@ -268,6 +271,7 @@ class EloSystem:
         self.db_path = Path(resolved_path)
         self._db = EloDatabase(resolved_path)
         self.event_emitter = event_emitter  # For emitting ELO update events
+        self._km_adapter = km_adapter  # For Knowledge Mound integration
 
         # Delegate to extracted modules (lazy initialization)
         self._relationship_tracker: RelationshipTracker | None = None
@@ -287,6 +291,14 @@ class EloSystem:
         self._domain_calibration_engine = DomainCalibrationEngine(
             db_path=resolved_path, elo_system=self
         )
+
+    def set_km_adapter(self, adapter: "EloAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: EloAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     @property
     def relationship_tracker(self) -> RelationshipTracker:
@@ -816,6 +828,32 @@ class EloSystem:
                     )
             except (ImportError, AttributeError, TypeError):
                 logger.debug("Stream event emission skipped - stream module not available")
+
+        # Sync to Knowledge Mound if adapter configured
+        if self._km_adapter and elo_changes:
+            try:
+                # Store match result for skill history tracking
+                self._km_adapter.store_match(
+                    match_id=debate_id,
+                    participants=participants_list,
+                    winner=winner,
+                    domain=domain,
+                    elo_changes=elo_changes,
+                )
+                # Store updated ratings
+                for agent_name, elo_change in elo_changes.items():
+                    agent_rating = ratings.get(agent_name)
+                    if agent_rating:
+                        new_elo = agent_rating.elo + elo_change
+                        self._km_adapter.store_rating(
+                            agent_name=agent_name,
+                            elo=new_elo,
+                            domain=domain,
+                            debate_id=debate_id,
+                        )
+                logger.debug(f"ELO changes synced to Knowledge Mound: {debate_id}")
+            except Exception as e:
+                logger.warning(f"Failed to sync ELO to KM: {e}")
 
         return elo_changes
 

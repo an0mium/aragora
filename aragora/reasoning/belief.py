@@ -13,15 +13,21 @@ This moves aragora from binary accept/reject to nuanced probabilistic reasoning.
 """
 
 import json
+import logging
 import math
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class BeliefStatus(Enum):
@@ -309,12 +315,16 @@ class BeliefNetwork:
         max_iterations: int = BELIEF_MAX_ITERATIONS,
         convergence_threshold: float = BELIEF_CONVERGENCE_THRESHOLD,
         event_emitter: Optional[Any] = None,
+        km_adapter: Optional["BeliefAdapter"] = None,
+        km_min_confidence: float = 0.8,
     ):
         self.debate_id = debate_id or str(uuid.uuid4())
         self.damping = damping  # For stable convergence
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
         self._event_emitter = event_emitter
+        self._km_adapter = km_adapter
+        self._km_min_confidence = km_min_confidence
 
         # Graph structure
         self.nodes: dict[str, BeliefNode] = {}
@@ -327,6 +337,14 @@ class BeliefNetwork:
         # Metadata
         self.created_at = datetime.now()
         self.propagation_count = 0
+
+    def set_km_adapter(self, adapter: "BeliefAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: BeliefAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     def add_node_from_claim(
         self,
@@ -493,6 +511,26 @@ class BeliefNetwork:
         # Emit BELIEF_CONVERGED event for bidirectional KM integration
         if converged and self._event_emitter:
             self._emit_convergence_event(iteration, max_change, centralities)
+
+        # Sync converged high-confidence beliefs to Knowledge Mound
+        if converged and self._km_adapter:
+            for node in self.nodes.values():
+                confidence = max(node.posterior.p_true, node.posterior.p_false)
+                if confidence >= self._km_min_confidence:
+                    try:
+                        self._km_adapter.store_belief(
+                            belief_id=node.node_id,
+                            claim_id=node.claim_id,
+                            statement=node.claim_statement,
+                            author=node.author,
+                            confidence=confidence,
+                            p_true=node.posterior.p_true,
+                            centrality=node.centrality,
+                            debate_id=self.debate_id,
+                        )
+                        logger.debug(f"Belief synced to Knowledge Mound: {node.node_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to sync belief to KM: {e}")
 
         return PropagationResult(
             converged=converged,
@@ -1068,6 +1106,8 @@ class CruxDetector:
         disagreement_weight: float = 0.3,
         uncertainty_weight: float = 0.2,
         centrality_weight: float = 0.2,
+        km_adapter: Optional["BeliefAdapter"] = None,
+        km_min_crux_score: float = 0.3,
     ):
         """
         Initialize crux detector.
@@ -1078,6 +1118,8 @@ class CruxDetector:
             disagreement_weight: Weight for disagreement score
             uncertainty_weight: Weight for uncertainty score
             centrality_weight: Weight for centrality score
+            km_adapter: Optional Knowledge Mound adapter for syncing cruxes
+            km_min_crux_score: Minimum crux score for KM ingestion
         """
         self.network = network
         self.weights = {
@@ -1086,6 +1128,16 @@ class CruxDetector:
             "uncertainty": uncertainty_weight,
             "centrality": centrality_weight,
         }
+        self._km_adapter = km_adapter
+        self._km_min_crux_score = km_min_crux_score
+
+    def set_km_adapter(self, adapter: "BeliefAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: BeliefAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     def compute_influence_scores(self) -> dict[str, float]:
         """
@@ -1351,6 +1403,16 @@ class CruxDetector:
         convergence_barrier = 0.4 * (total_disagreements / len(self.network.nodes)) + 0.6 * (
             avg_uncertainty / math.log2(3)
         )
+
+        # Sync significant cruxes to Knowledge Mound
+        if self._km_adapter:
+            for crux in cruxes:
+                if crux.crux_score >= self._km_min_crux_score:
+                    try:
+                        self._km_adapter.store_crux(crux)
+                        logger.debug(f"Crux synced to Knowledge Mound: {crux.claim_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to sync crux to KM: {e}")
 
         return CruxAnalysisResult(
             cruxes=cruxes,

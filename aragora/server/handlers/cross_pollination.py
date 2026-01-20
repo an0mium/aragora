@@ -218,6 +218,99 @@ class CrossPollinationResetHandler(BaseHandler):
             return error_response(str(e), status_code=500)
 
 
+class CrossPollinationKMHandler(BaseHandler):
+    """
+    Handler for GET /api/cross-pollination/km.
+
+    Returns Knowledge Mound bidirectional integration status including:
+    - Adapter states (Ranking, RLM, Continuum, etc.)
+    - Batch queue status
+    - Cross-subsystem handler statistics
+    """
+
+    ROUTES = ["/api/cross-pollination/km"]
+
+    async def get(self) -> HandlerResult:
+        """Get KM bidirectional integration status."""
+        try:
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+
+            # Get KM-related handler stats
+            km_handlers = [
+                "memory_to_mound",
+                "mound_to_memory_retrieval",
+                "belief_to_mound",
+                "mound_to_belief",
+                "rlm_to_mound",
+                "mound_to_rlm",
+                "elo_to_mound",
+                "mound_to_team_selection",
+                "insight_to_mound",
+                "flip_to_mound",
+                "mound_to_trickster",
+                "culture_to_debate",
+                "staleness_to_debate",
+                "provenance_to_mound",
+                "mound_to_provenance",
+            ]
+
+            all_stats = manager.get_stats()
+            km_stats = {
+                name: all_stats.get(name, {"events_processed": 0, "events_failed": 0})
+                for name in km_handlers
+            }
+
+            # Get batch queue status
+            batch_stats = manager.get_batch_stats()
+
+            # Calculate inbound vs outbound flows
+            inbound_handlers = [h for h in km_handlers if not h.startswith("mound_to")]
+            outbound_handlers = [h for h in km_handlers if h.startswith("mound_to")]
+
+            inbound_processed = sum(
+                km_stats.get(h, {}).get("events_processed", 0)
+                for h in inbound_handlers
+            )
+            outbound_processed = sum(
+                km_stats.get(h, {}).get("events_processed", 0)
+                for h in outbound_handlers
+            )
+
+            return json_response({
+                "status": "ok",
+                "summary": {
+                    "total_km_handlers": len(km_handlers),
+                    "inbound_handlers": len(inbound_handlers),
+                    "outbound_handlers": len(outbound_handlers),
+                    "inbound_events_processed": inbound_processed,
+                    "outbound_events_processed": outbound_processed,
+                },
+                "handlers": km_stats,
+                "batch_queue": batch_stats,
+                "adapters": {
+                    "ranking": "RankingAdapter - Agent expertise storage",
+                    "rlm": "RlmAdapter - Compression pattern storage",
+                    "continuum": "ContinuumAdapter - Memory tier mapping",
+                    "belief": "BeliefAdapter - Beliefs and cruxes",
+                    "insights": "InsightsAdapter - Insights and flips",
+                    "evidence": "EvidenceAdapter - Evidence reliability",
+                    "consensus": "ConsensusAdapter - Debate outcomes",
+                    "critique": "CritiqueAdapter - Pattern success rates",
+                },
+            })
+
+        except ImportError:
+            return error_response(
+                "Cross-subscriber module not available",
+                status_code=503,
+            )
+        except Exception as e:
+            logger.exception(f"Failed to get KM status: {e}")
+            return error_response(str(e), status_code=500)
+
+
 def register_routes(router, server_context: Optional[Any] = None) -> None:
     """
     Register cross-pollination routes with the router.
@@ -232,12 +325,14 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
     bridge_handler = CrossPollinationBridgeHandler(server_context or {})
     metrics_handler = CrossPollinationMetricsHandler(server_context or {})
     reset_handler = CrossPollinationResetHandler(server_context or {})
+    km_handler = CrossPollinationKMHandler(server_context or {})
 
     routes = [
         ("GET", "/api/cross-pollination/stats", stats_handler.get),
         ("GET", "/api/cross-pollination/subscribers", subscribers_handler.get),
         ("GET", "/api/cross-pollination/bridge", bridge_handler.get),
         ("GET", "/api/cross-pollination/metrics", metrics_handler.get),
+        ("GET", "/api/cross-pollination/km", km_handler.get),
         ("POST", "/api/cross-pollination/reset", reset_handler.post),
     ]
 
@@ -257,5 +352,6 @@ __all__ = [
     "CrossPollinationBridgeHandler",
     "CrossPollinationMetricsHandler",
     "CrossPollinationResetHandler",
+    "CrossPollinationKMHandler",
     "register_routes",
 ]
