@@ -982,22 +982,29 @@ The system will provide relevant details from the full history."""
         if max_topics is None:
             max_topics = getattr(self.protocol, 'trending_injection_max_topics', 3)
 
-        # Filter for relevance to task if possible
-        task_lower = self.env.task.lower() if self.env else ""
-        relevant_topics = []
+        # Check if relevance filtering is enabled
+        use_relevance_filter = getattr(self.protocol, 'trending_relevance_filter', True)
 
-        for topic in self.trending_topics[:max_topics * 2]:  # Get more for filtering
-            # Simple relevance check - topic keywords in task or vice versa
-            topic_text = topic.topic.lower() if hasattr(topic, 'topic') else str(topic).lower()
-            if any(word in task_lower for word in topic_text.split() if len(word) > 3):
-                relevant_topics.append(topic)
-            elif len(relevant_topics) < max_topics:
-                relevant_topics.append(topic)
+        if use_relevance_filter:
+            # Filter for relevance to task if possible
+            task_lower = self.env.task.lower() if self.env else ""
+            relevant_topics = []
 
-            if len(relevant_topics) >= max_topics:
-                break
+            for topic in self.trending_topics[:max_topics * 2]:  # Get more for filtering
+                # Simple relevance check - topic keywords in task or vice versa
+                topic_text = topic.topic.lower() if hasattr(topic, 'topic') else str(topic).lower()
+                if any(word in task_lower for word in topic_text.split() if len(word) > 3):
+                    relevant_topics.append(topic)
+                elif len(relevant_topics) < max_topics:
+                    relevant_topics.append(topic)
 
-        if not relevant_topics:
+                if len(relevant_topics) >= max_topics:
+                    break
+
+            if not relevant_topics:
+                relevant_topics = self.trending_topics[:max_topics]
+        else:
+            # No filtering - just take top N topics
             relevant_topics = self.trending_topics[:max_topics]
 
         lines = ["## CURRENT TRENDING CONTEXT"]

@@ -291,8 +291,10 @@ class DebateProtocol:
     # Pulse/Trending context injection: Inject current trending topics into prompts
     # When enabled, trending topics from Pulse (HN, Reddit, Google Trends, GitHub)
     # are formatted and injected into proposal/revision prompts for timely context.
-    enable_trending_injection: bool = False  # Enable trending topic injection
+    # Cross-pollination: Trending context provides real-time relevance for debates.
+    enable_trending_injection: bool = True  # Enable trending topic injection by default
     trending_injection_max_topics: int = 3  # Max trending topics to inject per prompt
+    trending_relevance_filter: bool = True  # Only include topics relevant to debate task
 
     # ===== Agent-as-a-Judge Bias Mitigation (arXiv:2508.02994) =====
     # Position bias: Shuffle proposal order and average votes across permutations
