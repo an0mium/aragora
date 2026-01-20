@@ -210,17 +210,17 @@ class TestFeedbackExecute:
         """Test execute calls all feedback methods."""
         phase = FeedbackPhase()
 
-        # Patch all methods
+        # Patch all methods - use delegated feedback objects for refactored methods
         with (
-            patch.object(phase, "_record_elo_match") as mock_elo,
-            patch.object(phase, "_update_persona_performance") as mock_persona,
+            patch.object(phase._elo_feedback, "record_elo_match") as mock_elo,
+            patch.object(phase._persona_feedback, "update_persona_performance") as mock_persona,
             patch.object(phase, "_resolve_positions") as mock_positions,
             patch.object(phase, "_update_relationships") as mock_relationships,
             patch.object(phase, "_detect_moments") as mock_moments,
             patch.object(phase, "_index_debate", new_callable=AsyncMock) as mock_index,
             patch.object(phase, "_detect_flips") as mock_flips,
-            patch.object(phase, "_store_consensus_outcome") as mock_consensus,
-            patch.object(phase, "_store_cruxes") as mock_cruxes,
+            patch.object(phase._consensus_storage, "store_consensus_outcome") as mock_consensus,
+            patch.object(phase._consensus_storage, "store_cruxes") as mock_cruxes,
             patch.object(phase, "_store_memory") as mock_memory,
             patch.object(phase, "_update_memory_outcomes") as mock_outcomes,
             patch.object(phase, "_record_calibration") as mock_calibration,
