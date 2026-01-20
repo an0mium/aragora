@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Multi-worker server mode**: Production scaling with `--workers` flag
+  - `aragora serve --workers 4` spawns 4 worker processes on consecutive ports
+  - Updated nginx config with load balancing (`least_conn` for API, `ip_hash` for WebSocket)
+  - Graceful shutdown handling with SIGINT/SIGTERM
+- **AgentSpec.create_team()**: New factory method for explicit field creation
+  - Preferred over deprecated `parse_list()` for programmatic access
+  - Auto-rotates roles (proposer → critic → synthesizer → judge)
+  - Accepts dicts or AgentSpec instances with type-safe TypedDict
+- **URL allowlist configuration**: Configurable SSRF protection for evidence fetching
+  - `ARAGORA_URL_FETCH_ALL_ENABLED=true`: Allow any URL (trusted environments)
+  - `ARAGORA_URL_ALLOWED_DOMAINS=domain1,domain2`: Extend default allowlist
+  - Safety checks always applied (blocks private IPs, localhost, non-HTTP schemes)
+- **Knowledge Mound operation tests**: 29 new tests for ops mixins
+  - KnowledgeMoundOperations (debate integration)
+  - StalenessOperationsMixin, CultureOperationsMixin, SyncOperationsMixin
+
 ### Fixed
 - **Agent spec parsing**: Fixed 3-part spec parsing bug where OpenRouter models produced invalid specs
   - PERSONA_TO_AGENT now maps to registered agent types instead of full model paths
