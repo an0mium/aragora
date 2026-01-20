@@ -210,7 +210,40 @@ GEMINI_API_KEY=AIzaSy...
 XAI_API_KEY=xai-xxx
 ```
 
-### 9. Resource Limits
+### 9. RLM (Recursive Language Models)
+
+| Item | Status | Verification Command |
+|------|--------|---------------------|
+| **RLM package installed** | [ ] | `python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(HAS_OFFICIAL_RLM)"` |
+| **TRUE RLM enabled** | [ ] | Check server logs for `Created AragoraRLM with TRUE RLM support` |
+| **Compression fallback NOT active** | [ ] | Logs should NOT show `Created AragoraRLM with compression fallback` |
+
+**Verification Commands:**
+```bash
+# Check if TRUE RLM is available
+python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(f'TRUE RLM: {HAS_OFFICIAL_RLM}')"
+# Expected: TRUE RLM: True
+
+# Check server logs after startup
+docker logs aragora 2>&1 | grep -E "RLM Factory|TRUE RLM|compression fallback"
+# Expected: [RLM Factory] Created AragoraRLM with TRUE RLM support
+# NOT Expected: [RLM Factory] Created AragoraRLM with compression fallback
+
+# Verify rlm package is installed
+pip show rlm || echo "RLM package not installed - install with: pip install '.[rlm]'"
+```
+
+**Why TRUE RLM Matters:**
+- TRUE RLM uses REPL-based context navigation for efficient memory retrieval
+- Compression fallback uses a 5-level hierarchy (50%→80%→95% compression) which loses context fidelity
+- TRUE RLM significantly improves knowledge retrieval quality in production workloads
+
+**Troubleshooting:**
+- If `HAS_OFFICIAL_RLM` is `False`: Ensure the `rlm` extra is in your pip install command
+- Docker builds: Verify `.[rlm]` is included in the Dockerfile pip install line
+- Lightsail/EC2: Ensure setup scripts include `pip install -e ".[rlm]"`
+
+### 10. Resource Limits
 
 | Item | Status | Verification Command |
 |------|--------|---------------------|

@@ -44,7 +44,7 @@ RUN if [ "$VARIANT" = "minimal" ]; then \
     elif [ "$VARIANT" = "postgres" ]; then \
         pip install --no-cache-dir ".[postgres,redis]"; \
     else \
-        pip install --no-cache-dir ".[persistence,redis,monitoring,observability,postgres]"; \
+        pip install --no-cache-dir ".[persistence,redis,monitoring,observability,postgres,rlm]"; \
     fi
 
 # =============================================================================

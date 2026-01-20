@@ -257,6 +257,12 @@ class ArenaConfig:
     outcome_memory_success_threshold: float = 0.7  # Min confidence for promotion
     outcome_memory_usage_threshold: int = 3  # Successful uses before promotion
 
+    # Trickster Auto-Calibration (cross-pollination)
+    enable_trickster_calibration: bool = True  # Auto-calibrate Trickster based on outcomes
+    trickster_calibrator: Optional[Any] = None  # Pre-configured TricksterCalibrator
+    trickster_calibration_min_samples: int = 20  # Min outcomes before calibrating
+    trickster_calibration_interval: int = 50  # Debates between calibrations
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:

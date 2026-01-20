@@ -557,8 +557,10 @@ class ConsensusEstimator:
         if predictor:
             try:
                 predictor.record_outcome(debate_id, reached_consensus)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 logger.debug(f"Failed to record outcome: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error recording outcome: {e}")
 
     def reset_history(self) -> None:
         """Reset similarity history for new debate."""

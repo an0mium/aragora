@@ -31,7 +31,7 @@ sudo -u aragora git clone https://github.com/an0mium/aragora.git || (cd aragora 
 
 # Install Python dependencies
 cd /home/aragora/aragora
-sudo -u aragora python3 -m pip install --user . || true
+sudo -u aragora python3 -m pip install --user ".[rlm]" || true
 
 # Create systemd service for aragora API
 cat > /etc/systemd/system/aragora-api.service << 'EOF'

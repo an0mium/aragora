@@ -39,7 +39,7 @@ source venv/bin/activate
 # Install Python dependencies
 echo "[5/8] Installing Python packages..."
 pip install --upgrade pip
-pip install -e .
+pip install -e ".[rlm]"
 
 # Create .nomic directory if it doesn't exist
 echo "[6/8] Setting up .nomic directory..."
