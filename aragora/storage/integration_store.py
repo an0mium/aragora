@@ -67,6 +67,46 @@ SENSITIVE_KEYS = frozenset([
 
 
 @dataclass
+class UserIdMapping:
+    """Cross-platform user identity mapping."""
+
+    email: str
+    platform: str  # "slack", "discord", "teams", etc.
+    platform_user_id: str
+    display_name: Optional[str] = None
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    user_id: str = "default"  # Owner/tenant
+
+    def to_dict(self) -> dict:
+        """Convert to dict."""
+        return asdict(self)
+
+    def to_json(self) -> str:
+        """Serialize to JSON."""
+        return json.dumps(asdict(self))
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "UserIdMapping":
+        """Deserialize from JSON."""
+        data = json.loads(json_str)
+        return cls(**data)
+
+    @classmethod
+    def from_row(cls, row: tuple) -> "UserIdMapping":
+        """Create from database row."""
+        return cls(
+            email=row[0],
+            platform=row[1],
+            platform_user_id=row[2],
+            display_name=row[3],
+            created_at=row[4],
+            updated_at=row[5],
+            user_id=row[6],
+        )
+
+
+@dataclass
 class IntegrationConfig:
     """Configuration for a chat platform integration."""
 
@@ -188,6 +228,33 @@ class IntegrationStoreBackend(ABC):
         """List all integrations (admin use)."""
         pass
 
+    # User ID mapping methods
+    @abstractmethod
+    async def get_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> Optional[UserIdMapping]:
+        """Get user ID mapping for a platform."""
+        pass
+
+    @abstractmethod
+    async def save_user_mapping(self, mapping: UserIdMapping) -> None:
+        """Save user ID mapping."""
+        pass
+
+    @abstractmethod
+    async def delete_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> bool:
+        """Delete user ID mapping."""
+        pass
+
+    @abstractmethod
+    async def list_user_mappings(
+        self, platform: Optional[str] = None, user_id: str = "default"
+    ) -> List[UserIdMapping]:
+        """List user ID mappings, optionally filtered by platform."""
+        pass
+
     async def close(self) -> None:
         """Close connections (optional to implement)."""
         pass
@@ -207,6 +274,7 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
 
     def __init__(self) -> None:
         self._store: Dict[str, IntegrationConfig] = {}
+        self._mappings: Dict[str, UserIdMapping] = {}
         self._lock = threading.RLock()
 
     async def get(
@@ -239,10 +307,45 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
         with self._lock:
             return list(self._store.values())
 
+    async def get_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> Optional[UserIdMapping]:
+        key = f"{user_id}:{platform}:{email}"
+        with self._lock:
+            return self._mappings.get(key)
+
+    async def save_user_mapping(self, mapping: UserIdMapping) -> None:
+        key = f"{mapping.user_id}:{mapping.platform}:{mapping.email}"
+        mapping.updated_at = time.time()
+        with self._lock:
+            self._mappings[key] = mapping
+
+    async def delete_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> bool:
+        key = f"{user_id}:{platform}:{email}"
+        with self._lock:
+            if key in self._mappings:
+                del self._mappings[key]
+                return True
+            return False
+
+    async def list_user_mappings(
+        self, platform: Optional[str] = None, user_id: str = "default"
+    ) -> List[UserIdMapping]:
+        with self._lock:
+            result = []
+            for key, mapping in self._mappings.items():
+                if mapping.user_id == user_id:
+                    if platform is None or mapping.platform == platform:
+                        result.append(mapping)
+            return result
+
     def clear(self) -> None:
         """Clear all entries (for testing)."""
         with self._lock:
             self._store.clear()
+            self._mappings.clear()
 
 
 # =============================================================================
@@ -302,6 +405,26 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_integrations_type ON integrations(integration_type)"
+        )
+
+        # User ID mappings table (cross-platform identity resolution)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_id_mappings (
+                email TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                platform_user_id TEXT NOT NULL,
+                display_name TEXT,
+                created_at REAL NOT NULL,
+                updated_at REAL NOT NULL,
+                user_id TEXT NOT NULL DEFAULT 'default',
+                PRIMARY KEY (user_id, platform, email)
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mappings_email ON user_id_mappings(email)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mappings_platform ON user_id_mappings(platform)"
         )
         conn.commit()
         conn.close()
@@ -389,6 +512,76 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                FROM integrations"""
         )
         return [IntegrationConfig.from_row(row) for row in cursor.fetchall()]
+
+    async def get_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> Optional[UserIdMapping]:
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """SELECT email, platform, platform_user_id, display_name,
+                      created_at, updated_at, user_id
+               FROM user_id_mappings
+               WHERE user_id = ? AND platform = ? AND email = ?""",
+            (user_id, platform, email),
+        )
+        row = cursor.fetchone()
+        if row:
+            return UserIdMapping.from_row(row)
+        return None
+
+    async def save_user_mapping(self, mapping: UserIdMapping) -> None:
+        conn = self._get_conn()
+        mapping.updated_at = time.time()
+        conn.execute(
+            """INSERT OR REPLACE INTO user_id_mappings
+               (email, platform, platform_user_id, display_name,
+                created_at, updated_at, user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                mapping.email,
+                mapping.platform,
+                mapping.platform_user_id,
+                mapping.display_name,
+                mapping.created_at,
+                mapping.updated_at,
+                mapping.user_id,
+            ),
+        )
+        conn.commit()
+        logger.debug(f"Saved user mapping: {mapping.email} -> {mapping.platform}")
+
+    async def delete_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> bool:
+        conn = self._get_conn()
+        cursor = conn.execute(
+            "DELETE FROM user_id_mappings WHERE user_id = ? AND platform = ? AND email = ?",
+            (user_id, platform, email),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+    async def list_user_mappings(
+        self, platform: Optional[str] = None, user_id: str = "default"
+    ) -> List[UserIdMapping]:
+        conn = self._get_conn()
+        if platform:
+            cursor = conn.execute(
+                """SELECT email, platform, platform_user_id, display_name,
+                          created_at, updated_at, user_id
+                   FROM user_id_mappings
+                   WHERE user_id = ? AND platform = ?""",
+                (user_id, platform),
+            )
+        else:
+            cursor = conn.execute(
+                """SELECT email, platform, platform_user_id, display_name,
+                          created_at, updated_at, user_id
+                   FROM user_id_mappings
+                   WHERE user_id = ?""",
+                (user_id,),
+            )
+        return [UserIdMapping.from_row(row) for row in cursor.fetchall()]
 
     async def close(self) -> None:
         if hasattr(self._local, "conn"):
@@ -508,6 +701,71 @@ class RedisIntegrationStore(IntegrationStoreBackend):
     async def list_all(self) -> List[IntegrationConfig]:
         return await self._sqlite.list_all()
 
+    def _mapping_redis_key(self, email: str, platform: str, user_id: str) -> str:
+        return f"{self.REDIS_PREFIX}:mapping:{user_id}:{platform}:{email}"
+
+    async def get_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> Optional[UserIdMapping]:
+        redis = self._get_redis()
+
+        # Try Redis first
+        if redis is not None:
+            try:
+                key = self._mapping_redis_key(email, platform, user_id)
+                data = redis.get(key)
+                if data:
+                    return UserIdMapping.from_json(data)
+            except Exception as e:
+                logger.debug(f"Redis mapping get failed: {e}")
+
+        # Fall back to SQLite
+        mapping = await self._sqlite.get_user_mapping(email, platform, user_id)
+
+        # Populate Redis cache if found
+        if mapping and redis:
+            try:
+                key = self._mapping_redis_key(email, platform, user_id)
+                redis.setex(key, self.REDIS_TTL, mapping.to_json())
+            except Exception:
+                pass
+
+        return mapping
+
+    async def save_user_mapping(self, mapping: UserIdMapping) -> None:
+        # Always save to SQLite (durable)
+        await self._sqlite.save_user_mapping(mapping)
+
+        # Update Redis cache
+        redis = self._get_redis()
+        if redis:
+            try:
+                key = self._mapping_redis_key(
+                    mapping.email, mapping.platform, mapping.user_id
+                )
+                redis.setex(key, self.REDIS_TTL, mapping.to_json())
+            except Exception as e:
+                logger.debug(f"Redis mapping cache update failed: {e}")
+
+    async def delete_user_mapping(
+        self, email: str, platform: str, user_id: str = "default"
+    ) -> bool:
+        redis = self._get_redis()
+        if redis:
+            try:
+                key = self._mapping_redis_key(email, platform, user_id)
+                redis.delete(key)
+            except Exception:
+                pass
+
+        return await self._sqlite.delete_user_mapping(email, platform, user_id)
+
+    async def list_user_mappings(
+        self, platform: Optional[str] = None, user_id: str = "default"
+    ) -> List[UserIdMapping]:
+        # Always use SQLite for list operations (authoritative)
+        return await self._sqlite.list_user_mappings(platform, user_id)
+
     async def close(self) -> None:
         await self._sqlite.close()
         if self._redis:
@@ -584,6 +842,7 @@ __all__ = [
     "IntegrationConfig",
     "IntegrationType",
     "VALID_INTEGRATION_TYPES",
+    "UserIdMapping",
     "IntegrationStoreBackend",
     "InMemoryIntegrationStore",
     "SQLiteIntegrationStore",

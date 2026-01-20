@@ -17,6 +17,7 @@ from aragora.storage.integration_store import (
     IntegrationConfig,
     RedisIntegrationStore,
     SQLiteIntegrationStore,
+    UserIdMapping,
     VALID_INTEGRATION_TYPES,
     get_integration_store,
     reset_integration_store,
@@ -363,3 +364,309 @@ class TestIntegrationConfigFromRow:
         )
         config = IntegrationConfig.from_row(row)
         assert config.settings == {}
+
+
+# =============================================================================
+# User ID Mapping Tests
+# =============================================================================
+
+
+@pytest.fixture
+def sample_mapping():
+    """Create a sample user ID mapping."""
+    return UserIdMapping(
+        email="alice@example.com",
+        platform="slack",
+        platform_user_id="U12345ABC",
+        display_name="Alice Smith",
+        user_id="tenant1",
+    )
+
+
+class TestUserIdMapping:
+    """Tests for UserIdMapping dataclass."""
+
+    def test_to_dict(self, sample_mapping):
+        """Should convert to dictionary."""
+        result = sample_mapping.to_dict()
+        assert result["email"] == "alice@example.com"
+        assert result["platform"] == "slack"
+        assert result["platform_user_id"] == "U12345ABC"
+        assert result["display_name"] == "Alice Smith"
+
+    def test_to_json_roundtrip(self, sample_mapping):
+        """JSON serialization should preserve data."""
+        json_str = sample_mapping.to_json()
+        restored = UserIdMapping.from_json(json_str)
+        assert restored.email == sample_mapping.email
+        assert restored.platform == sample_mapping.platform
+        assert restored.platform_user_id == sample_mapping.platform_user_id
+        assert restored.display_name == sample_mapping.display_name
+
+    def test_from_row(self):
+        """Should deserialize from database row."""
+        row = (
+            "bob@example.com",  # email
+            "slack",  # platform
+            "U67890XYZ",  # platform_user_id
+            "Bob Jones",  # display_name
+            1700000000.0,  # created_at
+            1700000001.0,  # updated_at
+            "tenant2",  # user_id
+        )
+        mapping = UserIdMapping.from_row(row)
+        assert mapping.email == "bob@example.com"
+        assert mapping.platform == "slack"
+        assert mapping.platform_user_id == "U67890XYZ"
+        assert mapping.display_name == "Bob Jones"
+        assert mapping.user_id == "tenant2"
+
+
+class TestInMemoryUserIdMappings:
+    """Tests for InMemoryIntegrationStore user ID mapping methods."""
+
+    @pytest.mark.asyncio
+    async def test_save_and_get_mapping(self, memory_store, sample_mapping):
+        """Should save and retrieve user ID mapping."""
+        await memory_store.save_user_mapping(sample_mapping)
+        retrieved = await memory_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        assert retrieved.platform_user_id == "U12345ABC"
+        assert retrieved.display_name == "Alice Smith"
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_mapping(self, memory_store):
+        """Should return None for nonexistent mapping."""
+        result = await memory_store.get_user_mapping(
+            "unknown@example.com", "slack", "tenant1"
+        )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_delete_mapping(self, memory_store, sample_mapping):
+        """Should delete user ID mapping."""
+        await memory_store.save_user_mapping(sample_mapping)
+        deleted = await memory_store.delete_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert deleted is True
+        result = await memory_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_mapping(self, memory_store):
+        """Should return False when deleting nonexistent mapping."""
+        deleted = await memory_store.delete_user_mapping(
+            "unknown@example.com", "slack", "tenant1"
+        )
+        assert deleted is False
+
+    @pytest.mark.asyncio
+    async def test_list_mappings_all_platforms(self, memory_store):
+        """Should list all mappings for a user across platforms."""
+        mappings = [
+            UserIdMapping(
+                email="alice@example.com",
+                platform="slack",
+                platform_user_id="U12345",
+                user_id="tenant1",
+            ),
+            UserIdMapping(
+                email="alice@example.com",
+                platform="discord",
+                platform_user_id="D12345",
+                user_id="tenant1",
+            ),
+            UserIdMapping(
+                email="bob@example.com",
+                platform="slack",
+                platform_user_id="U67890",
+                user_id="tenant2",
+            ),
+        ]
+        for m in mappings:
+            await memory_store.save_user_mapping(m)
+
+        # List for tenant1 (all platforms)
+        result = await memory_store.list_user_mappings(user_id="tenant1")
+        assert len(result) == 2
+        platforms = {m.platform for m in result}
+        assert platforms == {"slack", "discord"}
+
+    @pytest.mark.asyncio
+    async def test_list_mappings_filtered_by_platform(self, memory_store):
+        """Should list mappings filtered by platform."""
+        mappings = [
+            UserIdMapping(
+                email="alice@example.com",
+                platform="slack",
+                platform_user_id="U12345",
+                user_id="tenant1",
+            ),
+            UserIdMapping(
+                email="bob@example.com",
+                platform="slack",
+                platform_user_id="U67890",
+                user_id="tenant1",
+            ),
+            UserIdMapping(
+                email="charlie@example.com",
+                platform="discord",
+                platform_user_id="D11111",
+                user_id="tenant1",
+            ),
+        ]
+        for m in mappings:
+            await memory_store.save_user_mapping(m)
+
+        # List only Slack mappings
+        result = await memory_store.list_user_mappings(
+            platform="slack", user_id="tenant1"
+        )
+        assert len(result) == 2
+        emails = {m.email for m in result}
+        assert emails == {"alice@example.com", "bob@example.com"}
+
+    @pytest.mark.asyncio
+    async def test_clear_includes_mappings(self, memory_store, sample_mapping):
+        """Clear should also clear mappings."""
+        await memory_store.save_user_mapping(sample_mapping)
+        memory_store.clear()
+        result = await memory_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert result is None
+
+
+class TestSQLiteUserIdMappings:
+    """Tests for SQLiteIntegrationStore user ID mapping methods."""
+
+    @pytest.mark.asyncio
+    async def test_save_and_get_mapping(self, sqlite_store, sample_mapping):
+        """Should save and retrieve user ID mapping."""
+        await sqlite_store.save_user_mapping(sample_mapping)
+        retrieved = await sqlite_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        assert retrieved.platform_user_id == "U12345ABC"
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_mapping(self, sqlite_store):
+        """Should return None for nonexistent mapping."""
+        result = await sqlite_store.get_user_mapping(
+            "unknown@example.com", "slack", "tenant1"
+        )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_delete_mapping(self, sqlite_store, sample_mapping):
+        """Should delete user ID mapping."""
+        await sqlite_store.save_user_mapping(sample_mapping)
+        deleted = await sqlite_store.delete_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert deleted is True
+
+    @pytest.mark.asyncio
+    async def test_mapping_persistence(self, temp_db_path, sample_mapping):
+        """Mapping data should persist across store instances."""
+        # Save with first instance
+        store1 = SQLiteIntegrationStore(temp_db_path)
+        await store1.save_user_mapping(sample_mapping)
+        await store1.close()
+
+        # Retrieve with second instance
+        store2 = SQLiteIntegrationStore(temp_db_path)
+        retrieved = await store2.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        assert retrieved.platform_user_id == "U12345ABC"
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_list_mappings(self, sqlite_store):
+        """Should list mappings."""
+        mappings = [
+            UserIdMapping(
+                email="alice@example.com",
+                platform="slack",
+                platform_user_id="U12345",
+                user_id="tenant1",
+            ),
+            UserIdMapping(
+                email="bob@example.com",
+                platform="slack",
+                platform_user_id="U67890",
+                user_id="tenant1",
+            ),
+        ]
+        for m in mappings:
+            await sqlite_store.save_user_mapping(m)
+
+        result = await sqlite_store.list_user_mappings(
+            platform="slack", user_id="tenant1"
+        )
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_update_existing_mapping(self, sqlite_store, sample_mapping):
+        """Should update existing mapping."""
+        await sqlite_store.save_user_mapping(sample_mapping)
+
+        # Update display name
+        sample_mapping.display_name = "Alice Johnson"
+        await sqlite_store.save_user_mapping(sample_mapping)
+
+        retrieved = await sqlite_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        assert retrieved.display_name == "Alice Johnson"
+
+
+class TestRedisUserIdMappings:
+    """Tests for RedisIntegrationStore user ID mapping methods."""
+
+    @pytest.fixture
+    def redis_store(self, temp_db_path):
+        """Create a Redis store (will use SQLite fallback if Redis unavailable)."""
+        return RedisIntegrationStore(temp_db_path, redis_url="redis://localhost:6379")
+
+    @pytest.mark.asyncio
+    async def test_save_and_get_mapping(self, redis_store, sample_mapping):
+        """Should save and retrieve user ID mapping."""
+        await redis_store.save_user_mapping(sample_mapping)
+        retrieved = await redis_store.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        assert retrieved.platform_user_id == "U12345ABC"
+
+    @pytest.mark.asyncio
+    async def test_delete_mapping(self, redis_store, sample_mapping):
+        """Should delete user ID mapping."""
+        await redis_store.save_user_mapping(sample_mapping)
+        deleted = await redis_store.delete_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert deleted is True
+
+    @pytest.mark.asyncio
+    async def test_mapping_fallback_persistence(self, temp_db_path, sample_mapping):
+        """SQLite fallback should persist mapping data."""
+        store1 = RedisIntegrationStore(temp_db_path)
+        await store1.save_user_mapping(sample_mapping)
+        await store1.close()
+
+        store2 = RedisIntegrationStore(temp_db_path)
+        retrieved = await store2.get_user_mapping(
+            "alice@example.com", "slack", "tenant1"
+        )
+        assert retrieved is not None
+        await store2.close()
