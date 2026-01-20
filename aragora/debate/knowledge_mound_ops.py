@@ -114,9 +114,10 @@ class KnowledgeMoundOperations:
         if not self.knowledge_mound or not self.enable_ingestion:
             return
 
-        # Only ingest high-quality outcomes (consensus with good confidence)
-        if not result.final_answer or result.confidence < 0.7:
-            logger.debug("  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.7)")
+        # Only ingest high-quality outcomes (consensus with strong confidence)
+        # Use 0.85 threshold to ensure knowledge mound contains reliable conclusions
+        if not result.final_answer or result.confidence < 0.85:
+            logger.debug("  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.85)")
             return
 
         try:

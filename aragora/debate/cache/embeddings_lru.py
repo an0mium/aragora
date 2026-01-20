@@ -11,6 +11,10 @@ Performance impact:
 Note: For generic caching with TTL expiry, see aragora.utils.cache.TTLCache.
 EmbeddingCache is specialized for numpy arrays with database persistence
 and does not use TTL (embeddings don't expire).
+
+MIGRATION NOTE:
+    New code should use aragora.core.embeddings for embedding operations.
+    This module remains for numpy-specific caching in convergence detection.
 """
 
 import hashlib

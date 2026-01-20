@@ -2,7 +2,10 @@
 Semantic retrieval using embeddings.
 
 Provides similarity-based pattern retrieval for the CritiqueStore.
-Uses OpenAI, Gemini, or local embeddings depending on availability.
+Uses the unified embedding service from aragora.core.embeddings.
+
+Note: This module now re-exports from the unified embedding service.
+New code should import directly from aragora.core.embeddings.
 """
 
 __all__ = [
@@ -35,6 +38,13 @@ import aiohttp
 from aragora.config import CACHE_TTL_EMBEDDINGS, get_api_key
 from aragora.exceptions import ExternalServiceError
 from aragora.memory.database import MemoryDatabase
+
+# Re-export utilities from unified service
+from aragora.core.embeddings.service import (
+    cosine_similarity,
+    pack_embedding,
+    unpack_embedding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -334,41 +344,8 @@ class OllamaEmbedding(EmbeddingProvider):
                 ) from e
 
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Compute cosine similarity between two vectors.
-
-    Optimized with NumPy when available, falls back to pure Python.
-    """
-    try:
-        import numpy as np
-
-        a_arr = np.asarray(a, dtype=np.float32)
-        b_arr = np.asarray(b, dtype=np.float32)
-        dot = np.dot(a_arr, b_arr)
-        norm_a = np.linalg.norm(a_arr)
-        norm_b = np.linalg.norm(b_arr)
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return float(dot / (norm_a * norm_b))
-    except ImportError:
-        # Fallback to pure Python
-        dot = sum(x * y for x, y in zip(a, b))
-        norm_a = sum(x * x for x in a) ** 0.5
-        norm_b = sum(x * x for x in b) ** 0.5
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return dot / (norm_a * norm_b)
-
-
-def pack_embedding(embedding: list[float]) -> bytes:
-    """Pack embedding as binary for SQLite storage."""
-    return struct.pack(f"{len(embedding)}f", *embedding)
-
-
-def unpack_embedding(data: bytes) -> list[float]:
-    """Unpack embedding from binary."""
-    count = len(data) // 4  # 4 bytes per float
-    return list(struct.unpack(f"{count}f", data))
+# Note: cosine_similarity, pack_embedding, and unpack_embedding are now
+# imported from aragora.core.embeddings.service and re-exported above.
 
 
 class SemanticRetriever:
