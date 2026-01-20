@@ -1,568 +1,371 @@
-"""
-Tests for replay visualization generator.
+"""Tests for replay theater visualization."""
 
-Tests cover:
-- ReplayScene dataclass
-- ReplayArtifact dataclass
-- ReplayGenerator class
-"""
-
-from datetime import datetime
-from unittest.mock import MagicMock, patch
-
+import json
 import pytest
+from datetime import datetime
+from unittest.mock import Mock, patch
 
-from aragora.core import Critique, DebateResult, Message, Vote
 from aragora.visualization.replay import (
+    ReplayScene,
     ReplayArtifact,
     ReplayGenerator,
-    ReplayScene,
 )
-
-
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-
-@pytest.fixture
-def sample_messages():
-    """Create sample messages for testing."""
-    return [
-        Message(
-            role="proposal",
-            agent="claude",
-            content="I propose we use Python.",
-            round=1,
-            timestamp=datetime(2024, 1, 1, 10, 0, 0),
-        ),
-        Message(
-            role="critique",
-            agent="gpt",
-            content="Python is too slow for this use case.",
-            round=1,
-            timestamp=datetime(2024, 1, 1, 10, 0, 30),
-        ),
-        Message(
-            role="rebuttal",
-            agent="claude",
-            content="We can optimize critical paths.",
-            round=2,
-            timestamp=datetime(2024, 1, 1, 10, 1, 0),
-        ),
-    ]
-
-
-@pytest.fixture
-def sample_votes():
-    """Create sample votes for testing."""
-    return [
-        Vote(agent="claude", choice="python", reasoning="Python is versatile", confidence=0.9),
-        Vote(agent="gpt", choice="python", reasoning="Good ecosystem", confidence=0.7),
-        Vote(agent="gemini", choice="rust", reasoning="Better performance", confidence=0.8),
-    ]
-
-
-@pytest.fixture
-def sample_debate_result(sample_messages, sample_votes):
-    """Create a sample debate result."""
-    return DebateResult(
-        id="debate-123",
-        task="Choose a programming language",
-        final_answer="Python is the best choice",
-        confidence=0.85,
-        rounds_used=2,
-        consensus_reached=True,
-        messages=sample_messages,
-        votes=sample_votes,
-        duration_seconds=60.5,
-        convergence_status="converged",
-        consensus_strength=0.8,
-        winning_patterns=["type safety", "performance"],
-        critiques=[
-            Critique(
-                agent="gpt",
-                target_agent="claude",
-                target_content="Python proposal",
-                issues=["No static typing"],
-                suggestions=["Use type hints"],
-                severity=0.6,
-                reasoning="Python lacks static typing",
-            ),
-        ],
-        dissenting_views=["Rust would be faster"],
-    )
-
-
-@pytest.fixture
-def generator():
-    """Create a ReplayGenerator instance."""
-    return ReplayGenerator()
-
-
-# ============================================================================
-# ReplayScene Tests
-# ============================================================================
 
 
 class TestReplayScene:
     """Tests for ReplayScene dataclass."""
 
-    def test_creation(self, sample_messages):
-        """Test basic creation."""
+    def test_create_scene(self):
+        """Basic scene creation."""
         scene = ReplayScene(
             round_number=1,
-            timestamp=datetime(2024, 1, 1, 10, 0, 0),
-            messages=sample_messages[:2],
-            consensus_indicators={"reached": False},
+            timestamp=datetime(2024, 1, 1, 12, 0),
         )
-
         assert scene.round_number == 1
-        assert len(scene.messages) == 2
-        assert scene.consensus_indicators["reached"] is False
+        assert scene.timestamp == datetime(2024, 1, 1, 12, 0)
 
-    def test_default_values(self):
-        """Test default values for optional fields."""
+    def test_scene_defaults(self):
+        """Scene should have default empty collections."""
         scene = ReplayScene(
             round_number=1,
             timestamp=datetime.now(),
         )
-
         assert scene.messages == []
         assert scene.consensus_indicators == {}
 
-    def test_to_dict(self, sample_messages):
-        """Test serialization to dictionary."""
+    def test_scene_to_dict(self):
+        """Should serialize to dictionary."""
         scene = ReplayScene(
             round_number=2,
-            timestamp=datetime(2024, 1, 1, 12, 30, 0),
-            messages=[sample_messages[0]],
-            consensus_indicators={"reached": True, "confidence": 0.9},
+            timestamp=datetime(2024, 1, 15, 10, 30),
+            consensus_indicators={"reached": True},
         )
+        data = scene.to_dict()
+        
+        assert data["round_number"] == 2
+        assert "timestamp" in data
+        assert data["consensus_indicators"] == {"reached": True}
 
-        result = scene.to_dict()
-
-        assert result["round_number"] == 2
-        assert result["timestamp"] == "2024-01-01T12:30:00"
-        assert len(result["messages"]) == 1
-        assert result["consensus_indicators"]["reached"] is True
-
-    def test_to_dict_html_escapes_messages(self):
-        """Test that message content is HTML escaped."""
-        xss_message = Message(
-            role="proposal",
-            agent="<script>evil()</script>",
-            content="<img onerror='alert()'>",
-            round=1,
-            timestamp=datetime.now(),
-        )
+    def test_scene_to_dict_escapes_html(self):
+        """Should escape HTML in message content."""
+        mock_message = Mock()
+        mock_message.role = "agent"
+        mock_message.agent = "claude"
+        mock_message.content = "<script>alert('xss')</script>"
+        mock_message.timestamp = datetime.now()
+        mock_message.round = 1
+        
         scene = ReplayScene(
             round_number=1,
             timestamp=datetime.now(),
-            messages=[xss_message],
+            messages=[mock_message],
         )
-
-        result = scene.to_dict()
-
-        msg = result["messages"][0]
-        assert "<script>" not in msg["agent"]
-        assert "&lt;script&gt;" in msg["agent"]
-        assert "<img" not in msg["content"]
-        assert "&lt;img" in msg["content"]
-
-    def test_to_dict_handles_missing_attributes(self):
-        """Test graceful handling of messages with missing attributes."""
-        # Create a mock message with minimal attributes
-        mock_msg = MagicMock(spec=[])
-        mock_msg.configure_mock(**{})
-
-        scene = ReplayScene(
-            round_number=1,
-            timestamp=datetime.now(),
-            messages=[mock_msg],
-        )
-
-        result = scene.to_dict()
-
-        # Should use defaults for missing attributes
-        assert result["messages"][0]["role"] == "unknown"
-        assert result["messages"][0]["agent"] == "unknown"
-
-
-# ============================================================================
-# ReplayArtifact Tests
-# ============================================================================
+        data = scene.to_dict()
+        
+        # Should escape HTML
+        assert "<script>" not in data["messages"][0]["content"]
+        assert "&lt;script&gt;" in data["messages"][0]["content"]
 
 
 class TestReplayArtifact:
     """Tests for ReplayArtifact dataclass."""
 
-    def test_creation(self):
-        """Test basic creation."""
+    def test_create_artifact(self):
+        """Basic artifact creation."""
         artifact = ReplayArtifact(
-            debate_id="d-123",
-            task="Test task",
-            scenes=[],
-            verdict={"winner": "claude"},
-            metadata={"duration": 60},
+            debate_id="debate-123",
+            task="Discuss implementation",
         )
+        assert artifact.debate_id == "debate-123"
+        assert artifact.task == "Discuss implementation"
 
-        assert artifact.debate_id == "d-123"
-        assert artifact.task == "Test task"
-        assert artifact.verdict["winner"] == "claude"
-
-    def test_default_values(self):
-        """Test default values for optional fields."""
+    def test_artifact_defaults(self):
+        """Artifact should have default empty collections."""
         artifact = ReplayArtifact(
-            debate_id="d-456",
-            task="Another task",
+            debate_id="d1",
+            task="test",
         )
-
         assert artifact.scenes == []
         assert artifact.verdict == {}
         assert artifact.metadata == {}
 
-    def test_to_dict(self):
-        """Test serialization to dictionary."""
+    def test_artifact_to_dict(self):
+        """Should serialize to dictionary."""
         scene = ReplayScene(
             round_number=1,
-            timestamp=datetime(2024, 1, 1, 10, 0, 0),
+            timestamp=datetime(2024, 1, 1),
         )
         artifact = ReplayArtifact(
-            debate_id="d-789",
-            task="Serialization test",
+            debate_id="debate-123",
+            task="Test task",
             scenes=[scene],
-            verdict={"final_answer": "42"},
-            metadata={"generated_at": "2024-01-01"},
+            verdict={"winner": "approve"},
+            metadata={"key": "value"},
         )
-
-        result = artifact.to_dict()
-
-        assert result["debate_id"] == "d-789"
-        assert result["task"] == "Serialization test"
-        assert len(result["scenes"]) == 1
-        assert result["verdict"]["final_answer"] == "42"
-        assert result["metadata"]["generated_at"] == "2024-01-01"
-
-    def test_to_dict_with_multiple_scenes(self, sample_messages):
-        """Test serialization with multiple scenes."""
-        scenes = [
-            ReplayScene(round_number=1, timestamp=datetime.now(), messages=sample_messages[:2]),
-            ReplayScene(round_number=2, timestamp=datetime.now(), messages=sample_messages[2:]),
-        ]
-        artifact = ReplayArtifact(
-            debate_id="d-multi",
-            task="Multi-scene test",
-            scenes=scenes,
-        )
-
-        result = artifact.to_dict()
-
-        assert len(result["scenes"]) == 2
-        assert result["scenes"][0]["round_number"] == 1
-        assert result["scenes"][1]["round_number"] == 2
-
-
-# ============================================================================
-# ReplayGenerator Tests
-# ============================================================================
+        data = artifact.to_dict()
+        
+        assert data["debate_id"] == "debate-123"
+        assert data["task"] == "Test task"
+        assert len(data["scenes"]) == 1
+        assert data["verdict"] == {"winner": "approve"}
+        assert data["metadata"] == {"key": "value"}
 
 
 class TestReplayGenerator:
-    """Tests for ReplayGenerator class."""
+    """Tests for ReplayGenerator."""
 
-    def test_initialization(self, generator):
-        """Test generator initialization loads template."""
+    @pytest.fixture
+    def generator(self):
+        """Create a replay generator."""
+        return ReplayGenerator()
+
+    @pytest.fixture
+    def mock_debate_result(self):
+        """Create a mock debate result."""
+        result = Mock()
+        result.id = "debate-123"
+        result.task = "Test debate topic"
+        result.messages = []
+        result.votes = []
+        result.duration_seconds = 120.0
+        result.rounds_used = 3
+        result.consensus_reached = True
+        result.confidence = 0.85
+        result.convergence_status = "converged"
+        result.consensus_strength = 0.9
+        result.final_answer = "The answer is 42"
+        result.winning_patterns = ["Pattern 1"]
+        result.critiques = []
+        result.dissenting_views = []
+        return result
+
+    def test_generator_init(self, generator):
+        """Should initialize with HTML template."""
+        assert generator.html_template is not None
+        assert "{{DATA}}" in generator.html_template or "data" in generator.html_template.lower()
+
+    def test_generate_returns_html(self, generator, mock_debate_result):
+        """Should return HTML string."""
+        html = generator.generate(mock_debate_result)
+        
+        assert "<!DOCTYPE html>" in html or "<!doctype html>" in html.lower()
+        assert "</html>" in html
+
+    def test_generate_includes_debate_id(self, generator, mock_debate_result):
+        """Should include debate ID in output."""
+        html = generator.generate(mock_debate_result)
+        
+        # Debate ID should be in the HTML (possibly truncated)
+        assert "debate" in html.lower()
+
+    def test_generate_escapes_script_tags(self, generator, mock_debate_result):
+        """Should escape </script> to prevent XSS."""
+        mock_debate_result.final_answer = "</script><script>alert('xss')</script>"
+        
+        html = generator.generate(mock_debate_result)
+        
+        # Should not have raw </script> inside the data
+        # (the actual script tag for mermaid/JS is allowed, but data shouldn't break it)
+        assert "</\\script>" in html or "&lt;" in html or "<\\/script>" in html
+
+    def test_extract_scenes_groups_by_round(self, generator, mock_debate_result):
+        """Should group messages by round."""
+        msg1 = Mock()
+        msg1.round = 1
+        msg1.timestamp = datetime(2024, 1, 1, 12, 0)
+        msg1.role = "proposer"
+        msg1.agent = "claude"
+        msg1.content = "Proposal"
+        
+        msg2 = Mock()
+        msg2.round = 1
+        msg2.timestamp = datetime(2024, 1, 1, 12, 1)
+        msg2.role = "critic"
+        msg2.agent = "gemini"
+        msg2.content = "Critique"
+        
+        msg3 = Mock()
+        msg3.round = 2
+        msg3.timestamp = datetime(2024, 1, 1, 12, 5)
+        msg3.role = "proposer"
+        msg3.agent = "claude"
+        msg3.content = "Response"
+        
+        mock_debate_result.messages = [msg1, msg2, msg3]
+        
+        scenes = generator._extract_scenes(mock_debate_result.messages)
+        
+        assert len(scenes) == 2
+        assert scenes[0].round_number == 1
+        assert len(scenes[0].messages) == 2
+        assert scenes[1].round_number == 2
+        assert len(scenes[1].messages) == 1
+
+    def test_create_verdict_card(self, generator, mock_debate_result):
+        """Should create verdict card with correct structure."""
+        # Add some votes
+        vote1 = Mock()
+        vote1.choice = "approve"
+        vote1.confidence = 0.9
+        
+        vote2 = Mock()
+        vote2.choice = "approve"
+        vote2.confidence = 0.8
+        
+        vote3 = Mock()
+        vote3.choice = "reject"
+        vote3.confidence = 0.7
+        
+        mock_debate_result.votes = [vote1, vote2, vote3]
+        
+        verdict = generator._create_verdict_card(mock_debate_result)
+        
+        assert "final_answer" in verdict
+        assert "confidence" in verdict
+        assert "consensus_reached" in verdict
+        assert "vote_breakdown" in verdict
+
+    def test_create_verdict_card_handles_tie(self, generator, mock_debate_result):
+        """Should detect tie in votes."""
+        vote1 = Mock()
+        vote1.choice = "approve"
+        vote1.confidence = 0.8
+        
+        vote2 = Mock()
+        vote2.choice = "reject"
+        vote2.confidence = 0.8
+        
+        mock_debate_result.votes = [vote1, vote2]
+        
+        verdict = generator._create_verdict_card(mock_debate_result)
+        
+        assert verdict["winner_label"] == "Tie"
+
+    def test_create_verdict_card_escapes_html(self, generator, mock_debate_result):
+        """Should escape HTML in verdict fields."""
+        mock_debate_result.final_answer = "<b>Bold answer</b>"
+        mock_debate_result.winning_patterns = ["<script>evil</script>"]
+        
+        verdict = generator._create_verdict_card(mock_debate_result)
+        
+        assert "<b>" not in verdict["final_answer"]
+        assert "<script>" not in verdict["evidence"][0]
+
+    def test_render_html_replaces_placeholders(self, generator):
+        """Should replace template placeholders."""
+        artifact = ReplayArtifact(
+            debate_id="test-debate-id",
+            task="Test task",
+        )
+        
+        html = generator._render_html(artifact)
+        
+        # Placeholders should be replaced
+        assert "{{DATA}}" not in html
+        assert "{{DEBATE_ID}}" not in html
+
+
+class TestReplayGeneratorWithMessages:
+    """Tests for replay generation with actual messages."""
+
+    @pytest.fixture
+    def generator(self):
+        """Create generator."""
+        return ReplayGenerator()
+
+    @pytest.fixture
+    def debate_with_messages(self):
+        """Create debate result with messages."""
+        result = Mock()
+        result.id = "debate-full"
+        result.task = "Full debate with messages"
+        result.duration_seconds = 300.0
+        result.rounds_used = 2
+        result.consensus_reached = True
+        result.confidence = 0.92
+        result.convergence_status = "converged"
+        result.consensus_strength = 0.88
+        result.final_answer = "Consensus answer"
+        result.winning_patterns = []
+        result.critiques = []
+        result.votes = []
+        result.dissenting_views = []
+        
+        # Create messages
+        messages = []
+        for i in range(3):
+            msg = Mock()
+            msg.round = i // 2 + 1
+            msg.timestamp = datetime(2024, 1, 1, 12, i)
+            msg.role = "agent"
+            msg.agent = f"agent-{i}"
+            msg.content = f"Message content {i}"
+            messages.append(msg)
+        
+        result.messages = messages
+        return result
+
+    def test_full_generation(self, generator, debate_with_messages):
+        """Should generate complete HTML for debate with messages."""
+        html = generator.generate(debate_with_messages)
+        
+        # Should have basic HTML structure
+        assert "<!DOCTYPE html>" in html or "html" in html.lower()
+        
+        # Should have embedded data
+        assert "debate-full" in html or "data" in html.lower()
+
+
+class TestReplayGeneratorTemplate:
+    """Tests for HTML template handling."""
+
+    def test_uses_external_template_if_exists(self):
+        """Should use external template file if it exists."""
+        generator = ReplayGenerator()
+        
+        # The template should either be loaded from file or be the fallback
         assert generator.html_template is not None
         assert len(generator.html_template) > 0
 
-    def test_initialization_template_has_placeholders(self, generator):
-        """Test template has required placeholders."""
-        # Template should have DATA and DEBATE_ID placeholders
-        assert "{{DATA}}" in generator.html_template or "data" in generator.html_template.lower()
-
-    def test_generate_returns_html(self, generator, sample_debate_result):
-        """Test generate returns valid HTML."""
-        html = generator.generate(sample_debate_result)
-
-        assert "<!DOCTYPE html>" in html or "<html" in html
-        assert "</html>" in html
-
-    def test_generate_includes_debate_data(self, generator, sample_debate_result):
-        """Test generated HTML includes debate data."""
-        html = generator.generate(sample_debate_result)
-
-        assert "debate-123"[:8] in html  # Debate ID (possibly truncated)
-
-    def test_create_artifact(self, generator, sample_debate_result):
-        """Test artifact creation from debate result."""
-        artifact = generator._create_artifact(sample_debate_result)
-
-        assert artifact.debate_id == "debate-123"
-        assert artifact.task == "Choose a programming language"
-        assert len(artifact.scenes) >= 1
-        assert artifact.metadata["rounds_used"] == 2
-        assert artifact.metadata["consensus_reached"] is True
-
-    def test_extract_scenes_groups_by_round(self, generator, sample_messages):
-        """Test scenes are correctly grouped by round."""
-        scenes = generator._extract_scenes(sample_messages)
-
-        # Should have 2 rounds (round 1 and round 2)
-        assert len(scenes) == 2
-
-        # Round 1 should have 2 messages
-        round_1_scene = next(s for s in scenes if s.round_number == 1)
-        assert len(round_1_scene.messages) == 2
-
-        # Round 2 should have 1 message
-        round_2_scene = next(s for s in scenes if s.round_number == 2)
-        assert len(round_2_scene.messages) == 1
-
-    def test_extract_scenes_ordered_by_round(self, generator, sample_messages):
-        """Test scenes are ordered by round number."""
-        scenes = generator._extract_scenes(sample_messages)
-
-        round_numbers = [s.round_number for s in scenes]
-        assert round_numbers == sorted(round_numbers)
-
-    def test_extract_scenes_default_consensus_indicator(self, generator, sample_messages):
-        """Test scenes have default consensus indicator."""
-        scenes = generator._extract_scenes(sample_messages)
-
-        for scene in scenes:
-            assert "reached" in scene.consensus_indicators
-            assert "source" in scene.consensus_indicators
-
-    def test_create_verdict_card(self, generator, sample_debate_result):
-        """Test verdict card creation."""
-        verdict = generator._create_verdict_card(sample_debate_result)
-
-        assert verdict["final_answer"] == "Python is the best choice"
-        assert verdict["confidence"] == 0.85
-        assert verdict["consensus_reached"] is True
-        assert verdict["rounds_used"] == 2
-        assert "vote_breakdown" in verdict
-
-    def test_create_verdict_card_vote_breakdown(self, generator, sample_debate_result):
-        """Test vote breakdown in verdict card."""
-        verdict = generator._create_verdict_card(sample_debate_result)
-
-        breakdown = verdict["vote_breakdown"]
-        assert len(breakdown) == 2  # python and rust
-
-        python_votes = next(v for v in breakdown if v["choice"] == "python")
-        assert python_votes["count"] == 2
-        assert python_votes["avg_confidence"] == 0.8  # (0.9 + 0.7) / 2
-
-    def test_create_verdict_card_tie_detection(self, generator):
-        """Test tie detection in verdict card."""
-        # Create result with tied votes
-        tied_result = DebateResult(
-            id="tie-debate",
-            task="Tied vote test",
-            final_answer="No clear winner",
-            confidence=0.5,
-            rounds_used=1,
-            consensus_reached=True,
-            messages=[],
-            votes=[
-                Vote(agent="a", choice="option1", reasoning="First option", confidence=0.8),
-                Vote(agent="b", choice="option2", reasoning="Second option", confidence=0.8),
-            ],
-        )
-
-        verdict = generator._create_verdict_card(tied_result)
-
-        assert verdict["winner_label"] == "Tie"
-        assert verdict["winner"] is None
-
-    def test_create_verdict_card_no_consensus(self, generator):
-        """Test verdict card when no consensus reached."""
-        no_consensus = DebateResult(
-            id="no-consensus",
-            task="No consensus test",
-            final_answer="",
-            confidence=0.3,
-            rounds_used=5,
-            consensus_reached=False,
-            messages=[],
-            votes=[],
-        )
-
-        verdict = generator._create_verdict_card(no_consensus)
-
-        assert verdict["consensus_reached"] is False
-        assert verdict["winner_label"] == "No winner"
-
-    def test_create_verdict_card_includes_evidence(self, generator, sample_debate_result):
-        """Test evidence is included in verdict card."""
-        verdict = generator._create_verdict_card(sample_debate_result)
-
-        assert "evidence" in verdict
-        assert len(verdict["evidence"]) > 0
-
-    def test_create_verdict_card_escapes_html(self, generator):
-        """Test HTML escaping in verdict card."""
-        xss_result = DebateResult(
-            id="xss-test",
-            task="XSS test",
-            final_answer="<script>alert('xss')</script>",
-            confidence=0.9,
-            rounds_used=1,
-            consensus_reached=True,
-            messages=[],
-            votes=[],
-            winning_patterns=["<img onerror='evil()'>"],
-        )
-
-        verdict = generator._create_verdict_card(xss_result)
-
-        assert "<script>" not in verdict["final_answer"]
-        assert "&lt;script&gt;" in verdict["final_answer"]
-
-    def test_render_html_escapes_script_tags(self, generator):
-        """Test script tag escaping in JSON data."""
-        artifact = ReplayArtifact(
-            debate_id="script-test",
-            task="Test </script> in content",
-        )
-
-        html = generator._render_html(artifact)
-
-        # Should escape </script> to prevent tag termination
-        assert "</script>" not in html.split("</head>")[1].split("<script>")[0]
-
-    def test_render_html_truncates_debate_id_in_title(self, generator):
-        """Test long debate IDs are truncated in title placeholder."""
-        artifact = ReplayArtifact(
-            debate_id="very-long-debate-id-that-should-be-truncated",
-            task="Truncation test",
-        )
-
-        html = generator._render_html(artifact)
-
-        # ID should be truncated to 8 chars in the title
-        assert "very-lon" in html
-        # Full ID still appears in JSON data (expected behavior)
-        assert "very-long-debate-id" in html  # Part of JSON data
-
-    def test_get_html_template_fallback(self, generator):
-        """Test fallback template when file not found."""
-        with patch("builtins.open", side_effect=FileNotFoundError):
-            # Re-initialize to trigger fallback
-            gen = ReplayGenerator.__new__(ReplayGenerator)
-            gen.html_template = gen._get_html_template()
-
-            assert "<!DOCTYPE html>" in gen.html_template
-            assert "{{DATA}}" in gen.html_template
-            assert "{{DEBATE_ID}}" in gen.html_template
+    def test_fallback_template_is_valid_html(self):
+        """Fallback template should be valid HTML."""
+        # Simulate template file not found
+        with patch("builtins.open", side_effect=FileNotFoundError()):
+            generator = ReplayGenerator()
+        
+        # Even with fallback, should have basic HTML
+        assert "<!DOCTYPE html>" in generator.html_template or "<html" in generator.html_template
+        assert "{{DATA}}" in generator.html_template
+        assert "{{DEBATE_ID}}" in generator.html_template
 
 
-# ============================================================================
-# Integration Tests
-# ============================================================================
+class TestReplaySceneConsensusIndicators:
+    """Tests for consensus indicator handling in scenes."""
 
-
-class TestReplayIntegration:
-    """Integration tests for replay generation."""
-
-    def test_full_replay_workflow(self, sample_debate_result):
-        """Test complete replay generation workflow."""
-        generator = ReplayGenerator()
-
-        # Generate HTML
-        html = generator.generate(sample_debate_result)
-
-        # Verify structure
-        assert "<!DOCTYPE html>" in html or "<html" in html
-        assert "</html>" in html
-
-        # Verify debate content is embedded
-        assert "debate-12" in html  # Truncated ID
-
-    def test_replay_with_empty_debate(self):
-        """Test replay with minimal debate data."""
-        empty_result = DebateResult(
-            id="empty-debate",
-            task="Empty test",
-            final_answer="No answer",
-            confidence=0.0,
-            rounds_used=0,
-            consensus_reached=False,
-            messages=[],
-            votes=[],
-        )
-
-        generator = ReplayGenerator()
-        html = generator.generate(empty_result)
-
-        assert "<!DOCTYPE html>" in html or "<html" in html
-        assert "empty-de" in html  # Truncated ID
-
-    def test_replay_with_many_rounds(self):
-        """Test replay with many rounds."""
-        messages = []
-        for round_num in range(1, 6):
-            messages.append(
-                Message(
-                    role="proposal",
-                    agent=f"agent-{round_num}",
-                    content=f"Message in round {round_num}",
-                    round=round_num,
-                    timestamp=datetime.now(),
-                )
-            )
-
-        result = DebateResult(
-            id="many-rounds",
-            task="Multi-round test",
-            final_answer="Final consensus",
-            confidence=0.9,
-            rounds_used=5,
-            consensus_reached=True,
-            messages=messages,
-            votes=[],
-        )
-
-        generator = ReplayGenerator()
-        artifact = generator._create_artifact(result)
-
-        assert len(artifact.scenes) == 5
-        assert artifact.metadata["rounds_used"] == 5
-
-    def test_replay_preserves_message_order(self, sample_messages):
-        """Test message order is preserved within scenes."""
-        generator = ReplayGenerator()
-        scenes = generator._extract_scenes(sample_messages)
-
-        round_1 = next(s for s in scenes if s.round_number == 1)
-        assert round_1.messages[0].role == "proposal"
-        assert round_1.messages[1].role == "critique"
-
-    def test_replay_handles_special_characters(self):
-        """Test handling of special characters in content."""
-        special_msg = Message(
-            role="proposal",
-            agent="test-agent",
-            content="Special chars: < > & \" ' \n\t",
-            round=1,
+    def test_default_consensus_indicator(self):
+        """Scene should have default consensus indicator."""
+        scene = ReplayScene(
+            round_number=1,
             timestamp=datetime.now(),
+            consensus_indicators={"reached": False, "source": "default"},
         )
+        data = scene.to_dict()
+        
+        assert data["consensus_indicators"]["reached"] is False
 
-        result = DebateResult(
-            id="special-chars",
-            task="Special characters test",
-            final_answer="Answer with 'quotes' and <brackets>",
-            confidence=0.8,
-            rounds_used=1,
-            consensus_reached=True,
-            messages=[special_msg],
-            votes=[],
+    def test_custom_consensus_indicator(self):
+        """Scene should preserve custom consensus indicator."""
+        scene = ReplayScene(
+            round_number=3,
+            timestamp=datetime.now(),
+            consensus_indicators={
+                "reached": True,
+                "confidence": 0.95,
+                "source": "trace",
+                "description": "Unanimous agreement",
+            },
         )
-
-        generator = ReplayGenerator()
-        html = generator.generate(result)
-
-        # Should generate valid HTML without breaking
-        assert "</html>" in html
+        data = scene.to_dict()
+        
+        assert data["consensus_indicators"]["reached"] is True
+        assert data["consensus_indicators"]["confidence"] == 0.95

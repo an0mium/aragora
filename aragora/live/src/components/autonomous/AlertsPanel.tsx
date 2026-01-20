@@ -122,6 +122,7 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
         <button
           onClick={fetchAlerts}
           disabled={loading}
+          aria-label="Refresh alerts"
           className="text-xs text-white/50 hover:text-white"
         >
           Refresh
@@ -165,6 +166,7 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
                     <button
                       onClick={() => handleAcknowledge(alert.id)}
                       disabled={actionLoading === alert.id}
+                      aria-label={`Acknowledge alert: ${alert.title}`}
                       className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 text-white rounded transition-colors disabled:opacity-50"
                     >
                       {actionLoading === alert.id ? '...' : 'Ack'}
@@ -173,6 +175,7 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
                   <button
                     onClick={() => handleResolve(alert.id)}
                     disabled={actionLoading === alert.id}
+                    aria-label={`Resolve alert: ${alert.title}`}
                     className="px-3 py-1.5 text-xs bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded transition-colors disabled:opacity-50"
                   >
                     {actionLoading === alert.id ? '...' : 'Resolve'}

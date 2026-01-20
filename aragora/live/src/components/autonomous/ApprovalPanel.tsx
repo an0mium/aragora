@@ -117,6 +117,7 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
         <button
           onClick={fetchRequests}
           disabled={loading}
+          aria-label="Refresh approval requests"
           className="text-xs text-white/50 hover:text-white"
         >
           Refresh
@@ -137,6 +138,8 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
             >
               <button
                 onClick={() => setSelectedRequest(isSelected ? null : request)}
+                aria-expanded={isSelected}
+                aria-label={`${isSelected ? 'Collapse' : 'Expand'} approval request: ${request.title}`}
                 className="w-full p-4 text-left"
               >
                 <div className="flex items-start justify-between gap-4">
@@ -181,6 +184,7 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
                     <button
                       onClick={() => handleApprove(request.id)}
                       disabled={actionLoading === request.id}
+                      aria-label={`Approve request: ${request.title}`}
                       className="flex-1 px-4 py-2 bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded transition-colors disabled:opacity-50"
                     >
                       {actionLoading === request.id ? '...' : 'Approve'}
@@ -188,6 +192,7 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
                     <button
                       onClick={() => handleReject(request.id, 'Rejected via dashboard')}
                       disabled={actionLoading === request.id}
+                      aria-label={`Reject request: ${request.title}`}
                       className="flex-1 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors disabled:opacity-50"
                     >
                       {actionLoading === request.id ? '...' : 'Reject'}

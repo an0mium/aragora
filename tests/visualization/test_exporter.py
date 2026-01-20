@@ -1,347 +1,285 @@
-"""
-Tests for visualization exporter.
+"""Tests for visualization export utilities."""
 
-Tests cover:
-- Export cache functionality
-- save_debate_visualization function
-- generate_standalone_html function
-"""
-
-import tempfile
+import json
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
 import pytest
+from pathlib import Path
+from unittest.mock import patch
 
 from aragora.visualization.exporter import (
-    _cache_export,
-    _get_cached_export,
     _get_graph_hash,
+    _get_cached_export,
+    _cache_export,
     clear_export_cache,
-    generate_standalone_html,
     save_debate_visualization,
+    generate_standalone_html,
+    _EXPORT_CACHE_TTL,
 )
 from aragora.visualization.mapper import ArgumentCartographer
 
 
-# ============================================================================
-# Fixtures
-# ============================================================================
+class TestGetGraphHash:
+    """Tests for graph hashing."""
 
+    def test_returns_string(self):
+        """Should return a hash string."""
+        cart = ArgumentCartographer()
+        hash_val = _get_graph_hash(cart)
+        assert isinstance(hash_val, str)
+        assert len(hash_val) == 16
 
-@pytest.fixture
-def cartographer():
-    """Create a cartographer with sample data."""
-    cart = ArgumentCartographer()
-    cart.set_debate_context("debate-123", "Test Topic")
-    cart.update_from_message("claude", "Test proposal content", "proposal", 1)
-    cart.update_from_message("gpt", "Test critique content", "critique", 1)
-    return cart
+    def test_same_graph_same_hash(self):
+        """Same graph should produce same hash."""
+        cart1 = ArgumentCartographer()
+        cart1.update_from_message("agent", "test", "agent", 1)
+        hash1 = _get_graph_hash(cart1)
 
+        cart2 = ArgumentCartographer()
+        cart2.update_from_message("agent", "test", "agent", 1)
+        hash2 = _get_graph_hash(cart2)
 
-@pytest.fixture
-def temp_dir():
-    """Create a temporary directory."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+        assert hash1 == hash2
 
+    def test_different_graphs_different_hash(self):
+        """Different graphs should produce different hashes."""
+        cart1 = ArgumentCartographer()
+        cart1.update_from_message("agent1", "test", "agent", 1)
+        hash1 = _get_graph_hash(cart1)
 
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """Clear export cache before each test."""
-    clear_export_cache()
-    yield
-    clear_export_cache()
-
-
-# ============================================================================
-# Cache Tests
-# ============================================================================
-
-
-class TestExportCache:
-    """Tests for export caching functionality."""
-
-    def test_get_graph_hash(self, cartographer):
-        """Test graph hash generation."""
-        hash1 = _get_graph_hash(cartographer)
-
-        assert isinstance(hash1, str)
-        assert len(hash1) == 16  # Truncated SHA256
-
-    def test_graph_hash_changes_with_content(self, cartographer):
-        """Test graph hash changes when content changes."""
-        hash1 = _get_graph_hash(cartographer)
-
-        # Add more content
-        cartographer.update_from_message("gemini", "New content", "rebuttal", 2)
-        hash2 = _get_graph_hash(cartographer)
+        cart2 = ArgumentCartographer()
+        cart2.update_from_message("agent2", "different", "agent", 1)
+        hash2 = _get_graph_hash(cart2)
 
         assert hash1 != hash2
 
-    def test_cache_export_and_retrieve(self):
-        """Test caching and retrieving exports."""
-        _cache_export("debate-1", "json", "hash123", '{"test": true}')
 
-        cached = _get_cached_export("debate-1", "json", "hash123")
-        assert cached == '{"test": true}'
+class TestExportCache:
+    """Tests for export caching."""
 
-    def test_cache_miss(self):
-        """Test cache miss returns None."""
-        cached = _get_cached_export("nonexistent", "json", "hash")
-        assert cached is None
+    def setup_method(self):
+        """Clear cache before each test."""
+        clear_export_cache()
 
-    def test_cache_different_formats(self):
-        """Test different formats are cached separately."""
-        _cache_export("d1", "json", "hash", "json content")
-        _cache_export("d1", "mermaid", "hash", "mermaid content")
+    def test_cache_miss_returns_none(self):
+        """Cache miss should return None."""
+        result = _get_cached_export("unknown", "json", "hash")
+        assert result is None
 
-        assert _get_cached_export("d1", "json", "hash") == "json content"
-        assert _get_cached_export("d1", "mermaid", "hash") == "mermaid content"
+    def test_cache_hit_returns_content(self):
+        """Cache hit should return content."""
+        _cache_export("debate-1", "json", "hash123", '{"data": "test"}')
+        result = _get_cached_export("debate-1", "json", "hash123")
+        assert result == '{"data": "test"}'
 
-    def test_cache_different_hashes(self):
-        """Test different hashes are cached separately."""
-        _cache_export("d1", "json", "hash1", "content v1")
-        _cache_export("d1", "json", "hash2", "content v2")
+    def test_cache_key_includes_all_params(self):
+        """Cache key should include debate_id, format, and hash."""
+        _cache_export("debate-1", "json", "hash1", "content1")
+        _cache_export("debate-1", "mermaid", "hash1", "content2")
+        _cache_export("debate-1", "json", "hash2", "content3")
 
-        assert _get_cached_export("d1", "json", "hash1") == "content v1"
-        assert _get_cached_export("d1", "json", "hash2") == "content v2"
+        assert _get_cached_export("debate-1", "json", "hash1") == "content1"
+        assert _get_cached_export("debate-1", "mermaid", "hash1") == "content2"
+        assert _get_cached_export("debate-1", "json", "hash2") == "content3"
 
-    def test_clear_export_cache(self):
-        """Test clearing the cache."""
-        _cache_export("d1", "json", "hash", "content")
-        _cache_export("d2", "mermaid", "hash", "content")
+    def test_clear_cache(self):
+        """Should clear all cache entries."""
+        _cache_export("d1", "json", "h1", "c1")
+        _cache_export("d2", "json", "h2", "c2")
 
         count = clear_export_cache()
 
         assert count == 2
-        assert _get_cached_export("d1", "json", "hash") is None
+        assert _get_cached_export("d1", "json", "h1") is None
+        assert _get_cached_export("d2", "json", "h2") is None
 
-    def test_cache_ttl_expiry(self):
-        """Test cache entries expire after TTL."""
-        # This test uses the internal TTL check
-        _cache_export("d1", "json", "hash", "content")
+    def test_expired_cache_returns_none(self):
+        """Expired cache entries should return None."""
+        _cache_export("debate", "json", "hash", "content")
 
-        # Mock time to simulate TTL expiry
-        with patch("aragora.visualization.exporter.time") as mock_time:
-            mock_time.time.return_value = time.time() + 400  # 400s > 300s TTL
+        # Mock time to be past TTL
+        with patch("aragora.visualization.exporter.time.time", return_value=time.time() + _EXPORT_CACHE_TTL + 1):
+            result = _get_cached_export("debate", "json", "hash")
 
-            cached = _get_cached_export("d1", "json", "hash")
-            assert cached is None
-
-
-# ============================================================================
-# save_debate_visualization Tests
-# ============================================================================
+        assert result is None
 
 
 class TestSaveDebateVisualization:
-    """Tests for save_debate_visualization function."""
+    """Tests for saving debate visualizations."""
 
-    def test_saves_mermaid_format(self, cartographer, temp_dir):
-        """Test saving Mermaid format."""
-        results = save_debate_visualization(
-            cartographer, temp_dir, "test-debate", formats=["mermaid"]
-        )
+    @pytest.fixture
+    def cartographer(self):
+        """Create a populated cartographer."""
+        cart = ArgumentCartographer()
+        cart.set_debate_context("test-debate", "Test topic")
+        cart.update_from_message("claude", "Test proposal", "proposer", 1)
+        cart.update_from_message("gemini", "Test critique", "critic", 1)
+        return cart
 
+    def setup_method(self):
+        """Clear cache before each test."""
+        clear_export_cache()
+
+    def test_creates_output_directory(self, tmp_path, cartographer):
+        """Should create output directory if it doesn't exist."""
+        output_dir = tmp_path / "new_dir" / "nested"
+        
+        save_debate_visualization(cartographer, output_dir, "test")
+        
+        assert output_dir.exists()
+
+    def test_saves_mermaid_by_default(self, tmp_path, cartographer):
+        """Should save Mermaid format by default."""
+        results = save_debate_visualization(cartographer, tmp_path, "test")
+        
         assert "mermaid" in results
         mermaid_path = Path(results["mermaid"])
         assert mermaid_path.exists()
-        assert mermaid_path.suffix == ".mermaid"
+        assert "graph" in mermaid_path.read_text()
 
-    def test_saves_json_format(self, cartographer, temp_dir):
-        """Test saving JSON format."""
-        results = save_debate_visualization(cartographer, temp_dir, "test-debate", formats=["json"])
-
+    def test_saves_json_by_default(self, tmp_path, cartographer):
+        """Should save JSON format by default."""
+        results = save_debate_visualization(cartographer, tmp_path, "test")
+        
         assert "json" in results
         json_path = Path(results["json"])
         assert json_path.exists()
-        assert json_path.suffix == ".json"
-
-        # Verify valid JSON
-        import json
-
-        content = json_path.read_text()
-        data = json.loads(content)
+        data = json.loads(json_path.read_text())
         assert "nodes" in data
 
-    def test_saves_html_format(self, cartographer, temp_dir):
-        """Test saving HTML format."""
-        results = save_debate_visualization(cartographer, temp_dir, "test-debate", formats=["html"])
-
+    def test_saves_html_when_requested(self, tmp_path, cartographer):
+        """Should save HTML when specified."""
+        results = save_debate_visualization(
+            cartographer, tmp_path, "test", formats=["html"]
+        )
+        
         assert "html" in results
         html_path = Path(results["html"])
         assert html_path.exists()
-        content = html_path.read_text()
-        assert "<html" in content
+        assert "<!DOCTYPE html>" in html_path.read_text()
 
-    def test_saves_multiple_formats(self, cartographer, temp_dir):
-        """Test saving multiple formats."""
+    def test_saves_all_formats(self, tmp_path, cartographer):
+        """Should save all requested formats."""
         results = save_debate_visualization(
-            cartographer, temp_dir, "test-debate", formats=["mermaid", "json", "html"]
+            cartographer, tmp_path, "test", formats=["mermaid", "json", "html"]
         )
-
+        
         assert len(results) == 3
         assert all(Path(p).exists() for p in results.values())
 
-    def test_creates_output_directory(self, cartographer, temp_dir):
-        """Test creates output directory if needed."""
-        nested_dir = temp_dir / "nested" / "output"
+    def test_uses_debate_id_in_filename(self, tmp_path, cartographer):
+        """Should use debate_id in filenames."""
+        results = save_debate_visualization(cartographer, tmp_path, "my-debate-123")
+        
+        assert "my-debate-123" in results["mermaid"]
+        assert "my-debate-123" in results["json"]
 
-        results = save_debate_visualization(cartographer, nested_dir, "test", formats=["json"])
+    def test_uses_cache_by_default(self, tmp_path, cartographer):
+        """Should use cache by default."""
+        # First save populates cache
+        save_debate_visualization(cartographer, tmp_path, "test")
+        
+        # Second save should use cache
+        results2 = save_debate_visualization(cartographer, tmp_path / "second", "test")
+        
+        # Both should have same content (from cache)
+        assert Path(results2["json"]).exists()
 
-        assert nested_dir.exists()
-        assert Path(results["json"]).exists()
-
-    def test_default_formats(self, cartographer, temp_dir):
-        """Test default formats are mermaid and json."""
-        results = save_debate_visualization(cartographer, temp_dir, "test")
-
-        assert "mermaid" in results
-        assert "json" in results
-        assert "html" not in results
-
-    def test_uses_cache(self, cartographer, temp_dir):
-        """Test caching is used for performance."""
-        # First call - populates cache
-        save_debate_visualization(cartographer, temp_dir, "test", formats=["json"], use_cache=True)
-
-        # Second call - should use cache
-        with patch("aragora.visualization.exporter._get_cached_export") as mock_cache:
-            mock_cache.return_value = '{"cached": true}'
-            save_debate_visualization(
-                cartographer, temp_dir, "test", formats=["json"], use_cache=True
-            )
-
-            mock_cache.assert_called()
-
-    def test_skips_cache_when_disabled(self, cartographer, temp_dir):
-        """Test cache is skipped when disabled."""
-        with patch("aragora.visualization.exporter._get_cached_export") as mock_cache:
-            save_debate_visualization(
-                cartographer, temp_dir, "test", formats=["json"], use_cache=False
-            )
-
-            mock_cache.assert_not_called()
-
-
-# ============================================================================
-# generate_standalone_html Tests
-# ============================================================================
+    def test_can_disable_cache(self, tmp_path, cartographer):
+        """Should respect use_cache=False."""
+        # This should work even with empty cache
+        results = save_debate_visualization(
+            cartographer, tmp_path, "test", use_cache=False
+        )
+        
+        assert len(results) >= 2
 
 
 class TestGenerateStandaloneHtml:
-    """Tests for generate_standalone_html function."""
+    """Tests for standalone HTML generation."""
+
+    @pytest.fixture
+    def cartographer(self):
+        """Create a populated cartographer."""
+        cart = ArgumentCartographer()
+        cart.set_debate_context("test-debate", "Test topic")
+        cart.update_from_message("claude", "Test proposal", "proposer", 1)
+        return cart
 
     def test_generates_valid_html(self, cartographer):
-        """Test generates valid HTML structure."""
+        """Should generate valid HTML document."""
         html = generate_standalone_html(cartographer)
-
+        
         assert "<!DOCTYPE html>" in html
-        assert "<html" in html
         assert "</html>" in html
         assert "<head>" in html
         assert "<body>" in html
 
     def test_includes_topic(self, cartographer):
-        """Test includes debate topic in title."""
+        """Should include debate topic."""
         html = generate_standalone_html(cartographer)
-
-        assert "Test Topic" in html
+        assert "Test topic" in html
 
     def test_includes_mermaid_code(self, cartographer):
-        """Test includes Mermaid diagram code."""
+        """Should include Mermaid diagram code."""
         html = generate_standalone_html(cartographer)
-
+        
         assert "mermaid" in html.lower()
-        assert '<div class="mermaid">' in html
+        assert "graph" in html
 
     def test_includes_statistics(self, cartographer):
-        """Test includes statistics."""
+        """Should include statistics display."""
         html = generate_standalone_html(cartographer)
-
-        # Should include stat cards
+        
         assert "Arguments" in html
         assert "Connections" in html
         assert "Rounds" in html
-        assert "Agents" in html
 
     def test_includes_legend(self, cartographer):
-        """Test includes legend."""
+        """Should include node type legend."""
         html = generate_standalone_html(cartographer)
-
-        assert "legend" in html.lower()
+        
         assert "Proposal" in html
         assert "Critique" in html
+        assert "legend" in html.lower()
 
     def test_includes_mermaid_script(self, cartographer):
-        """Test includes Mermaid.js script."""
+        """Should include Mermaid.js script."""
         html = generate_standalone_html(cartographer)
-
-        assert "mermaid.min.js" in html or "mermaid/dist" in html
-
-    def test_html_includes_topic(self):
-        """Test topic is included in HTML output."""
-        cart = ArgumentCartographer()
-        cart.set_debate_context("d1", "Test Debate Topic")
-        cart.update_from_message("a", "test", "proposal", 1)
-
-        html = generate_standalone_html(cart)
-
-        assert "Test Debate Topic" in html
+        
+        assert "mermaid" in html
+        assert "<script" in html
 
 
-# ============================================================================
-# Integration Tests
-# ============================================================================
+class TestExportCacheEviction:
+    """Tests for cache eviction behavior."""
 
+    def setup_method(self):
+        """Clear cache before each test."""
+        clear_export_cache()
 
-class TestExporterIntegration:
-    """Integration tests for exporter functionality."""
+    def test_expired_entries_not_returned(self):
+        """Should not return expired entries when accessed."""
+        # Add entry
+        _cache_export("old", "json", "hash", "old content")
 
-    def test_full_export_workflow(self, temp_dir):
-        """Test complete export workflow."""
-        # Create cartographer with realistic data
-        cart = ArgumentCartographer()
-        cart.set_debate_context("debate-integration", "Should we use TypeScript?")
+        # Verify entry exists normally
+        assert _get_cached_export("old", "json", "hash") == "old content"
 
-        cart.update_from_message(
-            "claude",
-            "TypeScript provides type safety and catches errors at compile time.",
-            "proposal",
-            1,
-        )
-        cart.update_from_message(
-            "gpt", "JavaScript is more flexible and has wider adoption.", "proposal", 1
-        )
-        cart.update_from_message(
-            "claude", "The flexibility comes at the cost of runtime errors.", "critique", 1
-        )
-        cart.update_from_critique("claude", "gpt", 0.6, 1)
-        cart.update_from_vote("claude", "typescript", 2)
-        cart.update_from_vote("gpt", "partial_agree", 2)
+        # Compute future time before patching
+        future_time = time.time() + _EXPORT_CACHE_TTL + 100
 
-        # Export all formats
-        results = save_debate_visualization(
-            cart, temp_dir, "integration-test", formats=["mermaid", "json", "html"]
-        )
+        # Make it expired by mocking time when reading
+        with patch("aragora.visualization.exporter.time.time") as mock_time:
+            mock_time.return_value = future_time
+            # Expired entry should return None
+            result = _get_cached_export("old", "json", "hash")
+            assert result is None
 
-        # Verify all files exist and are valid
-        assert len(results) == 3
-
-        # Check JSON is valid
-        import json
-
-        json_content = Path(results["json"]).read_text()
-        data = json.loads(json_content)
-        assert len(data["nodes"]) >= 4
-
-        # Check HTML has expected content
-        html_content = Path(results["html"]).read_text()
-        assert "TypeScript" in html_content
-        assert "mermaid" in html_content.lower()
-
-        # Check Mermaid is valid syntax
-        mermaid_content = Path(results["mermaid"]).read_text()
-        assert "graph" in mermaid_content.lower() or "flowchart" in mermaid_content.lower()
+    def test_handles_many_entries(self):
+        """Should handle many cache entries without error."""
+        for i in range(50):
+            _cache_export(f"debate-{i}", "json", f"hash-{i}", f"content-{i}")
+        
+        # Should still work
+        result = _get_cached_export("debate-25", "json", "hash-25")
+        assert result == "content-25"

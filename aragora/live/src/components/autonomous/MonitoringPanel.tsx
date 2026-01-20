@@ -179,8 +179,11 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div role="tablist" aria-label="Monitoring views" className="flex gap-2">
           <button
+            role="tab"
+            aria-selected={activeTab === 'trends'}
+            aria-controls="trends-panel"
             onClick={() => setActiveTab('trends')}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               activeTab === 'trends' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
@@ -189,6 +192,9 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
             Trends ({Object.keys(trends).length})
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'anomalies'}
+            aria-controls="anomalies-panel"
             onClick={() => setActiveTab('anomalies')}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               activeTab === 'anomalies' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
@@ -200,6 +206,7 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
         <button
           onClick={fetchData}
           disabled={loading}
+          aria-label="Refresh monitoring data"
           className="text-xs text-white/50 hover:text-white"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
@@ -207,7 +214,15 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
       </div>
 
       {/* Content */}
-      {activeTab === 'trends' ? renderTrends() : renderAnomalies()}
+      {activeTab === 'trends' ? (
+        <div role="tabpanel" id="trends-panel" aria-labelledby="trends-tab">
+          {renderTrends()}
+        </div>
+      ) : (
+        <div role="tabpanel" id="anomalies-panel" aria-labelledby="anomalies-tab">
+          {renderAnomalies()}
+        </div>
+      )}
     </div>
   );
 }

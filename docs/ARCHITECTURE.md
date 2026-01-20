@@ -1,6 +1,6 @@
 # Aragora Architecture
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-20
 
 
 This document describes the high-level architecture of aragora, the AI red team / decision stress-test platform. The multi-agent debate system is the engine that powers adversarial validation.
@@ -122,6 +122,7 @@ aragora/
 ├── reasoning/              # Logical reasoning components
 │   ├── claims.py          # ClaimsKernel (structured claims)
 │   ├── belief.py          # BeliefNetwork (probabilistic)
+│   ├── crux_detector.py   # CruxDetector (pivotal claim identification)
 │   ├── provenance.py      # ProvenanceManager
 │   ├── reliability.py     # ReliabilityScorer
 │   └── risk.py            # RiskRegister
@@ -181,6 +182,22 @@ aragora/
 │       ├── loop_manager.py  # Loop lifecycle
 │       ├── message_handlers.py # Message routing
 │       └── serializers.py # Event serialization
+│
+├── rlm/                   # Recursive Language Model integration
+│   ├── factory.py         # RLM factory and registry
+│   ├── bridge.py          # AragoraRLM bridge (debate context access)
+│   ├── streaming_mixin.py # Streaming methods (query_stream, compress_stream)
+│   ├── debate_adapter.py  # Debate subsystem adapter
+│   ├── knowledge_adapter.py # Knowledge Mound adapter
+│   └── hierarchy_cache.py # Hierarchical caching
+│
+├── client/                # Python SDK client
+│   ├── client.py          # AragoraClient (HTTP/WebSocket)
+│   └── resources/         # API resource modules
+│       ├── gauntlet.py    # GauntletAPI
+│       ├── graph_debates.py # GraphDebatesAPI
+│       ├── matrix_debates.py # MatrixDebatesAPI
+│       └── replay.py      # ReplayAPI
 │
 ├── core.py                # Core types (Message, Critique, Vote, etc.)
 └── __init__.py            # Package exports
@@ -668,5 +685,6 @@ flowchart LR
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 22,908 tests, 131% test-to-code ratio
-- **Type safety**: 30+ modules in strict mypy mode
+- **Test coverage**: 35,784 test functions across 1,050+ test files
+- **Type safety**: 38 modules in strict mypy mode (Phase 25)
+- **Source LOC**: 495,713 lines across 1,203 modules

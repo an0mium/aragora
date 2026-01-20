@@ -169,9 +169,10 @@ export function LeftSidebar() {
           <button
             onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text)] transition-colors"
+            aria-label={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <span className="font-mono">
+            <span className="font-mono" aria-hidden="true">
               {leftSidebarCollapsed ? '»' : '«'}
             </span>
             {!leftSidebarCollapsed && (
@@ -197,6 +198,7 @@ export function LeftSidebar() {
 
         {/* Drawer */}
         <aside
+          aria-label="Main navigation"
           className={`
             fixed top-0 left-0 h-full w-72 bg-[var(--surface)] border-r border-[var(--border)] z-50
             transform transition-transform duration-200 ease-out
@@ -213,6 +215,7 @@ export function LeftSidebar() {
   // Desktop: Persistent sidebar
   return (
     <aside
+      aria-label="Main navigation"
       className="fixed top-12 left-0 h-[calc(100vh-48px)] bg-[var(--surface)] border-r border-[var(--border)] z-30 transition-all duration-200"
       style={{ width: leftSidebarWidth }}
     >

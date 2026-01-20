@@ -70,12 +70,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated `docs/ENVIRONMENT.md` with Redis cluster configuration variables
 - Added pluggable storage backend documentation
+- Updated `docs/ARCHITECTURE.md` with RLM and client module structure
+- Updated architecture metrics (35,784 tests, 38 strict modules, 495K LOC)
 
 ### Testing
 
 - Added integration tests for notification metrics (14 tests)
 - Added integration tests for Redis clustering (16 tests)
 - Added consensus dissent tracking tests (400+ lines)
+- Audited skipped tests: 158 conditional (optional deps) + 17 unconditional (E2E/future API)
 
 ## [2.0.5] - 2026-01-20
 

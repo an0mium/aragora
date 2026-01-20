@@ -189,6 +189,17 @@ from .stability import (
 # Re-export centralized timeout configuration
 from .timeouts import Timeouts
 
+# Re-export performance SLO configuration
+from .performance_slos import (
+    SLOConfig,
+    get_slo_config,
+    reset_slo_config,
+    check_latency_slo,
+    LatencySLO,
+    ThroughputSLO,
+    AvailabilitySLO,
+)
+
 __all__ = [
     # Main settings
     "Settings",
@@ -220,6 +231,14 @@ __all__ = [
     "get_stability_color",
     # Timeouts
     "Timeouts",
+    # Performance SLOs
+    "SLOConfig",
+    "get_slo_config",
+    "reset_slo_config",
+    "check_latency_slo",
+    "LatencySLO",
+    "ThroughputSLO",
+    "AvailabilitySLO",
     # Constants
     "ALLOWED_AGENT_TYPES",
 ]

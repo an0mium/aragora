@@ -244,8 +244,11 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div role="tablist" aria-label="Learning data views" className="flex gap-2">
           <button
+            role="tab"
+            aria-selected={activeTab === 'ratings'}
+            aria-controls="ratings-panel"
             onClick={() => setActiveTab('ratings')}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               activeTab === 'ratings' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
@@ -254,6 +257,9 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
             Ratings ({Object.keys(ratings).length})
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'calibrations'}
+            aria-controls="calibrations-panel"
             onClick={() => setActiveTab('calibrations')}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               activeTab === 'calibrations' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
@@ -262,6 +268,9 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
             Calibrations ({Object.keys(calibrations).length})
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === 'patterns'}
+            aria-controls="patterns-panel"
             onClick={() => setActiveTab('patterns')}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               activeTab === 'patterns' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'
@@ -274,6 +283,7 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
           <button
             onClick={handleRunLearning}
             disabled={runningLearning}
+            aria-label={runningLearning ? 'Learning cycle in progress' : 'Run learning cycle'}
             className="px-3 py-1.5 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded transition-colors disabled:opacity-50"
           >
             {runningLearning ? 'Running...' : 'Run Learning Cycle'}
@@ -281,6 +291,7 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
           <button
             onClick={fetchData}
             disabled={loading}
+            aria-label="Refresh learning data"
             className="text-xs text-white/50 hover:text-white"
           >
             Refresh
@@ -289,9 +300,21 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
       </div>
 
       {/* Content */}
-      {activeTab === 'ratings' && renderRatings()}
-      {activeTab === 'calibrations' && renderCalibrations()}
-      {activeTab === 'patterns' && renderPatterns()}
+      {activeTab === 'ratings' && (
+        <div role="tabpanel" id="ratings-panel" aria-labelledby="ratings-tab">
+          {renderRatings()}
+        </div>
+      )}
+      {activeTab === 'calibrations' && (
+        <div role="tabpanel" id="calibrations-panel" aria-labelledby="calibrations-tab">
+          {renderCalibrations()}
+        </div>
+      )}
+      {activeTab === 'patterns' && (
+        <div role="tabpanel" id="patterns-panel" aria-labelledby="patterns-tab">
+          {renderPatterns()}
+        </div>
+      )}
     </div>
   );
 }

@@ -210,6 +210,86 @@ class AragoraClient:
         )
 
     # =========================================================================
+    # Batch Explainability
+    # =========================================================================
+
+    async def create_batch_explanation(
+        self,
+        debate_ids: List[str],
+        include_evidence: bool = True,
+        include_counterfactuals: bool = False,
+        include_vote_pivots: bool = False,
+        format: str = "full",
+    ) -> Dict[str, Any]:
+        """Create a batch explanation job for multiple debates.
+
+        Args:
+            debate_ids: List of debate IDs to process
+            include_evidence: Include evidence chains
+            include_counterfactuals: Include counterfactual analysis
+            include_vote_pivots: Include vote pivot analysis
+            format: Output format ('full', 'summary', or 'minimal')
+
+        Returns:
+            Batch job info with batch_id and status URLs
+        """
+        return await self._request(
+            "POST",
+            "/api/v1/explainability/batch",
+            json={
+                "debate_ids": debate_ids,
+                "options": {
+                    "include_evidence": include_evidence,
+                    "include_counterfactuals": include_counterfactuals,
+                    "include_vote_pivots": include_vote_pivots,
+                    "format": format,
+                },
+            },
+        )
+
+    async def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+        """Get status of a batch explanation job."""
+        return await self._request("GET", f"/api/v1/explainability/batch/{batch_id}/status")
+
+    async def get_batch_results(
+        self,
+        batch_id: str,
+        include_partial: bool = False,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Get results of a batch explanation job.
+
+        Args:
+            batch_id: The batch job ID
+            include_partial: Include results even if job still processing
+            offset: Pagination offset
+            limit: Results per page (max 100)
+        """
+        return await self._request(
+            "GET",
+            f"/api/v1/explainability/batch/{batch_id}/results",
+            params={"include_partial": include_partial, "offset": offset, "limit": limit},
+        )
+
+    async def compare_explanations(
+        self,
+        debate_ids: List[str],
+        compare_fields: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Compare explanations across multiple debates.
+
+        Args:
+            debate_ids: 2-10 debate IDs to compare
+            compare_fields: Fields to compare (default: confidence, consensus_reached,
+                          contributing_factors, evidence_quality)
+        """
+        body: Dict[str, Any] = {"debate_ids": debate_ids}
+        if compare_fields:
+            body["compare_fields"] = compare_fields
+        return await self._request("POST", "/api/v1/explainability/compare", json=body)
+
+    # =========================================================================
     # Workflow Templates
     # =========================================================================
 
@@ -295,6 +375,122 @@ class AragoraClient:
         return await self._request("POST", f"/api/workflow/patterns/{pattern_id}/instantiate", json=body)
 
     # =========================================================================
+    # Template Marketplace
+    # =========================================================================
+
+    async def browse_marketplace(
+        self,
+        category: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: str = "downloads",
+        min_rating: Optional[float] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Browse community template marketplace.
+
+        Args:
+            category: Filter by category
+            search: Search query
+            sort_by: Sort by 'downloads', 'rating', or 'newest'
+            min_rating: Minimum rating filter
+            limit: Results per page
+            offset: Pagination offset
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset, "sort_by": sort_by}
+        if category:
+            params["category"] = category
+        if search:
+            params["search"] = search
+        if min_rating is not None:
+            params["min_rating"] = min_rating
+        return await self._request("GET", "/api/marketplace/templates", params=params)
+
+    async def get_marketplace_template(self, template_id: str) -> Dict[str, Any]:
+        """Get marketplace template details."""
+        return await self._request("GET", f"/api/marketplace/templates/{template_id}")
+
+    async def publish_template(
+        self,
+        template_id: str,
+        name: str,
+        description: str,
+        category: str,
+        tags: Optional[List[str]] = None,
+        documentation: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Publish a template to the marketplace.
+
+        Args:
+            template_id: Source template ID from your workspace
+            name: Display name for marketplace
+            description: Template description
+            category: Category (security, compliance, architecture, etc.)
+            tags: Optional tags for discoverability
+            documentation: Optional markdown documentation
+        """
+        body: Dict[str, Any] = {
+            "template_id": template_id,
+            "name": name,
+            "description": description,
+            "category": category,
+        }
+        if tags:
+            body["tags"] = tags
+        if documentation:
+            body["documentation"] = documentation
+        return await self._request("POST", "/api/marketplace/templates", json=body)
+
+    async def rate_template(self, template_id: str, rating: int) -> Dict[str, Any]:
+        """Rate a marketplace template (1-5 stars)."""
+        return await self._request(
+            "POST",
+            f"/api/marketplace/templates/{template_id}/rate",
+            json={"rating": rating},
+        )
+
+    async def review_template(
+        self,
+        template_id: str,
+        rating: int,
+        title: str,
+        content: str,
+    ) -> Dict[str, Any]:
+        """Write a review for a marketplace template."""
+        return await self._request(
+            "POST",
+            f"/api/marketplace/templates/{template_id}/review",
+            json={"rating": rating, "title": title, "content": content},
+        )
+
+    async def import_template(
+        self,
+        template_id: str,
+        workspace_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Import a marketplace template to your workspace."""
+        body: Dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._request(
+            "POST",
+            f"/api/marketplace/templates/{template_id}/import",
+            json=body,
+        )
+
+    async def get_featured_templates(self) -> Dict[str, Any]:
+        """Get featured marketplace templates."""
+        return await self._request("GET", "/api/marketplace/featured")
+
+    async def get_trending_templates(self) -> Dict[str, Any]:
+        """Get trending marketplace templates."""
+        return await self._request("GET", "/api/marketplace/trending")
+
+    async def get_marketplace_categories(self) -> Dict[str, Any]:
+        """Get marketplace categories with counts."""
+        return await self._request("GET", "/api/marketplace/categories")
+
+    # =========================================================================
     # Gauntlet
     # =========================================================================
 
@@ -376,8 +572,44 @@ class AragoraClientSync:
     def get_explanation(self, debate_id: str, **kwargs: Any) -> Dict[str, Any]:
         return self._run(self._async_client.get_explanation(debate_id, **kwargs))
 
+    # Batch Explainability
+    def create_batch_explanation(self, debate_ids: List[str], **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.create_batch_explanation(debate_ids, **kwargs))
+
+    def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_batch_status(batch_id))
+
+    def get_batch_results(self, batch_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.get_batch_results(batch_id, **kwargs))
+
+    def compare_explanations(self, debate_ids: List[str], **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.compare_explanations(debate_ids, **kwargs))
+
+    # Workflow Templates
     def list_workflow_templates(self, **kwargs: Any) -> Dict[str, Any]:
         return self._run(self._async_client.list_workflow_templates(**kwargs))
+
+    # Marketplace
+    def browse_marketplace(self, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.browse_marketplace(**kwargs))
+
+    def get_marketplace_template(self, template_id: str) -> Dict[str, Any]:
+        return self._run(self._async_client.get_marketplace_template(template_id))
+
+    def publish_template(self, template_id: str, name: str, description: str, category: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.publish_template(template_id, name, description, category, **kwargs))
+
+    def rate_template(self, template_id: str, rating: int) -> Dict[str, Any]:
+        return self._run(self._async_client.rate_template(template_id, rating))
+
+    def import_template(self, template_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return self._run(self._async_client.import_template(template_id, **kwargs))
+
+    def get_featured_templates(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_featured_templates())
+
+    def get_trending_templates(self) -> Dict[str, Any]:
+        return self._run(self._async_client.get_trending_templates())
 
     def health(self) -> Dict[str, Any]:
         return self._run(self._async_client.health())

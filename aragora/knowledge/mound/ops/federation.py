@@ -103,6 +103,7 @@ class KnowledgeFederationMixin:
 
     # Note: Federation registry is now persisted via FederationRegistryStore
     # The class-level dict is kept for backward compatibility as a cache
+    _federated_regions: dict[str, FederatedRegion] = {}
 
     async def register_federated_region(
         self: FederationProtocol,
@@ -160,6 +161,9 @@ class KnowledgeFederationMixin:
         # Also register with CrossWorkspaceCoordinator if available
         await self._register_with_coordinator(region)
 
+        # Cache in class-level dict for backward compatibility
+        KnowledgeFederationMixin._federated_regions[region_id] = region
+
         logger.info(f"Registered federated region {region_id} at {endpoint_url}")
         return region
 
@@ -176,20 +180,32 @@ class KnowledgeFederationMixin:
         Returns:
             True if region was unregistered, False if not found
         """
+        # Remove from class-level cache first
+        was_in_cache = region_id in KnowledgeFederationMixin._federated_regions
+        if was_in_cache:
+            del KnowledgeFederationMixin._federated_regions[region_id]
+
+        # Also try to remove from persistent store
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
             result = await store.delete(region_id, self.workspace_id)
-            if result:
+            if result or was_in_cache:
                 logger.info(f"Unregistered federated region {region_id}")
-            return result
+                return True
+            return False
         except ImportError:
             logger.debug("Federation registry store not available")
+            # Return True if we removed from cache
+            if was_in_cache:
+                logger.info(f"Unregistered federated region {region_id}")
+                return True
             return False
         except Exception as e:
             logger.warning(f"Failed to unregister federated region: {e}")
-            return False
+            # Return True if we removed from cache
+            return was_in_cache
 
     async def sync_to_region(
         self: FederationProtocol,
@@ -478,7 +494,7 @@ class KnowledgeFederationMixin:
         self: FederationProtocol,
         region_id: str,
     ) -> Optional[FederatedRegion]:
-        """Get a federated region from persistent storage."""
+        """Get a federated region from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
@@ -495,18 +511,19 @@ class KnowledgeFederationMixin:
                     last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
                     last_sync_error=config.last_sync_error,
                 )
-            return None
+            # Fall through to cache check
         except ImportError:
             logger.debug("Federation registry store not available")
-            return None
         except Exception as e:
             logger.warning(f"Failed to get region from store: {e}")
-            return None
+
+        # Fall back to class-level cache
+        return KnowledgeFederationMixin._federated_regions.get(region_id)
 
     async def _list_enabled_regions(
         self: FederationProtocol,
     ) -> List[FederatedRegion]:
-        """List all enabled federated regions from persistent storage."""
+        """List all enabled federated regions from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
@@ -527,15 +544,19 @@ class KnowledgeFederationMixin:
             ]
         except ImportError:
             logger.debug("Federation registry store not available")
-            return []
         except Exception as e:
             logger.warning(f"Failed to list enabled regions: {e}")
-            return []
+
+        # Fall back to class-level cache - return only enabled regions
+        return [
+            region for region in KnowledgeFederationMixin._federated_regions.values()
+            if region.enabled
+        ]
 
     async def _list_all_regions(
         self: FederationProtocol,
     ) -> List[FederatedRegion]:
-        """List all federated regions from persistent storage."""
+        """List all federated regions from persistent storage or cache."""
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
@@ -556,10 +577,11 @@ class KnowledgeFederationMixin:
             ]
         except ImportError:
             logger.debug("Federation registry store not available")
-            return []
         except Exception as e:
             logger.warning(f"Failed to list all regions: {e}")
-            return []
+
+        # Fall back to class-level cache
+        return list(KnowledgeFederationMixin._federated_regions.values())
 
     async def _update_region_sync_status(
         self: FederationProtocol,
@@ -568,7 +590,14 @@ class KnowledgeFederationMixin:
         nodes_synced: int = 0,
         error: Optional[str] = None,
     ) -> None:
-        """Update sync status for a region in persistent storage."""
+        """Update sync status for a region in persistent storage and cache."""
+        # Update class-level cache first
+        if region_id in KnowledgeFederationMixin._federated_regions:
+            region = KnowledgeFederationMixin._federated_regions[region_id]
+            region.last_sync_at = datetime.now()
+            region.last_sync_error = error
+
+        # Also try to update persistent storage
         try:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
@@ -631,8 +660,9 @@ class KnowledgeFederationMixin:
             )
 
             workspace = FederatedWorkspace(
-                workspace_id=f"region:{region.region_id}",
-                federation_mode=region.mode.value,
+                id=f"region:{region.region_id}",
+                name=f"Region: {region.region_id}",
+                federation_mode=region.mode,
                 endpoint_url=region.endpoint_url,
                 public_key=region.api_key,
             )

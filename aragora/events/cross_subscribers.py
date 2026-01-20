@@ -1790,6 +1790,7 @@ class CrossSubscriberManager:
                             "dissent_index": i,
                             "topic": topic,
                             "is_risk_warning": dissent_type == "risk_warning",
+                            "importance": dissent_importance,
                         },
                     )
 

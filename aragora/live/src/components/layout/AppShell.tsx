@@ -33,6 +33,8 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Main content area */}
         <main
+          id="main-content"
+          aria-label="Main content"
           className="flex-1 min-w-0 transition-all duration-200"
           style={{
             marginLeft: isMobile ? 0 : leftSidebarOpen ? leftSidebarWidth : 0,

@@ -147,8 +147,8 @@ class MockKnowledgeMound(KnowledgeFederationMixin):
         self._cache = None
         self._initialized = True
         self._items = []
-        # Reset class-level registry for each test
-        KnowledgeFederationMixin._federated_regions = {}
+        # Reset class-level registry for each test (use clear() to modify in place)
+        KnowledgeFederationMixin._federated_regions.clear()
 
     def _ensure_initialized(self):
         if not self._initialized:
@@ -436,48 +436,63 @@ class TestSyncAllRegions:
         """Should return empty when no regions."""
         mound = MockKnowledgeMound()
 
-        results = await mound.sync_all_regions()
+        # Mock the persistent store to avoid loading persisted data from previous runs
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            results = await mound.sync_all_regions()
 
-        assert results == []
+            assert results == []
 
     @pytest.mark.asyncio
     async def test_sync_all_multiple_regions(self):
         """Should sync all registered regions."""
         mound = MockKnowledgeMound()
 
-        await mound.register_federated_region(
-            region_id="us-east",
-            endpoint_url="https://us-east.aragora.io",
-            api_key="key1",
-            mode=FederationMode.PUSH,
-        )
-        await mound.register_federated_region(
-            region_id="eu-west",
-            endpoint_url="https://eu-west.aragora.io",
-            api_key="key2",
-            mode=FederationMode.PULL,
-        )
+        # Mock the persistent store to use only cache
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            await mound.register_federated_region(
+                region_id="us-east",
+                endpoint_url="https://us-east.aragora.io",
+                api_key="key1",
+                mode=FederationMode.PUSH,
+            )
+            await mound.register_federated_region(
+                region_id="eu-west",
+                endpoint_url="https://eu-west.aragora.io",
+                api_key="key2",
+                mode=FederationMode.PULL,
+            )
 
-        results = await mound.sync_all_regions()
+            results = await mound.sync_all_regions()
 
-        assert len(results) == 2
+            assert len(results) == 2
 
     @pytest.mark.asyncio
     async def test_sync_all_skips_disabled(self):
         """Should skip disabled regions."""
         mound = MockKnowledgeMound()
 
-        await mound.register_federated_region(
-            region_id="enabled",
-            endpoint_url="https://enabled.aragora.io",
-            api_key="key",
-            mode=FederationMode.PUSH,
-        )
+        # Mock the persistent store to use only cache
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            await mound.register_federated_region(
+                region_id="enabled",
+                endpoint_url="https://enabled.aragora.io",
+                api_key="key",
+                mode=FederationMode.PUSH,
+            )
 
-        # Disable the region
-        KnowledgeFederationMixin._federated_regions["enabled"].enabled = False
+            # Disable the region
+            KnowledgeFederationMixin._federated_regions["enabled"].enabled = False
 
-        results = await mound.sync_all_regions()
+            results = await mound.sync_all_regions()
 
         assert len(results) == 0
 
@@ -486,14 +501,19 @@ class TestSyncAllRegions:
         """Should do both push and pull for bidirectional."""
         mound = MockKnowledgeMound()
 
-        await mound.register_federated_region(
-            region_id="us-east",
-            endpoint_url="https://us-east.aragora.io",
-            api_key="key",
-            mode=FederationMode.BIDIRECTIONAL,
-        )
+        # Mock the persistent store to use only cache
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            await mound.register_federated_region(
+                region_id="us-east",
+                endpoint_url="https://us-east.aragora.io",
+                api_key="key",
+                mode=FederationMode.BIDIRECTIONAL,
+            )
 
-        results = await mound.sync_all_regions()
+            results = await mound.sync_all_regions()
 
         # Should have both push and pull results
         assert len(results) == 2
@@ -515,7 +535,12 @@ class TestGetFederationStatus:
         """Should return empty dict when no regions."""
         mound = MockKnowledgeMound()
 
-        status = await mound.get_federation_status()
+        # Mock the persistent store to use only cache
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            status = await mound.get_federation_status()
 
         assert status == {}
 
@@ -625,35 +650,40 @@ class TestFederationIntegration:
         """Test complete federation workflow."""
         mound = MockKnowledgeMound()
 
-        # Register regions
-        await mound.register_federated_region(
-            region_id="us-east",
-            endpoint_url="https://us-east.aragora.io",
-            api_key="key1",
-            mode=FederationMode.BIDIRECTIONAL,
-        )
-        await mound.register_federated_region(
-            region_id="eu-west",
-            endpoint_url="https://eu-west.aragora.io",
-            api_key="key2",
-            mode=FederationMode.PUSH,
-        )
+        # Mock the persistent store to use only cache
+        with patch(
+            "aragora.storage.federation_registry_store.get_federation_registry_store",
+            side_effect=ImportError("Mocked for test"),
+        ):
+            # Register regions
+            await mound.register_federated_region(
+                region_id="us-east",
+                endpoint_url="https://us-east.aragora.io",
+                api_key="key1",
+                mode=FederationMode.BIDIRECTIONAL,
+            )
+            await mound.register_federated_region(
+                region_id="eu-west",
+                endpoint_url="https://eu-west.aragora.io",
+                api_key="key2",
+                mode=FederationMode.PUSH,
+            )
 
-        # Check status
-        status = await mound.get_federation_status()
-        assert len(status) == 2
+            # Check status
+            status = await mound.get_federation_status()
+            assert len(status) == 2
 
-        # Sync all
-        results = await mound.sync_all_regions()
-        assert len(results) == 3  # 2 for bidirectional + 1 for push-only
+            # Sync all
+            results = await mound.sync_all_regions()
+            assert len(results) == 3  # 2 for bidirectional + 1 for push-only
 
-        # Unregister one
-        await mound.unregister_federated_region("eu-west")
+            # Unregister one
+            await mound.unregister_federated_region("eu-west")
 
-        # Verify
-        status = await mound.get_federation_status()
-        assert len(status) == 1
-        assert "us-east" in status
+            # Verify
+            status = await mound.get_federation_status()
+            assert len(status) == 1
+            assert "us-east" in status
 
     @pytest.mark.asyncio
     async def test_sync_with_since_filter(self):

@@ -422,6 +422,149 @@ All retrievals are logged for audit:
 # - Access reason (if provided)
 ```
 
+## Bidirectional Integration Architecture
+
+The Knowledge Mound integrates bidirectionally with all major subsystems, enabling organizational learning across debates, memory, beliefs, and agent performance.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          KNOWLEDGE MOUND (Central Hub)                      │
+│                                                                             │
+│   ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
+│   │ Beliefs    │  │ Insights   │  │ Expertise  │  │ Compression│           │
+│   │ & Cruxes   │  │ & Flips    │  │ Profiles   │  │ Patterns   │           │
+│   └────────────┘  └────────────┘  └────────────┘  └────────────┘           │
+└───────┬───────────────┬───────────────┬───────────────┬────────────────────┘
+        │               │               │               │
+        ▼               ▼               ▼               ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│ BeliefAdapter │ │InsightsAdapter│ │RankingAdapter │ │  RlmAdapter   │
+│               │ │               │ │               │ │               │
+│ - beliefs     │ │ - insights    │ │ - expertise   │ │ - patterns    │
+│ - cruxes      │ │ - flips       │ │ - domains     │ │ - priorities  │
+│ - provenance  │ │ - patterns    │ │ - history     │ │ - markers     │
+└───────┬───────┘ └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
+        │               │               │               │
+        ▼               ▼               ▼               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     CrossSubscriberManager (Event Router)                   │
+│                                                                             │
+│  Inbound (→KM)           Outbound (KM→)                                     │
+│  ┌──────────────────┐    ┌──────────────────┐                               │
+│  │ memory_to_mound  │    │ mound_to_memory  │                               │
+│  │ belief_to_mound  │    │ mound_to_belief  │                               │
+│  │ rlm_to_mound     │    │ mound_to_rlm     │                               │
+│  │ elo_to_mound     │    │ mound_to_elo     │                               │
+│  │ insight_to_mound │    │ mound_to_trickster│                              │
+│  │ consensus_to_    │    │ culture_to_debate │                              │
+│  │   mound          │    │ staleness_to_    │                               │
+│  └──────────────────┘    │   debate         │                               │
+│                          └──────────────────┘                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+        │               │               │               │
+        ▼               ▼               ▼               ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│BeliefNetwork  │ │ Trickster/    │ │  EloSystem/   │ │     RLM       │
+│               │ │ Insights      │ │  TeamSelector │ │   Compressor  │
+└───────────────┘ └───────────────┘ └───────────────┘ └───────────────┘
+        │               │               │               │
+        └───────────────┴───────────────┴───────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │    ContinuumMemory    │
+                    │  (also bidirectional) │
+                    └───────────────────────┘
+```
+
+### Data Flow Summary
+
+| Integration | Inbound (→KM) | Outbound (KM→) |
+|-------------|---------------|----------------|
+| Memory | High-importance memories (≥0.7) | Pre-warm cache on KM query |
+| Beliefs | Converged beliefs, cruxes | Initialize debate priors |
+| RLM | High-value compression patterns | Update compression priorities |
+| ELO | Significant expertise changes | Domain expert recommendations |
+| Insights | High-confidence insights, ALL flips | Agent flip history for Trickster |
+| Consensus | Full consensus with dissent | N/A (stored for future queries) |
+| Culture | Emerging patterns | Inform debate protocol |
+| Staleness | N/A | Warn active debates |
+| Provenance | Verified chains | Historical verification |
+
+### Cross-Subscriber Handlers
+
+```python
+from aragora.events.cross_subscribers import get_cross_subscriber_manager
+from aragora.events.types import StreamEventType
+
+# Get the manager
+manager = get_cross_subscriber_manager()
+
+# Register a custom handler
+@manager.subscribe(StreamEventType.CONSENSUS)
+def on_consensus(event):
+    # Process consensus event
+    print(f"Consensus reached: {event.data.get('topic')}")
+
+# Check handler stats
+stats = manager.get_stats()
+print(f"Events processed: {stats['consensus_to_mound'].events_processed}")
+```
+
+### Observability Endpoints
+
+```bash
+# Get cross-pollination statistics
+curl http://localhost:8080/api/cross-pollination/stats
+
+# List all registered subscribers
+curl http://localhost:8080/api/cross-pollination/subscribers
+
+# Get Arena event bridge status
+curl http://localhost:8080/api/cross-pollination/bridge
+```
+
+### Performance SLOs
+
+| Operation | P50 | P90 | P99 | Timeout |
+|-----------|-----|-----|-----|---------|
+| KM Query | 50ms | 150ms | 500ms | 5s |
+| KM Ingestion | 100ms | 300ms | 1000ms | 10s |
+| Consensus Ingestion | 200ms | 500ms | 1500ms | 10s |
+| Adapter Sync | 300ms | 800ms | 2000ms | 15s |
+| Event Dispatch | 10ms | 50ms | 200ms | 5s |
+
+### Enhanced Consensus Ingestion
+
+Consensus events are enriched before storage:
+
+1. **Dissent Tracking**: Dissenting views stored as separate nodes linked to consensus
+2. **Evolution Detection**: Automatic detection of similar prior consensus (supersedes)
+3. **Claim Linking**: Key claims stored with parent consensus reference
+4. **Evidence Linking**: Supporting evidence attached to consensus node
+
+```python
+# Example consensus event data
+{
+    "debate_id": "debate_001",
+    "consensus_reached": True,
+    "topic": "API authentication strategy",
+    "conclusion": "OAuth 2.0 with PKCE recommended",
+    "strength": "strong",
+    "dissents": [
+        {
+            "agent_id": "mistral",
+            "type": "risk_warning",
+            "content": "PKCE adds complexity for simple use cases",
+            "acknowledged": True,
+        }
+    ],
+    "supersedes": "old_consensus_auth_001",  # Optional
+}
+```
+
 ## API Reference
 
 Core modules:
@@ -430,3 +573,6 @@ Core modules:
 - `aragora/knowledge/mound/fact_registry.py` - Fact management
 - `aragora/knowledge/mound/vector_abstraction/` - Vector backends
 - `aragora/knowledge/mound/verticals/` - Vertical knowledge modules
+- `aragora/knowledge/mound/adapters/` - Bidirectional adapters
+- `aragora/events/cross_subscribers.py` - Cross-subsystem event handlers
+- `aragora/config/performance_slos.py` - Performance SLO definitions

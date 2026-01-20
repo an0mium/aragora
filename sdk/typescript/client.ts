@@ -92,6 +92,66 @@ export class AragoraClient {
     return this.request<unknown>('GET', `/api/debates/${debateId}/explainability/narrative`, { params: options });
   }
 
+  // Batch Explainability
+  async createBatchExplanation(body: {
+    debate_ids: string[];
+    options?: {
+      include_evidence?: boolean;
+      include_counterfactuals?: boolean;
+      include_vote_pivots?: boolean;
+      format?: 'full' | 'summary' | 'minimal';
+    };
+  }) {
+    return this.request<{
+      batch_id: string;
+      status: string;
+      total_debates: number;
+      status_url: string;
+      results_url: string;
+    }>('POST', '/api/v1/explainability/batch', { body });
+  }
+
+  async getBatchStatus(batchId: string) {
+    return this.request<{
+      batch_id: string;
+      status: 'pending' | 'processing' | 'completed' | 'partial' | 'failed';
+      total_debates: number;
+      processed_count: number;
+      success_count: number;
+      error_count: number;
+      progress_pct: number;
+    }>('GET', `/api/v1/explainability/batch/${batchId}/status`);
+  }
+
+  async getBatchResults(batchId: string, options?: {
+    include_partial?: boolean;
+    offset?: number;
+    limit?: number;
+  }) {
+    return this.request<{
+      batch_id: string;
+      status: string;
+      results: Array<{
+        debate_id: string;
+        status: 'success' | 'error' | 'not_found';
+        explanation?: unknown;
+        error?: string;
+        processing_time_ms: number;
+      }>;
+      pagination: { offset: number; limit: number; total: number; has_more: boolean };
+    }>('GET', `/api/v1/explainability/batch/${batchId}/results`, { params: options });
+  }
+
+  async compareExplanations(body: {
+    debate_ids: string[];
+    compare_fields?: string[];
+  }) {
+    return this.request<{
+      debates_compared: string[];
+      comparison: Record<string, unknown>;
+    }>('POST', '/api/v1/explainability/compare', { body });
+  }
+
   // Workflow Templates
   async listWorkflowTemplates(params?: {
     category?: string;
@@ -144,6 +204,73 @@ export class AragoraClient {
 
   async exportGauntletReceipt(receiptId: string, format: 'json' | 'html' | 'markdown' | 'sarif') {
     return this.request<unknown>('GET', `/api/gauntlet/receipts/${receiptId}/export`, { params: { format } });
+  }
+
+  // Template Marketplace
+  async browseMarketplace(params?: {
+    category?: string;
+    search?: string;
+    sort_by?: 'downloads' | 'rating' | 'newest';
+    min_rating?: number;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.request<{
+      templates: Array<{
+        id: string;
+        name: string;
+        description: string;
+        author: string;
+        category: string;
+        downloads: number;
+        rating: number;
+        tags: string[];
+      }>;
+      total: number;
+    }>('GET', '/api/marketplace/templates', { params });
+  }
+
+  async getMarketplaceTemplate(templateId: string) {
+    return this.request<unknown>('GET', `/api/marketplace/templates/${templateId}`);
+  }
+
+  async publishTemplate(body: {
+    template_id: string;
+    name: string;
+    description: string;
+    category: string;
+    tags?: string[];
+    documentation?: string;
+  }) {
+    return this.request<{ marketplace_id: string; success: boolean }>('POST', '/api/marketplace/templates', { body });
+  }
+
+  async rateTemplate(templateId: string, rating: number) {
+    return this.request<{ success: boolean; new_rating: number }>('POST', `/api/marketplace/templates/${templateId}/rate`, {
+      body: { rating },
+    });
+  }
+
+  async reviewTemplate(templateId: string, body: { rating: number; title: string; content: string }) {
+    return this.request<{ review_id: string; success: boolean }>('POST', `/api/marketplace/templates/${templateId}/review`, { body });
+  }
+
+  async importTemplate(templateId: string, workspaceId?: string) {
+    return this.request<{ imported_id: string; success: boolean }>('POST', `/api/marketplace/templates/${templateId}/import`, {
+      body: { workspace_id: workspaceId },
+    });
+  }
+
+  async getFeaturedTemplates() {
+    return this.request<{ templates: unknown[] }>('GET', '/api/marketplace/featured');
+  }
+
+  async getTrendingTemplates() {
+    return this.request<{ templates: unknown[] }>('GET', '/api/marketplace/trending');
+  }
+
+  async getMarketplaceCategories() {
+    return this.request<{ categories: Array<{ id: string; name: string; count: number }> }>('GET', '/api/marketplace/categories');
   }
 
   // Agents

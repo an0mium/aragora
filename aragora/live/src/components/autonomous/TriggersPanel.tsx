@@ -152,6 +152,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
           <button
             onClick={() => handleSchedulerAction('start')}
             disabled={actionLoading === 'start'}
+            aria-label="Start scheduler"
             className="px-3 py-1.5 text-xs bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded"
           >
             {actionLoading === 'start' ? '...' : 'Start Scheduler'}
@@ -159,12 +160,15 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
           <button
             onClick={() => handleSchedulerAction('stop')}
             disabled={actionLoading === 'stop'}
+            aria-label="Stop scheduler"
             className="px-3 py-1.5 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded"
           >
             {actionLoading === 'stop' ? '...' : 'Stop Scheduler'}
           </button>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
+            aria-expanded={showCreateForm}
+            aria-label="Add new trigger"
             className="px-3 py-1.5 text-xs bg-white/10 hover:bg-white/20 text-white rounded"
           >
             + Add Trigger
@@ -174,11 +178,12 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
 
       {/* Create Form */}
       {showCreateForm && (
-        <div className="border border-white/10 bg-white/5 rounded-lg p-4 space-y-3">
+        <div className="border border-white/10 bg-white/5 rounded-lg p-4 space-y-3" role="form" aria-label="Create new trigger">
           <div className="grid grid-cols-2 gap-3">
             <input
               type="text"
               placeholder="Trigger Name"
+              aria-label="Trigger name"
               value={newTrigger.name}
               onChange={(e) => setNewTrigger({ ...newTrigger, name: e.target.value })}
               className="px-3 py-2 bg-white/5 border border-white/10 rounded text-white text-sm"
@@ -186,6 +191,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
             <input
               type="number"
               placeholder="Interval (minutes)"
+              aria-label="Interval in minutes"
               value={newTrigger.interval_minutes}
               onChange={(e) => setNewTrigger({ ...newTrigger, interval_minutes: parseInt(e.target.value) || 60 })}
               className="px-3 py-2 bg-white/5 border border-white/10 rounded text-white text-sm"
@@ -193,6 +199,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
             <input
               type="text"
               placeholder="Debate Topic"
+              aria-label="Debate topic"
               value={newTrigger.topic}
               onChange={(e) => setNewTrigger({ ...newTrigger, topic: e.target.value })}
               className="px-3 py-2 bg-white/5 border border-white/10 rounded text-white text-sm col-span-2"
@@ -200,6 +207,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
             <input
               type="text"
               placeholder="Agents (comma-separated)"
+              aria-label="Agent names, comma separated"
               value={newTrigger.agents}
               onChange={(e) => setNewTrigger({ ...newTrigger, agents: e.target.value })}
               className="px-3 py-2 bg-white/5 border border-white/10 rounded text-white text-sm col-span-2"
@@ -242,7 +250,11 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-white">{trigger.name}</span>
-                    <span className={`w-2 h-2 rounded-full ${trigger.enabled ? 'bg-acid-green' : 'bg-gray-500'}`} />
+                    <span
+                      className={`w-2 h-2 rounded-full ${trigger.enabled ? 'bg-acid-green' : 'bg-gray-500'}`}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">{trigger.enabled ? 'Active' : 'Inactive'}</span>
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
                     <span>Every {formatInterval(trigger.interval_seconds)}</span>
@@ -257,6 +269,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
                   <button
                     onClick={() => handleToggle(trigger.id, trigger.enabled)}
                     disabled={actionLoading === trigger.id}
+                    aria-label={trigger.enabled ? `Disable trigger ${trigger.name}` : `Enable trigger ${trigger.name}`}
                     className={`px-3 py-1.5 text-xs rounded transition-colors disabled:opacity-50 ${
                       trigger.enabled
                         ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500'
@@ -268,6 +281,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
                   <button
                     onClick={() => handleDelete(trigger.id)}
                     disabled={actionLoading === trigger.id}
+                    aria-label={`Delete trigger ${trigger.name}`}
                     className="px-3 py-1.5 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors disabled:opacity-50"
                   >
                     {actionLoading === trigger.id ? '...' : 'Delete'}
