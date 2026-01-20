@@ -32,6 +32,83 @@ class SyncStatus(Enum):
 
 
 @dataclass
+class RetryPolicy:
+    """Exponential backoff retry policy for sync operations."""
+
+    max_retries: int = 5
+    base_delay: float = 1.0  # seconds
+    max_delay: float = 300.0  # 5 minutes
+    exponential_base: float = 2.0
+    jitter: bool = True  # Add randomness to prevent thundering herd
+
+    def calculate_delay(self, attempt: int) -> float:
+        """Calculate delay for a given attempt number (0-indexed)."""
+        import random
+
+        # Exponential backoff
+        delay = self.base_delay * (self.exponential_base ** attempt)
+
+        # Cap at max delay
+        delay = min(delay, self.max_delay)
+
+        # Add jitter (up to 25% variation)
+        if self.jitter:
+            jitter_range = delay * 0.25
+            delay += random.uniform(-jitter_range, jitter_range)
+
+        return max(0, delay)
+
+    async def execute_with_retry(
+        self,
+        func: Callable,
+        *args: Any,
+        on_retry: Optional[Callable[[int, Exception], None]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Execute a function with retry on failure.
+
+        Args:
+            func: Async function to execute
+            *args: Positional arguments for func
+            on_retry: Optional callback called on each retry with (attempt, exception)
+            **kwargs: Keyword arguments for func
+
+        Returns:
+            Result from func
+
+        Raises:
+            Exception: Last exception if all retries exhausted
+        """
+        last_exception: Optional[Exception] = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                return await func(*args, **kwargs)
+            except asyncio.CancelledError:
+                # Don't retry on cancellation
+                raise
+            except Exception as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self.calculate_delay(attempt)
+                    logger.warning(
+                        f"Retry {attempt + 1}/{self.max_retries} after {delay:.1f}s: {e}"
+                    )
+                    if on_retry:
+                        on_retry(attempt + 1, e)
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"All {self.max_retries} retries exhausted: {e}")
+
+        if last_exception:
+            raise last_exception
+
+        # This shouldn't happen, but satisfy type checker
+        raise RuntimeError("Unexpected retry state")
+
+
+@dataclass
 class SyncSchedule:
     """
     Schedule configuration for a connector sync.
@@ -444,7 +521,16 @@ class SyncScheduler:
         logger.info("Sync scheduler stopped")
 
     async def _scheduler_loop(self):
-        """Main scheduler loop."""
+        """Main scheduler loop with exponential backoff on errors."""
+        consecutive_errors = 0
+        error_backoff = RetryPolicy(
+            max_retries=999,  # Keep trying
+            base_delay=10.0,
+            max_delay=300.0,
+            exponential_base=1.5,
+            jitter=True,
+        )
+
         while not self._stop_event.is_set():
             try:
                 now = datetime.now(timezone.utc)
@@ -463,14 +549,31 @@ class SyncScheduler:
                 # Clean up old history
                 self._cleanup_history()
 
+                # Reset error count on successful iteration
+                consecutive_errors = 0
+
                 # Wait before next check
                 await asyncio.sleep(10)
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Scheduler loop error: {e}")
-                await asyncio.sleep(30)
+                consecutive_errors += 1
+                delay = error_backoff.calculate_delay(consecutive_errors - 1)
+
+                logger.error(
+                    f"Scheduler loop error (attempt {consecutive_errors}): {e}. "
+                    f"Retrying in {delay:.1f}s",
+                    exc_info=consecutive_errors <= 3,  # Full trace only for first few
+                )
+
+                # Alert if we're having persistent issues
+                if consecutive_errors == 5:
+                    logger.critical(
+                        f"Scheduler experiencing persistent errors: {consecutive_errors} consecutive failures"
+                    )
+
+                await asyncio.sleep(delay)
 
     def _cleanup_history(self):
         """Remove old history entries."""

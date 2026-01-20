@@ -54,9 +54,9 @@ def auto_select_agents(
     """
     # Try question classifier first for better persona matching
     try:
-        from aragora.server.question_classifier import classify_and_assign_agents
+        from aragora.server.question_classifier import classify_and_assign_agents_sync
 
-        agent_string, classification = classify_and_assign_agents(question, use_llm=False)
+        agent_string, classification = classify_and_assign_agents_sync(question)
 
         if classification.recommended_personas and len(classification.recommended_personas) >= 2:
             logger.info(

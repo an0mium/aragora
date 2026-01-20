@@ -539,12 +539,14 @@ class ContextGatherer:
         """
         if task is None:
             self._research_context_cache.clear()
-            self._research_evidence_pack = None
-            self._continuum_context_cache = None
+            self._research_evidence_pack.clear()
+            self._continuum_context_cache.clear()
             self._trending_topics_cache = []
         else:
             task_hash = self._get_task_hash(task)
             self._research_context_cache.pop(task_hash, None)
+            self._research_evidence_pack.pop(task_hash, None)
+            self._continuum_context_cache.pop(task_hash, None)
 
     async def _compress_with_rlm(
         self,
@@ -675,8 +677,10 @@ class ContextGatherer:
             - List of retrieved memory IDs (for outcome tracking)
             - Dict mapping memory ID to tier (for analytics)
         """
-        if hasattr(self, "_continuum_context_cache") and self._continuum_context_cache:
-            return self._continuum_context_cache, [], {}
+        # Check task-keyed cache first
+        task_hash = self._get_task_hash(task)
+        if hasattr(self, "_continuum_context_cache") and task_hash in self._continuum_context_cache:
+            return self._continuum_context_cache[task_hash], [], {}
 
         if not continuum_memory:
             return "", [], {}
@@ -749,7 +753,7 @@ class ContextGatherer:
                     context_parts.append(f"- [glacial|foundational] {content}")
 
             context = "\n".join(context_parts)
-            self._continuum_context_cache = context
+            self._continuum_context_cache[task_hash] = context
             logger.info(
                 f"  [continuum] Retrieved {len(recent_mems)} recent + {len(glacial_mems)} glacial "
                 f"memories for domain '{domain}'"
@@ -805,13 +809,15 @@ class ContextGatherer:
                 return 0, None
 
             # Merge with existing evidence pack, avoiding duplicates
-            if self._research_evidence_pack:
-                existing_ids = {s.id for s in self._research_evidence_pack.snippets}
+            task_hash = self._get_task_hash(task)
+            existing_pack = self._research_evidence_pack.get(task_hash)
+            if existing_pack:
+                existing_ids = {s.id for s in existing_pack.snippets}
                 new_snippets = [s for s in evidence_pack.snippets if s.id not in existing_ids]
-                self._research_evidence_pack.snippets.extend(new_snippets)
-                self._research_evidence_pack.total_searched += evidence_pack.total_searched
+                existing_pack.snippets.extend(new_snippets)
+                existing_pack.total_searched += evidence_pack.total_searched
             else:
-                self._research_evidence_pack = evidence_pack
+                self._research_evidence_pack[task_hash] = evidence_pack
 
             # Store in memory for future debates
             if (
@@ -821,7 +827,7 @@ class ContextGatherer:
             ):
                 evidence_store_callback(evidence_pack.snippets, task)
 
-            return len(evidence_pack.snippets), self._research_evidence_pack
+            return len(evidence_pack.snippets), self._research_evidence_pack.get(task_hash)
 
         except Exception as e:
             logger.warning(f"Evidence refresh failed: {e}")
