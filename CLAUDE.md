@@ -58,6 +58,11 @@ aragora/
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
+├── control_plane/    # Enterprise orchestration (142 tests)
+│   ├── registry.py        # Agent discovery with heartbeats
+│   ├── scheduler.py       # Priority-based task distribution
+│   ├── health.py          # Liveness probes and monitoring
+│   └── coordinator.py     # Unified control plane API
 ├── rbac/             # Role-based access control v2
 │   ├── models.py           # Permission, Role, RoleAssignment dataclasses
 │   ├── defaults.py         # 6 default roles, 50+ permissions
@@ -196,6 +201,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Observability - Prometheus metrics, Grafana dashboards, OpenTelemetry tracing
 - RBAC v2 - Fine-grained permissions (50+), role hierarchy, decorators, middleware
 - Backup/DR - Incremental backups, retention policies, disaster recovery drills
+- Control Plane - Agent registry, task scheduler, health monitoring (142 tests)
 
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
