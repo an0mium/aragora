@@ -648,62 +648,89 @@ class GoogleTrendsIngestor(PulseIngestor):
         """
         super().__init__(**kwargs)
         self.geo = geo
-        # Google Trends RSS feed URL for daily trending searches
-        self.base_url = "https://trends.google.com/trends/trendingsearches/daily/rss"
+        # Google Trends RSS feed URLs to try (Google changes these periodically)
+        self.urls_to_try = [
+            f"https://trends.google.com/trending/rss?geo={geo}",
+            f"https://trends.google.com/trends/trendingsearches/daily/rss?geo={geo}",
+            "https://trends.google.com/trends/trendingsearches/daily/rss",
+        ]
 
     async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
         """Fetch trending searches from Google Trends RSS feed."""
         limit = max(1, min(limit, 20))
 
         async def _fetch():
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                params = {"geo": self.geo}
-                response = await client.get(self.base_url, params=params)
-                response.raise_for_status()
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                last_error = None
+                for url in self.urls_to_try:
+                    try:
+                        params = {"geo": self.geo} if "?" not in url else {}
+                        response = await client.get(url, params=params)
+                        response.raise_for_status()
+                        return await self._parse_rss(response.text, limit)
+                    except httpx.HTTPStatusError as e:
+                        last_error = e
+                        logger.debug(f"[google_trends] URL {url} failed: {e}")
+                        continue
+                    except Exception as e:
+                        last_error = e
+                        logger.debug(f"[google_trends] URL {url} error: {e}")
+                        continue
 
-                # Parse RSS XML
-                import xml.etree.ElementTree as ET
-
-                root = ET.fromstring(response.text)
-
-                topics = []
-                # Find all items in the RSS feed
-                for item in root.findall(".//item")[:limit]:
-                    title = item.find("title")
-                    traffic = item.find(
-                        "{https://trends.google.com/trends/trendingsearches/daily}approx_traffic"
-                    )
-
-                    if title is not None:
-                        # Parse traffic number (e.g., "200K+" -> 200000)
-                        volume = 0
-                        if traffic is not None and traffic.text:
-                            traffic_str = traffic.text.replace("+", "").replace(",", "")
-                            if "K" in traffic_str:
-                                volume = int(float(traffic_str.replace("K", "")) * 1000)
-                            elif "M" in traffic_str:
-                                volume = int(float(traffic_str.replace("M", "")) * 1000000)
-                            else:
-                                try:
-                                    volume = int(traffic_str)
-                                except ValueError:
-                                    volume = 0
-
-                        topic = TrendingTopic(
-                            platform="google",
-                            topic=title.text or "Unknown",
-                            volume=volume,
-                            category=self._categorize_topic(title.text or ""),
-                            raw_data={"geo": self.geo},
-                        )
-                        topics.append(topic)
-
-                logger.info(
-                    f"[google_trends] Fetched {len(topics)} real trending searches from Google"
+                # All URLs failed - Google may have changed their API again
+                logger.warning(
+                    f"[google_trends] All Google Trends RSS URLs failed. "
+                    f"Google may have changed their API. Last error: {last_error}"
                 )
-                return topics
+                raise last_error or Exception("All Google Trends URLs failed")
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    async def _parse_rss(self, rss_text: str, limit: int) -> List[TrendingTopic]:
+        """Parse Google Trends RSS XML response."""
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(rss_text)
+
+        topics = []
+        # Find all items in the RSS feed
+        for item in root.findall(".//item")[:limit]:
+            title = item.find("title")
+            # Try both old and new namespace formats
+            traffic = item.find(
+                "{https://trends.google.com/trends/trendingsearches/daily}approx_traffic"
+            )
+            if traffic is None:
+                traffic = item.find("ht:approx_traffic")
+
+            if title is not None:
+                # Parse traffic number (e.g., "200K+" -> 200000)
+                volume = 0
+                if traffic is not None and traffic.text:
+                    traffic_str = traffic.text.replace("+", "").replace(",", "")
+                    if "K" in traffic_str:
+                        volume = int(float(traffic_str.replace("K", "")) * 1000)
+                    elif "M" in traffic_str:
+                        volume = int(float(traffic_str.replace("M", "")) * 1000000)
+                    else:
+                        try:
+                            volume = int(traffic_str)
+                        except ValueError:
+                            volume = 0
+
+                topic = TrendingTopic(
+                    platform="google",
+                    topic=title.text or "Unknown",
+                    volume=volume,
+                    category=self._categorize_topic(title.text or ""),
+                    raw_data={"geo": self.geo},
+                )
+                topics.append(topic)
+
+        logger.info(
+            f"[google_trends] Fetched {len(topics)} real trending searches from Google"
+        )
+        return topics
 
     def _categorize_topic(self, topic: str) -> str:
         """Categorize Google Trends topic based on keywords."""
