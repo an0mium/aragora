@@ -551,6 +551,10 @@ class BackupManager:
         self._save_manifest()
         return deleted
 
+    def cleanup_expired_backups(self) -> list[str]:
+        """Alias for cleanup_expired for API compatibility."""
+        return self.cleanup_expired()
+
     def get_latest_backup(self, source_path: str | None = None) -> BackupMetadata | None:
         """Get the most recent verified backup."""
         backups = self.list_backups(
