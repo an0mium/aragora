@@ -286,14 +286,14 @@ class TestCrossDebateMemoryE2E:
 
         # Retrieve relevant context for new debate
         context = await memory.get_relevant_context(
-            query="How should we design our API?",
-            max_results=5,
+            task="How should we design our API?",
+            max_tokens=2000,
         )
 
         assert context is not None
         assert len(context) > 0
         # Should find the API design debate
-        assert any("API" in str(c) for c in context)
+        assert "API" in context
 
     @pytest.mark.asyncio
     async def test_cross_debate_memory_tiering(self, mock_llm_agents):

@@ -324,6 +324,73 @@ class CrossDebateMemory:
 
             return debate_id
 
+    async def store_debate(
+        self,
+        debate_id: str,
+        topic: str,
+        consensus: str,
+        key_points: Optional[list[str]] = None,
+        domain: str = "general",
+        participants: Optional[list[str]] = None,
+    ) -> str:
+        """
+        Convenience method to store a debate with explicit fields.
+
+        This is an alternative to add_debate() that accepts individual fields
+        rather than a DebateResult object.
+
+        Args:
+            debate_id: Unique identifier for the debate
+            topic: The debate topic/task
+            consensus: The final consensus or answer
+            key_points: Key points or insights from the debate
+            domain: Domain category for the debate
+            participants: List of participant agent IDs
+
+        Returns:
+            The debate ID
+        """
+        await self.initialize()
+        async with self._lock:
+            timestamp = datetime.now()
+
+            # Build compressed context from the provided fields
+            context_parts = [f"Topic: {topic}", f"Consensus: {consensus}"]
+            if key_points:
+                context_parts.append("Key Points:")
+                for point in key_points:
+                    context_parts.append(f"  - {point}")
+            full_context = "\n".join(context_parts)
+
+            # Compress the context
+            compressed_context = await self._compress_context(full_context)
+
+            # Create entry
+            entry = DebateMemoryEntry(
+                debate_id=debate_id,
+                task=topic,
+                domain=domain,
+                timestamp=timestamp,
+                tier=MemoryTier.HOT,
+                participants=participants or [],
+                consensus_reached=True,
+                final_answer=consensus,
+                key_insights=key_points or [],
+                compressed_context=compressed_context,
+                token_count=self._estimate_tokens(compressed_context),
+            )
+
+            self._entries[debate_id] = entry
+
+            # Manage memory limits
+            await self._manage_memory_limits()
+
+            # Persist if enabled
+            if self.config.persist_to_disk:
+                await self._save_to_disk()
+
+            return debate_id
+
     async def _extract_insights(self, result: "DebateResult") -> list[str]:
         """Extract key insights from a debate result."""
         insights = []
