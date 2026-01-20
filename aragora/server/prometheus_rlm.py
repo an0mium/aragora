@@ -5,9 +5,12 @@ Extracted from prometheus.py for maintainability.
 Provides metrics for RLM compression, queries, caching, and refinement.
 """
 
+import logging
 import time
 from functools import wraps
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 from aragora.server.prometheus import (
     PROMETHEUS_AVAILABLE,
@@ -243,7 +246,8 @@ def timed_rlm_compression(source_type: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "levels"):
                     levels = len(result.levels) if hasattr(result.levels, "__len__") else result.levels
                 return result
-            except Exception:  # noqa: BLE001 - Re-raised after recording status
+            except (ValueError, TypeError, KeyError, RuntimeError, MemoryError) as e:
+                logger.warning("RLM compression for %s failed: %s", source_type, e)
                 success = False
                 raise
             finally:

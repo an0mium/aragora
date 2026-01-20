@@ -158,7 +158,7 @@ class ProofSandbox:
             if temp_dir.exists():
                 try:
                     shutil.rmtree(temp_dir)
-                except Exception as e:
+                except OSError as e:
                     logger.warning(f"Failed to cleanup temp dir {temp_dir}: {e}")
         self._temp_dirs.clear()
 
@@ -253,7 +253,8 @@ class ProofSandbox:
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Permission denied: {cmd[0]}",
             )
-        except Exception as e:
+        except OSError as e:
+            logger.warning(f"Failed to start subprocess: {e}")
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to start process: {type(e).__name__}: {e}",
@@ -295,13 +296,14 @@ class ProofSandbox:
                 error_message=f"Execution exceeded timeout of {self.config.timeout_seconds}s",
             )
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             # Kill if still running
             try:
                 process.kill()
             except ProcessLookupError:
                 pass
 
+            logger.warning(f"Subprocess execution error: {type(e).__name__}: {e}")
             return SandboxResult(
                 status=SandboxStatus.EXECUTION_ERROR,
                 error_message=f"Execution error: {type(e).__name__}: {e}",
@@ -336,7 +338,8 @@ class ProofSandbox:
 
         try:
             source_file.write_text(lean_code, encoding="utf-8")
-        except Exception as e:
+        except OSError as e:
+            logger.warning(f"Failed to write Lean source file: {e}")
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to write source file: {e}",
@@ -380,7 +383,8 @@ class ProofSandbox:
 
         try:
             source_file.write_text(smtlib_code, encoding="utf-8")
-        except Exception as e:
+        except OSError as e:
+            logger.warning(f"Failed to write SMT-LIB source file: {e}")
             return SandboxResult(
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Failed to write source file: {e}",

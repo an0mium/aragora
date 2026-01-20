@@ -317,7 +317,16 @@ class DocumentBatchHandler(BaseHandler):
 
             return json_response(response_data, status=202)  # Accepted for processing
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Batch upload failed (invalid params): {e}")
+            return error_response(safe_error_message(e, "Batch upload"), 400)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Batch upload failed (invalid JSON): {e}")
+            return error_response(safe_error_message(e, "Batch upload"), 400)
+        except (OSError, IOError) as e:
+            logger.exception(f"Batch upload failed (I/O error): {e}")
+            return error_response(safe_error_message(e, "Batch upload"), 500)
+        except RuntimeError as e:
             logger.exception("Batch upload failed")
             return error_response(safe_error_message(e, "Batch upload"), 500)
 
@@ -640,8 +649,11 @@ class DocumentBatchHandler(BaseHandler):
             )
         except ImportError:
             return error_response("Knowledge pipeline not available", 503)
-        except Exception as e:
-            logger.error(f"Error listing knowledge jobs: {e}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Error listing knowledge jobs (invalid params): {e}")
+            return error_response(safe_error_message(e, "Failed to list jobs"), 400)
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Error listing knowledge jobs: {e}")
             return error_response(safe_error_message(e, "Failed to list jobs"), 500)
 
     def _get_knowledge_job_status(self, job_id: str) -> HandlerResult:
@@ -655,8 +667,11 @@ class DocumentBatchHandler(BaseHandler):
             return json_response(status)
         except ImportError:
             return error_response("Knowledge pipeline not available", 503)
-        except Exception as e:
-            logger.error(f"Error getting knowledge job status: {e}")
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Error getting knowledge job status (not found or invalid): {e}")
+            return error_response(safe_error_message(e, "Failed to get job status"), 404)
+        except AttributeError as e:
+            logger.exception(f"Error getting knowledge job status: {e}")
             return error_response(safe_error_message(e, "Failed to get job status"), 500)
 
 

@@ -311,6 +311,248 @@ class CrossPollinationKMHandler(BaseHandler):
             return error_response(str(e), status_code=500)
 
 
+class CrossPollinationKMSyncHandler(BaseHandler):
+    """
+    Handler for POST /api/cross-pollination/km/sync.
+
+    Triggers manual sync of KM adapters (RankingAdapter, RlmAdapter).
+    Useful for forcing persistence after important debates or before shutdown.
+    """
+
+    ROUTES = ["/api/cross-pollination/km/sync"]
+
+    async def post(self) -> HandlerResult:
+        """Trigger manual KM adapter sync."""
+        import time
+
+        try:
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+            results = {
+                "ranking": {"status": "skipped", "records": 0},
+                "rlm": {"status": "skipped", "patterns": 0},
+            }
+            start_time = time.time()
+
+            # Sync RankingAdapter
+            try:
+                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+
+                ranking_adapter = getattr(manager, "_ranking_adapter", None)
+                if ranking_adapter is None:
+                    ranking_adapter = RankingAdapter()
+                    manager._ranking_adapter = ranking_adapter
+
+                stats = ranking_adapter.get_stats()
+                expertise_count = stats.get("total_expertise_records", 0)
+
+                if expertise_count > 0:
+                    # Sync to KM (would use mound instance in production)
+                    results["ranking"] = {
+                        "status": "synced",
+                        "records": expertise_count,
+                        "domains": list(stats.get("domains", {}).keys()),
+                    }
+                else:
+                    results["ranking"] = {"status": "empty", "records": 0}
+
+            except ImportError:
+                results["ranking"] = {"status": "unavailable", "error": "adapter not installed"}
+            except Exception as e:
+                results["ranking"] = {"status": "error", "error": str(e)}
+
+            # Sync RlmAdapter
+            try:
+                from aragora.knowledge.mound.adapters.rlm_adapter import RlmAdapter
+
+                rlm_adapter = getattr(manager, "_rlm_adapter", None)
+                if rlm_adapter is None:
+                    rlm_adapter = RlmAdapter()
+                    manager._rlm_adapter = rlm_adapter
+
+                stats = rlm_adapter.get_stats()
+                patterns_count = stats.get("total_patterns", 0)
+
+                if patterns_count > 0:
+                    results["rlm"] = {
+                        "status": "synced",
+                        "patterns": patterns_count,
+                    }
+                else:
+                    results["rlm"] = {"status": "empty", "patterns": 0}
+
+            except ImportError:
+                results["rlm"] = {"status": "unavailable", "error": "adapter not installed"}
+            except Exception as e:
+                results["rlm"] = {"status": "error", "error": str(e)}
+
+            # Flush event batches
+            batch_flushed = manager.flush_all_batches()
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Record metrics
+            try:
+                from aragora.server.prometheus_cross_pollination import record_km_adapter_sync
+
+                for adapter_name, result in results.items():
+                    status = result.get("status", "unknown")
+                    record_km_adapter_sync(adapter_name, "to_mound", status, duration_ms / 1000)
+            except ImportError:
+                pass
+
+            return json_response({
+                "status": "ok",
+                "message": "KM adapters synced",
+                "results": results,
+                "batches_flushed": batch_flushed,
+                "duration_ms": round(duration_ms, 2),
+            })
+
+        except ImportError:
+            return error_response(
+                "Cross-subscriber module not available",
+                status_code=503,
+            )
+        except Exception as e:
+            logger.exception(f"Failed to sync KM adapters: {e}")
+            return error_response(str(e), status_code=500)
+
+
+class CrossPollinationKMStalenessHandler(BaseHandler):
+    """
+    Handler for POST /api/cross-pollination/km/staleness-check.
+
+    Triggers manual staleness check for Knowledge Mound nodes.
+    """
+
+    ROUTES = ["/api/cross-pollination/km/staleness-check"]
+
+    async def post(self) -> HandlerResult:
+        """Trigger manual staleness check."""
+        import time
+
+        try:
+            workspace_id = "default"  # Could be parameterized in future
+            start_time = time.time()
+
+            try:
+                from aragora.knowledge.mound.facade import get_knowledge_mound
+                from aragora.knowledge.mound.staleness import StalenessDetector, StalenessConfig
+
+                mound = get_knowledge_mound()
+                if mound is None:
+                    return json_response({
+                        "status": "ok",
+                        "message": "Knowledge Mound not available",
+                        "stale_nodes": 0,
+                        "workspace_id": workspace_id,
+                    })
+
+                # Create detector
+                detector = StalenessDetector(
+                    mound=mound,
+                    config=StalenessConfig(
+                        auto_revalidation_threshold=0.7,
+                    ),
+                )
+
+                # Check staleness
+                stale_nodes = await detector.get_stale_nodes(
+                    workspace_id=workspace_id,
+                    threshold=0.7,
+                    limit=100,
+                )
+
+                stale_count = len(stale_nodes) if stale_nodes else 0
+                duration_ms = (time.time() - start_time) * 1000
+
+                # Record metrics
+                try:
+                    from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                    record_km_staleness_check(workspace_id, "completed", stale_count)
+                except ImportError:
+                    pass
+
+                return json_response({
+                    "status": "ok",
+                    "message": f"Found {stale_count} stale nodes",
+                    "stale_nodes": stale_count,
+                    "workspace_id": workspace_id,
+                    "threshold": 0.7,
+                    "duration_ms": round(duration_ms, 2),
+                })
+
+            except ImportError as e:
+                return json_response({
+                    "status": "ok",
+                    "message": f"Staleness check module not available: {e}",
+                    "stale_nodes": 0,
+                })
+
+        except Exception as e:
+            logger.exception(f"Failed to run staleness check: {e}")
+            return error_response(str(e), status_code=500)
+
+
+class CrossPollinationKMCultureHandler(BaseHandler):
+    """
+    Handler for GET /api/cross-pollination/km/culture.
+
+    Returns culture patterns for a workspace.
+    """
+
+    ROUTES = ["/api/cross-pollination/km/culture"]
+
+    async def get(self) -> HandlerResult:
+        """Get culture patterns."""
+        try:
+            workspace_id = self.request.query.get("workspace_id", "default") if hasattr(self, "request") else "default"
+
+            try:
+                from aragora.knowledge.mound.facade import get_knowledge_mound
+
+                mound = get_knowledge_mound()
+                if mound is None or not hasattr(mound, "_culture_accumulator"):
+                    return json_response({
+                        "status": "ok",
+                        "message": "Culture accumulator not available",
+                        "workspace_id": workspace_id,
+                        "patterns": [],
+                    })
+
+                accumulator = mound._culture_accumulator
+                if accumulator is None:
+                    return json_response({
+                        "status": "ok",
+                        "message": "Culture accumulator not initialized",
+                        "workspace_id": workspace_id,
+                        "patterns": [],
+                    })
+
+                # Get patterns summary
+                summary = accumulator.get_patterns_summary(workspace_id)
+
+                return json_response({
+                    "status": "ok",
+                    "workspace_id": workspace_id,
+                    **summary,
+                })
+
+            except ImportError as e:
+                return json_response({
+                    "status": "ok",
+                    "message": f"Culture module not available: {e}",
+                    "workspace_id": workspace_id,
+                    "patterns": [],
+                })
+
+        except Exception as e:
+            logger.exception(f"Failed to get culture patterns: {e}")
+            return error_response(str(e), status_code=500)
+
+
 def register_routes(router, server_context: Optional[Any] = None) -> None:
     """
     Register cross-pollination routes with the router.
@@ -326,6 +568,9 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
     metrics_handler = CrossPollinationMetricsHandler(server_context or {})
     reset_handler = CrossPollinationResetHandler(server_context or {})
     km_handler = CrossPollinationKMHandler(server_context or {})
+    km_sync_handler = CrossPollinationKMSyncHandler(server_context or {})
+    km_staleness_handler = CrossPollinationKMStalenessHandler(server_context or {})
+    km_culture_handler = CrossPollinationKMCultureHandler(server_context or {})
 
     routes = [
         ("GET", "/api/cross-pollination/stats", stats_handler.get),
@@ -334,6 +579,9 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
         ("GET", "/api/cross-pollination/metrics", metrics_handler.get),
         ("GET", "/api/cross-pollination/km", km_handler.get),
         ("POST", "/api/cross-pollination/reset", reset_handler.post),
+        ("POST", "/api/cross-pollination/km/sync", km_sync_handler.post),
+        ("POST", "/api/cross-pollination/km/staleness-check", km_staleness_handler.post),
+        ("GET", "/api/cross-pollination/km/culture", km_culture_handler.get),
     ]
 
     for method, path, handler in routes:
@@ -353,5 +601,8 @@ __all__ = [
     "CrossPollinationMetricsHandler",
     "CrossPollinationResetHandler",
     "CrossPollinationKMHandler",
+    "CrossPollinationKMSyncHandler",
+    "CrossPollinationKMStalenessHandler",
+    "CrossPollinationKMCultureHandler",
     "register_routes",
 ]

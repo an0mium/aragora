@@ -185,8 +185,8 @@ class KnowledgeMoundHandler(
             try:
                 _run_async(self._mound.initialize())
                 self._mound_initialized = True
-            except Exception as e:
-                logger.error(f"Failed to initialize Knowledge Mound: {e}")
+            except (RuntimeError, OSError, ValueError) as e:
+                logger.exception("Failed to initialize Knowledge Mound: %s", e)
                 self._mound = None
         return self._mound
 
@@ -428,7 +428,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in merge_duplicate_cluster: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
@@ -453,7 +454,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in auto_merge_exact_duplicates: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
@@ -490,7 +492,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in execute_prune: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
@@ -515,7 +518,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in auto_prune: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
@@ -554,7 +558,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in restore_pruned_item: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
@@ -575,7 +580,8 @@ class KnowledgeMoundHandler(
         try:
             import json
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in apply_confidence_decay: %s", e)
             body = {}
 
         workspace_id = body.get("workspace_id", "default")

@@ -112,7 +112,7 @@ class TestWeaviateStore:
             # Sync wrapper to test async method
             import asyncio
 
-            asyncio.get_event_loop().run_until_complete(store.search_keyword("test"))
+            asyncio.run(store.search_keyword("test"))
 
     @pytest.mark.skipif(not WEAVIATE_AVAILABLE, reason="Weaviate client not installed")
     def test_weaviate_available(self):

@@ -10,10 +10,13 @@ Provides OpenMetrics-compliant metrics for monitoring:
 - Cache statistics
 """
 
+import logging
 import time
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Callable, Dict
+
+logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client, fall back to simple implementation
 try:
@@ -844,7 +847,8 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
                 result = func(*args, **kwargs)
                 status = getattr(result, "status_code", 200) if result else 200
                 return result
-            except Exception:  # noqa: BLE001 - Re-raised after recording status
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
+                logger.warning("HTTP request to %s failed: %s", endpoint, e)
                 status = 500
                 raise
             finally:
@@ -874,7 +878,8 @@ def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], 
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
+                logger.warning("Agent %s generation failed: %s", agent_type, e)
                 record_agent_failure(agent_type, type(e).__name__)
                 raise
             finally:
@@ -909,7 +914,8 @@ def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
+                logger.warning("DB %s on %s failed: %s", operation, table, e)
                 record_db_error(type(e).__name__, operation)
                 raise
             finally:
@@ -944,7 +950,8 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
+                logger.warning("Async DB %s on %s failed: %s", operation, table, e)
                 record_db_error(type(e).__name__, operation)
                 raise
             finally:

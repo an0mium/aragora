@@ -625,8 +625,558 @@ class PulseAdapter:
             "categories_tracked": len(self._category_topics),
         }
 
+    # =========================================================================
+    # Reverse Flow Methods (KM → Pulse)
+    # =========================================================================
+
+    def _init_reverse_flow_state(self) -> None:
+        """Initialize reverse flow state if not already done."""
+        if not hasattr(self, "_outcome_history"):
+            self._outcome_history: List[Dict[str, Any]] = []
+        if not hasattr(self, "_km_validations"):
+            self._km_validations: Dict[str, KMTopicValidation] = {}
+        if not hasattr(self, "_km_coverage_cache"):
+            self._km_coverage_cache: Dict[str, KMTopicCoverage] = {}
+        if not hasattr(self, "_km_priority_adjustments"):
+            self._km_priority_adjustments = 0
+        if not hasattr(self, "_km_threshold_updates"):
+            self._km_threshold_updates = 0
+        if not hasattr(self, "_adjusted_min_quality"):
+            self._adjusted_min_quality = self.MIN_TOPIC_QUALITY
+        if not hasattr(self, "_adjusted_category_bonuses"):
+            self._adjusted_category_bonuses = {
+                "tech": 0.2,
+                "science": 0.2,
+                "business": 0.1,
+                "politics": 0.0,
+                "entertainment": -0.1,
+            }
+
+    def record_outcome_for_km(
+        self,
+        topic_id: str,
+        debate_id: str,
+        outcome_success: bool,
+        confidence: float = 0.0,
+        rounds_used: int = 0,
+        category: Optional[str] = None,
+    ) -> None:
+        """
+        Record an outcome for KM reverse flow analysis.
+
+        This tracks outcomes to analyze patterns and improve thresholds.
+
+        Args:
+            topic_id: The topic ID
+            debate_id: The debate ID
+            outcome_success: Whether the debate reached consensus
+            confidence: Confidence score of the outcome
+            rounds_used: Number of rounds used
+            category: Topic category
+        """
+        self._init_reverse_flow_state()
+
+        self._outcome_history.append({
+            "topic_id": topic_id,
+            "debate_id": debate_id,
+            "outcome_success": outcome_success,
+            "confidence": confidence,
+            "rounds_used": rounds_used,
+            "category": category,
+            "timestamp": time.time(),
+        })
+
+    async def update_quality_thresholds_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_items: int = 10,
+    ) -> KMQualityThresholdUpdate:
+        """
+        Reverse flow: KM patterns improve quality thresholds.
+
+        Analyzes KM outcome patterns to:
+        - Adjust MIN_TOPIC_QUALITY based on success rates
+        - Tune category bonuses based on category-specific success
+        - Identify categories that consistently produce good debates
+
+        Args:
+            km_items: KM items with outcome data
+            min_items: Minimum items needed for adjustment
+
+        Returns:
+            KMQualityThresholdUpdate with changes made
+        """
+        self._init_reverse_flow_state()
+
+        old_min_quality = self._adjusted_min_quality
+        old_category_bonuses = dict(self._adjusted_category_bonuses)
+
+        if len(km_items) < min_items:
+            return KMQualityThresholdUpdate(
+                old_min_quality=old_min_quality,
+                new_min_quality=old_min_quality,
+                old_category_bonuses=old_category_bonuses,
+                new_category_bonuses=old_category_bonuses,
+                patterns_analyzed=len(km_items),
+                adjustments_made=0,
+                recommendation="insufficient_data",
+                metadata={"reason": f"Need {min_items} items, got {len(km_items)}"},
+            )
+
+        # Analyze outcomes by category
+        category_outcomes: Dict[str, List[bool]] = {}
+        quality_outcomes: Dict[str, List[bool]] = {}  # quality_bucket -> outcomes
+
+        for item in km_items:
+            metadata = item.get("metadata", {})
+            category = metadata.get("category", "unknown")
+            quality = metadata.get("quality_score", 0.5)
+            outcome = metadata.get("outcome_success", False)
+
+            # Track category outcomes
+            if category not in category_outcomes:
+                category_outcomes[category] = []
+            category_outcomes[category].append(outcome)
+
+            # Track quality bucket outcomes
+            if quality >= 0.8:
+                bucket = "high"
+            elif quality >= 0.6:
+                bucket = "medium"
+            elif quality >= 0.4:
+                bucket = "low"
+            else:
+                bucket = "very_low"
+
+            if bucket not in quality_outcomes:
+                quality_outcomes[bucket] = []
+            quality_outcomes[bucket].append(outcome)
+
+        adjustments_made = 0
+
+        # Adjust MIN_TOPIC_QUALITY based on quality bucket success rates
+        bucket_success_rates = {}
+        for bucket, outcomes in quality_outcomes.items():
+            if outcomes:
+                bucket_success_rates[bucket] = sum(outcomes) / len(outcomes)
+
+        # If low quality topics still succeed often, lower threshold
+        if "low" in bucket_success_rates:
+            low_success = bucket_success_rates["low"]
+            if low_success >= 0.7:
+                self._adjusted_min_quality = max(0.3, old_min_quality - 0.1)
+                adjustments_made += 1
+            elif low_success < 0.4:
+                self._adjusted_min_quality = min(0.8, old_min_quality + 0.1)
+                adjustments_made += 1
+
+        # Adjust category bonuses based on category-specific success
+        for category, outcomes in category_outcomes.items():
+            if len(outcomes) >= 5:
+                success_rate = sum(outcomes) / len(outcomes)
+                current_bonus = self._adjusted_category_bonuses.get(category, 0.0)
+
+                if success_rate >= 0.8:
+                    # High success rate, increase bonus
+                    new_bonus = min(0.3, current_bonus + 0.05)
+                elif success_rate < 0.4:
+                    # Low success rate, decrease bonus
+                    new_bonus = max(-0.2, current_bonus - 0.05)
+                else:
+                    new_bonus = current_bonus
+
+                if new_bonus != current_bonus:
+                    self._adjusted_category_bonuses[category] = new_bonus
+                    adjustments_made += 1
+
+        if adjustments_made > 0:
+            self._km_threshold_updates += 1
+
+        # Determine recommendation
+        if adjustments_made == 0:
+            recommendation = "keep"
+        elif self._adjusted_min_quality < old_min_quality:
+            recommendation = "lower_threshold"
+        else:
+            recommendation = "raise_threshold"
+
+        return KMQualityThresholdUpdate(
+            old_min_quality=old_min_quality,
+            new_min_quality=self._adjusted_min_quality,
+            old_category_bonuses=old_category_bonuses,
+            new_category_bonuses=dict(self._adjusted_category_bonuses),
+            patterns_analyzed=len(km_items),
+            adjustments_made=adjustments_made,
+            confidence=0.7 + (0.1 if len(km_items) >= 50 else 0.0),
+            recommendation=recommendation,
+            metadata={
+                "bucket_success_rates": bucket_success_rates,
+                "category_success_rates": {
+                    cat: sum(outcomes) / len(outcomes)
+                    for cat, outcomes in category_outcomes.items()
+                    if outcomes
+                },
+            },
+        )
+
+    async def get_km_topic_coverage(
+        self,
+        topic_text: str,
+        km_items: List[Dict[str, Any]],
+    ) -> KMTopicCoverage:
+        """
+        Analyze KM coverage of a potential debate topic.
+
+        Checks how well-covered a topic is in KM to determine:
+        - Whether this topic has been debated before
+        - What outcomes similar debates had
+        - Whether to proceed, skip, or defer
+
+        Args:
+            topic_text: The topic to analyze
+            km_items: Related KM items from search
+
+        Returns:
+            KMTopicCoverage with coverage analysis
+        """
+        self._init_reverse_flow_state()
+
+        import hashlib
+        topic_hash = hashlib.sha256(topic_text.lower().encode()).hexdigest()[:16]
+
+        if not km_items:
+            coverage = KMTopicCoverage(
+                topic_text=topic_text,
+                coverage_score=0.0,
+                recommendation="proceed",
+                priority_adjustment=0.0,
+                metadata={"topic_hash": topic_hash},
+            )
+            self._km_coverage_cache[topic_hash] = coverage
+            return coverage
+
+        # Analyze related debates
+        debate_outcomes = []
+        confidence_sum = 0.0
+        rounds_sum = 0
+        consensus_count = 0
+
+        for item in km_items:
+            metadata = item.get("metadata", {})
+            if "outcome_success" in metadata:
+                debate_outcomes.append(metadata["outcome_success"])
+                if metadata.get("confidence"):
+                    confidence_sum += metadata["confidence"]
+                if metadata.get("rounds_used"):
+                    rounds_sum += metadata["rounds_used"]
+                if metadata.get("outcome_success"):
+                    consensus_count += 1
+
+        related_count = len(debate_outcomes)
+        avg_confidence = confidence_sum / related_count if related_count else 0.0
+        consensus_rate = consensus_count / related_count if related_count else 0.0
+        avg_rounds = rounds_sum / related_count if related_count else 0.0
+
+        # Calculate coverage score (0-1)
+        # Higher coverage = more past debates found
+        coverage_score = min(1.0, related_count / 10.0)
+
+        # Determine recommendation
+        if coverage_score >= 0.8 and consensus_rate >= 0.7:
+            # Well-covered with good consensus, might be redundant
+            recommendation = "skip"
+            priority_adjustment = -0.2
+        elif coverage_score >= 0.5 and consensus_rate < 0.5:
+            # Partially covered but low consensus, worth revisiting
+            recommendation = "proceed"
+            priority_adjustment = 0.1
+        elif coverage_score < 0.2:
+            # Novel topic
+            recommendation = "proceed"
+            priority_adjustment = 0.15
+        else:
+            recommendation = "proceed"
+            priority_adjustment = 0.0
+
+        coverage = KMTopicCoverage(
+            topic_text=topic_text,
+            coverage_score=coverage_score,
+            related_debates_count=related_count,
+            avg_outcome_confidence=avg_confidence,
+            consensus_rate=consensus_rate,
+            km_items_found=len(km_items),
+            recommendation=recommendation,
+            priority_adjustment=priority_adjustment,
+            metadata={
+                "topic_hash": topic_hash,
+                "avg_rounds": avg_rounds,
+            },
+        )
+
+        self._km_coverage_cache[topic_hash] = coverage
+        return coverage
+
+    async def validate_topic_from_km(
+        self,
+        topic_id: str,
+        km_cross_refs: List[Dict[str, Any]],
+    ) -> KMTopicValidation:
+        """
+        Validate a topic against KM patterns.
+
+        Analyzes cross-references to determine:
+        - How similar topics performed in debates
+        - Expected success rate based on patterns
+        - Recommended priority adjustment
+
+        Args:
+            topic_id: The topic ID to validate
+            km_cross_refs: Cross-references from KM
+
+        Returns:
+            KMTopicValidation with validation results
+        """
+        self._init_reverse_flow_state()
+
+        # Get internal outcome history for this topic
+        internal_outcomes = [
+            o for o in self._outcome_history
+            if o.get("topic_id") == topic_id
+        ]
+
+        # Combine with KM cross-refs
+        all_outcomes = []
+        total_rounds = 0
+        total_confidence = 0.0
+
+        for outcome in internal_outcomes:
+            all_outcomes.append(outcome.get("outcome_success", False))
+            total_rounds += outcome.get("rounds_used", 0)
+            total_confidence += outcome.get("confidence", 0)
+
+        for ref in km_cross_refs:
+            metadata = ref.get("metadata", {})
+            if "outcome_success" in metadata:
+                all_outcomes.append(metadata["outcome_success"])
+                total_rounds += metadata.get("rounds_used", 0)
+                total_confidence += metadata.get("confidence", 0)
+
+        if not all_outcomes:
+            validation = KMTopicValidation(
+                topic_id=topic_id,
+                km_confidence=0.5,
+                outcome_success_rate=0.0,
+                recommendation="keep",
+            )
+            self._km_validations[topic_id] = validation
+            return validation
+
+        success_rate = sum(all_outcomes) / len(all_outcomes)
+        avg_rounds = total_rounds / len(all_outcomes) if all_outcomes else 0.0
+        avg_confidence = total_confidence / len(all_outcomes) if all_outcomes else 0.0
+
+        # Confidence increases with more data
+        km_confidence = min(0.95, 0.5 + (len(all_outcomes) * 0.05))
+
+        # Determine recommendation
+        if success_rate >= 0.8:
+            recommendation = "boost"
+            priority_adjustment = 0.1
+        elif success_rate < 0.3:
+            recommendation = "demote"
+            priority_adjustment = -0.1
+        else:
+            recommendation = "keep"
+            priority_adjustment = 0.0
+
+        validation = KMTopicValidation(
+            topic_id=topic_id,
+            km_confidence=km_confidence,
+            outcome_success_rate=success_rate,
+            similar_debates_count=len(all_outcomes),
+            avg_rounds_needed=avg_rounds,
+            recommendation=recommendation,
+            priority_adjustment=priority_adjustment,
+            metadata={
+                "avg_confidence": avg_confidence,
+                "internal_outcomes": len(internal_outcomes),
+                "km_outcomes": len(km_cross_refs),
+            },
+        )
+
+        self._km_validations[topic_id] = validation
+        return validation
+
+    async def apply_scheduling_recommendation(
+        self,
+        validation: KMTopicValidation,
+    ) -> KMSchedulingRecommendation:
+        """
+        Apply a scheduling recommendation based on KM validation.
+
+        Args:
+            validation: The validation to apply
+
+        Returns:
+            KMSchedulingRecommendation with results
+        """
+        self._init_reverse_flow_state()
+
+        topic = self._topics.get(validation.topic_id)
+        if not topic:
+            return KMSchedulingRecommendation(
+                topic_id=validation.topic_id,
+                reason="topic_not_found",
+                was_applied=False,
+                metadata={"error": "topic_not_found"},
+            )
+
+        original_quality = topic.get("quality_score", 0.5)
+
+        if validation.recommendation == "keep":
+            return KMSchedulingRecommendation(
+                topic_id=validation.topic_id,
+                original_priority=original_quality,
+                adjusted_priority=original_quality,
+                reason="no_change",
+                km_confidence=validation.km_confidence,
+                was_applied=False,
+            )
+
+        # Apply priority adjustment
+        adjusted = original_quality + validation.priority_adjustment
+        adjusted = max(0.0, min(1.0, adjusted))
+
+        # Update topic's quality score
+        topic["quality_score"] = adjusted
+        topic["km_validated"] = True
+        topic["km_validation_time"] = time.time()
+
+        self._km_priority_adjustments += 1
+
+        return KMSchedulingRecommendation(
+            topic_id=validation.topic_id,
+            original_priority=original_quality,
+            adjusted_priority=adjusted,
+            reason=validation.recommendation,
+            km_confidence=validation.km_confidence,
+            was_applied=True,
+            metadata={
+                "adjustment": validation.priority_adjustment,
+                "success_rate": validation.outcome_success_rate,
+            },
+        )
+
+    async def sync_validations_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> PulseKMSyncResult:
+        """
+        Batch sync KM validations back to Pulse.
+
+        Processes KM items to:
+        - Update quality thresholds
+        - Validate topics
+        - Apply scheduling recommendations
+
+        Args:
+            km_items: KM items with validation data
+            min_confidence: Minimum confidence for applying changes
+
+        Returns:
+            PulseKMSyncResult with sync results
+        """
+        self._init_reverse_flow_state()
+        start_time = time.time()
+
+        result = PulseKMSyncResult()
+        errors = []
+
+        # Group items by topic
+        topic_items: Dict[str, List[Dict[str, Any]]] = {}
+        for item in km_items:
+            metadata = item.get("metadata", {})
+            topic_id = metadata.get("topic_id")
+            if topic_id:
+                if topic_id not in topic_items:
+                    topic_items[topic_id] = []
+                topic_items[topic_id].append(item)
+
+        # Process threshold updates
+        try:
+            threshold_update = await self.update_quality_thresholds_from_km(km_items)
+            result.threshold_updates = threshold_update.adjustments_made
+        except Exception as e:
+            errors.append(f"Threshold update error: {e}")
+
+        # Process each topic
+        for topic_id, items in topic_items.items():
+            try:
+                validation = await self.validate_topic_from_km(topic_id, items)
+                result.topics_analyzed += 1
+
+                if validation.km_confidence >= min_confidence:
+                    rec = await self.apply_scheduling_recommendation(validation)
+                    if rec.was_applied:
+                        result.topics_adjusted += 1
+                        result.scheduling_changes += 1
+            except Exception as e:
+                errors.append(f"Topic {topic_id} error: {e}")
+
+        result.errors = errors
+        result.duration_ms = int((time.time() - start_time) * 1000)
+        result.metadata = {
+            "total_items": len(km_items),
+            "unique_topics": len(topic_items),
+            "min_confidence": min_confidence,
+        }
+
+        return result
+
+    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about reverse flow operations.
+
+        Returns:
+            Dict with reverse flow metrics
+        """
+        self._init_reverse_flow_state()
+
+        return {
+            "outcome_history_count": len(self._outcome_history),
+            "validations_stored": len(self._km_validations),
+            "coverage_cache_size": len(self._km_coverage_cache),
+            "km_priority_adjustments": self._km_priority_adjustments,
+            "km_threshold_updates": self._km_threshold_updates,
+            "current_min_quality": self._adjusted_min_quality,
+            "current_category_bonuses": dict(self._adjusted_category_bonuses),
+        }
+
+    def clear_reverse_flow_state(self) -> None:
+        """Clear all reverse flow state."""
+        self._outcome_history = []
+        self._km_validations = {}
+        self._km_coverage_cache = {}
+        self._km_priority_adjustments = 0
+        self._km_threshold_updates = 0
+        self._adjusted_min_quality = self.MIN_TOPIC_QUALITY
+        self._adjusted_category_bonuses = {
+            "tech": 0.2,
+            "science": 0.2,
+            "business": 0.1,
+            "politics": 0.0,
+            "entertainment": -0.1,
+        }
+
 
 __all__ = [
     "PulseAdapter",
     "TopicSearchResult",
+    # Reverse flow dataclasses
+    "KMQualityThresholdUpdate",
+    "KMTopicCoverage",
+    "KMSchedulingRecommendation",
+    "KMTopicValidation",
+    "PulseKMSyncResult",
 ]

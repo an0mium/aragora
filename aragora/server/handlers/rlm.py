@@ -405,7 +405,11 @@ class RLMContextHandler(BaseHandler):
                 "created_at": datetime.now().isoformat(),
             })
 
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.exception("Compression async operation failed: %s", e)
+            return error_response(safe_error_message(e, "compression"), 500)
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.warning("Compression data processing error: %s", e)
             return error_response(safe_error_message(e, "compression"), 500)
 
     @require_auth
@@ -513,7 +517,11 @@ class RLMContextHandler(BaseHandler):
                 "timestamp": datetime.now().isoformat(),
             })
 
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.exception("Query async operation failed: %s", e)
+            return error_response(safe_error_message(e, "query"), 500)
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.warning("Query data processing error: %s", e)
             return error_response(safe_error_message(e, "query"), 500)
 
     def _fallback_query(
@@ -541,8 +549,8 @@ class RLMContextHandler(BaseHandler):
                     },
                     "timestamp": datetime.now().isoformat(),
                 })
-        except Exception:  # noqa: BLE001 - Fallback mode, silently continue to final fallback
-            pass
+        except (ImportError, AttributeError, KeyError, TypeError) as e:
+            logger.warning("Fallback query could not retrieve summary content: %s", e)
 
         return json_response({
             "answer": "[Fallback mode - Unable to process query]",
@@ -625,8 +633,8 @@ class RLMContextHandler(BaseHandler):
                     "tokens": sum(n.token_count for n in nodes),
                     "node_ids": [n.id for n in nodes[:10]],  # First 10 node IDs
                 }
-        except Exception as e:  # noqa: BLE001 - Graceful degradation, continue with partial stats
-            logger.warning(f"Error building level stats: {e}")
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.warning("Error building level stats: %s", e)
 
         include_content = query_params.get("include_content", "false").lower() == "true"
 
@@ -655,8 +663,8 @@ class RLMContextHandler(BaseHandler):
                         {"id": n.id, "content": n.content[:500]}
                         for n in summary_nodes[:5]
                     ]
-            except Exception:  # noqa: BLE001 - Optional preview, graceful degradation
-                pass
+            except (ImportError, AttributeError, KeyError, TypeError) as e:
+                logger.warning("Could not retrieve summary preview: %s", e)
 
         return json_response(response)
 

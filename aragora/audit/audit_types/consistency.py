@@ -360,8 +360,8 @@ class ConsistencyAuditor:
                     return dt1 != dt2
                 except ValueError:
                     continue
-        except Exception:  # noqa: BLE001 - Date comparison fallback
-            pass
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Date comparison failed for '{d1}' vs '{d2}': {e}")
         return d1 != d2
 
     def _numbers_differ(self, n1: str, n2: str) -> bool:
@@ -491,8 +491,8 @@ class ConsistencyAuditor:
                             break
                         except ValueError:
                             continue
-                except Exception:  # noqa: BLE001 - Date extraction fallback
-                    pass
+                except (ValueError, TypeError, AttributeError) as e:
+                    logger.warning(f"Date extraction failed for '{stmt.value}': {e}")
 
         return findings
 
@@ -555,8 +555,12 @@ If no issues found, respond with empty array: []"""
                 except json.JSONDecodeError:
                     pass
 
-        except Exception as e:
-            logger.debug(f"LLM consistency analysis skipped: {e}")
+        except (ImportError, AttributeError) as e:
+            logger.warning(f"LLM consistency analysis unavailable: {e}")
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"LLM consistency analysis failed to parse response: {e}")
+        except OSError as e:
+            logger.exception(f"LLM consistency analysis failed due to I/O error: {e}")
 
         return findings
 

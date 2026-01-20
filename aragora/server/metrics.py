@@ -582,10 +582,20 @@ def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, N
     status = "success"
     try:
         yield
-    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
-        # Note: We catch Exception (not BaseException) to track application errors
-        # while letting KeyboardInterrupt/SystemExit propagate as intentional terminations
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
+        # Application-level errors (validation, type issues, missing keys/attrs)
         status = "error"
+        logger.warning("Request error on %s %s: %s", method, endpoint, e)
+        raise
+    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+        # I/O and network-related errors
+        status = "error"
+        logger.warning("I/O error on %s %s: %s", method, endpoint, e)
+        raise
+    except RuntimeError as e:
+        # Runtime errors (async issues, recursion, etc.)
+        status = "error"
+        logger.warning("Runtime error on %s %s: %s", method, endpoint, e)
         raise
     finally:
         duration = time.perf_counter() - start
@@ -665,8 +675,20 @@ def track_vector_operation(
     status = "success"
     try:
         yield
-    except Exception:  # noqa: BLE001 - Re-raised after recording status
+    except (ValueError, TypeError, KeyError) as e:
+        # Data validation and lookup errors
         status = "error"
+        logger.warning("Vector %s error on %s: %s", operation, store, e)
+        raise
+    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+        # I/O and network-related errors (common with vector stores)
+        status = "error"
+        logger.warning("Vector %s I/O error on %s: %s", operation, store, e)
+        raise
+    except RuntimeError as e:
+        # Runtime errors (async issues, store state errors)
+        status = "error"
+        logger.warning("Vector %s runtime error on %s: %s", operation, store, e)
         raise
     finally:
         duration = time.perf_counter() - start
@@ -829,9 +851,20 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
     except asyncio.TimeoutError:
         ctx["status"] = "timeout"
         raise
-    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
-        # Note: Catches any application error to track status, then re-raises
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
+        # Application-level errors (validation, type issues, missing keys/attrs)
         ctx["status"] = "error"
+        logger.warning("Debate execution error: %s", e)
+        raise
+    except (OSError, IOError, ConnectionError) as e:
+        # I/O and network-related errors
+        ctx["status"] = "error"
+        logger.warning("Debate I/O error: %s", e)
+        raise
+    except RuntimeError as e:
+        # Runtime errors (async issues, state errors)
+        ctx["status"] = "error"
+        logger.warning("Debate runtime error: %s", e)
         raise
     finally:
         ACTIVE_DEBATES.dec()
@@ -921,8 +954,20 @@ def track_federation_sync(
     ctx: dict[str, Any] = {"status": "success", "nodes_synced": 0}
     try:
         yield ctx
-    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
+    except (ValueError, TypeError, KeyError) as e:
+        # Data validation and lookup errors
         ctx["status"] = "failed"
+        logger.warning("Federation sync error for region %s (%s): %s", region_id, direction, e)
+        raise
+    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+        # I/O and network-related errors (common with federation)
+        ctx["status"] = "failed"
+        logger.warning("Federation sync I/O error for region %s (%s): %s", region_id, direction, e)
+        raise
+    except RuntimeError as e:
+        # Runtime errors (async issues, state errors)
+        ctx["status"] = "failed"
+        logger.warning("Federation sync runtime error for region %s (%s): %s", region_id, direction, e)
         raise
     finally:
         duration = time.perf_counter() - start
@@ -1109,7 +1154,17 @@ def generate_metrics() -> str:
     except ImportError:
         # prometheus_client not installed, skip observability metrics
         pass
-    except Exception as e:
+    except (ValueError, TypeError) as e:
+        # Metric value or type errors during collection
+        logger.warning("Error collecting observability metrics (value/type): %s", e)
+        lines.append(f"# Error collecting observability metrics: {e}")
+    except (OSError, IOError) as e:
+        # I/O errors during metric collection
+        logger.warning("Error collecting observability metrics (I/O): %s", e)
+        lines.append(f"# Error collecting observability metrics: {e}")
+    except RuntimeError as e:
+        # Runtime errors (e.g., registry state issues)
+        logger.warning("Error collecting observability metrics (runtime): %s", e)
         lines.append(f"# Error collecting observability metrics: {e}")
 
     return "\n".join(lines)

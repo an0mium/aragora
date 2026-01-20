@@ -338,7 +338,13 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             evidence_pack = loop.run_until_complete(
                 collector.collect_evidence(task, enabled_connectors)
             )
-        except Exception as e:
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Evidence collection failed (invalid params): {e}")
+            return error_response(safe_error_message(e, "Evidence collection"), 400)
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.exception(f"Evidence collection failed (network error): {e}")
+            return error_response(safe_error_message(e, "Evidence collection"), 503)
+        except RuntimeError as e:
             logger.exception(f"Evidence collection failed: {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 500)
 

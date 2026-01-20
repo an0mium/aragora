@@ -13,10 +13,13 @@ Environment Variables:
 
 import argparse
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -288,7 +291,11 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
                 efficiency = elo.get_learning_efficiency(name)
                 category = efficiency.get("learning_category", "unknown")
                 print(f"  {i}. {name}: {rating:.0f} ELO ({category} learner)")
-    except Exception as e:
+    except ImportError as e:
+        logger.warning("ELO module not available: %s", e)
+        print(f"  ELO system: unavailable ({e})")
+    except (KeyError, TypeError, OSError) as e:
+        logger.warning("ELO system error: %s", e)
         print(f"  ELO system: unavailable ({e})")
 
     # RLM cache stats
@@ -301,7 +308,11 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
         misses = cache_stats.get("misses", 0)
         hit_rate = cache_stats.get("hit_rate", 0.0)
         print(f"\nRLM Cache: {hits} hits, {misses} misses ({hit_rate:.1%} hit rate)")
-    except Exception:  # noqa: BLE001 - Optional feature availability check
+    except ImportError:
+        logger.warning("RLM module not available")
+        print("\nRLM Cache: not initialized")
+    except (KeyError, TypeError, AttributeError) as e:
+        logger.warning("RLM cache unavailable: %s", e)
         print("\nRLM Cache: not initialized")
 
     # Calibration stats
@@ -311,7 +322,11 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
         tracker = CalibrationTracker()
         # Get summary for any available agents
         print("\nCalibration: enabled")
-    except Exception:  # noqa: BLE001 - Optional feature availability check
+    except ImportError:
+        logger.warning("CalibrationTracker module not available")
+        print("\nCalibration: unavailable")
+    except (OSError, TypeError) as e:
+        logger.warning("Calibration unavailable: %s", e)
         print("\nCalibration: unavailable")
 
 
@@ -401,7 +416,11 @@ def cmd_status(args: argparse.Namespace) -> None:
             last_cycle = state.get("last_cycle_timestamp", "unknown")
             print(f"  Total cycles: {total_cycles}")
             print(f"  Last run: {last_cycle}")
-        except Exception as e:
+        except OSError as e:
+            logger.warning("Could not read nomic state file: %s", e)
+            print(f"  ⚠ Could not read state: {e}")
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.warning("Invalid nomic state file format: %s", e)
             print(f"  ⚠ Could not read state: {e}")
 
     print("\n" + "=" * 60)
@@ -925,7 +944,11 @@ def cmd_elo(args: argparse.Namespace) -> None:
                     losses = rival.get("total_losses", 0)
                     print(f"    {name}: {losses} losses")
 
-        except Exception:  # noqa: BLE001 - Agent lookup may fail in various ways
+        except (KeyError, ValueError) as e:
+            logger.warning("Agent lookup failed for '%s': %s", agent, e)
+            print(f"Agent not found: {agent}")
+        except (OSError, TypeError) as e:
+            logger.warning("ELO database error for agent '%s': %s", agent, e)
             print(f"Agent not found: {agent}")
 
 

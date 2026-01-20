@@ -212,7 +212,11 @@ class SpeechHandler(BaseHandler):
             return json_response({
                 "error": "aiohttp package required for URL transcription"
             }, status=500)
-        except Exception as e:
+        except asyncio.TimeoutError as e:
+            logger.warning(f"Timeout fetching audio from URL: {url}")
+            return json_response({"error": "Timeout fetching audio from URL"}, status=400)
+        except OSError as e:
+            logger.warning(f"Network error fetching audio: {e}")
             return json_response({"error": safe_error_message(e, "Failed to fetch audio")}, status=400)
 
         # Extract filename from URL
@@ -270,7 +274,8 @@ class SpeechHandler(BaseHandler):
                 # Clean up temp file
                 try:
                     tmp_path.unlink()
-                except Exception:  # noqa: BLE001 - Best effort cleanup
+                except OSError:
+                    # Best effort cleanup - file may already be deleted
                     pass
 
         except ImportError as e:
@@ -279,8 +284,11 @@ class SpeechHandler(BaseHandler):
         except RuntimeError as e:
             logger.error(f"STT provider error: {e}")
             return {"error": str(e)}
-        except Exception as e:
-            logger.error(f"Transcription failed: {e}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid transcription parameters: {e}")
+            return {"error": f"Invalid parameters: {str(e)}"}
+        except OSError as e:
+            logger.exception(f"IO error during transcription: {e}")
             return {"error": f"Transcription failed: {str(e)}"}
 
     def _parse_upload(
@@ -316,7 +324,8 @@ class SpeechHandler(BaseHandler):
 
         try:
             body = handler.rfile.read(content_length)
-        except Exception:  # noqa: BLE001 - IO error handling
+        except OSError as e:
+            logger.warning(f"Failed to read multipart body: {e}")
             return None, None
 
         boundary_bytes = f"--{boundary}".encode()
@@ -361,5 +370,6 @@ class SpeechHandler(BaseHandler):
         try:
             content = handler.rfile.read(content_length)
             return content, filename
-        except Exception:  # noqa: BLE001 - IO error handling
+        except OSError as e:
+            logger.warning(f"Failed to read raw upload body: {e}")
             return None, None

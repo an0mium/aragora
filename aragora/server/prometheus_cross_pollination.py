@@ -55,6 +55,53 @@ if PROMETHEUS_AVAILABLE:
         ["event_type"],
     )
 
+    # ========================================================================
+    # Knowledge Mound Bidirectional Flow Metrics
+    # ========================================================================
+
+    KM_INBOUND_EVENTS = Counter(
+        "aragora_km_inbound_events_total",
+        "Events flowing INTO Knowledge Mound from other subsystems",
+        ["source", "event_type"],  # source: memory, belief, rlm, ranking, insights, etc.
+    )
+
+    KM_OUTBOUND_EVENTS = Counter(
+        "aragora_km_outbound_events_total",
+        "Events flowing OUT of Knowledge Mound to other subsystems",
+        ["target", "event_type"],  # target: memory, belief, debate, trickster, etc.
+    )
+
+    KM_ADAPTER_SYNC = Counter(
+        "aragora_km_adapter_sync_total",
+        "Adapter sync operations to/from Knowledge Mound",
+        ["adapter", "direction", "status"],  # direction: to_mound, from_mound
+    )
+
+    KM_ADAPTER_SYNC_DURATION = Histogram(
+        "aragora_km_adapter_sync_duration_seconds",
+        "Adapter sync operation duration",
+        ["adapter", "direction"],
+        buckets=[0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30],
+    )
+
+    KM_STALENESS_CHECKS = Counter(
+        "aragora_km_staleness_checks_total",
+        "Staleness check operations",
+        ["workspace", "status"],  # status: completed, failed, skipped
+    )
+
+    KM_STALE_NODES_FOUND = Gauge(
+        "aragora_km_stale_nodes_found",
+        "Number of stale nodes found in last check",
+        ["workspace"],
+    )
+
+    KM_NODES_BY_SOURCE = Gauge(
+        "aragora_km_nodes_by_source",
+        "Knowledge nodes by source type",
+        ["source"],
+    )
+
 
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
@@ -70,6 +117,14 @@ class FallbackMetrics:
         self.handler_durations: Dict[str, list] = {}
         self.circuit_breaker_states: Dict[str, int] = {}
         self.subscriber_counts: Dict[str, int] = {}
+        # KM bidirectional flow metrics
+        self.km_inbound_events: Dict[str, Dict[str, int]] = {}
+        self.km_outbound_events: Dict[str, Dict[str, int]] = {}
+        self.km_adapter_syncs: Dict[str, Dict[str, Dict[str, int]]] = {}
+        self.km_adapter_sync_durations: Dict[str, Dict[str, list]] = {}
+        self.km_staleness_checks: Dict[str, Dict[str, int]] = {}
+        self.km_stale_nodes_found: Dict[str, int] = {}
+        self.km_nodes_by_source: Dict[str, int] = {}
 
     def record_event(self, event_type: str) -> None:
         self.events_total[event_type] = self.events_total.get(event_type, 0) + 1
@@ -94,6 +149,55 @@ class FallbackMetrics:
 
     def set_subscriber_count(self, event_type: str, count: int) -> None:
         self.subscriber_counts[event_type] = count
+
+    def record_km_inbound_event(self, source: str, event_type: str) -> None:
+        if source not in self.km_inbound_events:
+            self.km_inbound_events[source] = {}
+        self.km_inbound_events[source][event_type] = (
+            self.km_inbound_events[source].get(event_type, 0) + 1
+        )
+
+    def record_km_outbound_event(self, target: str, event_type: str) -> None:
+        if target not in self.km_outbound_events:
+            self.km_outbound_events[target] = {}
+        self.km_outbound_events[target][event_type] = (
+            self.km_outbound_events[target].get(event_type, 0) + 1
+        )
+
+    def record_km_adapter_sync(
+        self, adapter: str, direction: str, status: str, duration: float = None
+    ) -> None:
+        if adapter not in self.km_adapter_syncs:
+            self.km_adapter_syncs[adapter] = {}
+        if direction not in self.km_adapter_syncs[adapter]:
+            self.km_adapter_syncs[adapter][direction] = {}
+        self.km_adapter_syncs[adapter][direction][status] = (
+            self.km_adapter_syncs[adapter][direction].get(status, 0) + 1
+        )
+        if duration is not None:
+            if adapter not in self.km_adapter_sync_durations:
+                self.km_adapter_sync_durations[adapter] = {}
+            if direction not in self.km_adapter_sync_durations[adapter]:
+                self.km_adapter_sync_durations[adapter][direction] = []
+            self.km_adapter_sync_durations[adapter][direction].append(duration)
+            # Keep only last 1000 samples
+            if len(self.km_adapter_sync_durations[adapter][direction]) > 1000:
+                self.km_adapter_sync_durations[adapter][direction] = (
+                    self.km_adapter_sync_durations[adapter][direction][-1000:]
+                )
+
+    def record_km_staleness_check(self, workspace: str, status: str) -> None:
+        if workspace not in self.km_staleness_checks:
+            self.km_staleness_checks[workspace] = {}
+        self.km_staleness_checks[workspace][status] = (
+            self.km_staleness_checks[workspace].get(status, 0) + 1
+        )
+
+    def set_km_stale_nodes_found(self, workspace: str, count: int) -> None:
+        self.km_stale_nodes_found[workspace] = count
+
+    def set_km_nodes_by_source(self, source: str, count: int) -> None:
+        self.km_nodes_by_source[source] = count
 
     def get_metrics_text(self) -> str:
         """Generate OpenMetrics-style text output."""
@@ -126,6 +230,65 @@ class FallbackMetrics:
         for event_type, count in self.subscriber_counts.items():
             lines.append(
                 f'aragora_cross_pollination_subscribers{{event_type="{event_type}"}} {count}'
+            )
+
+        # KM Inbound Events
+        lines.append("")
+        lines.append("# HELP aragora_km_inbound_events_total Events flowing INTO Knowledge Mound")
+        lines.append("# TYPE aragora_km_inbound_events_total counter")
+        for source, events in self.km_inbound_events.items():
+            for event_type, count in events.items():
+                lines.append(
+                    f'aragora_km_inbound_events_total{{source="{source}",event_type="{event_type}"}} {count}'
+                )
+
+        # KM Outbound Events
+        lines.append("")
+        lines.append("# HELP aragora_km_outbound_events_total Events flowing OUT of Knowledge Mound")
+        lines.append("# TYPE aragora_km_outbound_events_total counter")
+        for target, events in self.km_outbound_events.items():
+            for event_type, count in events.items():
+                lines.append(
+                    f'aragora_km_outbound_events_total{{target="{target}",event_type="{event_type}"}} {count}'
+                )
+
+        # KM Adapter Syncs
+        lines.append("")
+        lines.append("# HELP aragora_km_adapter_sync_total Adapter sync operations")
+        lines.append("# TYPE aragora_km_adapter_sync_total counter")
+        for adapter, directions in self.km_adapter_syncs.items():
+            for direction, statuses in directions.items():
+                for status, count in statuses.items():
+                    lines.append(
+                        f'aragora_km_adapter_sync_total{{adapter="{adapter}",direction="{direction}",status="{status}"}} {count}'
+                    )
+
+        # KM Staleness Checks
+        lines.append("")
+        lines.append("# HELP aragora_km_staleness_checks_total Staleness check operations")
+        lines.append("# TYPE aragora_km_staleness_checks_total counter")
+        for workspace, statuses in self.km_staleness_checks.items():
+            for status, count in statuses.items():
+                lines.append(
+                    f'aragora_km_staleness_checks_total{{workspace="{workspace}",status="{status}"}} {count}'
+                )
+
+        # KM Stale Nodes Found
+        lines.append("")
+        lines.append("# HELP aragora_km_stale_nodes_found Stale nodes found in last check")
+        lines.append("# TYPE aragora_km_stale_nodes_found gauge")
+        for workspace, count in self.km_stale_nodes_found.items():
+            lines.append(
+                f'aragora_km_stale_nodes_found{{workspace="{workspace}"}} {count}'
+            )
+
+        # KM Nodes by Source
+        lines.append("")
+        lines.append("# HELP aragora_km_nodes_by_source Knowledge nodes by source type")
+        lines.append("# TYPE aragora_km_nodes_by_source gauge")
+        for source, count in self.km_nodes_by_source.items():
+            lines.append(
+                f'aragora_km_nodes_by_source{{source="{source}"}} {count}'
             )
 
         return "\n".join(lines)
@@ -207,6 +370,91 @@ def get_cross_pollination_metrics_text() -> str:
         return get_fallback_metrics().get_metrics_text()
 
 
+# ============================================================================
+# Knowledge Mound Bidirectional Flow API
+# ============================================================================
+
+
+def record_km_inbound_event(source: str, event_type: str) -> None:
+    """Record an event flowing INTO Knowledge Mound.
+
+    Args:
+        source: Source subsystem (memory, belief, rlm, ranking, insights, etc.)
+        event_type: Type of event being ingested
+    """
+    if PROMETHEUS_AVAILABLE:
+        KM_INBOUND_EVENTS.labels(source=source, event_type=event_type).inc()
+    else:
+        get_fallback_metrics().record_km_inbound_event(source, event_type)
+
+
+def record_km_outbound_event(target: str, event_type: str) -> None:
+    """Record an event flowing OUT of Knowledge Mound.
+
+    Args:
+        target: Target subsystem (memory, belief, debate, trickster, etc.)
+        event_type: Type of event being dispatched
+    """
+    if PROMETHEUS_AVAILABLE:
+        KM_OUTBOUND_EVENTS.labels(target=target, event_type=event_type).inc()
+    else:
+        get_fallback_metrics().record_km_outbound_event(target, event_type)
+
+
+def record_km_adapter_sync(
+    adapter: str,
+    direction: str,
+    status: str,
+    duration: float = None,
+) -> None:
+    """Record an adapter sync operation.
+
+    Args:
+        adapter: Adapter name (ranking, rlm, continuum, etc.)
+        direction: 'to_mound' or 'from_mound'
+        status: 'success', 'failure', or 'skipped'
+        duration: Optional duration in seconds
+    """
+    if PROMETHEUS_AVAILABLE:
+        KM_ADAPTER_SYNC.labels(adapter=adapter, direction=direction, status=status).inc()
+        if duration is not None:
+            KM_ADAPTER_SYNC_DURATION.labels(adapter=adapter, direction=direction).observe(duration)
+    else:
+        get_fallback_metrics().record_km_adapter_sync(adapter, direction, status, duration)
+
+
+def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0) -> None:
+    """Record a staleness check operation.
+
+    Args:
+        workspace: Workspace ID
+        status: 'completed', 'failed', or 'skipped'
+        stale_count: Number of stale nodes found (for completed checks)
+    """
+    if PROMETHEUS_AVAILABLE:
+        KM_STALENESS_CHECKS.labels(workspace=workspace, status=status).inc()
+        if status == "completed":
+            KM_STALE_NODES_FOUND.labels(workspace=workspace).set(stale_count)
+    else:
+        fallback = get_fallback_metrics()
+        fallback.record_km_staleness_check(workspace, status)
+        if status == "completed":
+            fallback.set_km_stale_nodes_found(workspace, stale_count)
+
+
+def update_km_nodes_by_source(source: str, count: int) -> None:
+    """Update the count of knowledge nodes by source type.
+
+    Args:
+        source: Source type (fact, claim, memory, evidence, consensus, etc.)
+        count: Current count of nodes from this source
+    """
+    if PROMETHEUS_AVAILABLE:
+        KM_NODES_BY_SOURCE.labels(source=source).set(count)
+    else:
+        get_fallback_metrics().set_km_nodes_by_source(source, count)
+
+
 __all__ = [
     "PROMETHEUS_AVAILABLE",
     "record_event_dispatched",
@@ -214,4 +462,10 @@ __all__ = [
     "set_circuit_breaker_state",
     "update_subscriber_count",
     "get_cross_pollination_metrics_text",
+    # KM Bidirectional Flow Metrics
+    "record_km_inbound_event",
+    "record_km_outbound_event",
+    "record_km_adapter_sync",
+    "record_km_staleness_check",
+    "update_km_nodes_by_source",
 ]

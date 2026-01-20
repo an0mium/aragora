@@ -408,7 +408,7 @@ class TestHandleAgentErrorsDecorator:
                 return f"Response to: {prompt}"
 
         agent = MockAgent()
-        result = asyncio.get_event_loop().run_until_complete(agent.generate("Hello"))
+        result = asyncio.run(agent.generate("Hello"))
         assert result == "Response to: Hello"
 
     def test_records_success_to_circuit_breaker(self, mock_circuit_breaker):
@@ -423,7 +423,7 @@ class TestHandleAgentErrorsDecorator:
                 return "OK"
 
         agent = MockAgent()
-        asyncio.get_event_loop().run_until_complete(agent.generate("test"))
+        asyncio.run(agent.generate("test"))
 
         mock_circuit_breaker.record_success.assert_called_once()
 
@@ -441,7 +441,7 @@ class TestHandleAgentErrorsDecorator:
 
         agent = MockAgent()
         with pytest.raises(AgentCircuitOpenError):
-            asyncio.get_event_loop().run_until_complete(agent.generate("test"))
+            asyncio.run(agent.generate("test"))
 
     def test_timeout_error_wrapped_correctly(self):
         """TimeoutError should be wrapped in AgentTimeoutError."""
@@ -456,7 +456,7 @@ class TestHandleAgentErrorsDecorator:
 
         agent = MockAgent()
         with pytest.raises(AgentTimeoutError) as exc_info:
-            asyncio.get_event_loop().run_until_complete(agent.generate("test"))
+            asyncio.run(agent.generate("test"))
 
         assert exc_info.value.agent_name == "test_agent"
 

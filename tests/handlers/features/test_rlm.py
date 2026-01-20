@@ -269,7 +269,7 @@ class TestCompressDebate:
         ):
             with patch(
                 "aragora.server.handlers.features.rlm._run_async",
-                side_effect=lambda coro: asyncio.get_event_loop().run_until_complete(coro)
+                side_effect=lambda coro: asyncio.run(coro)
                 if hasattr(coro, "__await__")
                 else coro,
             ):

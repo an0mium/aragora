@@ -50,6 +50,8 @@ class HookHandlerRegistry:
     - elo_system: EloSystem for agent rankings
     - trickster: Trickster for hollow consensus detection
     - selection_feedback: SelectionFeedbackLoop for agent selection weights
+    - knowledge_mound: Knowledge Mound for organizational knowledge
+    - km_coordinator: BidirectionalCoordinator for KM sync
     """
 
     hook_manager: "HookManager"
@@ -77,6 +79,7 @@ class HookHandlerRegistry:
         count += self._register_performance_handlers()
         count += self._register_selection_handlers()
         count += self._register_detection_handlers()
+        count += self._register_km_handlers()
 
         self._registered = True
         logger.info(f"HookHandlerRegistry registered {count} handlers")
@@ -519,6 +522,132 @@ class HookHandlerRegistry:
 
         return count
 
+    # =========================================================================
+    # Knowledge Mound Handlers
+    # =========================================================================
+
+    def _register_km_handlers(self) -> int:
+        """Wire hooks to Knowledge Mound bidirectional sync.
+
+        Handles:
+        - Storing debate knowledge at debate end
+        - Triggering validation on consensus
+        - Recording outcomes for KM patterns
+        - Running bidirectional sync periodically
+        """
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        # Knowledge Mound
+        km = self.subsystems.get("knowledge_mound")
+        if km:
+            # Store debate knowledge at debate end
+            if hasattr(km, "on_debate_end"):
+                def handle_km_debate_end(
+                    ctx: Any = None,
+                    result: Any = None,
+                    **kwargs: Any,
+                ) -> None:
+                    try:
+                        km.on_debate_end(ctx, result)
+                    except Exception as e:
+                        logger.debug(f"KM on_debate_end failed: {e}")
+
+                if self._register(
+                    HookType.POST_DEBATE.value,
+                    handle_km_debate_end,
+                    "km_debate_end",
+                    HookPriority.NORMAL,
+                ):
+                    count += 1
+
+            # Trigger validation on consensus
+            if hasattr(km, "on_consensus_reached"):
+                def handle_km_consensus(
+                    ctx: Any = None,
+                    consensus_text: str = "",
+                    confidence: float = 0.0,
+                    **kwargs: Any,
+                ) -> None:
+                    try:
+                        km.on_consensus_reached(ctx, consensus_text, confidence)
+                    except Exception as e:
+                        logger.debug(f"KM on_consensus_reached failed: {e}")
+
+                if self._register(
+                    HookType.POST_CONSENSUS.value,
+                    handle_km_consensus,
+                    "km_consensus",
+                    HookPriority.NORMAL,
+                ):
+                    count += 1
+
+            # Record outcome for KM pattern tracking
+            if hasattr(km, "on_outcome_tracked"):
+                def handle_km_outcome(
+                    ctx: Any = None,
+                    outcome: Any = None,
+                    **kwargs: Any,
+                ) -> None:
+                    try:
+                        km.on_outcome_tracked(ctx, outcome)
+                    except Exception as e:
+                        logger.debug(f"KM on_outcome_tracked failed: {e}")
+
+                if self._register(
+                    HookType.POST_DEBATE.value,
+                    handle_km_outcome,
+                    "km_outcome_tracked",
+                    HookPriority.LOW,  # After main outcome recording
+                ):
+                    count += 1
+
+        # Bidirectional Coordinator
+        km_coordinator = self.subsystems.get("km_coordinator")
+        if km_coordinator:
+            # Trigger bidirectional sync after debate
+            if hasattr(km_coordinator, "on_debate_complete"):
+                def handle_coord_sync(
+                    ctx: Any = None,
+                    result: Any = None,
+                    **kwargs: Any,
+                ) -> None:
+                    try:
+                        km_coordinator.on_debate_complete(ctx, result)
+                    except Exception as e:
+                        logger.debug(f"KM coordinator on_debate_complete failed: {e}")
+
+                if self._register(
+                    HookType.POST_DEBATE.value,
+                    handle_coord_sync,
+                    "km_coordinator_sync",
+                    HookPriority.LOW,  # Sync is low priority
+                ):
+                    count += 1
+
+            # Run validation sync after consensus
+            if hasattr(km_coordinator, "on_consensus_reached"):
+                def handle_coord_consensus(
+                    ctx: Any = None,
+                    consensus_text: str = "",
+                    confidence: float = 0.0,
+                    **kwargs: Any,
+                ) -> None:
+                    try:
+                        km_coordinator.on_consensus_reached(ctx, consensus_text, confidence)
+                    except Exception as e:
+                        logger.debug(f"KM coordinator on_consensus failed: {e}")
+
+                if self._register(
+                    HookType.POST_CONSENSUS.value,
+                    handle_coord_consensus,
+                    "km_coordinator_consensus",
+                    HookPriority.LOW,
+                ):
+                    count += 1
+
+        return count
+
     @property
     def registered_count(self) -> int:
         """Number of handlers currently registered."""
@@ -542,6 +671,8 @@ def create_hook_handler_registry(
     selection_feedback: Any = None,
     trickster: Any = None,
     flip_detector: Any = None,
+    knowledge_mound: Any = None,
+    km_coordinator: Any = None,
     auto_register: bool = True,
 ) -> HookHandlerRegistry:
     """Create and optionally register a HookHandlerRegistry.
@@ -557,6 +688,8 @@ def create_hook_handler_registry(
         selection_feedback: SelectionFeedbackLoop for selection weights
         trickster: Trickster for hollow consensus detection
         flip_detector: FlipDetector for position reversals
+        knowledge_mound: Knowledge Mound for organizational knowledge
+        km_coordinator: BidirectionalCoordinator for KM sync
         auto_register: If True, automatically call register_all()
 
     Returns:
@@ -582,6 +715,10 @@ def create_hook_handler_registry(
         subsystems["trickster"] = trickster
     if flip_detector is not None:
         subsystems["flip_detector"] = flip_detector
+    if knowledge_mound is not None:
+        subsystems["knowledge_mound"] = knowledge_mound
+    if km_coordinator is not None:
+        subsystems["km_coordinator"] = km_coordinator
 
     registry = HookHandlerRegistry(hook_manager=hook_manager, subsystems=subsystems)
 

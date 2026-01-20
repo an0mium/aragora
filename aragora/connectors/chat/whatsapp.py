@@ -164,7 +164,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 success=True,
                 message_id=messages[0].get("id") if messages else None,
                 channel_id=channel_id,
-                timestamp=datetime.now(),
+                timestamp=datetime.now().isoformat(),
             )
 
     async def update_message(
@@ -403,34 +403,44 @@ class WhatsAppConnector(ChatPlatformConnector):
         elif msg_type_str == "document":
             msg_type = MessageType.FILE
         elif msg_type_str == "image":
-            msg_type = MessageType.IMAGE
+            msg_type = MessageType.FILE  # Images treated as files
 
         # Extract text content
-        text = ""
+        content = ""
         if msg_type_str == "text":
-            text = msg.get("text", {}).get("body", "")
+            content = msg.get("text", {}).get("body", "")
         elif msg_type_str == "interactive":
             interactive = msg.get("interactive", {})
             if "button_reply" in interactive:
-                text = interactive["button_reply"].get("title", "")
+                content = interactive["button_reply"].get("title", "")
             elif "list_reply" in interactive:
-                text = interactive["list_reply"].get("title", "")
+                content = interactive["list_reply"].get("title", "")
+
+        # Build proper ChatChannel and ChatUser objects
+        sender_id = msg.get("from", "")
+        channel = ChatChannel(
+            id=sender_id,
+            platform="whatsapp",
+            name=contact.get("profile", {}).get("name"),
+            is_dm=True,
+        )
+        author = ChatUser(
+            id=sender_id,
+            platform="whatsapp",
+            username=contact.get("wa_id", ""),
+            display_name=contact.get("profile", {}).get("name", ""),
+        )
 
         return ChatMessage(
-            message_id=msg.get("id", ""),
-            channel_id=msg.get("from", ""),
-            user=ChatUser(
-                user_id=msg.get("from", ""),
-                username=contact.get("wa_id", ""),
-                display_name=contact.get("profile", {}).get("name", ""),
-                platform="whatsapp",
-            ),
-            text=text,
-            timestamp=datetime.fromtimestamp(int(msg.get("timestamp", 0))),
-            message_type=msg_type,
+            id=msg.get("id", ""),
             platform="whatsapp",
-            raw_data=msg,
+            channel=channel,
+            author=author,
+            content=content,
+            message_type=msg_type,
+            timestamp=datetime.fromtimestamp(int(msg.get("timestamp", 0))),
             thread_id=msg.get("context", {}).get("id"),
+            metadata={"raw_data": msg},
         )
 
     async def parse_command(
@@ -445,24 +455,23 @@ class WhatsAppConnector(ChatPlatformConnector):
         This looks for messages starting with / or !
         """
         message = await self.parse_message(payload)
-        text = message.text
+        text = message.content
 
         if not text or not (text.startswith("/") or text.startswith("!")):
             return None
 
-        prefix = text[0]
-        parts = text[1:].split(maxsplit=1)
-        command = parts[0].lower()
-        args = parts[1] if len(parts) > 1 else ""
+        parts = text[1:].split()
+        command_name = parts[0].lower() if parts else ""
+        args = parts[1:] if len(parts) > 1 else []
 
         return BotCommand(
-            command=command,
+            name=command_name,
+            text=text,
             args=args,
-            user_id=message.user.user_id,
-            channel_id=message.channel_id,
-            message_id=message.message_id,
+            user=message.author,
+            channel=message.channel,
             platform="whatsapp",
-            raw_data=message.raw_data,
+            metadata={"message_id": message.id},
         )
 
     async def handle_interaction(
@@ -472,7 +481,7 @@ class WhatsAppConnector(ChatPlatformConnector):
     ) -> UserInteraction:
         """Handle button click or list selection."""
         message = await self.parse_message(payload)
-        msg = message.raw_data or {}
+        msg = message.metadata.get("raw_data", {})
 
         interactive = msg.get("interactive", {})
         interaction_type = InteractionType.BUTTON_CLICK
@@ -483,20 +492,20 @@ class WhatsAppConnector(ChatPlatformConnector):
         elif "list_reply" in interactive:
             action_id = interactive["list_reply"].get("id", "")
             action_value = interactive["list_reply"].get("title", "")
-            interaction_type = InteractionType.MENU_SELECT
+            interaction_type = InteractionType.SELECT_MENU
         else:
             action_id = ""
             action_value = ""
 
         return UserInteraction(
+            id=f"interaction-{message.id}",
             interaction_type=interaction_type,
-            user_id=message.user.user_id,
-            channel_id=message.channel_id,
-            message_id=message.message_id,
             action_id=action_id,
-            action_value=action_value,
+            value=action_value,
+            user=message.author,
+            channel=message.channel,
+            message_id=message.id,
             platform="whatsapp",
-            raw_data=msg,
         )
 
     async def send_voice_message(
@@ -558,7 +567,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 success=True,
                 message_id=messages[0].get("id") if messages else None,
                 channel_id=channel_id,
-                timestamp=datetime.now(),
+                timestamp=datetime.now().isoformat(),
             )
 
     async def download_voice_message(
@@ -567,7 +576,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> bytes:
         """Download a voice message."""
-        return await self.download_file(voice_message.file_id)
+        return await self.download_file(voice_message.file.id)
 
     async def get_channel_info(
         self,
@@ -580,10 +589,10 @@ class WhatsAppConnector(ChatPlatformConnector):
         Note: WhatsApp is 1:1 messaging, so channel = phone number.
         """
         return ChatChannel(
-            channel_id=channel_id,
-            name=channel_id,  # Phone number
-            channel_type="private",
+            id=channel_id,
             platform="whatsapp",
+            name=channel_id,  # Phone number
+            is_dm=True,
         )
 
     async def get_user_info(
@@ -597,7 +606,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         Note: WhatsApp provides limited user info.
         """
         return ChatUser(
-            user_id=user_id,
+            id=user_id,
             username=user_id,  # Phone number
             platform="whatsapp",
         )
@@ -609,14 +618,15 @@ class WhatsAppConnector(ChatPlatformConnector):
     ) -> ChatEvidence:
         """Extract evidence from a message for debate."""
         return ChatEvidence(
-            content=message.text,
-            source_url=f"whatsapp:{message.channel_id}/{message.message_id}",
-            author=message.user.display_name or message.channel_id,
-            timestamp=message.timestamp,
+            id=f"evidence-{message.id}",
+            source_id=message.id,
             platform="whatsapp",
-            channel_id=message.channel_id,
-            message_id=message.message_id,
-            metadata={"raw": message.raw_data},
+            channel_id=message.channel.id,
+            content=message.content,
+            author_id=message.author.id,
+            author_name=message.author.display_name or message.channel.id,
+            timestamp=message.timestamp,
+            source_message=message,
         )
 
     def _build_interactive(self, text: str, blocks: list[dict]) -> dict:
@@ -712,7 +722,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 success=True,
                 message_id=messages[0].get("id") if messages else None,
                 channel_id=channel_id,
-                timestamp=datetime.now(),
+                timestamp=datetime.now().isoformat(),
             )
 
     async def verify_webhook(

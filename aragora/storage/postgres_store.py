@@ -104,6 +104,44 @@ async def get_postgres_pool(
     return _pool
 
 
+async def get_postgres_pool_from_settings() -> "Pool":
+    """
+    Get or create PostgreSQL connection pool using centralized settings.
+
+    This is the recommended way to get the pool in application code,
+    as it uses the settings from aragora.config.settings.DatabaseSettings.
+
+    Returns:
+        Connection pool instance
+
+    Raises:
+        RuntimeError: If asyncpg is not installed or PostgreSQL not configured
+
+    Example:
+        from aragora.storage.postgres_store import get_postgres_pool_from_settings
+
+        pool = await get_postgres_pool_from_settings()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM debates")
+    """
+    from aragora.config import get_settings
+
+    settings = get_settings()
+    db_settings = settings.database
+
+    if not db_settings.is_postgresql:
+        raise RuntimeError(
+            "PostgreSQL backend not configured. Set ARAGORA_DB_BACKEND=postgresql "
+            "and DATABASE_URL environment variable."
+        )
+
+    return await get_postgres_pool(
+        dsn=db_settings.url,
+        min_size=max(1, db_settings.pool_size // 4),  # min is ~25% of max
+        max_size=db_settings.pool_size,
+    )
+
+
 async def close_postgres_pool() -> None:
     """Close the global PostgreSQL connection pool."""
     global _pool
@@ -447,6 +485,7 @@ class PostgresStore(ABC):
 __all__ = [
     "PostgresStore",
     "get_postgres_pool",
+    "get_postgres_pool_from_settings",
     "close_postgres_pool",
     "ASYNCPG_AVAILABLE",
 ]

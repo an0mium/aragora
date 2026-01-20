@@ -465,4 +465,100 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
+    # Knowledge Mound staleness checker - runs every 6 hours
+    def km_staleness_check_task():
+        """Check for stale knowledge in the Knowledge Mound and emit events."""
+        try:
+            import asyncio
+            from aragora.knowledge.mound.staleness import StalenessDetector, StalenessConfig
+
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def check_staleness():
+                workspace_id = "default"
+                try:
+                    from aragora.knowledge.mound.facade import get_knowledge_mound
+
+                    mound = get_knowledge_mound()
+                    if mound is None:
+                        logger.debug("Knowledge Mound not available, skipping staleness check")
+                        # Record skipped metric
+                        try:
+                            from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                            record_km_staleness_check(workspace_id, "skipped", 0)
+                        except ImportError:
+                            pass
+                        return
+
+                    # Create detector with event emitter for cross-subsystem notification
+                    from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+                    manager = get_cross_subscriber_manager()
+
+                    detector = StalenessDetector(
+                        mound=mound,
+                        config=StalenessConfig(
+                            auto_revalidation_threshold=0.7,
+                        ),
+                        event_emitter=manager,
+                    )
+
+                    # Check staleness for default workspace
+                    stale_nodes = await detector.get_stale_nodes(
+                        workspace_id=workspace_id,
+                        threshold=0.7,
+                        limit=50,
+                    )
+
+                    stale_count = len(stale_nodes) if stale_nodes else 0
+
+                    if stale_nodes:
+                        logger.info(
+                            "Knowledge staleness check: found %d stale nodes",
+                            stale_count,
+                        )
+                        # Events are emitted by the detector for each stale node
+
+                    # Record completion metric
+                    try:
+                        from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                        record_km_staleness_check(workspace_id, "completed", stale_count)
+                    except ImportError:
+                        pass
+
+                except ImportError as e:
+                    logger.debug("Knowledge Mound staleness check skipped: %s", e)
+                    try:
+                        from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                        record_km_staleness_check(workspace_id, "skipped", 0)
+                    except ImportError:
+                        pass
+
+            if loop.is_running():
+                asyncio.create_task(check_staleness())
+            else:
+                loop.run_until_complete(check_staleness())
+
+        except Exception as e:
+            logger.warning("KM staleness check failed: %s", e)
+            # Record failure metric
+            try:
+                from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                record_km_staleness_check("default", "failed", 0)
+            except ImportError:
+                pass
+
+    manager.register_task(
+        name="km_staleness_check",
+        interval_seconds=6 * 3600,  # 6 hours
+        callback=km_staleness_check_task,
+        enabled=True,
+        run_on_startup=False,  # Don't run on startup (let KM settle first)
+    )
+
     logger.info("Default background tasks registered")

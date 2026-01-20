@@ -5,9 +5,12 @@ Extracted from prometheus.py for maintainability.
 Provides metrics for Nomic loop phase execution and cycle tracking.
 """
 
+import logging
 import time
 from functools import wraps
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 from aragora.server.prometheus import (
     PROMETHEUS_AVAILABLE,
@@ -125,7 +128,8 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "get") and not result.get("success", True):
                     outcome = "failure"
                 return result
-            except Exception:  # noqa: BLE001 - Re-raised after recording outcome
+            except (ValueError, TypeError, KeyError, RuntimeError, OSError, TimeoutError) as e:
+                logger.warning("Nomic phase %s failed: %s", phase, e)
                 outcome = "failure"
                 raise
             finally:

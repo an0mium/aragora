@@ -388,3 +388,52 @@ pytest tests/integration/test_phase9_bridges.py -v
 | RelationshipBiasBridge | `aragora/debate/relationship_bias_bridge.py` |
 | RLMSelectionBridge | `aragora/rlm/rlm_selection_bridge.py` |
 | CalibrationCostBridge | `aragora/billing/calibration_cost_bridge.py` |
+
+## Pulse Integration
+
+Pulse (trending topics) integrates with debates to provide real-time context.
+
+### Features
+
+- **Trending Topic Injection**: Automatically inject trending topics into debate prompts
+- **Quality Filtering**: Only high-quality, relevant topics are included
+- **Source Weighting**: Credibility-scored sources (GitHub > Reliable News > Social Media)
+- **Freshness Scoring**: Time-decayed relevance with configurable half-life
+
+### Configuration
+
+```python
+from aragora.pulse.ingestor import PulseManager
+
+manager = PulseManager(
+    enable_hackernews=True,
+    enable_reddit=True,
+    enable_twitter=False,  # Requires API key
+    quality_threshold=0.6,
+    freshness_half_life_hours=24,
+)
+
+# Fetch trending for debate context
+topics = await manager.get_trending_topics(limit=5)
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_PULSE_ENABLED` | `true` | Enable Pulse integration |
+| `ARAGORA_PULSE_QUALITY_THRESHOLD` | `0.6` | Minimum quality score |
+| `ARAGORA_PULSE_FRESHNESS_HOURS` | `24` | Freshness half-life |
+| `HACKERNEWS_ENABLED` | `true` | Enable HackerNews ingestor |
+| `REDDIT_ENABLED` | `true` | Enable Reddit ingestor |
+| `TWITTER_API_KEY` | - | Twitter API key (optional) |
+
+### Testing
+
+```bash
+# Run Pulse unit tests
+pytest tests/pulse/ -v
+
+# Run Pulse integration tests
+pytest tests/ -k pulse -v
+```

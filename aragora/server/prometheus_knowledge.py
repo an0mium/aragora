@@ -5,9 +5,12 @@ Extracted from prometheus.py for maintainability.
 Provides metrics for visibility, sharing, global knowledge, and federation.
 """
 
+import logging
 import time
 from contextlib import contextmanager
 from typing import Generator
+
+logger = logging.getLogger(__name__)
 
 from aragora.server.prometheus import (
     PROMETHEUS_AVAILABLE,
@@ -269,7 +272,8 @@ def timed_knowledge_federation_sync(
     ctx: dict = {"status": "success", "nodes_synced": 0}
     try:
         yield ctx
-    except Exception:  # noqa: BLE001 - Intentionally broad for metrics tracking
+    except (ValueError, TypeError, KeyError, RuntimeError, OSError, TimeoutError, ConnectionError) as e:
+        logger.warning("Federation sync to %s (%s) failed: %s", region_id, direction, e)
         ctx["status"] = "failed"
         raise
     finally:

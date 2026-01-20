@@ -877,8 +877,8 @@ def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
                 ),
             )
             conn.commit()
-    except Exception as e:
-        logger.warning(f"Failed to persist circuit breaker {name}: {e}")
+    except (sqlite3.Error, OSError) as e:
+        logger.warning(f"Failed to persist circuit breaker {name}: {type(e).__name__}: {e}")
 
 
 def persist_all_circuit_breakers() -> int:
@@ -939,8 +939,8 @@ def load_circuit_breakers() -> int:
             logger.info(f"Loaded {count} circuit breakers from {_DB_PATH}")
             return count
 
-    except Exception as e:
-        logger.warning(f"Failed to load circuit breakers: {e}")
+    except (sqlite3.Error, OSError) as e:
+        logger.warning(f"Failed to load circuit breakers: {type(e).__name__}: {e}")
         return 0
 
 
@@ -975,6 +975,6 @@ def cleanup_stale_persisted(max_age_hours: float = 72.0) -> int:
             logger.info(f"Cleaned up {deleted} stale persisted circuit breakers")
         return deleted
 
-    except Exception as e:
-        logger.warning(f"Failed to cleanup stale circuit breakers: {e}")
+    except (sqlite3.Error, OSError) as e:
+        logger.warning(f"Failed to cleanup stale circuit breakers: {type(e).__name__}: {e}")
         return 0

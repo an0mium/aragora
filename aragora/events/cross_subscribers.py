@@ -37,10 +37,32 @@ try:
         record_handler_call,
         set_circuit_breaker_state,
         update_subscriber_count,
+        # KM bidirectional flow metrics
+        record_km_inbound_event,
+        record_km_outbound_event,
+        record_km_adapter_sync,
+        record_km_staleness_check,
+        update_km_nodes_by_source,
     )
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
+
+    # Stub functions when metrics not available
+    def record_km_inbound_event(source: str, event_type: str) -> None:
+        pass
+
+    def record_km_outbound_event(target: str, event_type: str) -> None:
+        pass
+
+    def record_km_adapter_sync(adapter: str, direction: str, status: str, duration: float = None) -> None:
+        pass
+
+    def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0) -> None:
+        pass
+
+    def update_km_nodes_by_source(source: str, count: int) -> None:
+        pass
 
 logger = logging.getLogger(__name__)
 
@@ -1005,6 +1027,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Syncing high-importance memory to KM: importance={importance:.2f}, tier={tier}")
 
+        # Record KM inbound metric
+        record_km_inbound_event("memory", event.type.value)
+
         try:
             from aragora.knowledge.mound import KnowledgeMound
             from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
@@ -1045,6 +1070,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"KM queried, pre-warming memory cache: query='{query[:50]}...'")
 
+        # Record KM outbound metric
+        record_km_outbound_event("memory", event.type.value)
+
         try:
             from aragora.memory import get_continuum_memory
 
@@ -1068,6 +1096,9 @@ class CrossSubscriberManager:
         cruxes = data.get("cruxes", [])
 
         logger.debug(f"Belief network converged: {beliefs_count} beliefs, {len(cruxes)} cruxes")
+
+        # Record KM inbound metric
+        record_km_inbound_event("belief", event.type.value)
 
         try:
             from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
@@ -1112,6 +1143,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Initializing belief priors from KM for debate {debate_id}")
 
+        # Record KM outbound metric
+        record_km_outbound_event("belief", event.type.value)
+
         try:
             from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
@@ -1153,6 +1187,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Storing RLM compression pattern: ratio={compression_ratio:.2f}, value={value_score:.2f}")
 
+        # Record KM inbound metric
+        record_km_inbound_event("rlm", event.type.value)
+
         try:
             from aragora.knowledge.mound.adapters.rlm_adapter import RlmAdapter
 
@@ -1184,6 +1221,9 @@ class CrossSubscriberManager:
             return
 
         logger.debug(f"Updating RLM priorities based on KM query: {results_count} results")
+
+        # Record KM outbound metric
+        record_km_outbound_event("rlm", event.type.value)
 
         try:
             from aragora.rlm.compressor import get_compressor
@@ -1219,6 +1259,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Storing agent expertise: {agent_name} -> {new_elo} (Δ{delta:+.0f}) in {domain}")
 
+        # Record KM inbound metric
+        record_km_inbound_event("ranking", event.type.value)
+
         try:
             from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
 
@@ -1250,6 +1293,9 @@ class CrossSubscriberManager:
             return
 
         logger.debug(f"Querying KM for domain experts for debate {debate_id}")
+
+        # Record KM outbound metric
+        record_km_outbound_event("team_selection", event.type.value)
 
         try:
             from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
@@ -1284,6 +1330,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Storing insight: type={insight_type}, confidence={confidence:.2f}")
 
+        # Record KM inbound metric
+        record_km_inbound_event("insights", event.type.value)
+
         try:
             from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
@@ -1310,6 +1359,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Storing flip event: agent={agent_name}, type={flip_type}")
 
+        # Record KM inbound metric
+        record_km_inbound_event("trickster", event.type.value)
+
         try:
             from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
@@ -1335,6 +1387,9 @@ class CrossSubscriberManager:
             return
 
         logger.debug(f"Querying KM for flip history: {len(agents)} agents")
+
+        # Record KM outbound metric
+        record_km_outbound_event("trickster", event.type.value)
 
         try:
             from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
@@ -1388,6 +1443,9 @@ class CrossSubscriberManager:
 
         logger.debug(f"Knowledge stale: {node_id} - {staleness_reason}")
 
+        # Record KM outbound metric (staleness warning to debate)
+        record_km_outbound_event("debate", event.type.value)
+
         try:
             from aragora.server.stream.state_manager import get_active_debates
 
@@ -1421,6 +1479,9 @@ class CrossSubscriberManager:
             return
 
         logger.debug(f"Storing provenance chains from consensus in debate {debate_id}")
+
+        # Record KM inbound metric
+        record_km_inbound_event("provenance", event.type.value)
 
         try:
             from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
@@ -1459,6 +1520,9 @@ class CrossSubscriberManager:
             return
 
         logger.debug(f"Querying KM for verification history: claim {claim_id}")
+
+        # Record KM outbound metric
+        record_km_outbound_event("provenance", event.type.value)
 
         try:
             from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter

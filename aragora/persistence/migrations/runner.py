@@ -278,7 +278,9 @@ class MigrationRunner:
                                 "message": f"Migration {m.version} ({m.path.name}) is empty and will fail",
                             }
                         )
-                except Exception:  # noqa: BLE001 - Continue if we can't inspect
+                except (ImportError, ModuleNotFoundError, OSError) as e:
+                    # Continue if we can't load/inspect the migration module
+                    logger.warning(f"Could not inspect migration {m.version}: {e}")
                     pass
                 migration_info.append(info)
             return migration_info, warnings
@@ -428,7 +430,9 @@ class MigrationRunner:
                 line for line in lines if not line.startswith('"') and not line.startswith("'")
             ]
             return len(non_doc_lines) == 0 or all(line == "pass" for line in non_doc_lines)
-        except Exception:  # noqa: BLE001 - Inspection failures mean non-empty
+        except (OSError, TypeError) as e:
+            # Inspection failures (e.g., source file not found, built-in function) mean non-empty
+            logger.warning(f"Could not inspect function source: {e}")
             return False
 
     def migrate_all(self, dry_run: bool = False) -> dict[str, dict]:

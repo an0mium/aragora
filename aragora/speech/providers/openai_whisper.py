@@ -53,7 +53,10 @@ class OpenAIWhisperProvider(STTProvider):
         try:
             self._get_client()
             return True
-        except Exception:  # noqa: BLE001 - API availability check
+        except (ImportError, ValueError, RuntimeError) as e:
+            import logging
+
+            logging.getLogger(__name__).warning(f"OpenAI Whisper not available: {e}")
             return False
 
     async def transcribe(

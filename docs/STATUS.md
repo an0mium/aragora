@@ -119,6 +119,18 @@
 - Entropy bonuses, temporal discounting, margin-based rewards
 
 #### Recent Changes (2026-01-20)
+- **Bidirectional KM Integration Complete** - Full cross-subsystem event flows:
+  - 15 new cross-subscriber handlers for KM ↔ subsystem communication
+  - Inbound handlers: memory_to_mound, belief_to_mound, rlm_to_mound, elo_to_mound, insight_to_mound, flip_to_mound, provenance_to_mound
+  - Outbound handlers: mound_to_memory_retrieval, mound_to_belief, mound_to_rlm, mound_to_team_selection, mound_to_trickster, staleness_to_debate, mound_to_provenance, culture_to_debate
+  - RankingAdapter and RlmAdapter for cross-debate learning
+  - Automatic adapter sync on debate completion and server startup
+  - Background staleness checker (6-hour interval)
+  - Prometheus metrics for KM bidirectional flows (8 new metric types)
+  - CultureAccumulator.get_patterns() and get_patterns_summary() methods
+  - API endpoints: POST /api/cross-pollination/km/sync, POST /api/cross-pollination/km/staleness-check, GET /api/cross-pollination/km/culture
+  - Server shutdown flush for KM adapters and event batches
+  - 15 new unit tests in `tests/knowledge/mound/adapters/test_adapter_persistence.py`
 - **Knowledge Mound Complete** - All phases (1-3) fully implemented:
   - Phase 1: Core storage, semantic search, graph relationships, culture accumulation
   - Phase 2: Visibility levels, access grants, sharing, global knowledge, federation

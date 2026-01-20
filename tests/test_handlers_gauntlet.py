@@ -30,7 +30,7 @@ _rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_li
 
 def run_async(coro):
     """Helper to run async handler methods synchronously in tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def mock_handler_with_query(path: str, query_params: dict = None) -> Mock:

@@ -386,6 +386,12 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     return result
                 except Exception:  # noqa: BLE001 - Re-raised after recording span attribute
                     span.set_attribute("success", False)
+                    logger.warning(
+                        "Agent %s call failed during %s operation",
+                        getattr(agent, "name", str(agent)),
+                        operation,
+                        exc_info=True,
+                    )
                     raise
 
         def sync_wrapper(self: Any, agent: Any, *args: Any, **kwargs: Any) -> Any:
@@ -403,6 +409,12 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
                     return result
                 except Exception:  # noqa: BLE001 - Re-raised after recording span attribute
                     span.set_attribute("success", False)
+                    logger.warning(
+                        "Agent %s call failed during %s operation",
+                        getattr(agent, "name", str(agent)),
+                        operation,
+                        exc_info=True,
+                    )
                     raise
 
         if asyncio.iscoroutinefunction(func):

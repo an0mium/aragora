@@ -268,8 +268,11 @@ class TrainingHandler(BaseHandler):
 
             return json_response(response_data)
 
-        except Exception as e:
-            logger.error("training_sft_export_failed error=%s", e)
+        except (ValueError, TypeError) as e:
+            logger.warning("training_sft_export_failed invalid_params error=%s", e)
+            return error_response(safe_error_message(e, "SFT export"), 400)
+        except (AttributeError, RuntimeError) as e:
+            logger.exception("training_sft_export_failed error=%s", e)
             return error_response(safe_error_message(e, "SFT export"), 500)
 
     @require_auth
@@ -346,8 +349,11 @@ class TrainingHandler(BaseHandler):
 
             return json_response(response_data)
 
-        except Exception as e:
-            logger.error("training_dpo_export_failed error=%s", e)
+        except (ValueError, TypeError) as e:
+            logger.warning("training_dpo_export_failed invalid_params error=%s", e)
+            return error_response(safe_error_message(e, "DPO export"), 400)
+        except (AttributeError, RuntimeError) as e:
+            logger.exception("training_dpo_export_failed error=%s", e)
             return error_response(safe_error_message(e, "DPO export"), 500)
 
     @require_auth
@@ -436,8 +442,11 @@ class TrainingHandler(BaseHandler):
 
             return json_response(response_data)
 
-        except Exception as e:
-            logger.error("training_gauntlet_export_failed error=%s", e)
+        except (ValueError, TypeError) as e:
+            logger.warning("training_gauntlet_export_failed invalid_params error=%s", e)
+            return error_response(safe_error_message(e, "Gauntlet export"), 400)
+        except (AttributeError, RuntimeError) as e:
+            logger.exception("training_gauntlet_export_failed error=%s", e)
             return error_response(safe_error_message(e, "Gauntlet export"), 500)
 
     @rate_limit(rpm=30, limiter_name="training_stats")
@@ -643,8 +652,11 @@ class TrainingHandler(BaseHandler):
                 "offset": offset,
             })
 
-        except Exception as e:
-            logger.error(f"Failed to list training jobs: {e}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to list training jobs (invalid params): {e}")
+            return error_response(safe_error_message(e, "list training jobs"), 400)
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to list training jobs: {e}")
             return error_response(safe_error_message(e, "list training jobs"), 500)
 
     def _get_job(
@@ -666,8 +678,11 @@ class TrainingHandler(BaseHandler):
             return json_response(status)
         except ValueError as e:
             return error_response(str(e), 404)
-        except Exception as e:
-            logger.error(f"Failed to get job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to get job {job_id}: {e}")
+            return error_response(safe_error_message(e, "get training job"), 500)
+        except RuntimeError as e:
+            logger.exception(f"Failed to get job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "get training job"), 500)
 
     def _cancel_job(
@@ -687,8 +702,11 @@ class TrainingHandler(BaseHandler):
             return json_response({"success": True, "job_id": job_id, "status": "cancelled"})
         except ValueError as e:
             return error_response(str(e), 404)
-        except Exception as e:
-            logger.error(f"Failed to cancel job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to cancel job {job_id}: {e}")
+            return error_response(safe_error_message(e, "cancel training job"), 500)
+        except RuntimeError as e:
+            logger.exception(f"Failed to cancel job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "cancel training job"), 500)
 
     @require_auth
@@ -716,8 +734,11 @@ class TrainingHandler(BaseHandler):
             })
         except ValueError as e:
             return error_response(str(e), 404)
-        except Exception as e:
-            logger.error(f"Failed to export data for job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to export data for job {job_id}: {e}")
+            return error_response(safe_error_message(e, "export training data"), 500)
+        except (OSError, IOError) as e:
+            logger.exception(f"Failed to export data for job {job_id} (I/O error): {e}")
             return error_response(safe_error_message(e, "export training data"), 500)
 
     @require_auth
@@ -746,8 +767,11 @@ class TrainingHandler(BaseHandler):
             })
         except ValueError as e:
             return error_response(str(e), 400)
-        except Exception as e:
-            logger.error(f"Failed to start training for job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to start training for job {job_id}: {e}")
+            return error_response(safe_error_message(e, "start training"), 500)
+        except RuntimeError as e:
+            logger.exception(f"Failed to start training for job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "start training"), 500)
 
     @require_auth
@@ -791,8 +815,11 @@ class TrainingHandler(BaseHandler):
             })
         except ValueError as e:
             return error_response(str(e), 404)
-        except Exception as e:
-            logger.error(f"Failed to complete job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to complete job {job_id}: {e}")
+            return error_response(safe_error_message(e, "complete training job"), 500)
+        except RuntimeError as e:
+            logger.exception(f"Failed to complete job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "complete training job"), 500)
 
     def _get_job_metrics(
@@ -823,9 +850,12 @@ class TrainingHandler(BaseHandler):
             }
 
             return json_response(metrics)
-        except Exception as e:
-            logger.error(f"Failed to get metrics for job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to get metrics for job {job_id}: {e}")
             return error_response(safe_error_message(e, "get training metrics"), 500)
+        except ValueError as e:
+            logger.warning(f"Failed to get metrics for job {job_id} (invalid value): {e}")
+            return error_response(safe_error_message(e, "get training metrics"), 400)
 
     def _get_job_artifacts(
         self,
@@ -864,6 +894,9 @@ class TrainingHandler(BaseHandler):
                     })
 
             return json_response(artifacts)
-        except Exception as e:
-            logger.error(f"Failed to get artifacts for job {job_id}: {e}")
+        except (KeyError, AttributeError) as e:
+            logger.exception(f"Failed to get artifacts for job {job_id}: {e}")
+            return error_response(safe_error_message(e, "get training artifacts"), 500)
+        except (OSError, IOError) as e:
+            logger.exception(f"Failed to get artifacts for job {job_id} (I/O error): {e}")
             return error_response(safe_error_message(e, "get training artifacts"), 500)

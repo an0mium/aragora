@@ -740,7 +740,7 @@ class TestAuditActionDecorator:
             await asyncio.sleep(0.05)
             return "done"
 
-        asyncio.get_event_loop().run_until_complete(slow_func())
+        asyncio.run(slow_func())
 
         events = memory_backend.query()
         elapsed = events[0].details.get("elapsed_ms", 0)

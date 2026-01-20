@@ -538,6 +538,108 @@ class CultureAccumulator:
 
         return patterns
 
+    def get_patterns(
+        self,
+        workspace_id: str,
+        pattern_type: Optional[CulturePatternType] = None,
+        min_confidence: float = 0.0,
+        min_observations: int = 0,
+    ) -> List[CulturePattern]:
+        """
+        Get accumulated patterns for a workspace.
+
+        Args:
+            workspace_id: Workspace to get patterns for
+            pattern_type: Optional filter by pattern type
+            min_confidence: Minimum confidence threshold (0.0-1.0)
+            min_observations: Minimum observation count
+
+        Returns:
+            List of matching CulturePattern objects
+        """
+        workspace_patterns = self._patterns.get(workspace_id, {})
+
+        if not workspace_patterns:
+            return []
+
+        patterns: List[CulturePattern] = []
+
+        if pattern_type is not None:
+            # Get patterns of specific type
+            type_patterns = workspace_patterns.get(pattern_type, {})
+            patterns = list(type_patterns.values())
+        else:
+            # Get all patterns
+            for type_patterns in workspace_patterns.values():
+                patterns.extend(type_patterns.values())
+
+        # Apply filters
+        if min_confidence > 0.0:
+            patterns = [p for p in patterns if p.confidence >= min_confidence]
+
+        if min_observations > 0:
+            patterns = [p for p in patterns if p.observation_count >= min_observations]
+
+        # Sort by confidence (descending) then observation count
+        patterns.sort(key=lambda p: (p.confidence, p.observation_count), reverse=True)
+
+        return patterns
+
+    def get_patterns_summary(
+        self,
+        workspace_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Get a summary of accumulated patterns for a workspace.
+
+        Args:
+            workspace_id: Workspace to summarize
+
+        Returns:
+            Dictionary with pattern counts, types, and top patterns
+        """
+        workspace_patterns = self._patterns.get(workspace_id, {})
+
+        if not workspace_patterns:
+            return {
+                "workspace_id": workspace_id,
+                "total_patterns": 0,
+                "patterns_by_type": {},
+                "total_observations": 0,
+                "top_patterns": [],
+            }
+
+        patterns_by_type: Dict[str, int] = {}
+        total_observations = 0
+        all_patterns: List[CulturePattern] = []
+
+        for pattern_type, type_patterns in workspace_patterns.items():
+            patterns_by_type[pattern_type.value] = len(type_patterns)
+            for pattern in type_patterns.values():
+                total_observations += pattern.observation_count
+                all_patterns.append(pattern)
+
+        # Get top patterns by confidence
+        all_patterns.sort(key=lambda p: (p.confidence, p.observation_count), reverse=True)
+        top_patterns = [
+            {
+                "id": p.id,
+                "type": p.pattern_type.value,
+                "key": p.pattern_key,
+                "confidence": round(p.confidence, 3),
+                "observations": p.observation_count,
+            }
+            for p in all_patterns[:10]
+        ]
+
+        return {
+            "workspace_id": workspace_id,
+            "total_patterns": len(all_patterns),
+            "patterns_by_type": patterns_by_type,
+            "total_observations": total_observations,
+            "top_patterns": top_patterns,
+        }
+
     async def get_profile(self, workspace_id: str) -> CultureProfile:
         """
         Get aggregated culture profile for a workspace.

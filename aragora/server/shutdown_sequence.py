@@ -214,7 +214,60 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         timeout=5.0,
     ))
 
-    # Phase 4: Shutdown OpenTelemetry tracer
+    # Phase 4: Flush KM adapters and event batches
+    async def flush_km_adapters():
+        try:
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+
+            # Flush event batches first
+            flushed = manager.flush_all_batches()
+            if flushed > 0:
+                logger.info(f"Flushed {flushed} batched events")
+
+            # Sync RankingAdapter state
+            try:
+                from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
+
+                ranking_adapter = getattr(manager, "_ranking_adapter", None)
+                if ranking_adapter is not None:
+                    stats = ranking_adapter.get_stats()
+                    if stats.get("total_expertise_records", 0) > 0:
+                        logger.debug(
+                            f"RankingAdapter has {stats['total_expertise_records']} expertise records"
+                        )
+            except ImportError:
+                pass
+
+            # Sync RlmAdapter state
+            try:
+                from aragora.knowledge.mound.adapters.rlm_adapter import RlmAdapter
+
+                rlm_adapter = getattr(manager, "_rlm_adapter", None)
+                if rlm_adapter is not None:
+                    stats = rlm_adapter.get_stats()
+                    if stats.get("total_patterns", 0) > 0:
+                        logger.debug(
+                            f"RlmAdapter has {stats['total_patterns']} compression patterns"
+                        )
+            except ImportError:
+                pass
+
+            logger.info("KM adapters and event batches flushed")
+
+        except ImportError:
+            pass  # Cross-subscriber module not available
+        except Exception as e:
+            logger.warning(f"KM adapter flush failed: {e}")
+
+    sequence.add_phase(ShutdownPhase(
+        name="Flush KM adapters",
+        execute=flush_km_adapters,
+        timeout=5.0,
+    ))
+
+    # Phase 5: Shutdown OpenTelemetry tracer
     async def shutdown_tracing():
         from aragora.observability.tracing import shutdown as shutdown_otel
         shutdown_otel()
