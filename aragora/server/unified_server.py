@@ -61,6 +61,8 @@ from aragora.server.validation import safe_query_float, safe_query_int
 from aragora.server.agent_selection import auto_select_agents
 from aragora.server.request_lifecycle import create_lifecycle_manager
 from aragora.server.response_utils import ResponseHelpersMixin
+from aragora.server.shutdown_sequence import create_server_shutdown_sequence
+from aragora.server.static_file_handler import StaticFileHandler
 from aragora.server.upload_rate_limit import get_upload_limiter
 
 # DoS protection limits
@@ -562,25 +564,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def do_DELETE(self) -> None:
         """Handle DELETE requests."""
-        self._rate_limit_result = None  # Reset per-request state
-        start_time = time.time()
-        status_code = 200  # Default, updated by handlers
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        try:
-            self._do_DELETE_internal(path)
-        except Exception as e:
-            # Top-level safety net for DELETE handlers
-            status_code = 500
-            logger.exception(f"[request] Unhandled exception in DELETE {path}: {e}")
-            try:
-                self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
-                logger.debug(f"Could not send error response (already sent?): {send_err}")
-        finally:
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_request("DELETE", path, status_code, duration_ms)
+        lifecycle = create_lifecycle_manager(self)
+        lifecycle.handle_request("DELETE", self._do_DELETE_internal)
 
     def _do_DELETE_internal(self, path: str) -> None:
         """Internal DELETE handler with actual routing logic."""
@@ -593,24 +578,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def do_PATCH(self) -> None:
         """Handle PATCH requests."""
-        start_time = time.time()
-        status_code = 200  # Default, updated by handlers
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        try:
-            self._do_PATCH_internal(path)
-        except Exception as e:
-            # Top-level safety net for PATCH handlers
-            status_code = 500
-            logger.exception(f"[request] Unhandled exception in PATCH {path}: {e}")
-            try:
-                self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
-                logger.debug(f"Could not send error response (already sent?): {send_err}")
-        finally:
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_request("PATCH", path, status_code, duration_ms)
+        lifecycle = create_lifecycle_manager(self)
+        lifecycle.handle_request("PATCH", self._do_PATCH_internal)
 
     def _do_PATCH_internal(self, path: str) -> None:
         """Internal PATCH handler with actual routing logic."""
@@ -623,24 +592,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def do_PUT(self) -> None:
         """Handle PUT requests."""
-        start_time = time.time()
-        status_code = 200  # Default, updated by handlers
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        try:
-            self._do_PUT_internal(path)
-        except Exception as e:
-            # Top-level safety net for PUT handlers
-            status_code = 500
-            logger.exception(f"[request] Unhandled exception in PUT {path}: {e}")
-            try:
-                self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
-                logger.debug(f"Could not send error response (already sent?): {send_err}")
-        finally:
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_request("PUT", path, status_code, duration_ms)
+        lifecycle = create_lifecycle_manager(self)
+        lifecycle.handle_request("PUT", self._do_PUT_internal)
 
     def _do_PUT_internal(self, path: str) -> None:
         """Internal PUT handler with actual routing logic."""
@@ -652,72 +605,42 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         self.send_error(404, f"Unknown PUT endpoint: {path}")
 
     def _serve_file(self, filename: str) -> None:
-        """Serve a static file with path traversal protection."""
-        if not self.static_dir:
-            self.send_error(404, "Static directory not configured")
+        """Serve a static file with path traversal protection.
+
+        Delegates to StaticFileHandler for implementation.
+        """
+        file_handler = StaticFileHandler(static_dir=self.static_dir)
+
+        # Validate path first for better error messages
+        is_valid, filepath, error = file_handler.validate_path(filename)
+        if not is_valid:
+            if error == "Access denied":
+                self.send_error(403, error)
+            elif error == "Symlinks not allowed":
+                self.send_error(403, error)
+            elif error == "Invalid path":
+                self.send_error(400, error)
+            else:
+                self.send_error(404, error)
             return
 
-        # Security: Resolve paths and prevent directory traversal
-        try:
-            filepath = (self.static_dir / filename).resolve()
-            static_dir_resolved = self.static_dir.resolve()
-
-            # Ensure resolved path is within static directory
-            if not str(filepath).startswith(str(static_dir_resolved)):
-                self.send_error(403, "Access denied")
-                return
-
-            # Security: Reject symlinks to prevent escape attacks
-            # Check the original path (before resolve) for symlink
-            original_path = self.static_dir / filename
-            if original_path.is_symlink():
-                logger.warning(f"Symlink access denied: {filename}")
-                self.send_error(403, "Symlinks not allowed")
-                return
-        except (ValueError, OSError):
-            self.send_error(400, "Invalid path")
+        # Serve the file
+        result = file_handler.serve_file(filename)
+        if result is None:
+            self.send_error(404, "File not found")
             return
 
-        if not filepath.exists():
-            # Try index.html for SPA routing
-            filepath = self.static_dir / "index.html"
-            if not filepath.exists():
-                self.send_error(404, "File not found")
-                return
-
-        # Determine content type
-        content_type = "text/html"
-        if filename.endswith(".css"):
-            content_type = "text/css"
-        elif filename.endswith(".js"):
-            content_type = "application/javascript"
-        elif filename.endswith(".json"):
-            content_type = "application/json"
-        elif filename.endswith(".ico"):
-            content_type = "image/x-icon"
-        elif filename.endswith(".svg"):
-            content_type = "image/svg+xml"
-        elif filename.endswith(".png"):
-            content_type = "image/png"
+        status, headers, content = result
 
         try:
-            content = filepath.read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(content)))
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
             self._add_cors_headers()
             self._add_security_headers()
             self.end_headers()
             self.wfile.write(content)
-        except FileNotFoundError:
-            self.send_error(404, "File not found")
-        except PermissionError:
-            self.send_error(403, "Permission denied")
-        except (IOError, OSError) as e:
-            logger.error(f"File read error: {e}")
-            self.send_error(500, "Failed to read file")
         except (BrokenPipeError, ConnectionResetError) as e:
-            # Client disconnected before response could be sent
             logger.debug(f"Client disconnected during file serve: {type(e).__name__}")
 
     # Note: _send_json, _add_cors_headers, _add_security_headers, _add_rate_limit_headers,
@@ -983,181 +906,13 @@ class UnifiedServer:
     async def graceful_shutdown(self, timeout: float = 30.0) -> None:
         """Gracefully shut down the server.
 
-        Steps:
-        1. Stop accepting new debates
-        2. Wait for in-flight debates to complete (with timeout)
-        3. Persist circuit breaker states
-        4. Stop background tasks
-        5. Close WebSocket connections
-        6. Close shared HTTP connector
-        7. Close database connections (connection pool cleanup)
+        Delegates to ShutdownSequence for structured, phase-based shutdown.
 
         Args:
-            timeout: Maximum seconds to wait for in-flight debates
+            timeout: Maximum seconds to wait for all shutdown phases
         """
-        logger.info("Starting graceful shutdown...")
-        shutdown_start = time.time()
-
-        # 1. Stop accepting new debates by setting flag
-        # This is checked by debate creation endpoints
-        self._shutting_down = True
-
-        # 2. Wait for in-flight debates to complete
-        logger.info("Waiting for in-flight debates to complete...")
-        active_debates = get_active_debates()
-        if active_debates:
-            in_progress = [
-                d_id for d_id, d in active_debates.items() if d.get("status") == "in_progress"
-            ]
-            if in_progress:
-                logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
-                wait_start = time.time()
-                while time.time() - wait_start < timeout:
-                    # Check if debates are still running
-                    still_running = sum(
-                        1
-                        for d_id in in_progress
-                        if d_id in active_debates
-                        and active_debates.get(d_id, {}).get("status") == "in_progress"
-                    )
-                    if still_running == 0:
-                        logger.info("All in-flight debates completed")
-                        break
-                    await asyncio.sleep(1)
-                else:
-                    logger.warning(
-                        f"Shutdown timeout reached with {still_running} debate(s) still running"
-                    )
-
-        # 3. Persist circuit breaker states
-        try:
-            from aragora.resilience import persist_all_circuit_breakers
-
-            count = persist_all_circuit_breakers()
-            if count > 0:
-                logger.info(f"Persisted {count} circuit breaker state(s)")
-        except (ImportError, OSError, RuntimeError) as e:
-            logger.warning(f"Failed to persist circuit breaker states: {e}")
-
-        # 3.5 Shutdown OpenTelemetry tracer (flushes pending spans)
-        try:
-            from aragora.observability.tracing import shutdown as shutdown_tracing
-
-            shutdown_tracing()
-            logger.info("OpenTelemetry tracer shutdown complete")
-        except (ImportError, RuntimeError) as e:
-            logger.debug(f"Tracer shutdown: {e}")
-
-        # 4. Stop background tasks
-        try:
-            from aragora.server.background import get_background_manager
-
-            background_mgr = get_background_manager()
-            background_mgr.stop()
-            logger.info("Background tasks stopped")
-        except (ImportError, RuntimeError, AttributeError) as e:
-            logger.debug(f"Background task shutdown: {e}")
-
-        # 4.5. Stop pulse scheduler if running
-        try:
-            from aragora.server.handlers.pulse import get_pulse_scheduler
-
-            scheduler = get_pulse_scheduler()
-            if scheduler and scheduler.state.value != "stopped":
-                await scheduler.stop(graceful=True)
-                logger.info("Pulse scheduler stopped")
-        except (ImportError, RuntimeError, AttributeError) as e:
-            logger.debug(f"Pulse scheduler shutdown: {e}")
-
-        # 4.6. Stop state cleanup task
-        try:
-            from aragora.server.stream.state_manager import stop_cleanup_task
-
-            stop_cleanup_task()
-            logger.debug("State cleanup task stopped")
-        except (ImportError, RuntimeError) as e:
-            logger.debug(f"State cleanup shutdown: {e}")
-
-        # 4.7. Stop stuck debate watchdog
-        if hasattr(self, "_watchdog_task") and self._watchdog_task:
-            try:
-                self._watchdog_task.cancel()
-                try:
-                    await asyncio.wait_for(self._watchdog_task, timeout=2.0)
-                except asyncio.TimeoutError:
-                    pass
-                logger.debug("Stuck debate watchdog stopped")
-            except (asyncio.CancelledError, RuntimeError) as e:
-                logger.debug(f"Watchdog shutdown: {e}")
-
-        # 4.8. Shutdown Control Plane coordinator
-        if hasattr(self, "_control_plane_coordinator") and self._control_plane_coordinator:
-            try:
-                await self._control_plane_coordinator.shutdown()
-                logger.info("Control Plane coordinator shutdown complete")
-            except (RuntimeError, asyncio.CancelledError) as e:
-                logger.debug(f"Control Plane coordinator shutdown: {e}")
-
-        # 5. Close WebSocket connections
-        if hasattr(self, "stream_server") and self.stream_server:
-            try:
-                await self.stream_server.graceful_shutdown()
-                logger.info("Debate stream WebSocket connections closed")
-            except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                logger.warning(f"Debate stream WebSocket shutdown error: {e}")
-
-        # 5.5. Close control plane WebSocket connections
-        if hasattr(self, "control_plane_stream") and self.control_plane_stream:
-            try:
-                await self.control_plane_stream.stop()
-                logger.info("Control plane WebSocket connections closed")
-            except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                logger.warning(f"Control plane WebSocket shutdown error: {e}")
-
-        # 5.6. Close nomic loop WebSocket connections
-        if hasattr(self, "nomic_loop_stream") and self.nomic_loop_stream:
-            try:
-                await self.nomic_loop_stream.stop()
-                logger.info("Nomic loop WebSocket connections closed")
-            except (OSError, RuntimeError, asyncio.CancelledError) as e:
-                logger.warning(f"Nomic loop WebSocket shutdown error: {e}")
-
-        # 6. Close shared HTTP connector (prevents connection leaks)
-        try:
-            from aragora.agents.api_agents.common import close_shared_connector
-
-            await close_shared_connector()
-            logger.info("Shared HTTP connector closed")
-        except (ImportError, OSError, RuntimeError) as e:
-            logger.debug(f"Connector shutdown: {e}")
-
-        # 6.5. Close Redis connection pool
-        try:
-            from aragora.server.redis_config import close_redis_pool
-
-            close_redis_pool()
-            logger.debug("Redis connection pool closed")
-        except (ImportError, RuntimeError) as e:
-            logger.debug(f"Redis shutdown: {e}")
-
-        # 6.6. Stop auth cleanup thread
-        try:
-            auth_config.stop_cleanup_thread()
-            logger.debug("Auth cleanup thread stopped")
-        except (RuntimeError, AttributeError) as e:
-            logger.debug(f"Auth cleanup shutdown: {e}")
-
-        # 7. Close database connections (connection pool cleanup)
-        try:
-            from aragora.storage.schema import DatabaseManager
-
-            DatabaseManager.clear_instances()
-            logger.info("Database connections closed")
-        except (ImportError, sqlite3.Error) as e:
-            logger.debug(f"Database shutdown: {e}")
-
-        elapsed = time.time() - shutdown_start
-        logger.info(f"Graceful shutdown completed in {elapsed:.1f}s")
+        sequence = create_server_shutdown_sequence(self)
+        await sequence.execute_all(overall_timeout=timeout)
 
     @property
     def is_shutting_down(self) -> bool:

@@ -156,7 +156,7 @@ def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:
     Returns:
         Configured RequestLifecycleManager
     """
-    from aragora.server.metrics import record_http_request
+    from aragora.server.prometheus import record_http_request
 
     return RequestLifecycleManager(
         handler=handler,
