@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (09:00 UTC)*
+*Last updated: January 20, 2026 (17:30 UTC)*
 
 ## Current Release
 
@@ -9,7 +9,8 @@
 **Production Ready** - Aragora 2.0.3 completes feature cross-pollination, connecting isolated subsystems for mutual benefit.
 
 #### Key Highlights
-- **36,900+ tests** collected and passing (+2,400 new tests)
+- **37,100+ tests** collected and passing (+2,600 new tests)
+- **1,002 test files** across all modules
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
 - **Lines of Code**: 443,000+ LOC (+3,000)
@@ -91,6 +92,18 @@
 - `aragora/rlm/training/buffer.py` - Experience replay storage with prioritization
 - `aragora/rlm/training/reward.py` - Reward signal computation from debate outcomes
 - Entropy bonuses, temporal discounting, margin-based rewards
+
+#### Recent Changes (2026-01-20)
+- **New Test Suites** - 5 new test modules with 260+ tests:
+  - `tests/runtime/test_autotune.py` - 58 tests for budget-aware debate autotuning
+  - `tests/scheduler/test_audit_scheduler.py` - 67 tests for cron/webhook scheduling
+  - `tests/evaluation/test_llm_judge.py` - 38 tests for LLM-as-judge evaluation
+  - `tests/debate/phases/test_context_init.py` - context initialization tests
+  - Various test improvements across existing modules
+- **Handler Registry** - Fully extracted from unified_server.py (1,191 LOC module)
+  - O(1) exact path lookup via route index
+  - LRU cached prefix matching for dynamic routes
+  - 60+ handler classes with validation
 
 #### Recent Changes (2026-01-19)
 - **Cross-Functional Integration** - Wired 7 cross-functional features:
