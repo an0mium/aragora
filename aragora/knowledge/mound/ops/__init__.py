@@ -8,6 +8,8 @@ This module provides operational mixins for the KnowledgeMound facade:
 - GlobalKnowledgeMixin: Global/public knowledge operations
 - KnowledgeSharingMixin: Cross-workspace knowledge sharing
 - KnowledgeFederationMixin: Multi-region knowledge synchronization
+- DedupOperationsMixin: Similarity-based deduplication
+- PruningOperationsMixin: Automatic and manual pruning
 """
 
 from aragora.knowledge.mound.ops.staleness import StalenessOperationsMixin
@@ -22,6 +24,21 @@ from aragora.knowledge.mound.ops.federation import (
     FederatedRegion,
     SyncResult,
 )
+from aragora.knowledge.mound.ops.dedup import (
+    DedupOperationsMixin,
+    DuplicateCluster,
+    DuplicateMatch,
+    DedupReport,
+    MergeResult,
+)
+from aragora.knowledge.mound.ops.pruning import (
+    PruningOperationsMixin,
+    PruningPolicy,
+    PrunableItem,
+    PruneResult,
+    PruneHistory,
+    PruningAction,
+)
 
 __all__ = [
     "StalenessOperationsMixin",
@@ -35,4 +52,17 @@ __all__ = [
     "FederatedRegion",
     "SyncResult",
     "SYSTEM_WORKSPACE_ID",
+    # Dedup
+    "DedupOperationsMixin",
+    "DuplicateCluster",
+    "DuplicateMatch",
+    "DedupReport",
+    "MergeResult",
+    # Pruning
+    "PruningOperationsMixin",
+    "PruningPolicy",
+    "PrunableItem",
+    "PruneResult",
+    "PruneHistory",
+    "PruningAction",
 ]
