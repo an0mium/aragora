@@ -41,6 +41,7 @@ from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
     ChatChannel,
+    ChatEvidence,
     ChatMessage,
     ChatUser,
     FileAttachment,
@@ -648,3 +649,169 @@ class DiscordConnector(ChatPlatformConnector):
             )
 
         return event
+
+    # ==========================================================================
+    # Evidence Collection
+    # ==========================================================================
+
+    async def get_channel_history(
+        self,
+        channel_id: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[ChatMessage]:
+        """
+        Get message history from a Discord channel.
+
+        Uses Discord's GET /channels/{channel.id}/messages API.
+
+        Args:
+            channel_id: Discord channel ID
+            limit: Maximum number of messages (max 100 per request)
+            oldest: Get messages after this message ID
+            latest: Get messages before this message ID
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatMessage objects
+        """
+        if not HTTPX_AVAILABLE:
+            logger.error("httpx not available for Discord API")
+            return []
+
+        try:
+            params: dict[str, Any] = {
+                "limit": min(limit, 100),  # Discord API max per request
+            }
+
+            if oldest:
+                params["after"] = oldest
+            if latest:
+                params["before"] = latest
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.api_base}/channels/{channel_id}/messages",
+                    headers=self._get_headers(),
+                    params=params,
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Discord API error: {response.status_code}")
+                    return []
+
+                data = response.json()
+                messages: list[ChatMessage] = []
+
+                channel = ChatChannel(
+                    id=channel_id,
+                    platform=self.platform_name,
+                )
+
+                for msg in data:
+                    # Skip bot messages if configured
+                    if kwargs.get("skip_bots", True) and msg.get("author", {}).get("bot"):
+                        continue
+
+                    author_data = msg.get("author", {})
+                    user = ChatUser(
+                        id=author_data.get("id", ""),
+                        platform=self.platform_name,
+                        username=author_data.get("username"),
+                        display_name=author_data.get("global_name"),
+                        avatar_url=f"https://cdn.discordapp.com/avatars/{author_data.get('id')}/{author_data.get('avatar')}.png"
+                        if author_data.get("avatar")
+                        else None,
+                        is_bot=author_data.get("bot", False),
+                    )
+
+                    # Parse timestamp
+                    timestamp_str = msg.get("timestamp", "")
+                    try:
+                        timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    except (ValueError, AttributeError):
+                        timestamp = datetime.utcnow()
+
+                    chat_msg = ChatMessage(
+                        id=msg.get("id", ""),
+                        platform=self.platform_name,
+                        channel=channel,
+                        author=user,
+                        content=msg.get("content", ""),
+                        thread_id=msg.get("message_reference", {}).get("message_id"),
+                        timestamp=timestamp,
+                        metadata={
+                            "reactions": msg.get("reactions", []),
+                            "attachments": msg.get("attachments", []),
+                            "embeds": msg.get("embeds", []),
+                        },
+                    )
+                    messages.append(chat_msg)
+
+                return messages
+
+        except Exception as e:
+            logger.error(f"Error getting Discord channel history: {e}")
+            return []
+
+    async def collect_evidence(
+        self,
+        channel_id: str,
+        query: Optional[str] = None,
+        limit: int = 100,
+        include_threads: bool = True,
+        min_relevance: float = 0.0,
+        **kwargs: Any,
+    ) -> list[ChatEvidence]:
+        """
+        Collect chat messages as evidence for debates.
+
+        Retrieves messages from a Discord channel, filters by relevance,
+        and converts to ChatEvidence format.
+
+        Args:
+            channel_id: Discord channel ID
+            query: Optional search query to filter messages
+            limit: Maximum number of messages
+            include_threads: Whether to include thread messages
+            min_relevance: Minimum relevance score for inclusion
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatEvidence objects
+        """
+        messages = await self.get_channel_history(
+            channel_id=channel_id,
+            limit=limit,
+            **kwargs,
+        )
+
+        if not messages:
+            return []
+
+        evidence_list: list[ChatEvidence] = []
+
+        for msg in messages:
+            relevance = self._compute_message_relevance(msg, query)
+
+            if relevance < min_relevance:
+                continue
+
+            evidence = ChatEvidence.from_message(
+                message=msg,
+                query=query,
+                relevance_score=relevance,
+            )
+
+            evidence_list.append(evidence)
+
+        # Sort by relevance
+        evidence_list.sort(key=lambda e: e.relevance_score, reverse=True)
+
+        logger.info(
+            f"Collected {len(evidence_list)} evidence items from Discord channel {channel_id}"
+        )
+
+        return evidence_list

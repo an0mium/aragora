@@ -289,3 +289,221 @@ class BotEventHandler(ABC):
     async def on_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
         """Handle errors during event processing."""
         logger.error(f"Bot error: {error}", exc_info=True, extra={"context": context})
+
+
+class DefaultBotEventHandler(BotEventHandler):
+    """Default implementation of BotEventHandler with routing logic.
+
+    Provides sensible defaults for message routing, command parsing,
+    and reaction handling that can be customized by subclasses.
+    """
+
+    def __init__(
+        self,
+        client: BaseBotClient,
+        command_prefix: str = "/",
+        debate_keywords: Optional[List[str]] = None,
+    ):
+        super().__init__(client)
+        self.command_prefix = command_prefix
+        self.debate_keywords = debate_keywords or ["debate", "discuss", "argue"]
+        self._active_debates: Dict[str, str] = {}  # channel_id -> debate_id
+        self._registry: Optional[Any] = None
+
+    def set_command_registry(self, registry: Any) -> None:
+        """Set the command registry for command execution."""
+        self._registry = registry
+
+    async def on_message(self, message: BotMessage) -> None:
+        """Route message to appropriate handler.
+
+        Routing logic:
+        1. Commands (starting with prefix) -> on_command()
+        2. Messages in active debate channels -> _route_to_debate()
+        3. All other messages -> _handle_general_message()
+        """
+        # Skip bot messages
+        if message.user.is_bot:
+            return
+
+        text = message.text.strip()
+
+        # Route commands
+        if text.startswith(self.command_prefix):
+            ctx = self._parse_command(message)
+            if ctx:
+                await self.on_command(ctx)
+                return
+
+        # Route debate messages
+        if self._is_debate_context(message):
+            await self._route_to_debate(message)
+            return
+
+        # Handle general messages
+        await self._handle_general_message(message)
+
+    async def on_reaction_added(
+        self,
+        channel_id: str,
+        message_id: str,
+        user_id: str,
+        emoji: str,
+    ) -> None:
+        """Handle reaction added to a message.
+
+        Default implementation handles debate-related reactions:
+        - thumbsup/thumbsdown for voting
+        - question mark for clarification requests
+        """
+        # Check if this is in an active debate
+        if channel_id in self._active_debates:
+            await self._handle_debate_reaction(
+                channel_id, message_id, user_id, emoji
+            )
+            return
+
+        # Log other reactions
+        logger.debug(
+            f"Reaction added: emoji={emoji} channel={channel_id} "
+            f"message={message_id} user={user_id}"
+        )
+
+    async def on_command(self, ctx: CommandContext) -> None:
+        """Execute a command through the registry.
+
+        Default implementation uses the command registry if available,
+        otherwise logs a warning.
+        """
+        if not self._registry:
+            logger.warning(
+                f"No command registry set, cannot execute: {ctx.args}"
+            )
+            return
+
+        try:
+            result = await self._registry.execute(ctx)
+            await self.client.send_result(ctx, result)
+        except Exception as e:
+            await self.on_error(e, {"command": ctx.args, "user": ctx.user_id})
+            await self.client.send_message(
+                ctx.channel_id,
+                f"Error executing command: {str(e)}",
+                thread_id=ctx.thread_id,
+            )
+
+    def _parse_command(self, message: BotMessage) -> Optional[CommandContext]:
+        """Parse a message into a CommandContext if it's a command."""
+        text = message.text.strip()
+
+        if not text.startswith(self.command_prefix):
+            return None
+
+        # Remove prefix and split
+        text = text[len(self.command_prefix) :]
+        parts = text.split()
+
+        if not parts:
+            return None
+
+        return CommandContext(
+            message=message,
+            user=message.user,
+            channel=message.channel,
+            platform=message.platform,
+            args=parts,
+            raw_args=" ".join(parts[1:]) if len(parts) > 1 else "",
+        )
+
+    def _is_debate_context(self, message: BotMessage) -> bool:
+        """Check if a message is in a debate context.
+
+        Returns True if:
+        - The channel has an active debate
+        - The message mentions debate keywords
+        """
+        # Check for active debate in channel
+        if message.channel.id in self._active_debates:
+            return True
+
+        # Check for debate keywords
+        text_lower = message.text.lower()
+        return any(keyword in text_lower for keyword in self.debate_keywords)
+
+    async def _route_to_debate(self, message: BotMessage) -> None:
+        """Route a message to the debate system.
+
+        Override this method to integrate with your debate backend.
+        """
+        debate_id = self._active_debates.get(message.channel.id)
+
+        if debate_id:
+            logger.info(
+                f"Routing message to debate {debate_id}: {message.text[:50]}..."
+            )
+            # Subclasses should override to send to debate API
+        else:
+            logger.debug(
+                f"Debate keyword detected but no active debate: {message.text[:50]}..."
+            )
+
+    async def _handle_general_message(self, message: BotMessage) -> None:
+        """Handle messages that aren't commands or debate-related.
+
+        Override this method for custom general message handling.
+        """
+        logger.debug(
+            f"General message from {message.user.username}: {message.text[:50]}..."
+        )
+
+    async def _handle_debate_reaction(
+        self,
+        channel_id: str,
+        message_id: str,
+        user_id: str,
+        emoji: str,
+    ) -> None:
+        """Handle reactions in debate contexts.
+
+        Translates emoji reactions to debate actions:
+        - +1/thumbsup -> upvote
+        - -1/thumbsdown -> downvote
+        - ? -> clarification request
+        """
+        debate_id = self._active_debates.get(channel_id)
+        if not debate_id:
+            return
+
+        # Map emoji to action
+        action_map = {
+            "+1": "upvote",
+            "thumbsup": "upvote",
+            "-1": "downvote",
+            "thumbsdown": "downvote",
+            "question": "clarify",
+            "thinking_face": "clarify",
+        }
+
+        action = action_map.get(emoji.lower().strip(":"))
+        if action:
+            logger.info(
+                f"Debate reaction: debate={debate_id} action={action} "
+                f"user={user_id} message={message_id}"
+            )
+            # Subclasses should override to send to debate API
+
+    def start_debate(self, channel_id: str, debate_id: str) -> None:
+        """Mark a channel as having an active debate."""
+        self._active_debates[channel_id] = debate_id
+        logger.info(f"Started debate {debate_id} in channel {channel_id}")
+
+    def end_debate(self, channel_id: str) -> Optional[str]:
+        """End a debate in a channel. Returns the debate ID if found."""
+        debate_id = self._active_debates.pop(channel_id, None)
+        if debate_id:
+            logger.info(f"Ended debate {debate_id} in channel {channel_id}")
+        return debate_id
+
+    def get_active_debate(self, channel_id: str) -> Optional[str]:
+        """Get the active debate ID for a channel, if any."""
+        return self._active_debates.get(channel_id)

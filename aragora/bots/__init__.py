@@ -27,6 +27,8 @@ from aragora.bots.base import (
     BotMessage,
     BotUser,
     BotChannel,
+    BotEventHandler,
+    DefaultBotEventHandler,
 )
 from aragora.bots.commands import (
     BotCommand,
@@ -51,6 +53,11 @@ def get_zoom_bot():
     from aragora.bots.zoom_bot import AragoraZoomBot, create_zoom_bot
     return AragoraZoomBot, create_zoom_bot
 
+def get_slack_bot():
+    """Get Slack bot class (requires slack-bolt)."""
+    from aragora.bots.slack_bot import AragoraSlackBot, create_slack_bot
+    return AragoraSlackBot, create_slack_bot
+
 __all__ = [
     # Base classes
     "Platform",
@@ -60,6 +67,8 @@ __all__ = [
     "BotMessage",
     "BotUser",
     "BotChannel",
+    "BotEventHandler",
+    "DefaultBotEventHandler",
     # Command framework
     "BotCommand",
     "CommandRegistry",
@@ -69,4 +78,5 @@ __all__ = [
     "get_discord_bot",
     "get_teams_bot",
     "get_zoom_bot",
+    "get_slack_bot",
 ]

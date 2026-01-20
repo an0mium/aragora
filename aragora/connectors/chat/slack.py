@@ -34,6 +34,7 @@ from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
     ChatChannel,
+    ChatEvidence,
     ChatMessage,
     ChatUser,
     FileAttachment,
@@ -834,3 +835,304 @@ class SlackConnector(ChatPlatformConnector):
             )
 
         return event
+
+    # ==========================================================================
+    # Evidence Collection
+    # ==========================================================================
+
+    async def get_channel_history(
+        self,
+        channel_id: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[ChatMessage]:
+        """
+        Get message history from a Slack channel.
+
+        Uses conversations.history API to retrieve messages.
+
+        Args:
+            channel_id: Channel ID to get history from
+            limit: Maximum number of messages (max 1000)
+            oldest: Oldest timestamp to include
+            latest: Latest timestamp to include
+            **kwargs: Additional API parameters
+
+        Returns:
+            List of ChatMessage objects
+        """
+        if not HTTPX_AVAILABLE:
+            logger.error("httpx not available for Slack API")
+            return []
+
+        try:
+            params: dict[str, Any] = {
+                "channel": channel_id,
+                "limit": min(limit, 1000),  # Slack API max
+            }
+
+            if oldest:
+                params["oldest"] = oldest
+            if latest:
+                params["latest"] = latest
+
+            # Include thread replies if requested
+            if kwargs.get("include_all_metadata", True):
+                params["include_all_metadata"] = True
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{SLACK_API_BASE}/conversations.history",
+                    headers=self._get_headers(),
+                    params=params,
+                )
+                data = response.json()
+
+                if not data.get("ok"):
+                    logger.error(f"Slack API error: {data.get('error')}")
+                    return []
+
+                messages: list[ChatMessage] = []
+                channel_info = await self.get_channel_info(channel_id)
+                channel = channel_info or ChatChannel(
+                    id=channel_id,
+                    platform=self.platform_name,
+                )
+
+                for msg in data.get("messages", []):
+                    # Skip bot messages if configured
+                    if kwargs.get("skip_bots", True) and msg.get("bot_id"):
+                        continue
+
+                    user = ChatUser(
+                        id=msg.get("user", msg.get("bot_id", "")),
+                        platform=self.platform_name,
+                        is_bot=bool(msg.get("bot_id")),
+                    )
+
+                    chat_msg = ChatMessage(
+                        id=msg.get("ts", ""),
+                        platform=self.platform_name,
+                        channel=channel,
+                        author=user,
+                        content=msg.get("text", ""),
+                        thread_id=msg.get("thread_ts"),
+                        timestamp=datetime.fromtimestamp(float(msg.get("ts", "0").split(".")[0])),
+                        metadata={
+                            "reply_count": msg.get("reply_count", 0),
+                            "reactions": msg.get("reactions", []),
+                        },
+                    )
+                    messages.append(chat_msg)
+
+                return messages
+
+        except Exception as e:
+            logger.error(f"Error getting Slack channel history: {e}")
+            return []
+
+    async def collect_evidence(
+        self,
+        channel_id: str,
+        query: Optional[str] = None,
+        limit: int = 100,
+        include_threads: bool = True,
+        min_relevance: float = 0.0,
+        **kwargs: Any,
+    ) -> list[ChatEvidence]:
+        """
+        Collect chat messages as evidence for debates.
+
+        Retrieves messages from a Slack channel, filters by relevance,
+        and converts to ChatEvidence format with provenance tracking.
+
+        Args:
+            channel_id: Slack channel ID
+            query: Optional search query to filter messages
+            limit: Maximum number of messages to retrieve
+            include_threads: Whether to include threaded replies
+            min_relevance: Minimum relevance score for inclusion (0-1)
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatEvidence objects with relevance scoring
+        """
+        # Get channel history
+        messages = await self.get_channel_history(
+            channel_id=channel_id,
+            limit=limit,
+            **kwargs,
+        )
+
+        if not messages:
+            return []
+
+        # Convert to evidence with relevance scoring
+        evidence_list: list[ChatEvidence] = []
+
+        for msg in messages:
+            # Calculate relevance
+            relevance = self._compute_message_relevance(msg, query)
+
+            # Skip low-relevance messages
+            if relevance < min_relevance:
+                continue
+
+            # Create evidence
+            evidence = ChatEvidence.from_message(
+                message=msg,
+                query=query,
+                relevance_score=relevance,
+            )
+
+            evidence_list.append(evidence)
+
+        # Sort by relevance (highest first)
+        evidence_list.sort(key=lambda e: e.relevance_score, reverse=True)
+
+        # Optionally fetch thread replies for high-relevance messages
+        if include_threads:
+            await self._enrich_with_threads(evidence_list, limit=5, **kwargs)
+
+        logger.info(
+            f"Collected {len(evidence_list)} evidence items from Slack channel {channel_id}"
+        )
+
+        return evidence_list
+
+    async def _enrich_with_threads(
+        self,
+        evidence_list: list[ChatEvidence],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> None:
+        """Enrich evidence with thread reply information."""
+        if not HTTPX_AVAILABLE:
+            return
+
+        for evidence in evidence_list[:limit]:
+            # Only enrich if this is a thread root with replies
+            reply_count = evidence.metadata.get("reply_count", 0)
+            if not evidence.is_thread_root or reply_count == 0:
+                continue
+
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{SLACK_API_BASE}/conversations.replies",
+                        headers=self._get_headers(),
+                        params={
+                            "channel": evidence.channel_id,
+                            "ts": evidence.source_id,
+                            "limit": 10,
+                        },
+                    )
+                    data = response.json()
+
+                    if data.get("ok"):
+                        replies = data.get("messages", [])[1:]  # Skip root
+                        evidence.reply_count = len(replies)
+                        evidence.metadata["thread_replies"] = [
+                            {
+                                "text": r.get("text", "")[:200],
+                                "user": r.get("user", ""),
+                                "ts": r.get("ts", ""),
+                            }
+                            for r in replies
+                        ]
+
+            except Exception as e:
+                logger.debug(f"Error enriching thread: {e}")
+
+    async def search_messages(
+        self,
+        query: str,
+        channel_id: Optional[str] = None,
+        limit: int = 20,
+        **kwargs: Any,
+    ) -> list[ChatEvidence]:
+        """
+        Search for messages across Slack workspace.
+
+        Uses Slack's search.messages API (requires search:read scope).
+
+        Args:
+            query: Search query
+            channel_id: Optional channel to restrict search
+            limit: Maximum results to return
+            **kwargs: Additional search parameters
+
+        Returns:
+            List of ChatEvidence from matching messages
+        """
+        if not HTTPX_AVAILABLE:
+            return []
+
+        try:
+            search_query = query
+            if channel_id:
+                search_query = f"in:<#{channel_id}> {query}"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{SLACK_API_BASE}/search.messages",
+                    headers=self._get_headers(),
+                    params={
+                        "query": search_query,
+                        "count": limit,
+                        "sort": kwargs.get("sort", "score"),
+                    },
+                )
+                data = response.json()
+
+                if not data.get("ok"):
+                    logger.error(f"Slack search error: {data.get('error')}")
+                    return []
+
+                matches = data.get("messages", {}).get("matches", [])
+                evidence_list: list[ChatEvidence] = []
+
+                for match in matches:
+                    channel = ChatChannel(
+                        id=match.get("channel", {}).get("id", ""),
+                        platform=self.platform_name,
+                        name=match.get("channel", {}).get("name"),
+                    )
+
+                    user = ChatUser(
+                        id=match.get("user", ""),
+                        platform=self.platform_name,
+                        username=match.get("username"),
+                    )
+
+                    msg = ChatMessage(
+                        id=match.get("ts", ""),
+                        platform=self.platform_name,
+                        channel=channel,
+                        author=user,
+                        content=match.get("text", ""),
+                        timestamp=datetime.fromtimestamp(
+                            float(match.get("ts", "0").split(".")[0])
+                        ),
+                        metadata={
+                            "permalink": match.get("permalink"),
+                            "score": match.get("score"),
+                        },
+                    )
+
+                    evidence = ChatEvidence.from_message(
+                        message=msg,
+                        query=query,
+                        relevance_score=match.get("score", 1.0) / 100,  # Normalize
+                    )
+                    evidence.metadata["permalink"] = match.get("permalink")
+
+                    evidence_list.append(evidence)
+
+                return evidence_list
+
+        except Exception as e:
+            logger.error(f"Slack search error: {e}")
+            return []
