@@ -9,7 +9,7 @@
 **Production Ready** - Aragora 2.0.3 completes feature cross-pollination, connecting isolated subsystems for mutual benefit.
 
 #### Key Highlights
-- **37,100+ tests** collected and passing (+2,600 new tests)
+- **37,580+ tests** collected and passing (+3,080 new tests)
 - **1,002 test files** across all modules
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
