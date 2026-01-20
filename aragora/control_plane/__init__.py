@@ -72,6 +72,12 @@ from aragora.control_plane.coordinator import (
     ControlPlaneCoordinator,
     create_control_plane,
 )
+from aragora.control_plane.leader import (
+    LeaderConfig,
+    LeaderElection,
+    LeaderInfo,
+    LeaderState,
+)
 
 __all__ = [
     # Registry
@@ -91,4 +97,9 @@ __all__ = [
     # Coordinator
     "ControlPlaneCoordinator",
     "create_control_plane",
+    # Leader Election
+    "LeaderElection",
+    "LeaderConfig",
+    "LeaderInfo",
+    "LeaderState",
 ]
