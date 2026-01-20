@@ -299,7 +299,7 @@ class CruxDetector:
             self.network.nodes[nid].posterior = post
 
         # Impact is the minimum of the two (worst-case guarantee)
-        return max(0, min(impact_true, impact_false))
+        return float(max(0.0, min(impact_true, impact_false)))
 
     def detect_cruxes(self, top_k: int = 5, min_score: float = 0.1) -> CruxAnalysisResult:
         """

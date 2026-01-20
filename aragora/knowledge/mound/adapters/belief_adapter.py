@@ -199,6 +199,21 @@ class BeliefAdapter:
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
+    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+        """Record Prometheus metric for adapter operation."""
+        try:
+            from aragora.observability.metrics.km import (
+                record_km_operation,
+                record_km_adapter_sync,
+            )
+            record_km_operation(operation, success, latency)
+            if operation in ("store", "sync"):
+                record_km_adapter_sync("belief", "forward", success)
+        except ImportError:
+            pass  # Metrics not available
+        except Exception as e:
+            logger.debug(f"Failed to record metric: {e}")
+
     @property
     def network(self) -> Optional["BeliefNetwork"]:
         """Access the underlying BeliefNetwork."""
@@ -223,54 +238,62 @@ class BeliefAdapter:
         Returns:
             The belief ID if stored, None if below threshold
         """
-        # Check confidence threshold
-        confidence = node.posterior.p_true if hasattr(node.posterior, "p_true") else 0.5
-        if (
-            confidence < self.MIN_BELIEF_CONFIDENCE
-            and (1 - confidence) < self.MIN_BELIEF_CONFIDENCE
-        ):
-            logger.debug(f"Belief {node.node_id} below confidence threshold: {confidence:.2f}")
-            return None
+        import time
+        start = time.time()
+        success = False
 
-        debate_id = debate_id or (self._network.debate_id if self._network else None)
-        belief_id = f"{self.BELIEF_PREFIX}{node.node_id}"
+        try:
+            # Check confidence threshold
+            confidence = node.posterior.p_true if hasattr(node.posterior, "p_true") else 0.5
+            if (
+                confidence < self.MIN_BELIEF_CONFIDENCE
+                and (1 - confidence) < self.MIN_BELIEF_CONFIDENCE
+            ):
+                logger.debug(f"Belief {node.node_id} below confidence threshold: {confidence:.2f}")
+                return None
 
-        belief_data = {
-            "id": belief_id,
-            "node_id": node.node_id,
-            "claim_id": node.claim_id,
-            "claim_statement": node.claim_statement,
-            "author": node.author,
-            "confidence": confidence,
-            "prior_confidence": node.prior.p_true if hasattr(node.prior, "p_true") else 0.5,
-            "status": node.status.value if hasattr(node.status, "value") else str(node.status),
-            "centrality": node.centrality,
-            "update_count": node.update_count,
-            "debate_id": debate_id,
-            "parent_ids": node.parent_ids,
-            "child_ids": node.child_ids,
-            "created_at": datetime.utcnow().isoformat(),
-            "metadata": node.metadata if hasattr(node, "metadata") else {},
-        }
+            debate_id = debate_id or (self._network.debate_id if self._network else None)
+            belief_id = f"{self.BELIEF_PREFIX}{node.node_id}"
 
-        self._beliefs[belief_id] = belief_data
+            belief_data = {
+                "id": belief_id,
+                "node_id": node.node_id,
+                "claim_id": node.claim_id,
+                "claim_statement": node.claim_statement,
+                "author": node.author,
+                "confidence": confidence,
+                "prior_confidence": node.prior.p_true if hasattr(node.prior, "p_true") else 0.5,
+                "status": node.status.value if hasattr(node.status, "value") else str(node.status),
+                "centrality": node.centrality,
+                "update_count": node.update_count,
+                "debate_id": debate_id,
+                "parent_ids": node.parent_ids,
+                "child_ids": node.child_ids,
+                "created_at": datetime.utcnow().isoformat(),
+                "metadata": node.metadata if hasattr(node, "metadata") else {},
+            }
 
-        # Update indices
-        if debate_id:
-            if debate_id not in self._debate_beliefs:
-                self._debate_beliefs[debate_id] = []
-            self._debate_beliefs[debate_id].append(belief_id)
+            self._beliefs[belief_id] = belief_data
 
-        # Emit event for WebSocket updates
-        self._emit_event("belief_converged", {
-            "belief_id": belief_id,
-            "claim_statement": node.claim_statement[:100] if node.claim_statement else "",
-            "confidence": confidence,
-            "debate_id": debate_id,
-        })
+            # Update indices
+            if debate_id:
+                if debate_id not in self._debate_beliefs:
+                    self._debate_beliefs[debate_id] = []
+                self._debate_beliefs[debate_id].append(belief_id)
 
-        logger.info(f"Stored converged belief: {belief_id} (confidence={confidence:.2f})")
-        return belief_id
+            # Emit event for WebSocket updates
+            self._emit_event("belief_converged", {
+                "belief_id": belief_id,
+                "claim_statement": node.claim_statement[:100] if node.claim_statement else "",
+                "confidence": confidence,
+                "debate_id": debate_id,
+            })
+
+            logger.info(f"Stored converged belief: {belief_id} (confidence={confidence:.2f})")
+            success = True
+            return belief_id
+        finally:
+            self._record_metric("store", success, time.time() - start)
 
     def store_converged_beliefs(
         self,
