@@ -368,6 +368,20 @@ class TelegramHandler(BaseHandler):
 
         debate_id = str(uuid.uuid4())
 
+        # Register origin for result routing
+        try:
+            from aragora.server.debate_origin import register_debate_origin
+
+            register_debate_origin(
+                debate_id=debate_id,
+                platform="telegram",
+                channel_id=str(chat_id),
+                user_id=str(user_id),
+                metadata={"topic": topic},
+            )
+        except Exception as e:
+            logger.warning(f"Failed to register debate origin: {e}")
+
         try:
             from aragora.queue import create_debate_job
             import asyncio
@@ -379,7 +393,7 @@ class TelegramHandler(BaseHandler):
                 consensus="majority",
                 protocol="standard",
                 user_id=f"telegram:{user_id}",
-                webhook_url=None,  # TODO: Add callback webhook for results
+                webhook_url=None,  # Results routed via debate_origin system
             )
 
             # Fire and forget - enqueue the job

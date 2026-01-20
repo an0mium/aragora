@@ -344,12 +344,12 @@ async def init_km_adapters() -> bool:
 
         # Initialize RankingAdapter
         ranking_adapter = RankingAdapter()
-        manager._ranking_adapter = ranking_adapter
+        manager._ranking_adapter = ranking_adapter  # type: ignore[attr-defined]
         logger.debug("RankingAdapter initialized for KM integration")
 
         # Initialize RlmAdapter
         rlm_adapter = RlmAdapter()
-        manager._rlm_adapter = rlm_adapter
+        manager._rlm_adapter = rlm_adapter  # type: ignore[attr-defined]
         logger.debug("RlmAdapter initialized for KM integration")
 
         # Note: Actual KM state loading would happen here if KM backend is available
@@ -411,7 +411,7 @@ async def run_startup_sequence(
     Returns:
         Dictionary with startup status for each component
     """
-    status = {
+    status: dict[str, Any] = {
         "error_monitoring": False,
         "opentelemetry": False,
         "prometheus": False,
