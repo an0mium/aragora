@@ -83,6 +83,17 @@ DEFAULT_EVENT_TYPES = frozenset(
         "gauntlet_finding",
         "gauntlet_verdict",
         "decision_receipt_generated",
+        # Receipt lifecycle events
+        "receipt_generated",
+        "receipt_verified",
+        "receipt_exported",
+        "receipt_shared",
+        "receipt_integrity_failed",
+        # Explainability events
+        "explainability_complete",
+        # Workflow template events
+        "template_execution_complete",
+        "template_execution_failed",
     }
 )
 
@@ -697,3 +708,7 @@ def shutdown_dispatcher() -> None:
     if _dispatcher:
         _dispatcher.stop()
         _dispatcher = None
+
+
+# Alias for backward compatibility
+get_webhook_dispatcher = get_dispatcher

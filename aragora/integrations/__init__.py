@@ -46,6 +46,11 @@ from aragora.integrations.webhooks import (
     WebhookConfig,
     WebhookDispatcher,
 )
+from aragora.integrations.receipt_webhooks import (
+    ReceiptWebhookNotifier,
+    ReceiptWebhookPayload,
+    get_receipt_notifier,
+)
 from aragora.integrations.whatsapp import (
     WhatsAppConfig,
     WhatsAppIntegration,
@@ -56,6 +61,35 @@ from aragora.integrations.zoom import (
     ZoomIntegration,
     ZoomMeetingInfo,
     ZoomWebhookEvent,
+)
+
+# External automation platforms
+from aragora.integrations.zapier import (
+    ZapierApp,
+    ZapierIntegration,
+    ZapierTrigger,
+    get_zapier_integration,
+)
+from aragora.integrations.make import (
+    MakeConnection,
+    MakeIntegration,
+    MakeWebhook,
+    get_make_integration,
+)
+from aragora.integrations.n8n import (
+    N8nCredential,
+    N8nIntegration,
+    N8nWebhook,
+    N8nResourceType,
+    N8nOperation,
+    get_n8n_integration,
+)
+from aragora.integrations.langchain import (
+    AragoraTool,
+    AragoraRetriever,
+    AragoraCallbackHandler,
+    is_langchain_available,
+    LANGCHAIN_AVAILABLE,
 )
 
 __all__ = [
@@ -70,6 +104,10 @@ __all__ = [
     "WebhookConfig",
     "AragoraJSONEncoder",
     "DEFAULT_EVENT_TYPES",
+    # Receipt Webhooks
+    "ReceiptWebhookNotifier",
+    "ReceiptWebhookPayload",
+    "get_receipt_notifier",
     # Slack
     "SlackIntegration",
     "SlackConfig",
@@ -106,4 +144,27 @@ __all__ = [
     "ZoomConfig",
     "ZoomMeetingInfo",
     "ZoomWebhookEvent",
+    # Zapier
+    "ZapierIntegration",
+    "ZapierApp",
+    "ZapierTrigger",
+    "get_zapier_integration",
+    # Make (Integromat)
+    "MakeIntegration",
+    "MakeConnection",
+    "MakeWebhook",
+    "get_make_integration",
+    # n8n
+    "N8nIntegration",
+    "N8nCredential",
+    "N8nWebhook",
+    "N8nResourceType",
+    "N8nOperation",
+    "get_n8n_integration",
+    # LangChain
+    "AragoraTool",
+    "AragoraRetriever",
+    "AragoraCallbackHandler",
+    "is_langchain_available",
+    "LANGCHAIN_AVAILABLE",
 ]
