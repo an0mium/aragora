@@ -85,6 +85,7 @@ from ...base import (
 from ...utils.rate_limit import RateLimiter, get_client_ip
 
 from .culture import CultureOperationsMixin
+from .dashboard import DashboardOperationsMixin
 from .dedup import DedupOperationsMixin
 from .export import ExportOperationsMixin
 from .federation import FederationOperationsMixin
@@ -121,6 +122,7 @@ class KnowledgeMoundHandler(
     FederationOperationsMixin,
     DedupOperationsMixin,
     PruningOperationsMixin,
+    DashboardOperationsMixin,
     BaseHandler,
 ):
     """Handler for Knowledge Mound API endpoints (unified knowledge storage).
@@ -168,6 +170,13 @@ class KnowledgeMoundHandler(
         "/api/knowledge/mound/pruning/history",
         "/api/knowledge/mound/pruning/restore",
         "/api/knowledge/mound/pruning/decay",
+        # Dashboard and metrics
+        "/api/knowledge/mound/dashboard/health",
+        "/api/knowledge/mound/dashboard/metrics",
+        "/api/knowledge/mound/dashboard/metrics/reset",
+        "/api/knowledge/mound/dashboard/adapters",
+        "/api/knowledge/mound/dashboard/queries",
+        "/api/knowledge/mound/dashboard/batcher",
     ]
 
     def __init__(self, server_context: dict):
@@ -361,6 +370,25 @@ class KnowledgeMoundHandler(
 
         if path == "/api/knowledge/mound/pruning/decay":
             return self._handle_apply_confidence_decay(handler)
+
+        # Dashboard and metrics endpoints
+        if path == "/api/knowledge/mound/dashboard/health":
+            return _run_async(self.handle_dashboard_health(handler.request))
+
+        if path == "/api/knowledge/mound/dashboard/metrics":
+            return _run_async(self.handle_dashboard_metrics(handler.request))
+
+        if path == "/api/knowledge/mound/dashboard/metrics/reset":
+            return _run_async(self.handle_dashboard_metrics_reset(handler.request))
+
+        if path == "/api/knowledge/mound/dashboard/adapters":
+            return _run_async(self.handle_dashboard_adapters(handler.request))
+
+        if path == "/api/knowledge/mound/dashboard/queries":
+            return _run_async(self.handle_dashboard_queries(handler.request))
+
+        if path == "/api/knowledge/mound/dashboard/batcher":
+            return _run_async(self.handle_dashboard_batcher_stats(handler.request))
 
         return None
 

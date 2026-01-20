@@ -54,6 +54,7 @@ from aragora.debate.roles_manager import RolesManager
 from aragora.debate.phases.spectator import SpectatorMixin
 from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.debate.phases.vote_aggregator import AggregatedVotes, VoteAggregator
+from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
 from aragora.debate.phases.vote_processor import VoteProcessor
 from aragora.debate.phases.vote_weighter import (
     VoteWeighter,
@@ -98,6 +99,7 @@ __all__ = [
     "build_relationship_updates",
     "ConsensusVerifier",
     "VoteAggregator",
+    "VoteBonusCalculator",
     "AggregatedVotes",
     "WeightCalculator",
     "VoteProcessor",

@@ -440,3 +440,143 @@ class KnowledgeSharingMixin:
             logger.debug("Notifications module not available")
         except Exception as e:
             logger.warning(f"Failed to send share notification: {e}")
+
+    # =========================================================================
+    # Visibility Control Methods
+    # =========================================================================
+
+    async def set_visibility(
+        self: SharingProtocol,
+        item_id: str,
+        visibility: str,
+        set_by: Optional[str] = None,
+    ) -> bool:
+        """
+        Set the visibility level of a knowledge item.
+
+        Args:
+            item_id: ID of the item to update
+            visibility: Visibility level ('private', 'workspace', 'organization', 'public', 'system')
+            set_by: User ID who is setting the visibility
+
+        Returns:
+            True if visibility was updated
+        """
+        from aragora.knowledge.mound.types import VisibilityLevel
+
+        self._ensure_initialized()
+
+        # Validate visibility level
+        try:
+            vis_level = VisibilityLevel(visibility)
+        except ValueError:
+            raise ValueError(
+                f"Invalid visibility level: {visibility}. "
+                f"Must be one of: {[v.value for v in VisibilityLevel]}"
+            )
+
+        # Update visibility in store
+        if hasattr(self._meta_store, "update_visibility_async"):
+            await self._meta_store.update_visibility_async(item_id, vis_level, set_by)
+            logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
+            return True
+        elif hasattr(self._meta_store, "update_node_async"):
+            await self._meta_store.update_node_async(
+                item_id,
+                {"visibility": visibility, "visibility_set_by": set_by},
+            )
+            logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
+            return True
+
+        logger.warning("Store does not support visibility updates")
+        return False
+
+    async def grant_access(
+        self: SharingProtocol,
+        item_id: str,
+        grantee_id: str,
+        grantee_type: str,
+        granted_by: str,
+        permissions: Optional[List[str]] = None,
+        expires_at: Optional[datetime] = None,
+    ) -> "AccessGrant":
+        """
+        Grant access to a knowledge item.
+
+        This is a general-purpose access grant that can target users, roles,
+        workspaces, or organizations.
+
+        Args:
+            item_id: ID of the item to share
+            grantee_id: ID of the entity receiving access
+            grantee_type: Type of grantee ('user', 'role', 'workspace', 'organization')
+            granted_by: User ID who is granting access
+            permissions: List of permissions (default: ["read"])
+            expires_at: Optional expiration datetime
+
+        Returns:
+            The created AccessGrant
+        """
+        from aragora.knowledge.mound.types import AccessGrant, AccessGrantType
+
+        self._ensure_initialized()
+
+        # Validate grantee type
+        try:
+            grant_type = AccessGrantType(grantee_type)
+        except ValueError:
+            raise ValueError(
+                f"Invalid grantee type: {grantee_type}. "
+                f"Must be one of: {[t.value for t in AccessGrantType]}"
+            )
+
+        grant = AccessGrant(
+            id=f"grant_{uuid4().hex[:12]}",
+            item_id=item_id,
+            grantee_type=grant_type,
+            grantee_id=grantee_id,
+            permissions=permissions or ["read"],
+            granted_by=granted_by,
+            granted_at=datetime.now(),
+            expires_at=expires_at,
+        )
+
+        # Persist grant
+        if hasattr(self._meta_store, "save_access_grant_async"):
+            await self._meta_store.save_access_grant_async(grant)
+            logger.info(
+                f"Granted {permissions or ['read']} access on item {item_id} "
+                f"to {grantee_type}:{grantee_id} by {granted_by}"
+            )
+        else:
+            logger.warning("Store does not support access grants, grant not persisted")
+
+        return grant
+
+    async def revoke_access(
+        self: SharingProtocol,
+        item_id: str,
+        grantee_id: str,
+        revoked_by: str,
+    ) -> bool:
+        """
+        Revoke access to a knowledge item.
+
+        Args:
+            item_id: ID of the item
+            grantee_id: ID of the entity losing access
+            revoked_by: User ID who is revoking access
+
+        Returns:
+            True if access was revoked, False if grant not found
+        """
+        self._ensure_initialized()
+
+        if hasattr(self._meta_store, "delete_access_grant_async"):
+            result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
+            if result:
+                logger.info(f"Revoked access on item {item_id} from {grantee_id} by {revoked_by}")
+            return result
+
+        logger.warning("Store does not support access grants")
+        return False

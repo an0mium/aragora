@@ -95,6 +95,14 @@ SLOW_DEBATES_TOTAL: Any = None
 SLOW_ROUNDS_TOTAL: Any = None
 DEBATE_ROUND_LATENCY: Any = None
 
+# New feature metrics (TTS, convergence, vote bonuses)
+TTS_SYNTHESIS_TOTAL: Any = None
+TTS_SYNTHESIS_LATENCY: Any = None
+CONVERGENCE_CHECKS_TOTAL: Any = None
+EVIDENCE_CITATION_BONUSES: Any = None
+PROCESS_EVALUATION_BONUSES: Any = None
+RLM_READY_QUORUM_EVENTS: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -407,6 +415,46 @@ def _init_metrics() -> bool:
             buckets=[1, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300],
         )
 
+        # New feature metrics (TTS, convergence, vote bonuses)
+        global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
+        global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
+        global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
+
+        TTS_SYNTHESIS_TOTAL = Counter(
+            "aragora_tts_synthesis_total",
+            "Total TTS synthesis operations",
+            ["voice", "platform"],  # voice type, chat platform
+        )
+
+        TTS_SYNTHESIS_LATENCY = Histogram(
+            "aragora_tts_synthesis_latency_seconds",
+            "TTS synthesis latency in seconds",
+            buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
+        )
+
+        CONVERGENCE_CHECKS_TOTAL = Counter(
+            "aragora_convergence_checks_total",
+            "Total convergence check events",
+            ["status", "blocked"],  # converged/diverged, trickster_blocked
+        )
+
+        EVIDENCE_CITATION_BONUSES = Counter(
+            "aragora_evidence_citation_bonuses_total",
+            "Evidence citation vote bonuses applied",
+            ["agent"],
+        )
+
+        PROCESS_EVALUATION_BONUSES = Counter(
+            "aragora_process_evaluation_bonuses_total",
+            "Process evaluation vote bonuses applied",
+            ["agent"],
+        )
+
+        RLM_READY_QUORUM_EVENTS = Counter(
+            "aragora_rlm_ready_quorum_total",
+            "RLM ready signal quorum events",
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -445,6 +493,9 @@ def _init_noop_metrics() -> None:
     global ECHO_CHAMBER_DETECTIONS, RELATIONSHIP_BIAS_ADJUSTMENTS
     global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
     global BUDGET_FILTERING_EVENTS
+    global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
+    global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
+    global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -503,9 +554,12 @@ def _init_noop_metrics() -> None:
     RLM_SELECTION_RECOMMENDATIONS = NoOpMetric()
     CALIBRATION_COST_CALCULATIONS = NoOpMetric()
     BUDGET_FILTERING_EVENTS = NoOpMetric()
-    NoOpMetric()
-    NoOpMetric()
-    NoOpMetric()
+    TTS_SYNTHESIS_TOTAL = NoOpMetric()
+    TTS_SYNTHESIS_LATENCY = NoOpMetric()
+    CONVERGENCE_CHECKS_TOTAL = NoOpMetric()
+    EVIDENCE_CITATION_BONUSES = NoOpMetric()
+    PROCESS_EVALUATION_BONUSES = NoOpMetric()
+    RLM_READY_QUORUM_EVENTS = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:

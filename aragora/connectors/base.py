@@ -171,7 +171,18 @@ class BaseConnector(ABC):
 
     def _cache_get(self, evidence_id: str) -> Optional[Evidence]:
         """Get from cache if not expired."""
+        # Lazy import metrics
+        try:
+            from aragora.connectors.metrics import record_cache_hit, record_cache_miss
+            metrics_available = True
+        except ImportError:
+            metrics_available = False
+
+        connector_type = getattr(self, "name", "unknown").lower().replace(" ", "_")
+
         if evidence_id not in self._cache:
+            if metrics_available:
+                record_cache_miss(connector_type)
             return None
 
         cached_time, evidence = self._cache[evidence_id]
@@ -181,10 +192,14 @@ class BaseConnector(ABC):
         if now - cached_time > self._cache_ttl:
             # Expired - remove and return None
             del self._cache[evidence_id]
+            if metrics_available:
+                record_cache_miss(connector_type)
             return None
 
         # Move to end (LRU)
         self._cache.move_to_end(evidence_id)
+        if metrics_available:
+            record_cache_hit(connector_type)
         return evidence
 
     def _cache_put(self, evidence_id: str, evidence: Evidence) -> None:

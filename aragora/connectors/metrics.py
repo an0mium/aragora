@@ -55,6 +55,9 @@ CONNECTOR_LAST_SYNC: Any = None
 CONNECTOR_HEALTH: Any = None
 CONNECTOR_RATE_LIMITS: Any = None
 CONNECTOR_AUTH_FAILURES: Any = None
+CONNECTOR_CACHE_HITS: Any = None
+CONNECTOR_CACHE_MISSES: Any = None
+CONNECTOR_RETRIES: Any = None
 
 
 def _init_metrics() -> bool:
@@ -63,7 +66,8 @@ def _init_metrics() -> bool:
     global CONNECTOR_SYNCS, CONNECTOR_SYNC_DURATION, CONNECTOR_SYNC_ITEMS
     global CONNECTOR_SYNC_ERRORS, CONNECTOR_SYNC_LATENCY, CONNECTOR_ACTIVE_SYNCS
     global CONNECTOR_LAST_SYNC, CONNECTOR_HEALTH, CONNECTOR_RATE_LIMITS
-    global CONNECTOR_AUTH_FAILURES
+    global CONNECTOR_AUTH_FAILURES, CONNECTOR_CACHE_HITS, CONNECTOR_CACHE_MISSES
+    global CONNECTOR_RETRIES
 
     if _initialized:
         return True
@@ -149,6 +153,24 @@ def _init_metrics() -> bool:
             ["connector_type", "connector_id"],
         )
 
+        CONNECTOR_CACHE_HITS = Counter(
+            "aragora_connector_cache_hits_total",
+            "Number of cache hits",
+            ["connector_type"],
+        )
+
+        CONNECTOR_CACHE_MISSES = Counter(
+            "aragora_connector_cache_misses_total",
+            "Number of cache misses",
+            ["connector_type"],
+        )
+
+        CONNECTOR_RETRIES = Counter(
+            "aragora_connector_retries_total",
+            "Number of retry attempts",
+            ["connector_type", "reason"],
+        )
+
         _initialized = True
         logger.info("Connector Prometheus metrics initialized")
         return True
@@ -165,7 +187,8 @@ def _init_noop_metrics() -> None:
     global CONNECTOR_SYNCS, CONNECTOR_SYNC_DURATION, CONNECTOR_SYNC_ITEMS
     global CONNECTOR_SYNC_ERRORS, CONNECTOR_SYNC_LATENCY, CONNECTOR_ACTIVE_SYNCS
     global CONNECTOR_LAST_SYNC, CONNECTOR_HEALTH, CONNECTOR_RATE_LIMITS
-    global CONNECTOR_AUTH_FAILURES
+    global CONNECTOR_AUTH_FAILURES, CONNECTOR_CACHE_HITS, CONNECTOR_CACHE_MISSES
+    global CONNECTOR_RETRIES
 
     class NoopMetric:
         """No-op metric that accepts any method call."""
@@ -184,6 +207,9 @@ def _init_noop_metrics() -> None:
     CONNECTOR_HEALTH = noop
     CONNECTOR_RATE_LIMITS = noop
     CONNECTOR_AUTH_FAILURES = noop
+    CONNECTOR_CACHE_HITS = noop
+    CONNECTOR_CACHE_MISSES = noop
+    CONNECTOR_RETRIES = noop
 
 
 def record_sync(
@@ -479,3 +505,53 @@ def record_gdrive_sync(
         record_sync_items("gdrive", "document", documents)
     if folders > 0:
         record_sync_items("gdrive", "folder", folders)
+
+
+def record_cache_hit(connector_type: str) -> None:
+    """Record a cache hit."""
+    _init_metrics()
+    CONNECTOR_CACHE_HITS.labels(connector_type=connector_type).inc()
+
+
+def record_cache_miss(connector_type: str) -> None:
+    """Record a cache miss."""
+    _init_metrics()
+    CONNECTOR_CACHE_MISSES.labels(connector_type=connector_type).inc()
+
+
+def record_retry(connector_type: str, reason: str) -> None:
+    """Record a retry attempt."""
+    _init_metrics()
+    CONNECTOR_RETRIES.labels(connector_type=connector_type, reason=reason).inc()
+
+
+def get_connector_metrics() -> dict:
+    """Get current connector metrics summary."""
+    _init_metrics()
+
+    # Try to get metrics from Prometheus registry
+    try:
+        from prometheus_client import REGISTRY
+
+        metrics = {}
+
+        # Collect all connector metrics
+        for metric in REGISTRY.collect():
+            if metric.name.startswith("aragora_connector"):
+                samples = list(metric.samples)
+                if samples:
+                    metrics[metric.name] = {
+                        "help": metric.documentation,
+                        "type": metric.type,
+                        "samples": [
+                            {"labels": dict(s.labels), "value": s.value}
+                            for s in samples
+                        ],
+                    }
+
+        return metrics
+
+    except ImportError:
+        return {"error": "prometheus_client not installed"}
+    except Exception as e:
+        return {"error": str(e)}

@@ -114,6 +114,17 @@ from aragora.observability.immutable_log import (
     audit_session_started,
     audit_data_exported,
 )
+from aragora.observability.decision_metrics import (
+    record_decision_request,
+    record_decision_result,
+    record_decision_error,
+    record_decision_cache_hit,
+    record_decision_cache_miss,
+    record_decision_dedup_hit,
+    track_decision,
+    get_decision_metrics,
+    get_decision_summary,
+)
 
 __all__ = [
     # Logging
@@ -192,4 +203,14 @@ __all__ = [
     "audit_document_accessed",
     "audit_session_started",
     "audit_data_exported",
+    # Decision Metrics
+    "record_decision_request",
+    "record_decision_result",
+    "record_decision_error",
+    "record_decision_cache_hit",
+    "record_decision_cache_miss",
+    "record_decision_dedup_hit",
+    "track_decision",
+    "get_decision_metrics",
+    "get_decision_summary",
 ]

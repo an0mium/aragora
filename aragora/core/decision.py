@@ -74,6 +74,39 @@ def _import_cache():
     _cache_imported = True
 
 
+# Lazy import for metrics
+_metrics_imported = False
+_record_decision_request = None
+_record_decision_result = None
+_record_decision_error = None
+_record_decision_cache_hit = None
+_record_decision_dedup_hit = None
+
+
+def _import_metrics():
+    """Lazy import metrics utilities."""
+    global _metrics_imported, _record_decision_request, _record_decision_result
+    global _record_decision_error, _record_decision_cache_hit, _record_decision_dedup_hit
+    if _metrics_imported:
+        return
+    try:
+        from aragora.observability.decision_metrics import (
+            record_decision_request,
+            record_decision_result,
+            record_decision_error,
+            record_decision_cache_hit,
+            record_decision_dedup_hit,
+        )
+        _record_decision_request = record_decision_request
+        _record_decision_result = record_decision_result
+        _record_decision_error = record_decision_error
+        _record_decision_cache_hit = record_decision_cache_hit
+        _record_decision_dedup_hit = record_decision_dedup_hit
+    except ImportError:
+        pass
+    _metrics_imported = True
+
+
 logger = logging.getLogger(__name__)
 
 

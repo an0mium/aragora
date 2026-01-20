@@ -467,3 +467,217 @@ class TestHasAccessGrant:
         future_time = (datetime.now() + timedelta(days=1)).isoformat()
         grants = [{"grantee_type": "user", "grantee_id": "user_1", "expires_at": future_time}]
         assert mixin._has_access_grant(grants, "user_1", "ws_1", None) is True
+
+
+# =============================================================================
+# KnowledgeSharingMixin Method Tests
+# =============================================================================
+
+
+class TestKnowledgeSharingMixinMethods:
+    """Tests for visibility control methods in KnowledgeSharingMixin."""
+
+    @pytest.fixture
+    def mock_mound(self):
+        """Create mock Knowledge Mound with required attributes."""
+        mound = MagicMock()
+        mound._initialized = True
+        mound._ensure_initialized = MagicMock()
+        mound._meta_store = MagicMock()
+        mound._meta_store.update_visibility_async = AsyncMock()
+        mound._meta_store.save_access_grant_async = AsyncMock(return_value="grant-123")
+        mound._meta_store.delete_access_grant_async = AsyncMock(return_value=True)
+        mound._meta_store.update_node_async = AsyncMock()
+        mound.get = AsyncMock(return_value=MagicMock(content="Test content"))
+        return mound
+
+    @pytest.mark.asyncio
+    async def test_set_visibility_to_public(self, mock_mound):
+        """Should set visibility to public."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        result = await mixin.set_visibility.__func__(
+            mock_mound,
+            item_id="item_123",
+            visibility="public",
+            set_by="admin_user",
+        )
+
+        assert result is True
+        mock_mound._meta_store.update_visibility_async.assert_called_once_with(
+            "item_123", VisibilityLevel.PUBLIC, "admin_user"
+        )
+
+    @pytest.mark.asyncio
+    async def test_set_visibility_to_private(self, mock_mound):
+        """Should set visibility to private."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        result = await mixin.set_visibility.__func__(
+            mock_mound,
+            item_id="item_123",
+            visibility="private",
+            set_by="owner_user",
+        )
+
+        assert result is True
+        mock_mound._meta_store.update_visibility_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_set_visibility_invalid_level_raises(self, mock_mound):
+        """Should raise ValueError for invalid visibility level."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+
+        with pytest.raises(ValueError, match="Invalid visibility level"):
+            await mixin.set_visibility.__func__(
+                mock_mound,
+                item_id="item_123",
+                visibility="invalid_level",
+            )
+
+    @pytest.mark.asyncio
+    async def test_set_visibility_fallback_to_update_node(self, mock_mound):
+        """Should fallback to update_node_async if update_visibility_async not available."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        # Remove update_visibility_async
+        del mock_mound._meta_store.update_visibility_async
+
+        mixin = KnowledgeSharingMixin()
+        result = await mixin.set_visibility.__func__(
+            mock_mound,
+            item_id="item_123",
+            visibility="workspace",
+            set_by="admin",
+        )
+
+        assert result is True
+        mock_mound._meta_store.update_node_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_grant_access_to_user(self, mock_mound):
+        """Should grant read access to a user."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        grant = await mixin.grant_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="user_456",
+            grantee_type="user",
+            granted_by="admin_user",
+        )
+
+        assert grant.item_id == "item_123"
+        assert grant.grantee_id == "user_456"
+        assert grant.grantee_type == AccessGrantType.USER
+        assert grant.permissions == ["read"]
+        mock_mound._meta_store.save_access_grant_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_grant_access_with_custom_permissions(self, mock_mound):
+        """Should grant custom permissions."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        grant = await mixin.grant_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="user_456",
+            grantee_type="user",
+            granted_by="admin_user",
+            permissions=["read", "write", "comment"],
+        )
+
+        assert grant.permissions == ["read", "write", "comment"]
+
+    @pytest.mark.asyncio
+    async def test_grant_access_to_workspace(self, mock_mound):
+        """Should grant access to a workspace."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        grant = await mixin.grant_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="workspace_789",
+            grantee_type="workspace",
+            granted_by="admin_user",
+        )
+
+        assert grant.grantee_type == AccessGrantType.WORKSPACE
+        assert grant.grantee_id == "workspace_789"
+
+    @pytest.mark.asyncio
+    async def test_grant_access_with_expiry(self, mock_mound):
+        """Should grant access with expiration."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        expires = datetime.now() + timedelta(days=30)
+
+        mixin = KnowledgeSharingMixin()
+        grant = await mixin.grant_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="user_456",
+            grantee_type="user",
+            granted_by="admin_user",
+            expires_at=expires,
+        )
+
+        assert grant.expires_at == expires
+
+    @pytest.mark.asyncio
+    async def test_grant_access_invalid_type_raises(self, mock_mound):
+        """Should raise ValueError for invalid grantee type."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+
+        with pytest.raises(ValueError, match="Invalid grantee type"):
+            await mixin.grant_access.__func__(
+                mock_mound,
+                item_id="item_123",
+                grantee_id="user_456",
+                grantee_type="invalid_type",
+                granted_by="admin_user",
+            )
+
+    @pytest.mark.asyncio
+    async def test_revoke_access_success(self, mock_mound):
+        """Should revoke access successfully."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mixin = KnowledgeSharingMixin()
+        result = await mixin.revoke_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="user_456",
+            revoked_by="admin_user",
+        )
+
+        assert result is True
+        mock_mound._meta_store.delete_access_grant_async.assert_called_once_with(
+            "item_123", "user_456"
+        )
+
+    @pytest.mark.asyncio
+    async def test_revoke_access_not_found(self, mock_mound):
+        """Should return False when grant not found."""
+        from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
+
+        mock_mound._meta_store.delete_access_grant_async = AsyncMock(return_value=False)
+
+        mixin = KnowledgeSharingMixin()
+        result = await mixin.revoke_access.__func__(
+            mock_mound,
+            item_id="item_123",
+            grantee_id="nonexistent_user",
+            revoked_by="admin_user",
+        )
+
+        assert result is False

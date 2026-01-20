@@ -111,6 +111,41 @@ from aragora.knowledge.mound.revalidation_scheduler import (
     handle_revalidation_task,
 )
 
+# Metrics and observability
+from aragora.knowledge.mound.metrics import (
+    KMMetrics,
+    OperationType,
+    OperationStats,
+    HealthStatus,
+    HealthReport,
+    get_metrics,
+    set_metrics,
+)
+
+# Event batching for WebSocket efficiency
+from aragora.knowledge.mound.event_batcher import (
+    EventBatcher,
+    EventBatch,
+    BatchedEvent,
+    AdapterEventBatcher,
+)
+
+# WebSocket bridge for real-time KM events
+from aragora.knowledge.mound.websocket_bridge import (
+    KMWebSocketBridge,
+    get_km_bridge,
+    set_km_bridge,
+    create_km_bridge,
+)
+
+# Federated queries across adapters
+from aragora.knowledge.mound.federated_query import (
+    FederatedQueryAggregator,
+    FederatedQueryResult,
+    FederatedResult,
+    QuerySource,
+)
+
 # Singleton instance
 _knowledge_mound_instance: "KnowledgeMound" = None
 
@@ -234,4 +269,27 @@ __all__ = [
     # Phase 1: Revalidation Scheduler (automatic staleness handling)
     "RevalidationScheduler",
     "handle_revalidation_task",
+    # Metrics and observability
+    "KMMetrics",
+    "OperationType",
+    "OperationStats",
+    "HealthStatus",
+    "HealthReport",
+    "get_metrics",
+    "set_metrics",
+    # Event batching
+    "EventBatcher",
+    "EventBatch",
+    "BatchedEvent",
+    "AdapterEventBatcher",
+    # WebSocket bridge
+    "KMWebSocketBridge",
+    "get_km_bridge",
+    "set_km_bridge",
+    "create_km_bridge",
+    # Federated queries
+    "FederatedQueryAggregator",
+    "FederatedQueryResult",
+    "FederatedResult",
+    "QuerySource",
 ]
