@@ -1048,6 +1048,48 @@ class BaseHandler:
             return None, error_response("Authentication required", 401)
         return user, None
 
+    def require_admin_or_error(
+        self, handler: HTTPRequestHandler
+    ) -> Tuple[Optional[UserAuthContext], Optional["HandlerResult"]]:
+        """Require admin authentication and return user or error response.
+
+        Checks that the user is authenticated and has admin privileges
+        (either 'admin' role or 'admin' permission).
+
+        Args:
+            handler: HTTP request handler with headers
+
+        Returns:
+            Tuple of (UserAuthContext, None) if authenticated as admin,
+            or (None, HandlerResult) with 401/403 error if not
+
+        Example:
+            def handle_post(self, path, query_params, handler):
+                user, err = self.require_admin_or_error(handler)
+                if err:
+                    return err
+                # user is now guaranteed to be an admin
+                return json_response({"admin_action": "completed"})
+        """
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return None, err
+
+        # Check for admin role or permission
+        roles = getattr(user, "roles", []) or []
+        permissions = getattr(user, "permissions", []) or []
+
+        is_admin = (
+            "admin" in roles
+            or "admin" in permissions
+            or getattr(user, "is_admin", False)
+        )
+
+        if not is_admin:
+            return None, error_response("Admin access required", 403)
+
+        return user, None
+
     # === POST Body Parsing Support ===
 
     # Maximum request body size (10MB default)

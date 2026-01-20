@@ -39,6 +39,7 @@ class CRUDProtocol(Protocol):
     _cache: Optional[Any]
     _semantic_store: Optional[Any]
     _initialized: bool
+    event_emitter: Optional[Any]
 
     def _ensure_initialized(self) -> None: ...
     async def _save_node(self, node_data: Dict[str, Any]) -> None: ...
@@ -140,6 +141,27 @@ class CRUDOperationsMixin:
             await self._cache.invalidate_queries(request.workspace_id)
 
         logger.debug(f"Stored knowledge node: {node_id}")
+
+        # Emit KNOWLEDGE_INDEXED event for cross-subsystem tracking
+        if self.event_emitter:
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.KNOWLEDGE_INDEXED,
+                        data={
+                            "node_id": node_id,
+                            "content": request.content[:200],
+                            "node_type": request.node_type,
+                            "workspace_id": request.workspace_id,
+                            "source_type": request.source_type.value,
+                            "confidence": request.confidence,
+                        },
+                    )
+                )
+            except (ImportError, AttributeError, TypeError):
+                pass  # Events module not available
 
         return IngestionResult(
             node_id=node_id,

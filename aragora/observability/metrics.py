@@ -57,6 +57,15 @@ AGENT_PARTICIPATION: Any = None
 CACHE_HITS: Any = None
 CACHE_MISSES: Any = None
 
+# Cross-functional feature metrics
+KNOWLEDGE_CACHE_HITS: Any = None
+KNOWLEDGE_CACHE_MISSES: Any = None
+MEMORY_COORDINATOR_WRITES: Any = None
+SELECTION_FEEDBACK_ADJUSTMENTS: Any = None
+WORKFLOW_TRIGGERS: Any = None
+EVIDENCE_STORED: Any = None
+CULTURE_PATTERNS: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -173,6 +182,49 @@ def _init_metrics() -> bool:
             ["cache_name"],
         )
 
+        # Cross-functional feature metrics
+        global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
+        global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
+        global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
+
+        KNOWLEDGE_CACHE_HITS = Counter(
+            "aragora_knowledge_cache_hits_total",
+            "Knowledge query cache hits",
+        )
+
+        KNOWLEDGE_CACHE_MISSES = Counter(
+            "aragora_knowledge_cache_misses_total",
+            "Knowledge query cache misses",
+        )
+
+        MEMORY_COORDINATOR_WRITES = Counter(
+            "aragora_memory_coordinator_writes_total",
+            "Atomic memory coordinator writes",
+            ["status"],  # success, failed, rolled_back
+        )
+
+        SELECTION_FEEDBACK_ADJUSTMENTS = Counter(
+            "aragora_selection_feedback_adjustments_total",
+            "Agent selection weight adjustments",
+            ["agent", "direction"],  # up, down
+        )
+
+        WORKFLOW_TRIGGERS = Counter(
+            "aragora_workflow_triggers_total",
+            "Post-debate workflow triggers",
+            ["status"],  # triggered, skipped, completed, failed
+        )
+
+        EVIDENCE_STORED = Counter(
+            "aragora_evidence_stored_total",
+            "Evidence items stored in knowledge mound",
+        )
+
+        CULTURE_PATTERNS = Counter(
+            "aragora_culture_patterns_total",
+            "Culture patterns extracted from debates",
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -198,6 +250,9 @@ def _init_noop_metrics() -> None:
     global ACTIVE_DEBATES, CONSENSUS_RATE, MEMORY_OPERATIONS, WEBSOCKET_CONNECTIONS
     global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION, AGENT_PARTICIPATION
     global CACHE_HITS, CACHE_MISSES
+    global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
+    global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
+    global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -229,6 +284,13 @@ def _init_noop_metrics() -> None:
     AGENT_PARTICIPATION = NoOpMetric()
     CACHE_HITS = NoOpMetric()
     CACHE_MISSES = NoOpMetric()
+    KNOWLEDGE_CACHE_HITS = NoOpMetric()
+    KNOWLEDGE_CACHE_MISSES = NoOpMetric()
+    MEMORY_COORDINATOR_WRITES = NoOpMetric()
+    SELECTION_FEEDBACK_ADJUSTMENTS = NoOpMetric()
+    WORKFLOW_TRIGGERS = NoOpMetric()
+    EVIDENCE_STORED = NoOpMetric()
+    CULTURE_PATTERNS = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -524,3 +586,69 @@ def record_cache_miss(cache_name: str) -> None:
     """
     _init_metrics()
     CACHE_MISSES.labels(cache_name=cache_name).inc()
+
+
+# Cross-functional feature metrics helpers
+
+
+def record_knowledge_cache_hit() -> None:
+    """Record a knowledge query cache hit."""
+    _init_metrics()
+    KNOWLEDGE_CACHE_HITS.inc()
+
+
+def record_knowledge_cache_miss() -> None:
+    """Record a knowledge query cache miss."""
+    _init_metrics()
+    KNOWLEDGE_CACHE_MISSES.inc()
+
+
+def record_memory_coordinator_write(status: str) -> None:
+    """Record a memory coordinator write operation.
+
+    Args:
+        status: Write status (success, failed, rolled_back)
+    """
+    _init_metrics()
+    MEMORY_COORDINATOR_WRITES.labels(status=status).inc()
+
+
+def record_selection_feedback_adjustment(agent: str, direction: str) -> None:
+    """Record an agent selection weight adjustment.
+
+    Args:
+        agent: Agent name
+        direction: Adjustment direction (up, down)
+    """
+    _init_metrics()
+    SELECTION_FEEDBACK_ADJUSTMENTS.labels(agent=agent, direction=direction).inc()
+
+
+def record_workflow_trigger(status: str) -> None:
+    """Record a post-debate workflow trigger.
+
+    Args:
+        status: Trigger status (triggered, skipped, completed, failed)
+    """
+    _init_metrics()
+    WORKFLOW_TRIGGERS.labels(status=status).inc()
+
+
+def record_evidence_stored(count: int = 1) -> None:
+    """Record evidence items stored in knowledge mound.
+
+    Args:
+        count: Number of evidence items stored
+    """
+    _init_metrics()
+    EVIDENCE_STORED.inc(count)
+
+
+def record_culture_patterns(count: int = 1) -> None:
+    """Record culture patterns extracted from debates.
+
+    Args:
+        count: Number of patterns extracted
+    """
+    _init_metrics()
+    CULTURE_PATTERNS.inc(count)

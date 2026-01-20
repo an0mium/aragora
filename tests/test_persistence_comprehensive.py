@@ -7,7 +7,7 @@ Tests database configuration, data models, and repository patterns.
 import os
 import pytest
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -225,7 +225,7 @@ class TestNomicCycleModel:
 
     def test_cycle_to_dict(self):
         """Cycle serialization to dict."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         cycle = NomicCycle(
             loop_id="test",
             cycle_number=1,
@@ -242,8 +242,8 @@ class TestNomicCycleModel:
 
     def test_cycle_to_dict_with_completed_at(self):
         """Cycle serialization includes completed_at when set."""
-        now = datetime.now()
-        completed = datetime.now()
+        now = datetime.now(timezone.utc)
+        completed = datetime.now(timezone.utc)
         cycle = NomicCycle(
             loop_id="test",
             cycle_number=1,

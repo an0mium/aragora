@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from aragora.evidence.store import EvidenceStore
     from aragora.memory.store import CritiqueStore
     from aragora.knowledge.mound.culture import OrganizationCultureManager
+    from aragora.types.protocols import EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class KnowledgeMoundCore:
         self,
         config: Optional[MoundConfig] = None,
         workspace_id: Optional[str] = None,
+        event_emitter: Optional["EventEmitterProtocol"] = None,
     ) -> None:
         """
         Initialize the Knowledge Mound core.
@@ -72,9 +74,11 @@ class KnowledgeMoundCore:
         Args:
             config: Mound configuration. Defaults to SQLite backend.
             workspace_id: Default workspace for queries. Overrides config.
+            event_emitter: Optional event emitter for cross-subsystem events.
         """
         self.config = config or MoundConfig()
         self.workspace_id = workspace_id or self.config.default_workspace_id
+        self.event_emitter = event_emitter
 
         # Storage backends (initialized lazily)
         self._meta_store: Optional[Any] = None  # SQLite or Postgres
@@ -224,14 +228,13 @@ class KnowledgeMoundCore:
         try:
             from aragora.knowledge.mound.semantic_store import SemanticStore
 
-            db_path = self.config.sqlite_path or str(DB_KNOWLEDGE_PATH / "mound.db")
+            db_path = str(self.config.sqlite_path) if self.config.sqlite_path else str(DB_KNOWLEDGE_PATH / "mound.db")
             # Use a separate database for semantic index
             semantic_db_path = db_path.replace(".db", "_semantic.db")
             self._semantic_store = SemanticStore(
                 db_path=semantic_db_path,
                 default_tenant_id=self.workspace_id,
             )
-            self._semantic_store.initialize()
             logger.debug(f"Semantic store initialized at {semantic_db_path}")
         except ImportError:
             logger.warning("Semantic store dependencies not available")

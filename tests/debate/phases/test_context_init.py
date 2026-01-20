@@ -596,10 +596,13 @@ class TestInjectKnowledgeContext:
             fetch_knowledge_context=slow_fetch,
         )
 
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
-            await init._inject_knowledge_context(ctx)
+        # Mock _get_cached_knowledge to return None, forcing the fetch path
+        # This ensures we test the timeout handling rather than cache hits
+        with patch.object(init, "_get_cached_knowledge", return_value=None):
+            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+                await init._inject_knowledge_context(ctx)
 
-        # Context unchanged
+        # Context unchanged after timeout
         assert ctx.env.context == ""
 
     @pytest.mark.asyncio

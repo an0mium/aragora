@@ -8,6 +8,11 @@ Knowledge Mound API (unified knowledge storage):
 - POST /api/knowledge/mound/nodes - Add a knowledge node
 - GET /api/knowledge/mound/nodes/:id - Get specific node
 - GET /api/knowledge/mound/nodes/:id/relationships - Get relationships for a node
+- GET /api/knowledge/mound/nodes/:id/visibility - Get node visibility
+- PUT /api/knowledge/mound/nodes/:id/visibility - Set node visibility
+- GET /api/knowledge/mound/nodes/:id/access - List access grants
+- POST /api/knowledge/mound/nodes/:id/access - Grant access
+- DELETE /api/knowledge/mound/nodes/:id/access - Revoke access
 - GET /api/knowledge/mound/nodes - List/filter nodes
 - POST /api/knowledge/mound/relationships - Add relationship between nodes
 - GET /api/knowledge/mound/graph/:id - Get graph traversal from node
@@ -26,6 +31,29 @@ Knowledge Mound API (unified knowledge storage):
 - POST /api/knowledge/mound/sync/facts - Sync from FactStore
 - GET /api/knowledge/mound/export/d3 - Export graph as D3 JSON
 - GET /api/knowledge/mound/export/graphml - Export graph as GraphML
+
+Sharing endpoints:
+- POST /api/knowledge/mound/share - Share item with workspace/user
+- GET /api/knowledge/mound/shared-with-me - Get items shared with me
+- DELETE /api/knowledge/mound/share - Revoke a share
+- PATCH /api/knowledge/mound/share - Update share permissions
+- GET /api/knowledge/mound/my-shares - List items I've shared
+
+Global knowledge endpoints:
+- POST /api/knowledge/mound/global - Store verified fact (admin)
+- GET /api/knowledge/mound/global - Query global knowledge
+- POST /api/knowledge/mound/global/promote - Promote to global
+- GET /api/knowledge/mound/global/facts - Get all system facts
+- GET /api/knowledge/mound/global/workspace-id - Get system workspace ID
+
+Federation endpoints:
+- POST /api/knowledge/mound/federation/regions - Register federated region
+- GET /api/knowledge/mound/federation/regions - List federated regions
+- DELETE /api/knowledge/mound/federation/regions/:id - Unregister region
+- POST /api/knowledge/mound/federation/sync/push - Sync to region
+- POST /api/knowledge/mound/federation/sync/pull - Pull from region
+- POST /api/knowledge/mound/federation/sync/all - Sync all regions
+- GET /api/knowledge/mound/federation/status - Get federation status
 """
 
 from __future__ import annotations
@@ -44,11 +72,15 @@ from ...utils.rate_limit import RateLimiter, get_client_ip
 
 from .culture import CultureOperationsMixin
 from .export import ExportOperationsMixin
+from .federation import FederationOperationsMixin
+from .global_knowledge import GlobalKnowledgeOperationsMixin
 from .graph import GraphOperationsMixin
 from .nodes import NodeOperationsMixin
 from .relationships import RelationshipOperationsMixin
+from .sharing import SharingOperationsMixin
 from .staleness import StalenessOperationsMixin
 from .sync import SyncOperationsMixin
+from .visibility import VisibilityOperationsMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -67,6 +99,10 @@ class KnowledgeMoundHandler(
     StalenessOperationsMixin,
     SyncOperationsMixin,
     ExportOperationsMixin,
+    VisibilityOperationsMixin,
+    SharingOperationsMixin,
+    GlobalKnowledgeOperationsMixin,
+    FederationOperationsMixin,
     BaseHandler,
 ):
     """Handler for Knowledge Mound API endpoints (unified knowledge storage).
@@ -79,6 +115,10 @@ class KnowledgeMoundHandler(
     - Staleness detection (StalenessOperationsMixin)
     - Legacy sync (SyncOperationsMixin)
     - Graph export (ExportOperationsMixin)
+    - Visibility control (VisibilityOperationsMixin)
+    - Cross-workspace sharing (SharingOperationsMixin)
+    - Global/public knowledge (GlobalKnowledgeOperationsMixin)
+    - Multi-region federation (FederationOperationsMixin)
     """
 
     ROUTES = [
@@ -201,6 +241,63 @@ class KnowledgeMoundHandler(
         if path == "/api/knowledge/mound/export/graphml":
             return self._handle_export_graphml(query_params)
 
+        # Sharing endpoints
+        if path == "/api/knowledge/mound/share":
+            method = getattr(handler, "command", "POST")
+            if method == "POST":
+                return self._handle_share_item(handler)
+            elif method == "DELETE":
+                return self._handle_revoke_share(handler)
+            elif method == "PATCH":
+                return self._handle_update_share(handler)
+
+        if path == "/api/knowledge/mound/shared-with-me":
+            return self._handle_shared_with_me(query_params, handler)
+
+        if path == "/api/knowledge/mound/my-shares":
+            return self._handle_my_shares(query_params, handler)
+
+        # Global knowledge endpoints
+        if path == "/api/knowledge/mound/global":
+            method = getattr(handler, "command", "GET")
+            if method == "POST":
+                return self._handle_store_verified_fact(handler)
+            return self._handle_query_global(query_params)
+
+        if path == "/api/knowledge/mound/global/promote":
+            return self._handle_promote_to_global(handler)
+
+        if path == "/api/knowledge/mound/global/facts":
+            return self._handle_get_system_facts(query_params)
+
+        if path == "/api/knowledge/mound/global/workspace-id":
+            return self._handle_get_system_workspace_id()
+
+        # Federation endpoints
+        if path == "/api/knowledge/mound/federation/regions":
+            method = getattr(handler, "command", "GET")
+            if method == "POST":
+                return self._handle_register_region(handler)
+            return self._handle_list_regions(query_params)
+
+        if path.startswith("/api/knowledge/mound/federation/regions/"):
+            region_id = path.split("/")[-1]
+            method = getattr(handler, "command", "DELETE")
+            if method == "DELETE":
+                return self._handle_unregister_region(region_id, handler)
+
+        if path == "/api/knowledge/mound/federation/sync/push":
+            return self._handle_sync_to_region(handler)
+
+        if path == "/api/knowledge/mound/federation/sync/pull":
+            return self._handle_pull_from_region(handler)
+
+        if path == "/api/knowledge/mound/federation/sync/all":
+            return self._handle_sync_all_regions(handler)
+
+        if path == "/api/knowledge/mound/federation/status":
+            return self._handle_get_federation_status(query_params)
+
         return None
 
     def _handle_node_routes(
@@ -210,7 +307,26 @@ class KnowledgeMoundHandler(
         parts = path.strip("/").split("/")
         if len(parts) >= 5:
             node_id = parts[4]
+            method = getattr(handler, "command", "GET")
+
+            # /api/knowledge/mound/nodes/:id/relationships
             if len(parts) >= 6 and parts[5] == "relationships":
                 return self._handle_get_node_relationships(node_id, query_params)
+
+            # /api/knowledge/mound/nodes/:id/visibility
+            if len(parts) >= 6 and parts[5] == "visibility":
+                if method == "PUT":
+                    return self._handle_set_visibility(node_id, handler)
+                return self._handle_get_visibility(node_id)
+
+            # /api/knowledge/mound/nodes/:id/access
+            if len(parts) >= 6 and parts[5] == "access":
+                if method == "POST":
+                    return self._handle_grant_access(node_id, handler)
+                elif method == "DELETE":
+                    return self._handle_revoke_access(node_id, handler)
+                return self._handle_list_access_grants(node_id, query_params)
+
+            # /api/knowledge/mound/nodes/:id - Get specific node
             return self._handle_get_node(node_id)
         return error_response("Invalid node path", 400)

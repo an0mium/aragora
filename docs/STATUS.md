@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 19, 2026 (21:30 UTC)*
+*Last updated: January 19, 2026 (23:59 UTC)*
 
 ## Current Release
 
@@ -9,7 +9,7 @@
 **Production Ready** - Aragora 2.0.2 adds 3 new pages and enhances 4 existing pages to surface previously hidden backend capabilities.
 
 #### Key Highlights
-- **34,400+ tests** collected and passing (+130 new tests)
+- **34,500+ tests** collected and passing (+200 new tests)
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
 - **Lines of Code**: 443,000+ LOC (+3,000)
@@ -77,6 +77,31 @@
 - `aragora/rlm/training/buffer.py` - Experience replay storage with prioritization
 - `aragora/rlm/training/reward.py` - Reward signal computation from debate outcomes
 - Entropy bonuses, temporal discounting, margin-based rewards
+
+#### Recent Changes (2026-01-19)
+- **Cross-Functional Integration** - Wired 7 cross-functional features:
+  - KnowledgeBridgeHub instantiation (unified MetaLearner/Evidence/Pattern access)
+  - MemoryCoordinator for atomic cross-system writes
+  - SelectionFeedbackLoop for performance-based agent selection
+  - CrossDebateMemory for institutional knowledge injection
+  - Evidence storage via EvidenceBridge
+  - Culture pattern observation via KnowledgeMound
+  - Post-debate workflow triggers
+  - See `docs/CROSS_FUNCTIONAL_FEATURES.md` for usage
+- **Cross-Functional Metrics** - 7 new Prometheus metrics:
+  - `aragora_knowledge_cache_hits_total` / `aragora_knowledge_cache_misses_total`
+  - `aragora_memory_coordinator_writes_total`
+  - `aragora_selection_feedback_adjustments_total`
+  - `aragora_workflow_triggers_total`
+  - `aragora_evidence_stored_total` / `aragora_culture_patterns_total`
+- **Arena.from_config fix** - Fixed `enable_adaptive_rounds` NameError in `_apply_tracker_components`
+- **Modes module tests** - Added 96 tests for `tool_groups.py`, `base.py`, `deep_audit.py`, `redteam.py`
+- **Server refactoring** - Extracted 3 modules from `unified_server.py` (1,321 → 1,013 LOC, -308 lines):
+  - `server/request_lifecycle.py` - HTTP request lifecycle management (167 LOC)
+  - `server/static_file_handler.py` - Static file serving with security (207 LOC)
+  - `server/shutdown_sequence.py` - Phase-based graceful shutdown (383 LOC)
+- **Persistence test fixes** - Fixed timezone-aware datetime comparisons in `test_persistence_comprehensive.py`
+- **ArenaConfig cleanup** - Removed unsupported kwargs from `to_arena_kwargs()` (Memory Coordination, Selection Feedback Loop, Hook System params stored but not yet in Arena.__init__)
 
 #### Bug Fixes (Code Audit)
 - **Agent spec parsing** - Fixed 3-part spec bug in PERSONA_TO_AGENT mapping
@@ -796,7 +821,7 @@ All stabilization items addressed:
 
 ## Feature Integration Status
 
-### Fully Integrated (81)
+### Fully Integrated (88)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -885,6 +910,13 @@ All stabilization items addressed:
 | Verification Confidence Adjust | Active | `aragora/debate/phases/consensus_verification.py` (verify → vote confidence) |
 | Voting Accuracy Tracking | Active | `aragora/debate/phases/feedback_phase.py` (vote patterns → ELO bonus) |
 | Knowledge Mound High-Confidence | Active | `aragora/debate/knowledge_mound_ops.py` (0.85 threshold for storage) |
+| KnowledgeBridgeHub | Active | `aragora/knowledge/bridges.py` (unified MetaLearner/Evidence/Pattern bridges) |
+| MemoryCoordinator | Active | `aragora/memory/coordinator.py` (atomic cross-system writes) |
+| SelectionFeedbackLoop | Active | `aragora/debate/selection_feedback.py` (performance → agent selection) |
+| CrossDebateMemory | Active | `aragora/memory/cross_debate_rlm.py` (institutional knowledge injection) |
+| EvidenceBridge Storage | Active | `aragora/knowledge/bridges.py:207-336` (persist evidence in mound) |
+| CultureAccumulator | Active | `aragora/knowledge/mound/ops/culture.py` (organizational pattern extraction) |
+| Post-Debate Workflows | Active | `aragora/debate/phases/feedback_phase.py` (automated refinement triggers) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |

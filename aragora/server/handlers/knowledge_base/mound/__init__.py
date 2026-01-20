@@ -10,6 +10,10 @@ The handlers are split into mixins for better maintainability:
 - CultureOperationsMixin: Organization culture management
 - StalenessOperationsMixin: Staleness detection and revalidation
 - SyncOperationsMixin: Sync with legacy memory systems
+- VisibilityOperationsMixin: Per-item visibility control
+- SharingOperationsMixin: Cross-workspace knowledge sharing
+- GlobalKnowledgeOperationsMixin: Global/public verified facts
+- FederationOperationsMixin: Multi-region knowledge sync
 """
 
 from .handler import KnowledgeMoundHandler
