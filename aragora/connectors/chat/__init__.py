@@ -99,5 +99,13 @@ def __getattr__(name: str):
         from .google_chat import GoogleChatConnector
 
         return GoogleChatConnector
+    elif name == "TelegramConnector":
+        from .telegram import TelegramConnector
+
+        return TelegramConnector
+    elif name == "WhatsAppConnector":
+        from .whatsapp import WhatsAppConnector
+
+        return WhatsAppConnector
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
