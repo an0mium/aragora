@@ -764,8 +764,8 @@ class TestAutotunedDebateRunnerIntegration(unittest.TestCase):
 
         runner = AutotunedDebateRunner(mock_arena, config)
 
-        self.assertEqual(runner.tuner._config.max_rounds, 5)
-        self.assertEqual(runner.tuner._config.max_cost_dollars, 0.10)
+        self.assertEqual(runner.tuner.config.max_rounds, 5)
+        self.assertEqual(runner.tuner.config.max_cost_dollars, 0.10)
 
 
 class TestAutotunerRealisticScenarios(unittest.TestCase):

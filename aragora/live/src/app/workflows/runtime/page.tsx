@@ -314,107 +314,122 @@ export default function WorkflowRuntimePage() {
             )}
           </div>
 
-          {/* Execution Details */}
-          <div>
-            <h2 className="text-sm font-mono text-acid-green uppercase mb-4">Execution Details</h2>
+          {/* Execution Details - List or DAG view */}
+          <div className="lg:col-span-2">
+            <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+              Execution Details {viewMode === 'dag' && '(DAG View)'}
+            </h2>
 
             {selectedExecutionData ? (
-              <div className="bg-surface border border-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-mono font-bold text-text text-lg">
-                    {selectedExecutionData.workflowName}
-                  </h3>
-                  <div className="flex gap-2">
-                    {selectedExecutionData.status === 'failed' && (
-                      <button
-                        onClick={() => handleRetry(selectedExecutionData.id)}
-                        className="px-3 py-1.5 text-xs font-mono bg-yellow-900/30 text-yellow-400 border border-yellow-800/30 rounded hover:bg-yellow-900/50"
-                      >
-                        Retry
-                      </button>
-                    )}
-                  </div>
+              viewMode === 'dag' ? (
+                /* DAG View */
+                <div className="bg-surface border border-border rounded-lg overflow-hidden" style={{ height: '600px' }}>
+                  <ExecutionDAGView
+                    execution={selectedExecutionData}
+                    onStepSelect={setSelectedStep}
+                    selectedStepId={selectedStep?.id}
+                  />
                 </div>
-
-                {selectedExecutionData.error && (
-                  <div className="p-3 bg-red-900/20 border border-red-800/30 rounded mb-4">
-                    <span className="text-xs font-mono text-red-400 uppercase">Error</span>
-                    <p className="text-sm text-red-300 mt-1">{selectedExecutionData.error}</p>
+              ) : (
+                /* List View - Original Timeline */
+                <div className="bg-surface border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-mono font-bold text-text text-lg">
+                      {selectedExecutionData.workflowName}
+                    </h3>
+                    <div className="flex gap-2">
+                      {selectedExecutionData.status === 'failed' && (
+                        <button
+                          onClick={() => handleRetry(selectedExecutionData.id)}
+                          className="px-3 py-1.5 text-xs font-mono bg-yellow-900/30 text-yellow-400 border border-yellow-800/30 rounded hover:bg-yellow-900/50"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {/* Steps Timeline */}
-                <div className="space-y-3">
-                  {selectedExecutionData.steps.map((step, index) => {
-                    const stepColors = STATUS_COLORS[step.status];
-                    const isWaitingApproval = step.status === 'waiting_approval';
+                  {selectedExecutionData.error && (
+                    <div className="p-3 bg-red-900/20 border border-red-800/30 rounded mb-4">
+                      <span className="text-xs font-mono text-red-400 uppercase">Error</span>
+                      <p className="text-sm text-red-300 mt-1">{selectedExecutionData.error}</p>
+                    </div>
+                  )}
 
-                    return (
-                      <div
-                        key={step.id}
-                        className={`p-3 bg-bg border rounded-lg ${stepColors.border} ${
-                          step.status === 'running' ? 'animate-pulse' : ''
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{STEP_ICONS[step.type] || '📦'}</span>
-                            <span className="font-mono font-bold text-text">{step.name}</span>
-                            <span className="text-xs text-text-muted">({step.type})</span>
-                          </div>
-                          <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${stepColors.bg} ${stepColors.text}`}>
-                            {step.status.replace('_', ' ')}
-                          </span>
-                        </div>
+                  {/* Steps Timeline */}
+                  <div className="space-y-3">
+                    {selectedExecutionData.steps.map((step, index) => {
+                      const stepColors = STATUS_COLORS[step.status];
+                      const isWaitingApproval = step.status === 'waiting_approval';
 
-                        {step.startedAt && (
-                          <div className="text-xs text-text-muted">
-                            {step.completedAt
-                              ? `Completed in ${formatDuration(step.startedAt, step.completedAt)}`
-                              : `Running for ${formatDuration(step.startedAt)}`}
-                          </div>
-                        )}
-
-                        {step.error && (
-                          <div className="mt-2 p-2 bg-red-900/20 rounded text-xs text-red-400">
-                            {step.error}
-                          </div>
-                        )}
-
-                        {/* Human Checkpoint Approval */}
-                        {isWaitingApproval && (
-                          <div className="mt-3 p-3 bg-purple-900/20 border border-purple-800/30 rounded">
-                            <p className="text-sm text-purple-300 mb-3">
-                              {step.approvalMessage || 'This step requires human approval to continue.'}
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleApprove(selectedExecutionData.id, step.id)}
-                                className="flex-1 px-3 py-2 text-xs font-mono bg-green-900/30 text-green-400 border border-green-800/30 rounded hover:bg-green-900/50"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleReject(selectedExecutionData.id, step.id)}
-                                className="flex-1 px-3 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50"
-                              >
-                                Reject
-                              </button>
+                      return (
+                        <div
+                          key={step.id}
+                          onClick={() => setSelectedStep(step)}
+                          className={`p-3 bg-bg border rounded-lg cursor-pointer ${stepColors.border} ${
+                            step.status === 'running' ? 'animate-pulse' : ''
+                          } ${selectedStep?.id === step.id ? 'ring-2 ring-acid-green' : ''}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{STEP_ICONS[step.type] || '📦'}</span>
+                              <span className="font-mono font-bold text-text">{step.name}</span>
+                              <span className="text-xs text-text-muted">({step.type})</span>
                             </div>
+                            <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${stepColors.bg} ${stepColors.text}`}>
+                              {step.status.replace('_', ' ')}
+                            </span>
                           </div>
-                        )}
 
-                        {/* Step connector line */}
-                        {index < selectedExecutionData.steps.length - 1 && (
-                          <div className="flex justify-center mt-2">
-                            <div className="w-0.5 h-4 bg-border" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {step.startedAt && (
+                            <div className="text-xs text-text-muted">
+                              {step.completedAt
+                                ? `Completed in ${formatDuration(step.startedAt, step.completedAt)}`
+                                : `Running for ${formatDuration(step.startedAt)}`}
+                            </div>
+                          )}
+
+                          {step.error && (
+                            <div className="mt-2 p-2 bg-red-900/20 rounded text-xs text-red-400">
+                              {step.error}
+                            </div>
+                          )}
+
+                          {/* Human Checkpoint Approval */}
+                          {isWaitingApproval && (
+                            <div className="mt-3 p-3 bg-purple-900/20 border border-purple-800/30 rounded">
+                              <p className="text-sm text-purple-300 mb-3">
+                                {step.approvalMessage || 'This step requires human approval to continue.'}
+                              </p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleApprove(selectedExecutionData.id, step.id); }}
+                                  className="flex-1 px-3 py-2 text-xs font-mono bg-green-900/30 text-green-400 border border-green-800/30 rounded hover:bg-green-900/50"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleReject(selectedExecutionData.id, step.id); }}
+                                  className="flex-1 px-3 py-2 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Step connector line */}
+                          {index < selectedExecutionData.steps.length - 1 && (
+                            <div className="flex justify-center mt-2">
+                              <div className="w-0.5 h-4 bg-border" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-muted">
                 Select an execution to view details
@@ -422,6 +437,32 @@ export default function WorkflowRuntimePage() {
             )}
           </div>
         </div>
+
+        {/* Step Detail Panel */}
+        {selectedStep && (
+          <>
+            <div
+              className="fixed inset-0 bg-bg/60 z-40"
+              onClick={() => setSelectedStep(null)}
+            />
+            <StepDetailPanel
+              step={selectedStep}
+              onClose={() => setSelectedStep(null)}
+              onApprove={(stepId) => {
+                if (selectedExecutionData) {
+                  handleApprove(selectedExecutionData.id, stepId);
+                  setSelectedStep(null);
+                }
+              }}
+              onReject={(stepId) => {
+                if (selectedExecutionData) {
+                  handleReject(selectedExecutionData.id, stepId);
+                  setSelectedStep(null);
+                }
+              }}
+            />
+          </>
+        )}
       </div>
     </main>
   );
