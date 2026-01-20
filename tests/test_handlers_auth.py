@@ -435,7 +435,8 @@ class TestLogin:
 
         result = auth_handler._handle_login(mock_handler)
 
-        assert result.status_code == 403
+        # 401 is correct: disabled account = cannot authenticate
+        assert result.status_code == 401
         data = json.loads(result.body)
         assert "disabled" in data["error"].lower()
 
@@ -448,7 +449,7 @@ class TestLogin:
 class TestTokenRefresh:
     """Tests for token refresh endpoint."""
 
-    @patch("aragora.server.handlers.auth.validate_refresh_token")
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     def test_refresh_success(
         self, mock_tokens, mock_validate, auth_handler, mock_handler, mock_user_store, mock_user
@@ -477,7 +478,7 @@ class TestTokenRefresh:
 
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.validate_refresh_token")
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     def test_refresh_invalid_token(self, mock_validate, auth_handler, mock_handler):
         """Test refresh with invalid token."""
         mock_validate.return_value = None
@@ -492,7 +493,7 @@ class TestTokenRefresh:
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.validate_refresh_token")
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     def test_refresh_user_not_found(
         self, mock_validate, auth_handler, mock_handler, mock_user_store
     ):
@@ -510,7 +511,7 @@ class TestTokenRefresh:
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.validate_refresh_token")
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     def test_refresh_disabled_account(
         self, mock_validate, auth_handler, mock_handler, mock_user_store, mock_user
     ):
@@ -526,7 +527,8 @@ class TestTokenRefresh:
 
         result = auth_handler._handle_refresh(mock_handler)
 
-        assert result.status_code == 403
+        # 401 is correct: disabled account = cannot authenticate
+        assert result.status_code == 401
 
 
 # ============================================================================
@@ -537,7 +539,7 @@ class TestTokenRefresh:
 class TestLogout:
     """Tests for logout endpoint."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_logout_success(self, mock_extract, auth_handler, mock_handler):
         """Test successful logout."""
         mock_extract.return_value = Mock(
@@ -551,7 +553,7 @@ class TestLogout:
         data = json.loads(result.body)
         assert "Logged out" in data["message"]
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_logout_not_authenticated(self, mock_extract, auth_handler, mock_handler):
         """Test logout without authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
@@ -569,7 +571,7 @@ class TestLogout:
 class TestGetMe:
     """Tests for get current user endpoint."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_get_me_success(
         self, mock_extract, auth_handler, mock_handler, mock_user_store, mock_user
     ):
@@ -585,7 +587,7 @@ class TestGetMe:
         data = json.loads(result.body)
         assert "user" in data
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_get_me_not_authenticated(self, mock_extract, auth_handler, mock_handler):
         """Test get user info without authentication."""
         mock_extract.return_value = Mock(is_authenticated=False)
@@ -594,7 +596,7 @@ class TestGetMe:
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_get_me_user_not_found(self, mock_extract, auth_handler, mock_handler, mock_user_store):
         """Test get user info when user deleted."""
         mock_extract.return_value = Mock(

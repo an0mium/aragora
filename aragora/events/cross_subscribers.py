@@ -39,8 +39,21 @@ class SubscriberStats:
     name: str
     events_processed: int = 0
     events_failed: int = 0
+    events_skipped: int = 0  # Skipped due to sampling/filtering
     last_event_time: Optional[datetime] = None
     enabled: bool = True
+    sample_rate: float = 1.0  # 1.0 = 100% of events, 0.1 = 10% sampling
+    # Latency metrics (in milliseconds)
+    total_latency_ms: float = 0.0
+    min_latency_ms: float = float("inf")
+    max_latency_ms: float = 0.0
+
+    @property
+    def avg_latency_ms(self) -> float:
+        """Average latency in milliseconds."""
+        if self.events_processed == 0:
+            return 0.0
+        return self.total_latency_ms / self.events_processed
 
 
 class CrossSubscriberManager:
@@ -67,6 +80,7 @@ class CrossSubscriberManager:
         """Initialize the cross-subscriber manager."""
         self._subscribers: dict[StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]] = {}
         self._stats: dict[str, SubscriberStats] = {}
+        self._filters: dict[str, Callable[[StreamEvent], bool]] = {}
         self._connected = False
 
         # Register built-in cross-subsystem handlers
@@ -176,22 +190,117 @@ class CrossSubscriberManager:
         logger.info("CrossSubscriberManager connected to event stream")
 
     def _dispatch_event(self, event: StreamEvent) -> None:
-        """Dispatch event to registered subscribers."""
+        """Dispatch event to registered subscribers with sampling support."""
+        import random
+        import time
+
         handlers = self._subscribers.get(event.type, [])
 
         for name, handler in handlers:
+            # Check if handler is enabled
+            if name in self._stats and not self._stats[name].enabled:
+                continue
+
+            # Apply sampling - skip based on sample_rate
+            if name in self._stats:
+                sample_rate = self._stats[name].sample_rate
+                if sample_rate < 1.0 and random.random() > sample_rate:
+                    self._stats[name].events_skipped += 1
+                    continue
+
+            # Apply custom filter if set
+            if name in self._filters:
+                filter_fn = self._filters[name]
+                try:
+                    if not filter_fn(event):
+                        self._stats[name].events_skipped += 1
+                        continue
+                except Exception as e:
+                    logger.debug(f"Filter error for {name}: {e}")
+
+            start_time = time.perf_counter()
             try:
                 handler(event)
 
-                # Update stats
+                # Calculate latency
+                latency_ms = (time.perf_counter() - start_time) * 1000
+
+                # Update stats with latency
                 if name in self._stats:
-                    self._stats[name].events_processed += 1
-                    self._stats[name].last_event_time = datetime.now()
+                    stats = self._stats[name]
+                    stats.events_processed += 1
+                    stats.last_event_time = datetime.now()
+                    stats.total_latency_ms += latency_ms
+                    stats.min_latency_ms = min(stats.min_latency_ms, latency_ms)
+                    stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
 
             except Exception as e:
                 logger.error(f"Cross-subscriber error in {name}: {e}")
                 if name in self._stats:
                     self._stats[name].events_failed += 1
+
+    async def _dispatch_event_async(self, event: StreamEvent) -> None:
+        """Dispatch event to registered subscribers asynchronously.
+
+        Runs all handlers concurrently using asyncio.gather for better
+        performance when handlers involve I/O operations.
+        """
+        import asyncio
+        import time
+
+        handlers = self._subscribers.get(event.type, [])
+        if not handlers:
+            return
+
+        async def run_handler(name: str, handler: Callable) -> None:
+            """Run a single handler and track stats."""
+            start_time = time.perf_counter()
+            try:
+                # Check if handler is async
+                if asyncio.iscoroutinefunction(handler):
+                    await handler(event)
+                else:
+                    # Run sync handler in executor to not block
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, handler, event)
+
+                # Calculate latency
+                latency_ms = (time.perf_counter() - start_time) * 1000
+
+                # Update stats
+                if name in self._stats:
+                    stats = self._stats[name]
+                    stats.events_processed += 1
+                    stats.last_event_time = datetime.now()
+                    stats.total_latency_ms += latency_ms
+                    stats.min_latency_ms = min(stats.min_latency_ms, latency_ms)
+                    stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
+
+            except Exception as e:
+                logger.error(f"Cross-subscriber error in {name}: {e}")
+                if name in self._stats:
+                    self._stats[name].events_failed += 1
+
+        # Run all handlers concurrently
+        await asyncio.gather(
+            *[run_handler(name, handler) for name, handler in handlers],
+            return_exceptions=True,
+        )
+
+    def dispatch_async(self, event: StreamEvent) -> None:
+        """Schedule async dispatch (fire-and-forget).
+
+        Use this for non-blocking event dispatch when you don't need
+        to wait for handler completion.
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._dispatch_event_async(event))
+        except RuntimeError:
+            # No running loop - fall back to sync dispatch
+            self._dispatch_event(event)
 
     # =========================================================================
     # Built-in Cross-Subsystem Handlers
@@ -428,13 +537,22 @@ class CrossSubscriberManager:
     # =========================================================================
 
     def get_stats(self) -> dict[str, dict]:
-        """Get statistics for all subscribers."""
+        """Get statistics for all subscribers including latency and sampling metrics."""
         return {
             name: {
                 "events_processed": stats.events_processed,
                 "events_failed": stats.events_failed,
+                "events_skipped": stats.events_skipped,
                 "last_event": stats.last_event_time.isoformat() if stats.last_event_time else None,
                 "enabled": stats.enabled,
+                "sample_rate": stats.sample_rate,
+                "has_filter": name in self._filters,
+                "latency_ms": {
+                    "avg": round(stats.avg_latency_ms, 3),
+                    "min": round(stats.min_latency_ms, 3) if stats.min_latency_ms != float("inf") else None,
+                    "max": round(stats.max_latency_ms, 3),
+                    "total": round(stats.total_latency_ms, 3),
+                },
             }
             for name, stats in self._stats.items()
         }
@@ -454,11 +572,67 @@ class CrossSubscriberManager:
         return False
 
     def reset_stats(self) -> None:
-        """Reset all subscriber statistics."""
+        """Reset all subscriber statistics including latency."""
         for stats in self._stats.values():
             stats.events_processed = 0
             stats.events_failed = 0
+            stats.events_skipped = 0
             stats.last_event_time = None
+            stats.total_latency_ms = 0.0
+            stats.min_latency_ms = float("inf")
+            stats.max_latency_ms = 0.0
+
+    def set_sample_rate(self, name: str, rate: float) -> bool:
+        """Set sampling rate for a subscriber.
+
+        Args:
+            name: Subscriber name
+            rate: Sample rate (0.0 to 1.0). 1.0 = process all events,
+                  0.1 = process ~10% of events randomly.
+
+        Returns:
+            True if subscriber found and updated, False otherwise.
+        """
+        if name not in self._stats:
+            return False
+        if not 0.0 <= rate <= 1.0:
+            raise ValueError(f"Sample rate must be between 0.0 and 1.0, got {rate}")
+        self._stats[name].sample_rate = rate
+        logger.info(f"Set sample rate for '{name}' to {rate:.0%}")
+        return True
+
+    def set_filter(
+        self,
+        name: str,
+        filter_fn: Optional[Callable[[StreamEvent], bool]],
+    ) -> bool:
+        """Set a custom filter function for a subscriber.
+
+        The filter is called before the handler. If it returns False,
+        the event is skipped (counted as skipped, not processed).
+
+        Args:
+            name: Subscriber name
+            filter_fn: Function that takes StreamEvent and returns bool.
+                       Pass None to remove an existing filter.
+
+        Returns:
+            True if subscriber found and updated, False otherwise.
+        """
+        if name not in self._stats:
+            return False
+
+        if filter_fn is None:
+            self._filters.pop(name, None)
+            logger.info(f"Removed filter for '{name}'")
+        else:
+            self._filters[name] = filter_fn
+            logger.info(f"Set filter for '{name}'")
+        return True
+
+    def get_filter(self, name: str) -> Optional[Callable[[StreamEvent], bool]]:
+        """Get the filter function for a subscriber, if any."""
+        return self._filters.get(name)
 
 
 # Global manager instance

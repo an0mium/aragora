@@ -163,6 +163,7 @@ from .settings import (
     DebateSettings,
     EloSettings,
     EvidenceSettings,
+    IntegrationSettings,
     RateLimitSettings,
     # Main settings class and accessor
     Settings,
@@ -207,6 +208,7 @@ __all__ = [
     "SSLSettings",
     "StorageSettings",
     "EvidenceSettings",
+    "IntegrationSettings",
     # Stability markers
     "Stability",
     "FeatureStabilityInfo",

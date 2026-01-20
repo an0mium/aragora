@@ -255,3 +255,147 @@ class TestSingletonBehavior:
         reset_cross_subscriber_manager()
         manager2 = get_cross_subscriber_manager()
         assert manager1 is not manager2
+
+
+class TestRLMTrainingIntegration:
+    """End-to-end tests for RLM training data collection from debates."""
+
+    def setup_method(self):
+        """Reset collectors before each test."""
+        reset_cross_subscriber_manager()
+        from aragora.rlm.debate_integration import reset_debate_trajectory_collector
+        reset_debate_trajectory_collector()
+
+    def test_training_hook_collects_trajectories(self):
+        """Test that training hook collects debate outcomes as trajectories."""
+        from aragora.rlm.debate_integration import (
+            create_training_hook,
+            get_debate_trajectory_collector,
+        )
+
+        # Create and invoke the hook
+        hook = create_training_hook()
+        collector = get_debate_trajectory_collector()
+
+        # Simulate a debate result
+        class MockResult:
+            debate_id = "test_debate_001"
+            task = "Test debate task"
+            consensus_reached = True
+            confidence = 0.85
+            winner = "claude"
+            final_answer = "The answer is 42"
+
+        hook(MockResult())
+
+        # Verify trajectory was collected
+        trajectories = collector.get_trajectories()
+        assert len(trajectories) == 1
+        assert trajectories[0].trajectory_id == "test_debate_001"
+        assert trajectories[0].query == "Test debate task"
+
+    def test_training_hook_with_context(self):
+        """Test training hook uses context when available."""
+        from aragora.rlm.debate_integration import (
+            create_training_hook,
+            get_debate_trajectory_collector,
+            reset_debate_trajectory_collector,
+        )
+
+        reset_debate_trajectory_collector()
+        hook = create_training_hook()
+        collector = get_debate_trajectory_collector()
+
+        # Create mock context with result
+        class MockResult:
+            consensus_reached = True
+            confidence = 0.9
+            winner = "gpt"
+            final_answer = "Final answer text"
+
+        class MockEnv:
+            task = "Context task"
+
+        class MockAgent:
+            name = "claude"
+
+        class MockContext:
+            debate_id = "ctx_debate_002"
+            result = MockResult()
+            env = MockEnv()
+            messages = []
+            agents = [MockAgent(), MockAgent()]
+            domain = "technical"
+
+        hook(None, ctx=MockContext())
+
+        # Verify trajectory from context
+        trajectories = collector.get_trajectories()
+        assert len(trajectories) == 1
+        assert trajectories[0].trajectory_id == "ctx_debate_002"
+        assert trajectories[0].query == "Context task"
+
+    def test_collector_stats_tracking(self):
+        """Test collector tracks debate statistics correctly."""
+        from aragora.rlm.debate_integration import (
+            get_debate_trajectory_collector,
+            reset_debate_trajectory_collector,
+        )
+
+        reset_debate_trajectory_collector()
+        collector = get_debate_trajectory_collector()
+
+        # Record multiple debates
+        collector.record_debate_outcome(
+            debate_id="d1", task="Task 1", consensus_reached=True, confidence=0.9
+        )
+        collector.record_debate_outcome(
+            debate_id="d2", task="Task 2", consensus_reached=False, confidence=0.4
+        )
+        collector.record_debate_outcome(
+            debate_id="d3", task="Task 3", consensus_reached=True, confidence=0.85
+        )
+
+        stats = collector.get_stats()
+        assert stats["total_debates"] == 3
+        assert stats["successful_debates"] == 2
+        assert stats["success_rate"] == pytest.approx(2/3, rel=0.01)
+        assert stats["buffer_size"] == 3
+
+    def test_arena_builder_enables_training_by_default(self):
+        """Test ArenaBuilder enables RLM training by default."""
+        from aragora.debate.arena_builder import ArenaBuilder
+        from aragora.core_types import Environment
+
+        env = Environment(task="Test task")
+        agents = [MagicMock(), MagicMock()]
+
+        builder = ArenaBuilder(env, agents)
+        # Check that RLM training is enabled by default
+        assert builder._enable_rlm_training is True
+
+    def test_arena_builder_can_disable_training(self):
+        """Test ArenaBuilder can disable RLM training."""
+        from aragora.debate.arena_builder import ArenaBuilder
+        from aragora.core_types import Environment
+
+        env = Environment(task="Test task")
+        agents = [MagicMock(), MagicMock()]
+
+        builder = ArenaBuilder(env, agents).with_rlm_training(False)
+        assert builder._enable_rlm_training is False
+
+    def test_integration_settings_controls_training(self):
+        """Test IntegrationSettings controls RLM training default."""
+        from aragora.config.settings import get_settings, reset_settings
+        import os
+
+        # Reset to pick up any env changes
+        reset_settings()
+        settings = get_settings()
+
+        # Default should be True
+        assert settings.integration.rlm_training_enabled is True
+
+        # Environment variable should override (test requires actual env var)
+        # This is tested implicitly by the settings module tests

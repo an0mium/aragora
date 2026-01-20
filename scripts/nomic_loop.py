@@ -686,7 +686,7 @@ except ImportError:
 # CrossDebateMemory for institutional knowledge
 CROSS_DEBATE_MEMORY_AVAILABLE = False
 try:
-    from aragora.debate.cross_debate_memory import CrossDebateMemory
+    from aragora.memory.cross_debate_rlm import CrossDebateMemory
 
     CROSS_DEBATE_MEMORY_AVAILABLE = True
 except ImportError:

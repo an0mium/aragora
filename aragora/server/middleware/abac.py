@@ -606,13 +606,9 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
             resource_id = kwargs.get(f"{resource_type}_id") or kwargs.get("resource_id")
 
             if not user:
-                from aragora.server.errors import ErrorCode, create_error_response
+                from aragora.server.errors import AuthenticationError, format_error_response
 
-                return create_error_response(
-                    ErrorCode.UNAUTHORIZED,
-                    "Authentication required",
-                    status_code=401,
-                )
+                return format_error_response(AuthenticationError("Authentication required"))
 
             # Get resource owner (would need to be fetched from DB in real implementation)
             # This is a placeholder - actual implementation would query the resource
@@ -620,12 +616,10 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
 
             if resource_owner_id and user.id != resource_owner_id:
                 if not getattr(user, "is_admin", False):
-                    from aragora.server.errors import ErrorCode, create_error_response
+                    from aragora.server.errors import ForbiddenError, format_error_response
 
-                    return create_error_response(
-                        ErrorCode.FORBIDDEN,
-                        f"You do not have permission to modify this {resource_type}",
-                        status_code=403,
+                    return format_error_response(
+                        ForbiddenError(f"You do not have permission to modify this {resource_type}")
                     )
 
             return await func(*args, **kwargs)
@@ -655,13 +649,9 @@ def require_access(
             resource_id = kwargs.get("resource_id")
 
             if not user:
-                from aragora.server.errors import ErrorCode, create_error_response
+                from aragora.server.errors import AuthenticationError, format_error_response
 
-                return create_error_response(
-                    ErrorCode.UNAUTHORIZED,
-                    "Authentication required",
-                    status_code=401,
-                )
+                return format_error_response(AuthenticationError("Authentication required"))
 
             # Check access (simplified - would need resource metadata in real impl)
             decision = check_resource_access(
@@ -675,13 +665,9 @@ def require_access(
             )
 
             if not decision.allowed:
-                from aragora.server.errors import ErrorCode, create_error_response
+                from aragora.server.errors import ForbiddenError, format_error_response
 
-                return create_error_response(
-                    ErrorCode.FORBIDDEN,
-                    decision.reason,
-                    status_code=403,
-                )
+                return format_error_response(ForbiddenError(decision.reason))
 
             return await func(*args, **kwargs)
 

@@ -210,7 +210,7 @@ def mock_auth_context_factory():
 class TestMFASetup:
     """Tests for POST /api/auth/mfa/setup endpoint."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_success(
         self,
         mock_extract,
@@ -259,7 +259,7 @@ class TestMFASetup:
         assert "mfa_secret" in call_kwargs
         assert call_kwargs["mfa_secret"] == data["secret"]
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_already_enabled_fails(
         self,
         mock_extract,
@@ -283,7 +283,7 @@ class TestMFASetup:
         data = json.loads(result.body)
         assert "already enabled" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_requires_authentication(
         self,
         mock_extract,
@@ -302,7 +302,7 @@ class TestMFASetup:
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_user_not_found(
         self,
         mock_extract,
@@ -333,7 +333,7 @@ class TestMFASetup:
 class TestMFAEnable:
     """Tests for POST /api/auth/mfa/enable endpoint."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_success_with_valid_code(
         self,
         mock_extract,
@@ -377,7 +377,7 @@ class TestMFAEnable:
         assert call_kwargs.get("mfa_enabled") is True
         assert "mfa_backup_codes" in call_kwargs
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_invalid_code_fails(
         self,
         mock_extract,
@@ -406,7 +406,7 @@ class TestMFAEnable:
             call_kwargs = call[1] if len(call) > 1 else {}
             assert call_kwargs.get("mfa_enabled") is not True
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_already_enabled_fails(
         self,
         mock_extract,
@@ -434,7 +434,7 @@ class TestMFAEnable:
         data = json.loads(result.body)
         assert "already enabled" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_without_setup_fails(
         self,
         mock_extract,
@@ -458,7 +458,7 @@ class TestMFAEnable:
         data = json.loads(result.body)
         assert "not set up" in data["error"].lower() or "setup first" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_missing_code_fails(
         self,
         mock_extract,
@@ -826,7 +826,7 @@ class TestBackupCodes:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_regenerate_backup_codes_success(
         self,
         mock_extract,
@@ -863,7 +863,7 @@ class TestBackupCodes:
         call_kwargs = store.update_user.call_args[1]
         assert "mfa_backup_codes" in call_kwargs
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_regenerate_backup_codes_invalid_mfa_fails(
         self,
         mock_extract,
@@ -887,7 +887,7 @@ class TestBackupCodes:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_regenerate_backup_codes_requires_mfa_enabled(
         self,
         mock_extract,
@@ -920,7 +920,7 @@ class TestBackupCodes:
 class TestMFADisable:
     """Tests for POST /api/auth/mfa/disable endpoint."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_with_valid_totp_code(
         self,
         mock_extract,
@@ -955,7 +955,7 @@ class TestMFADisable:
         assert call_kwargs.get("mfa_secret") is None
         assert call_kwargs.get("mfa_backup_codes") is None
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_with_valid_password(
         self,
         mock_extract,
@@ -979,7 +979,7 @@ class TestMFADisable:
         data = json.loads(result.body)
         assert "disabled" in data["message"].lower() or "success" in data["message"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_invalid_code_fails(
         self,
         mock_extract,
@@ -1003,7 +1003,7 @@ class TestMFADisable:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_invalid_password_fails(
         self,
         mock_extract,
@@ -1028,7 +1028,7 @@ class TestMFADisable:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_requires_code_or_password(
         self,
         mock_extract,
@@ -1052,7 +1052,7 @@ class TestMFADisable:
         data = json.loads(result.body)
         assert "code" in data["error"].lower() or "password" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_when_not_enabled_fails(
         self,
         mock_extract,
@@ -1131,7 +1131,7 @@ class TestPostDisableLogin:
 class TestMFAEdgeCases:
     """Tests for edge cases and error handling in MFA flow."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_service_unavailable(
         self,
         mock_extract,
@@ -1168,7 +1168,7 @@ class TestMFAEdgeCases:
         data = json.loads(result.body)
         assert "json" in data["error"].lower() or "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_invalid_json(
         self,
         mock_extract,
@@ -1260,7 +1260,7 @@ class TestMFAEdgeCases:
 class TestTOTPTimeWindow:
     """Tests for TOTP time window acceptance."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_accepts_previous_code(
         self,
         mock_extract,
@@ -1352,7 +1352,7 @@ class TestMFARoutes:
 class TestMFAFullFlow:
     """Integration tests for complete MFA flows."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_complete_mfa_setup_enable_flow(
         self,
         mock_extract,
@@ -1471,7 +1471,7 @@ class TestMFAFullFlow:
 class TestMFASecurity:
     """Security-focused tests for MFA implementation."""
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_secret_not_exposed_after_enable(
         self,
         mock_extract,
@@ -1526,7 +1526,7 @@ class TestMFASecurity:
         for code in mock_user_with_mfa_enabled._test_backup_codes:
             assert code not in mock_user_with_mfa_enabled.mfa_backup_codes
 
-    @patch("aragora.server.handlers.auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_returns_unique_secrets(
         self,
         mock_extract,

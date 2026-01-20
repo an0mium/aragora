@@ -51,6 +51,8 @@ class RoutePermission:
         if self.method != "*" and self.method.upper() != method.upper():
             return False, None
 
+        # Pattern is always compiled in __post_init__
+        assert isinstance(self.pattern, Pattern), "pattern must be compiled"
         match = self.pattern.match(path)
         if not match:
             return False, None
@@ -269,7 +271,7 @@ class RBACMiddleware:
         """Remove a route permission rule by pattern and method."""
         self.config.route_permissions = [
             r for r in self.config.route_permissions
-            if not (r.pattern.pattern == pattern and r.method == method)
+            if not (isinstance(r.pattern, Pattern) and r.pattern.pattern == pattern and r.method == method)
         ]
 
     def get_required_permission(self, path: str, method: str) -> str | None:

@@ -74,7 +74,8 @@ def is_supported_format(filename: str) -> bool:
 def mock_openai_client():
     """Create a mock OpenAI client."""
     client = MagicMock()
-    client.audio.transcriptions.create = MagicMock(
+    # Use AsyncMock for async transcription method
+    client.audio.transcriptions.create = AsyncMock(
         return_value=MagicMock(
             text="Hello, this is a test transcription.",
             segments=[

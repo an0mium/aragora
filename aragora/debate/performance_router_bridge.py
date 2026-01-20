@@ -32,6 +32,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -40,6 +41,20 @@ if TYPE_CHECKING:
     from aragora.debate.agent_router import AgentRouter
 
 logger = logging.getLogger(__name__)
+
+
+def _record_routing_metrics(task_type: str, selected_agent: str, latency: float) -> None:
+    """Record routing decision metrics to Prometheus."""
+    try:
+        from aragora.observability.metrics import (
+            record_performance_routing_decision,
+            record_performance_routing_latency,
+        )
+
+        record_performance_routing_decision(task_type or "balanced", selected_agent)
+        record_performance_routing_latency(latency)
+    except ImportError:
+        pass  # Metrics not available
 
 
 @dataclass
@@ -266,11 +281,13 @@ class PerformanceRouterBridge:
         Returns:
             SyncResult with sync details
         """
+        start_time = time.perf_counter()
         result = SyncResult()
 
         if self.agent_router is None:
             result.success = False
             result.error = "No agent router attached"
+            self._record_sync_metrics(result, time.perf_counter() - start_time)
             return result
 
         # Check sync interval
@@ -307,7 +324,23 @@ class PerformanceRouterBridge:
             f"router_sync synced={result.agents_synced} skipped={result.agents_skipped}"
         )
 
+        # Record telemetry
+        self._record_sync_metrics(result, time.perf_counter() - start_time)
+
         return result
+
+    def _record_sync_metrics(self, result: SyncResult, latency: float) -> None:
+        """Record sync metrics to Prometheus."""
+        try:
+            from aragora.observability.metrics import (
+                record_bridge_sync,
+                record_bridge_sync_latency,
+            )
+
+            record_bridge_sync("performance_router", result.success)
+            record_bridge_sync_latency("performance_router", latency)
+        except ImportError:
+            pass  # Metrics not available
 
     def get_best_agent_for_task(
         self,
@@ -326,6 +359,7 @@ class PerformanceRouterBridge:
         if not available_agents:
             return None
 
+        start_time = time.perf_counter()
         best_agent = None
         best_score = -1.0
 
@@ -334,6 +368,11 @@ class PerformanceRouterBridge:
             if score.is_reliable and score.overall_score > best_score:
                 best_score = score.overall_score
                 best_agent = agent_name
+
+        # Record metrics for the routing decision
+        latency = time.perf_counter() - start_time
+        if best_agent:
+            _record_routing_metrics(task_type or "balanced", best_agent, latency)
 
         return best_agent
 

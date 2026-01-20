@@ -235,9 +235,21 @@ class OpenAIWhisperBackend(TranscriptionBackend):
 
     name = "openai"
 
-    def __init__(self, config: Optional[TranscriptionConfig] = None):
+    def __init__(self, config: Optional[TranscriptionConfig] = None, model: Optional[str] = None):
         super().__init__(config)
         self._client = None
+        # Allow model override via constructor
+        if model:
+            self.config.openai_model = model
+        # Validate API key is available
+        api_key = self.config.openai_api_key or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable or config.openai_api_key required")
+
+    @property
+    def model(self) -> str:
+        """Return the OpenAI model name."""
+        return self.config.openai_model
 
     def is_available(self) -> bool:
         """Check if OpenAI API is available."""

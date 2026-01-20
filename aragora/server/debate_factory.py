@@ -243,7 +243,7 @@ class DebateFactory:
         config: DebateConfig,
         event_hooks: Optional[dict] = None,
         stream_wrapper: Optional[Callable[..., Any]] = None,
-        enable_rlm_training: bool = True,
+        enable_rlm_training: Optional[bool] = None,
     ) -> "Arena":
         """Create a fully configured debate arena.
 
@@ -253,7 +253,7 @@ class DebateFactory:
             config: Debate configuration
             event_hooks: Optional event hooks for the arena
             stream_wrapper: Optional function to wrap agents for streaming
-            enable_rlm_training: Whether to enable RLM training data collection
+            enable_rlm_training: Whether to enable RLM training (None = use settings)
 
         Returns:
             Configured Arena ready to run
@@ -261,7 +261,12 @@ class DebateFactory:
         Raises:
             ValueError: If not enough agents could be created
         """
+        from aragora.config.settings import get_settings
         from aragora.core_types import Environment
+
+        # Read from settings if not explicitly provided
+        if enable_rlm_training is None:
+            enable_rlm_training = get_settings().integration.rlm_training_enabled
         from aragora.debate.arena_builder import ArenaBuilder
         from aragora.debate.protocol import (
             ARAGORA_AI_LIGHT_PROTOCOL,

@@ -575,25 +575,32 @@ class UsageSyncService:
         delta_debates = summary.total_debates - prev_debates
 
         # Report input tokens
+        # Only advance watermark by what we actually bill (quantity * 1000)
+        # to preserve remainder tokens for next sync or period-end flush
         if delta_tokens_in >= self.MIN_TOKENS_THRESHOLD and config.tokens_input_item_id:
+            billed_units = delta_tokens_in // 1000
+            billed_tokens = billed_units * 1000  # Actual tokens being billed
             record = self._report_usage(
                 config=config,
                 subscription_item_id=config.tokens_input_item_id,
-                quantity=delta_tokens_in // 1000,  # Report per 1K tokens
+                quantity=billed_units,  # Report per 1K tokens
                 sync_type="tokens_input",
-                cumulative_total=summary.total_tokens_in,
+                cumulative_total=prev_tokens_in + billed_tokens,  # Only advance by billed amount
             )
             records.append(record)
             # Note: watermark update now handled by two-phase commit in _report_usage
 
         # Report output tokens
+        # Only advance watermark by what we actually bill (quantity * 1000)
         if delta_tokens_out >= self.MIN_TOKENS_THRESHOLD and config.tokens_output_item_id:
+            billed_units = delta_tokens_out // 1000
+            billed_tokens = billed_units * 1000  # Actual tokens being billed
             record = self._report_usage(
                 config=config,
                 subscription_item_id=config.tokens_output_item_id,
-                quantity=delta_tokens_out // 1000,  # Report per 1K tokens
+                quantity=billed_units,  # Report per 1K tokens
                 sync_type="tokens_output",
-                cumulative_total=summary.total_tokens_out,
+                cumulative_total=prev_tokens_out + billed_tokens,  # Only advance by billed amount
             )
             records.append(record)
             # Note: watermark update now handled by two-phase commit in _report_usage

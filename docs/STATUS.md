@@ -16,15 +16,19 @@
 - **Lines of Code**: 443,000+ LOC (+3,000)
 - **0 production blockers**
 - **0 uncommitted files**
-- **92 fully integrated features** (+4 cross-pollination)
+- **96 fully integrated features** (+8 cross-pollination)
 
 #### What's New in 2.0.3
 
-**Cross-Pollination Integrations** - 4 new feature connections
+**Cross-Pollination Integrations** - 8 new feature connections
 - **Calibration → Proposals**: Temperature scaling applied to initial proposal confidence
 - **Learning Efficiency → ELO**: Agents who improve consistently get ELO bonuses
 - **Memory Checkpoint Snapshots**: Export/restore ContinuumMemory with debate state
 - **Knowledge Mound Federation**: Multi-region sync for institutional knowledge
+- **Event-Driven Subsystem Communication**: CrossSubscriberManager routes events between subsystems
+- **Arena Event Bridge**: Debate events automatically dispatch to cross-subscribers
+- **RLM Training Hook**: Automatic trajectory collection from debate outcomes
+- **Evidence-Provenance Bridge**: Link evidence snippets to belief claims for provenance
 
 **Feedback Loop Completions**
 - Voting accuracy tracking feeds back to agent skill assessment
@@ -367,7 +371,18 @@ else:
 - Sync persistence with SQLite/PostgreSQL
 - Health monitoring and metrics
 
-**Phase 8: Cross-Pollination Integrations** (NEW)
+**Phase 9: Event-Driven Cross-Pollination** (NEW)
+- `aragora/events/cross_subscribers.py` - CrossSubscriberManager for event-driven subsystem communication
+- `aragora/events/arena_bridge.py` - ArenaEventBridge connecting Arena events to cross-subscribers
+- `aragora/reasoning/evidence_bridge.py` - EvidenceProvenanceBridge for claim-evidence linking
+- `aragora/rlm/debate_integration.py` - DebateTrajectoryCollector for RLM training from debates
+- `aragora/server/handlers/cross_pollination.py` - Observability endpoints for cross-pollination status
+- `aragora/config/settings.py:IntegrationSettings` - Centralized configuration for all integrations
+- 6 built-in handlers: memory_to_rlm, elo_to_debate, knowledge_to_memory, calibration_to_agent, evidence_to_insight, mound_to_memory
+- 138+ tests across event system, bridges, and integration flows
+- Environment variables: `ARAGORA_INTEGRATION_RLM_TRAINING`, `ARAGORA_INTEGRATION_KNOWLEDGE_MOUND`, `ARAGORA_INTEGRATION_CROSS_SUBSCRIBERS`
+
+**Phase 8: Cross-Pollination Integrations** (COMPLETE)
 - `aragora/debate/hook_handlers.py` - HookHandlerRegistry for automatic subsystem wiring
 - `aragora/ranking/performance_integrator.py` - PerformanceEloIntegrator for K-factor modulation
 - `aragora/memory/outcome_bridge.py` - OutcomeMemoryBridge for outcome-based memory promotion

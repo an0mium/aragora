@@ -901,6 +901,70 @@ def cmd_elo(args: argparse.Namespace) -> None:
             print(f"Agent not found: {agent}")
 
 
+def cmd_cross_pollination(args: argparse.Namespace) -> None:
+    """Handle 'cross-pollination' command - view event system diagnostics."""
+    import json as json_module
+
+    from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+    manager = get_cross_subscriber_manager()
+    action = getattr(args, "action", "stats")
+    output_json = getattr(args, "json", False)
+
+    if action == "stats":
+        stats = manager.get_stats()
+
+        if output_json:
+            print(json_module.dumps(stats, indent=2, default=str))
+            return
+
+        print("\nCross-Pollination Event Statistics")
+        print("=" * 70)
+        print(f"{'Handler':<25} {'Events':>8} {'Failed':>8} {'Avg (ms)':>10} {'Enabled':>8}")
+        print("-" * 70)
+
+        total_events = 0
+        total_failed = 0
+
+        for name, data in stats.items():
+            total_events += data["events_processed"]
+            total_failed += data["events_failed"]
+            latency = data.get("latency_ms", {})
+            avg_ms = latency.get("avg", 0)
+            enabled = "Yes" if data["enabled"] else "No"
+            print(
+                f"{name:<25} {data['events_processed']:>8} {data['events_failed']:>8} "
+                f"{avg_ms:>10.3f} {enabled:>8}"
+            )
+
+        print("-" * 70)
+        print(f"{'TOTAL':<25} {total_events:>8} {total_failed:>8}")
+        print()
+
+    elif action == "subscribers":
+        stats = manager.get_stats()
+
+        if output_json:
+            print(json_module.dumps(list(stats.keys()), indent=2))
+            return
+
+        print("\nRegistered Cross-Subscribers")
+        print("=" * 50)
+
+        for i, (name, data) in enumerate(stats.items(), 1):
+            status = "[+]" if data["enabled"] else "[-]"
+            last = data.get("last_event", "never")
+            if last and last != "never":
+                last = last[:19]  # Truncate to datetime
+            print(f"  {status} {i}. {name}")
+            print(f"      Last event: {last}")
+            print()
+
+    elif action == "reset":
+        manager.reset_stats()
+        print("Cross-pollination statistics reset successfully.")
+
+
 def get_version() -> str:
     """Get package version from pyproject.toml or fallback."""
     try:
@@ -1271,6 +1335,27 @@ Production deployment:
     elo_parser.add_argument("--limit", "-n", type=int, default=10, help="Max entries to show")
     elo_parser.add_argument("--db", help="Database path (default: from config)")
     elo_parser.set_defaults(func=cmd_elo)
+
+    # Cross-Pollination command (event system diagnostics)
+    xpoll_parser = subparsers.add_parser(
+        "cross-pollination",
+        aliases=["xpoll"],
+        help="Cross-pollination event system diagnostics",
+        description="View cross-subsystem event statistics and handler status.",
+    )
+    xpoll_parser.add_argument(
+        "action",
+        nargs="?",
+        default="stats",
+        choices=["stats", "subscribers", "reset"],
+        help="Action: stats (default), subscribers, reset",
+    )
+    xpoll_parser.add_argument(
+        "--json", "-j",
+        action="store_true",
+        help="Output in JSON format",
+    )
+    xpoll_parser.set_defaults(func=cmd_cross_pollination)
 
     # MCP Server command
     mcp_parser = subparsers.add_parser(

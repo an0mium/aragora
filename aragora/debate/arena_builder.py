@@ -250,8 +250,12 @@ class ArenaBuilder:
         self._auto_export_training: bool = False
         self._training_export_min_confidence: float = 0.75
 
-        # Extensions: RLM training hook
-        self._enable_rlm_training: bool = True  # Enabled by default
+        # Extensions: RLM training hook (reads from settings)
+        try:
+            from aragora.config.settings import get_settings
+            self._enable_rlm_training: bool = get_settings().integration.rlm_training_enabled
+        except Exception:
+            self._enable_rlm_training: bool = True  # Fallback to enabled
 
         # Multilingual support
         self._multilingual_manager: Any = None

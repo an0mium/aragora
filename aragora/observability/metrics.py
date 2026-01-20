@@ -74,6 +74,22 @@ LEARNING_BONUSES: Any = None
 VOTING_ACCURACY_UPDATES: Any = None
 ADAPTIVE_ROUND_CHANGES: Any = None
 
+# Phase 9 Bridge metrics
+BRIDGE_SYNCS: Any = None
+BRIDGE_SYNC_LATENCY: Any = None
+BRIDGE_ERRORS: Any = None
+PERFORMANCE_ROUTING_DECISIONS: Any = None
+PERFORMANCE_ROUTING_LATENCY: Any = None
+OUTCOME_COMPLEXITY_ADJUSTMENTS: Any = None
+ANALYTICS_SELECTION_RECOMMENDATIONS: Any = None
+NOVELTY_SCORE_CALCULATIONS: Any = None
+NOVELTY_PENALTIES: Any = None
+ECHO_CHAMBER_DETECTIONS: Any = None
+RELATIONSHIP_BIAS_ADJUSTMENTS: Any = None
+RLM_SELECTION_RECOMMENDATIONS: Any = None
+CALIBRATION_COST_CALCULATIONS: Any = None
+BUDGET_FILTERING_EVENTS: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -272,6 +288,100 @@ def _init_metrics() -> bool:
             ["direction"],  # increased, decreased, unchanged
         )
 
+        # Phase 9 Bridge metrics
+        global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
+        global PERFORMANCE_ROUTING_DECISIONS, PERFORMANCE_ROUTING_LATENCY
+        global OUTCOME_COMPLEXITY_ADJUSTMENTS, ANALYTICS_SELECTION_RECOMMENDATIONS
+        global NOVELTY_SCORE_CALCULATIONS, NOVELTY_PENALTIES
+        global ECHO_CHAMBER_DETECTIONS, RELATIONSHIP_BIAS_ADJUSTMENTS
+        global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
+        global BUDGET_FILTERING_EVENTS
+
+        BRIDGE_SYNCS = Counter(
+            "aragora_bridge_syncs_total",
+            "Cross-pollination bridge sync operations",
+            ["bridge", "status"],  # bridge name, success/error
+        )
+
+        BRIDGE_SYNC_LATENCY = Histogram(
+            "aragora_bridge_sync_latency_seconds",
+            "Bridge sync operation latency",
+            ["bridge"],
+            buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
+        )
+
+        BRIDGE_ERRORS = Counter(
+            "aragora_bridge_errors_total",
+            "Cross-pollination bridge errors",
+            ["bridge", "error_type"],
+        )
+
+        PERFORMANCE_ROUTING_DECISIONS = Counter(
+            "aragora_performance_routing_decisions_total",
+            "Performance-based routing decisions",
+            ["task_type", "selected_agent"],  # speed/precision/balanced
+        )
+
+        PERFORMANCE_ROUTING_LATENCY = Histogram(
+            "aragora_performance_routing_latency_seconds",
+            "Time to compute routing decision",
+            buckets=[0.001, 0.005, 0.01, 0.05, 0.1],
+        )
+
+        OUTCOME_COMPLEXITY_ADJUSTMENTS = Counter(
+            "aragora_outcome_complexity_adjustments_total",
+            "Complexity budget adjustments from outcome patterns",
+            ["direction"],  # increased, decreased
+        )
+
+        ANALYTICS_SELECTION_RECOMMENDATIONS = Counter(
+            "aragora_analytics_selection_recommendations_total",
+            "Analytics-driven team selection recommendations",
+            ["recommendation_type"],  # boost, penalty, neutral
+        )
+
+        NOVELTY_SCORE_CALCULATIONS = Counter(
+            "aragora_novelty_score_calculations_total",
+            "Novelty score calculations performed",
+            ["agent"],
+        )
+
+        NOVELTY_PENALTIES = Counter(
+            "aragora_novelty_penalties_total",
+            "Selection penalties for low novelty",
+            ["agent"],
+        )
+
+        ECHO_CHAMBER_DETECTIONS = Counter(
+            "aragora_echo_chamber_detections_total",
+            "Echo chamber risk detections in team composition",
+            ["risk_level"],  # low, medium, high
+        )
+
+        RELATIONSHIP_BIAS_ADJUSTMENTS = Counter(
+            "aragora_relationship_bias_adjustments_total",
+            "Voting weight adjustments for alliance bias",
+            ["agent", "direction"],  # up, down
+        )
+
+        RLM_SELECTION_RECOMMENDATIONS = Counter(
+            "aragora_rlm_selection_recommendations_total",
+            "RLM-efficient agent selection recommendations",
+            ["agent"],
+        )
+
+        CALIBRATION_COST_CALCULATIONS = Counter(
+            "aragora_calibration_cost_calculations_total",
+            "Cost efficiency calculations with calibration",
+            ["agent", "efficiency"],  # efficient, moderate, inefficient
+        )
+
+        BUDGET_FILTERING_EVENTS = Counter(
+            "aragora_budget_filtering_events_total",
+            "Agent filtering events due to budget constraints",
+            ["outcome"],  # included, excluded
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -303,6 +413,13 @@ def _init_noop_metrics() -> None:
     global RLM_CACHE_HITS, RLM_CACHE_MISSES
     global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
     global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
+    global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
+    global PERFORMANCE_ROUTING_DECISIONS, PERFORMANCE_ROUTING_LATENCY
+    global OUTCOME_COMPLEXITY_ADJUSTMENTS, ANALYTICS_SELECTION_RECOMMENDATIONS
+    global NOVELTY_SCORE_CALCULATIONS, NOVELTY_PENALTIES
+    global ECHO_CHAMBER_DETECTIONS, RELATIONSHIP_BIAS_ADJUSTMENTS
+    global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
+    global BUDGET_FILTERING_EVENTS
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -347,6 +464,20 @@ def _init_noop_metrics() -> None:
     LEARNING_BONUSES = NoOpMetric()
     VOTING_ACCURACY_UPDATES = NoOpMetric()
     ADAPTIVE_ROUND_CHANGES = NoOpMetric()
+    BRIDGE_SYNCS = NoOpMetric()
+    BRIDGE_SYNC_LATENCY = NoOpMetric()
+    BRIDGE_ERRORS = NoOpMetric()
+    PERFORMANCE_ROUTING_DECISIONS = NoOpMetric()
+    PERFORMANCE_ROUTING_LATENCY = NoOpMetric()
+    OUTCOME_COMPLEXITY_ADJUSTMENTS = NoOpMetric()
+    ANALYTICS_SELECTION_RECOMMENDATIONS = NoOpMetric()
+    NOVELTY_SCORE_CALCULATIONS = NoOpMetric()
+    NOVELTY_PENALTIES = NoOpMetric()
+    ECHO_CHAMBER_DETECTIONS = NoOpMetric()
+    RELATIONSHIP_BIAS_ADJUSTMENTS = NoOpMetric()
+    RLM_SELECTION_RECOMMENDATIONS = NoOpMetric()
+    CALIBRATION_COST_CALCULATIONS = NoOpMetric()
+    BUDGET_FILTERING_EVENTS = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -764,3 +895,186 @@ def record_adaptive_round_change(direction: str) -> None:
     """
     _init_metrics()
     ADAPTIVE_ROUND_CHANGES.labels(direction=direction).inc()
+
+
+# =============================================================================
+# Phase 9 Bridge Metrics
+# =============================================================================
+
+
+def record_bridge_sync(bridge: str, success: bool) -> None:
+    """Record a bridge sync operation.
+
+    Args:
+        bridge: Bridge name (performance_router, relationship_bias, etc.)
+        success: Whether the sync succeeded
+    """
+    _init_metrics()
+    status = "success" if success else "error"
+    BRIDGE_SYNCS.labels(bridge=bridge, status=status).inc()
+
+
+def record_bridge_sync_latency(bridge: str, latency_seconds: float) -> None:
+    """Record bridge sync operation latency.
+
+    Args:
+        bridge: Bridge name
+        latency_seconds: Time taken for sync operation
+    """
+    _init_metrics()
+    BRIDGE_SYNC_LATENCY.labels(bridge=bridge).observe(latency_seconds)
+
+
+def record_bridge_error(bridge: str, error_type: str) -> None:
+    """Record a bridge error.
+
+    Args:
+        bridge: Bridge name
+        error_type: Type of error (e.g., "initialization", "sync", "compute")
+    """
+    _init_metrics()
+    BRIDGE_ERRORS.labels(bridge=bridge, error_type=error_type).inc()
+
+
+def record_performance_routing_decision(task_type: str, selected_agent: str) -> None:
+    """Record a performance-based routing decision.
+
+    Args:
+        task_type: Task type (speed, precision, balanced)
+        selected_agent: Agent selected for the task
+    """
+    _init_metrics()
+    PERFORMANCE_ROUTING_DECISIONS.labels(
+        task_type=task_type, selected_agent=selected_agent
+    ).inc()
+
+
+def record_performance_routing_latency(latency_seconds: float) -> None:
+    """Record time to compute routing decision.
+
+    Args:
+        latency_seconds: Time taken to compute routing
+    """
+    _init_metrics()
+    PERFORMANCE_ROUTING_LATENCY.observe(latency_seconds)
+
+
+def record_outcome_complexity_adjustment(direction: str) -> None:
+    """Record a complexity budget adjustment.
+
+    Args:
+        direction: Adjustment direction (increased, decreased)
+    """
+    _init_metrics()
+    OUTCOME_COMPLEXITY_ADJUSTMENTS.labels(direction=direction).inc()
+
+
+def record_analytics_selection_recommendation(recommendation_type: str) -> None:
+    """Record an analytics-driven selection recommendation.
+
+    Args:
+        recommendation_type: Type of recommendation (boost, penalty, neutral)
+    """
+    _init_metrics()
+    ANALYTICS_SELECTION_RECOMMENDATIONS.labels(
+        recommendation_type=recommendation_type
+    ).inc()
+
+
+def record_novelty_score_calculation(agent: str) -> None:
+    """Record a novelty score calculation.
+
+    Args:
+        agent: Agent name
+    """
+    _init_metrics()
+    NOVELTY_SCORE_CALCULATIONS.labels(agent=agent).inc()
+
+
+def record_novelty_penalty(agent: str) -> None:
+    """Record a selection penalty for low novelty.
+
+    Args:
+        agent: Agent name
+    """
+    _init_metrics()
+    NOVELTY_PENALTIES.labels(agent=agent).inc()
+
+
+def record_echo_chamber_detection(risk_level: str) -> None:
+    """Record an echo chamber risk detection.
+
+    Args:
+        risk_level: Risk level (low, medium, high)
+    """
+    _init_metrics()
+    ECHO_CHAMBER_DETECTIONS.labels(risk_level=risk_level).inc()
+
+
+def record_relationship_bias_adjustment(agent: str, direction: str) -> None:
+    """Record a voting weight adjustment for alliance bias.
+
+    Args:
+        agent: Agent name
+        direction: Adjustment direction (up, down)
+    """
+    _init_metrics()
+    RELATIONSHIP_BIAS_ADJUSTMENTS.labels(agent=agent, direction=direction).inc()
+
+
+def record_rlm_selection_recommendation(agent: str) -> None:
+    """Record an RLM-efficient agent selection recommendation.
+
+    Args:
+        agent: Agent name recommended for RLM efficiency
+    """
+    _init_metrics()
+    RLM_SELECTION_RECOMMENDATIONS.labels(agent=agent).inc()
+
+
+def record_calibration_cost_calculation(agent: str, efficiency: str) -> None:
+    """Record a cost efficiency calculation.
+
+    Args:
+        agent: Agent name
+        efficiency: Efficiency category (efficient, moderate, inefficient)
+    """
+    _init_metrics()
+    CALIBRATION_COST_CALCULATIONS.labels(agent=agent, efficiency=efficiency).inc()
+
+
+def record_budget_filtering_event(outcome: str) -> None:
+    """Record an agent filtering event due to budget constraints.
+
+    Args:
+        outcome: Filtering outcome (included, excluded)
+    """
+    _init_metrics()
+    BUDGET_FILTERING_EVENTS.labels(outcome=outcome).inc()
+
+
+@contextmanager
+def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
+    """Context manager to track bridge sync operations.
+
+    Automatically records sync success/failure and latency.
+
+    Args:
+        bridge: Bridge name
+
+    Example:
+        with track_bridge_sync("performance_router"):
+            bridge.sync_to_router()
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_bridge_sync(bridge, success)
+        record_bridge_sync_latency(bridge, latency)

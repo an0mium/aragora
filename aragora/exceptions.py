@@ -10,6 +10,8 @@ Using specific exception types enables:
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class AragoraError(Exception):
     """Base exception for all Aragora errors.
@@ -18,7 +20,7 @@ class AragoraError(Exception):
     to enable catching all Aragora-specific errors with a single handler.
     """
 
-    def __init__(self, message: str, details: dict | None = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
         self.details = details or {}
@@ -75,7 +77,7 @@ class ConsensusTimeoutError(DebateError):
 class VoteValidationError(DebateError):
     """Raised when vote validation fails."""
 
-    def __init__(self, agent_name: str, reason: str, vote_data: dict | None = None):
+    def __init__(self, agent_name: str, reason: str, vote_data: dict[str, Any] | None = None):
         super().__init__(
             f"Invalid vote from {agent_name}: {reason}",
             {"agent_name": agent_name, "reason": reason},
