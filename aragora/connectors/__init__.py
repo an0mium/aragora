@@ -42,8 +42,25 @@ from aragora.connectors.exceptions import (
     ConnectorRateLimitError,
     ConnectorTimeoutError,
     ConnectorValidationError,
+    classify_exception,
+    connector_error_handler,
     get_retry_delay,
     is_retryable_error,
+)
+from aragora.connectors.recovery import (
+    RecoveryAction,
+    RecoveryConfig,
+    RecoveryStrategy,
+    create_recovery_chain,
+    with_recovery,
+)
+from aragora.connectors.credentials import (
+    AWSSecretsManagerProvider,
+    CachedCredentialProvider,
+    ChainedCredentialProvider,
+    CredentialProvider,
+    EnvCredentialProvider,
+    get_credential_provider,
 )
 from aragora.connectors.github import GitHubConnector
 from aragora.connectors.hackernews import HackerNewsConnector
@@ -111,9 +128,24 @@ __all__ = [
     "ConnectorNotFoundError",
     "ConnectorQuotaError",
     "ConnectorParseError",
-    # Utilities
+    # Exception Utilities
     "is_retryable_error",
     "get_retry_delay",
+    "classify_exception",
+    "connector_error_handler",
+    # Recovery
+    "RecoveryStrategy",
+    "RecoveryConfig",
+    "RecoveryAction",
+    "with_recovery",
+    "create_recovery_chain",
+    # Credentials
+    "CredentialProvider",
+    "EnvCredentialProvider",
+    "AWSSecretsManagerProvider",
+    "ChainedCredentialProvider",
+    "CachedCredentialProvider",
+    "get_credential_provider",
     # Repository Crawler
     "RepositoryCrawler",
     "CrawlConfig",

@@ -425,11 +425,31 @@ class TelegramHandler(BaseHandler):
         user_id: int,
         username: str,
         topic: str,
+        message_id: Optional[int] = None,
     ) -> None:
         """Run debate asynchronously and send result to chat."""
         try:
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+
+            # Register debate origin for tracking and potential async routing
+            try:
+                from aragora.server.debate_origin import register_debate_origin
+                import uuid
+
+                debate_id = f"tg-{chat_id}-{uuid.uuid4().hex[:8]}"
+                register_debate_origin(
+                    debate_id=debate_id,
+                    platform="telegram",
+                    channel_id=str(chat_id),
+                    user_id=str(user_id),
+                    message_id=str(message_id) if message_id else None,
+                    metadata={"username": username, "topic": topic},
+                )
+                logger.debug(f"Registered debate origin: {debate_id}")
+            except ImportError:
+                debate_id = None
+                logger.debug("Debate origin tracking not available")
 
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
@@ -484,6 +504,14 @@ class TelegramHandler(BaseHandler):
                 parse_mode="Markdown",
                 reply_markup=keyboard,
             )
+
+            # Mark debate result as sent for origin tracking
+            if debate_id:
+                try:
+                    from aragora.server.debate_origin import mark_result_sent
+                    mark_result_sent(debate_id)
+                except ImportError:
+                    pass
 
             # Send voice summary if TTS is enabled
             if TTS_VOICE_ENABLED:

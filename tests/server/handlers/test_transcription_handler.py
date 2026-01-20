@@ -23,7 +23,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.transcription import TranscriptionHandler
+# Mock get_available_backends before importing the handler to avoid API key checks
+with patch("aragora.transcription.get_available_backends", return_value=["mock"]):
+    with patch("aragora.transcription.whisper_backend.get_available_backends", return_value=["mock"]):
+        from aragora.server.handlers.transcription import TranscriptionHandler
 
 
 # ===========================================================================
@@ -122,6 +125,34 @@ def mock_auth_context():
     return MockAuthContext()
 
 
+@pytest.fixture
+def mock_transcription_available():
+    """Mock the transcription availability check to avoid API key requirements."""
+    with patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(True, None),
+    ):
+        with patch(
+            "aragora.transcription.get_available_backends",
+            return_value=["mock"],
+        ):
+            with patch(
+                "aragora.transcription.whisper_backend.get_available_backends",
+                return_value=["mock"],
+            ):
+                yield
+
+
+@pytest.fixture
+def mock_transcription_unavailable():
+    """Mock the transcription availability check as unavailable."""
+    with patch(
+        "aragora.server.handlers.transcription._check_transcription_available",
+        return_value=(False, "No transcription backend available."),
+    ):
+        yield
+
+
 # ===========================================================================
 # Routing Tests
 # ===========================================================================
@@ -164,7 +195,7 @@ class TestRouting:
 class TestConfigEndpoint:
     """Tests for GET /api/transcription/config."""
 
-    def test_get_config(self, handler, mock_http_handler):
+    def test_get_config(self, handler, mock_http_handler, mock_transcription_available):
         """Test getting transcription config."""
         result = handler.handle("/api/transcription/config", {}, mock_http_handler)
 
@@ -178,7 +209,7 @@ class TestConfigEndpoint:
         # Config includes size limits
         assert "max_audio_size_mb" in data or "max_file_size_mb" in data
 
-    def test_config_contains_formats(self, handler, mock_http_handler):
+    def test_config_contains_formats(self, handler, mock_http_handler, mock_transcription_available):
         """Test config includes expected formats."""
         result = handler.handle("/api/transcription/config", {}, mock_http_handler)
         data = json.loads(result.body)
@@ -202,7 +233,7 @@ class TestAudioTranscription:
         assert result is None  # GET not handled
 
     @pytest.mark.asyncio
-    async def test_audio_transcription_success(self, handler):
+    async def test_audio_transcription_success(self, handler, mock_transcription_available):
         """Test successful audio transcription."""
         # Create multipart form data
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
@@ -233,7 +264,7 @@ class TestAudioTranscription:
             # Should return result or error
             assert result is not None
 
-    def test_audio_missing_file(self, handler):
+    def test_audio_missing_file(self, handler, mock_transcription_available):
         """Test error when no file provided."""
         mock_http = MockHandler(
             headers={
@@ -250,7 +281,7 @@ class TestAudioTranscription:
         # May return 503 (no backend) or 400 (bad request)
         assert result.status_code in (400, 503)
 
-    def test_audio_unsupported_format(self, handler):
+    def test_audio_unsupported_format(self, handler, mock_transcription_available):
         """Test error for unsupported audio format."""
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body_data = (
@@ -285,7 +316,7 @@ class TestAudioTranscription:
 class TestYouTubeTranscription:
     """Tests for POST /api/transcription/youtube."""
 
-    def test_youtube_requires_url(self, handler):
+    def test_youtube_requires_url(self, handler, mock_transcription_available):
         """Test youtube endpoint requires URL in body."""
         mock_http = MockHandler(
             headers={
@@ -302,7 +333,7 @@ class TestYouTubeTranscription:
         # May return 503 (no backend) or 400 (bad request)
         assert result.status_code in (400, 503)
 
-    def test_youtube_invalid_url(self, handler):
+    def test_youtube_invalid_url(self, handler, mock_transcription_available):
         """Test error for invalid YouTube URL."""
         body_data = json.dumps({"url": "https://example.com/video"}).encode()
 
@@ -322,7 +353,7 @@ class TestYouTubeTranscription:
         assert result.status_code in (400, 503)
 
     @pytest.mark.asyncio
-    async def test_youtube_transcription_success(self, handler):
+    async def test_youtube_transcription_success(self, handler, mock_transcription_available):
         """Test successful YouTube transcription."""
         body = json.dumps({"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).encode()
 
@@ -378,7 +409,7 @@ class TestYouTubeInfoEndpoint:
         assert result.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_youtube_info_success(self, handler):
+    async def test_youtube_info_success(self, handler, mock_transcription_available):
         """Test successful YouTube info fetch."""
         body_data = json.dumps({"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).encode()
 
@@ -446,7 +477,7 @@ class TestErrorResponses:
         result = handler.handle("/api/transcription/audio", {}, mock_http_handler)
         assert result is None
 
-    def test_json_error_format(self, handler):
+    def test_json_error_format(self, handler, mock_transcription_available):
         """Test error responses are JSON formatted."""
         mock_http = MockHandler(
             headers={

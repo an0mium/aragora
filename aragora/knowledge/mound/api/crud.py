@@ -37,6 +37,7 @@ class CRUDProtocol(Protocol):
     workspace_id: str
     _cache: Optional[Any]
     _semantic_store: Optional[Any]
+    _graph_store: Optional[Any]
     _initialized: bool
     event_emitter: Optional[Any]
 
@@ -51,6 +52,10 @@ class CRUDProtocol(Protocol):
         self, content_hash: str, workspace_id: str
     ) -> Optional[str]: ...
     async def _increment_update_count(self, node_id: str) -> None: ...
+    async def _get_access_grants_impl(self, node_id: str) -> list[Dict[str, Any]]: ...
+    async def query(
+        self, query: str, filters: Any = None, limit: int = 100, offset: int = 0
+    ) -> Any: ...
 
 
 class CRUDOperationsMixin:
@@ -354,3 +359,140 @@ class CRUDOperationsMixin:
                 self.node_type = item.metadata.get("node_type", "fact")
 
         return NodeProxy(item)
+
+    async def add_relationship(
+        self: CRUDProtocol,
+        from_id: str,
+        to_id: str,
+        relationship_type: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """
+        Add a relationship between two knowledge nodes.
+
+        Args:
+            from_id: Source node ID
+            to_id: Target node ID
+            relationship_type: Type of relationship (supports, contradicts, derived_from, related_to)
+            metadata: Optional relationship metadata
+
+        Returns:
+            True if relationship was created successfully
+        """
+        self._ensure_initialized()
+        try:
+            await self._save_relationship(from_id, to_id, relationship_type)
+            logger.debug(f"Created relationship: {from_id} --{relationship_type}--> {to_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create relationship: {e}")
+            return False
+
+    async def get_relationships(
+        self: CRUDProtocol,
+        node_id: str,
+        relationship_type: Optional[str] = None,
+        direction: str = "outgoing",
+    ) -> list[Dict[str, Any]]:
+        """
+        Get relationships for a node.
+
+        Args:
+            node_id: The node ID to get relationships for
+            relationship_type: Optional filter by relationship type
+            direction: 'outgoing', 'incoming', or 'both'
+
+        Returns:
+            List of relationship dicts with from_id, to_id, relationship_type
+        """
+        self._ensure_initialized()
+
+        # Query relationships from graph store if available
+        if hasattr(self, "_graph_store") and self._graph_store:
+            try:
+                links = await self._graph_store.get_links(
+                    node_id,
+                    link_type=relationship_type,
+                    direction=direction,
+                )
+                return [
+                    {
+                        "from_id": link.source_id,
+                        "to_id": link.target_id,
+                        "relationship_type": link.link_type,
+                        "metadata": link.metadata,
+                    }
+                    for link in links
+                ]
+            except Exception as e:
+                logger.warning(f"Failed to get relationships from graph store: {e}")
+
+        # Fallback to empty list if no graph store
+        return []
+
+    async def query_nodes(
+        self: CRUDProtocol,
+        node_type: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Any]:
+        """
+        Query nodes with optional filtering.
+
+        Args:
+            node_type: Optional filter by node type
+            workspace_id: Optional workspace filter
+            limit: Maximum results to return
+            offset: Number of results to skip
+
+        Returns:
+            List of knowledge items matching the criteria
+        """
+        self._ensure_initialized()
+
+        # Call the query method (from QueryOperationsMixin) with simple filter
+        if hasattr(self, "query"):
+            result = await self.query(
+                query="*",  # Match all
+                limit=limit,
+                offset=offset,
+            )
+            items = result.items if hasattr(result, "items") else []
+
+            # Apply node_type and workspace_id filters manually
+            if node_type:
+                items = [
+                    i for i in items
+                    if getattr(i, "metadata", {}).get("node_type") == node_type
+                ]
+            if workspace_id:
+                items = [
+                    i for i in items
+                    if getattr(i, "workspace_id", None) == workspace_id
+                ]
+            return items
+
+        return []
+
+    async def get_access_grants(
+        self: CRUDProtocol,
+        node_id: str,
+    ) -> list[Dict[str, Any]]:
+        """
+        Get access grants for a knowledge node.
+
+        Args:
+            node_id: The node ID to get access grants for
+
+        Returns:
+            List of access grant dicts with user_id, workspace_id, permission level
+        """
+        self._ensure_initialized()
+
+        # Query from sharing mixin if available
+        if hasattr(self, "_get_access_grants_impl"):
+            return await self._get_access_grants_impl(node_id)
+
+        # Return empty list if sharing not configured
+        return []

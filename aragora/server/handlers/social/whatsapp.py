@@ -401,9 +401,27 @@ class WhatsAppHandler(BaseHandler):
         topic: str,
     ) -> None:
         """Run debate and send result."""
+        debate_id = None
         try:
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+
+            # Register debate origin for tracking
+            try:
+                from aragora.server.debate_origin import register_debate_origin
+                import uuid
+
+                debate_id = f"wa-{from_number[-8:]}-{uuid.uuid4().hex[:8]}"
+                register_debate_origin(
+                    debate_id=debate_id,
+                    platform="whatsapp",
+                    channel_id=from_number,
+                    user_id=from_number,
+                    metadata={"profile_name": profile_name, "topic": topic},
+                )
+                logger.debug(f"Registered WhatsApp debate origin: {debate_id}")
+            except ImportError:
+                logger.debug("Debate origin tracking not available")
 
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
@@ -447,6 +465,14 @@ class WhatsAppHandler(BaseHandler):
                 ],
                 "Vote on this debate",
             )
+
+            # Mark debate result as sent for origin tracking
+            if debate_id:
+                try:
+                    from aragora.server.debate_origin import mark_result_sent
+                    mark_result_sent(debate_id)
+                except ImportError:
+                    pass
 
             # Send voice summary if TTS is enabled
             if TTS_VOICE_ENABLED:
