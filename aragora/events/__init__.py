@@ -41,6 +41,12 @@ from .cross_subscribers import (
     CrossSubscriberManager,
     SubscriberStats,
     get_cross_subscriber_manager,
+    reset_cross_subscriber_manager,
+)
+from .arena_bridge import (
+    ArenaEventBridge,
+    create_arena_bridge,
+    EVENT_TYPE_MAP,
 )
 
 __all__ = [
@@ -59,4 +65,9 @@ __all__ = [
     "CrossSubscriberManager",
     "SubscriberStats",
     "get_cross_subscriber_manager",
+    "reset_cross_subscriber_manager",
+    # Arena event bridge
+    "ArenaEventBridge",
+    "create_arena_bridge",
+    "EVENT_TYPE_MAP",
 ]

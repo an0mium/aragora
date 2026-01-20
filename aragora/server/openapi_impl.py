@@ -72,6 +72,12 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Critiques", "description": "Critique patterns and reputation"},
             {"name": "Routing", "description": "Agent selection and team routing"},
             {"name": "Introspection", "description": "Agent self-awareness queries"},
+            {"name": "Workflows", "description": "Workflow management and execution"},
+            {"name": "Classification", "description": "Question and content classification"},
+            {"name": "Retention", "description": "Data retention policies"},
+            {"name": "OAuth", "description": "OAuth authentication flows"},
+            {"name": "Audit", "description": "Audit logging and compliance"},
+            {"name": "Workspace", "description": "Workspace management"},
         ],
         "paths": ALL_ENDPOINTS,
         "components": {

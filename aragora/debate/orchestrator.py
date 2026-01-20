@@ -395,6 +395,9 @@ class Arena:
         # Initialize termination checker
         self._init_termination_checker()
 
+        # Initialize cross-subscriber bridge for event cross-pollination
+        self._init_cross_subscriber_bridge()
+
     @classmethod
     def from_config(
         cls,
@@ -770,6 +773,27 @@ class Arena:
             select_judge_fn=select_judge_fn,
             hooks=self.hooks,
         )
+
+    def _init_cross_subscriber_bridge(self) -> None:
+        """Initialize cross-subscriber bridge for event cross-pollination.
+
+        Connects the Arena's EventBus to the CrossSubscriberManager,
+        enabling cross-subsystem event handling during debates.
+        """
+        self._cross_subscriber_bridge = None
+        if self.event_bus is None:
+            return
+
+        try:
+            from aragora.events.arena_bridge import ArenaEventBridge
+
+            self._cross_subscriber_bridge = ArenaEventBridge(self.event_bus)
+            self._cross_subscriber_bridge.connect_to_cross_subscribers()
+            logger.debug("[arena] Cross-subscriber bridge connected")
+        except ImportError:
+            logger.debug("[arena] Cross-subscriber bridge not available")
+        except Exception as e:
+            logger.warning(f"[arena] Failed to initialize cross-subscriber bridge: {e}")
 
     def _init_rlm_limiter(
         self,

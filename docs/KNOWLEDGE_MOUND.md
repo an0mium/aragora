@@ -493,6 +493,215 @@ vector_store = MemoryStore()  # Ephemeral, for testing
 
 ---
 
+## Visibility & Access Control
+
+The Knowledge Mound supports fine-grained visibility levels for controlling who can access knowledge items.
+
+### Visibility Levels
+
+| Level | Description | Use Case |
+|-------|-------------|----------|
+| `private` | Creator and explicit grantees only | Personal notes, drafts |
+| `workspace` | All members of the workspace (default) | Team knowledge |
+| `organization` | All members of the organization | Cross-team standards |
+| `public` | Anyone with access to the system | Open documentation |
+| `system` | Global verified facts (admin only) | Canonical knowledge |
+
+### Setting Visibility
+
+```python
+from aragora.knowledge.mound import VisibilityLevel
+
+# Set visibility when storing
+result = await mound.store(IngestionRequest(
+    content="Internal API guidelines",
+    workspace_id="engineering",
+    visibility=VisibilityLevel.ORGANIZATION,
+))
+
+# Update visibility of existing item
+await mound.set_visibility(
+    item_id="node_123",
+    visibility=VisibilityLevel.WORKSPACE,
+    set_by="user_456",
+)
+```
+
+### API Endpoints for Visibility
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/knowledge/mound/nodes/:id/visibility` | Get item visibility |
+| PUT | `/api/knowledge/mound/nodes/:id/visibility` | Set item visibility |
+| GET | `/api/knowledge/mound/nodes/:id/grants` | List access grants |
+| POST | `/api/knowledge/mound/nodes/:id/grants` | Add access grant |
+| DELETE | `/api/knowledge/mound/nodes/:id/grants/:grantId` | Revoke grant |
+
+---
+
+## Cross-Workspace Sharing
+
+Share knowledge items with other workspaces or users using explicit access grants.
+
+### Grant Types
+
+| Type | Description |
+|------|-------------|
+| `user` | Grant to specific user |
+| `workspace` | Grant to all workspace members |
+| `organization` | Grant to all org members |
+| `role` | Grant to users with specific role |
+
+### Sharing Knowledge
+
+```python
+from aragora.knowledge.mound import AccessGrant, AccessGrantType
+
+# Share with another workspace
+grant = await mound.share_with_workspace(
+    item_id="node_123",
+    from_workspace_id="team_a",
+    to_workspace_id="team_b",
+    shared_by="user_456",
+    permissions=["read"],
+    expires_at=datetime.now() + timedelta(days=30),
+)
+
+# Get items shared with me
+shared_items = await mound.get_shared_with_me(
+    workspace_id="team_b",
+    limit=50,
+)
+
+# Revoke a share
+await mound.revoke_share(
+    item_id="node_123",
+    grantee_id="team_b",
+    revoked_by="user_456",
+)
+```
+
+### API Endpoints for Sharing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/knowledge/mound/share` | Share item with workspace/user |
+| GET | `/api/knowledge/mound/shared-with-me` | Items shared with current user |
+| DELETE | `/api/knowledge/mound/share/:itemId/:granteeId` | Revoke share |
+
+---
+
+## Global Knowledge
+
+The system workspace (`__system__`) contains verified facts accessible to all users. Global knowledge is ideal for canonical information that should be universally available.
+
+### Storing Global Knowledge
+
+```python
+# Store a verified fact (admin only)
+fact_id = await mound.store_verified_fact(
+    content="HIPAA requires 6-year retention of PHI records",
+    source="45 CFR 164.530(j)",
+    confidence=1.0,
+    verified_by="admin_user",
+)
+
+# Query global knowledge
+results = await mound.query_global_knowledge(
+    query="HIPAA retention requirements",
+    limit=10,
+)
+
+# Promote workspace knowledge to global (admin only)
+global_id = await mound.promote_to_global(
+    item_id="node_123",
+    workspace_id="legal_team",
+    promoted_by="admin_user",
+    reason="Verified through external audit",
+)
+```
+
+### API Endpoints for Global Knowledge
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/knowledge/mound/global/facts` | Store verified fact (admin) |
+| GET | `/api/knowledge/mound/global/query` | Query global knowledge |
+| POST | `/api/knowledge/mound/global/promote` | Promote to global (admin) |
+
+---
+
+## Knowledge Federation
+
+Synchronize knowledge across multiple Aragora deployments or regions.
+
+### Federation Modes
+
+| Mode | Description |
+|------|-------------|
+| `push` | Send knowledge to remote region |
+| `pull` | Receive knowledge from remote region |
+| `bidirectional` | Two-way sync |
+| `none` | Federation disabled |
+
+### Sync Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `full` | Complete knowledge items |
+| `metadata` | Metadata only (titles, dates, confidence) |
+| `summary` | AI-generated summaries |
+
+### Configuring Federation
+
+```python
+from aragora.knowledge.mound import FederationPolicy, SharingScope
+
+# Register a federated region (admin only)
+region = await mound.register_federated_region(
+    region_id="us-west",
+    endpoint_url="https://us-west.aragora.example.com/api",
+    api_key="federated-api-key",
+    sync_policy=FederationPolicy(
+        mode="bidirectional",
+        scope=SharingScope.SUMMARY,
+    ),
+)
+
+# Sync to a region
+result = await mound.sync_to_region(
+    region_id="us-west",
+    workspace_id="enterprise",
+    since=datetime.now() - timedelta(hours=24),
+    scope=SharingScope.SUMMARY,
+)
+
+# Pull from a region
+result = await mound.pull_from_region(
+    region_id="us-west",
+    workspace_id="enterprise",
+)
+
+# Check federation status
+status = await mound.get_federation_status()
+for region in status.regions:
+    print(f"{region.name}: {region.health} (last sync: {region.last_sync_at})")
+```
+
+### API Endpoints for Federation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/knowledge/mound/federation/regions` | Register region (admin) |
+| GET | `/api/knowledge/mound/federation/regions` | List federated regions |
+| POST | `/api/knowledge/mound/federation/sync/push` | Push to region |
+| POST | `/api/knowledge/mound/federation/sync/pull` | Pull from region |
+| GET | `/api/knowledge/mound/federation/status` | Federation health status |
+| PUT | `/api/knowledge/mound/federation/regions/:id` | Update region settings |
+| DELETE | `/api/knowledge/mound/federation/regions/:id` | Remove region |
+
+---
+
 ## Security & Compliance
 
 ### Document-Level Access Control
@@ -502,6 +711,13 @@ vector_store = MemoryStore()  # Ephemeral, for testing
 result = await mound.query(
     "sensitive data",
     workspace_id="team_a",  # Only returns team_a knowledge
+)
+
+# Visibility-aware queries automatically filter by access
+result = await mound.query(
+    "contract terms",
+    workspace_id="team_a",
+    actor_id="user_123",  # Filters by user's access grants
 )
 ```
 

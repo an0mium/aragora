@@ -572,6 +572,64 @@ class ContinuumMemory(SQLiteStore):
             red_line_reason=row[13],
         )
 
+    def get_entry(self, id: str) -> Optional[ContinuumMemoryEntry]:
+        """Alias for get() for interface compatibility with OutcomeMemoryBridge."""
+        return self.get(id)
+
+    def update_entry(self, entry: "ContinuumMemoryEntry") -> bool:
+        """Update an entry's success/failure counts.
+
+        Interface compatibility method for OutcomeMemoryBridge.
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE continuum_memory
+                SET success_count = ?, failure_count = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (entry.success_count, entry.failure_count, datetime.now().isoformat(), entry.id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def promote_entry(self, memory_id: str, new_tier: "MemoryTier") -> bool:
+        """Promote an entry to a specific tier.
+
+        Interface compatibility method for OutcomeMemoryBridge.
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE continuum_memory
+                SET tier = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (new_tier.value, datetime.now().isoformat(), memory_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def demote_entry(self, memory_id: str, new_tier: "MemoryTier") -> bool:
+        """Demote an entry to a specific tier.
+
+        Interface compatibility method for OutcomeMemoryBridge.
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE continuum_memory
+                SET tier = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (new_tier.value, datetime.now().isoformat(), memory_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def mark_red_line(
         self,
         memory_id: str,
