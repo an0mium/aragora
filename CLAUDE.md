@@ -222,9 +222,12 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Knowledge Mound - STABLE (Phase 2 complete, 146+ tests passing)
   - Visibility, sharing, federation, global knowledge
   - Cross-pollination with debate, memory, RLM subsystems
+- Pulse (trending topics) - STABLE (358+ tests passing)
+  - HackerNews, Reddit, Twitter ingestors
+  - Quality filtering, freshness scoring, source weighting
+  - Integration with debate context and prompt building
 
 **Partial:**
-- Pulse (trending topics) - works but may need API keys
 - Evidence collection - functional but limited connectors
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.

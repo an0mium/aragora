@@ -214,7 +214,7 @@ class TestPulseHandlerWithMocks:
         def mock_get_trending(limit):
             import asyncio
 
-            topics = asyncio.get_event_loop().run_until_complete(manager.get_trending_topics())
+            topics = asyncio.run(manager.get_trending_topics())
             max_volume = max((t.volume for t in topics), default=1) or 1
             return {
                 "topics": [
@@ -251,7 +251,7 @@ class TestPulseHandlerWithMocks:
         # Simulate the handler response format
         import asyncio
 
-        topics = asyncio.get_event_loop().run_until_complete(manager.get_trending_topics())
+        topics = asyncio.run(manager.get_trending_topics())
 
         max_volume = max((t.volume for t in topics), default=1)
         response = {

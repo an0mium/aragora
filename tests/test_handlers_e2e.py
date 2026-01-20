@@ -12,7 +12,7 @@ import json
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import AsyncMock, Mock, MagicMock, patch
 
 from aragora.server.handlers import (
     SystemHandler,
@@ -522,7 +522,7 @@ class TestPulseHandlerE2E:
                     with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
                         result = pulse_handler.handle("/api/pulse/trending", {}, None)
@@ -542,7 +542,7 @@ class TestPulseHandlerE2E:
                     with patch("aragora.pulse.ingestor.TwitterIngestor"):
                         mock_manager = MagicMock()
                         mock_manager.ingestors = {}
-                        mock_manager.get_trending_topics = MagicMock(return_value=[])
+                        mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
                         result = pulse_handler.handle("/api/pulse/trending", {"limit": 5}, None)
