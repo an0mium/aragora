@@ -374,6 +374,37 @@ class EventEmitter:
             target_claim=target_claim,
         )
 
+    def emit_agent_message(
+        self,
+        agent_name: str,
+        content: str,
+        role: str = "proposer",
+        round_num: int = 0,
+        enable_tts: bool = True,
+    ) -> None:
+        """Emit agent message event for UI and TTS integration.
+
+        This event is consumed by:
+        - WebSocket clients for live updates
+        - Voice sessions for TTS synthesis (if enabled)
+        - Chat handlers (Telegram, Discord, etc.) for relaying responses
+
+        Args:
+            agent_name: Name of the agent producing the message
+            content: The message content
+            role: Agent's role (proposer, critic, judge, etc.)
+            round_num: Current debate round
+            enable_tts: Whether to trigger TTS synthesis for voice sessions
+        """
+        self.notify_spectator(
+            "agent_message",
+            agent=agent_name,
+            content=content,
+            role=role,
+            round_num=round_num,
+            enable_tts=enable_tts,
+        )
+
     def emit_phase_start(self, phase_name: str, round_number: int) -> None:
         """Emit phase start event.
 

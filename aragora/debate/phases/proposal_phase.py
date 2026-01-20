@@ -373,13 +373,26 @@ class ProposalPhase:
         return raw_confidence
 
     def _emit_message_event(self, agent: "AgentType", content: str) -> None:
-        """Emit on_message hook event."""
-        if "on_message" not in self.hooks:
-            return
+        """Emit on_message hook event and agent_message for TTS integration."""
+        # Legacy hook for backwards compatibility
+        if "on_message" in self.hooks:
+            self.hooks["on_message"](
+                agent=agent.name,
+                content=content,
+                role="proposer",
+                round_num=0,
+            )
 
-        self.hooks["on_message"](
-            agent=agent.name,
-            content=content,
-            role="proposer",
-            round_num=0,
-        )
+        # Emit via spectator notification for EventBus/TTS integration
+        if self._notify_spectator:
+            try:
+                self._notify_spectator(
+                    "agent_message",
+                    agent=agent.name,
+                    content=content,
+                    role="proposer",
+                    round_num=0,
+                    enable_tts=True,
+                )
+            except Exception as e:
+                logger.debug(f"Spectator notification failed: {e}")

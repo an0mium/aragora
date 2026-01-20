@@ -324,11 +324,14 @@ class VoteProcessor:
 
         return vote_groups, choice_mapping
 
-    def compute_vote_weights(self, agents: list["Agent"]) -> dict[str, float]:
+    def compute_vote_weights(
+        self, agents: list["Agent"], domain: str = "general"
+    ) -> dict[str, float]:
         """Pre-compute vote weights for all agents.
 
         Args:
             agents: List of agents
+            domain: Debate domain for domain-specific ELO weighting
 
         Returns:
             Dictionary mapping agent names to weights
@@ -340,6 +343,7 @@ class VoteProcessor:
             agent_weights=self.agent_weights,
             calibration_tracker=self.calibration_tracker,
             get_calibration_weight=self._get_calibration_weight,
+            domain=domain,
         )
         return calculator.compute_weights(agents)
 

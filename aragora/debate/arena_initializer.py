@@ -393,6 +393,10 @@ class ArenaInitializer:
                 elo_system, position_ledger, relationship_tracker
             )
 
+        # Auto-initialize KnowledgeMound when retrieval or ingestion is enabled
+        if (enable_knowledge_retrieval or enable_knowledge_ingestion) and knowledge_mound is None:
+            knowledge_mound = self._auto_init_knowledge_mound()
+
         # Auto-upgrade to ELO-ranked judge selection when elo_system is available
         if elo_system and protocol.judge_selection == "random":
             protocol.judge_selection = "elo_ranked"
@@ -501,6 +505,21 @@ class ArenaInitializer:
             enable_moment_detection=True,
         )
         return temp.moment_detector
+
+    def _auto_init_knowledge_mound(self):
+        """Auto-initialize KnowledgeMound for knowledge retrieval/ingestion."""
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound(workspace_id="debate", auto_initialize=True)
+            logger.debug("Auto-initialized KnowledgeMound for debate knowledge integration")
+            return mound
+        except ImportError:
+            logger.warning("KnowledgeMound not available - knowledge integration disabled")
+            return None
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.warning("KnowledgeMound auto-init failed: %s", e)
+            return None
 
     def _init_ml_integration(
         self,

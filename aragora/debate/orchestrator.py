@@ -1603,6 +1603,14 @@ class Arena:
         # Extensions handle their own error handling and won't fail the debate
         self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
 
+        # Ingest high-confidence consensus into Knowledge Mound for future retrieval
+        # This enables cross-debate learning by storing reliable conclusions
+        if ctx.result:
+            try:
+                await self._ingest_debate_outcome(ctx.result)
+            except Exception as e:
+                logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
+
         # Queue for Supabase background sync (non-blocking)
         # This enables cloud persistence when SUPABASE_SYNC_ENABLED=true
         self._queue_for_supabase_sync(ctx, ctx.result)

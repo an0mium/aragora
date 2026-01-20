@@ -1054,6 +1054,9 @@ class ConsensusPhase:
             verbosity_max_penalty=getattr(self.protocol, "verbosity_max_penalty", 0.3),
         )
 
+        # Get domain from context for domain-specific ELO weighting
+        domain = getattr(ctx, "domain", None) or "general"
+
         calculator = WeightCalculator(
             memory=self.memory,
             elo_system=self.elo_system,
@@ -1062,6 +1065,7 @@ class ConsensusPhase:
             calibration_tracker=self.calibration_tracker,
             get_calibration_weight=self._get_calibration_weight,
             config=config,
+            domain=domain,
         )
 
         # Use bias-aware computation if votes and proposals available
