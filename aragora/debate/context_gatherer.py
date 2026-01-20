@@ -35,6 +35,14 @@ except ImportError:
     get_rlm = None  # type: ignore[misc,assignment]
     get_compressor = None  # type: ignore[misc,assignment]
 
+# Check for Knowledge Mound availability
+try:
+    from aragora.knowledge.mound import KnowledgeMound
+    HAS_KNOWLEDGE_MOUND = True
+except ImportError:
+    HAS_KNOWLEDGE_MOUND = False
+    KnowledgeMound = None  # type: ignore[misc,assignment]
+
 logger = logging.getLogger(__name__)
 
 # Configurable timeouts (in seconds)
@@ -43,6 +51,7 @@ CONTEXT_GATHER_TIMEOUT = float(os.getenv("ARAGORA_CONTEXT_TIMEOUT", "150.0"))
 CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "120.0"))
 EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "30.0"))
 TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "5.0"))
+KNOWLEDGE_MOUND_TIMEOUT = float(os.getenv("ARAGORA_KNOWLEDGE_MOUND_TIMEOUT", "10.0"))
 
 
 class ContextGatherer:
@@ -77,6 +86,9 @@ class ContextGatherer:
         enable_rlm_compression: bool = True,
         rlm_compressor: Optional["HierarchicalCompressor"] = None,
         rlm_compression_threshold: int = 3000,  # Chars above which to use RLM
+        enable_knowledge_grounding: bool = True,
+        knowledge_mound: Optional[Any] = None,
+        knowledge_workspace_id: Optional[str] = None,
     ):
         """
         Initialize the context gatherer.
@@ -90,6 +102,9 @@ class ContextGatherer:
             enable_rlm_compression: Whether to use RLM for large document compression.
             rlm_compressor: Optional pre-configured HierarchicalCompressor.
             rlm_compression_threshold: Char count above which to apply RLM compression.
+            enable_knowledge_grounding: Whether to auto-query Knowledge Mound for context.
+            knowledge_mound: Optional pre-configured KnowledgeMound instance.
+            knowledge_workspace_id: Workspace ID for knowledge queries (default: 'debate').
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -137,6 +152,25 @@ class ContextGatherer:
                     logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback via factory")
                 except Exception as e:
                     logger.warning(f"[rlm] Failed to get compressor from factory: {e}")
+
+        # Knowledge Mound configuration for auto-grounding
+        self._enable_knowledge_grounding = enable_knowledge_grounding and HAS_KNOWLEDGE_MOUND
+        self._knowledge_mound = knowledge_mound
+        self._knowledge_workspace_id = knowledge_workspace_id or "debate"
+
+        if self._enable_knowledge_grounding and KnowledgeMound is not None:
+            if not self._knowledge_mound:
+                try:
+                    self._knowledge_mound = KnowledgeMound(workspace_id=self._knowledge_workspace_id)
+                    logger.info(
+                        f"[knowledge] ContextGatherer: Knowledge Mound enabled "
+                        f"(workspace={self._knowledge_workspace_id})"
+                    )
+                except Exception as e:
+                    logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
+                    self._enable_knowledge_grounding = False
+            else:
+                logger.info("[knowledge] ContextGatherer: Using provided Knowledge Mound instance")
 
     @property
     def evidence_pack(self) -> Optional[Any]:
@@ -211,13 +245,20 @@ class ContextGatherer:
             # This provides current context even when Claude search succeeds
             trending_task = asyncio.create_task(self._gather_trending_with_timeout())
 
-            # 4. Gather additional evidence in parallel (fallback if Claude search weak)
+            # 4. Gather knowledge mound context for institutional knowledge
+            knowledge_task = asyncio.create_task(self._gather_knowledge_mound_with_timeout(task))
+
+            # 5. Gather additional evidence in parallel (fallback if Claude search weak)
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
-                results = await asyncio.gather(evidence_task, trending_task, return_exceptions=True)
+                results = await asyncio.gather(
+                    evidence_task, trending_task, knowledge_task, return_exceptions=True
+                )
             else:
-                # Still wait for trending even if Claude search succeeded
-                results = await asyncio.gather(trending_task, return_exceptions=True)
+                # Still wait for trending and knowledge even if Claude search succeeded
+                results = await asyncio.gather(
+                    trending_task, knowledge_task, return_exceptions=True
+                )
 
             for result in results:
                 if isinstance(result, str) and result:
@@ -295,6 +336,16 @@ class ContextGatherer:
             return await asyncio.wait_for(self.gather_trending_context(), timeout=TRENDING_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning(f"Trending context timed out after {TRENDING_TIMEOUT}s")
+            return None
+
+    async def _gather_knowledge_mound_with_timeout(self, task: str) -> Optional[str]:
+        """Gather knowledge mound context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_knowledge_mound_context(task), timeout=KNOWLEDGE_MOUND_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Knowledge mound context timed out after {KNOWLEDGE_MOUND_TIMEOUT}s")
             return None
 
     async def gather_aragora_context(self, task: str) -> Optional[str]:
@@ -537,6 +588,100 @@ class ContextGatherer:
             List of TrendingTopic objects from the last gather_trending_context call.
         """
         return self._trending_topics_cache
+
+    async def gather_knowledge_mound_context(self, task: str) -> Optional[str]:
+        """
+        Query Knowledge Mound for relevant facts and evidence.
+
+        Auto-grounds debates with institutional knowledge from:
+        - Previous debate outcomes and consensus
+        - Extracted facts from documents
+        - Evidence snippets with provenance
+        - Cross-debate patterns and insights
+
+        Args:
+            task: The debate topic/task description.
+
+        Returns:
+            Formatted knowledge context, or None if unavailable.
+        """
+        if not self._enable_knowledge_grounding or not self._knowledge_mound:
+            return None
+
+        try:
+            # Query knowledge mound for relevant items
+            result = await self._knowledge_mound.query(
+                query=task,
+                sources=("all",),  # Query all knowledge sources
+                limit=10,
+            )
+
+            if not result.items:
+                logger.debug("[knowledge] No relevant knowledge found for task")
+                return None
+
+            # Format knowledge context
+            context_parts = [
+                "## KNOWLEDGE MOUND CONTEXT",
+                "Relevant institutional knowledge from previous debates and analyses:",
+                "",
+            ]
+
+            # Group by source type for better organization
+            facts = []
+            evidence = []
+            insights = []
+
+            for item in result.items:
+                source = getattr(item, 'source', None)
+                source_name = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
+                content = item.content[:500] if item.content else ""
+                confidence = getattr(item, 'confidence', 0.5)
+
+                if source_name in ('fact', 'fact_store'):
+                    facts.append((content, confidence))
+                elif source_name in ('evidence', 'evidence_store'):
+                    evidence.append((content, confidence))
+                else:
+                    insights.append((content, confidence, source_name))
+
+            # Format facts
+            if facts:
+                context_parts.append("### Verified Facts")
+                for content, conf in facts[:3]:
+                    conf_label = "HIGH" if conf > 0.7 else "MEDIUM" if conf > 0.4 else "LOW"
+                    context_parts.append(f"- [{conf_label}] {content}")
+                context_parts.append("")
+
+            # Format evidence
+            if evidence:
+                context_parts.append("### Supporting Evidence")
+                for content, conf in evidence[:3]:
+                    context_parts.append(f"- {content}")
+                context_parts.append("")
+
+            # Format insights
+            if insights:
+                context_parts.append("### Related Insights")
+                for content, conf, source in insights[:4]:
+                    context_parts.append(f"- ({source}) {content}")
+                context_parts.append("")
+
+            if len(context_parts) <= 3:
+                # Only header, no actual content
+                return None
+
+            logger.info(
+                f"[knowledge] Injected {len(result.items)} knowledge items "
+                f"({len(facts)} facts, {len(evidence)} evidence, {len(insights)} insights) "
+                f"in {result.execution_time_ms:.0f}ms"
+            )
+
+            return "\n".join(context_parts)
+
+        except Exception as e:
+            logger.warning(f"[knowledge] Knowledge Mound query failed: {e}")
+            return None
 
     def clear_cache(self, task: Optional[str] = None) -> None:
         """Clear cached context, optionally for a specific task.

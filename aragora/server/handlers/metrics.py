@@ -417,10 +417,10 @@ class MetricsHandler(BaseHandler):
 
         # Common database files
         db_files = [
-            DB_ELO_PATH,
+            LEGACY_DB_NAMES[DatabaseType.ELO],
             "debate_storage.db",
             "debate_embeddings.db",
-            DB_INSIGHTS_PATH,
+            LEGACY_DB_NAMES[DatabaseType.INSIGHTS],
             "continuum_memory.db",
             "grounded_positions.db",
         ]

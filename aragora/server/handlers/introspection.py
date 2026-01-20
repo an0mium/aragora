@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     pass
 
-from aragora.config import DB_PERSONAS_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.utils.optional_imports import try_import_class
 
 from .base import (
@@ -117,10 +117,10 @@ class IntrospectionHandler(BaseHandler):
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
             return None
-        persona_db = nomic_dir / DB_PERSONAS_PATH
+        persona_db = get_db_path(DatabaseType.PERSONAS, nomic_dir=nomic_dir)
         if not persona_db.exists():
             return None
-        return PersonaManager(str(persona_db))
+        return PersonaManager(persona_db)
 
     def _get_known_agents(self, store: Any) -> list[str]:
         """Get list of known agents from critique store or defaults."""
