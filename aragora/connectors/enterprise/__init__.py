@@ -32,7 +32,7 @@ from aragora.connectors.enterprise.documents import (
     OneDriveConnector,
     DropboxConnector,
 )
-from aragora.connectors.enterprise.database import PostgreSQLConnector, MongoDBConnector
+from aragora.connectors.enterprise.database import PostgreSQLConnector, MongoDBConnector, SnowflakeConnector
 from aragora.connectors.enterprise.sync import SyncScheduler, SyncJob, SyncSchedule, SyncHistory
 from aragora.connectors.enterprise.healthcare import FHIRConnector, PHIRedactor, FHIRAuditLogger
 from aragora.connectors.enterprise.collaboration import (
@@ -64,6 +64,7 @@ __all__ = [
     # Database connectors
     "PostgreSQLConnector",
     "MongoDBConnector",
+    "SnowflakeConnector",
     # Collaboration connectors
     "ConfluenceConnector",
     "NotionConnector",
