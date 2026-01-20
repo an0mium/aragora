@@ -1,0 +1,146 @@
+# Review Cycle Workflow
+#
+# Iterative refinement with convergence check.
+# Creates initial draft, reviews it, and refines until quality threshold
+# is met or maximum iterations reached.
+#
+# Inputs:
+#   - task: What to create/accomplish
+#   - context: Additional context
+#   - criteria: Review criteria (optional)
+#   - max_iterations: Maximum refinement cycles (default: 3)
+#   - threshold: Convergence threshold (default: 0.85)
+#
+# Outputs:
+#   - final_output: The refined result
+#   - iterations: Number of iterations used
+#   - final_score: Final quality score
+#   - review_history: History of reviews and refinements
+
+id: review_cycle
+name: "Iterative Review Cycle"
+description: "Iterative refinement with quality threshold convergence"
+version: "1.0"
+
+metadata:
+  category: "general"
+  tags: ["iterative", "refinement", "review", "quality"]
+  estimated_duration_minutes: 8
+  pattern: "review_cycle"
+  complexity: "medium"
+  recommended_agents: ["claude", "gpt4"]
+
+steps:
+  - id: initialize
+    type: task
+    config:
+      action: "initialize_state"
+      state:
+        iteration: 0
+        feedback: ""
+        suggestions: ""
+        score: 0.0
+    next: draft
+
+  - id: draft
+    type: agent
+    config:
+      agent: "{draft_agent|claude}"
+      system_prompt: |
+        You are creating or refining content based on feedback.
+        If there is previous feedback, address all points carefully.
+        Strive for high quality, completeness, and accuracy.
+      prompt: |
+        Create or refine a response for this task.
+
+        Task: {task}
+
+        Context: {context}
+
+        {feedback_section}
+
+        Previous Feedback (if any):
+        {state.feedback}
+
+        Suggestions (if any):
+        {state.suggestions}
+
+        Provide your best response, addressing any feedback if given:
+    next: review
+
+  - id: review
+    type: agent
+    config:
+      agent: "{review_agent|gpt4}"
+      system_prompt: |
+        You are a critical reviewer. Evaluate based on the following criteria:
+        - Quality: Overall excellence of the output
+        - Completeness: Whether all aspects are addressed
+        - Accuracy: Correctness of information and logic
+
+        Provide specific, actionable feedback. Score from 0.0 to 1.0.
+      prompt: |
+        Review this draft based on the following criteria:
+        - Quality
+        - Completeness
+        - Accuracy
+        {criteria}
+
+        Original Task: {task}
+
+        Draft to Review:
+        {step_outputs.draft}
+
+        Provide:
+        1. Score (0.0 to 1.0) for overall quality
+        2. Specific feedback for each criterion
+        3. Concrete suggestions for improvement
+
+        Format your response as:
+        SCORE: <number>
+        FEEDBACK:
+        <detailed feedback>
+        SUGGESTIONS:
+        <improvement suggestions>
+    next: check_convergence
+
+  - id: check_convergence
+    type: task
+    config:
+      task_type: "function"
+      handler: "review_cycle_check"
+      args:
+        threshold: "{threshold|0.85}"
+        max_iterations: "{max_iterations|3}"
+    next: route_result
+
+  - id: route_result
+    type: decision
+    config:
+      expression: "step_outputs.check_convergence.converged"
+      on_true: finalize
+      on_false: continue_refinement
+
+  - id: continue_refinement
+    type: task
+    config:
+      action: "update_state"
+      updates:
+        iteration: "{step_outputs.check_convergence.iteration}"
+        feedback: "{state.last_feedback}"
+        suggestions: "{state.last_suggestions}"
+        score: "{state.last_score}"
+    on_success: draft
+    on_failure: finalize
+
+  - id: finalize
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "final_output"
+        - "iterations"
+        - "final_score"
+        - "review_history"
+
+entry_point: initialize

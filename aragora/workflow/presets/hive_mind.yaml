@@ -1,0 +1,157 @@
+# Hive Mind Workflow
+#
+# Parallel agent execution with consensus merge.
+# Multiple agents analyze the same input simultaneously, then
+# results are synthesized into a unified response.
+#
+# Inputs:
+#   - task: The task/question to analyze
+#   - context: Additional context for the agents
+#   - data: Any data to include in analysis
+#
+# Outputs:
+#   - perspectives: Individual agent responses
+#   - synthesis: Unified analysis from all perspectives
+#   - confidence: Confidence level based on agreement
+
+id: hive_mind
+name: "Hive Mind Analysis"
+description: "Parallel multi-agent analysis with consensus synthesis"
+version: "1.0"
+
+metadata:
+  category: "general"
+  tags: ["parallel", "consensus", "multi-agent", "synthesis"]
+  estimated_duration_minutes: 3
+  pattern: "hive_mind"
+  complexity: "medium"
+  recommended_agents: ["claude", "gpt4", "gemini"]
+
+steps:
+  - id: prepare_task
+    type: task
+    config:
+      action: "prepare_input"
+      task_key: "task"
+      context_key: "context"
+    next: parallel_analysis
+
+  - id: parallel_analysis
+    type: parallel
+    config:
+      steps:
+        - id: claude_analysis
+          type: agent
+          config:
+            agent: "claude"
+            system_prompt: |
+              You are an expert analyst. Provide a thorough, well-reasoned analysis.
+              Focus on accuracy, nuance, and identifying key considerations.
+            prompt: |
+              Analyze the following task:
+
+              Task: {task}
+
+              Context: {context}
+
+              Data: {data}
+
+              Provide your analysis with:
+              1. Key observations
+              2. Main conclusions
+              3. Confidence level (0.0-1.0)
+              4. Important caveats or uncertainties
+
+        - id: gpt4_analysis
+          type: agent
+          config:
+            agent: "gpt4"
+            system_prompt: |
+              You are an expert analyst. Provide a thorough, well-reasoned analysis.
+              Focus on practical implications and actionable insights.
+            prompt: |
+              Analyze the following task:
+
+              Task: {task}
+
+              Context: {context}
+
+              Data: {data}
+
+              Provide your analysis with:
+              1. Key observations
+              2. Main conclusions
+              3. Confidence level (0.0-1.0)
+              4. Important caveats or uncertainties
+
+        - id: gemini_analysis
+          type: agent
+          config:
+            agent: "gemini"
+            system_prompt: |
+              You are an expert analyst. Provide a thorough, well-reasoned analysis.
+              Focus on identifying patterns and potential blind spots.
+            prompt: |
+              Analyze the following task:
+
+              Task: {task}
+
+              Context: {context}
+
+              Data: {data}
+
+              Provide your analysis with:
+              1. Key observations
+              2. Main conclusions
+              3. Confidence level (0.0-1.0)
+              4. Important caveats or uncertainties
+    next: merge_perspectives
+
+  - id: merge_perspectives
+    type: task
+    config:
+      task_type: "aggregate"
+      mode: "merge"
+      inputs:
+        - "parallel_analysis.claude_analysis"
+        - "parallel_analysis.gpt4_analysis"
+        - "parallel_analysis.gemini_analysis"
+    next: synthesize
+
+  - id: synthesize
+    type: agent
+    config:
+      agent: "claude"
+      system_prompt: |
+        You are synthesizing multiple expert perspectives. Identify common themes,
+        resolve contradictions, and provide a unified analysis. Be fair to all
+        viewpoints while highlighting the strongest arguments.
+      prompt: |
+        Synthesize these expert perspectives on the task.
+
+        Task: {task}
+
+        Perspectives:
+        {step_outputs.merge_perspectives}
+
+        Instructions:
+        1. Identify common themes and agreements
+        2. Note any significant disagreements or different approaches
+        3. Provide a unified, comprehensive analysis
+        4. Calculate overall confidence based on agreement level
+        5. Highlight any important dissenting views
+
+        Provide your synthesis:
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "perspectives"
+        - "synthesis"
+        - "confidence"
+        - "dissent"
+
+entry_point: prepare_task

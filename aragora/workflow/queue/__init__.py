@@ -41,6 +41,11 @@ from aragora.workflow.queue.scheduler import (
     DependencyScheduler,
     SchedulingPolicy,
 )
+from aragora.workflow.queue.persistent_queue import (
+    PersistentTaskQueue,
+    get_persistent_task_queue,
+    reset_persistent_task_queue,
+)
 
 __all__ = [
     # Task
@@ -50,6 +55,10 @@ __all__ = [
     # Queue
     "TaskQueue",
     "TaskQueueConfig",
+    # Persistent Queue
+    "PersistentTaskQueue",
+    "get_persistent_task_queue",
+    "reset_persistent_task_queue",
     # Executor
     "TaskExecutor",
     "ExecutorPool",

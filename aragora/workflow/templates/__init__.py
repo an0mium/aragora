@@ -9,6 +9,11 @@ Pre-built workflow templates for common enterprise use cases:
 - AI/ML: Model deployment, bias audit, AI governance
 - DevOps: CI/CD review, incident response, infrastructure audit
 - Product: PRD review, feature specs, launch readiness
+
+Pattern-based workflow templates:
+- HiveMind: Parallel agent execution with consensus merge
+- MapReduce: Split work, parallel processing, aggregate results
+- ReviewCycle: Iterative refinement with convergence check
 """
 
 from aragora.workflow.templates.legal import (
@@ -46,6 +51,17 @@ from aragora.workflow.templates.product import (
     USER_RESEARCH_TEMPLATE,
     LAUNCH_READINESS_TEMPLATE,
 )
+from aragora.workflow.templates.patterns import (
+    HIVE_MIND_TEMPLATE,
+    MAP_REDUCE_TEMPLATE,
+    REVIEW_CYCLE_TEMPLATE,
+    PATTERN_TEMPLATES,
+    create_hive_mind_workflow,
+    create_map_reduce_workflow,
+    create_review_cycle_workflow,
+    get_pattern_template,
+    list_pattern_templates,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -77,6 +93,10 @@ WORKFLOW_TEMPLATES = {
     "product/feature-spec": FEATURE_SPEC_TEMPLATE,
     "product/user-research": USER_RESEARCH_TEMPLATE,
     "product/launch-readiness": LAUNCH_READINESS_TEMPLATE,
+    # Patterns
+    "pattern/hive-mind": HIVE_MIND_TEMPLATE,
+    "pattern/map-reduce": MAP_REDUCE_TEMPLATE,
+    "pattern/review-cycle": REVIEW_CYCLE_TEMPLATE,
 }
 
 
@@ -161,4 +181,14 @@ __all__ = [
     "FEATURE_SPEC_TEMPLATE",
     "USER_RESEARCH_TEMPLATE",
     "LAUNCH_READINESS_TEMPLATE",
+    # Patterns
+    "HIVE_MIND_TEMPLATE",
+    "MAP_REDUCE_TEMPLATE",
+    "REVIEW_CYCLE_TEMPLATE",
+    "PATTERN_TEMPLATES",
+    "create_hive_mind_workflow",
+    "create_map_reduce_workflow",
+    "create_review_cycle_workflow",
+    "get_pattern_template",
+    "list_pattern_templates",
 ]

@@ -1,0 +1,109 @@
+# MapReduce Workflow
+#
+# Split work, parallel processing, aggregate results.
+# Ideal for large document analysis, repository scanning, or batch processing.
+#
+# Inputs:
+#   - input: Text/data to split and process
+#   - task: Processing task for each chunk
+#   - split_strategy: How to split (chunks, lines, sections)
+#   - chunk_size: Size of chunks (for chunk strategy)
+#
+# Outputs:
+#   - chunks: Split input chunks
+#   - map_results: Results from parallel processing
+#   - aggregated: Final aggregated analysis
+
+id: map_reduce
+name: "MapReduce Processing"
+description: "Split large inputs, process in parallel, aggregate results"
+version: "1.0"
+
+metadata:
+  category: "general"
+  tags: ["parallel", "batch", "map-reduce", "scalable"]
+  estimated_duration_minutes: 5
+  pattern: "map_reduce"
+  complexity: "medium"
+  recommended_agents: ["claude", "gpt4"]
+
+steps:
+  - id: split_input
+    type: task
+    config:
+      task_type: "function"
+      handler: "map_reduce_split"
+      args:
+        strategy: "{split_strategy|chunks}"
+        chunk_size: "{chunk_size|4000}"
+        file_pattern: "{file_pattern|**/*}"
+    next: validate_split
+
+  - id: validate_split
+    type: decision
+    config:
+      expression: "len(step_outputs.split_input.chunks) > 0"
+      on_true: parallel_map
+      on_false: empty_result
+
+  - id: empty_result
+    type: task
+    config:
+      action: "set_output"
+      output:
+        error: "No chunks to process"
+        chunks: []
+        results: []
+
+  - id: parallel_map
+    type: task
+    config:
+      task_type: "function"
+      handler: "map_reduce_map"
+      args:
+        agent_type: "{map_agent|claude}"
+        prompt_template: "{task}"
+        parallel_limit: "{parallel_limit|5}"
+        timeout_per_chunk: "{timeout|60.0}"
+    next: reduce
+
+  - id: reduce
+    type: agent
+    config:
+      agent: "{reduce_agent|claude}"
+      system_prompt: |
+        You are aggregating and summarizing results from parallel analysis.
+        Identify patterns, highlight key findings, and provide a comprehensive summary.
+      prompt: |
+        Aggregate and summarize the following analysis results:
+
+        Original Task: {task}
+
+        Results from parallel processing:
+        {step_outputs.parallel_map.results}
+
+        Processing Statistics:
+        - Total chunks: {step_outputs.parallel_map.total}
+        - Successful: {step_outputs.parallel_map.successful_count}
+        - Failed: {step_outputs.parallel_map.failed_count}
+
+        Instructions:
+        1. Identify common patterns across all results
+        2. Highlight the most important findings
+        3. Note any anomalies or unique items
+        4. Provide a comprehensive summary
+
+        Aggregated Analysis:
+    next: complete
+
+  - id: complete
+    type: task
+    config:
+      action: "aggregate_results"
+      include_keys:
+        - "chunks"
+        - "map_results"
+        - "aggregated"
+        - "statistics"
+
+entry_point: split_input

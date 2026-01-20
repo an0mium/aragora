@@ -376,3 +376,161 @@ class WorkflowPatternsHandler(BaseHandler):
             )
 
         return json_response({"patterns": patterns})
+
+
+class WorkflowPatternTemplatesHandler(BaseHandler):
+    """Handler for pattern-based workflow template operations."""
+
+    ROUTES: list[str] = [
+        "/api/workflow/pattern-templates",
+        "/api/workflow/pattern-templates/*",
+        "/api/v1/workflow/pattern-templates",
+        "/api/v1/workflow/pattern-templates/*",
+    ]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/workflow/pattern-templates") or path.startswith(
+            "/api/v1/workflow/pattern-templates"
+        )
+
+    def handle(
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route pattern template requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _template_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        method = handler.command if hasattr(handler, "command") else "GET"
+
+        # List pattern templates
+        if path in ("/api/workflow/pattern-templates", "/api/v1/workflow/pattern-templates"):
+            if method == "GET":
+                return self._list_pattern_templates()
+            else:
+                return error_response(f"Method {method} not allowed", 405)
+
+        # Handle specific pattern template requests
+        parts = path.split("/")
+        pattern_id = parts[-1]
+
+        # Check for instantiate route
+        if len(parts) >= 2 and parts[-1] == "instantiate":
+            pattern_id = parts[-2]
+            return self._instantiate_pattern(pattern_id, handler)
+
+        return self._get_pattern_template(pattern_id)
+
+    @handle_errors("list pattern templates")
+    def _list_pattern_templates(self) -> HandlerResult:
+        """List available pattern-based workflow templates."""
+        from aragora.workflow.templates.patterns import list_pattern_templates
+
+        templates = list_pattern_templates()
+
+        return json_response({
+            "pattern_templates": templates,
+            "total": len(templates),
+        })
+
+    @handle_errors("get pattern template")
+    def _get_pattern_template(self, pattern_id: str) -> HandlerResult:
+        """Get details of a specific pattern template."""
+        from aragora.workflow.templates.patterns import get_pattern_template, PATTERN_TEMPLATES
+
+        # Try with pattern/ prefix if not found
+        template = get_pattern_template(pattern_id)
+        if not template:
+            template = get_pattern_template(f"pattern/{pattern_id}")
+
+        if not template:
+            return error_response(f"Pattern template not found: {pattern_id}", 404)
+
+        return json_response({
+            "id": template.get("id", pattern_id),
+            "name": template.get("name", pattern_id),
+            "description": template.get("description", ""),
+            "pattern": template.get("pattern"),
+            "version": template.get("version", "1.0.0"),
+            "config": template.get("config", {}),
+            "inputs": template.get("inputs", {}),
+            "outputs": template.get("outputs", {}),
+            "tags": template.get("tags", []),
+        })
+
+    @handle_errors("instantiate pattern")
+    def _instantiate_pattern(self, pattern_id: str, handler: Any) -> HandlerResult:
+        """Create a workflow definition from a pattern template."""
+        from aragora.workflow.templates.patterns import (
+            create_hive_mind_workflow,
+            create_map_reduce_workflow,
+            create_review_cycle_workflow,
+        )
+
+        # Parse request body
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        # Map pattern IDs to factory functions
+        pattern_factories = {
+            "hive-mind": create_hive_mind_workflow,
+            "hive_mind": create_hive_mind_workflow,
+            "map-reduce": create_map_reduce_workflow,
+            "map_reduce": create_map_reduce_workflow,
+            "review-cycle": create_review_cycle_workflow,
+            "review_cycle": create_review_cycle_workflow,
+        }
+
+        factory = pattern_factories.get(pattern_id)
+        if not factory:
+            return error_response(
+                f"Unknown pattern: {pattern_id}. Available: {list(pattern_factories.keys())}",
+                404
+            )
+
+        # Extract configuration from request
+        name = data.get("name", f"{pattern_id.replace('-', ' ').title()} Workflow")
+        task = data.get("task", "")
+        config = data.get("config", {})
+
+        # Merge task and config
+        workflow_args = {"name": name, "task": task, **config}
+
+        try:
+            workflow = factory(**workflow_args)
+
+            # Convert workflow to serializable dict
+            workflow_dict = {
+                "id": workflow.id,
+                "name": workflow.name,
+                "description": workflow.description,
+                "pattern": pattern_id,
+                "steps": [
+                    {
+                        "id": step.id,
+                        "name": step.name,
+                        "type": step.step_type,
+                        "config": step.config,
+                        "next_steps": step.next_steps,
+                    }
+                    for step in workflow.steps
+                ],
+                "entry_step": workflow.entry_step,
+                "tags": workflow.tags,
+                "metadata": workflow.metadata,
+            }
+
+            return json_response({
+                "status": "created",
+                "workflow": workflow_dict,
+            }, status=201)
+
+        except Exception as e:
+            logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
+            return error_response(f"Failed to instantiate pattern: {e}", 500)
