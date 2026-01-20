@@ -7,28 +7,98 @@ DEBATE_ENDPOINTS = {
         "get": {
             "tags": ["Debates"],
             "summary": "List debates",
-            "description": "Get list of all debates (requires auth)",
+            "description": """Get list of all debates for the authenticated user.
+
+**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+
+**Pagination:** Use `limit` and `offset` for pagination. Maximum 100 items per request.
+
+**Filtering:** Results are filtered to debates owned by or shared with the authenticated user.""",
+            "operationId": "listDebates",
             "parameters": [
                 {
                     "name": "limit",
                     "in": "query",
-                    "schema": {"type": "integer", "default": 20, "maximum": 100},
+                    "description": "Maximum number of debates to return",
+                    "schema": {"type": "integer", "default": 20, "maximum": 100, "minimum": 1},
+                    "example": 20,
                 },
-                {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "description": "Number of debates to skip",
+                    "schema": {"type": "integer", "default": 0, "minimum": 0},
+                    "example": 0,
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by debate status",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["running", "completed", "failed", "paused"],
+                    },
+                },
+                {
+                    "name": "since",
+                    "in": "query",
+                    "description": "Filter debates created after this timestamp",
+                    "schema": {"type": "string", "format": "date-time"},
+                },
             ],
-            "responses": {"200": _array_response("List of debates", "Debate")},
+            "responses": {
+                "200": _array_response("List of debates", "Debate"),
+                "401": STANDARD_ERRORS["401"],
+                "429": STANDARD_ERRORS["429"],
+            },
             "security": [{"bearerAuth": []}],
         },
         "post": {
             "tags": ["Debates"],
             "summary": "Create a new debate",
-            "description": "Start a new multi-agent debate on a given topic",
+            "description": """Start a new multi-agent debate on a given topic.
+
+**Rate Limit:** 10 debates per day (free), 100/day (pro), unlimited (enterprise)
+
+**Concurrent Limit:** 1 concurrent debate (free), 5 (pro), 20 (enterprise)
+
+**Authentication:** Required. The debate will be owned by the authenticated user.
+
+**WebSocket:** After creation, connect to the returned `websocket_url` to stream real-time debate progress.""",
+            "operationId": "createDebate",
             "security": [{"bearerAuth": []}],
             "requestBody": {
                 "required": True,
                 "content": {
                     "application/json": {
-                        "schema": {"$ref": "#/components/schemas/DebateCreateRequest"}
+                        "schema": {"$ref": "#/components/schemas/DebateCreateRequest"},
+                        "examples": {
+                            "simple": {
+                                "summary": "Simple debate",
+                                "value": {
+                                    "task": "Should we use TypeScript for our next project?",
+                                    "rounds": 3,
+                                },
+                            },
+                            "with_agents": {
+                                "summary": "Debate with specific agents",
+                                "value": {
+                                    "task": "Is GraphQL better than REST for mobile apps?",
+                                    "agents": ["claude", "gpt-4", "gemini"],
+                                    "rounds": 3,
+                                    "consensus": "majority",
+                                },
+                            },
+                            "with_context": {
+                                "summary": "Debate with context",
+                                "value": {
+                                    "task": "Should we migrate to Kubernetes?",
+                                    "context": "We have 50 microservices and 10 engineers.",
+                                    "rounds": 5,
+                                    "consensus": "weighted",
+                                },
+                            },
+                        },
                     }
                 },
             },

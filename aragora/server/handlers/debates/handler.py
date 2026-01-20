@@ -31,6 +31,7 @@ from aragora.exceptions import (
     StorageError,
 )
 from aragora.server.debate_utils import _active_debates
+from aragora.server.middleware.abac import Action, ResourceType, check_resource_access
 from aragora.server.middleware.tier_enforcement import require_quota
 from aragora.server.validation import validate_debate_id
 from aragora.server.validation.schema import (
@@ -1058,6 +1059,35 @@ class DebatesHandler(
             debate = storage.get_debate(debate_id)
             if not debate:
                 return error_response(f"Debate not found: {debate_id}", 404)
+
+            # ABAC: Check if user has write access to this debate
+            user = self.get_current_user(handler)
+            if user:
+                debate_owner_id = debate.get("user_id") or debate.get("owner_id")
+                debate_workspace_id = debate.get("workspace_id") or debate.get("org_id")
+
+                access_decision = check_resource_access(
+                    user_id=user.user_id,
+                    user_role=getattr(user, "role", "user"),
+                    user_plan=getattr(user, "plan", "free"),
+                    resource_type=ResourceType.DEBATE,
+                    resource_id=debate_id,
+                    action=Action.WRITE,
+                    resource_owner_id=debate_owner_id,
+                    resource_workspace_id=debate_workspace_id,
+                    user_workspace_id=getattr(user, "org_id", None),
+                    user_workspace_role=getattr(user, "org_role", None),
+                )
+
+                if not access_decision.allowed:
+                    logger.warning(
+                        f"ABAC denied WRITE access to debate {debate_id} for user {user.user_id}: "
+                        f"{access_decision.reason}"
+                    )
+                    return error_response(
+                        "You do not have permission to update this debate",
+                        403,
+                    )
 
             # Apply updates (only allowed fields)
             allowed_fields = {"title", "tags", "status", "metadata"}
