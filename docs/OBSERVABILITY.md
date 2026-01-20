@@ -360,6 +360,120 @@ env:
 
 ---
 
+## Cross-Pollination Metrics
+
+These metrics track feature integrations that connect Aragora's subsystems.
+
+### ELO Skill Weighting
+
+```promql
+# ELO-adjusted vote weights applied
+rate(aragora_selection_feedback_adjustments_total[5m])
+
+# ELO rating distribution
+histogram_quantile(0.95, aragora_elo_rating_distribution)
+```
+
+**Key metrics:**
+- `aragora_selection_feedback_adjustments_total` - Count of ELO-based weight adjustments
+- `aragora_learning_bonuses_total` - Learning efficiency bonuses applied
+
+### Calibration Tracking
+
+```promql
+# Calibration adjustments per agent
+sum by (agent) (rate(aragora_calibration_adjustments_total[5m]))
+
+# Voting accuracy updates
+rate(aragora_voting_accuracy_updates_total{result="correct"}[5m])
+```
+
+**Key metrics:**
+- `aragora_calibration_adjustments_total` - Calibration temperature scaling applications
+- `aragora_voting_accuracy_updates_total` - Voting accuracy tracking (correct/incorrect)
+
+### Evidence Quality
+
+```promql
+# Evidence citation bonuses applied
+rate(aragora_evidence_citation_bonuses_total[5m])
+
+# Process evaluation bonuses
+rate(aragora_process_evaluation_bonuses_total[5m])
+```
+
+**Key metrics:**
+- `aragora_evidence_citation_bonuses_total` - Evidence quality weighted bonuses
+- `aragora_process_evaluation_bonuses_total` - Process-based evaluation bonuses
+
+### RLM Hierarchy Caching
+
+```promql
+# Cache hit rate
+rate(aragora_rlm_cache_hits_total[5m]) /
+(rate(aragora_rlm_cache_hits_total[5m]) + rate(aragora_rlm_cache_misses_total[5m]))
+
+# Cache efficiency
+aragora_rlm_cache_hits_total / (aragora_rlm_cache_hits_total + aragora_rlm_cache_misses_total)
+```
+
+**Key metrics:**
+- `aragora_rlm_cache_hits_total` - Compression hierarchy cache hits
+- `aragora_rlm_cache_misses_total` - Compression hierarchy cache misses
+
+### Verification → Confidence
+
+```promql
+# Verification bonuses applied to consensus
+sum(rate(aragora_verification_bonuses_total[5m]))
+```
+
+**Key metrics:**
+- `aragora_convergence_checks_total` - Convergence detection checks
+- Verification results adjust vote confidence (verified +30%, disproven -70%)
+
+### Knowledge Mound Integration
+
+```promql
+# KM operations by type
+sum by (operation) (rate(aragora_km_operations_total[5m]))
+
+# Consensus ingestion rate
+rate(aragora_consensus_evidence_linked_total[5m])
+```
+
+**Key metrics:**
+- `aragora_km_operations_total` - Knowledge Mound CRUD operations
+- `aragora_km_cache_hits_total` - KM query cache hits
+- `aragora_consensus_evidence_linked_total` - Evidence linked to consensus
+
+### Recommended Alerting Rules
+
+```yaml
+groups:
+  - name: cross-pollination
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          rate(aragora_rlm_cache_hits_total[5m]) /
+          (rate(aragora_rlm_cache_hits_total[5m]) + rate(aragora_rlm_cache_misses_total[5m])) < 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: RLM cache hit rate below 30%
+
+      - alert: HighCalibrationError
+        expr: avg(aragora_calibration_ece) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Agent calibration error (ECE) above 15%
+```
+
+---
+
 ## Troubleshooting
 
 ### Traces Not Appearing
