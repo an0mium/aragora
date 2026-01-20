@@ -223,6 +223,9 @@ class Arena:
         # Adaptive rounds (Memory-based debate strategy)
         enable_adaptive_rounds: bool = False,  # Use memory-based strategy to determine rounds
         debate_strategy=None,  # Optional pre-configured DebateStrategy instance
+        # Cross-debate institutional memory
+        cross_debate_memory=None,  # Optional CrossDebateMemory for institutional knowledge
+        enable_cross_debate_memory: bool = True,  # Inject institutional knowledge from past debates
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -344,6 +347,10 @@ class Arena:
             except Exception as e:
                 logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
                 self.debate_strategy = None
+
+        # Cross-debate institutional memory
+        self.cross_debate_memory = cross_debate_memory
+        self.enable_cross_debate_memory = enable_cross_debate_memory
 
         # Initialize user participation and roles
         self._init_user_participation()
