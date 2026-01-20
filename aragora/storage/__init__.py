@@ -69,6 +69,11 @@ from .federation_registry_store import (
     set_federation_registry_store,
     reset_federation_registry_store,
 )
+from .redis_utils import (
+    get_redis_client,
+    reset_redis_client,
+    is_cluster_mode,
+)
 
 __all__ = [
     # Legacy base classes
@@ -131,4 +136,8 @@ __all__ = [
     "get_federation_registry_store",
     "set_federation_registry_store",
     "reset_federation_registry_store",
+    # Redis client utilities
+    "get_redis_client",
+    "reset_redis_client",
+    "is_cluster_mode",
 ]

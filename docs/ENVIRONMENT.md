@@ -149,6 +149,58 @@ Enables:
 - Cross-session learning
 - Live dashboard at aragora.ai
 
+## Pluggable Storage Backends
+
+Configure storage backends for channel integrations, tokens, workflows, and federation.
+All stores support three backends: `memory`, `sqlite`, `redis`.
+
+### Integration Store
+
+Persists channel/integration configurations (Slack, Teams, Discord, Gmail).
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_INTEGRATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+
+### Gmail Token Store
+
+Persists Gmail OAuth tokens and sync job state.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_GMAIL_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+
+### Finding Workflow Store
+
+Persists audit finding workflow state, assignments, and history.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_WORKFLOW_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+
+### Federation Registry Store
+
+Persists federated region configurations for multi-region knowledge sync.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_FEDERATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+
+**Backend Selection:**
+- `memory` - Fast but not persistent; use for testing only
+- `sqlite` - Default; persists to `ARAGORA_DATA_DIR/<store>.db`
+- `redis` - Multi-instance deployments; falls back to SQLite if Redis unavailable
+
+**Example:**
+```bash
+# Use Redis for multi-instance deployment
+ARAGORA_INTEGRATION_STORE_BACKEND=redis
+ARAGORA_GMAIL_STORE_BACKEND=redis
+ARAGORA_WORKFLOW_STORE_BACKEND=redis
+ARAGORA_FEDERATION_STORE_BACKEND=redis
+ARAGORA_REDIS_URL=redis://localhost:6379/0
+```
+
 ## Database Connection (PostgreSQL/SQLite)
 
 Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for local control.
@@ -352,6 +404,36 @@ Configure Slack slash commands and outbound notifications.
 | `ARAGORA_REDIS_SOCKET_TIMEOUT` | Optional | Redis socket timeout (seconds) | `5.0` |
 | `ARAGORA_RATE_LIMIT_FAIL_OPEN` | Optional | Allow requests if Redis is down (`true`/`false`) | `false` |
 | `ARAGORA_REDIS_FAILURE_THRESHOLD` | Optional | Failures before Redis limiter disables (count) | `3` |
+
+## Redis Cluster Configuration
+
+For high-availability deployments, Aragora supports Redis Cluster mode with automatic failover and read replica support.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REDIS_CLUSTER_NODES` | Optional | Comma-separated cluster nodes (e.g., `redis1:6379,redis2:6379,redis3:6379`) | - |
+| `ARAGORA_REDIS_CLUSTER_MODE` | Optional | Mode: `auto`, `cluster`, or `standalone` | `auto` |
+| `ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS` | Optional | Max connections per node | `32` |
+| `ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE` | Optional | Skip slot coverage check (`true`/`false`) | `false` |
+| `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | Optional | Enable read from replicas (`true`/`false`) | `true` |
+| `ARAGORA_REDIS_CLUSTER_PASSWORD` | Optional | Cluster authentication password | - |
+| `ARAGORA_REDIS_HEALTH_CHECK_INTERVAL` | Optional | Health check interval (seconds) | `30.0` |
+
+**Example Cluster Configuration:**
+```bash
+# 3-node Redis Cluster
+ARAGORA_REDIS_CLUSTER_NODES=redis-node1:6379,redis-node2:6379,redis-node3:6379
+ARAGORA_REDIS_CLUSTER_MODE=auto
+ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
+ARAGORA_REDIS_CLUSTER_PASSWORD=your-cluster-password
+```
+
+**Features:**
+- **Auto-detection**: Automatically detects cluster vs standalone mode
+- **Connection pooling**: Manages connections with health monitoring
+- **Graceful failover**: Automatic reconnection on node failures
+- **Read scaling**: Distributes reads across replicas when enabled
+- **Hash tag support**: Use `{tag}` in keys for slot affinity (e.g., `{user:123}:session`)
 
 ## Request Timeout Middleware
 

@@ -40,6 +40,7 @@ import logging
 import os
 import smtplib
 import threading
+import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -52,6 +53,28 @@ from typing import Any, Optional
 from aragora.exceptions import SlackNotificationError, WebhookDeliveryError
 
 logger = logging.getLogger(__name__)
+
+
+def _record_notification_metric(
+    channel: str,
+    severity: str,
+    priority: str,
+    success: bool,
+    latency_seconds: float,
+    error_type: Optional[str] = None,
+) -> None:
+    """Record notification metrics (imported lazily to avoid circular imports)."""
+    try:
+        from aragora.observability.metrics import (
+            record_notification_sent,
+            record_notification_error,
+        )
+
+        record_notification_sent(channel, severity, priority, success, latency_seconds)
+        if not success and error_type:
+            record_notification_error(channel, error_type)
+    except ImportError:
+        pass  # Metrics not available
 
 
 class NotificationChannel(str, Enum):
@@ -244,7 +267,14 @@ class SlackProvider(NotificationProvider):
         recipient: str,
     ) -> NotificationResult:
         """Send notification to Slack."""
+        start_time = time.perf_counter()
+
         if not self.is_configured():
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "slack", notification.severity, notification.priority.value,
+                False, latency, "not_configured"
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -262,6 +292,11 @@ class SlackProvider(NotificationProvider):
             elif self.config.bot_token:
                 await self._send_api(message, recipient)
 
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "slack", notification.severity, notification.priority.value,
+                True, latency
+            )
             return NotificationResult(
                 success=True,
                 channel=self.channel,
@@ -271,6 +306,12 @@ class SlackProvider(NotificationProvider):
 
         except Exception as e:
             logger.error(f"Failed to send Slack notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "rate_limited" if "rate" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "slack", notification.severity, notification.priority.value,
+                False, latency, error_type
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -395,7 +436,14 @@ class EmailProvider(NotificationProvider):
         recipient: str,
     ) -> NotificationResult:
         """Send email notification."""
+        start_time = time.perf_counter()
+
         if not self.is_configured():
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "email", notification.severity, notification.priority.value,
+                False, latency, "not_configured"
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -414,6 +462,11 @@ class EmailProvider(NotificationProvider):
                 recipient,
             )
 
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "email", notification.severity, notification.priority.value,
+                True, latency
+            )
             return NotificationResult(
                 success=True,
                 channel=self.channel,
@@ -423,6 +476,12 @@ class EmailProvider(NotificationProvider):
 
         except Exception as e:
             logger.error(f"Failed to send email notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "connection_error" if "connection" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "email", notification.severity, notification.priority.value,
+                False, latency, error_type
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -541,8 +600,15 @@ class WebhookProvider(NotificationProvider):
         recipient: str,  # endpoint_id
     ) -> NotificationResult:
         """Send notification to webhook endpoint."""
+        start_time = time.perf_counter()
+
         endpoint = self.endpoints.get(recipient)
         if not endpoint:
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook", notification.severity, notification.priority.value,
+                False, latency, "endpoint_not_found"
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -552,6 +618,11 @@ class WebhookProvider(NotificationProvider):
             )
 
         if not endpoint.enabled:
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook", notification.severity, notification.priority.value,
+                False, latency, "endpoint_disabled"
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,
@@ -595,6 +666,11 @@ class WebhookProvider(NotificationProvider):
                             message=text,
                         )
 
+            latency = time.perf_counter() - start_time
+            _record_notification_metric(
+                "webhook", notification.severity, notification.priority.value,
+                True, latency
+            )
             return NotificationResult(
                 success=True,
                 channel=self.channel,
@@ -604,6 +680,12 @@ class WebhookProvider(NotificationProvider):
 
         except Exception as e:
             logger.error(f"Failed to send webhook notification: {e}")
+            latency = time.perf_counter() - start_time
+            error_type = "timeout" if "timeout" in str(e).lower() else "delivery_error"
+            _record_notification_metric(
+                "webhook", notification.severity, notification.priority.value,
+                False, latency, error_type
+            )
             return NotificationResult(
                 success=False,
                 channel=self.channel,

@@ -114,6 +114,32 @@ KM_FEDERATED_QUERIES_TOTAL: Any = None
 KM_EVENTS_EMITTED_TOTAL: Any = None
 KM_ACTIVE_ADAPTERS: Any = None
 
+# Notification delivery metrics
+NOTIFICATION_SENT_TOTAL: Any = None
+NOTIFICATION_LATENCY: Any = None
+NOTIFICATION_ERRORS_TOTAL: Any = None
+NOTIFICATION_QUEUE_SIZE: Any = None
+
+# Persistent Task Queue metrics
+TASK_QUEUE_OPERATIONS_TOTAL: Any = None
+TASK_QUEUE_OPERATION_LATENCY: Any = None
+TASK_QUEUE_SIZE: Any = None
+TASK_QUEUE_RECOVERED_TOTAL: Any = None
+TASK_QUEUE_CLEANUP_TOTAL: Any = None
+
+# Governance Store metrics
+GOVERNANCE_DECISIONS_TOTAL: Any = None
+GOVERNANCE_VERIFICATIONS_TOTAL: Any = None
+GOVERNANCE_APPROVALS_TOTAL: Any = None
+GOVERNANCE_STORE_LATENCY: Any = None
+GOVERNANCE_ARTIFACTS_ACTIVE: Any = None
+
+# User ID Mapping metrics
+USER_MAPPING_OPERATIONS_TOTAL: Any = None
+USER_MAPPING_CACHE_HITS_TOTAL: Any = None
+USER_MAPPING_CACHE_MISSES_TOTAL: Any = None
+USER_MAPPINGS_ACTIVE: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -526,6 +552,133 @@ def _init_metrics() -> bool:
             "Number of active Knowledge Mound adapters",
         )
 
+        # Notification delivery metrics
+        global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
+        global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
+
+        NOTIFICATION_SENT_TOTAL = Counter(
+            "aragora_notification_sent_total",
+            "Total notifications sent",
+            ["channel", "severity", "priority", "status"],  # slack/email/webhook, severity, priority, success/failed
+        )
+
+        NOTIFICATION_LATENCY = Histogram(
+            "aragora_notification_latency_seconds",
+            "Notification delivery latency in seconds",
+            ["channel"],
+            buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+        )
+
+        NOTIFICATION_ERRORS_TOTAL = Counter(
+            "aragora_notification_errors_total",
+            "Total notification delivery errors",
+            ["channel", "error_type"],  # channel, error category
+        )
+
+        NOTIFICATION_QUEUE_SIZE = Gauge(
+            "aragora_notification_queue_size",
+            "Current notification queue size",
+            ["channel"],
+        )
+
+        # Persistent Task Queue metrics
+        global TASK_QUEUE_OPERATIONS_TOTAL, TASK_QUEUE_OPERATION_LATENCY
+        global TASK_QUEUE_SIZE, TASK_QUEUE_RECOVERED_TOTAL, TASK_QUEUE_CLEANUP_TOTAL
+
+        TASK_QUEUE_OPERATIONS_TOTAL = Counter(
+            "aragora_task_queue_operations_total",
+            "Total task queue operations",
+            ["operation", "status"],  # enqueue/dequeue/complete/fail/cancel, success/error
+        )
+
+        TASK_QUEUE_OPERATION_LATENCY = Histogram(
+            "aragora_task_queue_operation_latency_seconds",
+            "Task queue operation latency in seconds",
+            ["operation"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+        )
+
+        TASK_QUEUE_SIZE = Gauge(
+            "aragora_task_queue_size",
+            "Current number of tasks in the queue",
+            ["status"],  # pending/ready/running
+        )
+
+        TASK_QUEUE_RECOVERED_TOTAL = Counter(
+            "aragora_task_queue_recovered_total",
+            "Total tasks recovered on startup",
+            ["original_status"],  # pending/ready/running
+        )
+
+        TASK_QUEUE_CLEANUP_TOTAL = Counter(
+            "aragora_task_queue_cleanup_total",
+            "Total completed tasks cleaned up",
+        )
+
+        # Governance Store metrics
+        global GOVERNANCE_DECISIONS_TOTAL, GOVERNANCE_VERIFICATIONS_TOTAL
+        global GOVERNANCE_APPROVALS_TOTAL, GOVERNANCE_STORE_LATENCY
+        global GOVERNANCE_ARTIFACTS_ACTIVE
+
+        GOVERNANCE_DECISIONS_TOTAL = Counter(
+            "aragora_governance_decisions_total",
+            "Total governance decisions stored",
+            ["decision_type", "outcome"],  # manual/auto, approved/rejected
+        )
+
+        GOVERNANCE_VERIFICATIONS_TOTAL = Counter(
+            "aragora_governance_verifications_total",
+            "Total verifications stored",
+            ["verification_type", "result"],  # formal/runtime, valid/invalid
+        )
+
+        GOVERNANCE_APPROVALS_TOTAL = Counter(
+            "aragora_governance_approvals_total",
+            "Total approvals stored",
+            ["approval_type", "status"],  # nomic/deploy/change, granted/revoked
+        )
+
+        GOVERNANCE_STORE_LATENCY = Histogram(
+            "aragora_governance_store_latency_seconds",
+            "Governance store operation latency in seconds",
+            ["operation"],  # save/get/list/delete
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+        )
+
+        GOVERNANCE_ARTIFACTS_ACTIVE = Gauge(
+            "aragora_governance_artifacts_active",
+            "Current number of active governance artifacts",
+            ["artifact_type"],  # decision/verification/approval
+        )
+
+        # User ID Mapping metrics
+        global USER_MAPPING_OPERATIONS_TOTAL, USER_MAPPING_CACHE_HITS_TOTAL
+        global USER_MAPPING_CACHE_MISSES_TOTAL, USER_MAPPINGS_ACTIVE
+
+        USER_MAPPING_OPERATIONS_TOTAL = Counter(
+            "aragora_user_mapping_operations_total",
+            "Total user ID mapping operations",
+            ["operation", "platform", "status"],  # save/get/delete, slack/discord/teams, success/not_found
+        )
+
+        USER_MAPPING_CACHE_HITS_TOTAL = Counter(
+            "aragora_user_mapping_cache_hits_total",
+            "User ID mapping cache hits",
+            ["platform"],
+        )
+
+        USER_MAPPING_CACHE_MISSES_TOTAL = Counter(
+            "aragora_user_mapping_cache_misses_total",
+            "User ID mapping cache misses",
+            ["platform"],
+        )
+
+        USER_MAPPINGS_ACTIVE = Gauge(
+            "aragora_user_mappings_active",
+            "Number of active user ID mappings",
+            ["platform"],
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -572,6 +725,14 @@ def _init_noop_metrics() -> None:
     global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
     global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
     global KM_ACTIVE_ADAPTERS
+    # Persistent stores metrics
+    global TASK_QUEUE_OPERATIONS_TOTAL, TASK_QUEUE_OPERATION_LATENCY
+    global TASK_QUEUE_SIZE, TASK_QUEUE_RECOVERED_TOTAL, TASK_QUEUE_CLEANUP_TOTAL
+    global GOVERNANCE_DECISIONS_TOTAL, GOVERNANCE_VERIFICATIONS_TOTAL
+    global GOVERNANCE_APPROVALS_TOTAL, GOVERNANCE_STORE_LATENCY
+    global GOVERNANCE_ARTIFACTS_ACTIVE
+    global USER_MAPPING_OPERATIONS_TOTAL, USER_MAPPING_CACHE_HITS_TOTAL
+    global USER_MAPPING_CACHE_MISSES_TOTAL, USER_MAPPINGS_ACTIVE
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -646,6 +807,30 @@ def _init_noop_metrics() -> None:
     KM_FEDERATED_QUERIES_TOTAL = NoOpMetric()
     KM_EVENTS_EMITTED_TOTAL = NoOpMetric()
     KM_ACTIVE_ADAPTERS = NoOpMetric()
+    # Notifications
+    global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
+    global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
+    NOTIFICATION_SENT_TOTAL = NoOpMetric()
+    NOTIFICATION_LATENCY = NoOpMetric()
+    NOTIFICATION_ERRORS_TOTAL = NoOpMetric()
+    NOTIFICATION_QUEUE_SIZE = NoOpMetric()
+    # Persistent Task Queue
+    TASK_QUEUE_OPERATIONS_TOTAL = NoOpMetric()
+    TASK_QUEUE_OPERATION_LATENCY = NoOpMetric()
+    TASK_QUEUE_SIZE = NoOpMetric()
+    TASK_QUEUE_RECOVERED_TOTAL = NoOpMetric()
+    TASK_QUEUE_CLEANUP_TOTAL = NoOpMetric()
+    # Governance Store
+    GOVERNANCE_DECISIONS_TOTAL = NoOpMetric()
+    GOVERNANCE_VERIFICATIONS_TOTAL = NoOpMetric()
+    GOVERNANCE_APPROVALS_TOTAL = NoOpMetric()
+    GOVERNANCE_STORE_LATENCY = NoOpMetric()
+    GOVERNANCE_ARTIFACTS_ACTIVE = NoOpMetric()
+    # User ID Mapping
+    USER_MAPPING_OPERATIONS_TOTAL = NoOpMetric()
+    USER_MAPPING_CACHE_HITS_TOTAL = NoOpMetric()
+    USER_MAPPING_CACHE_MISSES_TOTAL = NoOpMetric()
+    USER_MAPPINGS_ACTIVE = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -1235,7 +1420,8 @@ def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
     success = True
     try:
         yield
-    except Exception:  # noqa: BLE001 - Re-raised after recording status
+    except Exception as e:
+        logger.debug(f"Bridge sync failed for {bridge}: {e}")
         success = False
         raise
     finally:
@@ -1460,5 +1646,831 @@ def sync_km_metrics_to_prometheus() -> None:
 
     except ImportError:
         logger.debug("KMMetrics not available for Prometheus sync")
+    except (KeyError, AttributeError) as e:
+        logger.debug(f"KM metrics data extraction failed: {e}")
     except Exception as e:
-        logger.warning(f"Failed to sync KM metrics to Prometheus: {e}")
+        logger.warning(f"Unexpected error syncing KM metrics to Prometheus: {e}")
+
+
+# =============================================================================
+# Notification Delivery Metrics
+# =============================================================================
+
+
+def record_notification_sent(
+    channel: str,
+    severity: str,
+    priority: str,
+    success: bool,
+    latency_seconds: float,
+) -> None:
+    """Record a notification delivery attempt.
+
+    Args:
+        channel: Notification channel (slack, email, webhook, in_app)
+        severity: Notification severity (info, warning, error, critical)
+        priority: Notification priority (low, normal, high, urgent)
+        success: Whether the delivery succeeded
+        latency_seconds: Delivery latency in seconds
+    """
+    _init_metrics()
+    status = "success" if success else "failed"
+    NOTIFICATION_SENT_TOTAL.labels(
+        channel=channel, severity=severity, priority=priority, status=status
+    ).inc()
+    NOTIFICATION_LATENCY.labels(channel=channel).observe(latency_seconds)
+
+
+def record_notification_error(channel: str, error_type: str) -> None:
+    """Record a notification delivery error.
+
+    Args:
+        channel: Notification channel (slack, email, webhook)
+        error_type: Error category (timeout, auth_failed, rate_limited, connection_error, etc.)
+    """
+    _init_metrics()
+    NOTIFICATION_ERRORS_TOTAL.labels(channel=channel, error_type=error_type).inc()
+
+
+def set_notification_queue_size(channel: str, size: int) -> None:
+    """Set the current notification queue size.
+
+    Args:
+        channel: Notification channel
+        size: Current queue size
+    """
+    _init_metrics()
+    NOTIFICATION_QUEUE_SIZE.labels(channel=channel).set(size)
+
+
+@contextmanager
+def track_notification_delivery(
+    channel: str,
+    severity: str = "info",
+    priority: str = "normal",
+) -> Generator[None, None, None]:
+    """Context manager to track notification delivery.
+
+    Automatically records latency and success/failure.
+
+    Args:
+        channel: Notification channel
+        severity: Notification severity
+        priority: Notification priority
+
+    Example:
+        with track_notification_delivery("slack", "warning", "high"):
+            await send_slack_message(...)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_notification_sent(channel, severity, priority, success, latency)
+
+
+# =============================================================================
+# Persistent Task Queue Metrics
+# =============================================================================
+
+
+def record_task_queue_operation(
+    operation: str,
+    success: bool,
+    latency_seconds: float,
+) -> None:
+    """Record a task queue operation.
+
+    Args:
+        operation: Operation type (enqueue, dequeue, complete, fail, cancel)
+        success: Whether the operation succeeded
+        latency_seconds: Operation latency in seconds
+    """
+    _init_metrics()
+    status = "success" if success else "error"
+    TASK_QUEUE_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
+    TASK_QUEUE_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+def set_task_queue_size(pending: int, ready: int, running: int) -> None:
+    """Set the current task queue sizes by status.
+
+    Args:
+        pending: Number of pending tasks
+        ready: Number of ready tasks
+        running: Number of running tasks
+    """
+    _init_metrics()
+    TASK_QUEUE_SIZE.labels(status="pending").set(pending)
+    TASK_QUEUE_SIZE.labels(status="ready").set(ready)
+    TASK_QUEUE_SIZE.labels(status="running").set(running)
+
+
+def record_task_queue_recovery(original_status: str, count: int = 1) -> None:
+    """Record recovered tasks on startup.
+
+    Args:
+        original_status: Original status of recovered task (pending, ready, running)
+        count: Number of tasks recovered
+    """
+    _init_metrics()
+    TASK_QUEUE_RECOVERED_TOTAL.labels(original_status=original_status).inc(count)
+
+
+def record_task_queue_cleanup(count: int) -> None:
+    """Record completed tasks cleaned up.
+
+    Args:
+        count: Number of tasks cleaned up
+    """
+    _init_metrics()
+    TASK_QUEUE_CLEANUP_TOTAL.inc(count)
+
+
+@contextmanager
+def track_task_queue_operation(operation: str) -> Generator[None, None, None]:
+    """Context manager to track task queue operations.
+
+    Automatically records latency and success/failure.
+
+    Args:
+        operation: Operation type (enqueue, dequeue, complete, fail)
+
+    Example:
+        with track_task_queue_operation("enqueue"):
+            await queue.enqueue(task)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_task_queue_operation(operation, success, latency)
+
+
+# =============================================================================
+# Governance Store Metrics
+# =============================================================================
+
+
+def record_governance_decision(decision_type: str, outcome: str) -> None:
+    """Record a governance decision stored.
+
+    Args:
+        decision_type: Type of decision (manual, auto)
+        outcome: Decision outcome (approved, rejected)
+    """
+    _init_metrics()
+    GOVERNANCE_DECISIONS_TOTAL.labels(decision_type=decision_type, outcome=outcome).inc()
+
+
+def record_governance_verification(verification_type: str, result: str) -> None:
+    """Record a verification stored.
+
+    Args:
+        verification_type: Type of verification (formal, runtime)
+        result: Verification result (valid, invalid)
+    """
+    _init_metrics()
+    GOVERNANCE_VERIFICATIONS_TOTAL.labels(
+        verification_type=verification_type, result=result
+    ).inc()
+
+
+def record_governance_approval(approval_type: str, status: str) -> None:
+    """Record an approval stored.
+
+    Args:
+        approval_type: Type of approval (nomic, deploy, change)
+        status: Approval status (granted, revoked)
+    """
+    _init_metrics()
+    GOVERNANCE_APPROVALS_TOTAL.labels(approval_type=approval_type, status=status).inc()
+
+
+def record_governance_store_latency(operation: str, latency_seconds: float) -> None:
+    """Record governance store operation latency.
+
+    Args:
+        operation: Operation type (save, get, list, delete)
+        latency_seconds: Operation latency in seconds
+    """
+    _init_metrics()
+    GOVERNANCE_STORE_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+def set_governance_artifacts_active(
+    decisions: int, verifications: int, approvals: int
+) -> None:
+    """Set the current number of active governance artifacts.
+
+    Args:
+        decisions: Number of active decisions
+        verifications: Number of active verifications
+        approvals: Number of active approvals
+    """
+    _init_metrics()
+    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="decision").set(decisions)
+    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="verification").set(verifications)
+    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="approval").set(approvals)
+
+
+@contextmanager
+def track_governance_store_operation(operation: str) -> Generator[None, None, None]:
+    """Context manager to track governance store operations.
+
+    Automatically records latency.
+
+    Args:
+        operation: Operation type (save, get, list, delete)
+
+    Example:
+        with track_governance_store_operation("save"):
+            await store.save_verification(...)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        latency = time.perf_counter() - start
+        record_governance_store_latency(operation, latency)
+
+
+# =============================================================================
+# User ID Mapping Metrics
+# =============================================================================
+
+
+def record_user_mapping_operation(
+    operation: str, platform: str, found: bool
+) -> None:
+    """Record a user ID mapping operation.
+
+    Args:
+        operation: Operation type (save, get, delete)
+        platform: Platform name (slack, discord, teams)
+        found: Whether the mapping was found (for get operations)
+    """
+    _init_metrics()
+    status = "success" if found else "not_found"
+    USER_MAPPING_OPERATIONS_TOTAL.labels(
+        operation=operation, platform=platform, status=status
+    ).inc()
+
+
+def record_user_mapping_cache_hit(platform: str) -> None:
+    """Record a user ID mapping cache hit.
+
+    Args:
+        platform: Platform name (slack, discord, teams)
+    """
+    _init_metrics()
+    USER_MAPPING_CACHE_HITS_TOTAL.labels(platform=platform).inc()
+
+
+def record_user_mapping_cache_miss(platform: str) -> None:
+    """Record a user ID mapping cache miss.
+
+    Args:
+        platform: Platform name (slack, discord, teams)
+    """
+    _init_metrics()
+    USER_MAPPING_CACHE_MISSES_TOTAL.labels(platform=platform).inc()
+
+
+def set_user_mappings_active(platform: str, count: int) -> None:
+    """Set the number of active user ID mappings for a platform.
+
+    Args:
+        platform: Platform name (slack, discord, teams)
+        count: Number of active mappings
+    """
+    _init_metrics()
+    USER_MAPPINGS_ACTIVE.labels(platform=platform).set(count)
+
+
+# =============================================================================
+# Gauntlet Export Metrics
+# =============================================================================
+
+# Metric instances (will be set during initialization)
+GAUNTLET_EXPORTS_TOTAL: Any = None
+GAUNTLET_EXPORT_LATENCY: Any = None
+GAUNTLET_EXPORT_SIZE: Any = None
+
+
+def _init_gauntlet_metrics() -> None:
+    """Initialize Gauntlet export metrics."""
+    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
+
+    config = get_metrics_config()
+    if not config.enabled:
+        _init_gauntlet_noop_metrics()
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        GAUNTLET_EXPORTS_TOTAL = Counter(
+            "aragora_gauntlet_exports_total",
+            "Total Gauntlet export operations",
+            ["format", "type", "status"],
+        )
+
+        GAUNTLET_EXPORT_LATENCY = Histogram(
+            "aragora_gauntlet_export_latency_seconds",
+            "Gauntlet export operation latency",
+            ["format", "type"],
+            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+        )
+
+        GAUNTLET_EXPORT_SIZE = Histogram(
+            "aragora_gauntlet_export_size_bytes",
+            "Gauntlet export output size in bytes",
+            ["format", "type"],
+            buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
+        )
+
+    except ImportError:
+        _init_gauntlet_noop_metrics()
+
+
+def _init_gauntlet_noop_metrics() -> None:
+    """Initialize no-op Gauntlet metrics."""
+    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
+
+    class NoOpMetric:
+        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+            return self
+
+        def inc(self, amount: float = 1) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+    GAUNTLET_EXPORTS_TOTAL = NoOpMetric()
+    GAUNTLET_EXPORT_LATENCY = NoOpMetric()
+    GAUNTLET_EXPORT_SIZE = NoOpMetric()
+
+
+def record_gauntlet_export(
+    format: str,
+    export_type: str,
+    success: bool,
+    latency_seconds: float,
+    size_bytes: int = 0,
+) -> None:
+    """Record a Gauntlet export operation.
+
+    Args:
+        format: Export format (json, csv, html, markdown, sarif)
+        export_type: Type of export (receipt, heatmap, bundle)
+        success: Whether the export succeeded
+        latency_seconds: Operation latency in seconds
+        size_bytes: Size of exported content in bytes
+    """
+    _init_metrics()
+    if GAUNTLET_EXPORTS_TOTAL is None:
+        _init_gauntlet_metrics()
+
+    status = "success" if success else "error"
+    GAUNTLET_EXPORTS_TOTAL.labels(format=format, type=export_type, status=status).inc()
+    GAUNTLET_EXPORT_LATENCY.labels(format=format, type=export_type).observe(latency_seconds)
+    if size_bytes > 0:
+        GAUNTLET_EXPORT_SIZE.labels(format=format, type=export_type).observe(size_bytes)
+
+
+@contextmanager
+def track_gauntlet_export(
+    format: str,
+    export_type: str,
+) -> Generator[dict, None, None]:
+    """Context manager to track Gauntlet export operations.
+
+    Args:
+        format: Export format (json, csv, html, markdown, sarif)
+        export_type: Type of export (receipt, heatmap, bundle)
+
+    Example:
+        with track_gauntlet_export("json", "receipt") as ctx:
+            result = export_receipt(receipt, format=ReceiptExportFormat.JSON)
+            ctx["size_bytes"] = len(result)
+    """
+    _init_metrics()
+    if GAUNTLET_EXPORTS_TOTAL is None:
+        _init_gauntlet_metrics()
+
+    start = time.perf_counter()
+    ctx: dict[str, Any] = {"size_bytes": 0}
+    success = True
+    try:
+        yield ctx
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_gauntlet_export(format, export_type, success, latency, ctx.get("size_bytes", 0))
+
+
+# =============================================================================
+# Workflow Template Metrics
+# =============================================================================
+
+WORKFLOW_TEMPLATES_CREATED: Any = None
+WORKFLOW_TEMPLATE_EXECUTIONS: Any = None
+WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
+
+
+def _init_workflow_metrics() -> None:
+    """Initialize workflow template metrics."""
+    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
+    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
+
+    config = get_metrics_config()
+    if not config.enabled:
+        _init_workflow_noop_metrics()
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        WORKFLOW_TEMPLATES_CREATED = Counter(
+            "aragora_workflow_templates_created_total",
+            "Total workflow templates created",
+            ["pattern", "template_id"],
+        )
+
+        WORKFLOW_TEMPLATE_EXECUTIONS = Counter(
+            "aragora_workflow_template_executions_total",
+            "Total workflow template executions",
+            ["pattern", "status"],
+        )
+
+        WORKFLOW_TEMPLATE_EXECUTION_LATENCY = Histogram(
+            "aragora_workflow_template_execution_latency_seconds",
+            "Workflow template execution latency",
+            ["pattern"],
+            buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0],
+        )
+
+    except ImportError:
+        _init_workflow_noop_metrics()
+
+
+def _init_workflow_noop_metrics() -> None:
+    """Initialize no-op workflow metrics."""
+    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
+    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
+
+    class NoOpMetric:
+        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+            return self
+
+        def inc(self, amount: float = 1) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+    WORKFLOW_TEMPLATES_CREATED = NoOpMetric()
+    WORKFLOW_TEMPLATE_EXECUTIONS = NoOpMetric()
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = NoOpMetric()
+
+
+def record_workflow_template_created(pattern: str, template_id: str) -> None:
+    """Record a workflow template creation.
+
+    Args:
+        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
+        template_id: Template identifier
+    """
+    _init_metrics()
+    if WORKFLOW_TEMPLATES_CREATED is None:
+        _init_workflow_metrics()
+
+    WORKFLOW_TEMPLATES_CREATED.labels(pattern=pattern, template_id=template_id).inc()
+
+
+def record_workflow_template_execution(
+    pattern: str,
+    success: bool,
+    latency_seconds: float,
+) -> None:
+    """Record a workflow template execution.
+
+    Args:
+        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
+        success: Whether the execution succeeded
+        latency_seconds: Execution latency in seconds
+    """
+    _init_metrics()
+    if WORKFLOW_TEMPLATE_EXECUTIONS is None:
+        _init_workflow_metrics()
+
+    status = "success" if success else "error"
+    WORKFLOW_TEMPLATE_EXECUTIONS.labels(pattern=pattern, status=status).inc()
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY.labels(pattern=pattern).observe(latency_seconds)
+
+
+@contextmanager
+def track_workflow_template_execution(pattern: str) -> Generator[None, None, None]:
+    """Context manager to track workflow template execution.
+
+    Args:
+        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
+
+    Example:
+        with track_workflow_template_execution("hive_mind"):
+            await workflow.execute()
+    """
+    _init_metrics()
+    if WORKFLOW_TEMPLATE_EXECUTIONS is None:
+        _init_workflow_metrics()
+
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_workflow_template_execution(pattern, success, latency)
+
+
+# =============================================================================
+# Checkpoint Store Metrics
+# =============================================================================
+
+CHECKPOINT_OPERATIONS: Any = None
+CHECKPOINT_OPERATION_LATENCY: Any = None
+CHECKPOINT_SIZE: Any = None
+CHECKPOINT_RESTORE_RESULTS: Any = None
+
+
+def _init_checkpoint_metrics() -> None:
+    """Initialize checkpoint store metrics."""
+    global CHECKPOINT_OPERATIONS, CHECKPOINT_OPERATION_LATENCY
+    global CHECKPOINT_SIZE, CHECKPOINT_RESTORE_RESULTS
+
+    config = get_metrics_config()
+    if not config.enabled:
+        _init_checkpoint_noop_metrics()
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        CHECKPOINT_OPERATIONS = Counter(
+            "aragora_checkpoint_operations_total",
+            "Total checkpoint operations",
+            ["operation", "status"],
+        )
+
+        CHECKPOINT_OPERATION_LATENCY = Histogram(
+            "aragora_checkpoint_operation_latency_seconds",
+            "Checkpoint operation latency",
+            ["operation"],
+            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+        )
+
+        CHECKPOINT_SIZE = Histogram(
+            "aragora_checkpoint_size_bytes",
+            "Checkpoint file size in bytes",
+            buckets=[1000, 10000, 100000, 1000000, 10000000, 100000000],
+        )
+
+        CHECKPOINT_RESTORE_RESULTS = Counter(
+            "aragora_checkpoint_restore_results_total",
+            "Checkpoint restore results",
+            ["result"],
+        )
+
+    except ImportError:
+        _init_checkpoint_noop_metrics()
+
+
+def _init_checkpoint_noop_metrics() -> None:
+    """Initialize no-op checkpoint metrics."""
+    global CHECKPOINT_OPERATIONS, CHECKPOINT_OPERATION_LATENCY
+    global CHECKPOINT_SIZE, CHECKPOINT_RESTORE_RESULTS
+
+    class NoOpMetric:
+        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+            return self
+
+        def inc(self, amount: float = 1) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+    CHECKPOINT_OPERATIONS = NoOpMetric()
+    CHECKPOINT_OPERATION_LATENCY = NoOpMetric()
+    CHECKPOINT_SIZE = NoOpMetric()
+    CHECKPOINT_RESTORE_RESULTS = NoOpMetric()
+
+
+def record_checkpoint_operation(
+    operation: str,
+    success: bool,
+    latency_seconds: float,
+    size_bytes: int = 0,
+) -> None:
+    """Record a checkpoint operation.
+
+    Args:
+        operation: Operation type (create, restore, delete, list, compare)
+        success: Whether the operation succeeded
+        latency_seconds: Operation latency in seconds
+        size_bytes: Checkpoint size in bytes (for create operations)
+    """
+    _init_metrics()
+    if CHECKPOINT_OPERATIONS is None:
+        _init_checkpoint_metrics()
+
+    status = "success" if success else "error"
+    CHECKPOINT_OPERATIONS.labels(operation=operation, status=status).inc()
+    CHECKPOINT_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+    if size_bytes > 0:
+        CHECKPOINT_SIZE.observe(size_bytes)
+
+
+def record_checkpoint_restore_result(
+    nodes_restored: int,
+    nodes_skipped: int,
+    errors: int,
+) -> None:
+    """Record checkpoint restore results.
+
+    Args:
+        nodes_restored: Number of nodes successfully restored
+        nodes_skipped: Number of nodes skipped (duplicates)
+        errors: Number of errors during restore
+    """
+    _init_metrics()
+    if CHECKPOINT_RESTORE_RESULTS is None:
+        _init_checkpoint_metrics()
+
+    if nodes_restored > 0:
+        CHECKPOINT_RESTORE_RESULTS.labels(result="nodes_restored").inc(nodes_restored)
+    if nodes_skipped > 0:
+        CHECKPOINT_RESTORE_RESULTS.labels(result="nodes_skipped").inc(nodes_skipped)
+    if errors > 0:
+        CHECKPOINT_RESTORE_RESULTS.labels(result="errors").inc(errors)
+
+
+@contextmanager
+def track_checkpoint_operation(operation: str) -> Generator[dict, None, None]:
+    """Context manager to track checkpoint operations.
+
+    Args:
+        operation: Operation type (create, restore, delete, list, compare)
+
+    Example:
+        with track_checkpoint_operation("create") as ctx:
+            checkpoint = store.create_checkpoint("my_checkpoint")
+            ctx["size_bytes"] = checkpoint.size_bytes
+    """
+    _init_metrics()
+    if CHECKPOINT_OPERATIONS is None:
+        _init_checkpoint_metrics()
+
+    start = time.perf_counter()
+    ctx: dict[str, Any] = {"size_bytes": 0}
+    success = True
+    try:
+        yield ctx
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_checkpoint_operation(operation, success, latency, ctx.get("size_bytes", 0))
+
+
+# =============================================================================
+# Consensus Ingestion Metrics
+# =============================================================================
+
+CONSENSUS_INGESTION_TOTAL: Any = None
+CONSENSUS_INGESTION_LATENCY: Any = None
+CONSENSUS_INGESTION_CLAIMS: Any = None
+
+
+def _init_consensus_ingestion_metrics() -> None:
+    """Initialize consensus ingestion metrics."""
+    global CONSENSUS_INGESTION_TOTAL, CONSENSUS_INGESTION_LATENCY
+    global CONSENSUS_INGESTION_CLAIMS
+
+    config = get_metrics_config()
+    if not config.enabled:
+        _init_consensus_ingestion_noop_metrics()
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        CONSENSUS_INGESTION_TOTAL = Counter(
+            "aragora_consensus_ingestion_total",
+            "Total consensus ingestion events",
+            ["strength", "tier", "status"],
+        )
+
+        CONSENSUS_INGESTION_LATENCY = Histogram(
+            "aragora_consensus_ingestion_latency_seconds",
+            "Consensus ingestion latency",
+            ["strength"],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+        )
+
+        CONSENSUS_INGESTION_CLAIMS = Counter(
+            "aragora_consensus_ingestion_claims_total",
+            "Total key claims ingested from consensus",
+            ["tier"],
+        )
+
+    except ImportError:
+        _init_consensus_ingestion_noop_metrics()
+
+
+def _init_consensus_ingestion_noop_metrics() -> None:
+    """Initialize no-op consensus ingestion metrics."""
+    global CONSENSUS_INGESTION_TOTAL, CONSENSUS_INGESTION_LATENCY
+    global CONSENSUS_INGESTION_CLAIMS
+
+    class NoOpMetric:
+        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+            return self
+
+        def inc(self, amount: float = 1) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+    CONSENSUS_INGESTION_TOTAL = NoOpMetric()
+    CONSENSUS_INGESTION_LATENCY = NoOpMetric()
+    CONSENSUS_INGESTION_CLAIMS = NoOpMetric()
+
+
+def record_consensus_ingestion(
+    strength: str,
+    tier: str,
+    success: bool,
+    latency_seconds: float,
+    claims_count: int = 0,
+) -> None:
+    """Record a consensus ingestion event.
+
+    Args:
+        strength: Consensus strength (unanimous, strong, moderate, weak, split, contested)
+        tier: KM tier used (glacial, slow, medium, fast)
+        success: Whether the ingestion succeeded
+        latency_seconds: Ingestion latency in seconds
+        claims_count: Number of key claims ingested
+    """
+    _init_metrics()
+    if CONSENSUS_INGESTION_TOTAL is None:
+        _init_consensus_ingestion_metrics()
+
+    status = "success" if success else "error"
+    CONSENSUS_INGESTION_TOTAL.labels(strength=strength, tier=tier, status=status).inc()
+    CONSENSUS_INGESTION_LATENCY.labels(strength=strength).observe(latency_seconds)
+    if claims_count > 0:
+        CONSENSUS_INGESTION_CLAIMS.labels(tier=tier).inc(claims_count)
+
+
+def record_km_inbound_event(
+    event_type: str,
+    source: str,
+    success: bool = True,
+) -> None:
+    """Record an inbound event to Knowledge Mound.
+
+    This is a general-purpose metric for tracking all events flowing into KM.
+
+    Args:
+        event_type: Type of event (consensus, belief, elo, insight, etc.)
+        source: Source of the event (debate_orchestrator, belief_network, etc.)
+        success: Whether the event was processed successfully
+    """
+    _init_metrics()
+    # Uses existing KM metrics
+    record_km_operation("ingest", success, 0.0)
+    record_km_event_emitted(f"inbound_{event_type}")
