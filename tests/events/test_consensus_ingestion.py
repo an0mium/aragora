@@ -6,7 +6,6 @@ via the cross-subscriber event handler.
 """
 
 import pytest
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.events.types import StreamEvent, StreamEventType
@@ -42,8 +41,6 @@ def consensus_event():
             "agreeing_agents": ["claude", "gpt4"],
             "dissenting_agents": ["gemini"],
         },
-        timestamp=datetime.now().isoformat(),
-        source="debate_orchestrator",
     )
 
 
@@ -59,8 +56,6 @@ def no_consensus_event():
             "confidence": 0.3,
             "strength": "contested",
         },
-        timestamp=datetime.now().isoformat(),
-        source="debate_orchestrator",
     )
 
 
@@ -126,7 +121,7 @@ class TestHandlerRegistration:
 class TestConsensusIngestionHandler:
     """Tests for _handle_consensus_to_mound handler."""
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_handler_ingests_consensus(self, mock_get_mound, subscriber_manager, consensus_event, mock_mound):
         """Test handler ingests consensus to KM."""
         mock_get_mound.return_value = mock_mound
@@ -145,7 +140,7 @@ class TestConsensusIngestionHandler:
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_handler_skips_no_consensus(self, mock_get_mound, subscriber_manager, no_consensus_event, mock_mound):
         """Test handler skips events without consensus."""
         mock_get_mound.return_value = mock_mound
@@ -196,8 +191,6 @@ class TestEventDataHandling:
                 "conclusion": "Some conclusion",
                 "confidence": 0.7,
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -209,7 +202,7 @@ class TestEventDataHandling:
 
         # Should handle gracefully
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should not raise
 
     def test_event_with_empty_conclusion(self, subscriber_manager):
@@ -223,8 +216,6 @@ class TestEventDataHandling:
                 "conclusion": "",
                 "confidence": 0.6,
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -235,7 +226,7 @@ class TestEventDataHandling:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should not raise
 
     def test_event_with_no_key_claims(self, subscriber_manager):
@@ -250,8 +241,6 @@ class TestEventDataHandling:
                 "confidence": 0.8,
                 # No key_claims field
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -262,7 +251,7 @@ class TestEventDataHandling:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should not raise
 
 
@@ -318,7 +307,7 @@ class TestStrengthTierMapping:
 class TestConsensusIngestionIntegration:
     """Integration tests for consensus ingestion."""
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     @patch("aragora.events.cross_subscribers.record_km_inbound_event")
     def test_full_ingestion_flow(self, mock_record, mock_get_mound, subscriber_manager, consensus_event):
         """Test full ingestion flow with mocked KM."""
@@ -350,7 +339,7 @@ class TestConsensusIngestionIntegration:
 
     def test_handler_resilience_to_km_unavailable(self, subscriber_manager, consensus_event):
         """Test handler handles KM unavailable gracefully."""
-        with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+        with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
             handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
             consensus_handler = None
             for name, handler in handlers:
@@ -368,7 +357,7 @@ class TestConsensusIngestionIntegration:
         mock_mound.workspace_id = "test"
         mock_mound.store = AsyncMock(side_effect=Exception("Store failed"))
 
-        with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=mock_mound):
+        with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=mock_mound):
             handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
             consensus_handler = None
             for name, handler in handlers:
@@ -398,7 +387,7 @@ class TestHandlerStats:
         stats = subscriber_manager._stats.get("consensus_to_mound")
 
         assert stats is not None
-        assert stats.call_count == 0
+        assert stats.events_processed == 0
 
 
 # ============================================================================
@@ -422,8 +411,6 @@ class TestKeyClainsIngestion:
                 "strength": "strong",
                 "key_claims": [f"Claim {i}" for i in range(20)],  # More than limit
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -434,7 +421,7 @@ class TestKeyClainsIngestion:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should not raise
 
     def test_event_with_non_string_key_claims(self, subscriber_manager):
@@ -454,8 +441,6 @@ class TestKeyClainsIngestion:
                     {"nested": "claim"},  # Invalid
                 ],
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -466,7 +451,7 @@ class TestKeyClainsIngestion:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should handle gracefully
 
 
@@ -519,8 +504,6 @@ class TestDissentTracking:
                 ],
                 "dissent_ids": ["dissent_001", "dissent_002"],
             },
-            timestamp=datetime.now().isoformat(),
-            source="debate_orchestrator",
         )
 
     def test_dissent_data_present_in_event(self, consensus_event_with_dissents):
@@ -538,7 +521,7 @@ class TestDissentTracking:
         assert dissents[0]["type"] == "alternative_approach"
         assert dissents[1]["type"] == "risk_warning"
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_handler_processes_dissents(
         self, mock_get_mound, subscriber_manager, consensus_event_with_dissents
     ):
@@ -584,8 +567,6 @@ class TestDissentTracking:
                 ],
                 "dissenting_agents": ["agent_1", "agent_2"],
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -596,7 +577,7 @@ class TestDissentTracking:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should handle string dissents
 
 
@@ -626,8 +607,6 @@ class TestEvolutionTracking:
                     "Authorization code flow is more secure",
                 ],
             },
-            timestamp=datetime.now().isoformat(),
-            source="debate_orchestrator",
         )
 
     def test_supersedes_field_present(self, consensus_event_with_supersedes):
@@ -636,7 +615,7 @@ class TestEvolutionTracking:
         assert "supersedes" in data
         assert data["supersedes"] == "previous_consensus_001"
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_handler_processes_supersedes(
         self, mock_get_mound, subscriber_manager, consensus_event_with_supersedes
     ):
@@ -665,7 +644,7 @@ class TestEvolutionTracking:
 
         mock_get_mound.assert_called()
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_similar_topic_search_for_evolution(
         self, mock_get_mound, subscriber_manager
     ):
@@ -699,8 +678,6 @@ class TestEvolutionTracking:
                 "strength": "strong",
                 # No explicit supersedes - should detect via search
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -748,8 +725,6 @@ class TestEvidenceLinking:
                     "gRPC adoption statistics show 40% performance gains",
                 ],
             },
-            timestamp=datetime.now().isoformat(),
-            source="debate_orchestrator",
         )
 
     def test_evidence_data_present(self, consensus_event_with_evidence):
@@ -766,7 +741,7 @@ class TestEvidenceLinking:
         assert data["domain"] == "performance"
         assert "serialization" in data["tags"]
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_handler_processes_evidence(
         self, mock_get_mound, subscriber_manager, consensus_event_with_evidence
     ):
@@ -842,8 +817,6 @@ class TestAgreementRatio:
                 "agreeing_agents": ["a", "b", "c"],
                 "dissenting_agents": ["d"],
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         # Agreement ratio should be 3/4 = 0.75
@@ -863,5 +836,5 @@ class TestAgreementRatio:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)

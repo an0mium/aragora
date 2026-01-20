@@ -215,7 +215,7 @@ def init_persistence(enable: bool = True) -> Optional[Any]:
 
 
 def init_insight_store(nomic_dir: Path) -> Optional[Any]:
-    """Initialize InsightStore for debate insights."""
+    """Initialize InsightStore for debate insights with KM adapter."""
     if not INSIGHTS_AVAILABLE or not InsightStore:
         return None
 
@@ -224,6 +224,19 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
         # Create parent directory if needed
         insights_path.parent.mkdir(parents=True, exist_ok=True)
         store = InsightStore(str(insights_path))
+
+        # Wire KM adapter for bidirectional sync
+        try:
+            from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
+
+            adapter = InsightsAdapter(enable_dual_write=True)
+            store.set_km_adapter(adapter)
+            logger.info("[init] InsightStore KM adapter wired for bidirectional sync")
+        except ImportError:
+            logger.debug("[init] KM InsightsAdapter not available")
+        except Exception as e:
+            logger.warning(f"[init] InsightsAdapter wiring failed: {e}")
+
         logger.info("[init] InsightStore loaded/created for API access")
         return store
     except Exception as e:
@@ -232,7 +245,7 @@ def init_insight_store(nomic_dir: Path) -> Optional[Any]:
 
 
 def init_elo_system(nomic_dir: Path) -> Optional[Any]:
-    """Initialize EloSystem for agent rankings."""
+    """Initialize EloSystem for agent rankings with KM adapter."""
     if not RANKING_AVAILABLE or not EloSystem:
         return None
 
@@ -241,6 +254,19 @@ def init_elo_system(nomic_dir: Path) -> Optional[Any]:
         # Create parent directory if needed - SQLiteStore will create the DB
         elo_path.parent.mkdir(parents=True, exist_ok=True)
         system = EloSystem(str(elo_path))
+
+        # Wire KM adapter for bidirectional sync (ratings -> KM, KM -> team selection)
+        try:
+            from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
+
+            adapter = EloAdapter(elo_system=system, enable_dual_write=True)
+            system.set_km_adapter(adapter)
+            logger.info("[init] EloSystem KM adapter wired for skill tracking")
+        except ImportError:
+            logger.debug("[init] KM EloAdapter not available")
+        except Exception as e:
+            logger.warning(f"[init] EloAdapter wiring failed: {e}")
+
         logger.info("[init] EloSystem loaded/created for leaderboard API")
         return system
     except Exception as e:
@@ -249,7 +275,7 @@ def init_elo_system(nomic_dir: Path) -> Optional[Any]:
 
 
 def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
-    """Initialize FlipDetector for position reversal detection."""
+    """Initialize FlipDetector for position reversal detection with KM adapter."""
     if not FLIP_DETECTOR_AVAILABLE or not FlipDetector:
         return None
 
@@ -258,6 +284,19 @@ def init_flip_detector(nomic_dir: Path) -> Optional[Any]:
         # Create parent directory if needed
         positions_path.parent.mkdir(parents=True, exist_ok=True)
         detector = FlipDetector(str(positions_path))
+
+        # Wire KM adapter for bidirectional sync (flip events -> KM)
+        try:
+            from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
+
+            adapter = InsightsAdapter(enable_dual_write=True)
+            detector.set_km_adapter(adapter)
+            logger.info("[init] FlipDetector KM adapter wired for flip tracking")
+        except ImportError:
+            logger.debug("[init] KM InsightsAdapter not available for FlipDetector")
+        except Exception as e:
+            logger.warning(f"[init] FlipDetector InsightsAdapter wiring failed: {e}")
+
         logger.info("[init] FlipDetector loaded/created for position reversal API")
         return detector
     except Exception as e:

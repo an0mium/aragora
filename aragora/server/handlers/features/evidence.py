@@ -22,6 +22,12 @@ from aragora.evidence import (
     EvidenceStore,
     QualityContext,
 )
+
+# Type checking import for KM adapter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     BaseHandler,
@@ -81,21 +87,68 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         super().__init__(server_context)
         self._evidence_store: Optional[EvidenceStore] = None
         self._evidence_collector: Optional[EvidenceCollector] = None
+        self._km_adapter: Optional["EvidenceAdapter"] = None
 
-    def _get_evidence_store(self) -> EvidenceStore:
-        """Get or create evidence store instance."""
+    def _get_km_adapter(self) -> Optional["EvidenceAdapter"]:
+        """Get or create Knowledge Mound adapter for evidence."""
+        if self._km_adapter is not None:
+            return self._km_adapter
+
+        # Check if adapter exists in context
+        if "evidence_km_adapter" in self.ctx:
+            self._km_adapter = self.ctx["evidence_km_adapter"]
+            return self._km_adapter
+
+        # Try to create adapter if KM is available
+        try:
+            from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+            # Get or create store first (without adapter to avoid circular)
+            store = self._get_evidence_store_raw()
+
+            # Create adapter wrapping the store
+            self._km_adapter = EvidenceAdapter(
+                store=store,
+                enable_dual_write=True,  # Enable bidirectional sync
+            )
+
+            # Wire adapter back to store
+            store.set_km_adapter(self._km_adapter)
+
+            # Store in context for sharing
+            self.ctx["evidence_km_adapter"] = self._km_adapter
+            logger.info("Evidence KM adapter initialized")
+            return self._km_adapter
+
+        except ImportError:
+            logger.debug("Knowledge Mound adapter not available")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to initialize Evidence KM adapter: {e}")
+            return None
+
+    def _get_evidence_store_raw(self) -> EvidenceStore:
+        """Get or create evidence store without KM adapter (to avoid circular)."""
         if self._evidence_store is None:
-            # Check if store exists in context
             if "evidence_store" in self.ctx:
                 self._evidence_store = self.ctx["evidence_store"]
             else:
-                # Create new store
                 self._evidence_store = EvidenceStore()
                 self.ctx["evidence_store"] = self._evidence_store
         return self._evidence_store
 
+    def _get_evidence_store(self) -> EvidenceStore:
+        """Get or create evidence store instance with KM adapter."""
+        store = self._get_evidence_store_raw()
+
+        # Ensure KM adapter is wired (lazy initialization)
+        if store._km_adapter is None:
+            self._get_km_adapter()
+
+        return store
+
     def _get_evidence_collector(self) -> EvidenceCollector:
-        """Get or create evidence collector instance."""
+        """Get or create evidence collector instance with KM adapter."""
         if self._evidence_collector is None:
             # Check if collector exists in context
             if "evidence_collector" in self.ctx:
@@ -104,9 +157,14 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 # Get connectors from context if available
                 connectors = self.ctx.get("connectors", {})
                 event_emitter = self.ctx.get("event_emitter")
+
+                # Get KM adapter for collector
+                km_adapter = self._get_km_adapter()
+
                 self._evidence_collector = EvidenceCollector(
                     connectors=connectors,
                     event_emitter=event_emitter,
+                    km_adapter=km_adapter,
                 )
                 self.ctx["evidence_collector"] = self._evidence_collector
         return self._evidence_collector
