@@ -1017,7 +1017,7 @@ class HandlerRegistryMixin:
     @classmethod
     def _log_resource_availability(cls, nomic_dir) -> None:
         """Log which optional resources are available at startup."""
-        from aragora.config import DB_PERSONAS_PATH
+        from aragora.persistence.db_config import LEGACY_DB_NAMES, DatabaseType
 
         resources = {
             "storage": getattr(cls, "storage", None) is not None,
@@ -1031,7 +1031,7 @@ class HandlerRegistryMixin:
         if nomic_dir:
             db_files = [
                 ("positions_db", "aragora_positions.db"),
-                ("personas_db", DB_PERSONAS_PATH),
+                ("personas_db", LEGACY_DB_NAMES[DatabaseType.PERSONAS]),
                 ("grounded_db", "grounded_positions.db"),
                 ("insights_db", "insights.db"),
                 ("calibration_db", "agent_calibration.db"),
