@@ -56,6 +56,7 @@ AnalyticsHandler: HandlerType = None
 MetricsHandler: HandlerType = None
 ConsensusHandler: HandlerType = None
 BeliefHandler: HandlerType = None
+DecisionExplainHandler: HandlerType = None
 CritiqueHandler: HandlerType = None
 GenesisHandler: HandlerType = None
 ReplaysHandler: HandlerType = None
@@ -115,6 +116,7 @@ TranscriptionHandler: HandlerType = None
 UncertaintyHandler: HandlerType = None
 VerticalsHandler: HandlerType = None
 WorkspaceHandler: HandlerType = None
+EmailHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -166,6 +168,9 @@ try:
     )
     from aragora.server.handlers import (
         ConsensusHandler as _ConsensusHandler,
+    )
+    from aragora.server.handlers import (
+        DecisionExplainHandler as _DecisionExplainHandler,
     )
     from aragora.server.handlers import (
         CritiqueHandler as _CritiqueHandler,
@@ -332,6 +337,9 @@ try:
     from aragora.server.handlers import (
         WorkspaceHandler as _WorkspaceHandler,
     )
+    from aragora.server.handlers import (
+        EmailHandler as _EmailHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -345,6 +353,7 @@ try:
     MetricsHandler = _MetricsHandler
     ConsensusHandler = _ConsensusHandler
     BeliefHandler = _BeliefHandler
+    DecisionExplainHandler = _DecisionExplainHandler
     CritiqueHandler = _CritiqueHandler
     GenesisHandler = _GenesisHandler
     ReplaysHandler = _ReplaysHandler
@@ -404,6 +413,7 @@ try:
     UncertaintyHandler = _UncertaintyHandler
     VerticalsHandler = _VerticalsHandler
     WorkspaceHandler = _WorkspaceHandler
+    EmailHandler = _EmailHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -432,6 +442,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_metrics_handler", MetricsHandler),
     ("_consensus_handler", ConsensusHandler),
     ("_belief_handler", BeliefHandler),
+    ("_decision_explain_handler", DecisionExplainHandler),
     ("_critique_handler", CritiqueHandler),
     ("_genesis_handler", GenesisHandler),
     ("_replays_handler", ReplaysHandler),
@@ -491,6 +502,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_uncertainty_handler", UncertaintyHandler),
     ("_verticals_handler", VerticalsHandler),
     ("_workspace_handler", WorkspaceHandler),
+    ("_email_handler", EmailHandler),
 ]
 
 
@@ -592,6 +604,9 @@ class RouteIndex:
                 "/api/retention/",
                 "/api/classify",
                 "/api/audit/",
+            ],
+            "_email_handler": [
+                "/api/email/",
             ],
         }
 
@@ -965,6 +980,7 @@ class HandlerRegistryMixin:
     _control_plane_handler: Optional["BaseHandler"] = None
     _knowledge_handler: Optional["BaseHandler"] = None
     _knowledge_mound_handler: Optional["BaseHandler"] = None
+    _email_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

@@ -128,6 +128,36 @@ def error_response(
     return json_response(payload, status=status, headers=headers)
 
 
+def success_response(
+    data: Any,
+    message: Optional[str] = None,
+    headers: Optional[dict] = None,
+) -> HandlerResult:
+    """Create a success response with standard format.
+
+    Convenience wrapper around json_response for consistent success responses.
+
+    Args:
+        data: Response data payload
+        message: Optional success message
+        headers: Optional additional headers
+
+    Returns:
+        HandlerResult with success JSON body
+
+    Example:
+        return success_response({"id": "123"})
+        # -> {"success": true, "data": {"id": "123"}}
+
+        return success_response(items, message="Found 5 items")
+        # -> {"success": true, "data": items, "message": "Found 5 items"}
+    """
+    payload: dict[str, Any] = {"success": True, "data": data}
+    if message:
+        payload["message"] = message
+    return json_response(payload, status=200, headers=headers)
+
+
 def html_response(
     content: str,
     status: int = 200,

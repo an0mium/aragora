@@ -519,6 +519,17 @@ def create_default_routes() -> List[Route]:
         api_route(
             "/api/belief-network/{debate_id}/trace", "BeliefHandler", debate_id={"pattern": "id"}
         ),
+        # Decision explainability routes
+        api_route(
+            "/api/decisions/{request_id}/explain",
+            "DecisionExplainHandler",
+            request_id={"pattern": "id"},
+        ),
+        api_route(
+            "/api/v1/decisions/{request_id}/explain",
+            "DecisionExplainHandler",
+            request_id={"pattern": "id"},
+        ),
         # Critique routes
         api_route("/api/critique/patterns", "CritiqueHandler"),
         api_route(

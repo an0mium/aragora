@@ -220,6 +220,7 @@ __all__ = [
     "deprecated_endpoint",
     "error_response",
     "json_response",
+    "success_response",
     "HandlerResult",
     "handle_errors",
     "auto_error_response",
@@ -437,6 +438,7 @@ from aragora.server.handlers.utils.responses import (
     HandlerResult,
     error_response,
     json_response,
+    success_response,
 )
 
 

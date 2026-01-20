@@ -180,6 +180,7 @@ def mark_result_sent(debate_id: str) -> None:
 async def route_debate_result(
     debate_id: str,
     result: Dict[str, Any],
+    include_voice: bool = False,
 ) -> bool:
     """Route a debate result back to its originating channel.
 
@@ -190,6 +191,7 @@ async def route_debate_result(
             - final_answer: str
             - confidence: float
             - participants: List[str]
+        include_voice: Whether to include TTS voice message (default: False)
 
     Returns:
         True if result was successfully routed, False otherwise
@@ -210,16 +212,24 @@ async def route_debate_result(
         # Route to appropriate platform
         if platform == "telegram":
             success = await _send_telegram_result(origin, result)
+            if success and include_voice:
+                await _send_telegram_voice(origin, result)
         elif platform == "whatsapp":
             success = await _send_whatsapp_result(origin, result)
+            if success and include_voice:
+                await _send_whatsapp_voice(origin, result)
         elif platform == "slack":
             success = await _send_slack_result(origin, result)
         elif platform == "discord":
             success = await _send_discord_result(origin, result)
+            if success and include_voice:
+                await _send_discord_voice(origin, result)
         elif platform == "teams":
             success = await _send_teams_result(origin, result)
         elif platform == "email":
             success = await _send_email_result(origin, result)
+        elif platform in ("google_chat", "gchat"):
+            success = await _send_google_chat_result(origin, result)
         else:
             logger.warning(f"Unknown platform: {platform}")
             return False
@@ -481,6 +491,317 @@ async def _send_email_result(origin: DebateOrigin, result: Dict[str, Any]) -> bo
     except Exception as e:
         logger.error(f"Email result send error: {e}")
         return False
+
+
+async def _send_google_chat_result(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+    """Send result to Google Chat."""
+    try:
+        from aragora.server.handlers.bots.google_chat import get_google_chat_connector
+
+        connector = get_google_chat_connector()
+        if not connector:
+            logger.warning("Google Chat connector not configured")
+            return False
+
+        space_name = origin.channel_id  # Space name in format "spaces/XXXXX"
+        thread_name = origin.thread_id or origin.metadata.get("thread_name")
+
+        # Format result data
+        consensus = result.get("consensus_reached", False)
+        answer = result.get("final_answer", "No conclusion reached.")
+        confidence = result.get("confidence", 0)
+        topic = result.get("task", origin.metadata.get("topic", "Unknown topic"))
+
+        # Truncate long answers
+        if len(answer) > 500:
+            answer = answer[:500] + "..."
+
+        # Build Card v2 sections
+        consensus_emoji = "✅" if consensus else "❌"
+        confidence_bar = "█" * int(confidence * 5) + "░" * (5 - int(confidence * 5))
+
+        sections = [
+            {"header": f"{consensus_emoji} Debate Complete"},
+            {
+                "widgets": [
+                    {"textParagraph": {"text": f"<b>Topic:</b> {topic[:200]}"}}
+                ]
+            },
+            {
+                "widgets": [
+                    {
+                        "decoratedText": {
+                            "topLabel": "Consensus",
+                            "text": "Yes" if consensus else "No",
+                        }
+                    },
+                    {
+                        "decoratedText": {
+                            "topLabel": "Confidence",
+                            "text": f"{confidence_bar} {confidence:.0%}",
+                        }
+                    },
+                ]
+            },
+            {
+                "widgets": [
+                    {"textParagraph": {"text": f"<b>Conclusion:</b>\n{answer}"}}
+                ]
+            },
+        ]
+
+        # Add vote buttons
+        debate_id = result.get("id", origin.debate_id)
+        sections.append({
+            "widgets": [
+                {
+                    "buttonList": {
+                        "buttons": [
+                            {
+                                "text": "👍 Agree",
+                                "onClick": {
+                                    "action": {
+                                        "function": "vote_agree",
+                                        "parameters": [
+                                            {"key": "debate_id", "value": debate_id}
+                                        ],
+                                    }
+                                },
+                            },
+                            {
+                                "text": "👎 Disagree",
+                                "onClick": {
+                                    "action": {
+                                        "function": "vote_disagree",
+                                        "parameters": [
+                                            {"key": "debate_id", "value": debate_id}
+                                        ],
+                                    }
+                                },
+                            },
+                        ]
+                    }
+                }
+            ]
+        })
+
+        # Send message with card
+        response = await connector.send_message(
+            space_name,
+            f"Debate complete: {topic[:50]}...",
+            blocks=sections,
+            thread_id=thread_name,
+        )
+
+        if response.success:
+            logger.info(f"Google Chat result sent to {space_name}")
+            return True
+        else:
+            logger.warning(f"Google Chat send failed: {response.error}")
+            return False
+
+    except ImportError as e:
+        logger.warning(f"Google Chat connector not available: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Google Chat result send error: {e}")
+        return False
+
+
+# TTS Voice Message Functions
+
+
+async def _synthesize_voice(result: Dict[str, Any], origin: DebateOrigin) -> Optional[str]:
+    """Synthesize voice message from debate result using TTS.
+
+    Returns path to audio file or None if TTS fails.
+    """
+    try:
+        from aragora.connectors.chat.tts_bridge import get_tts_bridge
+
+        bridge = get_tts_bridge()
+
+        # Create concise voice summary
+        consensus = "reached" if result.get("consensus_reached", False) else "not reached"
+        confidence = result.get("confidence", 0)
+        answer = result.get("final_answer", "No conclusion available.")
+
+        # Truncate for voice (keep it brief)
+        if len(answer) > 300:
+            answer = answer[:300] + ". See full text for details."
+
+        voice_text = (
+            f"Debate complete. Consensus was {consensus} "
+            f"with {confidence:.0%} confidence. "
+            f"Conclusion: {answer}"
+        )
+
+        # Synthesize
+        audio_path = await bridge.synthesize_response(voice_text, voice="consensus")
+        return audio_path
+
+    except ImportError:
+        logger.debug("TTS bridge not available")
+        return None
+    except Exception as e:
+        logger.warning(f"TTS synthesis failed: {e}")
+        return None
+
+
+async def _send_telegram_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+    """Send voice message to Telegram."""
+    audio_path = await _synthesize_voice(result, origin)
+    if not audio_path:
+        return False
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+        from pathlib import Path
+
+        url = f"https://api.telegram.org/bot{token}/sendVoice"
+        chat_id = origin.channel_id
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            with open(audio_path, "rb") as audio_file:
+                files = {"voice": ("voice.ogg", audio_file, "audio/ogg")}
+                data = {"chat_id": chat_id}
+                if origin.message_id:
+                    data["reply_to_message_id"] = origin.message_id
+
+                response = await client.post(url, data=data, files=files)
+
+                if response.is_success:
+                    logger.info(f"Telegram voice sent to {chat_id}")
+                    return True
+                else:
+                    logger.warning(f"Telegram voice send failed: {response.status_code}")
+                    return False
+
+    except Exception as e:
+        logger.error(f"Telegram voice send error: {e}")
+        return False
+    finally:
+        # Cleanup temp file
+        try:
+            Path(audio_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+async def _send_whatsapp_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+    """Send voice message to WhatsApp."""
+    audio_path = await _synthesize_voice(result, origin)
+    if not audio_path:
+        return False
+
+    token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
+    phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
+    if not token or not phone_id:
+        return False
+
+    try:
+        import httpx
+        from pathlib import Path
+
+        # WhatsApp requires media to be uploaded first
+        upload_url = f"https://graph.facebook.com/v18.0/{phone_id}/media"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Upload media
+            with open(audio_path, "rb") as audio_file:
+                files = {"file": ("voice.ogg", audio_file, "audio/ogg")}
+                data = {"messaging_product": "whatsapp", "type": "audio"}
+                upload_response = await client.post(
+                    upload_url, headers=headers, data=data, files=files
+                )
+
+                if not upload_response.is_success:
+                    logger.warning(f"WhatsApp media upload failed: {upload_response.status_code}")
+                    return False
+
+                media_id = upload_response.json().get("id")
+                if not media_id:
+                    logger.warning("WhatsApp media upload returned no ID")
+                    return False
+
+            # Send voice message
+            send_url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
+            send_data = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": origin.channel_id,
+                "type": "audio",
+                "audio": {"id": media_id},
+            }
+
+            send_response = await client.post(
+                send_url, headers={**headers, "Content-Type": "application/json"}, json=send_data
+            )
+
+            if send_response.is_success:
+                logger.info(f"WhatsApp voice sent to {origin.channel_id}")
+                return True
+            else:
+                logger.warning(f"WhatsApp voice send failed: {send_response.status_code}")
+                return False
+
+    except Exception as e:
+        logger.error(f"WhatsApp voice send error: {e}")
+        return False
+    finally:
+        try:
+            Path(audio_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+async def _send_discord_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
+    """Send voice message to Discord (as audio attachment)."""
+    audio_path = await _synthesize_voice(result, origin)
+    if not audio_path:
+        return False
+
+    token = os.environ.get("DISCORD_BOT_TOKEN", "")
+    if not token:
+        return False
+
+    try:
+        import httpx
+        from pathlib import Path
+
+        url = f"https://discord.com/api/v10/channels/{origin.channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}"}
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            with open(audio_path, "rb") as audio_file:
+                files = {"file": ("debate_result.ogg", audio_file, "audio/ogg")}
+                data = {"content": "Voice summary of the debate result:"}
+
+                if origin.message_id:
+                    data["message_reference"] = str({"message_id": origin.message_id})
+
+                response = await client.post(url, headers=headers, data=data, files=files)
+
+                if response.is_success:
+                    logger.info(f"Discord voice sent to {origin.channel_id}")
+                    return True
+                else:
+                    logger.warning(f"Discord voice send failed: {response.status_code}")
+                    return False
+
+    except Exception as e:
+        logger.error(f"Discord voice send error: {e}")
+        return False
+    finally:
+        try:
+            Path(audio_path).unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def _format_result_message(

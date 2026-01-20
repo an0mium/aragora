@@ -163,6 +163,7 @@ from .workflow_templates import (
     WorkflowTemplatesHandler,
     WorkflowCategoriesHandler,
     WorkflowPatternsHandler,
+    WorkflowPatternTemplatesHandler,
 )
 from .email import EmailHandler  # Email prioritization API
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
@@ -280,6 +281,7 @@ ALL_HANDLERS = [
     WorkflowTemplatesHandler,  # Workflow template marketplace API
     WorkflowCategoriesHandler,  # Workflow template categories
     WorkflowPatternsHandler,  # Workflow patterns listing
+    WorkflowPatternTemplatesHandler,  # Pattern-based workflow templates
     TrainingHandler,  # RLM training data collection API
     EmailHandler,  # Email prioritization API
     # Bot platform handlers
@@ -395,6 +397,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowTemplatesHandler": Stability.STABLE,  # Workflow template marketplace API - new
     "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
     "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
+    "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.EXPERIMENTAL,  # Repository indexing API - Phase A3
     "UncertaintyHandler": Stability.EXPERIMENTAL,  # Uncertainty estimation API - Phase A1
@@ -554,6 +557,7 @@ __all__ = [
     "WorkflowTemplatesHandler",
     "WorkflowCategoriesHandler",
     "WorkflowPatternsHandler",
+    "WorkflowPatternTemplatesHandler",
     "TrainingHandler",
     "EmailHandler",
     # Collaboration handlers
