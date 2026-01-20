@@ -674,6 +674,44 @@ All 17 rate limiting tests pass (as of 2026-01-14):
 | Latency distribution | 2 | ✅ Pass |
 | Memory bounds | 2 | ✅ Pass |
 
+### RLM (Recursive Language Model) Benchmarks (2026-01-19)
+
+Core token and context processing benchmarks:
+
+```
+Benchmark: RLM Token Processing
+Platform: macOS Darwin 25.2.0, Python 3.11
+Tests: 20 passed
+
+Operation                          Min (ns)    Mean (μs)   Median (ns)   Ops/sec
+────────────────────────────────────────────────────────────────────────────────────
+Token counting                        117         0.24         133     4,171,219
+Chunk content (small)                 834         2.11       1,041       473,867
+Debate formatting                   1,417         3.66       1,750       273,035
+Debate to text                      1,709         4.06       2,042       246,265
+Context level access                2,792         4.07       3,041       245,640
+Total tokens at level               3,416         7.60       4,125       131,517
+Chunk content (large)               4,917         8.22       5,291       121,695
+Drill down                          5,417        18.55       6,708        53,913
+Node lookup                         7,042        21.39       8,542        46,740
+Cache hit rate                     41,708       122.89      51,750         8,137
+Stream event creation              62,333       157.15      72,875         6,364
+Stream event to dict               63,625       183.80      78,417         5,441
+Cache operations                   81,458       257.89      98,042         3,878
+Record refinement                 257,667       699.71     312,459         1,429
+Cache eviction                    264,709       624.89     297,916         1,600
+Compress with cache               313,875       351.63     349,917         2,844
+Record compression                416,292       927.00     495,812         1,079
+Debate compression                552,333     1,043.33     978,833           958
+Compress (medium context)         685,999     8,342.08   6,459,500           120
+Compress (short context)        1,788,750     4,262.60   3,099,709           235
+```
+
+**Key Performance Indicators:**
+- Token counting: 4.17M ops/sec (critical path, sub-microsecond)
+- Context access: 245K ops/sec (memory-efficient)
+- Compression: 120-1K ops/sec depending on context size
+
 ### Running Benchmarks
 
 ```bash
@@ -682,6 +720,9 @@ pytest tests/benchmarks/ -v
 
 # Run with benchmark output only
 pytest tests/benchmarks/ --benchmark-only
+
+# Run RLM benchmarks specifically
+pytest tests/rlm/test_benchmark.py --benchmark-only
 
 # Export results to JSON
 pytest tests/benchmarks/ --benchmark-json=results.json

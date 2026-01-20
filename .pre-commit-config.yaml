@@ -45,6 +45,14 @@ repos:
         # Run on pre-push to catch type errors before they hit CI
         stages: [pre-push]
 
+  # Secret detection with gitleaks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: Detect secrets with gitleaks
+        description: Prevent secrets from being committed
+
   # Security checks
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.8
