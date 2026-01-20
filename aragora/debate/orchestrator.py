@@ -1175,6 +1175,9 @@ class Arena:
     async def _cleanup(self) -> None:
         """Internal cleanup. Delegates to LifecycleManager."""
         await self._lifecycle.cleanup()
+        # Clear context gatherer cache to prevent cross-debate leaks
+        if hasattr(self, "context_gatherer") and self.context_gatherer:
+            self.context_gatherer.clear_cache()
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.
