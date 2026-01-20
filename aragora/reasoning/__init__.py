@@ -67,6 +67,14 @@ from aragora.reasoning.reliability import (
     compute_claim_reliability,
 )
 
+# Evidence-Provenance Bridge (cross-pollination)
+from aragora.reasoning.evidence_bridge import (
+    EvidenceProvenanceBridge,
+    EvidenceLink,
+    EvidenceImpact,
+    get_evidence_bridge,
+)
+
 __all__ = [
     # Claims
     "ClaimsKernel",
@@ -121,4 +129,9 @@ __all__ = [
     "ClaimReliability",
     "EvidenceReliability",
     "compute_claim_reliability",
+    # Evidence-Provenance Bridge
+    "EvidenceProvenanceBridge",
+    "EvidenceLink",
+    "EvidenceImpact",
+    "get_evidence_bridge",
 ]
