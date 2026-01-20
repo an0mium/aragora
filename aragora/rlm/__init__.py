@@ -118,6 +118,13 @@ from .metrics_export import (
     export_to_opentelemetry,
     create_periodic_exporter,
 )
+from .debate_integration import (
+    DebateTrajectoryCollector,
+    DebateOutcome,
+    get_debate_trajectory_collector,
+    reset_debate_trajectory_collector,
+    create_training_hook,
+)
 
 __all__ = [
     # Types
@@ -181,4 +188,10 @@ __all__ = [
     "export_to_statsd",
     "export_to_opentelemetry",
     "create_periodic_exporter",
+    # Debate integration (training from debate outcomes)
+    "DebateTrajectoryCollector",
+    "DebateOutcome",
+    "get_debate_trajectory_collector",
+    "reset_debate_trajectory_collector",
+    "create_training_hook",
 ]

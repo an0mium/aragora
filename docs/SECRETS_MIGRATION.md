@@ -5,6 +5,57 @@
 > **Updated:** 2026-01-20
 > **Target Completion:** Q2 2026
 
+## ⚠️ IMMEDIATE ACTION: API Key Rotation
+
+**Priority: HIGH** - API keys were found in the `.env` file which may have been exposed.
+
+### Step 1: Rotate All API Keys
+
+| Provider | Dashboard URL | Action |
+|----------|---------------|--------|
+| Anthropic | https://console.anthropic.com/settings/keys | Regenerate `ANTHROPIC_API_KEY` |
+| OpenAI | https://platform.openai.com/api-keys | Regenerate `OPENAI_API_KEY` |
+| Mistral | https://console.mistral.ai/api-keys | Regenerate `MISTRAL_API_KEY` |
+| Google AI | https://aistudio.google.com/apikey | Regenerate `GEMINI_API_KEY` |
+| xAI | https://console.x.ai/team/api-keys | Regenerate `XAI_API_KEY` |
+| OpenRouter | https://openrouter.ai/keys | Regenerate `OPENROUTER_API_KEY` |
+
+### Step 2: Update Local `.env`
+
+After rotation, update your local `.env` file:
+```bash
+# In project root
+cp .env .env.backup  # Backup old file
+# Edit .env with new keys
+```
+
+### Step 3: Add Secrets to GitHub
+
+1. Go to: Repository → Settings → Secrets and variables → Actions
+2. Add each rotated key as a repository secret:
+   - `ANTHROPIC_API_KEY`
+   - `OPENAI_API_KEY`
+   - `MISTRAL_API_KEY`
+   - `GEMINI_API_KEY`
+   - `OPENROUTER_API_KEY`
+
+### Step 4: Verify `.gitignore`
+
+Ensure `.env` is in `.gitignore`:
+```bash
+grep "^\.env$" .gitignore || echo ".env" >> .gitignore
+```
+
+### Step 5: Install Pre-commit Hooks
+
+The gitleaks pre-commit hook prevents future secret commits:
+```bash
+pre-commit install
+pre-commit run gitleaks --all-files  # Test it
+```
+
+---
+
 ## Current State
 
 ### Local Development

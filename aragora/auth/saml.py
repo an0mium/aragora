@@ -29,7 +29,7 @@ import base64
 import logging
 import os
 import time
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET  # Safe XML parsing to prevent XXE attacks
 import zlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional

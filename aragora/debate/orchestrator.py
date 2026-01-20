@@ -226,6 +226,10 @@ class Arena:
         # Cross-debate institutional memory
         cross_debate_memory=None,  # Optional CrossDebateMemory for institutional knowledge
         enable_cross_debate_memory: bool = True,  # Inject institutional knowledge from past debates
+        # Post-debate workflow automation
+        post_debate_workflow=None,  # Workflow DAG to trigger after high-confidence debates
+        enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
+        post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -351,6 +355,11 @@ class Arena:
         # Cross-debate institutional memory
         self.cross_debate_memory = cross_debate_memory
         self.enable_cross_debate_memory = enable_cross_debate_memory
+
+        # Post-debate workflow automation
+        self.post_debate_workflow = post_debate_workflow
+        self.enable_post_debate_workflow = enable_post_debate_workflow
+        self.post_debate_workflow_threshold = post_debate_workflow_threshold
 
         # Initialize user participation and roles
         self._init_user_participation()

@@ -12,7 +12,8 @@ The ArXiv API is free and requires no authentication.
 import asyncio
 import logging
 import re
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as StdET  # For type hints only
+import defusedxml.ElementTree as ET  # Safe XML parsing to prevent XXE attacks
 from typing import Optional
 from urllib.parse import quote_plus
 
@@ -298,7 +299,7 @@ class ArXivConnector(BaseConnector):
 
         return results
 
-    def _parse_entry(self, entry: ET.Element, namespaces: dict) -> Optional[Evidence]:
+    def _parse_entry(self, entry: StdET.Element, namespaces: dict) -> Optional[Evidence]:
         """Parse a single ArXiv entry into Evidence."""
         # Extract ArXiv ID from entry ID URL
         entry_id = entry.find("atom:id", namespaces)
