@@ -670,7 +670,7 @@ class AuditingHandler(BaseHandler):
                     str(e),
                     exc_info=True,
                 )
-                return error_response(f"Deep audit execution failed: {str(e)}", 500)
+                return error_response(safe_error_message(e, "deep audit"), 500)
 
             duration_ms = (time.time() - start_time) * 1000
 
