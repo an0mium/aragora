@@ -23,7 +23,7 @@ ID Prefixes:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -32,6 +32,64 @@ if TYPE_CHECKING:
     from aragora.insights.flip_detector import FlipEvent, AgentConsistencyScore
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Reverse Flow Dataclasses (KM → InsightStore/FlipDetector)
+# ============================================================================
+
+
+@dataclass
+class KMFlipThresholdUpdate:
+    """Result of updating flip detection thresholds from KM patterns."""
+
+    old_similarity_threshold: float
+    new_similarity_threshold: float
+    old_confidence_threshold: float
+    new_confidence_threshold: float
+    patterns_analyzed: int = 0
+    adjustments_made: int = 0
+    confidence: float = 0.7
+    recommendation: str = "keep"  # "increase", "decrease", "keep"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMAgentFlipBaseline:
+    """KM-validated flip baseline for an agent."""
+
+    agent_name: str
+    expected_flip_rate: float  # 0.0-1.0 expected flips per debate
+    flip_type_distribution: Dict[str, float] = field(default_factory=dict)
+    domain_flip_rates: Dict[str, float] = field(default_factory=dict)
+    sample_count: int = 0
+    confidence: float = 0.7
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMFlipValidation:
+    """Validation result from KM for a flip event."""
+
+    flip_id: str
+    km_confidence: float  # 0.0-1.0 how confident KM is about this flip
+    is_expected: bool = False  # Whether flip was expected based on patterns
+    pattern_match_score: float = 0.0  # How well it matches known patterns
+    recommendation: str = "keep"  # "flag", "ignore", "keep"
+    adjustment: float = 0.0  # Adjustment to agent consistency score
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class InsightThresholdSyncResult:
+    """Result of syncing thresholds from KM patterns."""
+
+    flips_analyzed: int = 0
+    insights_analyzed: int = 0
+    threshold_updates: List[KMFlipThresholdUpdate] = field(default_factory=list)
+    baseline_updates: List[KMAgentFlipBaseline] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    duration_ms: float = 0.0
 
 
 @dataclass
@@ -660,6 +718,8 @@ class InsightsAdapter:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored insights and flips."""
+        self.__init_reverse_flow_state()
+
         flip_types = {}
         for flip in self._flips.values():
             ft = flip.get("flip_type", "unknown")
@@ -676,11 +736,519 @@ class InsightsAdapter:
                 (t, len(ids)) for t, ids in self._type_insights.items()
             ),
             "flip_types": flip_types,
+            # Reverse flow stats
+            "km_validations_applied": self._km_validations_applied,
+            "km_threshold_updates": self._km_threshold_updates,
+            "km_baselines_computed": len(self._km_agent_baselines),
         }
+
+    # ========================================================================
+    # Reverse Flow Methods (KM → InsightStore/FlipDetector)
+    # ========================================================================
+
+    def __init_reverse_flow_state(self) -> None:
+        """Initialize reverse flow state if not already done."""
+        if not hasattr(self, "_km_validations_applied"):
+            self._km_validations_applied = 0
+        if not hasattr(self, "_km_threshold_updates"):
+            self._km_threshold_updates = 0
+        if not hasattr(self, "_km_agent_baselines"):
+            self._km_agent_baselines: Dict[str, KMAgentFlipBaseline] = {}
+        if not hasattr(self, "_km_flip_validations"):
+            self._km_flip_validations: List[KMFlipValidation] = []
+        if not hasattr(self, "_outcome_history"):
+            self._outcome_history: Dict[str, List[Dict[str, Any]]] = {}
+        if not hasattr(self, "_similarity_threshold"):
+            self._similarity_threshold = 0.7  # Default
+        if not hasattr(self, "_confidence_threshold"):
+            self._confidence_threshold = 0.6  # Default
+
+    def record_outcome(
+        self,
+        flip_id: str,
+        debate_id: str,
+        was_accurate: bool,
+        confidence: float = 0.7,
+    ) -> None:
+        """
+        Record an outcome for a flip detection.
+
+        This enables outcome-based validation of flip detections.
+
+        Args:
+            flip_id: The flip ID
+            debate_id: The debate where this flip was detected
+            was_accurate: Whether the flip detection was accurate
+            confidence: Confidence in the outcome assessment
+        """
+        self.__init_reverse_flow_state()
+
+        if flip_id not in self._outcome_history:
+            self._outcome_history[flip_id] = []
+
+        self._outcome_history[flip_id].append({
+            "debate_id": debate_id,
+            "was_accurate": was_accurate,
+            "confidence": confidence,
+            "recorded_at": datetime.utcnow().isoformat(),
+        })
+
+    async def update_flip_thresholds_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> KMFlipThresholdUpdate:
+        """
+        Reverse flow: Analyze KM patterns to update flip detection thresholds.
+
+        Examines KM flip patterns to determine optimal thresholds for:
+        - Similarity threshold: What similarity score indicates a real flip?
+        - Confidence threshold: What confidence level is reliable?
+
+        Args:
+            km_items: KM items with flip metadata to analyze
+            min_confidence: Minimum confidence for threshold updates
+
+        Returns:
+            KMFlipThresholdUpdate with recommended threshold changes
+        """
+        self.__init_reverse_flow_state()
+
+        old_similarity = self._similarity_threshold
+        old_confidence = self._confidence_threshold
+
+        # Analyze accuracy at different similarity levels
+        similarity_buckets: Dict[str, List[bool]] = {
+            "0.5-0.6": [],
+            "0.6-0.7": [],
+            "0.7-0.8": [],
+            "0.8-0.9": [],
+            "0.9-1.0": [],
+        }
+
+        for item in km_items:
+            meta = item.get("metadata", {})
+            similarity = meta.get("similarity_score", item.get("similarity_score", 0.5))
+            was_accurate = meta.get("was_accurate", meta.get("outcome_success", False))
+
+            # Bucket by similarity
+            if 0.5 <= similarity < 0.6:
+                similarity_buckets["0.5-0.6"].append(was_accurate)
+            elif 0.6 <= similarity < 0.7:
+                similarity_buckets["0.6-0.7"].append(was_accurate)
+            elif 0.7 <= similarity < 0.8:
+                similarity_buckets["0.7-0.8"].append(was_accurate)
+            elif 0.8 <= similarity < 0.9:
+                similarity_buckets["0.8-0.9"].append(was_accurate)
+            elif similarity >= 0.9:
+                similarity_buckets["0.9-1.0"].append(was_accurate)
+
+        # Compute accuracy rates per bucket
+        def accuracy_rate(bucket: List[bool]) -> Optional[float]:
+            if len(bucket) < 3:  # Need minimum samples
+                return None
+            return sum(bucket) / len(bucket)
+
+        # Find optimal similarity threshold
+        new_similarity = old_similarity
+        new_confidence = old_confidence
+        recommendation = "keep"
+        adjustments_made = 0
+
+        rates = {
+            0.55: accuracy_rate(similarity_buckets["0.5-0.6"]),
+            0.65: accuracy_rate(similarity_buckets["0.6-0.7"]),
+            0.75: accuracy_rate(similarity_buckets["0.7-0.8"]),
+            0.85: accuracy_rate(similarity_buckets["0.8-0.9"]),
+            0.95: accuracy_rate(similarity_buckets["0.9-1.0"]),
+        }
+
+        # Find threshold where accuracy is acceptable (>= 70%)
+        valid_rates = {k: v for k, v in rates.items() if v is not None and v >= 0.7}
+        if valid_rates:
+            # Use lowest threshold that still gives good accuracy
+            new_similarity = min(valid_rates.keys())
+            if new_similarity != old_similarity:
+                recommendation = "decrease" if new_similarity < old_similarity else "increase"
+                adjustments_made += 1
+
+        # Compute confidence for this update
+        computed_confidence = min(len(km_items) / 50, 1.0)
+
+        # Apply new thresholds if confidence is high enough
+        if computed_confidence >= min_confidence:
+            self._similarity_threshold = new_similarity
+            self._km_threshold_updates += 1
+
+        update = KMFlipThresholdUpdate(
+            old_similarity_threshold=old_similarity,
+            new_similarity_threshold=new_similarity,
+            old_confidence_threshold=old_confidence,
+            new_confidence_threshold=new_confidence,
+            patterns_analyzed=len(km_items),
+            adjustments_made=adjustments_made,
+            confidence=computed_confidence,
+            recommendation=recommendation,
+            metadata={
+                "similarity_rates": {k: v for k, v in rates.items() if v is not None},
+            },
+        )
+
+        logger.info(
+            f"Flip threshold update: similarity {old_similarity:.2f} → {new_similarity:.2f} "
+            f"({recommendation})"
+        )
+
+        return update
+
+    async def get_agent_flip_baselines(
+        self,
+        agent_name: str,
+        km_items: Optional[List[Dict[str, Any]]] = None,
+    ) -> KMAgentFlipBaseline:
+        """
+        Get KM-validated flip baseline for an agent.
+
+        Analyzes historical flip patterns to determine expected flip rates
+        and type distributions for this agent.
+
+        Args:
+            agent_name: Name of the agent
+            km_items: Optional KM items to analyze (uses cached if not provided)
+
+        Returns:
+            KMAgentFlipBaseline with expected rates
+        """
+        self.__init_reverse_flow_state()
+
+        # Check cache first
+        if agent_name in self._km_agent_baselines and km_items is None:
+            return self._km_agent_baselines[agent_name]
+
+        # Also use locally stored flips
+        agent_flips = self.get_agent_flip_history(agent_name, limit=1000)
+
+        # Analyze items for this agent
+        flip_count = len(agent_flips)
+        debate_ids = set()
+        flip_type_counts: Dict[str, int] = {}
+        domain_flip_counts: Dict[str, int] = {}
+
+        for flip in agent_flips:
+            # Count debates
+            if orig_debate := flip.get("original_debate_id"):
+                debate_ids.add(orig_debate)
+            if new_debate := flip.get("new_debate_id"):
+                debate_ids.add(new_debate)
+
+            # Count flip types
+            flip_type = flip.get("flip_type", "unknown")
+            flip_type_counts[flip_type] = flip_type_counts.get(flip_type, 0) + 1
+
+            # Count domains
+            domain = flip.get("domain")
+            if domain:
+                domain_flip_counts[domain] = domain_flip_counts.get(domain, 0) + 1
+
+        # Also analyze KM items if provided
+        if km_items:
+            for item in km_items:
+                meta = item.get("metadata", {})
+                if meta.get("agent_name") == agent_name:
+                    flip_count += 1
+                    if debate_id := meta.get("debate_id"):
+                        debate_ids.add(debate_id)
+                    flip_type = meta.get("flip_type", "unknown")
+                    flip_type_counts[flip_type] = flip_type_counts.get(flip_type, 0) + 1
+
+        # Compute expected flip rate
+        num_debates = len(debate_ids) if debate_ids else 1
+        expected_flip_rate = flip_count / num_debates if num_debates > 0 else 0.0
+
+        # Compute type distribution
+        total_flips = sum(flip_type_counts.values()) or 1
+        flip_type_distribution = {
+            k: v / total_flips for k, v in flip_type_counts.items()
+        }
+
+        # Compute domain flip rates
+        domain_flip_rates = {
+            k: v / num_debates for k, v in domain_flip_counts.items()
+        }
+
+        # Confidence based on sample size
+        sample_confidence = min(flip_count / 20, 1.0)
+
+        baseline = KMAgentFlipBaseline(
+            agent_name=agent_name,
+            expected_flip_rate=expected_flip_rate,
+            flip_type_distribution=flip_type_distribution,
+            domain_flip_rates=domain_flip_rates,
+            sample_count=flip_count,
+            confidence=sample_confidence,
+            metadata={
+                "num_debates": num_debates,
+                "total_flips": flip_count,
+            },
+        )
+
+        # Cache the result
+        self._km_agent_baselines[agent_name] = baseline
+
+        return baseline
+
+    async def validate_flip_from_km(
+        self,
+        flip_id: str,
+        km_patterns: List[Dict[str, Any]],
+    ) -> KMFlipValidation:
+        """
+        Validate a flip based on KM patterns.
+
+        Examines how this flip relates to known patterns to determine
+        if it's expected behavior or should be flagged.
+
+        Args:
+            flip_id: The flip ID to validate
+            km_patterns: Related KM patterns for cross-referencing
+
+        Returns:
+            KMFlipValidation with recommendation
+        """
+        self.__init_reverse_flow_state()
+
+        flip = self.get_flip(flip_id)
+        if not flip:
+            return KMFlipValidation(
+                flip_id=flip_id,
+                km_confidence=0.0,
+                recommendation="keep",
+                metadata={"error": "flip_not_found"},
+            )
+
+        agent_name = flip.get("agent_name", "")
+        flip_type = flip.get("flip_type", "")
+        domain = flip.get("domain", "")
+        similarity_score = flip.get("similarity_score", 0.5)
+
+        # Get agent baseline
+        baseline = await self.get_agent_flip_baselines(agent_name)
+
+        # Check if this flip type is expected for this agent
+        expected_type_rate = baseline.flip_type_distribution.get(flip_type, 0.0)
+        expected_domain_rate = baseline.domain_flip_rates.get(domain, 0.0) if domain else 0.0
+
+        # Analyze patterns
+        pattern_match_count = 0
+        pattern_support_count = 0
+
+        for pattern in km_patterns:
+            meta = pattern.get("metadata", {})
+            if meta.get("flip_type") == flip_type:
+                pattern_match_count += 1
+            if meta.get("relationship") == "supports":
+                pattern_support_count += 1
+
+        # Determine if flip is expected
+        is_expected = (
+            expected_type_rate >= 0.1 or  # Agent commonly has this flip type
+            pattern_match_count >= 2 or  # Multiple pattern matches
+            similarity_score >= 0.9  # Very high confidence detection
+        )
+
+        # Pattern match score
+        pattern_match_score = min(pattern_match_count / 5, 1.0) if pattern_match_count > 0 else 0.0
+
+        # Determine recommendation
+        if similarity_score < self._similarity_threshold:
+            recommendation = "ignore"
+            adjustment = 0.0  # Don't penalize agent
+        elif is_expected and pattern_support_count > 0:
+            recommendation = "keep"
+            adjustment = -0.02  # Small penalty for expected flip
+        elif not is_expected and expected_type_rate < 0.05:
+            recommendation = "flag"
+            adjustment = -0.1  # Larger penalty for unexpected flip
+        else:
+            recommendation = "keep"
+            adjustment = -0.05
+
+        # KM confidence based on evidence
+        km_confidence = 0.5
+        if pattern_match_count > 0:
+            km_confidence += 0.1 * min(pattern_match_count / 3, 1.0)
+        if similarity_score >= 0.8:
+            km_confidence += 0.2
+        km_confidence = min(km_confidence, 1.0)
+
+        validation = KMFlipValidation(
+            flip_id=flip_id,
+            km_confidence=km_confidence,
+            is_expected=is_expected,
+            pattern_match_score=pattern_match_score,
+            recommendation=recommendation,
+            adjustment=adjustment,
+            metadata={
+                "expected_type_rate": expected_type_rate,
+                "expected_domain_rate": expected_domain_rate,
+                "pattern_match_count": pattern_match_count,
+                "pattern_support_count": pattern_support_count,
+            },
+        )
+
+        self._km_flip_validations.append(validation)
+        self._km_validations_applied += 1
+
+        return validation
+
+    async def apply_km_validation(
+        self,
+        validation: KMFlipValidation,
+    ) -> bool:
+        """
+        Apply a KM validation to update the flip's metadata.
+
+        Args:
+            validation: The validation result to apply
+
+        Returns:
+            True if applied successfully
+        """
+        self.__init_reverse_flow_state()
+
+        flip = self._flips.get(validation.flip_id)
+        if not flip:
+            # Try with prefix
+            prefixed_id = f"{self.FLIP_PREFIX}{validation.flip_id}"
+            flip = self._flips.get(prefixed_id)
+            if not flip:
+                return False
+
+        # Update flip metadata
+        flip["km_validated"] = True
+        flip["km_validation_time"] = datetime.utcnow().isoformat()
+        flip["km_confidence"] = validation.km_confidence
+        flip["km_is_expected"] = validation.is_expected
+        flip["km_recommendation"] = validation.recommendation
+
+        logger.info(
+            f"Applied KM validation to flip {validation.flip_id}: "
+            f"expected={validation.is_expected}, recommendation={validation.recommendation}"
+        )
+
+        return True
+
+    async def sync_validations_from_km(
+        self,
+        km_items: List[Dict[str, Any]],
+        min_confidence: float = 0.7,
+    ) -> InsightThresholdSyncResult:
+        """
+        Batch sync KM validations to insights/flips.
+
+        Args:
+            km_items: KM items with validation data
+            min_confidence: Minimum confidence for applying validations
+
+        Returns:
+            InsightThresholdSyncResult with sync details
+        """
+        import time
+
+        self.__init_reverse_flow_state()
+
+        start_time = time.time()
+        result = InsightThresholdSyncResult()
+        errors = []
+
+        # Group items by flip_id
+        items_by_flip: Dict[str, List[Dict[str, Any]]] = {}
+        for item in km_items:
+            meta = item.get("metadata", {})
+            flip_id = meta.get("flip_id") or meta.get("source_id")
+            if flip_id:
+                if flip_id not in items_by_flip:
+                    items_by_flip[flip_id] = []
+                items_by_flip[flip_id].append(item)
+
+        # Validate each flip
+        for flip_id, patterns in items_by_flip.items():
+            try:
+                result.flips_analyzed += 1
+
+                validation = await self.validate_flip_from_km(flip_id, patterns)
+
+                # Apply if confidence is high enough
+                if validation.km_confidence >= min_confidence:
+                    await self.apply_km_validation(validation)
+
+            except Exception as e:
+                errors.append(f"Error validating {flip_id}: {e}")
+
+        # Also update thresholds
+        try:
+            flip_items = [
+                item for item in km_items
+                if item.get("metadata", {}).get("similarity_score") is not None
+            ]
+            if flip_items:
+                threshold_update = await self.update_flip_thresholds_from_km(flip_items, min_confidence)
+                result.threshold_updates.append(threshold_update)
+        except Exception as e:
+            errors.append(f"Error updating thresholds: {e}")
+
+        # Update agent baselines
+        agents_seen = set()
+        for item in km_items:
+            meta = item.get("metadata", {})
+            if agent_name := meta.get("agent_name"):
+                agents_seen.add(agent_name)
+
+        for agent_name in agents_seen:
+            try:
+                baseline = await self.get_agent_flip_baselines(agent_name, km_items)
+                result.baseline_updates.append(baseline)
+            except Exception as e:
+                errors.append(f"Error computing baseline for {agent_name}: {e}")
+
+        result.errors = errors
+        result.duration_ms = (time.time() - start_time) * 1000
+
+        return result
+
+    def get_reverse_flow_stats(self) -> Dict[str, Any]:
+        """Get statistics about reverse flow operations."""
+        self.__init_reverse_flow_state()
+
+        return {
+            "km_validations_applied": self._km_validations_applied,
+            "km_threshold_updates": self._km_threshold_updates,
+            "km_baselines_computed": len(self._km_agent_baselines),
+            "validations_stored": len(self._km_flip_validations),
+            "outcome_history_size": sum(len(v) for v in self._outcome_history.values()),
+            "current_similarity_threshold": self._similarity_threshold,
+            "current_confidence_threshold": self._confidence_threshold,
+        }
+
+    def clear_reverse_flow_state(self) -> None:
+        """Clear all reverse flow state (for testing)."""
+        self._km_validations_applied = 0
+        self._km_threshold_updates = 0
+        self._km_agent_baselines = {}
+        self._km_flip_validations = []
+        self._outcome_history = {}
+        # Reset thresholds to defaults
+        self._similarity_threshold = 0.7
+        self._confidence_threshold = 0.6
 
 
 __all__ = [
     "InsightsAdapter",
     "InsightSearchResult",
     "FlipSearchResult",
+    # Reverse flow dataclasses
+    "KMFlipThresholdUpdate",
+    "KMAgentFlipBaseline",
+    "KMFlipValidation",
+    "InsightThresholdSyncResult",
 ]

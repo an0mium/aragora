@@ -14,7 +14,7 @@ The adapter provides:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -23,6 +23,60 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Reverse Flow Dataclasses (KM → CritiqueStore)
+# ============================================================================
+
+
+@dataclass
+class KMPatternBoost:
+    """Result of boosting a critique pattern from KM validation."""
+
+    pattern_id: str
+    boost_amount: int = 0  # Additional success count
+    km_confidence: float = 0.7
+    source_debates: List[str] = field(default_factory=list)
+    was_applied: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMReputationAdjustment:
+    """KM-driven reputation adjustment for an agent."""
+
+    agent_name: str
+    adjustment: float = 0.0  # Reputation score adjustment
+    pattern_contributions: int = 0  # Patterns the agent contributed
+    km_confidence: float = 0.7
+    recommendation: str = "keep"  # "boost", "penalize", "keep"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class KMPatternValidation:
+    """Validation result from KM for a critique pattern."""
+
+    pattern_id: str
+    km_confidence: float = 0.7
+    cross_debate_usage: int = 0
+    outcome_success_rate: float = 0.0
+    recommendation: str = "keep"  # "boost", "archive", "keep"
+    boost_amount: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CritiqueKMSyncResult:
+    """Result of syncing KM validations to CritiqueStore."""
+
+    patterns_analyzed: int = 0
+    patterns_boosted: int = 0
+    agents_analyzed: int = 0
+    reputation_adjustments: int = 0
+    errors: List[str] = field(default_factory=list)
+    duration_ms: float = 0.0
 
 
 @dataclass
