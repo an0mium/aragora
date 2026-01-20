@@ -965,8 +965,8 @@ class TestAuthHandlerApiKey:
 
         assert result is not None
         assert result.status_code == 200
-        # Check key was cleared
-        assert auth_handler.ctx["user_store"].users["user-123"].api_key is None
+        # Check key hash was cleared (handler clears api_key_hash, not plaintext api_key)
+        assert auth_handler.ctx["user_store"].users["user-123"].api_key_hash is None
 
 
 # ===========================================================================

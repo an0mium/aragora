@@ -1,17 +1,32 @@
 """
-RBAC Module.
+Aragora RBAC (Role-Based Access Control) Module.
 
-Role-based access control for the Aragora enterprise control plane.
-Supports hierarchical permissions: global -> organization -> workspace -> resource.
+Provides enterprise-grade access control for the Aragora platform:
+- Fine-grained permissions (50+ defined permissions)
+- Role hierarchy (owner > admin > debate_creator > analyst > viewer)
+- Permission decorators for handlers
+- HTTP middleware for route protection
+- Comprehensive audit logging
+
+Quick Start:
+    from aragora.rbac import (
+        require_permission,
+        require_role,
+        AuthorizationContext,
+        get_permission_checker,
+    )
+
+    # Use decorators on handlers
+    @require_permission("debates.create")
+    async def create_debate(context: AuthorizationContext, ...):
+        ...
+
+    @require_role("admin")
+    async def admin_action(context: AuthorizationContext, ...):
+        ...
 """
 
-from .enforcer import (
-    RBACEnforcer,
-    RBACConfig,
-    PermissionCheckResult,
-    PermissionDeniedException,
-    get_rbac_enforcer,
-)
+# Legacy types (for backward compatibility)
 from .types import (
     ResourceType,
     Action,
@@ -23,14 +38,90 @@ from .types import (
     SYSTEM_ROLES,
 )
 
+# Legacy enforcer (for backward compatibility)
+from .enforcer import (
+    RBACEnforcer,
+    RBACConfig,
+    PermissionCheckResult,
+    PermissionDeniedException,
+    get_rbac_enforcer,
+)
+
+# New models (enhanced types)
+from .models import (
+    ResourceType as ResourceTypeV2,
+    Action as ActionV2,
+    Permission as PermissionV2,
+    Role as RoleV2,
+    RoleAssignment as RoleAssignmentV2,
+    APIKeyScope,
+    AuthorizationContext,
+    AuthorizationDecision,
+)
+
+# New defaults (comprehensive permission matrix)
+from .defaults import (
+    SYSTEM_PERMISSIONS,
+    SYSTEM_ROLES as SYSTEM_ROLES_V2,
+    ROLE_HIERARCHY,
+    ROLE_TEMPLATES,
+    get_permission,
+    get_role,
+    get_role_permissions,
+    create_custom_role,
+    PERM_DEBATE_CREATE,
+    PERM_DEBATE_READ,
+    PERM_DEBATE_RUN,
+    PERM_ADMIN_ALL,
+)
+
+# New checker
+from .checker import (
+    PermissionChecker,
+    get_permission_checker,
+    set_permission_checker,
+    check_permission,
+    has_permission,
+)
+
+# Decorators for handlers
+from .decorators import (
+    PermissionDeniedError,
+    RoleRequiredError,
+    require_permission,
+    require_role,
+    require_owner,
+    require_admin,
+    require_org_access,
+    require_self_or_admin,
+    with_permission_context,
+)
+
+# Middleware for HTTP routes
+from .middleware import (
+    RBACMiddleware,
+    RBACMiddlewareConfig,
+    RoutePermission,
+    DEFAULT_ROUTE_PERMISSIONS,
+    get_middleware,
+    set_middleware,
+    check_route_access,
+    create_permission_handler,
+)
+
+# Audit logging
+from .audit import (
+    AuditEventType,
+    AuditEvent,
+    AuthorizationAuditor,
+    get_auditor,
+    set_auditor,
+    log_permission_check,
+)
+
+
 __all__ = [
-    # Enforcer
-    "RBACEnforcer",
-    "RBACConfig",
-    "PermissionCheckResult",
-    "PermissionDeniedException",
-    "get_rbac_enforcer",
-    # Types
+    # Legacy Types (backward compatible)
     "ResourceType",
     "Action",
     "Scope",
@@ -39,4 +130,64 @@ __all__ = [
     "RoleAssignment",
     "IsolationContext",
     "SYSTEM_ROLES",
+    # Legacy Enforcer
+    "RBACEnforcer",
+    "RBACConfig",
+    "PermissionCheckResult",
+    "PermissionDeniedException",
+    "get_rbac_enforcer",
+    # V2 Models
+    "ResourceTypeV2",
+    "ActionV2",
+    "PermissionV2",
+    "RoleV2",
+    "RoleAssignmentV2",
+    "APIKeyScope",
+    "AuthorizationContext",
+    "AuthorizationDecision",
+    # Defaults & Permission Matrix
+    "SYSTEM_PERMISSIONS",
+    "SYSTEM_ROLES_V2",
+    "ROLE_HIERARCHY",
+    "ROLE_TEMPLATES",
+    "get_permission",
+    "get_role",
+    "get_role_permissions",
+    "create_custom_role",
+    "PERM_DEBATE_CREATE",
+    "PERM_DEBATE_READ",
+    "PERM_DEBATE_RUN",
+    "PERM_ADMIN_ALL",
+    # Checker
+    "PermissionChecker",
+    "get_permission_checker",
+    "set_permission_checker",
+    "check_permission",
+    "has_permission",
+    # Decorators
+    "PermissionDeniedError",
+    "RoleRequiredError",
+    "require_permission",
+    "require_role",
+    "require_owner",
+    "require_admin",
+    "require_org_access",
+    "require_self_or_admin",
+    "with_permission_context",
+    # Middleware
+    "RBACMiddleware",
+    "RBACMiddlewareConfig",
+    "RoutePermission",
+    "DEFAULT_ROUTE_PERMISSIONS",
+    "get_middleware",
+    "set_middleware",
+    "check_route_access",
+    "create_permission_handler",
+    # Audit
+    "AuditEventType",
+    "AuditEvent",
+    "AuthorizationAuditor",
+    "get_auditor",
+    "set_auditor",
+    "log_permission_check",
 ]

@@ -40,6 +40,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
@@ -195,7 +196,7 @@ class ControlPlaneHandler(BaseHandler):
             })
         except Exception as e:
             logger.error(f"Error listing agents: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_get_agent(self, agent_id: str) -> HandlerResult:
         """Get agent by ID."""
@@ -214,7 +215,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(agent.to_dict())
         except Exception as e:
             logger.error(f"Error getting agent {agent_id}: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task by ID."""
@@ -233,7 +234,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(task.to_dict())
         except Exception as e:
             logger.error(f"Error getting task {task_id}: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_system_health(self) -> HandlerResult:
         """Get system health status."""
@@ -254,7 +255,7 @@ class ControlPlaneHandler(BaseHandler):
             })
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_agent_health(self, agent_id: str) -> HandlerResult:
         """Get health status for specific agent."""
@@ -271,7 +272,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(health.to_dict())
         except Exception as e:
             logger.error(f"Error getting agent health {agent_id}: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_stats(self) -> HandlerResult:
         """Get control plane statistics."""
@@ -287,7 +288,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(stats)
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_get_queue(self, query_params: Dict[str, Any]) -> HandlerResult:
         """Get current job queue (pending and running tasks)."""
@@ -342,7 +343,7 @@ class ControlPlaneHandler(BaseHandler):
             })
         except Exception as e:
             logger.error(f"Error getting queue: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_get_metrics(self) -> HandlerResult:
         """Get control plane metrics for dashboard."""
@@ -383,7 +384,7 @@ class ControlPlaneHandler(BaseHandler):
             })
         except Exception as e:
             logger.error(f"Error getting metrics: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     # =========================================================================
     # POST Handlers
@@ -498,7 +499,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(agent.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Error registering agent: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_heartbeat(
         self, agent_id: str, body: Dict[str, Any], handler: Any
@@ -530,7 +531,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"acknowledged": True})
         except Exception as e:
             logger.error(f"Error processing heartbeat: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_submit_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Submit a new task."""
@@ -583,7 +584,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response(f"Invalid priority: {priority}", 400)
         except Exception as e:
             logger.error(f"Error submitting task: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_claim_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Claim a task for an agent."""
@@ -625,7 +626,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"task": task.to_dict()})
         except Exception as e:
             logger.error(f"Error claiming task: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_complete_task(
         self, task_id: str, body: Dict[str, Any], handler: Any
@@ -668,7 +669,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"completed": True})
         except Exception as e:
             logger.error(f"Error completing task: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_fail_task(self, task_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Mark task as failed."""
@@ -712,7 +713,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"failed": True})
         except Exception as e:
             logger.error(f"Error failing task: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_cancel_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Cancel a task."""
@@ -736,7 +737,7 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"cancelled": True})
         except Exception as e:
             logger.error(f"Error cancelling task: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
 
     # =========================================================================
     # DELETE Handlers
@@ -782,4 +783,4 @@ class ControlPlaneHandler(BaseHandler):
             return json_response({"unregistered": True})
         except Exception as e:
             logger.error(f"Error unregistering agent: {e}")
-            return error_response(str(e), 500)
+            return error_response(safe_error_message(e, "control plane"), 500)
