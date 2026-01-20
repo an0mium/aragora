@@ -968,6 +968,26 @@ async def run_unified_server(
         ssl_cert = SSL_CERT_PATH
         ssl_key = SSL_KEY_PATH
 
+    # Validate configuration at startup
+    from aragora.config import validate_configuration, ConfigurationError
+
+    try:
+        validation_result = validate_configuration(strict=False)
+        if validation_result.get("errors"):
+            for error in validation_result["errors"]:
+                logger.error(f"[server] Config error: {error}")
+            raise ConfigurationError(
+                f"Configuration validation failed with {len(validation_result['errors'])} errors"
+            )
+        if validation_result.get("warnings"):
+            for warning in validation_result["warnings"]:
+                logger.warning(f"[server] Config warning: {warning}")
+        logger.info("[server] Configuration validated successfully")
+    except ConfigurationError:
+        raise
+    except Exception as e:
+        logger.warning(f"[server] Config validation skipped: {e}")
+
     # Initialize storage from nomic directory
     storage = None
     if nomic_dir:

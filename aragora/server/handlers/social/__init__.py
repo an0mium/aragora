@@ -1,4 +1,4 @@
-"""Social handlers - collaboration, notifications, sharing, slack, relationships, and social media."""
+"""Social handlers - collaboration, notifications, sharing, slack, telegram, relationships, and social media."""
 
 from .collaboration import CollaborationHandlers, get_collaboration_handlers
 from .notifications import NotificationsHandler
@@ -12,6 +12,7 @@ from .relationship import (
 )
 from .sharing import DebateVisibility, ShareSettings, SharingHandler
 from .slack import SlackHandler
+from .telegram import TelegramHandler, get_telegram_handler
 from .relationship import _safe_error_message
 from .social_media import (
     ALLOWED_OAUTH_HOSTS,
@@ -36,6 +37,7 @@ __all__ = [
     "SharingHandler",
     "SlackHandler",
     "SocialMediaHandler",
+    "TelegramHandler",
     "_OAUTH_STATE_TTL",
     "_oauth_states",
     "_oauth_states_lock",
@@ -47,4 +49,5 @@ __all__ = [
     "compute_rivalry_score",
     "determine_relationship_type",
     "get_collaboration_handlers",
+    "get_telegram_handler",
 ]

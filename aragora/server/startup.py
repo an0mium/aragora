@@ -307,6 +307,38 @@ async def init_km_adapters() -> bool:
     return False
 
 
+def init_workflow_checkpoint_persistence() -> bool:
+    """Wire Knowledge Mound to workflow checkpoint persistence.
+
+    This enables workflow checkpoints to be stored in KnowledgeMound rather
+    than local files, providing durable persistence that survives server restarts
+    and enables cross-instance checkpoint access.
+
+    Returns:
+        True if checkpoint persistence was wired to KnowledgeMound, False if
+        falling back to file-based storage.
+    """
+    try:
+        from aragora.knowledge.mound import get_knowledge_mound
+        from aragora.workflow.checkpoint_store import set_default_knowledge_mound
+
+        # Get the singleton Knowledge Mound instance
+        mound = get_knowledge_mound()
+
+        # Wire it to the checkpoint store
+        set_default_knowledge_mound(mound)
+
+        logger.info("Workflow checkpoint persistence wired to KnowledgeMound")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"KnowledgeMound not available for checkpoints: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to wire checkpoint persistence: {e}")
+
+    return False
+
+
 async def run_startup_sequence(
     nomic_dir: Optional[Path] = None,
     stream_emitter: Optional[Any] = None,
@@ -331,6 +363,7 @@ async def run_startup_sequence(
         "watchdog_task": None,
         "control_plane_coordinator": None,
         "km_adapters": False,
+        "workflow_checkpoint_persistence": False,
     }
 
     # Initialize in parallel where possible
@@ -346,6 +379,7 @@ async def run_startup_sequence(
     status["watchdog_task"] = await init_stuck_debate_watchdog()
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
     status["km_adapters"] = await init_km_adapters()
+    status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
 
     return status
 
@@ -361,5 +395,6 @@ __all__ = [
     "init_stuck_debate_watchdog",
     "init_control_plane_coordinator",
     "init_km_adapters",
+    "init_workflow_checkpoint_persistence",
     "run_startup_sequence",
 ]

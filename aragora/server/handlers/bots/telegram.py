@@ -265,8 +265,52 @@ class TelegramHandler(BaseHandler):
         """Handle vote on debate outcome."""
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
-        # TODO: Integrate with debate voting system
-        return json_response({"ok": True, "vote_recorded": True})
+        try:
+            from aragora.memory.consensus import ConsensusStore
+
+            # Record the vote
+            store = ConsensusStore()
+            store.record_vote(
+                debate_id=debate_id,
+                user_id=f"telegram:{user_id}",
+                vote=vote_option,
+                source="telegram",
+            )
+
+            # Acknowledge the callback
+            self._answer_callback_query(callback_id, f"Vote recorded: {vote_option}")
+
+            logger.info(f"Vote recorded from Telegram user {user_id} on {debate_id}: {vote_option}")
+            return json_response({"ok": True, "vote_recorded": True})
+
+        except ImportError:
+            logger.warning("ConsensusStore not available for vote recording")
+            self._answer_callback_query(callback_id, "Vote acknowledged")
+            return json_response({"ok": True, "vote_recorded": False})
+        except Exception as e:
+            logger.error(f"Failed to record vote: {e}")
+            self._answer_callback_query(callback_id, "Error recording vote")
+            return json_response({"ok": False, "error": str(e)[:100]})
+
+    def _answer_callback_query(self, callback_id: str, text: str) -> None:
+        """Answer a callback query (acknowledge button press)."""
+        if not TELEGRAM_BOT_TOKEN:
+            return
+
+        try:
+            import httpx
+
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
+            data = {
+                "callback_query_id": callback_id,
+                "text": text,
+            }
+
+            with httpx.Client(timeout=10.0) as client:
+                client.post(url, json=data)
+
+        except Exception as e:
+            logger.error(f"Failed to answer callback query: {e}")
 
     # Command implementations
 
@@ -305,15 +349,120 @@ class TelegramHandler(BaseHandler):
             self._send_message(chat_id, "Please provide a topic. Example:\n/debate Is Python better than JavaScript?")
             return json_response({"ok": True})
 
-        # TODO: Integrate with debate starter
+        # Start debate via queue system
+        debate_id = self._start_debate_async(chat_id, user_id, topic)
+
         self._send_message(
             chat_id,
-            f"Starting debate on: {topic[:100]}...\n\n"
-            "I'll notify you when the AI agents reach consensus."
+            f"Starting debate on:\n\n{topic[:200]}\n\n"
+            "I'll notify you when the AI agents reach consensus. "
+            f"Debate ID: {debate_id[:8]}..."
         )
 
         logger.info(f"Debate requested from Telegram user {user_id}: {topic[:100]}")
-        return json_response({"ok": True, "debate_started": True})
+        return json_response({"ok": True, "debate_started": True, "debate_id": debate_id})
+
+    def _start_debate_async(self, chat_id: int, user_id: int, topic: str) -> str:
+        """Start a debate asynchronously via the queue system."""
+        import uuid
+
+        debate_id = str(uuid.uuid4())
+
+        try:
+            from aragora.queue import create_debate_job
+            import asyncio
+
+            job = create_debate_job(
+                question=topic,
+                agents=None,  # Use default agents
+                rounds=3,
+                consensus="majority",
+                protocol="standard",
+                user_id=f"telegram:{user_id}",
+                webhook_url=None,  # TODO: Add callback webhook for results
+            )
+
+            # Fire and forget - enqueue the job
+            async def enqueue_job():
+                try:
+                    from aragora.queue import create_redis_queue
+                    queue = await create_redis_queue()
+                    await queue.enqueue(job)
+                    logger.info(f"Debate job enqueued: {job.job_id}")
+                except Exception as e:
+                    logger.error(f"Failed to enqueue debate job: {e}")
+                    self._send_message(
+                        chat_id,
+                        "Sorry, I couldn't start the debate. Please try again later."
+                    )
+
+            # Run async enqueue in background
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(enqueue_job())
+                else:
+                    asyncio.run(enqueue_job())
+            except RuntimeError:
+                # No event loop, create one
+                asyncio.run(enqueue_job())
+
+            return job.job_id
+
+        except ImportError:
+            logger.warning("Queue system not available, using direct execution")
+            # Fallback: run debate directly (blocking)
+            return self._run_debate_direct(chat_id, user_id, topic, debate_id)
+        except Exception as e:
+            logger.error(f"Failed to start debate: {e}")
+            return debate_id
+
+    def _run_debate_direct(self, chat_id: int, user_id: int, topic: str, debate_id: str) -> str:
+        """Run debate directly without queue (fallback)."""
+        import asyncio
+        import threading
+
+        def run_in_thread():
+            try:
+                from aragora.debate.orchestrator import Arena
+                from aragora import Environment, DebateProtocol
+                from aragora.agents.cli_agents import get_default_agents
+
+                async def execute():
+                    env = Environment(task=topic)
+                    protocol = DebateProtocol(rounds=3, consensus="majority")
+                    agents = get_default_agents()[:3]  # Use first 3 agents
+                    arena = Arena(env, agents, protocol)
+                    result = await arena.run()
+
+                    # Send result back to user
+                    if result and result.consensus_reached:
+                        self._send_message(
+                            chat_id,
+                            f"Debate Complete!\n\n"
+                            f"Topic: {topic[:100]}\n\n"
+                            f"Consensus: {result.final_answer[:500]}\n\n"
+                            f"Confidence: {result.confidence:.0%}"
+                        )
+                    else:
+                        self._send_message(
+                            chat_id,
+                            f"Debate Complete!\n\n"
+                            f"Topic: {topic[:100]}\n\n"
+                            "No consensus was reached. The agents had differing views."
+                        )
+
+                asyncio.run(execute())
+
+            except Exception as e:
+                logger.error(f"Direct debate execution failed: {e}")
+                self._send_message(chat_id, f"Debate failed: {str(e)[:100]}")
+
+        # Run in background thread to not block webhook response
+        thread = threading.Thread(target=run_in_thread, daemon=True)
+        thread.start()
+
+        return debate_id
 
     def _cmd_status(self, chat_id: int) -> HandlerResult:
         """Handle /status command."""
