@@ -270,6 +270,17 @@ class PermissionChecker:
         resource_id: str | None,
     ) -> AuthorizationDecision:
         """Evaluate if context has permission."""
+        # Check API key scope FIRST - if API key is present, it must allow the permission
+        if context.api_key_scope:
+            if not context.api_key_scope.allows_permission(permission_key):
+                return AuthorizationDecision(
+                    allowed=False,
+                    reason=f"API key scope does not include '{permission_key}'",
+                    permission_key=permission_key,
+                    resource_id=resource_id,
+                    context=context,
+                )
+
         # Check for exact permission
         if permission_key in context.permissions:
             return AuthorizationDecision(
@@ -301,17 +312,6 @@ class PermissionChecker:
                 resource_id=resource_id,
                 context=context,
             )
-
-        # Check API key scope
-        if context.api_key_scope:
-            if not context.api_key_scope.allows_permission(permission_key):
-                return AuthorizationDecision(
-                    allowed=False,
-                    reason=f"API key scope does not include '{permission_key}'",
-                    permission_key=permission_key,
-                    resource_id=resource_id,
-                    context=context,
-                )
 
         # Permission denied
         return AuthorizationDecision(
