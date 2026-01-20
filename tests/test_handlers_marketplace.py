@@ -196,8 +196,9 @@ class TestPublishTemplate:
     """Test POST /api/marketplace/templates endpoint."""
 
     def test_publish_valid_template(self, handler, mock_post_request):
+        import uuid
         body = {
-            "name": "My Test Template",
+            "name": f"My Test Template {uuid.uuid4().hex[:8]}",  # Unique name to avoid conflicts
             "description": "A test template for unit tests",
             "category": "testing",
             "pattern": "review_cycle",
@@ -212,7 +213,8 @@ class TestPublishTemplate:
         response_body, status = parse_handler_result(result)
 
         assert status == 201
-        assert "id" in response_body
+        assert response_body["status"] == "published"
+        assert "template_id" in response_body
 
     def test_publish_missing_required_fields(self, handler, mock_post_request):
         body = {"name": "Incomplete Template"}  # Missing description, category, pattern, workflow_definition
@@ -280,7 +282,7 @@ class TestRateTemplate:
 
 
 class TestReviewTemplate:
-    """Test POST /api/marketplace/templates/:id/review endpoint."""
+    """Test POST /api/marketplace/templates/:id/reviews endpoint."""
 
     def test_review_valid(self, handler, mock_get_request, mock_post_request):
         # Get existing template ID
@@ -299,12 +301,12 @@ class TestReviewTemplate:
             mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
             mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-            result = handler.handle(f"/api/marketplace/templates/{template_id}/review", {}, mock_post_request)
+            result = handler.handle(f"/api/marketplace/templates/{template_id}/reviews", {}, mock_post_request)
             response_body, status = parse_handler_result(result)
 
             assert status == 201
-            assert response_body["success"] is True
-            assert "review_id" in response_body
+            assert response_body["status"] == "submitted"
+            assert "review" in response_body
 
 
 # ============================================================================
@@ -332,8 +334,8 @@ class TestImportTemplate:
             response_body, status = parse_handler_result(result)
 
             assert status == 200
-            assert response_body["success"] is True
-            assert "imported_id" in response_body
+            assert response_body["status"] == "imported"
+            assert "workflow_definition" in response_body
 
     def test_import_nonexistent_template(self, handler, mock_post_request):
         body = {}
@@ -361,8 +363,8 @@ class TestFeaturedTemplates:
         body, status = parse_handler_result(result)
 
         assert status == 200
-        assert "templates" in body
-        assert isinstance(body["templates"], list)
+        assert "featured" in body
+        assert isinstance(body["featured"], list)
 
 
 # ============================================================================
@@ -378,8 +380,8 @@ class TestTrendingTemplates:
         body, status = parse_handler_result(result)
 
         assert status == 200
-        assert "templates" in body
-        assert isinstance(body["templates"], list)
+        assert "trending" in body
+        assert isinstance(body["trending"], list)
 
 
 # ============================================================================
@@ -400,7 +402,7 @@ class TestCategories:
         for category in body["categories"]:
             assert "id" in category
             assert "name" in category
-            assert "count" in category
+            assert "template_count" in category
 
 
 # ============================================================================

@@ -151,7 +151,7 @@ export function DebateViewerWrapper() {
           {/* Explainability Panel - Full Width */}
           <div className="mb-4">
             <PanelErrorBoundary panelName="Decision Explainability">
-              <ExplainabilityPanel debateId={debateId} apiBase={config.api} />
+              <ExplainabilityPanel debateId={debateId} />
             </PanelErrorBoundary>
           </div>
 

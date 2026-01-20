@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from ..models import (
     MemoryAnalyticsResponse,
@@ -37,7 +37,7 @@ class MemoryAPI:
         response = await self._client._get_async("/api/memory/analytics", params={"days": days})
         return MemoryAnalyticsResponse(**response)
 
-    def tier_stats(self, tier_name: str, days: int = 30) -> dict:
+    def tier_stats(self, tier_name: str, days: int = 30) -> dict[str, Any]:
         """
         Get statistics for a specific memory tier.
 
@@ -53,7 +53,7 @@ class MemoryAPI:
         )
         return response
 
-    async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict:
+    async def tier_stats_async(self, tier_name: str, days: int = 30) -> dict[str, Any]:
         """Async version of tier_stats()."""
         response = await self._client._get_async(
             f"/api/memory/analytics/tier/{tier_name}", params={"days": days}
