@@ -14,12 +14,23 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def parse_agents(agents_str: str) -> list[tuple[str, str | None]]:
+def parse_agents(agents_str: str) -> list[tuple[str, str]]:
     """Parse agent string using unified AgentSpec.
 
-    Supports both new pipe format (provider|model|persona|role) and
-    legacy colon format (provider:persona). Returns tuples of (provider, role)
-    for backward compatibility with existing code.
+    Supports both formats:
+    - New pipe format: provider|model|persona|role (explicit role)
+    - Legacy colon format: provider:persona (role defaults to 'proposer')
+
+    Returns tuples of (provider, role). Note that the legacy colon format
+    sets the persona, NOT the role. Use pipe format for explicit roles:
+    - "claude:critic" -> ("claude", "proposer")  # 'critic' is persona
+    - "claude|||critic" -> ("claude", "critic")  # 'critic' is role
+
+    Args:
+        agents_str: Comma-separated agent specs
+
+    Returns:
+        List of (provider, role) tuples
     """
     from aragora.agents.spec import AgentSpec
 
