@@ -729,8 +729,439 @@ class GoogleTrendsIngestor(PulseIngestor):
         return "general"
 
 
+class ArxivIngestor(PulseIngestor):
+    """ArXiv new papers ingestor using the ArXiv API (free, no auth required).
+
+    Fetches recent papers from ArXiv, sorted by submission date.
+    Useful for academic and research-focused debate topics.
+    """
+
+    def __init__(self, categories: Optional[List[str]] = None, **kwargs):
+        """Initialize ArXiv ingestor.
+
+        Args:
+            categories: ArXiv categories to search (e.g., ["cs.AI", "cs.LG"]).
+                        Default: AI/ML related categories.
+        """
+        super().__init__(**kwargs)
+        self.categories = categories or ["cs.AI", "cs.LG", "cs.CL", "stat.ML"]
+        self.base_url = "http://export.arxiv.org/api/query"
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch recent papers from ArXiv."""
+        limit = max(1, min(limit, 50))
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Build category query (OR across categories)
+                cat_query = " OR ".join(f"cat:{cat}" for cat in self.categories)
+                params = {
+                    "search_query": cat_query,
+                    "sortBy": "submittedDate",
+                    "sortOrder": "descending",
+                    "max_results": limit,
+                }
+
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+
+                # Parse Atom XML feed
+                import xml.etree.ElementTree as ET
+
+                root = ET.fromstring(response.text)
+                ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+
+                topics = []
+                for entry in root.findall("atom:entry", ns)[:limit]:
+                    title = entry.find("atom:title", ns)
+                    summary = entry.find("atom:summary", ns)
+                    published = entry.find("atom:published", ns)
+                    arxiv_id = entry.find("atom:id", ns)
+
+                    # Get primary category
+                    primary_cat = entry.find("arxiv:primary_category", ns)
+                    category = primary_cat.get("term", "cs.AI") if primary_cat is not None else "cs.AI"
+
+                    if title is not None:
+                        topic = TrendingTopic(
+                            platform="arxiv",
+                            topic=title.text.strip().replace("\n", " ") if title.text else "Untitled",
+                            volume=0,  # ArXiv doesn't provide engagement metrics
+                            category=self._categorize_arxiv(category),
+                            raw_data={
+                                "arxiv_id": arxiv_id.text if arxiv_id is not None else None,
+                                "summary": summary.text[:500] if summary is not None and summary.text else None,
+                                "published": published.text if published is not None else None,
+                                "arxiv_category": category,
+                            },
+                        )
+                        topics.append(topic)
+
+                logger.info(f"[arxiv] Fetched {len(topics)} recent papers")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    def _categorize_arxiv(self, arxiv_category: str) -> str:
+        """Map ArXiv category to topic category."""
+        mapping = {
+            "cs.AI": "ai",
+            "cs.LG": "ai",
+            "cs.CL": "nlp",
+            "cs.CV": "ai",
+            "cs.NE": "ai",
+            "stat.ML": "ai",
+            "cs.CR": "security",
+            "cs.SE": "programming",
+            "cs.PL": "programming",
+            "cs.DC": "systems",
+            "cs.DB": "systems",
+            "physics": "science",
+            "math": "science",
+            "q-bio": "science",
+        }
+        for prefix, cat in mapping.items():
+            if arxiv_category.startswith(prefix):
+                return cat
+        return "research"
+
+
+class LobstersIngestor(PulseIngestor):
+    """Lobste.rs trending stories ingestor (free, no auth required).
+
+    Fetches hottest stories from Lobste.rs, a technology-focused link aggregator.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.base_url = "https://lobste.rs"
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch hottest stories from Lobste.rs."""
+        limit = max(1, min(limit, 25))
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{self.base_url}/hottest.json"
+                response = await client.get(url)
+                response.raise_for_status()
+
+                stories = response.json()
+
+                topics = []
+                for story in stories[:limit]:
+                    topic = TrendingTopic(
+                        platform="lobsters",
+                        topic=story.get("title", "Untitled"),
+                        volume=story.get("score", 0),
+                        category=self._categorize_tags(story.get("tags", [])),
+                        raw_data={
+                            "url": story.get("url"),
+                            "short_id": story.get("short_id"),
+                            "submitter": story.get("submitter_user", {}).get("username"),
+                            "comment_count": story.get("comment_count", 0),
+                            "tags": story.get("tags", []),
+                        },
+                    )
+                    topics.append(topic)
+
+                logger.info(f"[lobsters] Fetched {len(topics)} hottest stories")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    def _categorize_tags(self, tags: List[str]) -> str:
+        """Map Lobste.rs tags to category."""
+        tag_set = set(t.lower() for t in tags)
+        if tag_set & {"ai", "ml", "machine-learning"}:
+            return "ai"
+        if tag_set & {"security", "privacy"}:
+            return "security"
+        if tag_set & {"rust", "go", "python", "javascript", "programming"}:
+            return "programming"
+        if tag_set & {"linux", "unix", "devops", "distributed"}:
+            return "systems"
+        if tag_set & {"web", "browsers", "css", "javascript"}:
+            return "web"
+        return "tech"
+
+
+class DevToIngestor(PulseIngestor):
+    """Dev.to trending articles ingestor (free, no auth required).
+
+    Fetches top articles from Dev.to developer community.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.base_url = "https://dev.to/api"
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch top articles from Dev.to."""
+        limit = max(1, min(limit, 30))
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{self.base_url}/articles"
+                params = {"per_page": limit, "top": 7}  # Top from last 7 days
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+
+                articles = response.json()
+
+                topics = []
+                for article in articles[:limit]:
+                    topic = TrendingTopic(
+                        platform="devto",
+                        topic=article.get("title", "Untitled"),
+                        volume=article.get("public_reactions_count", 0),
+                        category=self._categorize_tags(article.get("tag_list", [])),
+                        raw_data={
+                            "url": article.get("url"),
+                            "id": article.get("id"),
+                            "user": article.get("user", {}).get("username"),
+                            "comments_count": article.get("comments_count", 0),
+                            "reading_time": article.get("reading_time_minutes"),
+                            "tags": article.get("tag_list", []),
+                        },
+                    )
+                    topics.append(topic)
+
+                logger.info(f"[devto] Fetched {len(topics)} top articles")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    def _categorize_tags(self, tags: List[str]) -> str:
+        """Map Dev.to tags to category."""
+        tag_set = set(t.lower() for t in tags)
+        if tag_set & {"ai", "machinelearning", "deeplearning", "llm", "gpt"}:
+            return "ai"
+        if tag_set & {"security", "cybersecurity", "infosec"}:
+            return "security"
+        if tag_set & {"webdev", "frontend", "react", "vue", "javascript", "css"}:
+            return "web"
+        if tag_set & {"devops", "docker", "kubernetes", "cloud", "aws"}:
+            return "devops"
+        if tag_set & {"career", "beginners", "tutorial"}:
+            return "learning"
+        return "programming"
+
+
+class ProductHuntIngestor(PulseIngestor):
+    """Product Hunt trending products ingestor.
+
+    Fetches trending products from Product Hunt.
+    Note: Product Hunt API requires OAuth for full access.
+    Uses public RSS feed for basic access.
+    """
+
+    def __init__(self, access_token: Optional[str] = None, **kwargs):
+        """Initialize Product Hunt ingestor.
+
+        Args:
+            access_token: Optional Product Hunt API access token for full API access.
+                          Without token, uses public RSS feed (limited data).
+        """
+        super().__init__(api_key=access_token, **kwargs)
+        self.api_url = "https://api.producthunt.com/v2/api/graphql"
+        self.rss_url = "https://www.producthunt.com/feed"
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch trending products from Product Hunt."""
+        limit = max(1, min(limit, 20))
+
+        if self.api_key:
+            return await self._fetch_via_api(limit)
+        return await self._fetch_via_rss(limit)
+
+    async def _fetch_via_rss(self, limit: int) -> List[TrendingTopic]:
+        """Fetch via public RSS feed (no auth required)."""
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(self.rss_url)
+                response.raise_for_status()
+
+                import xml.etree.ElementTree as ET
+
+                root = ET.fromstring(response.text)
+
+                topics = []
+                for item in root.findall(".//item")[:limit]:
+                    title = item.find("title")
+                    link = item.find("link")
+                    description = item.find("description")
+
+                    if title is not None:
+                        topic = TrendingTopic(
+                            platform="producthunt",
+                            topic=title.text or "Untitled",
+                            volume=0,  # RSS doesn't include vote count
+                            category="product",
+                            raw_data={
+                                "url": link.text if link is not None else None,
+                                "description": description.text[:200] if description is not None and description.text else None,
+                            },
+                        )
+                        topics.append(topic)
+
+                logger.info(f"[producthunt] Fetched {len(topics)} products via RSS")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    async def _fetch_via_api(self, limit: int) -> List[TrendingTopic]:
+        """Fetch via GraphQL API (requires auth)."""
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                query = """
+                query {
+                    posts(first: %d, order: VOTES) {
+                        edges {
+                            node {
+                                id
+                                name
+                                tagline
+                                url
+                                votesCount
+                                topics {
+                                    edges {
+                                        node {
+                                            name
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """ % limit
+
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }
+
+                response = await client.post(
+                    self.api_url,
+                    json={"query": query},
+                    headers=headers,
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                posts = data.get("data", {}).get("posts", {}).get("edges", [])
+
+                topics = []
+                for edge in posts[:limit]:
+                    post = edge.get("node", {})
+                    post_topics = [t["node"]["name"] for t in post.get("topics", {}).get("edges", [])]
+
+                    topic = TrendingTopic(
+                        platform="producthunt",
+                        topic=f"{post.get('name', 'Untitled')}: {post.get('tagline', '')}",
+                        volume=post.get("votesCount", 0),
+                        category=self._categorize_topics(post_topics),
+                        raw_data={
+                            "id": post.get("id"),
+                            "url": post.get("url"),
+                            "topics": post_topics,
+                        },
+                    )
+                    topics.append(topic)
+
+                logger.info(f"[producthunt] Fetched {len(topics)} products via API")
+                return topics
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+    def _categorize_topics(self, topics: List[str]) -> str:
+        """Map Product Hunt topics to category."""
+        topic_lower = [t.lower() for t in topics]
+        if any("ai" in t or "machine learning" in t for t in topic_lower):
+            return "ai"
+        if any("developer" in t or "api" in t for t in topic_lower):
+            return "developer-tools"
+        if any("productivity" in t for t in topic_lower):
+            return "productivity"
+        if any("design" in t for t in topic_lower):
+            return "design"
+        return "product"
+
+
+class SubstackIngestor(PulseIngestor):
+    """Substack trending newsletters ingestor.
+
+    Fetches from curated Substack feeds and popular tech newsletters.
+    Uses RSS feeds (no auth required).
+    """
+
+    # Popular tech/AI Substack newsletters with RSS feeds
+    DEFAULT_FEEDS = [
+        ("https://stratechery.com/feed/", "tech"),
+        ("https://www.lennysnewsletter.com/feed", "product"),
+        ("https://thegeneralist.substack.com/feed", "business"),
+        ("https://www.oneusefulthing.org/feed", "ai"),
+    ]
+
+    def __init__(self, feeds: Optional[List[tuple]] = None, **kwargs):
+        """Initialize Substack ingestor.
+
+        Args:
+            feeds: List of (feed_url, category) tuples. Default: curated tech feeds.
+        """
+        super().__init__(**kwargs)
+        self.feeds = feeds or self.DEFAULT_FEEDS
+
+    async def fetch_trending(self, limit: int = 10) -> List[TrendingTopic]:
+        """Fetch recent articles from Substack RSS feeds."""
+        limit = max(1, min(limit, 20))
+        per_feed = max(1, limit // len(self.feeds))
+
+        async def _fetch():
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                import xml.etree.ElementTree as ET
+
+                all_topics = []
+
+                for feed_url, category in self.feeds:
+                    try:
+                        response = await client.get(feed_url)
+                        response.raise_for_status()
+
+                        root = ET.fromstring(response.text)
+
+                        for item in root.findall(".//item")[:per_feed]:
+                            title = item.find("title")
+                            link = item.find("link")
+                            pub_date = item.find("pubDate")
+
+                            if title is not None:
+                                topic = TrendingTopic(
+                                    platform="substack",
+                                    topic=title.text or "Untitled",
+                                    volume=0,  # RSS doesn't include engagement
+                                    category=category,
+                                    raw_data={
+                                        "url": link.text if link is not None else None,
+                                        "feed": feed_url,
+                                        "published": pub_date.text if pub_date is not None else None,
+                                    },
+                                )
+                                all_topics.append(topic)
+                    except Exception as e:
+                        logger.warning(f"Error fetching Substack feed {feed_url}: {e}")
+                        continue
+
+                logger.info(f"[substack] Fetched {len(all_topics)} articles from feeds")
+                return all_topics[:limit]
+
+        return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
+
 class PulseManager:
-    """Manages multiple ingestors and coordinates trending topic collection."""
 
     def __init__(self) -> None:
         self.ingestors: Dict[str, PulseIngestor] = {}
