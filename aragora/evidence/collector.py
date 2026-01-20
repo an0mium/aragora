@@ -24,11 +24,13 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+    from aragora.connectors.documents.parser import ParsedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -282,6 +284,10 @@ class EvidenceCollector:
         # Knowledge Mound integration
         self._km_adapter = km_adapter
 
+        # Document parser integration
+        self._document_connector: Optional[Any] = None
+        self._parsed_documents: Dict[str, "ParsedDocument"] = {}
+
         if require_url_consent and url_consent_callback is None:
             raise ValueError("url_consent_callback is required when require_url_consent=True")
 
@@ -346,6 +352,262 @@ class EvidenceCollector:
         except Exception as e:
             logger.warning(f"Failed to query KM for existing evidence: {e}")
             return []
+
+    def _get_document_connector(self) -> Any:
+        """Get or create the document connector (lazy initialization)."""
+        if self._document_connector is None:
+            try:
+                from aragora.connectors.documents import DocumentConnector
+
+                self._document_connector = DocumentConnector()
+            except ImportError:
+                logger.debug("DocumentConnector not available - document parsing disabled")
+                return None
+        return self._document_connector
+
+    async def parse_document_file(
+        self,
+        file_path: Union[str, Path],
+    ) -> Optional[List[EvidenceSnippet]]:
+        """Parse a document file and return evidence snippets.
+
+        Supports PDF, DOCX, XLSX, PPTX, HTML, JSON, YAML, XML, CSV formats.
+
+        Args:
+            file_path: Path to the document file
+
+        Returns:
+            List of EvidenceSnippet objects, or None if parsing failed
+        """
+        connector = self._get_document_connector()
+        if connector is None:
+            return None
+
+        try:
+            doc = await connector.parse_file(file_path)
+            if doc is None:
+                return None
+
+            # Store for later reference
+            path = Path(file_path) if isinstance(file_path, str) else file_path
+            self._parsed_documents[str(path.absolute())] = doc
+
+            return self._document_to_snippets(doc, str(path))
+
+        except Exception as e:
+            logger.error(f"Failed to parse document file {file_path}: {e}")
+            return None
+
+    async def parse_document_bytes(
+        self,
+        content: bytes,
+        filename: str,
+        source_url: Optional[str] = None,
+    ) -> Optional[List[EvidenceSnippet]]:
+        """Parse document bytes and return evidence snippets.
+
+        Args:
+            content: Document content as bytes
+            filename: Original filename (for format detection)
+            source_url: Optional source URL for the document
+
+        Returns:
+            List of EvidenceSnippet objects, or None if parsing failed
+        """
+        connector = self._get_document_connector()
+        if connector is None:
+            return None
+
+        try:
+            doc = await connector.parse_bytes(content, filename)
+            if doc is None:
+                return None
+
+            if source_url:
+                doc.metadata["source_url"] = source_url
+
+            return self._document_to_snippets(doc, source_url or filename)
+
+        except Exception as e:
+            logger.error(f"Failed to parse document bytes ({filename}): {e}")
+            return None
+
+    def _document_to_snippets(
+        self,
+        doc: "ParsedDocument",
+        source: str,
+    ) -> List[EvidenceSnippet]:
+        """Convert ParsedDocument to EvidenceSnippet list."""
+        snippets = []
+
+        # Get format-specific reliability score
+        format_reliability = {
+            "pdf": 0.85,
+            "docx": 0.80,
+            "xlsx": 0.90,
+            "pptx": 0.70,
+            "json": 0.90,
+            "yaml": 0.90,
+            "csv": 0.90,
+            "html": 0.65,
+            "txt": 0.60,
+            "md": 0.70,
+        }
+        format_name = doc.format.value if doc.format else "unknown"
+        base_reliability = format_reliability.get(format_name, 0.70)
+
+        # Create snippets from document chunks
+        for i, chunk in enumerate(doc.chunks):
+            snippet_id = hashlib.sha256(
+                f"{source}_{i}_{chunk.content[:50]}".encode()
+            ).hexdigest()[:12]
+
+            snippets.append(
+                EvidenceSnippet(
+                    id=f"doc_{snippet_id}",
+                    source=f"document_{format_name}",
+                    title=f"{doc.title or doc.filename} (Section {i + 1})",
+                    snippet=self._truncate_snippet(chunk.content),
+                    url=source if source.startswith(("http://", "https://")) else "",
+                    reliability_score=base_reliability,
+                    metadata={
+                        "filename": doc.filename,
+                        "format": format_name,
+                        "page": chunk.page,
+                        "section": chunk.section,
+                        "chunk_index": i,
+                        "total_chunks": len(doc.chunks),
+                        "file_path": source if not source.startswith("http") else None,
+                    },
+                )
+            )
+
+        # Create snippets from tables (higher reliability - structured data)
+        for j, table in enumerate(doc.tables):
+            table_content = self._format_table_for_snippet(table.data, table.headers)
+            snippet_id = hashlib.sha256(
+                f"{source}_table_{j}_{table_content[:50]}".encode()
+            ).hexdigest()[:12]
+
+            snippets.append(
+                EvidenceSnippet(
+                    id=f"doc_table_{snippet_id}",
+                    source=f"document_table_{format_name}",
+                    title=f"{doc.title or doc.filename} - Table {j + 1}",
+                    snippet=self._truncate_snippet(table_content),
+                    url=source if source.startswith(("http://", "https://")) else "",
+                    reliability_score=min(1.0, base_reliability + 0.05),  # Tables are more reliable
+                    metadata={
+                        "filename": doc.filename,
+                        "format": format_name,
+                        "page": table.page,
+                        "caption": table.caption,
+                        "table_index": j,
+                        "total_tables": len(doc.tables),
+                    },
+                )
+            )
+
+        logger.info(
+            f"Parsed document: {doc.filename} -> {len(snippets)} evidence snippets "
+            f"({len(doc.chunks)} chunks, {len(doc.tables)} tables)"
+        )
+
+        return snippets
+
+    def _format_table_for_snippet(
+        self,
+        data: List[List[Any]],
+        headers: Optional[List[str]] = None,
+    ) -> str:
+        """Format table data as text for evidence snippet."""
+        lines = []
+
+        if headers:
+            lines.append(" | ".join(str(h) for h in headers))
+            lines.append("-" * 40)
+
+        for row in data[:15]:  # Limit rows
+            lines.append(" | ".join(str(cell)[:30] for cell in row))
+
+        if len(data) > 15:
+            lines.append(f"[{len(data) - 15} more rows...]")
+
+        return "\n".join(lines)
+
+    def _extract_document_paths(self, task: str) -> List[str]:
+        """Extract document file paths from task description.
+
+        Detects:
+        - Absolute paths (/path/to/file.pdf)
+        - Relative paths (./docs/file.docx)
+        - Windows paths (C:\\path\\file.xlsx)
+        - Quoted paths ("path with spaces/file.pdf")
+
+        Args:
+            task: Task description that may contain file paths
+
+        Returns:
+            List of detected file paths
+        """
+        paths = []
+
+        # Document extensions to look for
+        doc_extensions = r"\.(pdf|docx?|xlsx?|pptx?|csv|json|yaml|yml|xml|html?|txt|md)"
+
+        # Pattern 1: Quoted paths
+        quoted_pattern = rf'["\']([^"\']+{doc_extensions})["\']'
+        paths.extend(re.findall(quoted_pattern, task, re.IGNORECASE))
+
+        # Pattern 2: Unix absolute paths
+        unix_pattern = rf"(/[\w./-]+{doc_extensions})\b"
+        paths.extend(re.findall(unix_pattern, task, re.IGNORECASE))
+
+        # Pattern 3: Unix relative paths
+        relative_pattern = rf"(\.{1,2}/[\w./-]+{doc_extensions})\b"
+        paths.extend(re.findall(relative_pattern, task, re.IGNORECASE))
+
+        # Pattern 4: Windows paths
+        windows_pattern = rf"([A-Za-z]:\\[\w.\\-]+{doc_extensions})\b"
+        paths.extend(re.findall(windows_pattern, task, re.IGNORECASE))
+
+        # Pattern 5: Bare filenames with extensions
+        bare_pattern = rf"\b([\w.-]+{doc_extensions})\b"
+        for match in re.findall(bare_pattern, task, re.IGNORECASE):
+            # Only add if it looks like a valid filename (not URL or path fragment)
+            if "/" not in match and "\\" not in match:
+                paths.append(match)
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_paths = []
+        for path in paths:
+            # Handle tuple from group captures
+            if isinstance(path, tuple):
+                path = path[0] if path[0] else path[1] if len(path) > 1 else ""
+            if path and path not in seen:
+                seen.add(path)
+                unique_paths.append(path)
+
+        return unique_paths
+
+    def _is_document_url(self, url: str) -> bool:
+        """Check if URL points to a document file.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            True if URL ends with document extension
+        """
+        doc_extensions = {
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".csv", ".json", ".yaml",
+            ".yml", ".xml", ".html", ".htm", ".txt", ".md",
+        }
+        parsed = urlparse(url)
+        path_lower = parsed.path.lower()
+        return any(path_lower.endswith(ext) for ext in doc_extensions)
 
     def _check_url_consent(self, url: str) -> bool:
         """Check if URL fetch is allowed via consent gate.
@@ -494,8 +756,15 @@ class EvidenceCollector:
         task: str,
         enabled_connectors: List[str] = None,
         fetch_urls: Optional[bool] = None,
+        document_files: Optional[List[Union[str, Path]]] = None,
     ) -> EvidencePack:
         """Collect evidence relevant to the task.
+
+        Supports omnivorous evidence collection from:
+        - URLs mentioned in the task (with SSRF protection)
+        - Document files (PDF, DOCX, XLSX, PPTX, etc.)
+        - Document URLs (automatic download and parsing)
+        - Registered connectors (GitHub, web search, etc.)
 
         Args:
             task: The task/topic to collect evidence for
@@ -504,6 +773,7 @@ class EvidenceCollector:
                        - None (default): Use settings (ARAGORA_URL_FETCH_ALL_ENABLED)
                        - True: Allow any URL with safety checks
                        - False: Strict allowlist mode
+            document_files: Optional list of document file paths to parse
 
         Returns:
             EvidencePack with collected evidence snippets
@@ -516,6 +786,26 @@ class EvidenceCollector:
 
         all_snippets = []
         total_searched = 0
+
+        # Parse explicitly provided document files
+        if document_files:
+            for file_path in document_files:
+                doc_snippets = await self.parse_document_file(file_path)
+                if doc_snippets:
+                    all_snippets.extend(doc_snippets)
+                    total_searched += 1
+                    logger.info(f"Added {len(doc_snippets)} snippets from document: {file_path}")
+
+        # Detect document file paths mentioned in the task
+        detected_paths = self._extract_document_paths(task)
+        for path_str in detected_paths:
+            path = Path(path_str)
+            if path.exists() and path.is_file():
+                doc_snippets = await self.parse_document_file(path)
+                if doc_snippets:
+                    all_snippets.extend(doc_snippets)
+                    total_searched += 1
+                    logger.info(f"Auto-detected and parsed document: {path}")
 
         # First, fetch any explicit URLs mentioned in the task (with SSRF protection)
         explicit_urls = self._extract_urls(task)
@@ -562,6 +852,25 @@ class EvidenceCollector:
                                     f"({len(readme_snippet.snippet)} chars)"
                                 )
                                 continue  # Skip regular URL fetch for repos
+
+                        # Check if URL points to a document
+                        if self._is_document_url(full_url):
+                            # Fetch and parse document
+                            if hasattr(web_connector, "fetch_bytes"):
+                                try:
+                                    doc_bytes = await web_connector.fetch_bytes(full_url)
+                                    if doc_bytes:
+                                        filename = Path(urlparse(full_url).path).name
+                                        doc_snippets = await self.parse_document_bytes(
+                                            doc_bytes, filename, source_url=full_url
+                                        )
+                                        if doc_snippets:
+                                            all_snippets.extend(doc_snippets)
+                                            total_searched += 1
+                                            logger.info(f"Fetched and parsed document: {full_url}")
+                                            continue
+                                except Exception as e:
+                                    logger.warning(f"Failed to fetch document {full_url}: {e}")
 
                         # Regular URL fetch
                         if hasattr(web_connector, "fetch_url"):

@@ -20,6 +20,13 @@ Usage:
     # Use parser with custom options
     parser = DocumentParser(max_pages=50, extract_tables=True)
     result = parser.parse(content, format=DocumentFormat.PDF)
+
+    # Use document connector for evidence collection
+    from aragora.connectors.documents import DocumentConnector
+
+    connector = DocumentConnector()
+    await connector.parse_file("/path/to/report.pdf")
+    results = await connector.search("machine learning", limit=5)
 """
 
 from aragora.connectors.documents.parser import (
@@ -30,12 +37,20 @@ from aragora.connectors.documents.parser import (
     parse_document,
     EXTENSION_MAP,
 )
+from aragora.connectors.documents.connector import (
+    DocumentConnector,
+    DocumentEvidence,
+)
 
 __all__ = [
+    # Parser
     "DocumentParser",
     "DocumentFormat",
     "DocumentChunk",
     "ParsedDocument",
     "parse_document",
     "EXTENSION_MAP",
+    # Connector
+    "DocumentConnector",
+    "DocumentEvidence",
 ]
