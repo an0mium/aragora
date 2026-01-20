@@ -210,13 +210,42 @@ aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini
 | Position | Role | Best Agent Type |
 |----------|------|-----------------|
 | 1st | **Proposer** | Strong reasoning (Anthropic, OpenAI) |
-| 2nd | **Critic** | Detail-oriented (Anthropic, Mistral) |
-| 3rd | **Synthesizer** | Balanced (OpenAI, Gemini) |
+| 2nd-n-1 | **Critic** | Detail-oriented (Anthropic, Mistral) |
+| Last | **Synthesizer** | Balanced (OpenAI, Gemini) |
 
-You can also specify roles explicitly:
+### Agent Specification Formats
+
+**Recommended - Pipe format** (`provider|model|persona|role`):
 ```bash
---agents anthropic-api:proposer,openai-api:critic,gemini:synthesizer
+# Full specification with all fields
+--agents "anthropic-api|claude-opus|philosopher|proposer,openai-api|gpt-4o|skeptic|critic"
+
+# Provider and role only (most common)
+--agents "anthropic-api|||proposer,openai-api|||critic,gemini|||synthesizer"
+
+# Provider with persona (role auto-assigned)
+--agents "anthropic-api||philosopher|,openai-api||skeptic|"
 ```
+
+**Legacy - Colon format** (backward compatible):
+```bash
+# Role assignment
+--agents anthropic-api:proposer,openai-api:critic,gemini:synthesizer
+
+# Persona assignment (non-role words treated as personas)
+--agents anthropic-api:philosopher,openai-api:skeptic
+```
+
+| Format | Example | Provider | Model | Persona | Role |
+|--------|---------|----------|-------|---------|------|
+| Pipe (full) | `anthropic-api\|claude-opus\|phil\|critic` | anthropic-api | claude-opus | phil | critic |
+| Pipe (role) | `anthropic-api\|\|\|critic` | anthropic-api | default | - | critic |
+| Pipe (persona) | `anthropic-api\|\|philosopher\|` | anthropic-api | default | philosopher | auto |
+| Legacy (role) | `anthropic-api:critic` | anthropic-api | default | - | critic |
+| Legacy (persona) | `anthropic-api:philosopher` | anthropic-api | default | philosopher | auto |
+| Plain | `anthropic-api` | anthropic-api | default | - | auto |
+
+**Valid roles:** `proposer`, `critic`, `synthesizer`, `judge`
 
 ## Environment Variables
 

@@ -738,3 +738,180 @@ class TestSSRFProtection:
         assert collector._is_domain_allowed("docs.mycompany.com") is True
         # But feature flag should be off
         assert collector._url_fetch_all_enabled is False
+
+
+# =============================================================================
+# URL Consent Gate Tests
+# =============================================================================
+
+
+class TestURLConsentGate:
+    """Tests for URL consent gate functionality."""
+
+    def test_consent_not_required_by_default(self):
+        """Should not require consent by default."""
+        collector = EvidenceCollector()
+        assert collector._require_url_consent is False
+        # Without consent required, _check_url_consent should return True
+        assert collector._check_url_consent("https://example.com") is True
+
+    def test_consent_required_without_callback_raises(self):
+        """Should raise if consent required but no callback provided."""
+        with pytest.raises(ValueError, match="url_consent_callback is required"):
+            EvidenceCollector(require_url_consent=True)
+
+    def test_consent_callback_invoked_when_required(self):
+        """Should invoke consent callback when consent is required."""
+        callback = Mock(return_value=True)
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=callback,
+        )
+        collector.set_org_context("org-123")
+
+        result = collector._check_url_consent("https://example.com/page")
+
+        assert result is True
+        callback.assert_called_once_with("https://example.com/page", "org-123")
+
+    def test_consent_denied_blocks_url(self):
+        """Should block URL when consent is denied."""
+        callback = Mock(return_value=False)
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=callback,
+        )
+
+        result = collector._check_url_consent("https://sensitive.com/data")
+
+        assert result is False
+
+    def test_consent_callback_error_blocks_url(self):
+        """Should block URL if consent callback raises exception."""
+        callback = Mock(side_effect=Exception("Consent service unavailable"))
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=callback,
+        )
+
+        result = collector._check_url_consent("https://example.com")
+
+        assert result is False
+
+    def test_audit_callback_invoked_on_consent_denied(self):
+        """Should invoke audit callback when consent is denied."""
+        consent_callback = Mock(return_value=False)
+        audit_callback = Mock()
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=consent_callback,
+            audit_callback=audit_callback,
+        )
+        collector.set_org_context("org-456")
+
+        collector._check_url_consent("https://blocked.com/resource")
+
+        audit_callback.assert_called_once_with(
+            "https://blocked.com/resource",
+            "org-456",
+            "blocked_consent",
+            False,
+        )
+
+    def test_audit_callback_on_ssrf_block(self):
+        """Should invoke audit callback when SSRF protection blocks URL."""
+        audit_callback = Mock()
+        collector = EvidenceCollector(audit_callback=audit_callback)
+        collector.set_org_context("org-789")
+
+        # Log audit directly for SSRF block
+        collector._log_audit("http://localhost/admin", "org-789", "blocked_ssrf", False)
+
+        audit_callback.assert_called_once_with(
+            "http://localhost/admin",
+            "org-789",
+            "blocked_ssrf",
+            False,
+        )
+
+    def test_audit_callback_error_handled_gracefully(self):
+        """Should handle audit callback errors gracefully."""
+        audit_callback = Mock(side_effect=Exception("Audit service down"))
+        collector = EvidenceCollector(audit_callback=audit_callback)
+
+        # Should not raise
+        collector._log_audit("https://example.com", "org-1", "fetch", True)
+
+    def test_set_org_context(self):
+        """Should set organization context for consent and audit."""
+        collector = EvidenceCollector()
+        assert collector._org_id is None
+
+        collector.set_org_context("my-org")
+        assert collector._org_id == "my-org"
+
+    def test_default_org_id_is_unknown(self):
+        """Should use 'unknown' as default org_id."""
+        consent_callback = Mock(return_value=True)
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=consent_callback,
+        )
+
+        collector._check_url_consent("https://example.com")
+
+        consent_callback.assert_called_once_with("https://example.com", "unknown")
+
+    @pytest.mark.asyncio
+    async def test_collect_evidence_respects_consent_gate(self):
+        """Should respect consent gate when fetching explicit URLs."""
+        consent_callback = Mock(return_value=False)  # Deny all
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=consent_callback,
+        )
+
+        # Add a mock web connector
+        mock_web = AsyncMock()
+        mock_web.fetch_url = AsyncMock(return_value=Mock(content="test", confidence=1.0))
+        collector.add_connector("web", mock_web)
+
+        # Task with explicit URL
+        pack = await collector.collect_evidence(
+            "Check https://github.com/test/repo for details"
+        )
+
+        # URL should be blocked by consent gate
+        # fetch_url should never be called because consent was denied
+        mock_web.fetch_url.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_collect_evidence_allows_consented_urls(self):
+        """Should fetch URLs when consent is granted."""
+        consent_callback = Mock(return_value=True)  # Allow all
+        collector = EvidenceCollector(
+            require_url_consent=True,
+            url_consent_callback=consent_callback,
+        )
+
+        # Add a mock web connector
+        mock_web = AsyncMock()
+        mock_evidence = Mock(
+            title="Test Page",
+            content="Test content",
+            confidence=1.0,
+            url="https://github.com/test/repo",
+            id="test-id",
+            authority=0.8,
+            metadata={},
+        )
+        mock_web.fetch_url = AsyncMock(return_value=mock_evidence)
+        collector.add_connector("web", mock_web)
+
+        # Task with explicit URL from allowed domain
+        pack = await collector.collect_evidence(
+            "Check https://github.com/test/repo for details"
+        )
+
+        # URL should be fetched because consent was granted
+        assert mock_web.fetch_url.called

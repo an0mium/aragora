@@ -398,14 +398,22 @@ class TestFileSizeLimits:
     @pytest.mark.asyncio
     async def test_file_too_large(self, tmp_path):
         """Test rejection of files exceeding size limit."""
-        # Create a file larger than the limit
+        from aragora.transcription.whisper_backend import TranscriptionConfig
+
+        # Create a file larger than our configured limit
         large_file = tmp_path / "large.mp3"
         large_file.write_bytes(b"\x00" * (26 * 1024 * 1024))  # 26MB
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
-            backend = OpenAIWhisperBackend()
+        # Use a config with 25MB limit to test size validation
+        config = TranscriptionConfig(
+            openai_api_key="test-key",
+            max_file_size_mb=25,
+        )
 
-            with pytest.raises(ValueError, match="size"):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
+            backend = OpenAIWhisperBackend(config=config)
+
+            with pytest.raises(ValueError, match="too large"):
                 await backend.transcribe(large_file)
 
 

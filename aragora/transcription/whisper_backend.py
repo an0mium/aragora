@@ -586,8 +586,15 @@ _BACKENDS: Dict[str, type[TranscriptionBackend]] = {
 _backend_instances: Dict[str, TranscriptionBackend] = {}
 
 
-def _normalize_backend_name(name: str) -> str:
-    """Normalize backend name aliases."""
+def _normalize_backend_name(name: str) -> Optional[str]:
+    """Normalize backend name aliases.
+
+    Returns None for 'auto' to indicate auto-selection should be used.
+    """
+    lower_name = name.lower()
+    # Handle auto-selection keywords
+    if lower_name in ("auto", "none", ""):
+        return None
     aliases = {
         "openai-whisper": "openai",
         "whisper-api": "openai",
@@ -596,7 +603,7 @@ def _normalize_backend_name(name: str) -> str:
         "cpp": "whisper-cpp",
         "whisper.cpp": "whisper-cpp",
     }
-    return aliases.get(name.lower(), name.lower())
+    return aliases.get(lower_name, lower_name)
 
 
 def get_available_backends() -> List[str]:
@@ -629,15 +636,17 @@ def get_transcription_backend(
     config = config or TranscriptionConfig.from_env()
 
     if name:
-        name = _normalize_backend_name(name)
-        if name not in _BACKENDS:
-            raise ValueError(f"Unknown backend: {name}. Available: {list(_BACKENDS.keys())}")
+        normalized_name = _normalize_backend_name(name)
+        # If normalized to None (e.g., "auto"), fall through to auto-selection
+        if normalized_name is not None:
+            if normalized_name not in _BACKENDS:
+                raise ValueError(f"Unknown backend: {normalized_name}. Available: {list(_BACKENDS.keys())}")
 
-        backend_cls = _BACKENDS[name]
-        backend = backend_cls(config)
-        if not backend.is_available():
-            raise RuntimeError(f"Backend '{name}' is not available. Check dependencies/config.")
-        return backend
+            backend_cls = _BACKENDS[normalized_name]
+            backend = backend_cls(config)
+            if not backend.is_available():
+                raise RuntimeError(f"Backend '{normalized_name}' is not available. Check dependencies/config.")
+            return backend
 
     # Auto-select first available backend from priority list
     for backend_name in config.backend_priority:

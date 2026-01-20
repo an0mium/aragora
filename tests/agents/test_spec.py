@@ -27,7 +27,7 @@ class TestAgentSpecPipeFormat:
         assert spec.provider == "gemini"
         assert spec.model is None
         assert spec.persona is None
-        assert spec.role == "proposer"  # Default role
+        assert spec.role is None  # None = assign automatically based on position
 
     def test_provider_and_role(self):
         """Parse spec with provider and role only."""
@@ -53,10 +53,10 @@ class TestAgentSpecPipeFormat:
         assert spec.persona == "qwen"
         assert spec.role == "critic"
 
-    def test_defaults_to_proposer_role(self):
-        """Empty role field defaults to 'proposer'."""
+    def test_empty_role_is_none(self):
+        """Empty role field returns None for automatic assignment."""
         spec = AgentSpec.parse("anthropic-api|claude-opus|philosopher|")
-        assert spec.role == "proposer"
+        assert spec.role is None  # None = assign automatically based on position
 
 
 class TestAgentSpecLegacyFormat:
@@ -67,27 +67,47 @@ class TestAgentSpecLegacyFormat:
         spec = AgentSpec.parse("anthropic-api:claude")
         assert spec.provider == "anthropic-api"
         assert spec.persona == "claude"
-        assert spec.role == "proposer"  # Default role for legacy format
+        assert spec.role is None  # None = assign automatically based on position
 
     def test_provider_only(self):
         """Parse legacy format with just provider."""
         spec = AgentSpec.parse("gemini")
         assert spec.provider == "gemini"
         assert spec.persona is None
-        assert spec.role == "proposer"
+        assert spec.role is None  # None = assign automatically based on position
 
-    def test_persona_not_role(self):
-        """Legacy format treats second part as persona, NOT role."""
-        # This was the bug - parsers were treating 'critic' as role
+    def test_valid_role_parsed_as_role(self):
+        """Legacy format treats second part as role if it's a valid role."""
+        # Valid roles (proposer, critic, synthesizer, judge) are recognized as roles
         spec = AgentSpec.parse("anthropic-api:critic")
-        assert spec.persona == "critic"  # Should be persona
-        assert spec.role == "proposer"  # Default role
+        assert spec.role == "critic"  # Recognized as explicit role
+        assert spec.persona is None  # Not a persona
+
+    def test_non_role_parsed_as_persona(self):
+        """Legacy format treats second part as persona if not a valid role."""
+        # Non-role strings like "philosopher" are treated as personas
+        spec = AgentSpec.parse("anthropic-api:philosopher")
+        assert spec.persona == "philosopher"  # Treated as persona
+        assert spec.role is None  # None = assign automatically based on position
 
     def test_complex_persona_name(self):
         """Legacy format handles complex persona names."""
         spec = AgentSpec.parse("anthropic-api:security_engineer")
         assert spec.persona == "security_engineer"
-        assert spec.role == "proposer"
+        assert spec.role is None  # None = assign automatically based on position
+
+    @pytest.mark.parametrize("role", ["proposer", "critic", "synthesizer", "judge"])
+    def test_all_valid_roles_recognized(self, role):
+        """All valid roles are recognized in legacy colon format."""
+        spec = AgentSpec.parse(f"anthropic-api:{role}")
+        assert spec.role == role
+        assert spec.persona is None
+
+    def test_role_case_insensitive(self):
+        """Role parsing is case-insensitive."""
+        spec = AgentSpec.parse("anthropic-api:CRITIC")
+        assert spec.role == "critic"
+        assert spec.persona is None
 
 
 class TestAgentSpecValidation:
@@ -142,15 +162,16 @@ class TestAgentSpecParseList:
         """Parse list mixing new and legacy formats."""
         specs = AgentSpec.parse_list("anthropic-api:claude,qwen||qwen|critic,gemini")
         assert len(specs) == 3
-        # Legacy format
+        # Legacy format with persona
         assert specs[0].provider == "anthropic-api"
         assert specs[0].persona == "claude"
-        assert specs[0].role == "proposer"
-        # New format
+        assert specs[0].role is None  # Auto-assign based on position
+        # New format with explicit role
         assert specs[1].provider == "qwen"
         assert specs[1].role == "critic"
-        # Simple legacy
+        # Simple legacy - no role specified
         assert specs[2].provider == "gemini"
+        assert specs[2].role is None  # Auto-assign based on position
 
     def test_parse_empty_string(self):
         """Empty string returns empty list."""
