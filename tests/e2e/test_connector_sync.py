@@ -34,41 +34,33 @@ class TestGitHubConnectorE2E:
     async def test_github_full_sync_lifecycle(self, mock_github_api, tenant_a: TestTenant):
         """Test complete GitHub sync lifecycle."""
         # Arrange
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test_token",
-            organization="test-org",
-            include_patterns=["*.py", "*.md"],
-            exclude_patterns=["node_modules/**"],
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test_token",
         )
 
-        connector = GitHubConnector(config)
-
-        # Act - Initialize
-        initialized = await connector.initialize()
-        assert initialized is True
-
-        # Act - Sync
+        # Act - Sync (connector initializes on first sync)
         sync_result = await connector.sync()
 
         # Assert
         assert sync_result is not None
-        assert sync_result.status == "success"
+        assert sync_result.success is True
         assert sync_result.items_synced >= 0
 
     @pytest.mark.asyncio
     async def test_github_incremental_sync(self, mock_github_api, tenant_a: TestTenant):
         """Test incremental sync after initial full sync."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test_token",
-            organization="test-org",
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test_token",
         )
-
-        connector = GitHubConnector(config)
-        await connector.initialize()
+        # Connector initializes on first sync
 
         # First full sync
         first_sync = await connector.sync()
@@ -77,42 +69,43 @@ class TestGitHubConnectorE2E:
         second_sync = await connector.sync()
 
         assert second_sync is not None
-        assert second_sync.sync_type in ("incremental", "full")
+        assert second_sync.success is True
 
     @pytest.mark.asyncio
-    async def test_github_sync_error_recovery(self, tenant_a: TestTenant):
+    async def test_github_sync_error_recovery(self, mock_github_api, tenant_a: TestTenant):
         """Test sync recovery from API errors."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test_token",
-            organization="test-org",
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test_token",
         )
 
         # Mock API failure then success
-        with patch("aragora.connectors.enterprise.git.github.GitHubClient") as mock:
-            instance = MagicMock()
-            call_count = [0]
+        call_count = [0]
 
-            async def get_repos_with_retry(*args, **kwargs):
-                call_count[0] += 1
-                if call_count[0] == 1:
-                    raise ConnectionError("API temporarily unavailable")
-                return [{"id": 1, "name": "repo-1"}]
+        async def mock_run_gh_with_retry(args):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise ConnectionError("API temporarily unavailable")
+            # Return valid commit response for subsequent calls
+            import json
+            if "commits/" in " ".join(args):
+                return "abc123"
+            return json.dumps([])
 
-            instance.get_repos = get_repos_with_retry
-            mock.return_value = instance
+        with patch.object(connector, "_run_gh", side_effect=mock_run_gh_with_retry):
+            with patch.object(connector, "_check_gh_cli", return_value=True):
+                # Connector initializes on first sync
 
-            connector = GitHubConnector(config)
-            await connector.initialize()
+                # First attempt should fail
+                with pytest.raises(Exception):
+                    await connector.sync()
 
-            # First attempt should fail
-            with pytest.raises(Exception):
-                await connector.sync()
-
-            # Retry should succeed
-            result = await connector.sync()
-            assert result is not None
+                # Retry should succeed
+                result = await connector.sync()
+                assert result is not None
 
 
 # ============================================================================
@@ -136,12 +129,12 @@ class TestSlackConnectorE2E:
         )
 
         connector = SlackConnector(config)
-        await connector.initialize()
+        # Connector initializes on first sync
 
         result = await connector.sync()
 
         assert result is not None
-        assert result.status == "success"
+        assert result.success is True
 
     @pytest.mark.asyncio
     async def test_slack_thread_sync(self, mock_slack_api, tenant_a: TestTenant):
@@ -155,7 +148,7 @@ class TestSlackConnectorE2E:
         )
 
         connector = SlackConnector(config)
-        await connector.initialize()
+        # Connector initializes on first sync
 
         result = await connector.sync()
 
@@ -203,12 +196,12 @@ class TestNotionConnectorE2E:
             )
 
             connector = NotionConnector(config)
-            await connector.initialize()
+            # Connector initializes on first sync
 
             result = await connector.sync()
 
             assert result is not None
-            assert result.status == "success"
+            assert result.success is True
 
     @pytest.mark.asyncio
     async def test_notion_recursive_page_sync(self, tenant_a: TestTenant):
@@ -233,7 +226,7 @@ class TestNotionConnectorE2E:
             )
 
             connector = NotionConnector(config)
-            await connector.initialize()
+            # Connector initializes on first sync
 
             result = await connector.sync()
             assert result is not None
@@ -255,19 +248,19 @@ class TestMultiConnectorE2E:
         tenant_a: TestTenant,
     ):
         """Test parallel sync of multiple connectors."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
         from aragora.connectors.enterprise.collaboration.slack import SlackConnector, SlackConfig
 
-        github_config = GitHubConfig(
-            access_token="ghp_test",
-            organization="test-org",
-        )
         slack_config = SlackConfig(
             bot_token="xoxb-test",
             channels=["general"],
         )
 
-        github = GitHubConnector(github_config)
+        github = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test",
+        )
         slack = SlackConnector(slack_config)
 
         await asyncio.gather(
@@ -290,27 +283,18 @@ class TestMultiConnectorE2E:
         tenant_a: TestTenant,
     ):
         """Test connector sync with state persistence."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
-        from aragora.connectors.enterprise.sync_store import SyncStore
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test",
-            organization="test-org",
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test",
         )
+        # Connector initializes on first sync
 
-        # Mock sync store
-        with patch("aragora.connectors.enterprise.sync_store.SyncStore") as store_mock:
-            store_instance = MagicMock()
-            store_instance.get_last_sync = AsyncMock(return_value=None)
-            store_instance.save_sync_state = AsyncMock(return_value=True)
-            store_mock.return_value = store_instance
+        result = await connector.sync()
 
-            connector = GitHubConnector(config)
-            await connector.initialize()
-
-            result = await connector.sync()
-
-            assert result is not None
+        assert result is not None
 
 
 # ============================================================================
@@ -324,15 +308,14 @@ class TestConnectorHealthE2E:
     @pytest.mark.asyncio
     async def test_connector_health_check(self, mock_github_api, tenant_a: TestTenant):
         """Test connector health status reporting."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test",
-            organization="test-org",
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test",
         )
-
-        connector = GitHubConnector(config)
-        await connector.initialize()
+        # Connector initializes on first sync
 
         health = await connector.health_check()
 
@@ -347,16 +330,14 @@ class TestConnectorHealthE2E:
         tenant_a: TestTenant,
     ):
         """Test metrics collection during sync."""
-        from aragora.connectors.enterprise.git.github import GitHubConnector, GitHubConfig
-        from aragora.connectors.metrics import record_sync
+        from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
-        config = GitHubConfig(
-            access_token="ghp_test",
-            organization="test-org",
+        connector = GitHubEnterpriseConnector(
+            repo="test-org/test-repo",
+            branch="main",
+            token="ghp_test",
         )
-
-        connector = GitHubConnector(config)
-        await connector.initialize()
+        # Connector initializes on first sync
 
         # Mock metrics recording
         with patch("aragora.connectors.metrics.record_sync") as mock_record:

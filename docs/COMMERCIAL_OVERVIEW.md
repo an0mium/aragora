@@ -14,10 +14,12 @@ Aragora is an **omnivorous multi-agent decision making engine** that harnesses d
 
 | Capability | Description | Business Value |
 |------------|-------------|----------------|
-| **Stress-Test Decisions** | Red-team attacks via 15+ heterogeneous AI agents | Find vulnerabilities before production |
-| **Generate Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
+| **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
+| **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
+| **Multi-Agent Consensus** | 15+ heterogeneous AI models debate to conclusions | Diverse perspectives, defensible decisions |
+| **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
+| **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
 | **Learn & Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
-| **Scale Enterprise** | Multi-tenant isolation with usage metering | Support multiple teams/clients |
 
 ---
 

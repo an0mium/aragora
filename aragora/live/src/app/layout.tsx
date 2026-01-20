@@ -18,8 +18,8 @@ import { AppShell } from '@/components/layout';
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
   title: 'ARAGORA // LIVE',
-  description: 'Omnivorous Multi Agent Decision Making Engine - Collaborative multi-agent decision making powered by diverse AI models.',
-  keywords: ['AI', 'multi-agent', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini'],
+  description: 'Omnivorous Multi Agent Decision Making Engine - Ingest from any source, query from any channel, get multi-agent consensus.',
+  keywords: ['AI', 'multi-agent', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Telegram', 'API'],
   authors: [{ name: 'Aragora Team' }],
   manifest: '/manifest.json',
   appleWebApp: {
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ARAGORA // LIVE',
-    description: 'Omnivorous Multi Agent Decision Making Engine - Harness the collective intelligence of multiple AI models.',
+    description: 'Omnivorous Multi Agent Decision Making Engine - Any source, any channel, multi-agent consensus.',
     type: 'website',
     images: ['/aragora-logo.png'],
   },

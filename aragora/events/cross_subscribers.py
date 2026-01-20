@@ -234,8 +234,14 @@ class CrossSubscriberManager:
         # Default retry configuration
         self._default_retry_config = default_retry_config or RetryConfig()
 
-        # Async dispatch configuration
-        self._async_config = async_config or AsyncDispatchConfig()
+        # Cache settings reference for feature flags and batch config
+        self._settings = get_settings() if SETTINGS_AVAILABLE else None
+
+        # Async dispatch configuration (use settings if available)
+        if async_config is not None:
+            self._async_config = async_config
+        else:
+            self._async_config = self._create_async_config_from_settings()
 
         # Event batch queue for high-volume events
         self._event_batch: dict[StreamEventType, list[StreamEvent]] = {}
@@ -247,11 +253,27 @@ class CrossSubscriberManager:
             cooldown_seconds=cooldown_seconds,
         )
 
-        # Cache settings reference for feature flags
-        self._settings = get_settings() if SETTINGS_AVAILABLE else None
-
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()
+
+    def _create_async_config_from_settings(self) -> AsyncDispatchConfig:
+        """Create AsyncDispatchConfig from settings or use defaults.
+
+        Returns:
+            Configured AsyncDispatchConfig
+        """
+        if self._settings is None:
+            return AsyncDispatchConfig()
+
+        try:
+            integration = self._settings.integration
+            return AsyncDispatchConfig(
+                batch_size=integration.event_batch_size,
+                batch_timeout_seconds=integration.event_batch_timeout_seconds,
+                enable_batching=integration.event_batching_enabled,
+            )
+        except (AttributeError, TypeError):
+            return AsyncDispatchConfig()
 
     def _is_km_handler_enabled(self, handler_name: str) -> bool:
         """Check if a KM handler is enabled via feature flags.

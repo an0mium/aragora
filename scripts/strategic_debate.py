@@ -58,7 +58,7 @@ CRITICAL STRATEGIC QUESTIONS TO DEBATE:
 STRATEGIC OPTIONS TO EVALUATE:
 
 A) "Second Opinion" Tool - "Five AI experts debate your decision before you commit"
-B) "AI Red Team" Tool - "AI red team finds what's wrong before users do"
+B) "Omnivorous Decision Engine" - "Any source, any channel, multi-agent consensus"
 C) "Self-Healing Codebase" - "Your codebase autonomously fixes bugs and improves itself"
 D) "AI Parliament" for Content - "AI content that shows all sides, not just one"
 

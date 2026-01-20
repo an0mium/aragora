@@ -118,10 +118,14 @@ class RankingAdapter:
         "ethics": ["ethics", "moral", "fair", "bias", "responsible", "privacy"],
     }
 
+    # Cache configuration
+    DEFAULT_CACHE_TTL_SECONDS = 60.0  # Default TTL for cached queries
+
     def __init__(
         self,
         elo_system: Optional[Any] = None,
         enable_dual_write: bool = False,
+        cache_ttl_seconds: float = DEFAULT_CACHE_TTL_SECONDS,
     ):
         """
         Initialize the adapter.
@@ -129,13 +133,20 @@ class RankingAdapter:
         Args:
             elo_system: Optional EloSystem instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            cache_ttl_seconds: TTL for cached queries (default: 60 seconds)
         """
         self._elo_system = elo_system
         self._enable_dual_write = enable_dual_write
+        self._cache_ttl_seconds = cache_ttl_seconds
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._expertise: Dict[str, Dict[str, Any]] = {}  # {agent_domain: expertise_data}
         self._agent_history: Dict[str, List[Dict[str, Any]]] = {}  # {agent_name: [records]}
+
+        # Query cache with TTL
+        self._domain_experts_cache: Dict[str, tuple] = {}  # {cache_key: (timestamp, results)}
+        self._cache_hits = 0
+        self._cache_misses = 0
 
         # Indices for fast lookup
         self._domain_agents: Dict[str, List[str]] = {}  # {domain: [agent_names]}

@@ -1,7 +1,7 @@
 {
-  "name": "Aragora - Multi Agent Decision Making",
+  "name": "Aragora - Omnivorous Multi Agent Decision Making",
   "short_name": "Aragora",
-  "description": "Omnivorous Multi Agent Decision Making Engine - Collaborative decision making powered by diverse AI models",
+  "description": "Omnivorous Multi Agent Decision Making Engine - Any source, any channel, multi-agent consensus",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

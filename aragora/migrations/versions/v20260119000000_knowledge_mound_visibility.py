@@ -34,7 +34,7 @@ def _column_exists(backend: DatabaseBackend, table: str, column: str) -> bool:
             rows = backend.fetch_all(f"PRAGMA table_info({table})")
             return any(row[1] == column for row in rows)
         return len(rows) > 0
-    except Exception:
+    except Exception:  # noqa: BLE001 - Schema introspection may fail in various ways
         return False
 
 
@@ -56,7 +56,7 @@ def _table_exists(backend: DatabaseBackend, table: str) -> bool:
                 (table,),
             )
         return len(rows) > 0
-    except Exception:
+    except Exception:  # noqa: BLE001 - Table existence check may fail in various ways
         return False
 
 
@@ -189,16 +189,16 @@ def up_fn(backend: DatabaseBackend) -> None:
                 backend.execute_write(
                     "CREATE INDEX IF NOT EXISTS idx_nodes_discoverable ON knowledge_nodes(is_discoverable) WHERE is_discoverable = TRUE"
                 )
-            except Exception:
-                pass  # Index may already exist
+            except Exception:  # noqa: BLE001 - Index may already exist or partial index unsupported
+                pass
         else:
             # SQLite partial index syntax
             try:
                 backend.execute_write(
                     "CREATE INDEX IF NOT EXISTS idx_nodes_discoverable ON knowledge_nodes(is_discoverable) WHERE is_discoverable = 1"
                 )
-            except Exception:
-                pass  # Index may already exist
+            except Exception:  # noqa: BLE001 - Index may already exist or partial index unsupported
+                pass
 
     logger.info("Knowledge Mound visibility migration applied successfully")
 

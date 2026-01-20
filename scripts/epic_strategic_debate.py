@@ -163,9 +163,9 @@ The technology is impressive (163K+ LOC, 15K+ tests, 12+ LLM providers). The pos
 - Pitch: "Five AI experts debate your decision before you commit"
 - Target: Senior engineers making high-stakes decisions
 
-**B) "AI Red Team" Tool**
-- Pitch: "AI red team finds what's wrong before users do"
-- Target: Security teams, architects, product managers
+**B) "Omnivorous Decision Engine"**
+- Pitch: "Any source, any channel, multi-agent consensus"
+- Target: Decision makers needing diverse AI perspectives
 
 **C) "Self-Healing Codebase" Tool**
 - Pitch: "Your codebase autonomously fixes bugs and improves itself"

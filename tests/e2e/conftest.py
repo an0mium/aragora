@@ -215,16 +215,59 @@ def isolated_tenants(tenant_a: TestTenant, tenant_b: TestTenant) -> List[TestTen
 
 @pytest.fixture
 def mock_github_api():
-    responses = {
-        "repos": [{"id": 1, "name": "repo-1", "full_name": "org/repo-1"}],
-        "contents": [{"name": "README.md", "path": "README.md", "type": "file"}],
-    }
-    with patch("aragora.connectors.enterprise.git.github.GitHubClient") as mock:
-        instance = MagicMock()
-        instance.get_repos = AsyncMock(return_value=responses["repos"])
-        instance.get_contents = AsyncMock(return_value=responses["contents"])
-        mock.return_value = instance
-        yield mock
+    """Mock GitHub API responses via _run_gh method."""
+    import json
+    import base64
+
+    # Mock responses for different gh CLI commands
+    async def mock_run_gh(args):
+        # Detect which API is being called
+        args_str = " ".join(args)
+
+        if "commits/" in args_str and ".sha" in args_str:
+            # Get latest commit SHA
+            return "abc123def456"
+
+        if "/commits" in args_str:
+            # Get commits list
+            return json.dumps([
+                {
+                    "sha": "abc123def456",
+                    "commit": {
+                        "message": "Initial commit",
+                        "author": {"name": "test", "date": "2024-01-01T00:00:00Z"}
+                    }
+                }
+            ])
+
+        if "/git/trees/" in args_str:
+            # Get file tree
+            return json.dumps([
+                {"path": "README.md", "type": "blob", "size": 100, "sha": "file1"},
+                {"path": "src/main.py", "type": "blob", "size": 500, "sha": "file2"},
+            ])
+
+        if "/contents/" in args_str:
+            # Get file content (base64 encoded)
+            return base64.b64encode(b"# Test README\nHello world").decode()
+
+        if "issue list" in args_str:
+            return json.dumps([])
+
+        if "pr list" in args_str:
+            return json.dumps([])
+
+        return None
+
+    with patch(
+        "aragora.connectors.enterprise.git.github.GitHubEnterpriseConnector._run_gh",
+        side_effect=mock_run_gh
+    ):
+        with patch(
+            "aragora.connectors.enterprise.git.github.GitHubEnterpriseConnector._check_gh_cli",
+            return_value=True
+        ):
+            yield
 
 
 @pytest.fixture

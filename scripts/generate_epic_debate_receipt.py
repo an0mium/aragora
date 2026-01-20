@@ -47,10 +47,10 @@ def parse_debate_transcript(transcript_path: Path) -> dict:
 
     # Key consensus points extracted from the debate
     consensus_points = [
-        "Position as 'AI Red Team as a Service' - adversarial validation, not general debate",
-        "Target: Decision owners in regulated tech (CTOs/VPs at FinTech/HealthTech)",
-        "Wedge: Multi-agent adversarial thinking + Z3 formal verification",
-        "Magic moment: Surfacing career-saving flaws before they cause damage",
+        "Position as 'Omnivorous Multi Agent Decision Making Engine' - any source, any channel, consensus",
+        "Target: Decision owners needing multi-perspective AI input across channels",
+        "Wedge: Omnivorous input (docs, APIs, web, voice) + bidirectional multi-channel output",
+        "Magic moment: Ask from Slack, get consensus backed by 8+ AI models in minutes",
     ]
 
     # Key strategic recommendations

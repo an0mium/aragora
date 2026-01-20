@@ -88,7 +88,7 @@ class GauntletStep(BaseStep):
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
         self._findings_count = 0
-        self._highest_severity = None
+        self._highest_severity: Optional[str] = None
 
     async def execute(self, context: WorkflowContext) -> Any:
         """Execute the gauntlet validation step."""
@@ -153,7 +153,7 @@ class GauntletStep(BaseStep):
                     for cat in probe_categories
                     if cat in [c.value for c in ProbeCategory]
                 ],
-                max_concurrent=parallel_attacks,
+                max_parallel_scenarios=parallel_attacks,
                 timeout_seconds=timeout_seconds,
             )
 
@@ -230,12 +230,15 @@ class GauntletStep(BaseStep):
                 "probes_run": len(probe_categories),
                 "compliance_checks_run": len(compliance_frameworks),
                 "attack_summary": {
-                    "total": result.attack_summary.total if result.attack_summary else 0,
-                    "successful": result.attack_summary.successful if result.attack_summary else 0,
+                    "total": result.attack_summary.total_attacks if result.attack_summary else 0,
+                    "successful": result.attack_summary.successful_attacks if result.attack_summary else 0,
                 },
                 "probe_summary": {
-                    "total": result.probe_summary.total if result.probe_summary else 0,
-                    "passed": result.probe_summary.passed if result.probe_summary else 0,
+                    "total": result.probe_summary.probes_run if result.probe_summary else 0,
+                    "passed": (
+                        result.probe_summary.probes_run - result.probe_summary.vulnerabilities_found
+                        if result.probe_summary else 0
+                    ),
                 },
                 "compliance_results": (
                     [

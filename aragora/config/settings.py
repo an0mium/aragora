@@ -717,6 +717,27 @@ class IntegrationSettings(BaseSettings):
         attr_name = f"km_{handler_name}_enabled"
         return getattr(self, attr_name, True)
 
+    # Event batching configuration
+    event_batch_size: int = Field(
+        default=10,
+        ge=1,
+        le=1000,
+        alias="ARAGORA_INTEGRATION_EVENT_BATCH_SIZE",
+        description="Number of events to batch before auto-flush (1-1000)",
+    )
+    event_batch_timeout_seconds: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=60.0,
+        alias="ARAGORA_INTEGRATION_EVENT_BATCH_TIMEOUT",
+        description="Maximum time (seconds) to hold events before flush (0.1-60)",
+    )
+    event_batching_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_EVENT_BATCHING",
+        description="Enable event batching for high-volume event types",
+    )
+
 
 class ProviderRateLimitSettings(BaseSettings):
     """Provider-specific rate limits (requests per minute)."""

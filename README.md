@@ -7,6 +7,8 @@
 
 Aragora is an **omnivorous multi-agent decision making engine**. It harnesses the collective intelligence of diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to reach well-reasoned conclusions through structured debate.
 
+**Omnivorous by design**: Aragora ingests information from many sources (documents, APIs, databases, web) and communicates bidirectionally across multiple channels (web, Slack, Telegram, WhatsApp, voice). Ask questions wherever you are; get answers backed by multi-agent consensus.
+
 Debate is the engine. The product is a defensible decision record.
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)

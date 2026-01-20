@@ -109,13 +109,13 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted, onEnterDashboard 
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
               <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Diverse Frontier Models Forge Consensus
+                <span className="text-acid-green">+</span> Any source: docs, APIs, web, voice
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Audit-ready receipts
+                <span className="text-acid-green">+</span> Any channel: web, Slack, Telegram
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> 5-15 min turnaround
+                <span className="text-acid-green">+</span> Bidirectional human-AI dialogue
               </span>
             </div>
           </div>
