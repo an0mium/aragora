@@ -172,8 +172,10 @@ class PromptContextBuilder:
         elif self.spectator:
             try:
                 self.spectator.emit(event_type, **kwargs)
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.debug(f"Spectator notification error: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected spectator notification error: {e}")
 
     def prepare_audience_context(self, emit_event: bool = False) -> str:
         """Prepare audience context for prompt building.

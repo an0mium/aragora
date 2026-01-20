@@ -142,16 +142,30 @@ class ContextGatherer:
                         "[rlm] ContextGatherer: AragoraRLM enabled via factory "
                         "(will use compression fallback since official RLM not installed)"
                     )
+            except ImportError as e:
+                # Expected: RLM module not installed
+                logger.debug(f"[rlm] RLM module not available: {e}")
+            except (RuntimeError, ValueError) as e:
+                # Expected: RLM initialization issues
+                logger.warning(f"[rlm] Failed to initialize RLM: {e}")
             except Exception as e:
-                logger.warning(f"[rlm] Failed to get RLM from factory: {e}")
+                # Unexpected error
+                logger.warning(f"[rlm] Unexpected error getting RLM from factory: {e}")
 
             # Fallback: get compressor from factory (compression-only)
             if not self._rlm_compressor and get_compressor is not None:
                 try:
                     self._rlm_compressor = get_compressor()
                     logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback via factory")
+                except ImportError as e:
+                    # Expected: compressor module not available
+                    logger.debug(f"[rlm] Compressor module not available: {e}")
+                except (RuntimeError, ValueError) as e:
+                    # Expected: compressor initialization issues
+                    logger.warning(f"[rlm] Failed to initialize compressor: {e}")
                 except Exception as e:
-                    logger.warning(f"[rlm] Failed to get compressor from factory: {e}")
+                    # Unexpected error
+                    logger.warning(f"[rlm] Unexpected error getting compressor: {e}")
 
         # Knowledge Mound configuration for auto-grounding
         self._enable_knowledge_grounding = enable_knowledge_grounding and HAS_KNOWLEDGE_MOUND
@@ -166,8 +180,13 @@ class ContextGatherer:
                         f"[knowledge] ContextGatherer: Knowledge Mound enabled "
                         f"(workspace={self._knowledge_workspace_id})"
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError) as e:
+                    # Expected: knowledge mound initialization issues
                     logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
+                    self._enable_knowledge_grounding = False
+                except Exception as e:
+                    # Unexpected error
+                    logger.warning(f"[knowledge] Unexpected error initializing Knowledge Mound: {e}")
                     self._enable_knowledge_grounding = False
             else:
                 logger.info("[knowledge] ContextGatherer: Using provided Knowledge Mound instance")
@@ -316,8 +335,17 @@ class ContextGatherer:
         except ImportError:
             logger.debug("[research] research_phase module not available")
             return None
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
+            # Expected: network or API issues
+            logger.warning(f"[research] Claude web search network error: {e}")
+            return None
+        except (ValueError, RuntimeError) as e:
+            # Expected: API or response processing issues
             logger.warning(f"[research] Claude web search failed: {e}")
+            return None
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"[research] Unexpected error in Claude web search: {e}")
             return None
 
     async def _gather_evidence_with_timeout(self, task: str) -> Optional[str]:
@@ -433,8 +461,15 @@ class ContextGatherer:
                     + "\n\n---\n\n".join(aragora_context_parts[:4])
                 )
 
-        except Exception as e:
+        except (OSError, IOError) as e:
+            # Expected: file system issues reading docs
+            logger.warning(f"Failed to load Aragora context (file error): {e}")
+        except (ValueError, RuntimeError) as e:
+            # Expected: compression or parsing issues
             logger.warning(f"Failed to load Aragora context: {e}")
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"Unexpected error loading Aragora context: {e}")
 
         return None
 
@@ -516,8 +551,18 @@ class ContextGatherer:
 
                 return f"## EVIDENCE CONTEXT\n{evidence_pack.to_context_string()}"
 
-        except Exception as e:
+        except ImportError as e:
+            # Expected: evidence collector module not available
+            logger.debug(f"Evidence collector not available: {e}")
+        except (ConnectionError, OSError) as e:
+            # Expected: network or file system issues
+            logger.warning(f"Evidence collection network/IO error: {e}")
+        except (ValueError, RuntimeError) as e:
+            # Expected: data processing issues
             logger.warning(f"Evidence collection failed: {e}")
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"Unexpected error in evidence collection: {e}")
 
         return None
 
@@ -576,8 +621,18 @@ class ContextGatherer:
                     )
                 return trending_context
 
-        except Exception as e:
+        except ImportError as e:
+            # Expected: pulse module not installed
+            logger.debug(f"Pulse module not available: {e}")
+        except (ConnectionError, OSError) as e:
+            # Expected: network issues fetching trends
+            logger.debug(f"Pulse context network error: {e}")
+        except (ValueError, RuntimeError) as e:
+            # Expected: API or data processing issues
             logger.debug(f"Pulse context unavailable: {e}")
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"Unexpected error getting pulse context: {e}")
 
         return None
 
@@ -679,8 +734,17 @@ class ContextGatherer:
 
             return "\n".join(context_parts)
 
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
+            # Expected: storage or network issues
+            logger.warning(f"[knowledge] Knowledge Mound query failed (IO error): {e}")
+            return None
+        except (ValueError, KeyError, AttributeError) as e:
+            # Expected: data format or access issues
             logger.warning(f"[knowledge] Knowledge Mound query failed: {e}")
+            return None
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"[knowledge] Unexpected error in Knowledge Mound query: {e}")
             return None
 
     def clear_cache(self, task: Optional[str] = None) -> None:
@@ -762,8 +826,12 @@ class ContextGatherer:
 
             except asyncio.TimeoutError:
                 logger.debug("[rlm] AragoraRLM compression timed out")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
+                # Expected: compression configuration or processing issues
                 logger.debug(f"[rlm] AragoraRLM compression failed: {e}")
+            except Exception as e:
+                # Unexpected error
+                logger.warning(f"[rlm] Unexpected error in AragoraRLM compression: {e}")
 
         # FALLBACK: Try direct HierarchicalCompressor (compression-only)
         if self._rlm_compressor:
@@ -799,8 +867,12 @@ class ContextGatherer:
 
             except asyncio.TimeoutError:
                 logger.debug("[rlm] HierarchicalCompressor timed out")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
+                # Expected: compression configuration or processing issues
                 logger.debug(f"[rlm] HierarchicalCompressor failed: {e}")
+            except Exception as e:
+                # Unexpected error
+                logger.warning(f"[rlm] Unexpected error in HierarchicalCompressor: {e}")
 
         # FINAL FALLBACK: Simple truncation
         logger.debug("[rlm] All RLM approaches failed, using simple truncation")

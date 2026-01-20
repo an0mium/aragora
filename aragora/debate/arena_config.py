@@ -243,6 +243,20 @@ class ArenaConfig:
     feedback_loop_decay: float = 0.9  # Decay factor for old feedback
     feedback_loop_min_debates: int = 3  # Min debates before applying feedback
 
+    # Hook System Activation (cross-subsystem event wiring)
+    enable_hook_handlers: bool = True  # Register default hook handlers via HookHandlerRegistry
+    hook_handler_registry: Optional[Any] = None  # Pre-configured HookHandlerRegistry
+
+    # Performance → ELO Integration (cross-pollination)
+    enable_performance_elo: bool = True  # Use performance metrics to modulate ELO K-factors
+    performance_elo_integrator: Optional[Any] = None  # Pre-configured PerformanceEloIntegrator
+
+    # Outcome → Memory Integration (cross-pollination)
+    enable_outcome_memory: bool = True  # Promote memories used in successful debates
+    outcome_memory_bridge: Optional[Any] = None  # Pre-configured OutcomeMemoryBridge
+    outcome_memory_success_threshold: float = 0.7  # Min confidence for promotion
+    outcome_memory_usage_threshold: int = 3  # Successful uses before promotion
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -290,10 +304,7 @@ class ArenaConfig:
             # Note: revalidation_staleness_threshold, revalidation_check_interval_seconds,
             # and revalidation_scheduler are stored in config but Arena reads them from config
             "enable_belief_guidance": self.enable_belief_guidance,
-            # Post-debate workflow automation
-            "post_debate_workflow": self.post_debate_workflow,
-            "enable_post_debate_workflow": self.enable_post_debate_workflow,
-            "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
+            # Note: post_debate_workflow params stored in ArenaConfig but not yet in Arena.__init__
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,
@@ -341,19 +352,14 @@ class ArenaConfig:
             "rlm_max_recent_messages": self.rlm_max_recent_messages,
             "rlm_summary_level": self.rlm_summary_level,
             "rlm_compression_round_threshold": self.rlm_compression_round_threshold,
-            # Memory Coordination
-            "enable_coordinated_writes": self.enable_coordinated_writes,
-            "memory_coordinator": self.memory_coordinator,
-            "coordinator_parallel_writes": self.coordinator_parallel_writes,
-            "coordinator_rollback_on_failure": self.coordinator_rollback_on_failure,
-            "coordinator_min_confidence_for_mound": self.coordinator_min_confidence_for_mound,
-            # Selection Feedback Loop
-            "enable_performance_feedback": self.enable_performance_feedback,
-            "selection_feedback_loop": self.selection_feedback_loop,
-            "feedback_loop_weight": self.feedback_loop_weight,
-            "feedback_loop_decay": self.feedback_loop_decay,
-            "feedback_loop_min_debates": self.feedback_loop_min_debates,
-            # Note: broadcast_platforms, training_export_path not yet in Arena.__init__
+            # Note: The following are stored in ArenaConfig but not yet in Arena.__init__:
+            # - Memory Coordination: enable_coordinated_writes, memory_coordinator,
+            #   coordinator_parallel_writes, coordinator_rollback_on_failure,
+            #   coordinator_min_confidence_for_mound
+            # - Selection Feedback Loop: enable_performance_feedback, selection_feedback_loop,
+            #   feedback_loop_weight, feedback_loop_decay, feedback_loop_min_debates
+            # - Hook System: enable_hook_handlers, hook_handler_registry
+            # - Broadcast: broadcast_platforms, training_export_path
         }
 
 

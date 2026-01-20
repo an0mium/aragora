@@ -347,8 +347,10 @@ class SelectionFeedbackLoop:
                     # Assume 1000-2000 range, center at 1500
                     elo_factor = (rating.elo - 1500) / 500 * weight * 0.5
                     adjustment += elo_factor
-            except Exception:
-                pass
+            except (KeyError, ValueError, AttributeError) as e:
+                logger.debug(f"ELO rating lookup failed for {state.agent_name}: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error in ELO lookup for {state.agent_name}: {e}")
 
         # Clamp to max adjustment
         adjustment = max(-self.config.max_adjustment, min(self.config.max_adjustment, adjustment))

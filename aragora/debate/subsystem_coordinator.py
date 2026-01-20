@@ -124,6 +124,11 @@ class SubsystemCoordinator:
     relationship_tracker: Optional["RelationshipTracker"] = None
     tier_analytics_tracker: Optional["TierAnalyticsTracker"] = None
 
+    # Hook system
+    hook_manager: Optional[Any] = None  # HookManager for lifecycle hooks
+    hook_handler_registry: Optional[Any] = None  # HookHandlerRegistry for auto-wiring
+    enable_hook_handlers: bool = True  # Auto-register default handlers if hook_manager provided
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _init_errors: list = field(default_factory=list, repr=False)
@@ -199,6 +204,10 @@ class SubsystemCoordinator:
         if self.enable_moment_detection and self.moment_detector is None:
             self._auto_init_moment_detector()
 
+        # Hook handler registry (requires hook_manager)
+        if self.hook_manager is not None and self.enable_hook_handlers:
+            self._auto_init_hook_handlers()
+
     def _auto_init_position_ledger(self) -> None:
         """Auto-initialize PositionLedger for tracking agent positions.
 
@@ -264,6 +273,48 @@ class SubsystemCoordinator:
         except (TypeError, ValueError, RuntimeError) as e:
             logger.debug("MomentDetector auto-init failed: %s", e)
             self._init_errors.append(f"MomentDetector init failed: {e}")
+
+    def _auto_init_hook_handlers(self) -> None:
+        """Auto-initialize HookHandlerRegistry to wire subsystems to HookManager.
+
+        Creates a registry that connects available subsystems to the hook lifecycle,
+        enabling automatic event propagation across components.
+        """
+        if self.hook_handler_registry is not None:
+            # Already have a registry
+            return
+
+        try:
+            from aragora.debate.hook_handlers import HookHandlerRegistry
+
+            # Collect available subsystems for the registry
+            subsystems = {}
+            if self.continuum_memory:
+                subsystems["continuum_memory"] = self.continuum_memory
+            if self.consensus_memory:
+                subsystems["consensus_memory"] = self.consensus_memory
+            if self.calibration_tracker:
+                subsystems["calibration_tracker"] = self.calibration_tracker
+            if self.flip_detector:
+                subsystems["flip_detector"] = self.flip_detector
+            if self.elo_system:
+                subsystems["elo_system"] = self.elo_system
+            if self.relationship_tracker:
+                subsystems["relationship_tracker"] = self.relationship_tracker
+            if self.tier_analytics_tracker:
+                subsystems["tier_analytics_tracker"] = self.tier_analytics_tracker
+
+            self.hook_handler_registry = HookHandlerRegistry(
+                hook_manager=self.hook_manager,
+                subsystems=subsystems,
+            )
+            count = self.hook_handler_registry.register_all()
+            logger.debug(f"Auto-initialized HookHandlerRegistry with {count} handlers")
+        except ImportError:
+            logger.debug("HookHandlerRegistry not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("HookHandlerRegistry auto-init failed: %s", e)
+            self._init_errors.append(f"HookHandlerRegistry init failed: {e}")
 
     # =========================================================================
     # Lifecycle hooks
@@ -507,12 +558,24 @@ class SubsystemCoordinator:
     # Diagnostics
     # =========================================================================
 
+    @property
+    def has_hook_handlers(self) -> bool:
+        """Check if hook handlers are registered."""
+        return (
+            self.hook_handler_registry is not None
+            and getattr(self.hook_handler_registry, "is_registered", False)
+        )
+
     def get_status(self) -> dict:
         """Get status of all subsystems.
 
         Returns:
             Dictionary with subsystem availability and any init errors
         """
+        hook_count = 0
+        if self.hook_handler_registry:
+            hook_count = getattr(self.hook_handler_registry, "registered_count", 0)
+
         return {
             "subsystems": {
                 "position_tracker": self.position_tracker is not None,
@@ -527,6 +590,8 @@ class SubsystemCoordinator:
                 "relationship_tracker": self.relationship_tracker is not None,
                 "tier_analytics_tracker": self.tier_analytics_tracker is not None,
                 "persona_manager": self.persona_manager is not None,
+                "hook_manager": self.hook_manager is not None,
+                "hook_handler_registry": self.hook_handler_registry is not None,
             },
             "capabilities": {
                 "position_tracking": self.has_position_tracking,
@@ -537,7 +602,9 @@ class SubsystemCoordinator:
                 "moment_detection": self.has_moment_detection,
                 "relationship_tracking": self.has_relationship_tracking,
                 "continuum_memory": self.has_continuum_memory,
+                "hook_handlers": self.has_hook_handlers,
             },
+            "hook_handlers_registered": hook_count,
             "init_errors": self._init_errors,
             "initialized": self._initialized,
         }
@@ -555,6 +622,7 @@ class SubsystemConfig:
     enable_position_ledger: bool = False
     enable_calibration: bool = False
     enable_moment_detection: bool = False
+    enable_hook_handlers: bool = True
 
     # Pre-configured subsystems (optional)
     position_tracker: Optional[Any] = None
@@ -569,6 +637,8 @@ class SubsystemConfig:
     moment_detector: Optional[Any] = None
     relationship_tracker: Optional[Any] = None
     tier_analytics_tracker: Optional[Any] = None
+    hook_manager: Optional[Any] = None
+    hook_handler_registry: Optional[Any] = None
 
     def create_coordinator(
         self,
@@ -602,6 +672,9 @@ class SubsystemConfig:
             enable_moment_detection=self.enable_moment_detection,
             relationship_tracker=self.relationship_tracker,
             tier_analytics_tracker=self.tier_analytics_tracker,
+            hook_manager=self.hook_manager,
+            hook_handler_registry=self.hook_handler_registry,
+            enable_hook_handlers=self.enable_hook_handlers,
         )
 
 

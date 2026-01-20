@@ -179,8 +179,11 @@ class MLDelegationStrategy(DelegationStrategy):
 
             return self._reorder_agents(agents, decision.selected_agents)
 
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(f"ML routing failed with data error: {e}, using fallback")
+            return list(agents)[:team_size]
         except Exception as e:
-            logger.warning(f"ML routing failed: {e}, using fallback")
+            logger.exception(f"Unexpected ML routing error: {e}, using fallback")
             return list(agents)[:team_size]
 
     def _reorder_agents(
@@ -241,8 +244,11 @@ class MLDelegationStrategy(DelegationStrategy):
 
             return score
 
+        except (ValueError, TypeError, KeyError) as e:
+            logger.debug(f"ML scoring failed for {agent.name} with data error: {e}")
+            return 2.5
         except Exception as e:
-            logger.debug(f"ML scoring failed for {agent.name}: {e}")
+            logger.warning(f"Unexpected ML scoring error for {agent.name}: {e}")
             return 2.5
 
 
@@ -303,8 +309,11 @@ class QualityGate:
         try:
             score = scorer.score(text, context=context)
             return (score.overall, score.confidence)
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Quality scoring failed with expected error: {e}")
+            return (0.5, 0.0)
         except Exception as e:
-            logger.debug(f"Quality scoring failed: {e}")
+            logger.warning(f"Unexpected quality scoring error: {e}")
             return (0.5, 0.0)
 
     def passes_gate(
@@ -486,8 +495,16 @@ class ConsensusEstimator:
                 "recommendation": recommendation,
             }
 
+        except (ValueError, TypeError, KeyError) as e:
+            logger.debug(f"Consensus estimation failed with data error: {e}")
+            return {
+                "probability": 0.5,
+                "confidence": 0.0,
+                "trend": "unknown",
+                "recommendation": "continue",
+            }
         except Exception as e:
-            logger.debug(f"Consensus estimation failed: {e}")
+            logger.warning(f"Unexpected consensus estimation error: {e}")
             return {
                 "probability": 0.5,
                 "confidence": 0.0,

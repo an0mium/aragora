@@ -322,8 +322,10 @@ class DebateService:
             elif isinstance(agent, str) and self._agent_resolver:
                 try:
                     resolved.append(self._agent_resolver(agent))
-                except Exception as e:
+                except (KeyError, ValueError) as e:
                     logger.warning(f"Failed to resolve agent '{agent}': {e}")
+                except Exception as e:
+                    logger.exception(f"Unexpected error resolving agent '{agent}': {e}")
             elif isinstance(agent, str):
                 # Try to create a basic agent from the name
                 try:

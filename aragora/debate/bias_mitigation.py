@@ -683,8 +683,12 @@ Respond with ONLY a number from 0-10."""
                 score = float(score_match.group(1)) / 10.0
                 return min(1.0, max(0.0, score))
 
+        except asyncio.TimeoutError:
+            logger.debug("LLM criterion evaluation timed out")
+        except (ValueError, TypeError) as e:
+            logger.debug(f"LLM criterion evaluation failed to parse response: {e}")
         except Exception as e:
-            logger.debug(f"LLM criterion evaluation failed: {e}")
+            logger.warning(f"Unexpected error in LLM criterion evaluation: {e}")
 
         return 0.5
 

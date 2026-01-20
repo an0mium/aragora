@@ -622,14 +622,35 @@ class MatrixDebateRunner:
                 rounds=getattr(debate_result, "rounds", 0),
             )
 
-        except Exception as e:
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.warning(f"Scenario {scenario.name} debate cancelled or timed out: {e}")
+            return ScenarioResult(
+                scenario_id=scenario.id,
+                scenario_name=scenario.name,
+                conclusion=f"Timeout/Cancelled: {str(e)}",
+                confidence=0.0,
+                consensus_reached=False,
+                metadata={"error": str(e), "error_type": "timeout"},
+            )
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Scenario {scenario.name} debate data error: {e}")
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
                 conclusion=f"Error: {str(e)}",
                 confidence=0.0,
                 consensus_reached=False,
-                metadata={"error": str(e)},
+                metadata={"error": str(e), "error_type": "data"},
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error in scenario {scenario.name} debate: {e}")
+            return ScenarioResult(
+                scenario_id=scenario.id,
+                scenario_name=scenario.name,
+                conclusion=f"Error: {str(e)}",
+                confidence=0.0,
+                consensus_reached=False,
+                metadata={"error": str(e), "error_type": "unexpected"},
             )
 
 

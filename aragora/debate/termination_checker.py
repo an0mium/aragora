@@ -188,8 +188,12 @@ REASON: <brief explanation>"""
                     self.hooks["on_judge_termination"](judge.name, reason)
                 return False, reason
 
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.warning(f"Judge termination check timed out: {e}")
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Judge termination check failed to parse response: {e}")
         except Exception as e:
-            logger.warning(f"Judge termination check failed: {e}")
+            logger.exception(f"Unexpected error in judge termination check: {e}")
 
         return True, ""
 
@@ -313,8 +317,24 @@ Where confidence indicates how certain you are in your assessment:
 
             return result
 
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.warning(f"Judge termination check timed out: {e}")
+            return TerminationResult(
+                should_terminate=False,
+                reason=f"Timeout: {e}",
+                confidence=0.0,
+                source="timeout",
+            )
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Judge termination check failed to parse response: {e}")
+            return TerminationResult(
+                should_terminate=False,
+                reason=f"Parse error: {e}",
+                confidence=0.0,
+                source="parse_error",
+            )
         except Exception as e:
-            logger.warning(f"Judge termination check failed: {e}")
+            logger.exception(f"Unexpected error in judge termination check: {e}")
             return TerminationResult(
                 should_terminate=False,
                 reason=f"Error: {e}",

@@ -318,8 +318,20 @@ class HookManager:
                 if hook.once:
                     to_remove.append(hook)
 
+            except (TypeError, ValueError, AttributeError) as e:
+                # Expected errors from hook callback signature mismatches or invalid data
+                logger.warning(f"Hook {hook.name} failed with expected error: {e}")
+                results.append(None)
+
+                if self._error_handler:
+                    try:
+                        self._error_handler(hook.name, e)
+                    except Exception as handler_error:
+                        # Don't let error handler failures cascade
+                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
             except Exception as e:
-                logger.warning(f"Hook {hook.name} failed: {e}")
+                # Unexpected errors from hook callback
+                logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
                 results.append(None)
 
                 if self._error_handler:
@@ -379,8 +391,20 @@ class HookManager:
                 if hook.once:
                     to_remove.append(hook)
 
+            except (TypeError, ValueError, AttributeError) as e:
+                # Expected errors from hook callback signature mismatches or invalid data
+                logger.warning(f"Hook {hook.name} failed with expected error: {e}")
+                results.append(None)
+
+                if self._error_handler:
+                    try:
+                        self._error_handler(hook.name, e)
+                    except Exception as handler_error:
+                        # Don't let error handler failures cascade
+                        logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
             except Exception as e:
-                logger.warning(f"Hook {hook.name} failed: {e}")
+                # Unexpected errors from hook callback
+                logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
                 results.append(None)
 
                 if self._error_handler:

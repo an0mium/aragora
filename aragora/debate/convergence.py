@@ -573,9 +573,13 @@ class ConvergenceDetector:
                 backend = get_similarity_backend(env_override, debate_id=self.debate_id)
                 logger.info(f"Using {env_override} backend via {_ENV_CONVERGENCE_BACKEND}")
                 return backend
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 logger.warning(
                     f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to auto."
+                )
+            except Exception as e:
+                logger.exception(
+                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} unexpected error: {e}. Falling back to auto."
                 )
 
         # Try sentence transformers (best)

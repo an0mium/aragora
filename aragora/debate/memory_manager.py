@@ -109,8 +109,12 @@ class MemoryManager:
                 emit_fn = getattr(self.event_emitter, "emit", None)
             if emit_fn is not None:
                 emit_fn(event_type, loop_id=self.loop_id, **data)
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
+            # Expected: emitter missing method or wrong signature
             logger.debug(f"Failed to emit memory event {event_type}: {e}")
+        except Exception as e:
+            # Unexpected error in event emission
+            logger.warning(f"Unexpected error emitting memory event {event_type}: {e}")
 
     def _get_domain(self) -> str:
         """Get current debate domain from extractor or default."""
@@ -192,9 +196,13 @@ class MemoryManager:
                 debate_id=result.id,
             )
 
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected: memory system configuration or data format issues
+            logger.warning(f"  [continuum] Failed to store outcome: {e}")
         except Exception as e:
+            # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
-            logger.warning(f"  [continuum] Failed to store outcome: {msg}", exc_info=exc_info)
+            logger.exception(f"  [continuum] Unexpected error storing outcome: {msg}")
 
     def store_consensus_record(
         self,
@@ -279,9 +287,13 @@ class MemoryManager:
             for agent_name in dissenting_agents:
                 self._store_agent_dissent(record.id, agent_name, result, task)
 
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected: consensus memory configuration or data format issues
+            logger.warning(f"  [consensus] Failed to store record: {e}")
         except Exception as e:
+            # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "consensus")
-            logger.warning(f"  [consensus] Failed to store record: {msg}", exc_info=exc_info)
+            logger.exception(f"  [consensus] Unexpected error storing record: {msg}")
 
     def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
         """Convert confidence score to ConsensusStrength enum."""
@@ -356,8 +368,12 @@ class MemoryManager:
 
             logger.debug(f"  [consensus] Stored dissent for {agent_name}")
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
+            # Expected: missing data or format issues in dissent storage
             logger.debug(f"  [consensus] Failed to store dissent for {agent_name}: {e}")
+        except Exception as e:
+            # Unexpected error - log with more detail
+            logger.warning(f"  [consensus] Unexpected error storing dissent for {agent_name}: {e}")
 
     def store_evidence(self, evidence_snippets: list, task: str) -> None:
         """Store collected evidence snippets in ContinuumMemory for future retrieval.
@@ -400,8 +416,12 @@ class MemoryManager:
                         },
                     )
                     stored_count += 1
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError) as e:
+                    # Expected: data format or memory configuration issues
                     logger.debug(f"Continuum storage error (non-fatal): {e}")
+                except Exception as e:
+                    # Unexpected error - still non-fatal but log with more detail
+                    logger.warning(f"Continuum storage unexpected error (non-fatal): {e}")
 
             if stored_count > 0:
                 logger.info(
@@ -412,9 +432,13 @@ class MemoryManager:
                     stored_count, domain, task, evidence_snippets[:stored_count]
                 )
 
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected: evidence format or memory configuration issues
+            logger.warning(f"  [continuum] Failed to store evidence: {e}")
         except Exception as e:
+            # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
-            logger.warning(f"  [continuum] Failed to store evidence: {msg}", exc_info=exc_info)
+            logger.exception(f"  [continuum] Unexpected error storing evidence: {msg}")
 
     def _emit_evidence_found(
         self,
@@ -454,8 +478,15 @@ class MemoryManager:
                     },
                 )
             )
-        except Exception as e:
+        except ImportError as e:
+            # Expected: stream module not available
+            logger.debug(f"Evidence event emission skipped (module unavailable): {e}")
+        except (AttributeError, TypeError) as e:
+            # Expected: emitter method or signature issues
             logger.debug(f"Evidence event emission error: {e}")
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"Unexpected evidence event emission error: {e}")
 
     def update_memory_outcomes(self, result: "DebateResult") -> None:
         """Update retrieved memories based on debate outcome.
@@ -498,13 +529,23 @@ class MemoryManager:
                                 quality_before=0.5,
                                 quality_after=result.confidence if success else 0.3,
                             )
-                        except Exception as e:
+                        except (AttributeError, TypeError, ValueError) as e:
+                            # Expected: tier analytics configuration issues
                             logger.debug(
                                 f"  [tier_analytics] Failed to record usage for {mem_id}: {e}"
                             )
+                        except Exception as e:
+                            # Unexpected error
+                            logger.warning(
+                                f"  [tier_analytics] Unexpected error recording usage for {mem_id}: {e}"
+                            )
 
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, KeyError) as e:
+                    # Expected: memory update configuration or data issues
                     logger.debug(f"  [continuum] Failed to update memory {mem_id}: {e}")
+                except Exception as e:
+                    # Unexpected error
+                    logger.warning(f"  [continuum] Unexpected error updating memory {mem_id}: {e}")
 
             if updated_count > 0:
                 logger.info(
@@ -515,11 +556,13 @@ class MemoryManager:
             self._retrieved_ids = []
             self._retrieved_tiers = {}
 
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected: memory configuration or data format issues
+            logger.warning(f"  [continuum] Failed to update memory outcomes: {e}")
         except Exception as e:
+            # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
-            logger.warning(
-                f"  [continuum] Failed to update memory outcomes: {msg}", exc_info=exc_info
-            )
+            logger.exception(f"  [continuum] Unexpected error updating memory outcomes: {msg}")
 
     async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
@@ -579,8 +622,13 @@ class MemoryManager:
                 lines.append("")  # blank line between entries
 
             return "\n".join(lines)
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
+            # Expected: embedding search or formatting issues
+            logger.debug(f"Historical context retrieval error: {e}")
+            return ""
         except Exception as e:
-            logger.debug(f"Historical context formatting error: {e}")
+            # Unexpected error
+            logger.warning(f"Unexpected historical context error: {e}")
             return ""
 
     def get_successful_patterns(self, limit: int = 5) -> str:
@@ -636,8 +684,13 @@ class MemoryManager:
             # Cache the result
             self._patterns_cache = (now, result)
             return result
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
+            # Expected: critique store configuration or data issues
             logger.debug(f"Failed to retrieve patterns: {e}")
+            return ""
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"Unexpected error retrieving patterns: {e}")
             return ""
 
     def _format_patterns_for_prompt(self, patterns: list[dict]) -> str:
@@ -678,8 +731,12 @@ class MemoryManager:
         if self.spectator:
             try:
                 self.spectator.emit(event_type, details=details, metric=metric)
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
+                # Expected: spectator method or signature issues
                 logger.debug(f"Spectator notification error: {e}")
+            except Exception as e:
+                # Unexpected error
+                logger.warning(f"Unexpected spectator notification error: {e}")
 
     def track_retrieved_ids(
         self,
