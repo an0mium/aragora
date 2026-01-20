@@ -1,6 +1,6 @@
 # Secrets Management Migration Plan
 
-> **Status:** Phase 1 In Progress
+> **Status:** Phase 1 Complete
 > **Created:** 2026-01-19
 > **Updated:** 2026-01-20
 > **Target Completion:** Q2 2026
@@ -31,13 +31,19 @@ cp .env .env.backup  # Backup old file
 
 ### Step 3: Add Secrets to GitHub
 
-1. Go to: Repository → Settings → Secrets and variables → Actions
-2. Add each rotated key as a repository secret:
-   - `ANTHROPIC_API_KEY`
-   - `OPENAI_API_KEY`
-   - `MISTRAL_API_KEY`
-   - `GEMINI_API_KEY`
-   - `OPENROUTER_API_KEY`
+✅ **Completed 2026-01-20** - All API keys added via `gh secret set`:
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `MISTRAL_API_KEY`
+- `GEMINI_API_KEY`
+- `OPENROUTER_API_KEY`
+- `XAI_API_KEY`
+- `GROK_API_KEY`
+
+To add more secrets securely (value never in command line):
+```bash
+grep "^SECRET_NAME=" .env | cut -d= -f2- | gh secret set SECRET_NAME
+```
 
 ### Step 4: Verify `.gitignore`
 
@@ -243,7 +249,7 @@ The following workflows are already configured to use GitHub Secrets:
 ## Verification Checklist
 
 ### GitHub Secrets
-- [ ] All secrets added to repository settings
+- [x] All secrets added to repository settings (2026-01-20)
 - [x] CI workflows updated to use `${{ secrets.* }}`
 - [ ] Test workflow passes with secrets
 - [ ] Secrets masked in action logs
