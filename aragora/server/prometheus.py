@@ -379,6 +379,68 @@ if PROMETHEUS_AVAILABLE:
         ["iteration"],
     )
 
+    # Knowledge Mound metrics
+    KNOWLEDGE_VISIBILITY_CHANGES = Counter(
+        "aragora_knowledge_visibility_changes_total",
+        "Visibility level changes on knowledge items",
+        ["from_level", "to_level", "workspace_id"],
+    )
+
+    KNOWLEDGE_ACCESS_GRANTS = Counter(
+        "aragora_knowledge_access_grants_total",
+        "Access grants created or revoked",
+        ["action", "grantee_type", "workspace_id"],  # action: grant/revoke
+    )
+
+    KNOWLEDGE_SHARES = Counter(
+        "aragora_knowledge_shares_total",
+        "Knowledge sharing operations",
+        ["action", "target_type"],  # action: share/accept/decline/revoke
+    )
+
+    KNOWLEDGE_SHARED_ITEMS = Gauge(
+        "aragora_knowledge_shared_items_count",
+        "Shared items pending acceptance per workspace",
+        ["workspace_id"],
+    )
+
+    KNOWLEDGE_GLOBAL_FACTS = Counter(
+        "aragora_knowledge_global_facts_total",
+        "Global/verified facts stored or promoted",
+        ["action"],  # action: stored/promoted/queried
+    )
+
+    KNOWLEDGE_GLOBAL_QUERIES = Counter(
+        "aragora_knowledge_global_queries_total",
+        "Queries against global knowledge",
+        ["has_results"],  # has_results: true/false
+    )
+
+    KNOWLEDGE_FEDERATION_SYNCS = Counter(
+        "aragora_knowledge_federation_syncs_total",
+        "Federation sync operations",
+        ["region_id", "direction", "status"],  # direction: push/pull
+    )
+
+    KNOWLEDGE_FEDERATION_NODES = Counter(
+        "aragora_knowledge_federation_nodes_total",
+        "Nodes synced via federation",
+        ["region_id", "direction"],
+    )
+
+    KNOWLEDGE_FEDERATION_LATENCY = Histogram(
+        "aragora_knowledge_federation_latency_seconds",
+        "Federation sync operation latency",
+        ["region_id", "direction"],
+        buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0],
+    )
+
+    KNOWLEDGE_FEDERATION_REGIONS = Gauge(
+        "aragora_knowledge_federation_regions_count",
+        "Federated regions by status",
+        ["status"],  # status: enabled/disabled/healthy/unhealthy
+    )
+
 
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
@@ -933,6 +995,19 @@ from aragora.server.prometheus_rlm import (
     timed_rlm_refinement,
 )
 
+# Knowledge Mound metrics
+from aragora.server.prometheus_knowledge import (
+    record_knowledge_access_grant,
+    record_knowledge_federation_sync,
+    record_knowledge_global_fact,
+    record_knowledge_global_query,
+    record_knowledge_share,
+    record_knowledge_visibility_change,
+    set_knowledge_federation_regions,
+    set_knowledge_shared_items,
+    timed_knowledge_federation_sync,
+)
+
 __all__ = [
     # Core
     "PROMETHEUS_AVAILABLE",
@@ -991,4 +1066,14 @@ __all__ = [
     "record_rlm_ready_false",
     "timed_rlm_compression",
     "timed_rlm_refinement",
+    # Knowledge Mound (re-exported)
+    "record_knowledge_visibility_change",
+    "record_knowledge_access_grant",
+    "record_knowledge_share",
+    "set_knowledge_shared_items",
+    "record_knowledge_global_fact",
+    "record_knowledge_global_query",
+    "record_knowledge_federation_sync",
+    "set_knowledge_federation_regions",
+    "timed_knowledge_federation_sync",
 ]
