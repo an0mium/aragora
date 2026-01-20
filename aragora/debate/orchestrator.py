@@ -165,6 +165,10 @@ class Arena:
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
         enable_belief_guidance: bool = False,  # Inject historical cruxes from similar debates
+        enable_auto_revalidation: bool = False,  # Auto-trigger revalidation for stale knowledge
+        revalidation_staleness_threshold: float = 0.8,  # Score threshold for staleness
+        revalidation_check_interval_seconds: int = 3600,  # Interval for staleness checks
+        revalidation_scheduler=None,  # Optional RevalidationScheduler instance
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
@@ -308,6 +312,12 @@ class Arena:
 
         # Unpack tracker components to instance attributes
         self._apply_tracker_components(trackers)
+
+        # Store additional config flags not tracked via TrackerComponents
+        self.enable_auto_revalidation = enable_auto_revalidation
+        self.revalidation_staleness_threshold = revalidation_staleness_threshold
+        self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
+        self.revalidation_scheduler = revalidation_scheduler
 
         # Initialize user participation and roles
         self._init_user_participation()
