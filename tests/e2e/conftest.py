@@ -272,16 +272,228 @@ def mock_github_api():
 
 @pytest.fixture
 def mock_slack_api():
-    responses = {
-        "channels": [{"id": "C001", "name": "general", "is_channel": True}],
-        "messages": [{"ts": "1234567890.123456", "text": "Hello!", "user": "U001"}],
-    }
-    with patch("aragora.connectors.enterprise.collaboration.slack.SlackClient") as mock:
-        instance = MagicMock()
-        instance.list_channels = AsyncMock(return_value=responses["channels"])
-        instance.get_messages = AsyncMock(return_value=responses["messages"])
-        mock.return_value = instance
-        yield mock
+    """Mock Slack API responses via _api_request method."""
+    import json
+
+    async def mock_api_request(endpoint, method="GET", params=None, json_data=None):
+        """Mock Slack Web API responses."""
+        if endpoint == "conversations.list":
+            return {
+                "ok": True,
+                "channels": [
+                    {
+                        "id": "C001",
+                        "name": "general",
+                        "is_private": False,
+                        "is_archived": False,
+                        "topic": {"value": "General discussion"},
+                        "purpose": {"value": "Company-wide announcements"},
+                        "num_members": 50,
+                        "created": 1609459200,
+                    },
+                    {
+                        "id": "C002",
+                        "name": "random",
+                        "is_private": False,
+                        "is_archived": False,
+                        "topic": {"value": "Random chat"},
+                        "purpose": {"value": "Off-topic discussion"},
+                        "num_members": 30,
+                        "created": 1609459200,
+                    },
+                ],
+                "response_metadata": {},
+            }
+        elif endpoint == "conversations.history":
+            return {
+                "ok": True,
+                "messages": [
+                    {
+                        "ts": "1234567890.123456",
+                        "text": "Hello team!",
+                        "user": "U001",
+                        "reactions": [],
+                        "files": [],
+                    },
+                    {
+                        "ts": "1234567890.123457",
+                        "text": "Welcome!",
+                        "user": "U002",
+                        "reactions": [{"name": "wave", "count": 2}],
+                        "files": [],
+                    },
+                ],
+                "has_more": False,
+            }
+        elif endpoint == "users.info":
+            user_id = params.get("user", "U001") if params else "U001"
+            return {
+                "ok": True,
+                "user": {
+                    "id": user_id,
+                    "name": f"user_{user_id}",
+                    "real_name": f"Test User {user_id}",
+                    "profile": {"display_name": f"testuser{user_id}", "email": f"{user_id}@test.com"},
+                    "is_bot": False,
+                },
+            }
+        elif endpoint == "conversations.replies":
+            return {
+                "ok": True,
+                "messages": [
+                    {"ts": "1234567890.123456", "text": "Parent message", "user": "U001"},
+                    {"ts": "1234567890.123458", "text": "Reply 1", "user": "U002"},
+                ],
+            }
+        elif endpoint == "search.messages":
+            return {
+                "ok": True,
+                "messages": {"matches": []},
+            }
+        return {"ok": True}
+
+    with patch(
+        "aragora.connectors.enterprise.collaboration.slack.SlackConnector._api_request",
+        side_effect=mock_api_request
+    ):
+        with patch(
+            "aragora.connectors.enterprise.collaboration.slack.SlackConnector._get_auth_header",
+            return_value={"Authorization": "Bearer xoxb-mock-token"}
+        ):
+            yield
+
+
+@pytest.fixture
+def mock_notion_api():
+    """Mock Notion API responses via _api_request method."""
+    import json
+
+    async def mock_api_request(endpoint, method="GET", params=None, json_data=None):
+        """Mock Notion API responses."""
+        if endpoint == "/search" and method == "POST":
+            filter_type = json_data.get("filter", {}).get("value") if json_data else None
+            if filter_type == "page":
+                return {
+                    "results": [
+                        {
+                            "object": "page",
+                            "id": "page-001",
+                            "url": "https://notion.so/page-001",
+                            "properties": {
+                                "title": {
+                                    "type": "title",
+                                    "title": [{"plain_text": "Test Page"}],
+                                }
+                            },
+                            "parent": {"type": "workspace"},
+                            "created_time": "2024-01-01T00:00:00.000Z",
+                            "last_edited_time": "2024-01-15T00:00:00.000Z",
+                            "created_by": {"id": "user-001"},
+                            "last_edited_by": {"id": "user-001"},
+                            "archived": False,
+                        }
+                    ],
+                    "next_cursor": None,
+                }
+            elif filter_type == "database":
+                return {
+                    "results": [
+                        {
+                            "object": "database",
+                            "id": "db-001",
+                            "url": "https://notion.so/db-001",
+                            "title": [{"plain_text": "Tasks Database"}],
+                            "description": [],
+                            "properties": {},
+                            "created_time": "2024-01-01T00:00:00.000Z",
+                            "last_edited_time": "2024-01-15T00:00:00.000Z",
+                        }
+                    ],
+                    "next_cursor": None,
+                }
+            return {"results": [], "next_cursor": None}
+        elif "/blocks/" in endpoint and "/children" in endpoint:
+            return {
+                "results": [
+                    {
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [{"plain_text": "Test paragraph content"}]
+                        },
+                        "has_children": False,
+                    }
+                ],
+                "next_cursor": None,
+            }
+        elif endpoint.startswith("/pages/"):
+            page_id = endpoint.split("/")[2]
+            return {
+                "object": "page",
+                "id": page_id,
+                "url": f"https://notion.so/{page_id}",
+                "properties": {
+                    "title": {
+                        "type": "title",
+                        "title": [{"plain_text": "Fetched Page"}],
+                    }
+                },
+                "parent": {"type": "workspace"},
+                "created_time": "2024-01-01T00:00:00.000Z",
+                "last_edited_time": "2024-01-15T00:00:00.000Z",
+                "created_by": {"id": "user-001"},
+                "last_edited_by": {"id": "user-001"},
+                "archived": False,
+            }
+        elif endpoint.startswith("/databases/") and "/query" in endpoint:
+            return {
+                "results": [
+                    {
+                        "object": "page",
+                        "id": "entry-001",
+                        "url": "https://notion.so/entry-001",
+                        "properties": {
+                            "Name": {
+                                "type": "title",
+                                "title": [{"plain_text": "Task 1"}],
+                            },
+                            "Status": {
+                                "type": "select",
+                                "select": {"name": "In Progress"},
+                            },
+                        },
+                        "parent": {"type": "database_id", "database_id": "db-001"},
+                        "created_time": "2024-01-01T00:00:00.000Z",
+                        "last_edited_time": "2024-01-15T00:00:00.000Z",
+                        "created_by": {"id": "user-001"},
+                        "last_edited_by": {"id": "user-001"},
+                        "archived": False,
+                    }
+                ],
+                "next_cursor": None,
+            }
+        elif endpoint.startswith("/databases/"):
+            db_id = endpoint.split("/")[2]
+            return {
+                "object": "database",
+                "id": db_id,
+                "url": f"https://notion.so/{db_id}",
+                "title": [{"plain_text": "Test Database"}],
+                "description": [],
+                "properties": {},
+                "created_time": "2024-01-01T00:00:00.000Z",
+                "last_edited_time": "2024-01-15T00:00:00.000Z",
+            }
+        return {}
+
+    with patch(
+        "aragora.connectors.enterprise.collaboration.notion.NotionConnector._api_request",
+        side_effect=mock_api_request
+    ):
+        with patch(
+            "aragora.connectors.enterprise.collaboration.notion.NotionConnector._get_auth_header",
+            return_value={"Authorization": "Bearer secret_mock", "Notion-Version": "2022-06-28"}
+        ):
+            yield
 
 
 # ============================================================================

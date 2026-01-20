@@ -150,8 +150,10 @@ class PostDebatePattern(WorkflowPattern):
             next_step = "generate_summary" if self.config.generate_summary else "complete"
             transitions.append(
                 TransitionRule(
+                    id=f"tr_{uuid4().hex[:8]}",
                     from_step="store_consensus",
                     to_step=next_step,
+                    condition="True",  # Always proceed
                     visual=VisualEdgeData(edge_type=EdgeType.DATA_FLOW),
                 )
             )
@@ -183,8 +185,10 @@ class PostDebatePattern(WorkflowPattern):
             next_step = "notify" if self.config.notify_webhook else "complete"
             transitions.append(
                 TransitionRule(
+                    id=f"tr_{uuid4().hex[:8]}",
                     from_step="generate_summary",
                     to_step=next_step,
+                    condition="True",  # Always proceed
                     visual=VisualEdgeData(edge_type=EdgeType.DATA_FLOW),
                 )
             )
@@ -211,8 +215,10 @@ class PostDebatePattern(WorkflowPattern):
             steps.append(notify_step)
             transitions.append(
                 TransitionRule(
+                    id=f"tr_{uuid4().hex[:8]}",
                     from_step="notify",
                     to_step="complete",
+                    condition="True",  # Always proceed
                     visual=VisualEdgeData(edge_type=EdgeType.DATA_FLOW),
                 )
             )

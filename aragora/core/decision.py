@@ -95,6 +95,16 @@ class Priority(str, Enum):
     BATCH = "batch"  # Batch with similar requests
 
 
+class ResponseFormat(str, Enum):
+    """Format for the response delivery."""
+
+    FULL = "full"  # Complete response with reasoning
+    SUMMARY = "summary"  # Condensed summary
+    NOTIFICATION = "notification"  # Brief notification
+    VOICE = "voice"  # Audio/TTS response
+    VOICE_WITH_TEXT = "voice_with_text"  # Both audio and text
+
+
 @dataclass
 class ResponseChannel:
     """
@@ -103,14 +113,19 @@ class ResponseChannel:
     Supports multiple output channels for the same request.
     """
 
-    platform: str  # slack, discord, http, websocket, email, webhook
+    platform: str  # slack, discord, http, websocket, email, webhook, voice
     channel_id: Optional[str] = None  # Slack channel, Discord channel, etc.
     user_id: Optional[str] = None  # Direct message to user
     thread_id: Optional[str] = None  # Reply in thread
     webhook_url: Optional[str] = None  # Webhook callback URL
     email_address: Optional[str] = None  # Email recipient
-    response_format: str = "full"  # full, summary, notification
+    response_format: str = "full"  # full, summary, notification, voice
     include_reasoning: bool = True  # Include chain-of-thought
+
+    # Voice/TTS settings
+    voice_enabled: bool = False  # Whether to include voice response
+    voice_id: str = "narrator"  # TTS voice/speaker identifier
+    voice_only: bool = False  # If True, only send audio (no text)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -123,6 +138,9 @@ class ResponseChannel:
             "email_address": self.email_address,
             "response_format": self.response_format,
             "include_reasoning": self.include_reasoning,
+            "voice_enabled": self.voice_enabled,
+            "voice_id": self.voice_id,
+            "voice_only": self.voice_only,
         }
 
     @classmethod
@@ -137,6 +155,9 @@ class ResponseChannel:
             email_address=data.get("email_address"),
             response_format=data.get("response_format", "full"),
             include_reasoning=data.get("include_reasoning", True),
+            voice_enabled=data.get("voice_enabled", False),
+            voice_id=data.get("voice_id", "narrator"),
+            voice_only=data.get("voice_only", False),
         )
 
 
@@ -479,6 +500,8 @@ class DecisionRequest:
         platform: str,
         channel_id: str,
         audio_duration: Optional[float] = None,
+        voice_response: bool = True,
+        voice_id: str = "narrator",
         **kwargs,
     ) -> "DecisionRequest":
         """Create from a voice message transcription."""
@@ -497,12 +520,19 @@ class DecisionRequest:
             }
         )
 
+        # Voice input defaults to voice+text response
+        response_channel = ResponseChannel(
+            platform=platform,
+            channel_id=channel_id,
+            response_format="voice_with_text" if voice_response else "full",
+            voice_enabled=voice_response,
+            voice_id=voice_id,
+        )
+
         return cls(
             content=transcription,
             source=source,
-            response_channels=[
-                ResponseChannel(platform=platform, channel_id=channel_id)
-            ],
+            response_channels=[response_channel],
             context=context,
         )
 
@@ -570,6 +600,7 @@ class DecisionRouter:
         debate_engine: Optional[Any] = None,
         workflow_engine: Optional[Any] = None,
         gauntlet_engine: Optional[Any] = None,
+        enable_voice_responses: bool = True,
     ):
         """
         Initialize the router.
@@ -578,11 +609,14 @@ class DecisionRouter:
             debate_engine: Arena instance or factory
             workflow_engine: WorkflowEngine instance or factory
             gauntlet_engine: GauntletOrchestrator instance or factory
+            enable_voice_responses: Whether to enable TTS for voice responses
         """
         self._debate_engine = debate_engine
         self._workflow_engine = workflow_engine
         self._gauntlet_engine = gauntlet_engine
         self._response_handlers: Dict[str, Callable] = {}
+        self._enable_voice_responses = enable_voice_responses
+        self._tts_bridge: Optional[Any] = None
 
     def register_response_handler(
         self,
@@ -779,6 +813,68 @@ class DecisionRouter:
                 error=str(e),
             )
 
+    def _get_tts_bridge(self) -> Optional[Any]:
+        """Lazy-load TTS bridge for voice responses."""
+        if self._tts_bridge is not None:
+            return self._tts_bridge
+
+        if not self._enable_voice_responses:
+            return None
+
+        try:
+            from aragora.connectors.chat.tts_bridge import get_tts_bridge
+
+            self._tts_bridge = get_tts_bridge()
+            logger.info("TTS bridge initialized for voice responses")
+            return self._tts_bridge
+        except ImportError as e:
+            logger.warning(f"TTS bridge not available: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to initialize TTS bridge: {e}")
+            return None
+
+    async def synthesize_voice_response(
+        self,
+        text: str,
+        voice_id: str = "narrator",
+        context: Optional[str] = None,
+    ) -> Optional[bytes]:
+        """
+        Synthesize text to audio for voice response.
+
+        Args:
+            text: Text to synthesize
+            voice_id: Voice/speaker identifier
+            context: Optional context hint for voice selection
+
+        Returns:
+            Audio bytes if successful, None otherwise
+        """
+        tts = self._get_tts_bridge()
+        if tts is None:
+            logger.warning("TTS not available for voice response")
+            return None
+
+        try:
+            audio_path = await tts.synthesize(
+                text=text,
+                voice=voice_id,
+                context=context,
+            )
+            if audio_path and audio_path.exists():
+                audio_bytes = audio_path.read_bytes()
+                # Clean up temp file
+                try:
+                    audio_path.unlink()
+                except Exception:
+                    pass
+                return audio_bytes
+        except Exception as e:
+            logger.error(f"Voice synthesis failed: {e}")
+
+        return None
+
     async def _deliver_responses(
         self,
         request: DecisionRequest,
@@ -786,12 +882,58 @@ class DecisionRouter:
     ) -> None:
         """Deliver result to all response channels."""
         for channel in request.response_channels:
-            handler = self._response_handlers.get(channel.platform)
-            if handler:
-                try:
+            try:
+                # Handle voice responses
+                if channel.voice_enabled or channel.response_format in ("voice", "voice_with_text"):
+                    await self._deliver_voice_response(result, channel)
+
+                    # If voice_only, skip text delivery
+                    if channel.voice_only:
+                        continue
+
+                # Deliver text response via platform handler
+                handler = self._response_handlers.get(channel.platform)
+                if handler:
                     await handler(result, channel)
+
+            except Exception as e:
+                logger.error(f"Failed to deliver to {channel.platform}: {e}")
+
+    async def _deliver_voice_response(
+        self,
+        result: DecisionResult,
+        channel: ResponseChannel,
+    ) -> Optional[bytes]:
+        """Deliver voice response for a channel."""
+        # Format text for voice (more concise than full text)
+        if channel.response_format == "notification":
+            voice_text = f"Decision complete. {result.answer[:200]}"
+        elif channel.response_format == "summary":
+            voice_text = result.answer[:500]
+        else:
+            voice_text = result.answer[:1000]
+
+        # Add confidence if applicable
+        if result.consensus_reached:
+            voice_text = f"Consensus reached with {result.confidence:.0%} confidence. {voice_text}"
+
+        # Synthesize audio
+        audio_bytes = await self.synthesize_voice_response(
+            text=voice_text,
+            voice_id=channel.voice_id,
+            context=result.decision_type.value,
+        )
+
+        if audio_bytes:
+            # If there's a voice-specific handler, use it
+            voice_handler = self._response_handlers.get(f"{channel.platform}_voice")
+            if voice_handler:
+                try:
+                    await voice_handler(result, channel, audio_bytes)
                 except Exception as e:
-                    logger.error(f"Failed to deliver to {channel.platform}: {e}")
+                    logger.error(f"Voice delivery failed for {channel.platform}: {e}")
+
+        return audio_bytes
 
 
 # Singleton router instance

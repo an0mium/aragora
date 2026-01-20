@@ -121,17 +121,14 @@ class TestSlackConnectorE2E:
     @pytest.mark.asyncio
     async def test_slack_channel_sync(self, mock_slack_api, tenant_a: TestTenant):
         """Test Slack channel message sync."""
-        from aragora.connectors.enterprise.collaboration.slack import SlackConnector, SlackConfig
+        from aragora.connectors.enterprise.collaboration.slack import SlackConnector
 
-        config = SlackConfig(
-            bot_token="xoxb-test-token",
+        connector = SlackConnector(
+            workspace_name="test_workspace",
             channels=["general", "random"],
-            sync_threads=True,
+            include_threads=True,
             max_messages_per_channel=100,
         )
-
-        connector = SlackConnector(config)
-        # Connector initializes on first sync
 
         result = await connector.sync()
 
@@ -141,16 +138,13 @@ class TestSlackConnectorE2E:
     @pytest.mark.asyncio
     async def test_slack_thread_sync(self, mock_slack_api, tenant_a: TestTenant):
         """Test thread message synchronization."""
-        from aragora.connectors.enterprise.collaboration.slack import SlackConnector, SlackConfig
+        from aragora.connectors.enterprise.collaboration.slack import SlackConnector
 
-        config = SlackConfig(
-            bot_token="xoxb-test-token",
+        connector = SlackConnector(
+            workspace_name="test_workspace",
             channels=["general"],
-            sync_threads=True,
+            include_threads=True,
         )
-
-        connector = SlackConnector(config)
-        # Connector initializes on first sync
 
         result = await connector.sync()
 
@@ -167,71 +161,33 @@ class TestNotionConnectorE2E:
     """E2E tests for Notion connector sync."""
 
     @pytest.mark.asyncio
-    async def test_notion_database_sync(self, tenant_a: TestTenant):
+    async def test_notion_database_sync(self, mock_notion_api, tenant_a: TestTenant):
         """Test Notion database page sync."""
-        from aragora.connectors.enterprise.collaboration.notion import NotionConnector, NotionConfig
+        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
 
-        # Mock Notion API
-        with patch("aragora.connectors.enterprise.collaboration.notion.NotionClient") as mock:
-            instance = MagicMock()
-            instance.list_databases = AsyncMock(
-                return_value=[
-                    {"id": "db-1", "title": [{"plain_text": "Tasks"}]},
-                ]
-            )
-            instance.query_database = AsyncMock(
-                return_value={
-                    "results": [{"id": "page-1", "properties": {}}],
-                    "has_more": False,
-                }
-            )
-            instance.get_page_content = AsyncMock(
-                return_value=[
-                    {"type": "paragraph", "paragraph": {"text": [{"plain_text": "Content"}]}},
-                ]
-            )
-            mock.return_value = instance
+        connector = NotionConnector(
+            workspace_name="test_workspace",
+            include_databases=True,
+        )
 
-            config = NotionConfig(
-                integration_token="secret_test",
-                database_ids=["db-1"],
-            )
+        result = await connector.sync()
 
-            connector = NotionConnector(config)
-            # Connector initializes on first sync
-
-            result = await connector.sync()
-
-            assert result is not None
-            assert result.success is True
+        assert result is not None
+        assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_notion_recursive_page_sync(self, tenant_a: TestTenant):
+    async def test_notion_recursive_page_sync(self, mock_notion_api, tenant_a: TestTenant):
         """Test recursive page content sync."""
-        from aragora.connectors.enterprise.collaboration.notion import NotionConnector, NotionConfig
+        from aragora.connectors.enterprise.collaboration.notion import NotionConnector
 
-        with patch("aragora.connectors.enterprise.collaboration.notion.NotionClient") as mock:
-            instance = MagicMock()
-            instance.list_databases = AsyncMock(return_value=[])
-            instance.get_page = AsyncMock(return_value={"id": "page-1"})
-            instance.get_page_content = AsyncMock(
-                return_value=[
-                    {"type": "child_page", "child_page": {"title": "Subpage"}},
-                ]
-            )
-            mock.return_value = instance
+        connector = NotionConnector(
+            workspace_name="test_workspace",
+            recursive_pages=True,
+            max_depth=3,
+        )
 
-            config = NotionConfig(
-                integration_token="secret_test",
-                page_ids=["page-1"],
-                recursive=True,
-            )
-
-            connector = NotionConnector(config)
-            # Connector initializes on first sync
-
-            result = await connector.sync()
-            assert result is not None
+        result = await connector.sync()
+        assert result is not None
 
 
 # ============================================================================
@@ -251,25 +207,19 @@ class TestMultiConnectorE2E:
     ):
         """Test parallel sync of multiple connectors."""
         from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
-        from aragora.connectors.enterprise.collaboration.slack import SlackConnector, SlackConfig
-
-        slack_config = SlackConfig(
-            bot_token="xoxb-test",
-            channels=["general"],
-        )
+        from aragora.connectors.enterprise.collaboration.slack import SlackConnector
 
         github = GitHubEnterpriseConnector(
             repo="test-org/test-repo",
             branch="main",
             token="ghp_test",
         )
-        slack = SlackConnector(slack_config)
-
-        await asyncio.gather(
-            github.initialize(),
-            slack.initialize(),
+        slack = SlackConnector(
+            workspace_name="test_workspace",
+            channels=["general"],
         )
 
+        # Connectors initialize on first sync
         results = await asyncio.gather(
             github.sync(),
             slack.sync(),
@@ -308,8 +258,8 @@ class TestConnectorHealthE2E:
     """E2E tests for connector health monitoring."""
 
     @pytest.mark.asyncio
-    async def test_connector_health_check(self, mock_github_api, tenant_a: TestTenant):
-        """Test connector health status reporting."""
+    async def test_connector_sync_result(self, mock_github_api, tenant_a: TestTenant):
+        """Test connector sync result reporting."""
         from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
 
         connector = GitHubEnterpriseConnector(
@@ -317,13 +267,18 @@ class TestConnectorHealthE2E:
             branch="main",
             token="ghp_test",
         )
-        # Connector initializes on first sync
 
-        health = await connector.health_check()
+        # Run a sync
+        result = await connector.sync()
 
-        assert health is not None
-        assert "status" in health
-        assert health["status"] in ("healthy", "degraded", "unhealthy")
+        # Check sync result has all expected attributes
+        assert result is not None
+        assert result.success is True
+        assert result.connector_id == connector.connector_id
+        assert result.items_synced >= 0
+        assert result.items_failed >= 0
+        assert result.duration_ms >= 0
+        assert isinstance(result.errors, list)
 
     @pytest.mark.asyncio
     async def test_connector_metrics_collection(
