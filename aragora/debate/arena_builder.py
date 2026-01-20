@@ -250,6 +250,9 @@ class ArenaBuilder:
         self._auto_export_training: bool = False
         self._training_export_min_confidence: float = 0.75
 
+        # Extensions: RLM training hook
+        self._enable_rlm_training: bool = True  # Enabled by default
+
         # Multilingual support
         self._multilingual_manager: Any = None
         self._default_language: str = "en"
@@ -391,6 +394,18 @@ class ArenaBuilder:
             recorder: ReplayRecorder instance
         """
         self._recorder = recorder
+        return self
+
+    def with_rlm_training(self, enabled: bool = True) -> ArenaBuilder:
+        """Enable or disable RLM training data collection.
+
+        When enabled, debate outcomes are automatically collected as
+        training trajectories for the RLM system.
+
+        Args:
+            enabled: Whether to enable RLM training (default: True)
+        """
+        self._enable_rlm_training = enabled
         return self
 
     # =========================================================================
@@ -998,12 +1013,32 @@ class ArenaBuilder:
         # Import here to avoid circular dependency
         from aragora.debate.orchestrator import Arena
 
+        # Inject RLM training hook if enabled
+        event_hooks = dict(self._event_hooks)  # Copy to avoid mutating original
+        if self._enable_rlm_training:
+            try:
+                from aragora.rlm.debate_integration import create_training_hook
+
+                training_hook = create_training_hook()
+                existing_hook = event_hooks.get("on_debate_complete")
+                if existing_hook:
+                    # Chain hooks together
+                    def chained_hook(result, ctx=None, _existing=existing_hook, _training=training_hook):
+                        _existing(result, ctx)
+                        _training(result, ctx)
+                    event_hooks["on_debate_complete"] = chained_hook
+                else:
+                    event_hooks["on_debate_complete"] = training_hook
+                logger.debug("RLM training hook enabled via ArenaBuilder")
+            except ImportError:
+                logger.debug("RLM training hook unavailable - debate_integration not found")
+
         return Arena(
             environment=self._environment,
             agents=self._agents,
             protocol=self._protocol,
             memory=self._memory,
-            event_hooks=self._event_hooks,
+            event_hooks=event_hooks,
             hook_manager=self._hook_manager,
             event_emitter=self._event_emitter,
             spectator=self._spectator,

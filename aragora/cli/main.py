@@ -236,6 +236,56 @@ def cmd_stats(args: argparse.Namespace) -> None:
         for ptype, count in sorted(stats["patterns_by_type"].items(), key=lambda x: -x[1]):
             print(f"  {ptype}: {count}")
 
+    # Cross-pollination statistics (v2.0.3)
+    _print_cross_pollination_stats(args)
+
+
+def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
+    """Print cross-pollination statistics."""
+    print("\nCross-Pollination Statistics (v2.0.3)")
+    print("=" * 40)
+
+    # ELO and learning efficiency
+    try:
+        from aragora.ranking.elo import get_elo_store
+
+        elo = get_elo_store()
+        leaderboard = elo.get_leaderboard(limit=5)
+        if leaderboard:
+            print("\nTop 5 Agents by ELO:")
+            for i, entry in enumerate(leaderboard, 1):
+                name = entry.get("agent_name", "unknown")
+                rating = entry.get("elo", 1500)
+                # Get learning efficiency
+                efficiency = elo.get_learning_efficiency(name)
+                category = efficiency.get("learning_category", "unknown")
+                print(f"  {i}. {name}: {rating:.0f} ELO ({category} learner)")
+    except Exception as e:
+        print(f"  ELO system: unavailable ({e})")
+
+    # RLM cache stats
+    try:
+        from aragora.rlm.bridge import RLMHierarchyCache
+
+        cache = RLMHierarchyCache()
+        cache_stats = cache.get_stats()
+        hits = cache_stats.get("hits", 0)
+        misses = cache_stats.get("misses", 0)
+        hit_rate = cache_stats.get("hit_rate", 0.0)
+        print(f"\nRLM Cache: {hits} hits, {misses} misses ({hit_rate:.1%} hit rate)")
+    except Exception:
+        print("\nRLM Cache: not initialized")
+
+    # Calibration stats
+    try:
+        from aragora.ranking.calibration import CalibrationTracker
+
+        tracker = CalibrationTracker()
+        # Get summary for any available agents
+        print("\nCalibration: enabled")
+    except Exception:
+        print("\nCalibration: unavailable")
+
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Handle 'status' command - show environment health and agent availability."""

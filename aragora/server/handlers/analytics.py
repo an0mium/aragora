@@ -7,6 +7,12 @@ Endpoints:
 - GET /api/analytics/early-stops - Get early stopping statistics
 - GET /api/ranking/stats - Get ranking statistics
 - GET /api/memory/stats - Get memory statistics
+
+Cross-Pollination Endpoints (v2.0.3):
+- GET /api/analytics/cross-pollination - Get aggregate cross-pollination stats
+- GET /api/analytics/learning-efficiency?agent=&domain= - Get learning efficiency
+- GET /api/analytics/voting-accuracy?agent= - Get voting accuracy stats
+- GET /api/analytics/calibration?agent= - Get calibration stats
 """
 
 from __future__ import annotations
@@ -54,6 +60,11 @@ class AnalyticsHandler(BaseHandler):
         "/api/analytics/consensus-quality",
         "/api/ranking/stats",
         "/api/memory/stats",
+        # Cross-pollination stats
+        "/api/analytics/cross-pollination",
+        "/api/analytics/learning-efficiency",
+        "/api/analytics/voting-accuracy",
+        "/api/analytics/calibration",
         # Note: /api/memory/tier-stats moved to MemoryHandler for more specific handling
     ]
 
@@ -88,6 +99,19 @@ class AnalyticsHandler(BaseHandler):
 
         if path == "/api/memory/stats":
             return self._get_memory_stats()
+
+        # Cross-pollination endpoints
+        if path == "/api/analytics/cross-pollination":
+            return self._get_cross_pollination_stats()
+
+        if path == "/api/analytics/learning-efficiency":
+            return self._get_learning_efficiency_stats(query_params)
+
+        if path == "/api/analytics/voting-accuracy":
+            return self._get_voting_accuracy_stats(query_params)
+
+        if path == "/api/analytics/calibration":
+            return self._get_calibration_stats(query_params)
 
         return None
 
@@ -382,3 +406,183 @@ class AnalyticsHandler(BaseHandler):
             stats["continuum_memory"] = True
 
         return json_response({"stats": stats})
+
+    # ==========================================================================
+    # Cross-Pollination Stats
+    # ==========================================================================
+
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_cross_pollination", skip_first=True
+    )
+    @handle_errors("cross-pollination stats retrieval")
+    def _get_cross_pollination_stats(self) -> HandlerResult:
+        """Get aggregate cross-pollination statistics.
+
+        Returns summary of all cross-pollination integrations:
+        - Calibration adjustments
+        - Learning bonuses
+        - Voting accuracy
+        - Adaptive rounds
+        - RLM cache performance
+        """
+        stats: dict[str, Any] = {
+            "calibration": {"enabled": False, "adjustments": 0},
+            "learning": {"enabled": False, "bonuses_applied": 0},
+            "voting_accuracy": {"enabled": False, "updates": 0},
+            "adaptive_rounds": {"enabled": False, "changes": 0},
+            "rlm_cache": {"enabled": False, "hits": 0, "misses": 0, "hit_rate": 0.0},
+        }
+
+        # Try to get RLM cache stats
+        try:
+            from aragora.rlm.bridge import RLMHierarchyCache
+
+            cache = RLMHierarchyCache()
+            cache_stats = cache.get_stats()
+            stats["rlm_cache"] = {
+                "enabled": True,
+                "hits": cache_stats.get("hits", 0),
+                "misses": cache_stats.get("misses", 0),
+                "hit_rate": cache_stats.get("hit_rate", 0.0),
+            }
+        except ImportError:
+            pass
+
+        # Try to get ELO system stats for learning and voting
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo = get_elo_store()
+            stats["learning"]["enabled"] = True
+            stats["voting_accuracy"]["enabled"] = True
+            stats["calibration"]["enabled"] = True
+        except ImportError:
+            pass
+
+        logger.info("Cross-pollination stats retrieved")
+        return json_response({"stats": stats, "version": "2.0.3"})
+
+    @handle_errors("learning efficiency stats retrieval")
+    def _get_learning_efficiency_stats(self, query_params: dict) -> HandlerResult:
+        """Get learning efficiency statistics for agents.
+
+        Query params:
+            agent: Optional agent name filter
+            domain: Optional domain filter
+            limit: Max agents to return (default 20)
+        """
+        agent = query_params.get("agent", [None])[0]
+        domain = query_params.get("domain", ["general"])[0]
+        limit = int(query_params.get("limit", [20])[0])
+
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo = get_elo_store()
+        except ImportError:
+            return json_response({"error": "ELO system not available", "agents": []})
+
+        if agent:
+            # Get specific agent
+            efficiency = elo.get_learning_efficiency(agent, domain=domain)
+            return json_response({"agent": agent, "domain": domain, "efficiency": efficiency})
+
+        # Get top agents by learning efficiency
+        leaderboard = elo.get_leaderboard(limit=limit)
+        agents_data = []
+        for entry in leaderboard:
+            name = entry.get("agent_name", "")
+            efficiency = elo.get_learning_efficiency(name, domain=domain)
+            agents_data.append({"agent": name, "efficiency": efficiency})
+
+        return json_response({"domain": domain, "agents": agents_data})
+
+    @handle_errors("voting accuracy stats retrieval")
+    def _get_voting_accuracy_stats(self, query_params: dict) -> HandlerResult:
+        """Get voting accuracy statistics for agents.
+
+        Query params:
+            agent: Optional agent name filter
+            limit: Max agents to return (default 20)
+        """
+        agent = query_params.get("agent", [None])[0]
+        limit = int(query_params.get("limit", [20])[0])
+
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo = get_elo_store()
+        except ImportError:
+            return json_response({"error": "ELO system not available", "agents": []})
+
+        if agent:
+            accuracy = elo.get_voting_accuracy(agent)
+            return json_response({"agent": agent, "accuracy": accuracy})
+
+        # Get top agents by voting accuracy
+        leaderboard = elo.get_leaderboard(limit=limit)
+        agents_data = []
+        for entry in leaderboard:
+            name = entry.get("agent_name", "")
+            accuracy = elo.get_voting_accuracy(name)
+            agents_data.append({"agent": name, "accuracy": accuracy})
+
+        return json_response({"agents": agents_data})
+
+    @handle_errors("calibration stats retrieval")
+    def _get_calibration_stats(self, query_params: dict) -> HandlerResult:
+        """Get calibration statistics for agents.
+
+        Query params:
+            agent: Optional agent name filter
+            limit: Max agents to return (default 20)
+        """
+        agent = query_params.get("agent", [None])[0]
+        limit = int(query_params.get("limit", [20])[0])
+
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo = get_elo_store()
+        except ImportError:
+            return json_response({"error": "ELO system not available", "agents": []})
+
+        # Try to get calibration tracker
+        try:
+            from aragora.ranking.calibration import CalibrationTracker
+
+            tracker = CalibrationTracker()
+        except ImportError:
+            tracker = None
+
+        if agent:
+            # Get specific agent calibration
+            if tracker:
+                summary = tracker.get_calibration_summary(agent)
+                if summary:
+                    return json_response({
+                        "agent": agent,
+                        "calibration": {
+                            "total_predictions": summary.total_predictions,
+                            "temperature": summary.temperature,
+                            "scaling_factor": getattr(summary, "scaling_factor", 1.0),
+                        },
+                    })
+            return json_response({"agent": agent, "calibration": None})
+
+        # Get calibration for top agents
+        leaderboard = elo.get_leaderboard(limit=limit)
+        agents_data = []
+        for entry in leaderboard:
+            name = entry.get("agent_name", "")
+            cal_data = None
+            if tracker:
+                summary = tracker.get_calibration_summary(name)
+                if summary:
+                    cal_data = {
+                        "total_predictions": summary.total_predictions,
+                        "temperature": summary.temperature,
+                    }
+            agents_data.append({"agent": name, "calibration": cal_data})
+
+        return json_response({"agents": agents_data})

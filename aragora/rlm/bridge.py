@@ -69,6 +69,21 @@ from .types import (
 )
 from .compressor import HierarchicalCompressor
 
+# Import metrics for cache tracking (lazy to avoid circular imports)
+def _record_rlm_cache_hit() -> None:
+    try:
+        from aragora.observability.metrics import record_rlm_cache_hit
+        record_rlm_cache_hit()
+    except ImportError:
+        pass
+
+def _record_rlm_cache_miss() -> None:
+    try:
+        from aragora.observability.metrics import record_rlm_cache_miss
+        record_rlm_cache_miss()
+    except ImportError:
+        pass
+
 
 @dataclass
 class RLMBackendConfig:
@@ -1453,6 +1468,7 @@ class RLMHierarchyCache:
         # Check local cache first
         if task_hash in self._local_cache:
             self._cache_hits += 1
+            _record_rlm_cache_hit()
             logger.debug(f"[RLMHierarchyCache] Local cache hit for {task_hash[:8]}")
             return self._local_cache[task_hash]
 
@@ -1479,6 +1495,7 @@ class RLMHierarchyCache:
                             if result:
                                 self._local_cache[task_hash] = result
                                 self._cache_hits += 1
+                                _record_rlm_cache_hit()
                                 logger.debug(
                                     f"[RLMHierarchyCache] Knowledge Mound hit for {task_hash[:8]}"
                                 )
@@ -1488,6 +1505,7 @@ class RLMHierarchyCache:
                 logger.debug(f"[RLMHierarchyCache] Mound query failed: {e}")
 
         self._cache_misses += 1
+        _record_rlm_cache_miss()
         return None
 
     async def store(

@@ -136,6 +136,26 @@ def _validate_agent_name(agent_name: str) -> None:
         )
 
 
+def _record_learning_bonus(agent: str, category: str) -> None:
+    """Record learning bonus metric with lazy import."""
+    try:
+        from aragora.observability.metrics import record_learning_bonus
+
+        record_learning_bonus(agent, category)
+    except ImportError:
+        pass
+
+
+def _record_voting_accuracy(result: str) -> None:
+    """Record voting accuracy update metric with lazy import."""
+    try:
+        from aragora.observability.metrics import record_voting_accuracy_update
+
+        record_voting_accuracy_update(result)
+    except ImportError:
+        pass
+
+
 @dataclass
 class AgentRating:
     """An agent's rating and statistics."""
@@ -1441,6 +1461,7 @@ class EloSystem:
             elo_change,
         )
 
+        _record_voting_accuracy("correct" if voted_for_consensus else "incorrect")
         return elo_change
 
     def get_voting_accuracy(self, agent_name: str) -> dict:
@@ -1686,4 +1707,5 @@ class EloSystem:
             bonus,
         )
 
+        _record_learning_bonus(agent_name, category)
         return bonus

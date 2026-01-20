@@ -95,6 +95,14 @@ These endpoints have backend implementations but no frontend consumers:
 - `GET /api/leaderboard` - Agent rankings
 - `GET /api/leaderboard/calibration` - Calibration leaderboard
 
+### Cross-Pollination (Observability)
+- `GET /api/cross-pollination/stats` - Subscriber statistics and event counts
+- `GET /api/cross-pollination/subscribers` - List all registered cross-subscribers
+- `GET /api/cross-pollination/bridge` - Arena event bridge status and mappings
+- `POST /api/cross-pollination/reset` - Reset statistics (for testing)
+
+See [CROSS_POLLINATION.md](./CROSS_POLLINATION.md) for architecture details.
+
 ## Query Optimization Opportunities
 
 The following files contain `SELECT *` queries that should be optimized to select only required columns:

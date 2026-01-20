@@ -67,6 +67,16 @@ async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT
         return default
 
 
+def _record_adaptive_round(direction: str) -> None:
+    """Record adaptive round change metric with lazy import."""
+    try:
+        from aragora.observability.metrics import record_adaptive_round_change
+
+        record_adaptive_round_change(direction)
+    except ImportError:
+        pass
+
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
@@ -284,10 +294,12 @@ class DebateRoundsPhase:
                     default_rounds=rounds,
                 )
                 if strategy_rec.estimated_rounds != rounds:
+                    direction = "increase" if strategy_rec.estimated_rounds > rounds else "decrease"
                     logger.info(
                         f"[strategy] Adaptive rounds: {rounds} -> {strategy_rec.estimated_rounds} "
                         f"(confidence={strategy_rec.confidence:.2f}, reason={strategy_rec.reasoning[:50]})"
                     )
+                    _record_adaptive_round(direction)
                     rounds = strategy_rec.estimated_rounds
                     # Store strategy recommendation in result metadata
                     if hasattr(result, "metadata") and result.metadata is not None:

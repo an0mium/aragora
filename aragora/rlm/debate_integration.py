@@ -230,9 +230,13 @@ class DebateTrajectoryCollector:
 
         # Finalize trajectory with outcome
         trajectory.finalize(
-            final_answer=outcome.final_answer,
-            success=outcome.consensus_reached,
-            confidence=outcome.confidence,
+            answer=outcome.final_answer,
+            outcome={
+                "consensus_reached": outcome.consensus_reached,
+                "confidence": outcome.confidence,
+                "winner": outcome.winner,
+                "success": outcome.consensus_reached,
+            },
         )
 
         return trajectory

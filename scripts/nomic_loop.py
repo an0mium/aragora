@@ -674,6 +674,24 @@ except ImportError:
     ContinuumMemory = None
     MemoryTier = None
 
+# DebateStrategy for memory-aware adaptive rounds
+STRATEGY_AVAILABLE = False
+try:
+    from aragora.debate.strategy import DebateStrategy
+
+    STRATEGY_AVAILABLE = True
+except ImportError:
+    DebateStrategy = None
+
+# CrossDebateMemory for institutional knowledge
+CROSS_DEBATE_MEMORY_AVAILABLE = False
+try:
+    from aragora.debate.cross_debate_memory import CrossDebateMemory
+
+    CROSS_DEBATE_MEMORY_AVAILABLE = True
+except ImportError:
+    CrossDebateMemory = None
+
 # ReplayRecorder for cycle event recording
 try:
     from aragora.replay.recorder import ReplayRecorder
@@ -1851,6 +1869,29 @@ class NomicLoop:
             if self.agent_selector and hasattr(self.agent_selector, "set_calibration_tracker"):
                 self.agent_selector.set_calibration_tracker(self.calibration_tracker)
                 print("[selector] Calibration quality weighting enabled")
+
+        # =================================================================
+        # Cross-Pollination Components (v2.0.3)
+        # =================================================================
+
+        # DebateStrategy for memory-aware adaptive rounds
+        self.debate_strategy = None
+        if STRATEGY_AVAILABLE and DebateStrategy and self.continuum:
+            try:
+                self.debate_strategy = DebateStrategy(memory=self.continuum)
+                print("[strategy] Memory-aware debate strategy enabled")
+            except Exception as e:
+                print(f"[strategy] Initialization failed: {e}")
+
+        # CrossDebateMemory for institutional knowledge across debates
+        self.cross_debate_memory = None
+        if CROSS_DEBATE_MEMORY_AVAILABLE and CrossDebateMemory:
+            try:
+                cross_memory_db_path = self.nomic_dir / "cross_debate_memory.db"
+                self.cross_debate_memory = CrossDebateMemory(str(cross_memory_db_path))
+                print("[cross-memory] Cross-debate institutional memory enabled")
+            except Exception as e:
+                print(f"[cross-memory] Initialization failed: {e}")
 
         # Phase 10: SuggestionFeedbackTracker for audience suggestion effectiveness
         self.suggestion_tracker = None
@@ -4752,6 +4793,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     moment_detector=self.moment_detector,
                     continuum_memory=self.continuum,
                     use_airlock=True,  # Enable resilience wrapper
+                    # Cross-pollination components (v2.0.3)
+                    debate_strategy=self.debate_strategy,
+                    cross_debate_memory=self.cross_debate_memory,
+                    enable_adaptive_rounds=self.debate_strategy is not None,
                 )
                 return await arena.run()  # run() takes no arguments
 
@@ -5786,6 +5831,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     moment_detector=self.moment_detector,
                     continuum_memory=self.continuum,
                     use_airlock=True,  # Enable resilience wrapper
+                    # Cross-pollination components (v2.0.3)
+                    debate_strategy=self.debate_strategy,
+                    cross_debate_memory=self.cross_debate_memory,
+                    enable_adaptive_rounds=self.debate_strategy is not None,
                 )
                 return await arena.run()  # run() takes no arguments
 
@@ -7604,6 +7653,10 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 moment_detector=self.moment_detector,
                 continuum_memory=self.continuum,
                 use_airlock=True,  # Enable resilience wrapper
+                # Cross-pollination components (v2.0.3)
+                debate_strategy=self.debate_strategy,
+                cross_debate_memory=self.cross_debate_memory,
+                enable_adaptive_rounds=self.debate_strategy is not None,
             )
             return await self._run_arena_with_logging(arena, phase_name)
 
@@ -7697,6 +7750,10 @@ Start directly with "## 1. FILE CHANGES" or similar."""
                 moment_detector=self.moment_detector,
                 continuum_memory=self.continuum,
                 use_airlock=True,  # Enable resilience wrapper
+                # Cross-pollination components (v2.0.3)
+                debate_strategy=self.debate_strategy,
+                cross_debate_memory=self.cross_debate_memory,
+                enable_adaptive_rounds=self.debate_strategy is not None,
             )
             return await self._run_arena_with_logging(arena, phase_name)
 

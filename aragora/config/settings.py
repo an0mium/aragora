@@ -552,6 +552,78 @@ class ConsensusSettings(BaseSettings):
     )
 
 
+class IntegrationSettings(BaseSettings):
+    """Cross-pollination and integration feature configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_INTEGRATION_")
+
+    # RLM Training - collect trajectories from debate outcomes
+    rlm_training_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_RLM_TRAINING",
+        description="Enable RLM training data collection from debates",
+    )
+
+    # Knowledge Mound Integration
+    knowledge_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KNOWLEDGE_MOUND",
+        description="Enable Knowledge Mound retrieval and ingestion",
+    )
+    knowledge_ingestion_threshold: float = Field(
+        default=0.85,
+        ge=0.5,
+        le=1.0,
+        alias="ARAGORA_INTEGRATION_KNOWLEDGE_THRESHOLD",
+        description="Minimum confidence for debate outcome ingestion into Knowledge Mound",
+    )
+
+    # Cross-Subscriber Event System
+    cross_subscribers_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_CROSS_SUBSCRIBERS",
+        description="Enable cross-subsystem event subscribers",
+    )
+    arena_event_bridge_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_ARENA_BRIDGE",
+        description="Enable Arena event bridge to cross-subscribers",
+    )
+
+    # Revalidation Scheduler
+    auto_revalidation_enabled: bool = Field(
+        default=False,
+        alias="ARAGORA_INTEGRATION_AUTO_REVALIDATION",
+        description="Enable automatic knowledge revalidation via debates",
+    )
+    revalidation_staleness_threshold: float = Field(
+        default=0.7,
+        ge=0.1,
+        le=1.0,
+        alias="ARAGORA_INTEGRATION_REVALIDATION_THRESHOLD",
+        description="Staleness threshold to trigger revalidation",
+    )
+    revalidation_check_interval: int = Field(
+        default=3600,
+        ge=60,
+        le=86400,
+        alias="ARAGORA_INTEGRATION_REVALIDATION_INTERVAL",
+        description="Revalidation check interval in seconds",
+    )
+
+    # Evidence Bridge
+    evidence_bridge_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_EVIDENCE_BRIDGE",
+        description="Enable evidence-provenance bridge for claim tracking",
+    )
+    evidence_auto_register: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_EVIDENCE_AUTO_REGISTER",
+        description="Automatically register evidence during debates",
+    )
+
+
 class ProviderRateLimitSettings(BaseSettings):
     """Provider-specific rate limits (requests per minute)."""
 
@@ -624,6 +696,7 @@ class Settings(BaseSettings):
     _memory_tier: Optional[MemoryTierSettings] = None
     _consensus: Optional[ConsensusSettings] = None
     _provider_rate_limit: Optional[ProviderRateLimitSettings] = None
+    _integration: Optional[IntegrationSettings] = None
 
     @property
     def auth(self) -> AuthSettings:
@@ -732,6 +805,12 @@ class Settings(BaseSettings):
         if self._provider_rate_limit is None:
             self._provider_rate_limit = ProviderRateLimitSettings()
         return self._provider_rate_limit
+
+    @property
+    def integration(self) -> IntegrationSettings:
+        if self._integration is None:
+            self._integration = IntegrationSettings()
+        return self._integration
 
 
 @lru_cache()

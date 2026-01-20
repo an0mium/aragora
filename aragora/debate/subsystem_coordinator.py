@@ -129,6 +129,53 @@ class SubsystemCoordinator:
     hook_handler_registry: Optional[Any] = None  # HookHandlerRegistry for auto-wiring
     enable_hook_handlers: bool = True  # Auto-register default handlers if hook_manager provided
 
+    # ==========================================================================
+    # Phase 9: Cross-Pollination Bridges
+    # These bridges connect subsystems for self-improving feedback loops
+    # ==========================================================================
+
+    # Performance → Agent Router Bridge
+    performance_router_bridge: Optional[Any] = None  # PerformanceRouterBridge
+    enable_performance_router: bool = True  # Auto-create if performance_monitor available
+    performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor (source)
+    agent_router: Optional[Any] = None  # AgentRouter (target)
+
+    # Outcome → Complexity Governor Bridge
+    outcome_complexity_bridge: Optional[Any] = None  # OutcomeComplexityBridge
+    enable_outcome_complexity: bool = True  # Auto-create if outcome_tracker available
+    outcome_tracker: Optional[Any] = None  # OutcomeTracker (source)
+    complexity_governor: Optional[Any] = None  # ComplexityGovernor (target)
+
+    # Analytics → Team Selection Bridge
+    analytics_selection_bridge: Optional[Any] = None  # AnalyticsSelectionBridge
+    enable_analytics_selection: bool = True  # Auto-create if analytics available
+    analytics_coordinator: Optional[Any] = None  # AnalyticsCoordinator (source)
+    team_selector: Optional[Any] = None  # TeamSelector (target)
+
+    # Novelty → Selection Feedback Bridge
+    novelty_selection_bridge: Optional[Any] = None  # NoveltySelectionBridge
+    enable_novelty_selection: bool = True  # Auto-create if novelty_tracker available
+    novelty_tracker: Optional[Any] = None  # NoveltyTracker (source)
+    selection_feedback_loop: Optional[Any] = None  # SelectionFeedbackLoop (target)
+
+    # Relationship → Bias Mitigation Bridge
+    relationship_bias_bridge: Optional[Any] = None  # RelationshipBiasBridge
+    enable_relationship_bias: bool = True  # Auto-create if relationship_tracker available
+    # relationship_tracker already defined above (source)
+    # bias_mitigation target is implicit in vote processing
+
+    # RLM → Selection Feedback Bridge
+    rlm_selection_bridge: Optional[Any] = None  # RLMSelectionBridge
+    enable_rlm_selection: bool = True  # Auto-create if rlm_bridge available
+    rlm_bridge: Optional[Any] = None  # RLMBridge (source)
+    # selection_feedback_loop already defined above (target)
+
+    # Calibration → Cost Optimizer Bridge
+    calibration_cost_bridge: Optional[Any] = None  # CalibrationCostBridge
+    enable_calibration_cost: bool = True  # Auto-create if calibration_tracker available
+    # calibration_tracker already defined above (source)
+    cost_tracker: Optional[Any] = None  # CostTracker (target)
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _init_errors: list = field(default_factory=list, repr=False)
@@ -183,6 +230,58 @@ class SubsystemCoordinator:
         return self.continuum_memory is not None
 
     # =========================================================================
+    # Phase 9: Cross-Pollination Bridge Capability Checks
+    # =========================================================================
+
+    @property
+    def has_performance_router_bridge(self) -> bool:
+        """Check if performance-based routing bridge is available."""
+        return self.performance_router_bridge is not None
+
+    @property
+    def has_outcome_complexity_bridge(self) -> bool:
+        """Check if outcome-complexity bridge is available."""
+        return self.outcome_complexity_bridge is not None
+
+    @property
+    def has_analytics_selection_bridge(self) -> bool:
+        """Check if analytics-selection bridge is available."""
+        return self.analytics_selection_bridge is not None
+
+    @property
+    def has_novelty_selection_bridge(self) -> bool:
+        """Check if novelty-selection bridge is available."""
+        return self.novelty_selection_bridge is not None
+
+    @property
+    def has_relationship_bias_bridge(self) -> bool:
+        """Check if relationship-bias bridge is available."""
+        return self.relationship_bias_bridge is not None
+
+    @property
+    def has_rlm_selection_bridge(self) -> bool:
+        """Check if RLM-selection bridge is available."""
+        return self.rlm_selection_bridge is not None
+
+    @property
+    def has_calibration_cost_bridge(self) -> bool:
+        """Check if calibration-cost bridge is available."""
+        return self.calibration_cost_bridge is not None
+
+    @property
+    def active_bridges_count(self) -> int:
+        """Count of active cross-pollination bridges."""
+        return sum([
+            self.has_performance_router_bridge,
+            self.has_outcome_complexity_bridge,
+            self.has_analytics_selection_bridge,
+            self.has_novelty_selection_bridge,
+            self.has_relationship_bias_bridge,
+            self.has_rlm_selection_bridge,
+            self.has_calibration_cost_bridge,
+        ])
+
+    # =========================================================================
     # Auto-initialization methods
     # =========================================================================
 
@@ -207,6 +306,38 @@ class SubsystemCoordinator:
         # Hook handler registry (requires hook_manager)
         if self.hook_manager is not None and self.enable_hook_handlers:
             self._auto_init_hook_handlers()
+
+        # =======================================================================
+        # Phase 9: Cross-Pollination Bridges
+        # =======================================================================
+
+        # Performance → Router bridge
+        if self.enable_performance_router and self.performance_router_bridge is None:
+            self._auto_init_performance_router_bridge()
+
+        # Outcome → Complexity bridge
+        if self.enable_outcome_complexity and self.outcome_complexity_bridge is None:
+            self._auto_init_outcome_complexity_bridge()
+
+        # Analytics → Selection bridge
+        if self.enable_analytics_selection and self.analytics_selection_bridge is None:
+            self._auto_init_analytics_selection_bridge()
+
+        # Novelty → Selection Feedback bridge
+        if self.enable_novelty_selection and self.novelty_selection_bridge is None:
+            self._auto_init_novelty_selection_bridge()
+
+        # Relationship → Bias Mitigation bridge
+        if self.enable_relationship_bias and self.relationship_bias_bridge is None:
+            self._auto_init_relationship_bias_bridge()
+
+        # RLM → Selection Feedback bridge
+        if self.enable_rlm_selection and self.rlm_selection_bridge is None:
+            self._auto_init_rlm_selection_bridge()
+
+        # Calibration → Cost bridge
+        if self.enable_calibration_cost and self.calibration_cost_bridge is None:
+            self._auto_init_calibration_cost_bridge()
 
     def _auto_init_position_ledger(self) -> None:
         """Auto-initialize PositionLedger for tracking agent positions.
@@ -315,6 +446,161 @@ class SubsystemCoordinator:
         except (TypeError, ValueError, RuntimeError) as e:
             logger.debug("HookHandlerRegistry auto-init failed: %s", e)
             self._init_errors.append(f"HookHandlerRegistry init failed: {e}")
+
+    # =========================================================================
+    # Phase 9: Cross-Pollination Bridge Auto-Initialization
+    # =========================================================================
+
+    def _auto_init_performance_router_bridge(self) -> None:
+        """Auto-initialize PerformanceRouterBridge for performance-based routing."""
+        if self.performance_monitor is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.debate.performance_router_bridge import (
+                create_performance_router_bridge,
+            )
+
+            self.performance_router_bridge = create_performance_router_bridge(
+                performance_monitor=self.performance_monitor,
+                agent_router=self.agent_router,
+            )
+            logger.debug("Auto-initialized PerformanceRouterBridge")
+        except ImportError:
+            logger.debug("PerformanceRouterBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("PerformanceRouterBridge auto-init failed: %s", e)
+            self._init_errors.append(f"PerformanceRouterBridge init failed: {e}")
+
+    def _auto_init_outcome_complexity_bridge(self) -> None:
+        """Auto-initialize OutcomeComplexityBridge for outcome-based complexity governance."""
+        if self.outcome_tracker is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.debate.outcome_complexity_bridge import (
+                create_outcome_complexity_bridge,
+            )
+
+            self.outcome_complexity_bridge = create_outcome_complexity_bridge(
+                outcome_tracker=self.outcome_tracker,
+                complexity_governor=self.complexity_governor,
+            )
+            logger.debug("Auto-initialized OutcomeComplexityBridge")
+        except ImportError:
+            logger.debug("OutcomeComplexityBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("OutcomeComplexityBridge auto-init failed: %s", e)
+            self._init_errors.append(f"OutcomeComplexityBridge init failed: {e}")
+
+    def _auto_init_analytics_selection_bridge(self) -> None:
+        """Auto-initialize AnalyticsSelectionBridge for analytics-driven team selection."""
+        if self.analytics_coordinator is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.debate.analytics_selection_bridge import (
+                create_analytics_selection_bridge,
+            )
+
+            self.analytics_selection_bridge = create_analytics_selection_bridge(
+                analytics_coordinator=self.analytics_coordinator,
+                team_selector=self.team_selector,
+            )
+            logger.debug("Auto-initialized AnalyticsSelectionBridge")
+        except ImportError:
+            logger.debug("AnalyticsSelectionBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("AnalyticsSelectionBridge auto-init failed: %s", e)
+            self._init_errors.append(f"AnalyticsSelectionBridge init failed: {e}")
+
+    def _auto_init_novelty_selection_bridge(self) -> None:
+        """Auto-initialize NoveltySelectionBridge for novelty-based selection feedback."""
+        if self.novelty_tracker is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.debate.novelty_selection_bridge import (
+                create_novelty_selection_bridge,
+            )
+
+            self.novelty_selection_bridge = create_novelty_selection_bridge(
+                novelty_tracker=self.novelty_tracker,
+                selection_feedback=self.selection_feedback_loop,
+            )
+            logger.debug("Auto-initialized NoveltySelectionBridge")
+        except ImportError:
+            logger.debug("NoveltySelectionBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("NoveltySelectionBridge auto-init failed: %s", e)
+            self._init_errors.append(f"NoveltySelectionBridge init failed: {e}")
+
+    def _auto_init_relationship_bias_bridge(self) -> None:
+        """Auto-initialize RelationshipBiasBridge for echo chamber detection and bias mitigation."""
+        if self.relationship_tracker is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.debate.relationship_bias_bridge import (
+                create_relationship_bias_bridge,
+            )
+
+            self.relationship_bias_bridge = create_relationship_bias_bridge(
+                relationship_tracker=self.relationship_tracker,
+            )
+            logger.debug("Auto-initialized RelationshipBiasBridge")
+        except ImportError:
+            logger.debug("RelationshipBiasBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("RelationshipBiasBridge auto-init failed: %s", e)
+            self._init_errors.append(f"RelationshipBiasBridge init failed: {e}")
+
+    def _auto_init_rlm_selection_bridge(self) -> None:
+        """Auto-initialize RLMSelectionBridge for RLM-efficient agent selection."""
+        if self.rlm_bridge is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.rlm.rlm_selection_bridge import create_rlm_selection_bridge
+
+            self.rlm_selection_bridge = create_rlm_selection_bridge(
+                rlm_bridge=self.rlm_bridge,
+                selection_feedback=self.selection_feedback_loop,
+            )
+            logger.debug("Auto-initialized RLMSelectionBridge")
+        except ImportError:
+            logger.debug("RLMSelectionBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("RLMSelectionBridge auto-init failed: %s", e)
+            self._init_errors.append(f"RLMSelectionBridge init failed: {e}")
+
+    def _auto_init_calibration_cost_bridge(self) -> None:
+        """Auto-initialize CalibrationCostBridge for calibration-based cost optimization."""
+        if self.calibration_tracker is None:
+            # No source data available
+            return
+
+        try:
+            from aragora.billing.calibration_cost_bridge import (
+                create_calibration_cost_bridge,
+            )
+
+            self.calibration_cost_bridge = create_calibration_cost_bridge(
+                calibration_tracker=self.calibration_tracker,
+                cost_tracker=self.cost_tracker,
+            )
+            logger.debug("Auto-initialized CalibrationCostBridge")
+        except ImportError:
+            logger.debug("CalibrationCostBridge not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("CalibrationCostBridge auto-init failed: %s", e)
+            self._init_errors.append(f"CalibrationCostBridge init failed: {e}")
 
     # =========================================================================
     # Lifecycle hooks
@@ -604,6 +890,16 @@ class SubsystemCoordinator:
                 "continuum_memory": self.has_continuum_memory,
                 "hook_handlers": self.has_hook_handlers,
             },
+            "cross_pollination_bridges": {
+                "performance_router": self.has_performance_router_bridge,
+                "outcome_complexity": self.has_outcome_complexity_bridge,
+                "analytics_selection": self.has_analytics_selection_bridge,
+                "novelty_selection": self.has_novelty_selection_bridge,
+                "relationship_bias": self.has_relationship_bias_bridge,
+                "rlm_selection": self.has_rlm_selection_bridge,
+                "calibration_cost": self.has_calibration_cost_bridge,
+            },
+            "active_bridges_count": self.active_bridges_count,
             "hook_handlers_registered": hook_count,
             "init_errors": self._init_errors,
             "initialized": self._initialized,
@@ -624,6 +920,15 @@ class SubsystemConfig:
     enable_moment_detection: bool = False
     enable_hook_handlers: bool = True
 
+    # Phase 9: Cross-Pollination Bridge enable flags
+    enable_performance_router: bool = True
+    enable_outcome_complexity: bool = True
+    enable_analytics_selection: bool = True
+    enable_novelty_selection: bool = True
+    enable_relationship_bias: bool = True
+    enable_rlm_selection: bool = True
+    enable_calibration_cost: bool = True
+
     # Pre-configured subsystems (optional)
     position_tracker: Optional[Any] = None
     position_ledger: Optional[Any] = None
@@ -639,6 +944,25 @@ class SubsystemConfig:
     tier_analytics_tracker: Optional[Any] = None
     hook_manager: Optional[Any] = None
     hook_handler_registry: Optional[Any] = None
+
+    # Phase 9: Cross-Pollination Bridge sources and pre-configured bridges
+    performance_monitor: Optional[Any] = None
+    agent_router: Optional[Any] = None
+    performance_router_bridge: Optional[Any] = None
+    outcome_tracker: Optional[Any] = None
+    complexity_governor: Optional[Any] = None
+    outcome_complexity_bridge: Optional[Any] = None
+    analytics_coordinator: Optional[Any] = None
+    team_selector: Optional[Any] = None
+    analytics_selection_bridge: Optional[Any] = None
+    novelty_tracker: Optional[Any] = None
+    selection_feedback_loop: Optional[Any] = None
+    novelty_selection_bridge: Optional[Any] = None
+    relationship_bias_bridge: Optional[Any] = None
+    rlm_bridge: Optional[Any] = None
+    rlm_selection_bridge: Optional[Any] = None
+    cost_tracker: Optional[Any] = None
+    calibration_cost_bridge: Optional[Any] = None
 
     def create_coordinator(
         self,
@@ -675,6 +999,31 @@ class SubsystemConfig:
             hook_manager=self.hook_manager,
             hook_handler_registry=self.hook_handler_registry,
             enable_hook_handlers=self.enable_hook_handlers,
+            # Phase 9: Cross-Pollination Bridges
+            performance_monitor=self.performance_monitor,
+            agent_router=self.agent_router,
+            performance_router_bridge=self.performance_router_bridge,
+            enable_performance_router=self.enable_performance_router,
+            outcome_tracker=self.outcome_tracker,
+            complexity_governor=self.complexity_governor,
+            outcome_complexity_bridge=self.outcome_complexity_bridge,
+            enable_outcome_complexity=self.enable_outcome_complexity,
+            analytics_coordinator=self.analytics_coordinator,
+            team_selector=self.team_selector,
+            analytics_selection_bridge=self.analytics_selection_bridge,
+            enable_analytics_selection=self.enable_analytics_selection,
+            novelty_tracker=self.novelty_tracker,
+            selection_feedback_loop=self.selection_feedback_loop,
+            novelty_selection_bridge=self.novelty_selection_bridge,
+            enable_novelty_selection=self.enable_novelty_selection,
+            relationship_bias_bridge=self.relationship_bias_bridge,
+            enable_relationship_bias=self.enable_relationship_bias,
+            rlm_bridge=self.rlm_bridge,
+            rlm_selection_bridge=self.rlm_selection_bridge,
+            enable_rlm_selection=self.enable_rlm_selection,
+            cost_tracker=self.cost_tracker,
+            calibration_cost_bridge=self.calibration_cost_bridge,
+            enable_calibration_cost=self.enable_calibration_cost,
         )
 
 

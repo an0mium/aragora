@@ -106,6 +106,10 @@ from aragora.knowledge.mound.meta_learner import (
     TierOptimizationRecommendation,
     CoalescenceResult,
 )
+from aragora.knowledge.mound.revalidation_scheduler import (
+    RevalidationScheduler,
+    handle_revalidation_task,
+)
 
 __all__ = [
     # Enhanced facade (primary export)
@@ -161,4 +165,7 @@ __all__ = [
     "RetrievalMetrics",
     "TierOptimizationRecommendation",
     "CoalescenceResult",
+    # Phase 1: Revalidation Scheduler (automatic staleness handling)
+    "RevalidationScheduler",
+    "handle_revalidation_task",
 ]

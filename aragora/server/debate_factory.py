@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
 from aragora.exceptions import ConfigurationError
+from aragora.rlm.debate_integration import create_training_hook
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +243,7 @@ class DebateFactory:
         config: DebateConfig,
         event_hooks: Optional[dict] = None,
         stream_wrapper: Optional[Callable[..., Any]] = None,
+        enable_rlm_training: bool = True,
     ) -> "Arena":
         """Create a fully configured debate arena.
 
@@ -251,6 +253,7 @@ class DebateFactory:
             config: Debate configuration
             event_hooks: Optional event hooks for the arena
             stream_wrapper: Optional function to wrap agents for streaming
+            enable_rlm_training: Whether to enable RLM training data collection
 
         Returns:
             Configured Arena ready to run
@@ -258,7 +261,7 @@ class DebateFactory:
         Raises:
             ValueError: If not enough agents could be created
         """
-        from aragora.core import Environment
+        from aragora.core_types import Environment
         from aragora.debate.arena_builder import ArenaBuilder
         from aragora.debate.protocol import (
             ARAGORA_AI_LIGHT_PROTOCOL,
@@ -329,11 +332,27 @@ class DebateFactory:
             enable_breakpoints=base_protocol.enable_breakpoints,
         )
 
+        # Prepare event hooks with RLM training hook if enabled
+        hooks = dict(event_hooks or {})
+        if enable_rlm_training:
+            training_hook = create_training_hook()
+            # Add training hook (chain with existing on_debate_complete if present)
+            existing_hook = hooks.get("on_debate_complete")
+            if existing_hook:
+                # Chain hooks together
+                def chained_hook(result, ctx=None, _existing=existing_hook, _training=training_hook):
+                    _existing(result, ctx)
+                    _training(result, ctx)
+                hooks["on_debate_complete"] = chained_hook
+            else:
+                hooks["on_debate_complete"] = training_hook
+            logger.debug("RLM training hook enabled for debate trajectory collection")
+
         # Build arena using ArenaBuilder for cleaner configuration
         builder = (
             ArenaBuilder(env, agent_result.agents)
             .with_protocol(protocol)
-            .with_event_hooks(event_hooks or {})
+            .with_event_hooks(hooks)
             .with_event_emitter(self.stream_emitter)
             .with_loop_id(config.debate_id or "")
             .with_strict_loop_scoping(True)  # Enable strict scoping for web debates

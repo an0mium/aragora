@@ -710,7 +710,7 @@ class Arena:
                 from aragora.knowledge.mound.revalidation_scheduler import RevalidationScheduler
 
                 self.revalidation_scheduler = RevalidationScheduler(
-                    mound=self.knowledge_mound,
+                    knowledge_mound=self.knowledge_mound,
                     staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
                     check_interval_seconds=getattr(self, "revalidation_check_interval_seconds", 3600),
                 )

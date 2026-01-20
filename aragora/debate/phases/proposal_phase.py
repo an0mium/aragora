@@ -26,6 +26,16 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 logger = logging.getLogger(__name__)
 
 
+def _record_calibration_adjustment(agent: str) -> None:
+    """Record calibration adjustment metric with lazy import."""
+    try:
+        from aragora.observability.metrics import record_calibration_adjustment
+
+        record_calibration_adjustment(agent)
+    except ImportError:
+        pass
+
+
 class ProposalPhase:
     """
     Generates initial proposals from proposer agents.
@@ -353,6 +363,7 @@ class ProposalPhase:
                         f"[calibration] {agent_name} proposal confidence: "
                         f"{raw_confidence:.2f} -> {calibrated:.2f}"
                     )
+                    _record_calibration_adjustment(agent_name)
                 return calibrated
         except Exception as e:
             logger.debug(f"[calibration] Failed for {agent_name}: {e}")
