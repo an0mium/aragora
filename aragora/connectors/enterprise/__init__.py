@@ -5,7 +5,8 @@ Provides crawling and syncing from enterprise data sources:
 - Git repositories (GitHub, GitLab, Bitbucket)
 - Cloud documents (S3, SharePoint, Google Drive)
 - Databases (PostgreSQL, MongoDB, Snowflake)
-- Collaboration platforms (Confluence, Notion, Slack)
+- Collaboration platforms (Confluence, Notion, Slack, Jira)
+- ITSM platforms (ServiceNow)
 - Healthcare systems (FHIR)
 
 All connectors support:
@@ -32,6 +33,10 @@ from aragora.connectors.enterprise.collaboration import (
     ConfluenceConnector,
     NotionConnector,
     SlackConnector,
+    JiraConnector,
+)
+from aragora.connectors.enterprise.itsm import (
+    ServiceNowConnector,
 )
 
 __all__ = [
@@ -55,6 +60,9 @@ __all__ = [
     "ConfluenceConnector",
     "NotionConnector",
     "SlackConnector",
+    "JiraConnector",
+    # ITSM connectors
+    "ServiceNowConnector",
     # Sync scheduler
     "SyncScheduler",
     "SyncJob",

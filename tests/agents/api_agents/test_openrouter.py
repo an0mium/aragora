@@ -34,7 +34,7 @@ class TestOpenRouterAgentInitialization:
 
         assert agent.name == "openrouter"
         assert agent.model == "deepseek/deepseek-chat"
-        assert agent.role == "analyst"
+        assert agent.role == "proposer"  # Default role for debate participation
         assert agent.timeout == 300
         assert agent.agent_type == "openrouter"
         assert "openrouter.ai" in agent.base_url
