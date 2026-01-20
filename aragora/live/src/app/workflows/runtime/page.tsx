@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
+import { ExecutionDAGView, StepDetailPanel } from '@/components/workflow-runtime';
+
+type ViewMode = 'list' | 'dag';
 
 interface WorkflowStep {
   id: string;
@@ -71,6 +74,8 @@ export default function WorkflowRuntimePage() {
   const [selectedExecution, setSelectedExecution] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [usingMockData, setUsingMockData] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
 
   const fetchExecutions = useCallback(async () => {
     try {
@@ -207,26 +212,54 @@ export default function WorkflowRuntimePage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-6">
-          {['all', 'running', 'waiting_approval', 'completed', 'failed'].map((status) => (
+        {/* Filters and View Toggle */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2">
+            {['all', 'running', 'waiting_approval', 'completed', 'failed'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+                  statusFilter === status
+                    ? 'bg-acid-green text-bg'
+                    : 'bg-surface text-text-muted hover:text-text border border-border'
+                }`}
+              >
+                {status === 'all' ? 'All' : status.replace('_', ' ').toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex gap-1 border border-border rounded overflow-hidden">
             <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
-                statusFilter === status
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 transition-colors ${
+                viewMode === 'list'
                   ? 'bg-acid-green text-bg'
-                  : 'bg-surface text-text-muted hover:text-text border border-border'
+                  : 'bg-surface text-text-muted hover:text-text'
               }`}
+              title="List View"
             >
-              {status === 'all' ? 'All' : status.replace('_', ' ').toUpperCase()}
+              <span>≡</span> List
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('dag')}
+              className={`px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 transition-colors ${
+                viewMode === 'dag'
+                  ? 'bg-acid-green text-bg'
+                  : 'bg-surface text-text-muted hover:text-text'
+              }`}
+              title="DAG View"
+            >
+              <span>◇</span> DAG
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Executions List */}
-          <div className="space-y-4">
+        {/* Executions Sidebar - always visible */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-4">
             <h2 className="text-sm font-mono text-acid-green uppercase">Executions</h2>
 
             {loading ? (
