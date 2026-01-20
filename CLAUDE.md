@@ -24,7 +24,7 @@ Context for Claude Code when working with the Aragora codebase.
 
 ## Project Overview
 
-Aragora is a multi-agent debate framework where heterogeneous AI agents discuss, critique, and improve each other's responses. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is an **omnivorous multi-agent decision making engine** where diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—collaborate through structured debate to reach well-reasoned conclusions. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
 **Codebase Scale:** 1000+ Python modules | 37,800+ tests | 117 debate modules | 65 HTTP handlers + 15 WebSocket streams | 24+ enterprise connectors
 

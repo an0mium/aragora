@@ -332,23 +332,33 @@ class TelegramConnector(ChatPlatformConnector):
         elif "document" in msg:
             msg_type = MessageType.FILE
         elif "photo" in msg:
-            msg_type = MessageType.IMAGE
+            msg_type = MessageType.FILE  # Images treated as files
+
+        # Build proper ChatChannel and ChatUser objects
+        channel = ChatChannel(
+            id=str(chat_data.get("id")),
+            platform="telegram",
+            name=chat_data.get("title") or chat_data.get("username"),
+            is_private=chat_data.get("type") == "private",
+            is_dm=chat_data.get("type") == "private",
+        )
+        author = ChatUser(
+            id=str(user_data.get("id")),
+            platform="telegram",
+            username=user_data.get("username", ""),
+            display_name=f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+        )
 
         return ChatMessage(
-            message_id=str(msg.get("message_id")),
-            channel_id=str(chat_data.get("id")),
-            user=ChatUser(
-                user_id=str(user_data.get("id")),
-                username=user_data.get("username", ""),
-                display_name=f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
-                platform="telegram",
-            ),
-            text=msg.get("text", msg.get("caption", "")),
-            timestamp=datetime.fromtimestamp(msg.get("date", 0)),
-            message_type=msg_type,
+            id=str(msg.get("message_id")),
             platform="telegram",
-            raw_data=msg,
+            channel=channel,
+            author=author,
+            content=msg.get("text", msg.get("caption", "")),
+            message_type=msg_type,
+            timestamp=datetime.fromtimestamp(msg.get("date", 0)),
             thread_id=str(msg.get("reply_to_message", {}).get("message_id")) if msg.get("reply_to_message") else None,
+            metadata={"raw_data": msg},
         )
 
     async def parse_command(
@@ -364,24 +374,38 @@ class TelegramConnector(ChatPlatformConnector):
             return None
 
         # Parse command and args
-        parts = text.split(maxsplit=1)
-        command = parts[0][1:]  # Remove leading /
+        parts = text.split()
+        command_name = parts[0][1:]  # Remove leading /
 
         # Handle @bot suffix (e.g., /help@mybot)
-        if "@" in command:
-            command = command.split("@")[0]
+        if "@" in command_name:
+            command_name = command_name.split("@")[0]
 
-        args = parts[1] if len(parts) > 1 else ""
+        args = parts[1:] if len(parts) > 1 else []
 
+        # Build user and channel objects
         user_data = msg.get("from", {})
-        return BotCommand(
-            command=command,
-            args=args,
-            user_id=str(user_data.get("id")),
-            channel_id=str(msg.get("chat", {}).get("id")),
-            message_id=str(msg.get("message_id")),
+        chat_data = msg.get("chat", {})
+        user = ChatUser(
+            id=str(user_data.get("id")),
             platform="telegram",
-            raw_data=msg,
+            username=user_data.get("username", ""),
+            display_name=f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+        )
+        channel = ChatChannel(
+            id=str(chat_data.get("id")),
+            platform="telegram",
+            name=chat_data.get("title") or chat_data.get("username"),
+        )
+
+        return BotCommand(
+            name=command_name,
+            text=text,
+            args=args,
+            user=user,
+            channel=channel,
+            platform="telegram",
+            metadata={"message_id": str(msg.get("message_id")), "raw_data": msg},
         )
 
     async def handle_interaction(

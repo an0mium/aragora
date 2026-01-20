@@ -105,7 +105,7 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted, onEnterDashboard 
           {/* Value Proposition - Minimal */}
           <div className="text-center mb-8 max-w-2xl">
             <p className="text-sm font-mono text-text-muted/80 mb-4">
-              Multi-agent AI platform for decision makers
+              Omnivorous Multi Agent Decision Making Engine
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
               <span className="flex items-center gap-1">
@@ -220,13 +220,13 @@ export function LandingPage({ apiBase, wsUrl, onDebateStarted, onEnterDashboard 
               {/* Intro Section */}
               <div className="max-w-4xl mx-auto mb-8 text-center">
                 <h2 className="text-acid-green font-mono text-sm mb-2">
-                  The Self-Evolving Red Team Arena
+                  Harness the Collective Intelligence of Diverse AI Models
                 </h2>
                 <p className="text-acid-cyan/80 font-mono text-[11px] mb-3">
-                  Claude vs GPT vs Gemini vs Mistral vs Grok vs DeepSeek vs Qwen vs Kimi
+                  Claude + GPT + Gemini + Mistral + Grok + DeepSeek + Qwen + Kimi
                 </p>
                 <p className="text-text-muted/70 font-mono text-[10px] max-w-lg mx-auto">
-                  Real AI models. Adversarial reasoning. Decision receipts.
+                  Diverse AI models. Structured debate. Well-reasoned conclusions.
                 </p>
               </div>
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aragora"
 version = "2.0.3"
-description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
+description = "Omnivorous Multi Agent Decision Making Engine - Collaborative decision making through structured debate with diverse AI models"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

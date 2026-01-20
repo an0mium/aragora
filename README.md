@@ -1,11 +1,11 @@
-# aragora (Agent Agora): AI Red Team for Decision Stress-Testing
+# aragora (Agent Agora): Omnivorous Multi Agent Decision Making Engine
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/an0mium/aragora/branch/main/graph/badge.svg)](https://codecov.io/gh/an0mium/aragora)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Aragora is an **adversarial validation engine**. It stress-tests high-stakes specs, architectures, policies, and code by running multi-agent red-team debates and producing audit-ready Decision Receipts, risk heatmaps, and dissent trails.
+Aragora is an **omnivorous multi-agent decision making engine**. It harnesses the collective intelligence of diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to reach well-reasoned conclusions through structured debate.
 
 Debate is the engine. The product is a defensible decision record.
 
