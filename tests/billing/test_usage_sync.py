@@ -587,3 +587,243 @@ class TestUsageSyncPersistence:
 
         # Old period watermarks should not be loaded
         assert service._synced_tokens_in.get("org-old") is None
+
+
+class TestRemainderCarry:
+    """Tests for remainder carry and period-end flush."""
+
+    @pytest.fixture
+    def temp_db_dir(self, tmp_path):
+        """Create a temporary directory for database files."""
+        return tmp_path / ".nomic"
+
+    @pytest.fixture
+    def mock_usage_tracker(self):
+        """Create a mock UsageTracker."""
+        tracker = MagicMock()
+        return tracker
+
+    @pytest.fixture
+    def mock_stripe_client(self):
+        """Create a mock StripeClient that simulates successful reports."""
+        client = MagicMock()
+        mock_record = MagicMock()
+        mock_record.id = "usage_record_123"
+        client.report_usage = MagicMock(return_value=mock_record)
+        return client
+
+    def test_remainder_preserved_during_sync(
+        self, mock_usage_tracker, mock_stripe_client, temp_db_dir
+    ):
+        """Test that sub-1000 token remainders are preserved across syncs.
+
+        When 1500 tokens are used:
+        - 1000 should be billed (1 unit)
+        - 500 should remain for next sync cycle
+        """
+        from aragora.billing.usage import UsageSummary
+
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Register org with metered billing
+        from aragora.billing.models import SubscriptionTier
+        config = OrgBillingConfig(
+            org_id="org-remainder",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            tier=SubscriptionTier.STARTER,
+            metered_enabled=True,
+            tokens_input_item_id="si_input",
+            tokens_output_item_id="si_output",
+        )
+        service.register_org(config)
+
+        # Mock usage tracker to return 1500 tokens
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-remainder",
+            period_start=datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0),
+            period_end=datetime.utcnow(),
+            total_tokens_in=1500,  # 1000 billable + 500 remainder
+            total_tokens_out=0,
+            total_debates=0,
+        )
+
+        # First sync
+        records = service.sync_org(config)
+
+        # Should have billed 1 unit (1000 tokens)
+        assert len(records) == 1
+        assert records[0].quantity == 1  # 1500 // 1000 = 1 unit
+        assert records[0].sync_type == "tokens_input"
+
+        # Watermark should only advance to 1000 (preserving 500 remainder)
+        assert service._synced_tokens_in["org-remainder"] == 1000
+
+    def test_remainder_accumulates_across_syncs(
+        self, mock_usage_tracker, mock_stripe_client, temp_db_dir
+    ):
+        """Test that remainders accumulate until threshold is met.
+
+        Sync 1: 800 tokens (0 billed, 800 remainder)
+        Sync 2: 1600 total (1000 billed, 600 remainder)
+        Sync 3: 2500 total (2000 billed, 500 remainder)
+        """
+        from aragora.billing.usage import UsageSummary
+        from aragora.billing.models import SubscriptionTier
+
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            nomic_dir=temp_db_dir,
+        )
+
+        config = OrgBillingConfig(
+            org_id="org-accum",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            tier=SubscriptionTier.STARTER,
+            metered_enabled=True,
+            tokens_input_item_id="si_input",
+        )
+        service.register_org(config)
+
+        period_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Sync 1: 800 tokens (below threshold)
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-accum",
+            period_start=period_start,
+            period_end=datetime.utcnow(),
+            total_tokens_in=800, total_tokens_out=0, total_debates=0
+        )
+        records = service.sync_org(config)
+        assert len(records) == 0  # Nothing billed yet
+        assert service._synced_tokens_in.get("org-accum", 0) == 0
+
+        # Sync 2: 1600 total tokens (800 + 800 more)
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-accum",
+            period_start=period_start,
+            period_end=datetime.utcnow(),
+            total_tokens_in=1600, total_tokens_out=0, total_debates=0
+        )
+        records = service.sync_org(config)
+        assert len(records) == 1
+        assert records[0].quantity == 1  # 1600 // 1000 = 1 unit
+        assert service._synced_tokens_in["org-accum"] == 1000
+
+        # Sync 3: 2500 total tokens
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-accum",
+            period_start=period_start,
+            period_end=datetime.utcnow(),
+            total_tokens_in=2500, total_tokens_out=0, total_debates=0
+        )
+        records = service.sync_org(config)
+        assert len(records) == 1
+        assert records[0].quantity == 1  # (2500 - 1000) // 1000 = 1 unit
+        assert service._synced_tokens_in["org-accum"] == 2000
+
+    def test_flush_period_bills_remainder(
+        self, mock_usage_tracker, mock_stripe_client, temp_db_dir
+    ):
+        """Test that flush_period bills any remaining sub-threshold tokens."""
+        from aragora.billing.usage import UsageSummary
+        from aragora.billing.models import SubscriptionTier
+
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            nomic_dir=temp_db_dir,
+        )
+
+        config = OrgBillingConfig(
+            org_id="org-flush",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            tier=SubscriptionTier.STARTER,
+            metered_enabled=True,
+            tokens_input_item_id="si_input",
+            tokens_output_item_id="si_output",
+        )
+        service.register_org(config)
+
+        # Set watermark (previously synced 2000)
+        service._synced_tokens_in["org-flush"] = 2000
+        service._synced_tokens_out["org-flush"] = 1000
+
+        # Total usage is 2500 input, 1300 output (500 and 300 remainder)
+        period_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-flush",
+            period_start=period_start,
+            period_end=datetime.utcnow(),
+            total_tokens_in=2500,  # 500 remainder
+            total_tokens_out=1300,  # 300 remainder
+            total_debates=0,
+        )
+
+        # Flush should bill the remainder
+        records = service.flush_period("org-flush")
+
+        # Should bill remainders (rounded up to 1 unit each)
+        assert len(records) == 2
+        # Input: 500 remainder -> 1 unit
+        input_record = next(r for r in records if r.sync_type == "tokens_input")
+        assert input_record.quantity == 1
+        # Output: 300 remainder -> 1 unit
+        output_record = next(r for r in records if r.sync_type == "tokens_output")
+        assert output_record.quantity == 1
+
+    def test_auto_flush_on_period_transition(
+        self, mock_usage_tracker, mock_stripe_client, temp_db_dir
+    ):
+        """Test automatic flush when billing period changes."""
+        from aragora.billing.usage import UsageSummary
+        from aragora.billing.models import SubscriptionTier
+        from unittest.mock import patch
+
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            nomic_dir=temp_db_dir,
+        )
+
+        config = OrgBillingConfig(
+            org_id="org-transition",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            tier=SubscriptionTier.STARTER,
+            metered_enabled=True,
+            tokens_input_item_id="si_input",
+        )
+        service.register_org(config)
+
+        # Set last billing period to January
+        jan_start = datetime(2024, 1, 1, 0, 0, 0)
+        service._last_billing_period = jan_start
+
+        # Mock get_summary for the previous period (January)
+        mock_usage_tracker.get_summary.return_value = UsageSummary(
+            org_id="org-transition",
+            period_start=jan_start,
+            period_end=datetime(2024, 1, 31, 23, 59, 59),
+            total_tokens_in=500,  # Unbilled remainder from January
+            total_tokens_out=0,
+            total_debates=0,
+        )
+
+        # Mock _get_billing_period_start to return February (new period)
+        feb_start = datetime(2024, 2, 1, 0, 0, 0)
+        with patch.object(service, "_get_billing_period_start", return_value=feb_start):
+            # sync_all should detect transition and flush January remainder
+            records = service.sync_all()
+
+        # Should have flushed January's 500 tokens (1 unit)
+        flush_records = [r for r in records if r.sync_type == "tokens_input"]
+        assert len(flush_records) >= 1
+        assert any(r.quantity == 1 for r in flush_records)

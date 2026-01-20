@@ -118,9 +118,37 @@ class UsageSyncService:
         self._sync_history: list[UsageSyncRecord] = []
         self._max_history = 1000
 
+        # Track last known billing period for auto-flush on transition
+        self._last_billing_period: Optional[datetime] = None
+
         # Initialize database and load persisted state
         self._init_sync_db()
         self._load_sync_state()
+
+        # Load last billing period from DB or use current
+        # This ensures period transition detection works across restarts
+        self._last_billing_period = self._load_last_billing_period()
+        current_period = self._get_billing_period_start()
+
+        # Check for missed period transition on startup
+        if self._last_billing_period and current_period > self._last_billing_period:
+            logger.info(
+                f"Detected missed period transition during startup: "
+                f"{self._last_billing_period} -> {current_period}"
+            )
+            # Flush remainders from the previous period
+            flush_records = self._flush_previous_period(self._last_billing_period)
+            if flush_records:
+                logger.info(
+                    f"Startup flush: billed {len(flush_records)} remainder records "
+                    f"from previous period"
+                )
+            # Reload watermarks for new period
+            self._load_sync_state()
+
+        # Update persisted billing period
+        self._last_billing_period = current_period
+        self._save_last_billing_period(current_period)
 
     def _init_sync_db(self) -> None:
         """Initialize the sync watermark and sync records tables."""
@@ -166,7 +194,45 @@ class UsageSyncService:
                 CREATE INDEX IF NOT EXISTS idx_sync_records_org_period
                 ON usage_sync_records (org_id, period_start)
             """)
+
+            # Billing period state table (for detecting transitions across restarts)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS usage_sync_state (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
             conn.commit()
+
+    def _load_last_billing_period(self) -> Optional[datetime]:
+        """Load persisted last billing period from database."""
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT value FROM usage_sync_state WHERE key = 'last_billing_period'"
+                )
+                row = cursor.fetchone()
+                if row:
+                    return datetime.fromisoformat(row[0])
+        except sqlite3.Error as e:
+            logger.warning(f"Error loading last billing period: {e}")
+        return None
+
+    def _save_last_billing_period(self, period: datetime) -> None:
+        """Persist last billing period to database."""
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO usage_sync_state (key, value, updated_at)
+                    VALUES ('last_billing_period', ?, ?)
+                    """,
+                    (period.isoformat(), datetime.utcnow().isoformat()),
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Error saving last billing period: {e}")
 
     def _load_sync_state(self) -> None:
         """Load sync watermarks from database for the current billing period."""
@@ -409,6 +475,20 @@ class UsageSyncService:
         except sqlite3.Error as e:
             logger.error(f"Failed to reconcile pending syncs: {e}")
 
+    def _get_billing_config(self, org_id: str) -> Optional[OrgBillingConfig]:
+        """Get billing configuration for an organization.
+
+        Args:
+            org_id: Organization ID
+
+        Returns:
+            OrgBillingConfig if registered and metered billing enabled, None otherwise
+        """
+        config = self._org_configs.get(org_id)
+        if config and config.metered_enabled:
+            return config
+        return None
+
     def _get_subscription_item_id(
         self, config: OrgBillingConfig, sync_type: str
     ) -> Optional[str]:
@@ -524,10 +604,30 @@ class UsageSyncService:
         """
         Sync usage for all registered organizations.
 
+        Automatically detects billing period transitions and flushes
+        remainder tokens from the previous period before starting new period.
+
         Returns:
             List of sync records for this run
         """
         records = []
+
+        # Check for billing period transition and auto-flush previous period
+        current_period = self._get_billing_period_start()
+        if self._last_billing_period and current_period > self._last_billing_period:
+            logger.info(
+                f"Billing period transition detected: {self._last_billing_period} -> {current_period}"
+            )
+            # Flush remainder tokens from previous period before transitioning
+            flush_records = self._flush_previous_period(self._last_billing_period)
+            records.extend(flush_records)
+            # Reload watermarks for new period (they'll be fresh/zero)
+            self._load_sync_state()
+            # Persist the new billing period
+            self._save_last_billing_period(current_period)
+
+        self._last_billing_period = current_period
+
         for org_id, config in list(self._org_configs.items()):
             if not config.metered_enabled:
                 continue
@@ -792,6 +892,171 @@ class UsageSyncService:
             "metered_enabled": org_id in self._org_configs
             and self._org_configs[org_id].metered_enabled,
         }
+
+    def _flush_previous_period(
+        self,
+        previous_period: datetime,
+    ) -> list[UsageSyncRecord]:
+        """
+        Flush remainder tokens from a previous billing period.
+
+        Called automatically during period transitions to ensure all usage
+        from the previous period is billed before starting the new period.
+
+        Args:
+            previous_period: Start of the previous billing period
+
+        Returns:
+            List of sync records for flushed usage
+        """
+        records: list[UsageSyncRecord] = []
+
+        for config in list(self._org_configs.values()):
+            if not config.metered_enabled:
+                continue
+
+            org = config.org_id
+
+            # Get usage summary for the previous period
+            summary = self.usage_tracker.get_summary(
+                org_id=org,
+                period_start=previous_period,
+            )
+
+            # Get watermarks for the previous period from database
+            prev_tokens_in = 0
+            prev_tokens_out = 0
+
+            try:
+                with sqlite3.connect(self._db_path) as conn:
+                    cursor = conn.execute(
+                        """
+                        SELECT tokens_in, tokens_out FROM usage_sync_watermarks
+                        WHERE org_id = ? AND period_start = ?
+                        """,
+                        (org, previous_period.isoformat()),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        prev_tokens_in, prev_tokens_out = row
+            except sqlite3.Error as e:
+                logger.warning(f"Error loading previous period watermarks for {org}: {e}")
+
+            # Calculate remainder tokens
+            remainder_in = summary.total_tokens_in - prev_tokens_in
+            remainder_out = summary.total_tokens_out - prev_tokens_out
+
+            # Bill remainder input tokens (round up to 1 unit minimum)
+            if remainder_in > 0 and config.tokens_input_item_id:
+                billed_units = (remainder_in + 999) // 1000
+                record = self._report_usage(
+                    config=config,
+                    subscription_item_id=config.tokens_input_item_id,
+                    quantity=billed_units,
+                    sync_type="tokens_input",
+                    cumulative_total=summary.total_tokens_in,
+                )
+                records.append(record)
+                logger.info(
+                    f"Period transition flush: billed {billed_units} units for "
+                    f"{remainder_in} remainder input tokens for org {org} "
+                    f"(period: {previous_period.isoformat()})"
+                )
+
+            # Bill remainder output tokens
+            if remainder_out > 0 and config.tokens_output_item_id:
+                billed_units = (remainder_out + 999) // 1000
+                record = self._report_usage(
+                    config=config,
+                    subscription_item_id=config.tokens_output_item_id,
+                    quantity=billed_units,
+                    sync_type="tokens_output",
+                    cumulative_total=summary.total_tokens_out,
+                )
+                records.append(record)
+                logger.info(
+                    f"Period transition flush: billed {billed_units} units for "
+                    f"{remainder_out} remainder output tokens for org {org} "
+                    f"(period: {previous_period.isoformat()})"
+                )
+
+        return records
+
+    def flush_period(
+        self,
+        org_id: Optional[str] = None,
+    ) -> list[UsageSyncRecord]:
+        """
+        Flush all remaining usage at end of billing period.
+
+        This bills any remainder tokens that didn't meet the MIN_TOKENS_THRESHOLD
+        during regular sync cycles. Should be called at billing period end.
+
+        Args:
+            org_id: Specific org to flush, or None for all orgs
+
+        Returns:
+            List of sync records for flushed usage
+        """
+        records: list[UsageSyncRecord] = []
+
+        configs_to_flush = (
+            [self._org_configs[org_id]]
+            if org_id and org_id in self._org_configs
+            else list(self._org_configs.values())
+        )
+
+        for config in configs_to_flush:
+            if not config.metered_enabled:
+                continue
+
+            org = config.org_id
+            summary = self.usage_tracker.get_summary(
+                org_id=org,
+                period_start=self._get_billing_period_start(),
+            )
+
+            # Calculate remainder tokens (what's left after regular syncs)
+            prev_tokens_in = self._synced_tokens_in.get(org, 0)
+            prev_tokens_out = self._synced_tokens_out.get(org, 0)
+
+            remainder_in = summary.total_tokens_in - prev_tokens_in
+            remainder_out = summary.total_tokens_out - prev_tokens_out
+
+            # Bill remainder input tokens (even if < 1000, round up to 1 unit)
+            if remainder_in > 0 and config.tokens_input_item_id:
+                # Round up to nearest 1K unit for final flush
+                billed_units = (remainder_in + 999) // 1000
+                record = self._report_usage(
+                    config=config,
+                    subscription_item_id=config.tokens_input_item_id,
+                    quantity=billed_units,
+                    sync_type="tokens_input",
+                    cumulative_total=summary.total_tokens_in,
+                )
+                records.append(record)
+                logger.info(
+                    f"Period flush: billed {billed_units} units for {remainder_in} "
+                    f"remainder input tokens for org {org}"
+                )
+
+            # Bill remainder output tokens
+            if remainder_out > 0 and config.tokens_output_item_id:
+                billed_units = (remainder_out + 999) // 1000
+                record = self._report_usage(
+                    config=config,
+                    subscription_item_id=config.tokens_output_item_id,
+                    quantity=billed_units,
+                    sync_type="tokens_output",
+                    cumulative_total=summary.total_tokens_out,
+                )
+                records.append(record)
+                logger.info(
+                    f"Period flush: billed {billed_units} units for {remainder_out} "
+                    f"remainder output tokens for org {org}"
+                )
+
+        return records
 
 
 # Default service instance

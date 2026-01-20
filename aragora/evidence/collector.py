@@ -24,7 +24,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, cast
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, cast
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -237,6 +237,9 @@ class EvidenceCollector:
         event_emitter: Optional[Any] = None,
         loop_id: Optional[str] = None,
         allowed_domains: Optional[Set[str]] = None,
+        require_url_consent: bool = False,
+        url_consent_callback: Optional[Callable[[str, str], bool]] = None,
+        audit_callback: Optional[Callable[[str, str, str, bool], None]] = None,
     ):
         """Initialize the evidence collector.
 
@@ -246,6 +249,14 @@ class EvidenceCollector:
             loop_id: Optional loop ID for event context
             allowed_domains: Set of allowed domains for URL fetching.
                            Merged with DEFAULT_ALLOWED_DOMAINS and settings.
+            require_url_consent: If True, require explicit consent before fetching URLs.
+                               When enabled, url_consent_callback must be provided.
+            url_consent_callback: Callback to request user consent for URL fetching.
+                                Signature: (url: str, org_id: str) -> bool
+                                Returns True if consent is granted, False otherwise.
+            audit_callback: Optional callback for audit logging of URL fetches.
+                          Signature: (url: str, org_id: str, action: str, success: bool)
+                          action is one of: "fetch", "blocked_ssrf", "blocked_domain", "blocked_consent"
         """
         self.connectors = connectors or {}
         self.provenance_manager = ProvenanceManager()
@@ -254,6 +265,17 @@ class EvidenceCollector:
         self.snippet_max_length = 1000
         self.event_emitter = event_emitter
         self.loop_id = loop_id
+
+        # URL consent configuration
+        self._require_url_consent = require_url_consent
+        self._url_consent_callback = url_consent_callback
+        self._audit_callback = audit_callback
+        self._org_id: Optional[str] = None  # Set via set_org_context()
+
+        if require_url_consent and url_consent_callback is None:
+            raise ValueError(
+                "url_consent_callback is required when require_url_consent=True"
+            )
 
         # Load URL security settings
         try:
@@ -271,6 +293,50 @@ class EvidenceCollector:
         self._allowed_domains.update(additional_domains)
         if allowed_domains:
             self._allowed_domains.update(allowed_domains)
+
+    def set_org_context(self, org_id: str) -> None:
+        """Set the organization context for consent and audit tracking."""
+        self._org_id = org_id
+
+    def _check_url_consent(self, url: str) -> bool:
+        """Check if URL fetch is allowed via consent gate.
+
+        Returns True if:
+        - Consent not required, OR
+        - Consent callback returns True
+
+        Logs audit event regardless of outcome.
+        """
+        org_id = self._org_id or "unknown"
+
+        if not self._require_url_consent:
+            return True
+
+        if self._url_consent_callback is None:
+            logger.warning(
+                f"URL consent required but no callback configured. Blocking: {url}"
+            )
+            self._log_audit(url, org_id, "blocked_consent", False)
+            return False
+
+        try:
+            consent_granted = self._url_consent_callback(url, org_id)
+            if not consent_granted:
+                logger.info(f"URL consent denied for: {url}")
+                self._log_audit(url, org_id, "blocked_consent", False)
+            return consent_granted
+        except Exception as e:
+            logger.error(f"URL consent callback error: {e}")
+            self._log_audit(url, org_id, "blocked_consent", False)
+            return False
+
+    def _log_audit(self, url: str, org_id: str, action: str, success: bool) -> None:
+        """Log URL fetch action for audit trail."""
+        if self._audit_callback:
+            try:
+                self._audit_callback(url, org_id, action, success)
+            except Exception as e:
+                logger.warning(f"Audit callback error: {e}")
 
     def add_connector(self, name: str, connector: Connector) -> None:
         """Add a connector for evidence collection."""
@@ -420,14 +486,22 @@ class EvidenceCollector:
                         )
                         parsed = urlparse(full_url)
 
+                        org_id = self._org_id or "unknown"
+
                         # SSRF Protection: Always check basic safety first
                         if not self._is_safe_url(full_url):
                             logger.warning(f"SSRF: Blocked unsafe URL: {full_url}")
+                            self._log_audit(full_url, org_id, "blocked_ssrf", False)
                             continue
 
                         # Then check allowlist (unless feature flag bypasses it)
                         if not allow_all_urls and not self._is_domain_allowed(parsed.netloc):
                             logger.info(f"Skipping non-allowlisted URL: {full_url}")
+                            self._log_audit(full_url, org_id, "blocked_domain", False)
+                            continue
+
+                        # Consent gate: require explicit consent if configured
+                        if not self._check_url_consent(full_url):
                             continue
 
                         # Special handling for GitHub repos: fetch README
