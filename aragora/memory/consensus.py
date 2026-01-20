@@ -689,6 +689,73 @@ class ConsensusMemory(SQLiteStore):
         _dissents_cache.set(cache_key, results)
         return results
 
+    def delete_consensus(
+        self,
+        consensus_id: str,
+        cascade_dissents: bool = True,
+    ) -> bool:
+        """Delete a consensus record and optionally its associated dissents.
+
+        Used for rollback operations when a transaction fails.
+
+        Args:
+            consensus_id: ID of the consensus to delete
+            cascade_dissents: If True, also delete associated dissent records
+
+        Returns:
+            True if the record was deleted, False if not found
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if record exists
+            cursor.execute("SELECT 1 FROM consensus WHERE id = ?", (consensus_id,))
+            if not cursor.fetchone():
+                return False
+
+            # Delete associated dissents first if cascading
+            if cascade_dissents:
+                cursor.execute("DELETE FROM dissent WHERE debate_id = ?", (consensus_id,))
+                deleted_dissents = cursor.rowcount
+                if deleted_dissents > 0:
+                    logger.debug(
+                        "[consensus] Deleted %d dissent records for %s",
+                        deleted_dissents,
+                        consensus_id,
+                    )
+
+            # Delete the consensus record
+            cursor.execute("DELETE FROM consensus WHERE id = ?", (consensus_id,))
+            conn.commit()
+
+            # Invalidate relevant caches
+            invalidate_cache(_consensus_cache, lambda k: consensus_id in k)
+            invalidate_cache(_dissents_cache, lambda k: consensus_id in k)
+
+            logger.debug("[consensus] Deleted consensus record: %s", consensus_id)
+            return True
+
+    def delete_dissent(self, dissent_id: str) -> bool:
+        """Delete a single dissent record.
+
+        Args:
+            dissent_id: ID of the dissent to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM dissent WHERE id = ?", (dissent_id,))
+            conn.commit()
+
+            if cursor.rowcount > 0:
+                # Invalidate dissent caches
+                invalidate_cache(_dissents_cache)
+                logger.debug("[consensus] Deleted dissent record: %s", dissent_id)
+                return True
+            return False
+
     def find_similar_debates(
         self,
         topic: str,

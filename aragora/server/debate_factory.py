@@ -214,6 +214,9 @@ class DebateFactory:
                         existing = getattr(agent, "system_prompt", "") or ""
                         agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
 
+                    # Apply persona generation parameters (temperature, top_p, etc.)
+                    self._apply_persona_params(agent, spec.persona)
+
                 # Validate API key for API-based agents
                 if hasattr(agent, "api_key") and not agent.api_key:
                     raise ValueError(f"Missing API key for {spec.provider}")
@@ -296,6 +299,48 @@ class DebateFactory:
             return f"You are a {persona} in this debate. Approach arguments from that perspective."
 
         return None
+
+    def _apply_persona_params(self, agent: Any, persona: str) -> None:
+        """Apply persona generation parameters (temperature, top_p, frequency_penalty) to agent.
+
+        Args:
+            agent: Agent instance to configure
+            persona: Persona name to look up parameters from
+        """
+        # Only apply if agent supports set_generation_params
+        if not hasattr(agent, "set_generation_params"):
+            return
+
+        # Check DEFAULT_PERSONAS first
+        try:
+            from aragora.agents.personas import DEFAULT_PERSONAS
+
+            if persona in DEFAULT_PERSONAS:
+                p = DEFAULT_PERSONAS[persona]
+                agent.set_generation_params(
+                    temperature=p.temperature,
+                    top_p=p.top_p,
+                    frequency_penalty=p.frequency_penalty,
+                )
+                logger.debug(f"Applied persona params for {persona}: temp={p.temperature}")
+                return
+        except ImportError:
+            pass
+
+        # Check PersonaManager
+        if self.persona_manager:
+            try:
+                stored_persona = self.persona_manager.get_persona(persona)
+                if stored_persona:
+                    agent.set_generation_params(
+                        temperature=stored_persona.temperature,
+                        top_p=stored_persona.top_p,
+                        frequency_penalty=stored_persona.frequency_penalty,
+                    )
+                    logger.debug(f"Applied persona params from manager for {persona}")
+                    return
+            except Exception as e:
+                logger.debug(f"Failed to get persona params: {e}")
 
     def create_arena(
         self,

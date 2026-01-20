@@ -163,7 +163,10 @@ class TestMemoryCoordinator:
         continuum.store_pattern = MagicMock(return_value="continuum-entry-1")
 
         consensus = MagicMock()
-        consensus.store_consensus = MagicMock(return_value="consensus-entry-1")
+        # store_consensus returns a ConsensusRecord with .id attribute
+        mock_consensus_record = MagicMock()
+        mock_consensus_record.id = "consensus-entry-1"
+        consensus.store_consensus = MagicMock(return_value=mock_consensus_record)
 
         critique = MagicMock()
         critique.store_result = MagicMock()

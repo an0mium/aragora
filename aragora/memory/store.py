@@ -354,6 +354,73 @@ class CritiqueStore(SQLiteStore):
         invalidate_cache("memory")
         return int(row_id) if row_id is not None else 0
 
+    def delete_debate(self, debate_id: str, cascade_critiques: bool = True) -> bool:
+        """Delete a debate record and optionally its critiques.
+
+        Used for rollback operations when a transaction fails.
+
+        Args:
+            debate_id: ID of the debate to delete
+            cascade_critiques: If True, also delete associated critique records
+
+        Returns:
+            True if the record was deleted, False if not found
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if record exists
+            cursor.execute("SELECT 1 FROM debates WHERE id = ?", (debate_id,))
+            if not cursor.fetchone():
+                return False
+
+            # Delete associated critiques first if cascading
+            if cascade_critiques:
+                cursor.execute("DELETE FROM critiques WHERE debate_id = ?", (debate_id,))
+                deleted_critiques = cursor.rowcount
+                if deleted_critiques > 0:
+                    logger.debug(
+                        "[critique_store] Deleted %d critique records for debate %s",
+                        deleted_critiques,
+                        debate_id,
+                    )
+
+            # Delete the debate record
+            cursor.execute("DELETE FROM debates WHERE id = ?", (debate_id,))
+            conn.commit()
+
+            # Invalidate caches
+            invalidate_cache("memory")
+            invalidate_cache("debates")
+
+            logger.debug("[critique_store] Deleted debate record: %s", debate_id)
+            return True
+
+    def delete_pattern(self, pattern_id: str) -> bool:
+        """Delete a pattern record.
+
+        Args:
+            pattern_id: ID of the pattern to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Also delete associated embedding if exists
+            cursor.execute("DELETE FROM pattern_embeddings WHERE pattern_id = ?", (pattern_id,))
+
+            # Delete the pattern
+            cursor.execute("DELETE FROM patterns WHERE id = ?", (pattern_id,))
+            conn.commit()
+
+            if cursor.rowcount > 0:
+                invalidate_cache("memory")
+                logger.debug("[critique_store] Deleted pattern: %s", pattern_id)
+                return True
+            return False
+
     def get_recent(self, limit: int = 20) -> list[Critique]:
         """Return the most recent critiques."""
         with self.connection() as conn:

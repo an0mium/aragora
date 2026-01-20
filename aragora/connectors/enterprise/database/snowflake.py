@@ -243,7 +243,8 @@ class SnowflakeConnector(EnterpriseConnector):
             """
             await self._async_query(query)
             return True
-        except Exception:
+        except (ValueError, RuntimeError, OSError) as e:
+            logger.debug(f"Change tracking check failed for {table}: {e}")
             return False
 
     def _find_timestamp_column(self, columns: List[Dict[str, Any]]) -> Optional[str]:

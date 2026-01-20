@@ -29,6 +29,7 @@ from aragora.resilience import CircuitBreaker
 
 T = TypeVar("T")
 from aragora.debate.sanitization import OutputSanitizer
+from aragora.debate.schemas import validate_agent_response
 
 # Lazy import for telemetry to avoid circular imports
 _telemetry_initialized = False
@@ -415,6 +416,22 @@ class AutonomicExecutor:
                     logger.warning(
                         f"[Autonomic] Agent {agent.name} retry also produced empty output"
                     )
+
+            # Validate response schema for type safety and size limits
+            validation_result = validate_agent_response(
+                content=sanitized,
+                agent_name=agent.name,
+                role=getattr(agent, "role", "proposer"),
+                round_number=round_num,
+            )
+            if not validation_result.is_valid:
+                logger.warning(
+                    f"[Autonomic] Agent {agent.name} response validation failed: "
+                    f"{validation_result.errors}"
+                )
+            elif validation_result.warnings:
+                for warning in validation_result.warnings:
+                    logger.info(f"[Autonomic] Agent {agent.name} response warning: {warning}")
 
             # Record successful completion
             if tracking_id and self.performance_monitor:

@@ -399,7 +399,7 @@ class ArenaExtensions:
                 # No running loop - try to run synchronously
                 try:
                     asyncio.run(run_eval())
-                except Exception:
+                except (RuntimeError, asyncio.CancelledError, OSError):
                     logger.debug("evaluation_skipped: no async context")
 
         except Exception as e:

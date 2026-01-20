@@ -732,7 +732,8 @@ class ServiceNowConnector(EnterpriseConnector):
             # Compare with provided signature (base64 or hex)
             try:
                 provided = base64.b64decode(signature)
-            except Exception:
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Base64 decode failed, trying hex: {e}")
                 provided = bytes.fromhex(signature)
 
             return hmac.compare_digest(expected, provided)

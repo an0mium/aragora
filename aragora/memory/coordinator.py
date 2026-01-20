@@ -196,19 +196,27 @@ class MemoryCoordinator:
     def _register_default_rollback_handlers(self) -> None:
         """Register default rollback handlers for each memory system.
 
-        Handlers are only registered for systems that support deletion.
-        Systems without delete support log warnings during rollback.
+        Handlers are registered for all systems that support deletion:
+        - ContinuumMemory: delete()
+        - ConsensusMemory: delete_consensus()
+        - CritiqueStore: delete_debate()
+        - KnowledgeMound: delete_entry() or delete_node_async()
         """
         # Continuum memory has delete() method
         if self.continuum_memory:
             self._rollback_handlers["continuum"] = self._rollback_continuum
 
+        # Consensus memory has delete_consensus() method
+        if self.consensus_memory:
+            self._rollback_handlers["consensus"] = self._rollback_consensus
+
+        # Critique store has delete_debate() method
+        if self.critique_store:
+            self._rollback_handlers["critique"] = self._rollback_critique
+
         # Knowledge mound has delete methods via semantic/graph stores
         if self.knowledge_mound:
             self._rollback_handlers["mound"] = self._rollback_mound
-
-        # Note: ConsensusMemory and CritiqueStore don't currently support deletion
-        # Rollback for these will log warnings (handled in _rollback_successful)
 
     async def _rollback_continuum(self, op: WriteOperation) -> bool:
         """Rollback a continuum memory write."""
@@ -225,6 +233,36 @@ class MemoryCoordinator:
             return result.get("deleted", False)
         except Exception as e:
             logger.error("[coordinator] Continuum rollback failed: %s", e)
+            return False
+
+    async def _rollback_consensus(self, op: WriteOperation) -> bool:
+        """Rollback a consensus memory write."""
+        if not self.consensus_memory or not op.result:
+            return False
+
+        try:
+            # op.result contains the consensus_id returned from store_consensus
+            return self.consensus_memory.delete_consensus(
+                consensus_id=op.result,
+                cascade_dissents=True,
+            )
+        except Exception as e:
+            logger.error("[coordinator] Consensus rollback failed: %s", e)
+            return False
+
+    async def _rollback_critique(self, op: WriteOperation) -> bool:
+        """Rollback a critique store write."""
+        if not self.critique_store or not op.result:
+            return False
+
+        try:
+            # op.result contains the debate_id passed to store_result
+            return self.critique_store.delete_debate(
+                debate_id=op.result,
+                cascade_critiques=True,
+            )
+        except Exception as e:
+            logger.error("[coordinator] Critique rollback failed: %s", e)
             return False
 
     async def _rollback_mound(self, op: WriteOperation) -> bool:
@@ -489,18 +527,19 @@ class MemoryCoordinator:
         else:
             strength = ConsensusStrength.SPLIT
 
-        consensus_id = self.consensus_memory.store_consensus(
+        record = self.consensus_memory.store_consensus(
             topic=data["topic"],
             conclusion=data["conclusion"],
             strength=strength,
             confidence=confidence,
             participating_agents=data["agents"],
+            agreeing_agents=data["agents"],  # All agents agree for coordinator
             winner=data.get("winner"),
             domain=data["domain"],
             rounds=data["rounds_used"],
         )
-        logger.debug("[coordinator] Stored in consensus: %s", consensus_id)
-        return consensus_id
+        logger.debug("[coordinator] Stored in consensus: %s", record.id)
+        return record.id
 
     async def _write_critique(self, data: Dict[str, Any]) -> str:
         """Write to CritiqueStore."""

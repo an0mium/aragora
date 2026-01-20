@@ -359,6 +359,8 @@ class RedisClusterClient:
                         self._reconnect()
 
         logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
+        if last_error is None:
+            raise RuntimeError("Redis operation failed with unknown error")
         raise last_error
 
     def _reconnect(self) -> None:
@@ -391,7 +393,10 @@ class RedisClusterClient:
 
         def _get() -> Optional[str]:
             client = self.get_client()
-            return client.get(key)
+            if client is None:
+                raise RuntimeError("Redis client not available")
+            result = client.get(key)
+            return str(result) if result is not None else None
 
         return self._execute_with_retry(_get)
 

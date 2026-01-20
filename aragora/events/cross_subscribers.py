@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from aragora.events.types import StreamEvent, StreamEventType
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +77,23 @@ class CrossSubscriberManager:
         manager.connect(event_emitter)
     """
 
-    def __init__(self):
-        """Initialize the cross-subscriber manager."""
+    def __init__(self, failure_threshold: int = 5, cooldown_seconds: float = 60.0):
+        """Initialize the cross-subscriber manager.
+
+        Args:
+            failure_threshold: Consecutive failures before circuit opens (default: 5)
+            cooldown_seconds: Seconds before attempting recovery (default: 60)
+        """
         self._subscribers: dict[StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]] = {}
         self._stats: dict[str, SubscriberStats] = {}
         self._filters: dict[str, Callable[[StreamEvent], bool]] = {}
         self._connected = False
+
+        # Circuit breaker for handler failure protection
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=failure_threshold,
+            cooldown_seconds=cooldown_seconds,
+        )
 
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()

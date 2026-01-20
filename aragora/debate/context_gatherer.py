@@ -52,6 +52,7 @@ CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "120.0"
 EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "30.0"))
 TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "5.0"))
 KNOWLEDGE_MOUND_TIMEOUT = float(os.getenv("ARAGORA_KNOWLEDGE_MOUND_TIMEOUT", "10.0"))
+BELIEF_CRUX_TIMEOUT = float(os.getenv("ARAGORA_BELIEF_CRUX_TIMEOUT", "5.0"))
 
 
 class ContextGatherer:
@@ -89,6 +90,7 @@ class ContextGatherer:
         enable_knowledge_grounding: bool = True,
         knowledge_mound: Optional[Any] = None,
         knowledge_workspace_id: Optional[str] = None,
+        enable_belief_guidance: bool = True,
     ):
         """
         Initialize the context gatherer.
@@ -105,6 +107,7 @@ class ContextGatherer:
             enable_knowledge_grounding: Whether to auto-query Knowledge Mound for context.
             knowledge_mound: Optional pre-configured KnowledgeMound instance.
             knowledge_workspace_id: Workspace ID for knowledge queries (default: 'debate').
+            enable_belief_guidance: Whether to inject historical cruxes from similar debates.
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -191,6 +194,21 @@ class ContextGatherer:
             else:
                 logger.info("[knowledge] ContextGatherer: Using provided Knowledge Mound instance")
 
+        # Belief guidance configuration for crux injection
+        self._enable_belief_guidance = enable_belief_guidance
+        self._belief_analyzer = None
+        if self._enable_belief_guidance:
+            try:
+                from aragora.debate.phases.belief_analysis import DebateBeliefAnalyzer
+                self._belief_analyzer = DebateBeliefAnalyzer()
+                logger.info("[belief] ContextGatherer: Belief guidance enabled for crux injection")
+            except ImportError:
+                logger.debug("[belief] Belief analyzer module not available")
+                self._enable_belief_guidance = False
+            except Exception as e:
+                logger.warning(f"[belief] Failed to initialize belief analyzer: {e}")
+                self._enable_belief_guidance = False
+
     @property
     def evidence_pack(self) -> Optional[Any]:
         """Get the most recent cached evidence pack.
@@ -267,16 +285,19 @@ class ContextGatherer:
             # 4. Gather knowledge mound context for institutional knowledge
             knowledge_task = asyncio.create_task(self._gather_knowledge_mound_with_timeout(task))
 
-            # 5. Gather additional evidence in parallel (fallback if Claude search weak)
+            # 5. Gather belief crux context for debate guidance (fast, cached)
+            belief_task = asyncio.create_task(self._gather_belief_with_timeout(task))
+
+            # 6. Gather additional evidence in parallel (fallback if Claude search weak)
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
                 results = await asyncio.gather(
-                    evidence_task, trending_task, knowledge_task, return_exceptions=True
+                    evidence_task, trending_task, knowledge_task, belief_task, return_exceptions=True
                 )
             else:
-                # Still wait for trending and knowledge even if Claude search succeeded
+                # Still wait for trending, knowledge, and belief even if Claude search succeeded
                 results = await asyncio.gather(
-                    trending_task, knowledge_task, return_exceptions=True
+                    trending_task, knowledge_task, belief_task, return_exceptions=True
                 )
 
             for result in results:
@@ -745,6 +766,100 @@ class ContextGatherer:
         except Exception as e:
             # Unexpected error
             logger.warning(f"[knowledge] Unexpected error in Knowledge Mound query: {e}")
+            return None
+
+    async def gather_belief_crux_context(
+        self,
+        task: str,
+        messages: Optional[list] = None,
+        top_k_cruxes: int = 3,
+    ) -> Optional[str]:
+        """Gather crux claims from belief network analysis.
+
+        Analyzes debate messages (if provided) or queries historical debates
+        for crux claims that can inform the current debate.
+
+        Args:
+            task: The debate task description.
+            messages: Optional list of debate messages to analyze.
+            top_k_cruxes: Number of top crux claims to extract.
+
+        Returns:
+            Formatted crux context string, or None if not available.
+        """
+        if not self._enable_belief_guidance or not self._belief_analyzer:
+            return None
+
+        try:
+            # If messages provided, analyze them for cruxes
+            if messages:
+                result = self._belief_analyzer.analyze_messages(
+                    messages,
+                    top_k_cruxes=top_k_cruxes,
+                )
+
+                if result.analysis_error:
+                    logger.debug(f"[belief] Crux analysis error: {result.analysis_error}")
+                    return None
+
+                if not result.cruxes:
+                    return None
+
+                context_parts = [
+                    "## Key Crux Points (Belief Network Analysis)",
+                    "",
+                    "The following crux claims represent pivotal points of disagreement",
+                    "that may determine the outcome of this debate:",
+                    "",
+                ]
+
+                for i, crux in enumerate(result.cruxes[:top_k_cruxes], 1):
+                    statement = crux.get("statement", crux.get("claim", ""))
+                    confidence = crux.get("confidence", 0.5)
+                    entropy = crux.get("entropy", 0.5)
+
+                    conf_label = "HIGH" if confidence > 0.7 else "MEDIUM" if confidence > 0.4 else "LOW"
+                    contested = " (CONTESTED)" if entropy > 0.8 else ""
+                    context_parts.append(f"{i}. [{conf_label}{contested}] {statement}")
+
+                if result.evidence_suggestions:
+                    context_parts.extend([
+                        "",
+                        "### Evidence Needed",
+                        "The following evidence would help resolve these cruxes:",
+                    ])
+                    for suggestion in result.evidence_suggestions[:3]:
+                        context_parts.append(f"- {suggestion}")
+
+                logger.info(
+                    f"[belief] Extracted {len(result.cruxes)} cruxes from "
+                    f"{len(messages)} messages"
+                )
+
+                return "\n".join(context_parts)
+
+            # No messages - could query historical debates for similar topic cruxes
+            # This would require a crux store, which could be added later
+            return None
+
+        except (ValueError, AttributeError) as e:
+            # Expected: data format issues
+            logger.debug(f"[belief] Crux gathering failed: {e}")
+            return None
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"[belief] Unexpected error gathering cruxes: {e}")
+            return None
+
+    async def _gather_belief_with_timeout(self, task: str) -> Optional[str]:
+        """Gather belief crux context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_belief_crux_context(task),
+                timeout=BELIEF_CRUX_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"[belief] Crux gathering timed out after {BELIEF_CRUX_TIMEOUT}s")
             return None
 
     def clear_cache(self, task: Optional[str] = None) -> None:

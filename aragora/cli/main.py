@@ -130,13 +130,29 @@ async def run_debate(
         # Apply persona as system prompt if specified
         if spec.persona:
             try:
-                from aragora.agents.personas import PERSONAS
+                from aragora.agents.personas import DEFAULT_PERSONAS
 
-                if spec.persona in PERSONAS:
-                    persona_prompt = PERSONAS[spec.persona].get("system_prompt", "")
-                    if persona_prompt:
-                        existing = getattr(agent, "system_prompt", "") or ""
-                        agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+                if spec.persona in DEFAULT_PERSONAS:
+                    p = DEFAULT_PERSONAS[spec.persona]
+                    traits_str = ", ".join(p.traits) if p.traits else "analytical"
+                    persona_prompt = f"You are a {traits_str} agent. {p.description}"
+                    if p.top_expertise:
+                        top_domains = [d for d, _ in p.top_expertise]
+                        persona_prompt += f" Your key areas of expertise: {', '.join(top_domains)}."
+                    existing = getattr(agent, "system_prompt", "") or ""
+                    agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+
+                    # Apply generation parameters from persona
+                    if hasattr(agent, "set_generation_params"):
+                        agent.set_generation_params(
+                            temperature=p.temperature,
+                            top_p=p.top_p,
+                            frequency_penalty=p.frequency_penalty,
+                        )
+                else:
+                    # Use persona name as a behavioral hint
+                    existing = getattr(agent, "system_prompt", "") or ""
+                    agent.system_prompt = f"You are a {spec.persona} in this debate. Approach arguments from that perspective.\n\n{existing}".strip()
             except ImportError:
                 pass  # Personas module not available
 
@@ -1019,9 +1035,11 @@ Examples:
         default="codex,claude",
         help=(
             "Comma-separated agents. Formats: "
-            "'provider' (e.g., anthropic-api), "
-            "'provider:role' (e.g., claude:critic), "
-            "'provider|model|persona|role' (e.g., anthropic-api|claude-opus||proposer)"
+            "'provider' (auto-assign role), "
+            "'provider:role' (e.g., anthropic-api:critic), "
+            "'provider:persona' (e.g., anthropic-api:philosopher), "
+            "'provider|model|persona|role' (full spec). "
+            "Valid roles: proposer, critic, synthesizer, judge"
         ),
     )
     ask_parser.add_argument(

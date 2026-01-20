@@ -62,7 +62,7 @@ class DebateOptions:
     # Execution options
     timeout: float = 300.0  # 5 minutes default
     enable_streaming: bool = False
-    enable_checkpointing: bool = False
+    enable_checkpointing: bool = True  # Enable by default for debate resume support
 
     # Memory options
     enable_memory: bool = True

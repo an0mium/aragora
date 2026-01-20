@@ -431,7 +431,8 @@ class GmailConnector(EnterpriseConnector):
         try:
             from email.utils import parsedate_to_datetime
             date = parsedate_to_datetime(date_str)
-        except Exception:
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse date string '{date_str}': {e}")
             date = datetime.now(timezone.utc)
 
         # Extract body
