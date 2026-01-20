@@ -54,7 +54,7 @@ result = await arena.run()
 
 #### Memory Coordinator
 
-The MemoryCoordinator provides atomic writes across multiple memory systems:
+The MemoryCoordinator provides atomic writes across multiple memory systems with full transaction support including rollback on partial failure.
 
 ```python
 from aragora.memory.coordinator import MemoryCoordinator, CoordinatorOptions
@@ -72,6 +72,40 @@ config = ArenaConfig(
     coordinator_parallel_writes=False,  # Sequential for safety
     coordinator_rollback_on_failure=True,
 )
+```
+
+**Transaction Rollback**: When `coordinator_rollback_on_failure=True`, partial failures trigger automatic rollback of successful writes. Each memory system has a registered delete method:
+
+| System | Rollback Method | Behavior |
+|--------|-----------------|----------|
+| Continuum | `delete(memory_id, archive=True)` | Archives pattern before deletion |
+| Consensus | `delete_consensus(id, cascade_dissents=True)` | Removes consensus + associated dissents |
+| Critique | `delete_debate(id, cascade_critiques=True)` | Removes debate record + critiques |
+| Mound | `delete_item(item_id)` | Removes knowledge item |
+
+**Custom Rollback Handlers**: Override default rollback behavior:
+
+```python
+async def custom_continuum_rollback(op: WriteOperation) -> bool:
+    # Custom cleanup logic
+    logger.warning(f"Rolling back continuum write: {op.result}")
+    return True  # Return True if rollback succeeded
+
+coordinator.register_rollback_handler("continuum", custom_continuum_rollback)
+```
+
+**Transaction Inspection**: Check transaction status after commit:
+
+```python
+tx = await coordinator.commit_debate_outcome(ctx)
+
+if tx.partial_failure:
+    failed_ops = tx.get_failed_operations()
+    for op in failed_ops:
+        logger.error(f"{op.target} failed: {op.error}")
+
+if tx.rolled_back:
+    logger.warning("Transaction was rolled back due to failures")
 ```
 
 #### Selection Feedback Loop
