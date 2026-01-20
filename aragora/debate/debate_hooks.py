@@ -22,6 +22,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List, Optional
@@ -275,8 +276,10 @@ class DebateHooks:
                 belief_cruxes = [str(c) for c in belief_cruxes[:10]]
 
             self.memory_manager.store_debate_outcome(result, task, belief_cruxes=belief_cruxes)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Memory storage error: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected memory storage error: {e}")
 
     def _update_memory_outcomes(self, result: "DebateResult") -> None:
         """Update retrieved memories based on debate outcome.
@@ -303,8 +306,10 @@ class DebateHooks:
             self._continuum_retrieved_ids = []
             self._continuum_retrieved_tiers = {}
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Memory outcome update error: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected memory outcome update error: {e}")
 
     def _update_calibration(
         self,
@@ -381,11 +386,15 @@ class DebateHooks:
                                 prediction_count=total_predictions,
                                 accuracy=accuracy,
                             )
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError) as e:
                         logger.debug(f"Calibration event emission failed for {agent_name}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Unexpected calibration event emission error for {agent_name}: {e}")
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Calibration update error: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected calibration update error: {e}")
 
     async def _verify_claims(self, result: "DebateResult") -> None:
         """Verify decidable claims using formal methods.
@@ -404,8 +413,12 @@ class DebateHooks:
 
         try:
             await self.evidence_grounder.verify_claims_formally(result.grounded_verdict)
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.debug(f"Formal verification timed out: {e}")
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Formal verification failed with data error: {e}")
         except Exception as e:
-            logger.debug(f"Formal verification error: {e}")
+            logger.warning(f"Unexpected formal verification error: {e}")
 
     # =========================================================================
     # Memory Tracking
@@ -445,8 +458,10 @@ class DebateHooks:
 
         try:
             self.memory_manager.store_evidence(evidence_snippets, task)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Evidence storage error: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected evidence storage error: {e}")
 
     # =========================================================================
     # Grounded Verdict Creation

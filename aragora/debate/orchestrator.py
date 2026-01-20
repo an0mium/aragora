@@ -335,8 +335,14 @@ class Arena:
                     continuum_memory=self.continuum_memory,
                 )
                 logger.info("debate_strategy auto-initialized for adaptive rounds")
-            except Exception as e:
+            except ImportError:
+                logger.debug("DebateStrategy not available")
+                self.debate_strategy = None
+            except (TypeError, ValueError) as e:
                 logger.warning(f"Failed to initialize DebateStrategy: {e}")
+                self.debate_strategy = None
+            except Exception as e:
+                logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
                 self.debate_strategy = None
 
         # Initialize user participation and roles
@@ -612,9 +618,15 @@ class Arena:
             sync.queue_debate(debate_data)
             logger.debug(f"Queued debate {result.id} for Supabase sync")
 
+        except ImportError:
+            # Sync service not available
+            pass
+        except (ConnectionError, TimeoutError) as e:
+            # Network issues - expected for sync operations
+            logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
         except Exception as e:
             # Never fail the debate due to sync issues
-            logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
+            logger.warning(f"Unexpected Supabase sync error (non-fatal): {e}")
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values.
@@ -852,8 +864,11 @@ class Arena:
                 )
 
             return result.messages, result.critiques
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"[arena] RLM compression failed with data error, using original: {e}")
+            return messages, critiques
         except Exception as e:
-            logger.warning(f"[arena] RLM compression failed, using original: {e}")
+            logger.exception(f"[arena] Unexpected RLM compression error, using original: {e}")
             return messages, critiques
 
     def _get_continuum_context(self) -> str:
@@ -949,8 +964,10 @@ class Arena:
                     f"{[a.name for a in selected]}"
                 )
                 return selected
+            except (ValueError, TypeError, KeyError) as e:
+                logger.warning(f"[ml] ML delegation failed with data error, falling back: {e}")
             except Exception as e:
-                logger.warning(f"[ml] ML delegation failed, falling back: {e}")
+                logger.exception(f"[ml] Unexpected ML delegation error, falling back: {e}")
 
         # Fall back to performance-based selection
         if self.use_performance_selection:
@@ -1018,8 +1035,11 @@ class Arena:
                     f"{current_round}/{self.protocol.rounds}"
                 )
             return should_stop
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(f"[ml] Consensus estimation failed with data error: {e}")
+            return False
         except Exception as e:
-            logger.warning(f"[ml] Consensus estimation failed: {e}")
+            logger.exception(f"[ml] Unexpected consensus estimation error: {e}")
             return False
 
     def _get_calibration_weight(self, agent_name: str) -> float:
@@ -1302,8 +1322,12 @@ class Arena:
         if self.prompt_builder:
             try:
                 await self.prompt_builder.classify_question_async(use_llm=True)
+            except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+                logger.warning(f"Question classification timed out: {e}")
+            except (ValueError, TypeError, AttributeError) as e:
+                logger.warning(f"Question classification failed with data error: {e}")
             except Exception as e:
-                logger.warning(f"Question classification failed, using keyword fallback: {e}")
+                logger.exception(f"Unexpected question classification error: {e}")
 
         # Apply performance-based agent selection if enabled
         if self.use_performance_selection:

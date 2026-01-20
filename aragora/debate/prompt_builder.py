@@ -242,8 +242,11 @@ and building on others' ideas."""
                 if fix_preview:
                     lines.append(f"  Fix: {fix_preview} ({p.success_count} successes)")
             return "\n".join(lines)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Successful patterns formatting error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected patterns formatting error: {e}")
             return ""
 
     def get_role_context(self, agent: "Agent") -> str:
@@ -342,8 +345,14 @@ and building on others' ideas."""
 
             return self._classification.category
 
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            logger.warning(f"Question classification timed out: {e}")
+            return self._detect_question_domain_keywords(self.env.task)
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"Question classification failed with data error: {e}")
+            return self._detect_question_domain_keywords(self.env.task)
         except Exception as e:
-            logger.warning(f"Question classification failed, using keyword fallback: {e}")
+            logger.exception(f"Unexpected question classification error: {e}")
             return self._detect_question_domain_keywords(self.env.task)
 
     def _detect_question_domain(self, question: str) -> str:
@@ -583,8 +592,11 @@ and building on others' ideas."""
 
             return "\n".join(lines) if len(lines) > 1 else ""
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Flip context formatting error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected flip context formatting error: {e}")
             return ""
 
     def get_continuum_context(self) -> str:
@@ -671,8 +683,10 @@ The system will provide relevant details from the full history."""
             if hasattr(self._rlm_context, 'original_content'):
                 return self._rlm_context.original_content[:max_chars] + "..."
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"RLM abstract retrieval error: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected RLM abstract retrieval error: {e}")
 
         return ""
 
@@ -749,8 +763,11 @@ The system will provide relevant details from the full history."""
 
             return "\n".join(lines)
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Belief context injection error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected belief context injection error: {e}")
             return ""
 
     def _inject_calibration_context(self, agent: "Agent") -> str:
@@ -803,8 +820,11 @@ The system will provide relevant details from the full history."""
 
             return "\n".join(lines)
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Calibration context injection error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected calibration context injection error: {e}")
             return ""
 
     def get_elo_context(self, agent: "Agent", all_agents: list["Agent"]) -> str:
@@ -867,8 +887,10 @@ The system will provide relevant details from the full history."""
                         if summary.total_predictions >= 5:
                             accuracy = 1.0 - summary.brier_score  # Convert Brier to accuracy
                             calib_str = f", {accuracy:.0%} calibration"
-                    except Exception as e:
+                    except (AttributeError, TypeError, KeyError) as e:
                         logger.debug(f"Failed to get calibration summary for {name}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Unexpected error getting calibration summary for {name}: {e}")
 
                 lines.append(
                     f"  {rank}. {name}: {elo:.0f} ELO ({total} debates{calib_str}){marker}"
@@ -891,8 +913,11 @@ The system will provide relevant details from the full history."""
 
             return "\n".join(lines)
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"ELO context injection error: {e}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Unexpected ELO context injection error: {e}")
             return ""
 
     def format_evidence_for_prompt(self, max_snippets: int = 5) -> str:
@@ -1116,8 +1141,10 @@ The system will provide relevant details from the full history."""
                     else:
                         # Fallback: simple truncation
                         dissent_section = f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
-            except Exception as e:
+            except (AttributeError, TypeError, KeyError) as e:
                 logger.debug(f"Dissent retrieval error: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected dissent retrieval error: {e}")
 
         # Include successful patterns from past debates
         patterns_section = ""

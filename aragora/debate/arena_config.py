@@ -155,6 +155,10 @@ class ArenaConfig:
     # Belief Network guidance (cross-debate crux injection)
     enable_belief_guidance: bool = True  # Inject historical cruxes from similar debates as context
 
+    # Cross-debate institutional memory
+    cross_debate_memory: Optional[Any] = None  # CrossDebateMemory for institutional knowledge
+    enable_cross_debate_memory: bool = True  # Inject institutional knowledge from past debates
+
     # Post-debate workflow automation
     post_debate_workflow: Optional[Any] = None  # Workflow DAG to trigger after high-confidence debates
     enable_post_debate_workflow: bool = False  # Auto-trigger workflow after debates
@@ -263,6 +267,11 @@ class ArenaConfig:
     trickster_calibration_min_samples: int = 20  # Min outcomes before calibrating
     trickster_calibration_interval: int = 50  # Debates between calibrations
 
+    # Checkpoint Memory State (cross-pollination)
+    checkpoint_include_memory: bool = True  # Include continuum memory state in checkpoints
+    checkpoint_memory_max_entries: int = 100  # Max entries per tier in checkpoint snapshot
+    checkpoint_memory_restore_mode: str = "replace"  # Restore mode: replace, keep, or merge
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -310,6 +319,9 @@ class ArenaConfig:
             # Note: revalidation_staleness_threshold, revalidation_check_interval_seconds,
             # and revalidation_scheduler are stored in config but Arena reads them from config
             "enable_belief_guidance": self.enable_belief_guidance,
+            # Cross-debate institutional memory
+            "cross_debate_memory": self.cross_debate_memory,
+            "enable_cross_debate_memory": self.enable_cross_debate_memory,
             # Note: post_debate_workflow params stored in ArenaConfig but not yet in Arena.__init__
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
