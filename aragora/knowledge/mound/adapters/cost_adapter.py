@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -33,6 +33,8 @@ if TYPE_CHECKING:
         BudgetAlert,
         CostTracker,
     )
+
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +125,7 @@ class CostAdapter:
         self,
         cost_tracker: Optional["CostTracker"] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -130,9 +133,11 @@ class CostAdapter:
         Args:
             cost_tracker: Optional CostTracker instance
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._cost_tracker = cost_tracker
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._alerts: Dict[str, Dict[str, Any]] = {}
@@ -143,6 +148,18 @@ class CostAdapter:
         self._workspace_alerts: Dict[str, List[str]] = {}  # workspace -> [alert_ids]
         self._workspace_anomalies: Dict[str, List[str]] = {}  # workspace -> [anomaly_ids]
         self._agent_costs: Dict[str, List[str]] = {}  # agent -> [snapshot_ids]
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def cost_tracker(self) -> Optional["CostTracker"]:

@@ -23,12 +23,14 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.pulse.ingestor import TrendingTopic, TrendingTopicOutcome
     from aragora.pulse.store import ScheduledDebateRecord
+
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +156,7 @@ class PulseAdapter:
         self,
         debate_store: Optional[Any] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -161,9 +164,11 @@ class PulseAdapter:
         Args:
             debate_store: Optional ScheduledDebateStore instance
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._debate_store = debate_store
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._topics: Dict[str, Dict[str, Any]] = {}
@@ -174,6 +179,18 @@ class PulseAdapter:
         self._platform_topics: Dict[str, List[str]] = {}  # platform -> [topic_ids]
         self._category_topics: Dict[str, List[str]] = {}  # category -> [topic_ids]
         self._topic_hash_map: Dict[str, str] = {}  # topic_hash -> topic_id
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def debate_store(self) -> Optional[Any]:

@@ -25,12 +25,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.insights.extractor import DebateInsights, Insight
     from aragora.insights.flip_detector import FlipEvent
+
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +159,7 @@ class InsightsAdapter:
         insight_store: Optional[Any] = None,
         flip_detector: Optional[Any] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -165,10 +168,12 @@ class InsightsAdapter:
             insight_store: Optional InsightStore instance
             flip_detector: Optional FlipDetector instance
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._insight_store = insight_store
         self._flip_detector = flip_detector
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._insights: Dict[str, Dict[str, Any]] = {}
@@ -180,6 +185,18 @@ class InsightsAdapter:
         self._type_insights: Dict[str, List[str]] = {}  # type -> [insight_ids]
         self._agent_flips: Dict[str, List[str]] = {}  # agent_name -> [flip_ids]
         self._domain_flips: Dict[str, List[str]] = {}  # domain -> [flip_ids]
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def insight_store(self) -> Optional[Any]:

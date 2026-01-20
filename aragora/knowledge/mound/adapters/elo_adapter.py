@@ -23,12 +23,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.ranking.elo import AgentRating, EloSystem, MatchResult
     from aragora.ranking.relationships import RelationshipMetrics
+
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +132,7 @@ class EloAdapter:
         self,
         elo_system: Optional["EloSystem"] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -137,9 +140,11 @@ class EloAdapter:
         Args:
             elo_system: Optional EloSystem instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._elo_system = elo_system
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._ratings: Dict[str, Dict[str, Any]] = {}
@@ -151,6 +156,18 @@ class EloAdapter:
         self._agent_ratings: Dict[str, List[str]] = {}  # agent -> [rating_ids] (history)
         self._agent_matches: Dict[str, List[str]] = {}  # agent -> [match_ids]
         self._domain_ratings: Dict[str, List[str]] = {}  # domain -> [rating_ids]
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def elo_system(self) -> Optional["EloSystem"]:

@@ -25,11 +25,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.reasoning.belief import BeliefNetwork, BeliefNode, CruxClaim
+
+# Type alias for event callback
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +163,7 @@ class BeliefAdapter:
         self,
         network: Optional["BeliefNetwork"] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -167,9 +171,11 @@ class BeliefAdapter:
         Args:
             network: Optional BeliefNetwork instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._network = network
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._beliefs: Dict[str, Dict[str, Any]] = {}
@@ -180,6 +186,18 @@ class BeliefAdapter:
         self._debate_beliefs: Dict[str, List[str]] = {}  # debate_id -> [belief_ids]
         self._debate_cruxes: Dict[str, List[str]] = {}  # debate_id -> [crux_ids]
         self._topic_cruxes: Dict[str, List[str]] = {}  # topic -> [crux_ids]
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def network(self) -> Optional["BeliefNetwork"]:
@@ -242,6 +260,14 @@ class BeliefAdapter:
             if debate_id not in self._debate_beliefs:
                 self._debate_beliefs[debate_id] = []
             self._debate_beliefs[debate_id].append(belief_id)
+
+        # Emit event for WebSocket updates
+        self._emit_event("belief_converged", {
+            "belief_id": belief_id,
+            "claim_statement": node.claim_statement[:100] if node.claim_statement else "",
+            "confidence": confidence,
+            "debate_id": debate_id,
+        })
 
         logger.info(f"Stored converged belief: {belief_id} (confidence={confidence:.2f})")
         return belief_id
@@ -332,6 +358,15 @@ class BeliefAdapter:
             if topic_lower not in self._topic_cruxes:
                 self._topic_cruxes[topic_lower] = []
             self._topic_cruxes[topic_lower].append(crux_id)
+
+        # Emit event for WebSocket updates
+        self._emit_event("crux_detected", {
+            "crux_id": crux_id,
+            "statement": crux.statement[:100] if crux.statement else "",
+            "crux_score": crux.crux_score,
+            "debate_id": debate_id,
+            "topics": topics or [],
+        })
 
         logger.info(f"Stored crux: {crux_id} (score={crux.crux_score:.2f})")
         return crux_id
