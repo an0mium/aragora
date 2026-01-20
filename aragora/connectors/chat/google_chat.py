@@ -603,3 +603,118 @@ class GoogleChatConnector(ChatPlatformConnector):
             event.metadata["removed"] = True
 
         return event
+
+    # ==========================================================================
+    # Evidence Collection - Limited by Google Chat API
+    # ==========================================================================
+
+    async def get_channel_history(
+        self,
+        channel_id: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[ChatMessage]:
+        """
+        Get message history from a Google Chat space.
+
+        Note: Google Chat API does NOT provide a message history endpoint for bots.
+        Bots can only receive messages via webhooks or events. This method returns
+        any messages that have been cached from webhook events.
+
+        For full message history access, consider:
+        1. Using Google Vault API (enterprise compliance feature)
+        2. Storing messages in your own database when received via webhooks
+        3. Using Google Drive API for exported chat transcripts
+
+        Args:
+            channel_id: Space name (e.g., "spaces/XXXXXXX")
+            limit: Maximum number of cached messages to return
+            oldest: Not supported - ignored
+            latest: Not supported - ignored
+            **kwargs: Additional options
+
+        Returns:
+            List of cached ChatMessage objects (if any)
+        """
+        logger.info(
+            f"Google Chat API does not provide message history. "
+            f"Messages are only available via webhook events."
+        )
+        # Return empty list - messages must be cached by webhook handler
+        return []
+
+    async def collect_evidence(
+        self,
+        channel_id: str,
+        query: Optional[str] = None,
+        limit: int = 100,
+        include_threads: bool = True,
+        min_relevance: float = 0.0,
+        **kwargs: Any,
+    ) -> list:
+        """
+        Collect chat messages as evidence from Google Chat.
+
+        Note: Google Chat does not provide message history API for bots.
+        This method returns an empty list with a warning log.
+
+        For evidence collection from Google Chat, consider:
+        1. Storing messages when received via webhooks
+        2. Using Google Vault API (enterprise)
+        3. Exporting chat data via Google Admin Console
+
+        Args:
+            channel_id: Space name
+            query: Search query (not supported)
+            limit: Maximum results (not supported)
+            include_threads: Include threads (not supported)
+            min_relevance: Minimum relevance score (not supported)
+            **kwargs: Additional options
+
+        Returns:
+            Empty list (Google Chat API limitation)
+        """
+        logger.warning(
+            f"Google Chat evidence collection not available - "
+            f"API does not provide message history for bots. "
+            f"Consider storing messages from webhook events."
+        )
+        return []
+
+    async def list_spaces(self) -> list[dict]:
+        """
+        List all spaces the bot has access to.
+
+        Returns:
+            List of space dictionaries with id, name, type, etc.
+        """
+        if not HTTPX_AVAILABLE or not GOOGLE_AUTH_AVAILABLE:
+            return []
+
+        try:
+            token = await self._get_access_token()
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{CHAT_API_BASE}/spaces",
+                    headers=self._get_headers(token),
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                spaces = []
+                for space in data.get("spaces", []):
+                    spaces.append({
+                        "id": space.get("name", ""),
+                        "display_name": space.get("displayName", ""),
+                        "type": space.get("type", ""),
+                        "single_user_bot_dm": space.get("singleUserBotDm", False),
+                    })
+
+                return spaces
+
+        except Exception as e:
+            logger.error(f"Google Chat list_spaces error: {e}")
+            return []

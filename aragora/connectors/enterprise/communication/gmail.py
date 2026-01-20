@@ -342,6 +342,11 @@ class GmailConnector(EnterpriseConnector):
             response.raise_for_status()
             return response.json() if response.content else {}
 
+    def _get_client(self):
+        """Get HTTP client context manager for API requests."""
+        import httpx
+        return httpx.AsyncClient(timeout=60)
+
     async def get_user_info(self) -> Dict[str, Any]:
         """Get authenticated user's Gmail profile."""
         return await self._api_request("/profile")

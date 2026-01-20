@@ -949,5 +949,342 @@ class NotionConnector(EnterpriseConnector):
             confidence=0.85,
         )
 
+    # ==========================================================================
+    # Write Operations - Bidirectional Support
+    # ==========================================================================
+
+    async def create_page(
+        self,
+        parent_id: str,
+        title: str,
+        content: Optional[str] = None,
+        parent_type: str = "page_id",
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Optional[NotionPage]:
+        """
+        Create a new Notion page.
+
+        Args:
+            parent_id: Parent page or database ID
+            title: Page title
+            content: Optional initial content (plain text, converted to paragraphs)
+            parent_type: "page_id" or "database_id"
+            properties: Additional properties for database entries
+
+        Returns:
+            Created NotionPage, or None if failed
+        """
+        try:
+            # Build page properties
+            page_properties: Dict[str, Any] = properties or {}
+
+            # Set title property
+            page_properties["title"] = {
+                "title": [{"type": "text", "text": {"content": title}}]
+            }
+
+            # Build request body
+            body: Dict[str, Any] = {
+                "parent": {parent_type: parent_id},
+                "properties": page_properties,
+            }
+
+            # Add content blocks if provided
+            if content:
+                body["children"] = self._text_to_blocks(content)
+
+            data = await self._api_request("/pages", method="POST", json_data=body)
+
+            page = self._parse_page(data)
+            logger.info(f"[{self.name}] Created page: {page.title} ({page.id})")
+
+            return page
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Failed to create page: {e}")
+            return None
+
+    async def update_page(
+        self,
+        page_id: str,
+        properties: Optional[Dict[str, Any]] = None,
+        archived: Optional[bool] = None,
+    ) -> Optional[NotionPage]:
+        """
+        Update a Notion page's properties.
+
+        Args:
+            page_id: Page ID to update
+            properties: Properties to update
+            archived: Set True to archive, False to unarchive
+
+        Returns:
+            Updated NotionPage, or None if failed
+        """
+        try:
+            body: Dict[str, Any] = {}
+
+            if properties:
+                body["properties"] = properties
+
+            if archived is not None:
+                body["archived"] = archived
+
+            if not body:
+                return await self._get_page(page_id)
+
+            data = await self._api_request(
+                f"/pages/{page_id}",
+                method="PATCH",
+                json_data=body,
+            )
+
+            page = self._parse_page(data)
+            logger.info(f"[{self.name}] Updated page: {page.title} ({page.id})")
+
+            return page
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Failed to update page {page_id}: {e}")
+            return None
+
+    async def append_content(
+        self,
+        page_id: str,
+        content: str,
+    ) -> bool:
+        """
+        Append content to a Notion page.
+
+        Args:
+            page_id: Page ID to append to
+            content: Text content to append (converted to paragraphs)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            blocks = self._text_to_blocks(content)
+
+            await self._api_request(
+                f"/blocks/{page_id}/children",
+                method="PATCH",
+                json_data={"children": blocks},
+            )
+
+            logger.info(f"[{self.name}] Appended content to page {page_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Failed to append content: {e}")
+            return False
+
+    async def delete_block(self, block_id: str) -> bool:
+        """
+        Delete a block from a Notion page.
+
+        Args:
+            block_id: Block ID to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            await self._api_request(
+                f"/blocks/{block_id}",
+                method="DELETE",
+            )
+
+            logger.info(f"[{self.name}] Deleted block {block_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Failed to delete block {block_id}: {e}")
+            return False
+
+    async def archive_page(self, page_id: str) -> bool:
+        """
+        Archive a Notion page (soft delete).
+
+        Args:
+            page_id: Page ID to archive
+
+        Returns:
+            True if successful, False otherwise
+        """
+        result = await self.update_page(page_id, archived=True)
+        return result is not None
+
+    async def add_database_entry(
+        self,
+        database_id: str,
+        properties: Dict[str, Any],
+        content: Optional[str] = None,
+    ) -> Optional[NotionPage]:
+        """
+        Add an entry to a Notion database.
+
+        Args:
+            database_id: Database ID
+            properties: Entry properties matching database schema
+            content: Optional page content
+
+        Returns:
+            Created entry as NotionPage, or None if failed
+        """
+        return await self.create_page(
+            parent_id=database_id,
+            title=properties.get("Name", {}).get("title", [{}])[0].get("text", {}).get("content", "Untitled"),
+            content=content,
+            parent_type="database_id",
+            properties=properties,
+        )
+
+    async def update_database_entry(
+        self,
+        entry_id: str,
+        properties: Dict[str, Any],
+    ) -> Optional[NotionPage]:
+        """
+        Update a database entry.
+
+        Args:
+            entry_id: Entry page ID
+            properties: Properties to update
+
+        Returns:
+            Updated entry as NotionPage, or None if failed
+        """
+        return await self.update_page(entry_id, properties=properties)
+
+    def _text_to_blocks(self, text: str) -> List[Dict[str, Any]]:
+        """Convert plain text to Notion blocks."""
+        blocks = []
+
+        for paragraph in text.split("\n\n"):
+            if not paragraph.strip():
+                continue
+
+            # Handle headers
+            if paragraph.startswith("# "):
+                blocks.append({
+                    "type": "heading_1",
+                    "heading_1": {
+                        "rich_text": [{"type": "text", "text": {"content": paragraph[2:].strip()}}]
+                    },
+                })
+            elif paragraph.startswith("## "):
+                blocks.append({
+                    "type": "heading_2",
+                    "heading_2": {
+                        "rich_text": [{"type": "text", "text": {"content": paragraph[3:].strip()}}]
+                    },
+                })
+            elif paragraph.startswith("### "):
+                blocks.append({
+                    "type": "heading_3",
+                    "heading_3": {
+                        "rich_text": [{"type": "text", "text": {"content": paragraph[4:].strip()}}]
+                    },
+                })
+            # Handle bullet lists
+            elif paragraph.startswith("- ") or paragraph.startswith("* "):
+                for line in paragraph.split("\n"):
+                    if line.startswith(("- ", "* ")):
+                        blocks.append({
+                            "type": "bulleted_list_item",
+                            "bulleted_list_item": {
+                                "rich_text": [{"type": "text", "text": {"content": line[2:].strip()}}]
+                            },
+                        })
+            # Handle code blocks
+            elif paragraph.startswith("```"):
+                lines = paragraph.split("\n")
+                language = lines[0][3:].strip() or "plain_text"
+                code = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+                blocks.append({
+                    "type": "code",
+                    "code": {
+                        "rich_text": [{"type": "text", "text": {"content": code}}],
+                        "language": language,
+                    },
+                })
+            # Handle quotes
+            elif paragraph.startswith("> "):
+                blocks.append({
+                    "type": "quote",
+                    "quote": {
+                        "rich_text": [{"type": "text", "text": {"content": paragraph[2:].strip()}}]
+                    },
+                })
+            # Regular paragraph
+            else:
+                # Split into chunks if too long (Notion limit is 2000 chars)
+                text_content = paragraph.strip()
+                while text_content:
+                    chunk = text_content[:1900]
+                    text_content = text_content[1900:]
+                    blocks.append({
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [{"type": "text", "text": {"content": chunk}}]
+                        },
+                    })
+
+        return blocks
+
+    def _build_property(
+        self,
+        prop_type: str,
+        value: Any,
+    ) -> Dict[str, Any]:
+        """Build a Notion property value for database entries.
+
+        Args:
+            prop_type: Property type (title, rich_text, number, select, etc.)
+            value: The value to set
+
+        Returns:
+            Formatted property dictionary
+        """
+        if prop_type == "title":
+            return {"title": [{"type": "text", "text": {"content": str(value)}}]}
+
+        elif prop_type == "rich_text":
+            return {"rich_text": [{"type": "text", "text": {"content": str(value)}}]}
+
+        elif prop_type == "number":
+            return {"number": float(value) if value else None}
+
+        elif prop_type == "select":
+            return {"select": {"name": str(value)} if value else None}
+
+        elif prop_type == "multi_select":
+            if isinstance(value, list):
+                return {"multi_select": [{"name": str(v)} for v in value]}
+            return {"multi_select": [{"name": str(value)}]}
+
+        elif prop_type == "date":
+            if isinstance(value, dict):
+                return {"date": value}
+            return {"date": {"start": str(value)} if value else None}
+
+        elif prop_type == "checkbox":
+            return {"checkbox": bool(value)}
+
+        elif prop_type == "url":
+            return {"url": str(value) if value else None}
+
+        elif prop_type == "email":
+            return {"email": str(value) if value else None}
+
+        elif prop_type == "phone_number":
+            return {"phone_number": str(value) if value else None}
+
+        elif prop_type == "status":
+            return {"status": {"name": str(value)} if value else None}
+
+        return {}
+
 
 __all__ = ["NotionConnector", "NotionPage", "NotionDatabase"]
