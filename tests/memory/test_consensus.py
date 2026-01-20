@@ -702,3 +702,135 @@ class TestConsensusMemoryCleanup:
 
         assert "archived" in result
         assert "deleted" in result
+
+
+class TestDeleteMethods:
+    """Tests for delete methods (rollback support)."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_delete.db"
+
+    def test_delete_consensus_removes_record(self, temp_db):
+        """Test delete_consensus removes the record from database."""
+        memory = ConsensusMemory(str(temp_db))
+
+        # Store a record
+        record = memory.store_consensus(
+            topic="Delete test",
+            conclusion="To be deleted",
+            strength=ConsensusStrength.MODERATE,
+            confidence=0.7,
+            participating_agents=["agent1", "agent2"],
+            agreeing_agents=["agent1", "agent2"],
+        )
+
+        # Verify record exists
+        retrieved = memory.get_consensus(record.id)
+        assert retrieved is not None
+        assert retrieved.topic == "Delete test"
+
+        # Delete the record
+        result = memory.delete_consensus(record.id)
+        assert result is True
+
+        # Verify record is gone
+        retrieved = memory.get_consensus(record.id)
+        assert retrieved is None
+
+    def test_delete_consensus_returns_false_for_nonexistent(self, temp_db):
+        """Test delete_consensus returns False for nonexistent record."""
+        memory = ConsensusMemory(str(temp_db))
+
+        result = memory.delete_consensus("nonexistent-id")
+        assert result is False
+
+    def test_delete_consensus_cascades_dissents(self, temp_db):
+        """Test delete_consensus removes associated dissent records."""
+        memory = ConsensusMemory(str(temp_db))
+
+        # Store a consensus record
+        record = memory.store_consensus(
+            topic="Cascade test",
+            conclusion="With dissents",
+            strength=ConsensusStrength.WEAK,
+            confidence=0.5,
+            participating_agents=["agent1", "agent2", "agent3"],
+            agreeing_agents=["agent1", "agent2"],
+            dissenting_agents=["agent3"],
+        )
+
+        # Store a dissent for this consensus
+        memory.store_dissent(
+            debate_id=record.id,
+            agent_id="agent3",
+            dissent_type=DissentType.ALTERNATIVE_APPROACH,
+            content="I disagree with this approach",
+            reasoning="Better alternatives exist",
+        )
+
+        # Verify dissent exists
+        dissents = memory.get_dissents(record.id)
+        assert len(dissents) == 1
+
+        # Delete consensus with cascade
+        result = memory.delete_consensus(record.id, cascade_dissents=True)
+        assert result is True
+
+        # Verify dissents are also gone
+        dissents = memory.get_dissents(record.id)
+        assert len(dissents) == 0
+
+    def test_delete_dissent_removes_single_record(self, temp_db):
+        """Test delete_dissent removes only the specified dissent."""
+        memory = ConsensusMemory(str(temp_db))
+
+        # Store a consensus record
+        record = memory.store_consensus(
+            topic="Dissent delete test",
+            conclusion="Multiple dissents",
+            strength=ConsensusStrength.SPLIT,
+            confidence=0.4,
+            participating_agents=["a1", "a2", "a3"],
+            agreeing_agents=["a1"],
+            dissenting_agents=["a2", "a3"],
+        )
+
+        # Store multiple dissents
+        dissent1 = memory.store_dissent(
+            debate_id=record.id,
+            agent_id="a2",
+            dissent_type=DissentType.FUNDAMENTAL_DISAGREEMENT,
+            content="First dissent",
+            reasoning="Reason 1",
+        )
+
+        dissent2 = memory.store_dissent(
+            debate_id=record.id,
+            agent_id="a3",
+            dissent_type=DissentType.RISK_WARNING,
+            content="Second dissent",
+            reasoning="Reason 2",
+        )
+
+        # Verify both dissents exist
+        dissents = memory.get_dissents(record.id)
+        assert len(dissents) == 2
+
+        # Delete only the first dissent
+        result = memory.delete_dissent(dissent1.id)
+        assert result is True
+
+        # Verify only one dissent remains
+        dissents = memory.get_dissents(record.id)
+        assert len(dissents) == 1
+        assert dissents[0].id == dissent2.id
+
+    def test_delete_dissent_returns_false_for_nonexistent(self, temp_db):
+        """Test delete_dissent returns False for nonexistent record."""
+        memory = ConsensusMemory(str(temp_db))
+
+        result = memory.delete_dissent("nonexistent-dissent-id")
+        assert result is False

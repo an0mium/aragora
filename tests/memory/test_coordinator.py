@@ -355,3 +355,182 @@ class TestCoordinatorRollback:
         assert tx.rolled_back is True
         assert "continuum" in rollback_called
         assert coordinator.metrics.rollbacks_performed == 1
+
+
+class TestDefaultRollbackHandlers:
+    """Tests for default rollback handlers with real delete methods."""
+
+    @pytest.fixture
+    def mock_context(self):
+        """Create a mock debate context for testing."""
+        ctx = MagicMock()
+        ctx.debate_id = "rollback-test-123"
+        ctx.env = MagicMock()
+        ctx.env.task = "Test rollback handlers"
+        ctx.result = MagicMock()
+        ctx.result.id = "rollback-test-123"
+        ctx.result.task = "Test rollback handlers"
+        ctx.result.final_answer = "Test answer"
+        ctx.result.confidence = 0.9
+        ctx.result.domain = "testing"
+        ctx.result.consensus_reached = True
+        ctx.result.winner = "agent1"
+        ctx.result.rounds_used = 2
+        ctx.result.critiques = []
+        ctx.result.key_claims = []
+        return ctx
+
+    @pytest.mark.asyncio
+    async def test_default_handlers_registered_for_continuum(self, mock_context):
+        """Default rollback handler is registered for continuum memory."""
+        continuum = MagicMock()
+        continuum.store_pattern = MagicMock(return_value="entry-123")
+        continuum.delete = MagicMock(return_value={"deleted": True})
+
+        coordinator = MemoryCoordinator(continuum_memory=continuum)
+
+        # Verify handler is registered
+        assert "continuum" in coordinator._rollback_handlers
+
+    @pytest.mark.asyncio
+    async def test_default_handlers_registered_for_consensus(self, mock_context):
+        """Default rollback handler is registered for consensus memory."""
+        consensus = MagicMock()
+        mock_record = MagicMock()
+        mock_record.id = "consensus-123"
+        consensus.store_consensus = MagicMock(return_value=mock_record)
+        consensus.delete_consensus = MagicMock(return_value=True)
+
+        coordinator = MemoryCoordinator(consensus_memory=consensus)
+
+        # Verify handler is registered
+        assert "consensus" in coordinator._rollback_handlers
+
+    @pytest.mark.asyncio
+    async def test_default_handlers_registered_for_critique(self, mock_context):
+        """Default rollback handler is registered for critique store."""
+        critique = MagicMock()
+        critique.store_result = MagicMock()
+        critique.delete_debate = MagicMock(return_value=True)
+
+        coordinator = MemoryCoordinator(critique_store=critique)
+
+        # Verify handler is registered
+        assert "critique" in coordinator._rollback_handlers
+
+    @pytest.mark.asyncio
+    async def test_continuum_rollback_calls_delete(self, mock_context):
+        """Continuum rollback handler calls delete method."""
+        continuum = MagicMock()
+        continuum.store_pattern = MagicMock(return_value="entry-to-rollback")
+        continuum.delete = MagicMock(return_value={"deleted": True})
+
+        # Consensus will fail to trigger rollback
+        consensus = MagicMock()
+        consensus.store_consensus = MagicMock(side_effect=Exception("Trigger rollback"))
+
+        coordinator = MemoryCoordinator(
+            continuum_memory=continuum,
+            consensus_memory=consensus,
+        )
+
+        tx = await coordinator.commit_debate_outcome(
+            mock_context,
+            options=CoordinatorOptions(
+                rollback_on_failure=True,
+                write_critique=False,
+                write_mound=False,
+            ),
+        )
+
+        # Verify rollback occurred
+        assert tx.rolled_back is True
+        # Verify delete was called with the entry ID
+        continuum.delete.assert_called_once()
+        call_kwargs = continuum.delete.call_args[1]
+        assert call_kwargs["memory_id"] == "entry-to-rollback"
+        assert call_kwargs["archive"] is True
+        assert call_kwargs["reason"] == "transaction_rollback"
+
+    @pytest.mark.asyncio
+    async def test_consensus_rollback_calls_delete_consensus(self, mock_context):
+        """Consensus rollback handler calls delete_consensus method."""
+        # Continuum succeeds
+        continuum = MagicMock()
+        continuum.store_pattern = MagicMock(return_value="continuum-entry")
+        continuum.delete = MagicMock(return_value={"deleted": True})
+
+        # Consensus succeeds
+        consensus = MagicMock()
+        mock_record = MagicMock()
+        mock_record.id = "consensus-to-rollback"
+        consensus.store_consensus = MagicMock(return_value=mock_record)
+        consensus.delete_consensus = MagicMock(return_value=True)
+
+        # Critique fails to trigger rollback
+        critique = MagicMock()
+        critique.store_result = MagicMock(side_effect=Exception("Trigger rollback"))
+
+        coordinator = MemoryCoordinator(
+            continuum_memory=continuum,
+            consensus_memory=consensus,
+            critique_store=critique,
+        )
+
+        tx = await coordinator.commit_debate_outcome(
+            mock_context,
+            options=CoordinatorOptions(
+                rollback_on_failure=True,
+                write_mound=False,
+            ),
+        )
+
+        # Verify rollback occurred
+        assert tx.rolled_back is True
+        # Verify delete_consensus was called
+        consensus.delete_consensus.assert_called_once_with(
+            consensus_id="consensus-to-rollback",
+            cascade_dissents=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_critique_rollback_calls_delete_debate(self, mock_context):
+        """Critique rollback handler calls delete_debate method."""
+        # All succeed except mound
+        continuum = MagicMock()
+        continuum.store_pattern = MagicMock(return_value="continuum-entry")
+        continuum.delete = MagicMock(return_value={"deleted": True})
+
+        consensus = MagicMock()
+        mock_record = MagicMock()
+        mock_record.id = "consensus-entry"
+        consensus.store_consensus = MagicMock(return_value=mock_record)
+        consensus.delete_consensus = MagicMock(return_value=True)
+
+        critique = MagicMock()
+        critique.store_result = MagicMock()
+        critique.delete_debate = MagicMock(return_value=True)
+
+        # Mound fails to trigger rollback
+        mound = AsyncMock()
+        mound.ingest_debate_outcome = AsyncMock(side_effect=Exception("Trigger rollback"))
+
+        coordinator = MemoryCoordinator(
+            continuum_memory=continuum,
+            consensus_memory=consensus,
+            critique_store=critique,
+            knowledge_mound=mound,
+        )
+
+        tx = await coordinator.commit_debate_outcome(
+            mock_context,
+            options=CoordinatorOptions(rollback_on_failure=True),
+        )
+
+        # Verify rollback occurred
+        assert tx.rolled_back is True
+        # Verify delete_debate was called
+        critique.delete_debate.assert_called_once_with(
+            debate_id="rollback-test-123",
+            cascade_critiques=True,
+        )

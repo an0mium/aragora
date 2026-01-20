@@ -728,9 +728,10 @@ class ConsensusMemory(SQLiteStore):
             cursor.execute("DELETE FROM consensus WHERE id = ?", (consensus_id,))
             conn.commit()
 
-            # Invalidate relevant caches
-            invalidate_cache(_consensus_cache, lambda k: consensus_id in k)
-            invalidate_cache(_dissents_cache, lambda k: consensus_id in k)
+            # Invalidate relevant caches (clear all consensus/dissents caches)
+            invalidate_cache("consensus")
+            _consensus_cache.clear()
+            _dissents_cache.clear()
 
             logger.debug("[consensus] Deleted consensus record: %s", consensus_id)
             return True
@@ -751,7 +752,8 @@ class ConsensusMemory(SQLiteStore):
 
             if cursor.rowcount > 0:
                 # Invalidate dissent caches
-                invalidate_cache(_dissents_cache)
+                invalidate_cache("consensus")
+                _dissents_cache.clear()
                 logger.debug("[consensus] Deleted dissent record: %s", dissent_id)
                 return True
             return False

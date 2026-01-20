@@ -895,566 +895,100 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
 
 
 # ============================================================================
-# Nomic Loop Phase Metrics
+# Re-exports from extracted modules (for backwards compatibility)
 # ============================================================================
 
-
-def record_nomic_phase(
-    phase: str,
-    outcome: str,
-    duration_seconds: float,
-) -> None:
-    """Record a nomic loop phase execution.
-
-    Args:
-        phase: Phase name (context, debate, design, implement, verify, commit)
-        outcome: Phase outcome (success, failure, skipped)
-        duration_seconds: Time spent in the phase
-    """
-    if PROMETHEUS_AVAILABLE:
-        NOMIC_PHASE_DURATION.labels(phase=phase, outcome=outcome).observe(duration_seconds)
-        NOMIC_PHASE_TOTAL.labels(phase=phase, outcome=outcome).inc()
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_nomic_phase_duration_seconds",
-            duration_seconds,
-            {"phase": phase, "outcome": outcome},
-        )
-        _simple_metrics.inc_counter(
-            "aragora_nomic_phases_total",
-            {"phase": phase, "outcome": outcome},
-        )
-
-
-def record_nomic_cycle(
-    outcome: str,
-    duration_seconds: float,
-) -> None:
-    """Record a complete nomic cycle execution.
-
-    Args:
-        outcome: Cycle outcome (success, failure, partial)
-        duration_seconds: Total cycle time
-    """
-    if PROMETHEUS_AVAILABLE:
-        NOMIC_CYCLE_DURATION.labels(outcome=outcome).observe(duration_seconds)
-        NOMIC_CYCLE_TOTAL.labels(outcome=outcome).inc()
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_nomic_cycle_duration_seconds",
-            duration_seconds,
-            {"outcome": outcome},
-        )
-        _simple_metrics.inc_counter(
-            "aragora_nomic_cycles_total",
-            {"outcome": outcome},
-        )
-
-
-def record_nomic_agent_phase(
-    phase: str,
-    agent: str,
-    duration_seconds: float,
-) -> None:
-    """Record time spent by an agent in a phase.
-
-    Args:
-        phase: Phase name (context, debate, design, implement, verify)
-        agent: Agent name (claude, codex, gemini, grok)
-        duration_seconds: Time the agent spent in this phase
-    """
-    if PROMETHEUS_AVAILABLE:
-        NOMIC_AGENT_PHASE_DURATION.labels(phase=phase, agent=agent).observe(duration_seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_nomic_agent_phase_seconds",
-            duration_seconds,
-            {"phase": phase, "agent": agent},
-        )
-
-
-def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
-    """Async decorator to time nomic phase execution.
-
-    Args:
-        phase: Phase name (context, debate, design, implement, verify, commit)
-
-    Returns:
-        Async decorator that wraps phase execution with timing.
-
-    Usage:
-        @timed_nomic_phase("debate")
-        async def execute(self) -> DebateResult:
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            outcome = "success"
-            try:
-                result = await func(*args, **kwargs)
-                # Check result for success indicator
-                if hasattr(result, "get") and not result.get("success", True):
-                    outcome = "failure"
-                return result
-            except Exception:  # noqa: BLE001 - Re-raised after recording outcome
-                outcome = "failure"
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_nomic_phase(phase, outcome, duration)
-
-        return wrapper
-
-    return decorator
-
-
-# ============================================================================
-# Control Plane Metrics Recording Functions
-# ============================================================================
-
-
-def record_control_plane_task_submitted(task_type: str, priority: str) -> None:
-    """Record a task submitted to the control plane.
-
-    Args:
-        task_type: Type of task (e.g., debate, document_processing, audit)
-        priority: Task priority (low, normal, high, urgent)
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_TASKS_TOTAL.labels(task_type=task_type, priority=priority).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_control_plane_tasks_total",
-            {"task_type": task_type, "priority": priority},
-        )
-
-
-def record_control_plane_task_status(status: str, count: int) -> None:
-    """Record the count of tasks by status.
-
-    Args:
-        status: Task status (pending, running, completed, failed, cancelled)
-        count: Number of tasks in this status
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_TASK_STATUS.labels(status=status).set(count)
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_control_plane_task_status_count",
-            count,
-            {"status": status},
-        )
-
-
-def record_control_plane_task_completed(
-    task_type: str, outcome: str, duration_seconds: float
-) -> None:
-    """Record a task completion.
-
-    Args:
-        task_type: Type of task
-        outcome: Task outcome (completed, failed, timeout)
-        duration_seconds: Time to complete the task
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_TASK_DURATION.labels(
-            task_type=task_type, outcome=outcome
-        ).observe(duration_seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_control_plane_task_duration_seconds",
-            duration_seconds,
-            {"task_type": task_type, "outcome": outcome},
-        )
-
-
-def record_control_plane_queue_depth(priority: str, depth: int) -> None:
-    """Record the queue depth by priority.
-
-    Args:
-        priority: Task priority
-        depth: Number of tasks in queue
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_QUEUE_DEPTH.labels(priority=priority).set(depth)
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_control_plane_queue_depth",
-            depth,
-            {"priority": priority},
-        )
-
-
-def record_control_plane_agents(status: str, count: int) -> None:
-    """Record the count of agents by status.
-
-    Args:
-        status: Agent status (available, busy, offline)
-        count: Number of agents in this status
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_AGENTS_REGISTERED.labels(status=status).set(count)
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_control_plane_agents_registered",
-            count,
-            {"status": status},
-        )
-
-
-def record_control_plane_agent_health(agent_id: str, health_value: int) -> None:
-    """Record agent health status.
-
-    Args:
-        agent_id: Agent identifier
-        health_value: Health value (0=unhealthy, 1=degraded, 2=healthy)
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_AGENT_HEALTH.labels(agent_id=agent_id).set(health_value)
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_control_plane_agent_health",
-            health_value,
-            {"agent_id": agent_id},
-        )
-
-
-def record_control_plane_agent_latency(agent_id: str, latency_seconds: float) -> None:
-    """Record agent health check latency.
-
-    Args:
-        agent_id: Agent identifier
-        latency_seconds: Health check latency in seconds
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_AGENT_LATENCY.labels(agent_id=agent_id).observe(latency_seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_control_plane_agent_latency_seconds",
-            latency_seconds,
-            {"agent_id": agent_id},
-        )
-
-
-def record_control_plane_task_retry(task_type: str, reason: str) -> None:
-    """Record a task retry.
-
-    Args:
-        task_type: Type of task being retried
-        reason: Retry reason (timeout, error, capability_mismatch)
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_TASK_RETRIES.labels(task_type=task_type, reason=reason).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_control_plane_task_retries_total",
-            {"task_type": task_type, "reason": reason},
-        )
-
-
-def record_control_plane_dead_letter_queue(size: int) -> None:
-    """Record the size of the dead letter queue.
-
-    Args:
-        size: Number of tasks in dead letter queue
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_DEAD_LETTER_QUEUE.set(size)
-    else:
-        _simple_metrics.set_gauge("aragora_control_plane_dead_letter_queue_size", size)
-
-
-def record_control_plane_claim_latency(priority: str, latency_seconds: float) -> None:
-    """Record task claim latency.
-
-    Args:
-        priority: Task priority
-        latency_seconds: Time to claim the task
-    """
-    if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_CLAIM_LATENCY.labels(priority=priority).observe(latency_seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_control_plane_claim_latency_seconds",
-            latency_seconds,
-            {"priority": priority},
-        )
-
-
-# ============================================================================
-# RLM (Recursive Language Models) Metrics Recording Functions
-# ============================================================================
-
-
-def record_rlm_compression(
-    source_type: str,
-    original_tokens: int,
-    compressed_tokens: int,
-    levels: int = 1,
-    duration_seconds: float = 0.0,
-    success: bool = True,
-) -> None:
-    """Record an RLM compression operation.
-
-    Args:
-        source_type: Type of content compressed (debate, document, knowledge)
-        original_tokens: Token count before compression
-        compressed_tokens: Token count after compression
-        levels: Number of abstraction levels created
-        duration_seconds: Time taken for compression
-        success: Whether compression succeeded
-    """
-    status = "success" if success else "failure"
-
-    if PROMETHEUS_AVAILABLE:
-        RLM_COMPRESSIONS.labels(source_type=source_type, status=status).inc()
-
-        if success and original_tokens > 0:
-            ratio = compressed_tokens / original_tokens
-            RLM_COMPRESSION_RATIO.labels(source_type=source_type).observe(ratio)
-
-            tokens_saved = original_tokens - compressed_tokens
-            if tokens_saved > 0:
-                RLM_TOKENS_SAVED.labels(source_type=source_type).inc(tokens_saved)
-
-            RLM_CONTEXT_LEVELS.labels(source_type=source_type).observe(levels)
-
-        if duration_seconds > 0:
-            RLM_COMPRESSION_DURATION.labels(
-                source_type=source_type,
-                levels=str(levels),
-            ).observe(duration_seconds)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_rlm_compressions_total",
-            {"source_type": source_type, "status": status},
-        )
-        if success and original_tokens > 0:
-            ratio = compressed_tokens / original_tokens
-            _simple_metrics.observe_histogram(
-                "aragora_rlm_compression_ratio",
-                ratio,
-                {"source_type": source_type},
-            )
-            tokens_saved = original_tokens - compressed_tokens
-            if tokens_saved > 0:
-                _simple_metrics.inc_counter(
-                    "aragora_rlm_tokens_saved_total",
-                    {"source_type": source_type},
-                    tokens_saved,
-                )
-        if duration_seconds > 0:
-            _simple_metrics.observe_histogram(
-                "aragora_rlm_compression_duration_seconds",
-                duration_seconds,
-                {"source_type": source_type, "levels": str(levels)},
-            )
-
-
-def record_rlm_query(
-    query_type: str,
-    level: str = "SUMMARY",
-    duration_seconds: float = 0.0,
-) -> None:
-    """Record an RLM context query.
-
-    Args:
-        query_type: Type of query (drill_down, roll_up, search, etc.)
-        level: Abstraction level queried (ABSTRACT, SUMMARY, DETAILED, FULL)
-        duration_seconds: Time taken for query
-    """
-    if PROMETHEUS_AVAILABLE:
-        RLM_QUERIES.labels(query_type=query_type, level=level).inc()
-        if duration_seconds > 0:
-            RLM_QUERY_DURATION.labels(query_type=query_type).observe(duration_seconds)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_rlm_queries_total",
-            {"query_type": query_type, "level": level},
-        )
-        if duration_seconds > 0:
-            _simple_metrics.observe_histogram(
-                "aragora_rlm_query_duration_seconds",
-                duration_seconds,
-                {"query_type": query_type},
-            )
-
-
-def record_rlm_cache_hit() -> None:
-    """Record an RLM compression cache hit."""
-    if PROMETHEUS_AVAILABLE:
-        RLM_CACHE_HITS.inc()
-    else:
-        _simple_metrics.inc_counter("aragora_rlm_cache_hits_total")
-
-
-def record_rlm_cache_miss() -> None:
-    """Record an RLM compression cache miss."""
-    if PROMETHEUS_AVAILABLE:
-        RLM_CACHE_MISSES.inc()
-    else:
-        _simple_metrics.inc_counter("aragora_rlm_cache_misses_total")
-
-
-def set_rlm_memory_usage(bytes_used: int) -> None:
-    """Set current memory usage for RLM context cache.
-
-    Args:
-        bytes_used: Memory usage in bytes
-    """
-    if PROMETHEUS_AVAILABLE:
-        RLM_MEMORY_USAGE.set(bytes_used)
-    else:
-        _simple_metrics.set_gauge("aragora_rlm_memory_bytes", bytes_used)
-
-
-def record_rlm_refinement(
-    strategy: str,
-    iterations: int,
-    success: bool,
-    duration_seconds: float = 0.0,
-) -> None:
-    """Record an RLM iterative refinement operation.
-
-    Args:
-        strategy: Decomposition strategy used (auto, grep, partition_map, etc.)
-        iterations: Number of iterations until ready=True (or max iterations)
-        success: Whether ready=True was achieved before max iterations
-        duration_seconds: Total time for refinement loop
-    """
-    if PROMETHEUS_AVAILABLE:
-        RLM_REFINEMENT_ITERATIONS.labels(strategy=strategy).observe(iterations)
-        if success:
-            RLM_REFINEMENT_SUCCESS.labels(strategy=strategy).inc()
-        if duration_seconds > 0:
-            RLM_REFINEMENT_DURATION.labels(strategy=strategy).observe(duration_seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_rlm_refinement_iterations",
-            iterations,
-            {"strategy": strategy},
-        )
-        if success:
-            _simple_metrics.inc_counter(
-                "aragora_rlm_refinement_success_total",
-                {"strategy": strategy},
-            )
-        if duration_seconds > 0:
-            _simple_metrics.observe_histogram(
-                "aragora_rlm_refinement_duration_seconds",
-                duration_seconds,
-                {"strategy": strategy},
-            )
-
-
-def record_rlm_ready_false(iteration: int) -> None:
-    """Record when LLM signals ready=False (needs refinement).
-
-    Args:
-        iteration: Current iteration number (0-indexed)
-    """
-    if PROMETHEUS_AVAILABLE:
-        RLM_READY_FALSE_RATE.labels(iteration=str(iteration)).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_rlm_ready_false_total",
-            {"iteration": str(iteration)},
-        )
-
-
-def timed_rlm_compression(source_type: str) -> Callable[[Callable], Callable]:
-    """Async decorator to time RLM compression operations.
-
-    Args:
-        source_type: Type of content being compressed (debate, document, knowledge)
-
-    Returns:
-        Async decorator that wraps compression with timing.
-
-    Usage:
-        @timed_rlm_compression("debate")
-        async def compress_debate(self, debate: DebateResult) -> RLMContext:
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            success = True
-            original_tokens = 0
-            compressed_tokens = 0
-            levels = 1
-            try:
-                result = await func(*args, **kwargs)
-                # Try to extract metrics from result
-                if hasattr(result, "original_tokens"):
-                    original_tokens = result.original_tokens
-                if hasattr(result, "compressed_tokens"):
-                    compressed_tokens = result.compressed_tokens
-                if hasattr(result, "levels"):
-                    levels = len(result.levels) if hasattr(result.levels, "__len__") else result.levels
-                return result
-            except Exception:
-                success = False
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_rlm_compression(
-                    source_type=source_type,
-                    original_tokens=original_tokens,
-                    compressed_tokens=compressed_tokens,
-                    levels=levels,
-                    duration_seconds=duration,
-                    success=success,
-                )
-
-        return wrapper
-
-    return decorator
-
-
-def timed_rlm_refinement(strategy: str = "auto") -> Callable[[Callable], Callable]:
-    """Async decorator to time RLM refinement operations.
-
-    Args:
-        strategy: Decomposition strategy being used
-
-    Returns:
-        Async decorator that wraps refinement with timing.
-
-    Usage:
-        @timed_rlm_refinement("grep")
-        async def query_with_refinement(self, query: str) -> RLMResult:
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            iterations = 1
-            success = False
-            try:
-                result = await func(*args, **kwargs)
-                # Try to extract metrics from result
-                if hasattr(result, "iteration"):
-                    iterations = result.iteration + 1
-                if hasattr(result, "ready"):
-                    success = result.ready
-                return result
-            finally:
-                duration = time.perf_counter() - start
-                record_rlm_refinement(
-                    strategy=strategy,
-                    iterations=iterations,
-                    success=success,
-                    duration_seconds=duration,
-                )
-
-        return wrapper
-
-    return decorator
+# Nomic metrics
+from aragora.server.prometheus_nomic import (
+    record_nomic_agent_phase,
+    record_nomic_cycle,
+    record_nomic_phase,
+    timed_nomic_phase,
+)
+
+# Control Plane metrics
+from aragora.server.prometheus_control_plane import (
+    record_control_plane_agent_health,
+    record_control_plane_agent_latency,
+    record_control_plane_agents,
+    record_control_plane_claim_latency,
+    record_control_plane_dead_letter_queue,
+    record_control_plane_queue_depth,
+    record_control_plane_task_completed,
+    record_control_plane_task_retry,
+    record_control_plane_task_status,
+    record_control_plane_task_submitted,
+)
+
+# RLM metrics
+from aragora.server.prometheus_rlm import (
+    record_rlm_cache_hit,
+    record_rlm_cache_miss,
+    record_rlm_compression,
+    record_rlm_query,
+    record_rlm_ready_false,
+    record_rlm_refinement,
+    set_rlm_memory_usage,
+    timed_rlm_compression,
+    timed_rlm_refinement,
+)
+
+__all__ = [
+    # Core
+    "PROMETHEUS_AVAILABLE",
+    "get_metrics_output",
+    "is_prometheus_available",
+    "get_prometheus_metrics",
+    # Core recording functions
+    "record_debate_completed",
+    "record_tokens_used",
+    "record_agent_generation",
+    "record_agent_failure",
+    "set_circuit_breaker_state",
+    "record_http_request",
+    "set_websocket_connections",
+    "record_websocket_message",
+    "record_rate_limit_hit",
+    "set_rate_limit_tokens_tracked",
+    "set_cache_size",
+    "record_cache_hit",
+    "record_cache_miss",
+    "set_server_info",
+    "record_db_query",
+    "record_db_error",
+    "set_db_pool_size",
+    "set_memory_tier_size",
+    "record_memory_tier_transition",
+    "record_memory_operation",
+    # Decorators
+    "timed_http_request",
+    "timed_agent_generation",
+    "timed_db_query",
+    "timed_db_query_async",
+    # Nomic (re-exported)
+    "record_nomic_phase",
+    "record_nomic_cycle",
+    "record_nomic_agent_phase",
+    "timed_nomic_phase",
+    # Control Plane (re-exported)
+    "record_control_plane_task_submitted",
+    "record_control_plane_task_status",
+    "record_control_plane_task_completed",
+    "record_control_plane_queue_depth",
+    "record_control_plane_agents",
+    "record_control_plane_agent_health",
+    "record_control_plane_agent_latency",
+    "record_control_plane_task_retry",
+    "record_control_plane_dead_letter_queue",
+    "record_control_plane_claim_latency",
+    # RLM (re-exported)
+    "record_rlm_compression",
+    "record_rlm_query",
+    "record_rlm_cache_hit",
+    "record_rlm_cache_miss",
+    "set_rlm_memory_usage",
+    "record_rlm_refinement",
+    "record_rlm_ready_false",
+    "timed_rlm_compression",
+    "timed_rlm_refinement",
+]

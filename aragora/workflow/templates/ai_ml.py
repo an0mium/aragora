@@ -370,6 +370,22 @@ PROMPT_ENGINEERING_TEMPLATE: Dict[str, Any] = {
             },
         },
         {
+            "id": "engineer_review",
+            "type": "human_checkpoint",
+            "name": "Prompt Engineer Review",
+            "description": "Prompt engineer approval before storing optimized prompts",
+            "config": {
+                "approval_type": "sign_off",
+                "required_role": "prompt_engineer",
+                "checklist": [
+                    "Prompts are clear and specific",
+                    "No injection vulnerabilities",
+                    "Output format well-defined",
+                    "Edge cases handled",
+                ],
+            },
+        },
+        {
             "id": "store",
             "type": "memory_write",
             "name": "Store Optimized Prompts",
@@ -385,6 +401,7 @@ PROMPT_ENGINEERING_TEMPLATE: Dict[str, Any] = {
         {"from": "injection_review", "to": "output_format_review"},
         {"from": "output_format_review", "to": "edge_case_testing"},
         {"from": "edge_case_testing", "to": "optimization_suggestions"},
-        {"from": "optimization_suggestions", "to": "store"},
+        {"from": "optimization_suggestions", "to": "engineer_review"},
+        {"from": "engineer_review", "to": "store"},
     ],
 }

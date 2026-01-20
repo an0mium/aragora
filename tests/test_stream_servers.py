@@ -34,9 +34,9 @@ def mock_websocket():
 @pytest.fixture
 def stream_server():
     """Create a DebateStreamServer instance for testing."""
-    from aragora.server.stream.servers import DebateStreamServer
+    from aragora.server.stream.debate_stream_server import DebateStreamServer
 
-    with patch("aragora.server.stream.servers.auth_config") as mock_auth:
+    with patch("aragora.server.stream.debate_stream_server.auth_config") as mock_auth:
         mock_auth.enabled = False
         server = DebateStreamServer(host="localhost", port=8765)
         yield server
@@ -45,9 +45,9 @@ def stream_server():
 @pytest.fixture
 def stream_server_with_auth():
     """Create a DebateStreamServer with auth enabled."""
-    from aragora.server.stream.servers import DebateStreamServer
+    from aragora.server.stream.debate_stream_server import DebateStreamServer
 
-    with patch("aragora.server.stream.servers.auth_config") as mock_auth:
+    with patch("aragora.server.stream.debate_stream_server.auth_config") as mock_auth:
         mock_auth.enabled = True
         mock_auth.validate_token = Mock(return_value=True)
         server = DebateStreamServer(host="localhost", port=8765)

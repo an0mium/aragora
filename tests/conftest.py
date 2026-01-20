@@ -66,6 +66,32 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def fast_convergence_backend(request):
+    """Use fast Jaccard backend for convergence detection by default.
+
+    This prevents slow ML model loading during tests. Tests that specifically
+    need SentenceTransformer should use @pytest.mark.slow and the full backend.
+
+    Set ARAGORA_CONVERGENCE_BACKEND=jaccard for fast tests (default).
+    Tests marked @pytest.mark.slow will use the real ML backend.
+    """
+    # Skip this fixture for slow tests - they may need real ML backend
+    if "slow" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    # Set fast backend for non-slow tests
+    old_value = os.environ.get("ARAGORA_CONVERGENCE_BACKEND")
+    os.environ["ARAGORA_CONVERGENCE_BACKEND"] = "jaccard"
+    yield
+    # Restore original value
+    if old_value is None:
+        os.environ.pop("ARAGORA_CONVERGENCE_BACKEND", None)
+    else:
+        os.environ["ARAGORA_CONVERGENCE_BACKEND"] = old_value
+
+
+@pytest.fixture(autouse=True)
 def reset_circuit_breakers():
     """Reset all circuit breakers before each test.
 
