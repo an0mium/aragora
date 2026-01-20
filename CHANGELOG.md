@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Agent spec parsing**: Fixed 3-part spec parsing bug where OpenRouter models produced invalid specs
+  - PERSONA_TO_AGENT now maps to registered agent types instead of full model paths
+  - Specs are now always 2-part format (agent_type:persona)
+- **Usage sync double-reporting**: Fixed watermarks resetting to 0 on service restart
+  - Added SQLite persistence for sync watermarks with billing period keying
+  - Watermarks survive restarts preventing duplicate Stripe usage reports
+- **Context gatherer cache isolation**: Fixed cache leaking between debates with different tasks
+  - Cache now uses task-hash keying to isolate entries per debate
+  - Added `get_evidence_pack(task)` and `clear_cache(task)` for targeted operations
+- **React ConnectionContext side effect**: Moved `setLastAllConnected` from useMemo to useEffect
+- **CrossDebateMemory race condition**: Added snapshot pattern for concurrent reads
+  - Take snapshot under lock, process without lock, update access tracking under lock
+- **Next.js metadata deprecation**: Separated viewport from metadata export for Next.js 14+ compliance
+
+### Changed
+- **Async classification**: QuestionClassifier.classify is now natively async using AsyncAnthropic
+  - No longer blocks event loop during LLM-based question classification
+
+### Tests
+- Updated context gatherer tests for dict-based cache structure
+- Added task isolation tests for ContextGatherer
+- Added async classification tests for PromptBuilder
+- Added usage sync persistence tests
+
 ## [1.5.1] - 2026-01-15
 
 ### Added
