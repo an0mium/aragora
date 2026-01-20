@@ -181,16 +181,32 @@ export function ReportExportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-modal-title"
+    >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/70"
+        onClick={onClose}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+        role="button"
+        tabIndex={-1}
+        aria-label="Close modal"
+      />
 
       {/* Modal */}
       <div className="relative bg-background border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="font-mono text-lg">Export Audit Report</h2>
-          <button onClick={onClose} className="text-muted hover:text-foreground">
+          <h2 id="export-modal-title" className="font-mono text-lg">Export Audit Report</h2>
+          <button
+            onClick={onClose}
+            className="text-muted hover:text-foreground"
+            aria-label="Close export dialog"
+          >
             [X]
           </button>
         </div>
@@ -205,6 +221,7 @@ export function ReportExportModal({
                 <button
                   key={f}
                   onClick={() => setFormat(f)}
+                  aria-pressed={format === f}
                   className={`p-3 rounded border text-left transition-colors ${
                     format === f
                       ? 'border-accent bg-accent/10'
@@ -230,6 +247,8 @@ export function ReportExportModal({
                     key={sev}
                     onClick={() => toggleSeverity(sev)}
                     disabled={count === 0}
+                    aria-pressed={isSelected}
+                    aria-label={`${sev} severity: ${count} findings`}
                     className={`px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
                       isSelected
                         ? 'border-accent bg-accent/10 text-accent'
@@ -254,6 +273,8 @@ export function ReportExportModal({
                     <button
                       key={cat}
                       onClick={() => toggleCategory(cat)}
+                      aria-pressed={isSelected}
+                      aria-label={`Category: ${cat}`}
                       className={`px-3 py-1.5 rounded border text-xs font-mono transition-colors ${
                         isSelected
                           ? 'border-accent bg-accent/10 text-accent'

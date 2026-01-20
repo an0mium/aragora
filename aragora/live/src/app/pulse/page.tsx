@@ -89,7 +89,7 @@ export default function PulsePage() {
           <div className="bg-acid-green/20 border-b border-acid-green/30 py-2">
             <div className="container mx-auto px-4 text-center">
               <span className="text-sm font-mono text-acid-green">
-                Debate started on "{debateStarted.slice(0, 50)}..." - Redirecting to debates...
+                Debate started on &quot;{debateStarted.slice(0, 50)}...&quot; - Redirecting to debates...
               </span>
             </div>
           </div>

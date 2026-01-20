@@ -364,13 +364,22 @@ export function FolderUploadDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="folder-upload-title"
+    >
       <div className="bg-surface border border-border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-mono font-bold">FOLDER UPLOAD</h2>
-          <button onClick={handleClose} className="text-muted hover:text-foreground">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <h2 id="folder-upload-title" className="text-lg font-mono font-bold">FOLDER UPLOAD</h2>
+          <button
+            onClick={handleClose}
+            className="text-muted hover:text-foreground"
+            aria-label="Close folder upload dialog"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -381,8 +390,12 @@ export function FolderUploadDialog({
           {/* Folder Selection */}
           {!selectedFiles.length && (
             <div
-              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent/50 transition-colors"
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent/50 transition-colors focus:outline-none focus:border-accent"
               onClick={() => folderInputRef.current?.click()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && folderInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              aria-label="Select folder to upload"
             >
               <input
                 ref={folderInputRef}
@@ -392,8 +405,9 @@ export function FolderUploadDialog({
                 multiple
                 onChange={handleFolderSelect}
                 className="hidden"
+                aria-label="Folder file picker"
               />
-              <div className="text-4xl mb-3">📂</div>
+              <div className="text-4xl mb-3" aria-hidden="true">📂</div>
               <div className="text-lg font-mono mb-2">SELECT FOLDER</div>
               <div className="text-sm text-muted">Click to select a folder to upload</div>
             </div>
@@ -479,7 +493,7 @@ export function FolderUploadDialog({
                       placeholder="e.g. **/*.log"
                       className="input flex-1"
                     />
-                    <button onClick={addPattern} className="btn btn-secondary">Add</button>
+                    <button onClick={addPattern} className="btn btn-secondary" aria-label="Add exclude pattern">Add</button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {excludePatterns.map((pattern) => (
@@ -491,6 +505,7 @@ export function FolderUploadDialog({
                         <button
                           onClick={() => removePattern(pattern)}
                           className="text-muted hover:text-foreground"
+                          aria-label={`Remove pattern ${pattern}`}
                         >
                           x
                         </button>

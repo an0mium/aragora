@@ -69,6 +69,7 @@ from .transcription import TranscriptionHandler
 from .features import BroadcastHandler  # Moved to features/
 from .agents import CalibrationHandler  # Moved to agents/
 from .checkpoints import CheckpointHandler
+from .composite import CompositeHandler
 from .consensus import ConsensusHandler
 from .control_plane import ControlPlaneHandler
 from .critique import CritiqueHandler
@@ -141,6 +142,7 @@ from .bots import DiscordHandler, TeamsHandler, ZoomHandler  # Bot platform hand
 ALL_HANDLERS = [
     GraphDebatesHandler,  # More specific path: /api/debates/graph
     MatrixDebatesHandler,  # More specific path: /api/debates/matrix
+    CompositeHandler,  # More specific: /api/debates/*/full-context, /api/agents/*/reliability
     DebatesHandler,
     AgentConfigHandler,  # More specific: /api/agents/configs/*
     AgentsHandler,
@@ -255,6 +257,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
+    "CompositeHandler": Stability.EXPERIMENTAL,  # Composite API endpoints - new
     "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
     "RLMContextHandler": Stability.EXPERIMENTAL,  # RLM context compression and query API - new
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
@@ -405,6 +408,7 @@ __all__ = [
     "PersonaHandler",
     "IntrospectionHandler",
     "CalibrationHandler",
+    "CompositeHandler",
     "RoutingHandler",
     "MLHandler",
     "RLMContextHandler",

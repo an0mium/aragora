@@ -99,7 +99,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 // Custom node component for execution steps
-interface ExecutionNodeData {
+interface ExecutionNodeData extends Record<string, unknown> {
   step: WorkflowStep;
   isSelected: boolean;
   onSelect: () => void;
