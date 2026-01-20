@@ -34,6 +34,7 @@ from aragora.debate.convergence import (
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
+from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
 from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
@@ -336,6 +337,9 @@ class Arena:
         # Initialize grounded operations helper (uses position_ledger, elo_system)
         self._init_grounded_operations()
 
+        # Initialize knowledge mound operations
+        self._init_knowledge_ops()
+
         # Initialize RLM cognitive load limiter for context compression
         # Must be before _init_phases() since phases need use_rlm_limiter
         self._init_rlm_limiter(
@@ -633,6 +637,19 @@ class Arena:
             elo_system=self.elo_system,
             evidence_grounder=None,  # Set after _init_phases
         )
+
+    def _init_knowledge_ops(self) -> None:
+        """Initialize KnowledgeMoundOperations for knowledge retrieval and ingestion."""
+        self._knowledge_ops = KnowledgeMoundOperations(
+            knowledge_mound=self.knowledge_mound,
+            enable_retrieval=self.enable_knowledge_retrieval,
+            enable_ingestion=self.enable_knowledge_ingestion,
+            notify_callback=self._knowledge_notify_callback,
+        )
+
+    def _knowledge_notify_callback(self, event_type: str, data: dict) -> None:
+        """Callback for knowledge mound notifications."""
+        self._notify_spectator(event_type, **data)
 
     def _init_prompt_context_builder(self) -> None:
         """Initialize PromptContextBuilder for agent prompt context."""
@@ -1072,112 +1089,16 @@ class Arena:
     async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
-        Queries the unified knowledge superstructure for semantically related
-        knowledge items to inform the debate.
-
-        Args:
-            task: The debate task to find relevant knowledge for
-            limit: Maximum number of knowledge items to retrieve
-
-        Returns:
-            Formatted string with knowledge context, or None if unavailable
+        Delegates to KnowledgeMoundOperations for implementation.
         """
-        if not self.knowledge_mound or not self.enable_knowledge_retrieval:
-            return None
-
-        try:
-            # Query mound for semantically related knowledge
-            results = await self.knowledge_mound.query_semantic(
-                query=task,
-                limit=limit,
-                min_confidence=0.5,
-            )
-
-            if not results or not results.items:
-                return None
-
-            # Format knowledge for agent context
-            lines = ["## KNOWLEDGE MOUND CONTEXT"]
-            lines.append("Relevant knowledge from organizational memory:\n")
-
-            for item in results.items[:limit]:
-                source = getattr(item, "source", "unknown")
-                confidence = getattr(item, "confidence", 0.0)
-                content = getattr(item, "content", str(item))[:300]
-                lines.append(f"**[{source}]** (confidence: {confidence:.0%})")
-                lines.append(f"{content}")
-                lines.append("")
-
-            logger.info(f"  [knowledge_mound] Retrieved {len(results.items)} items for context")
-            return "\n".join(lines)
-
-        except Exception as e:
-            logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
-            return None
+        return await self._knowledge_ops.fetch_knowledge_context(task, limit)
 
     async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
 
-        Ingests the consensus conclusion and key claims from high-confidence
-        debates into the organizational knowledge superstructure.
-
-        Args:
-            result: The debate result to ingest
+        Delegates to KnowledgeMoundOperations for implementation.
         """
-        if not self.knowledge_mound or not self.enable_knowledge_ingestion:
-            return
-
-        # Only ingest high-quality outcomes (consensus with good confidence)
-        if not result.final_answer or result.confidence < 0.7:
-            logger.debug("  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.7)")
-            return
-
-        try:
-            from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
-
-            # Build metadata from debate result
-            metadata = {
-                "debate_id": result.id,
-                "task": self.env.task[:500] if self.env else "",
-                "confidence": result.confidence,
-                "consensus_reached": result.consensus_reached,
-                "rounds_used": result.rounds_used,
-                "participants": result.participants[:10] if result.participants else [],
-                "winner": result.winner,
-            }
-
-            # Add belief cruxes if available
-            if hasattr(result, "debate_cruxes") and result.debate_cruxes:
-                metadata["crux_claims"] = [
-                    str(c.get("claim", c))[:200] for c in result.debate_cruxes[:5]
-                ]
-
-            # Ingest the consensus conclusion
-            ingestion_result = await self.knowledge_mound.store(
-                IngestionRequest(
-                    content=f"Debate Conclusion: {result.final_answer[:2000]}",
-                    source_type=KnowledgeSource.DEBATE,
-                    debate_id=result.id,
-                    confidence=result.confidence,
-                    workspace_id=self.knowledge_mound.workspace_id,
-                    metadata=metadata,
-                )
-            )
-
-            if ingestion_result.success:
-                logger.info(
-                    f"  [knowledge_mound] Ingested debate outcome (node_id={ingestion_result.node_id})"
-                )
-
-                # Emit event for dashboard
-                self._notify_spectator(
-                    "knowledge_ingested",
-                    details="Stored debate conclusion in Knowledge Mound",
-                    metric=result.confidence,
-                )
-
-        except Exception as e:
-            logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
+        await self._knowledge_ops.ingest_debate_outcome(result, env=self.env)
 
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int

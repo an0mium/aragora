@@ -9,13 +9,16 @@ Handles the integration between debate orchestration and the Knowledge Mound:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
     from aragora.knowledge.mound.types import KnowledgeMound
 
 logger = logging.getLogger(__name__)
+
+# Type alias for notification callback
+NotifyCallback = Callable[[str, Any], None]
 
 
 class KnowledgeMoundOperations:
@@ -31,6 +34,7 @@ class KnowledgeMoundOperations:
         knowledge_mound: Optional["KnowledgeMound"] = None,
         enable_retrieval: bool = True,
         enable_ingestion: bool = True,
+        notify_callback: Optional[NotifyCallback] = None,
     ):
         """Initialize Knowledge Mound operations.
 
@@ -38,10 +42,12 @@ class KnowledgeMoundOperations:
             knowledge_mound: The Knowledge Mound instance (optional)
             enable_retrieval: Whether to enable knowledge retrieval
             enable_ingestion: Whether to enable outcome ingestion
+            notify_callback: Optional callback for spectator/dashboard notifications
         """
         self.knowledge_mound = knowledge_mound
         self.enable_retrieval = enable_retrieval
         self.enable_ingestion = enable_ingestion
+        self._notify_callback = notify_callback
 
     async def fetch_knowledge_context(
         self, task: str, limit: int = 10
@@ -136,24 +142,27 @@ class KnowledgeMoundOperations:
             # Ingest the consensus conclusion
             ingestion_result = await self.knowledge_mound.store(
                 IngestionRequest(
-                    content=result.final_answer,
+                    content=f"Debate Conclusion: {result.final_answer[:2000]}",
                     source_type=KnowledgeSource.DEBATE,
                     workspace_id=self.knowledge_mound.workspace_id,
                     metadata=metadata,
                 )
             )
 
-            if ingestion_result and ingestion_result.node_id:
+            success = ingestion_result and getattr(ingestion_result, "node_id", None)
+            if success:
                 logger.info(
                     f"  [knowledge_mound] Ingested debate outcome (node_id={ingestion_result.node_id})"
                 )
 
-                # Record analytics if tracker available
-                if hasattr(self, "analytics_tracker") and self.analytics_tracker:
-                    self.analytics_tracker.record_event(
-                        "knowledge_mound_ingestion",
-                        details="Stored debate conclusion in Knowledge Mound",
-                        debate_id=result.id,
+                # Emit event for dashboard if callback provided
+                if self._notify_callback:
+                    self._notify_callback(
+                        "knowledge_ingested",
+                        {
+                            "details": "Stored debate conclusion in Knowledge Mound",
+                            "metric": result.confidence,
+                        },
                     )
 
         except Exception as e:

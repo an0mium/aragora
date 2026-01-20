@@ -167,7 +167,7 @@ class TestKnowledgeMoundOperations:
 
         mock_mound.store.assert_called_once()
         call_args = mock_mound.store.call_args[0][0]
-        assert call_args.content == "The optimal solution is X"
+        assert call_args.content == "Debate Conclusion: The optimal solution is X"
 
 
 # =============================================================================

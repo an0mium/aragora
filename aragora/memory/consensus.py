@@ -22,9 +22,11 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 
-from aragora.config import DB_CONSENSUS_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.cache import TTLCache, invalidate_cache
 from aragora.utils.json_helpers import safe_json_loads
@@ -299,7 +301,9 @@ class ConsensusMemory(SQLiteStore):
         ON verified_proofs(is_verified);
     """
 
-    def __init__(self, db_path: str = DB_CONSENSUS_PATH):
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CONSENSUS_MEMORY)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def _hash_topic(self, topic: str) -> str:
