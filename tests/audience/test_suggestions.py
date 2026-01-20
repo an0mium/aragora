@@ -70,10 +70,11 @@ class TestSanitizeSuggestion:
         assert result == "This"
 
     def test_html_escape(self):
-        """Test HTML entities are escaped."""
+        """Test HTML tags are removed and remaining content escaped."""
         result = sanitize_suggestion("<script>alert('xss')</script>")
         assert "<script>" not in result
-        assert "&lt;" in result or result == ""
+        # Tags are removed first, then quotes escaped
+        assert "&#x27;" in result or result == ""
 
     def test_removes_html_tags(self):
         """Test HTML tags are removed."""
