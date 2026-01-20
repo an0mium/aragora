@@ -399,10 +399,37 @@ Guidelines:
         return ",".join(spec.to_string() for spec in specs)
 
 
+def classify_and_assign_agents_sync(
+    question: str,
+) -> tuple[str, QuestionClassification]:
+    """Synchronous convenience function using keyword-based classification only.
+
+    Use this for fast classification without API calls. For LLM-based
+    classification, use the async classify_and_assign_agents() instead.
+
+    Args:
+        question: The debate question
+
+    Returns:
+        Tuple of (agent_string, classification)
+    """
+    classifier = QuestionClassifier()
+    classification = classifier.classify_simple(question)
+    agent_string = classifier.get_agent_string(classification)
+
+    logger.info(
+        f"Question classified: category={classification.category}, "
+        f"complexity={classification.complexity}, "
+        f"personas={classification.recommended_personas}"
+    )
+
+    return agent_string, classification
+
+
 async def classify_and_assign_agents(
     question: str, use_llm: bool = True
 ) -> tuple[str, QuestionClassification]:
-    """Convenience function to classify question and get agent string.
+    """Async convenience function to classify question and get agent string.
 
     Args:
         question: The debate question
@@ -411,13 +438,12 @@ async def classify_and_assign_agents(
     Returns:
         Tuple of (agent_string, classification)
     """
+    if not use_llm:
+        # Use sync version for keyword-only classification
+        return classify_and_assign_agents_sync(question)
+
     classifier = QuestionClassifier()
-
-    if use_llm:
-        classification = await classifier.classify(question)
-    else:
-        classification = classifier.classify_simple(question)
-
+    classification = await classifier.classify(question)
     agent_string = classifier.get_agent_string(classification)
 
     logger.info(
