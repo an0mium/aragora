@@ -37,6 +37,13 @@ from aragora.billing.jwt_auth import (
 from aragora.server.handlers.auth import AuthHandler
 from aragora.server.handlers.base import HandlerResult
 
+# Check for optional PyJWT dependency (used in token forgery test)
+try:
+    import jwt
+    HAS_PYJWT = True
+except ImportError:
+    HAS_PYJWT = False
+
 
 # =============================================================================
 # Test Helpers
@@ -615,6 +622,7 @@ class TestTokenSecurity:
             # Should return None or raise an error
             # (implementation-dependent)
 
+    @pytest.mark.skipif(not HAS_PYJWT, reason="PyJWT not installed")
     def test_token_from_different_secret_rejected(self, test_user):
         """E2E: Token signed with different secret should be rejected."""
         # This test verifies the JWT implementation properly validates signatures
