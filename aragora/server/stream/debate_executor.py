@@ -224,13 +224,9 @@ def execute_debate_thread(
             # Apply persona as system prompt modifier if specified
             if spec.persona:
                 try:
-                    from aragora.agents.personas import PERSONAS
+                    from aragora.agents.personas import apply_persona_to_agent
 
-                    if spec.persona in PERSONAS:
-                        persona_prompt = PERSONAS[spec.persona].get("system_prompt", "")
-                        if persona_prompt and hasattr(agent, "system_prompt"):
-                            existing = getattr(agent, "system_prompt", "") or ""
-                            agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+                    apply_persona_to_agent(agent, spec.persona)
                 except ImportError:
                     pass  # Personas module not available
 

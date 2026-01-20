@@ -49,6 +49,8 @@ WEBHOOK_EVENTS: Set[str] = {
     "vote",
     # Memory/learning
     "insight_extracted",
+    "memory_stored",
+    "memory_retrieved",
     # Verification
     "claim_verification_result",
     "formal_verification_result",
@@ -63,6 +65,15 @@ WEBHOOK_EVENTS: Set[str] = {
     # Breakpoints
     "breakpoint",
     "breakpoint_resolved",
+    # Cross-pollination events
+    "agent_elo_updated",
+    "knowledge_indexed",
+    "knowledge_queried",
+    "mound_updated",
+    "calibration_update",
+    "evidence_found",
+    "agent_calibration_changed",
+    "agent_fallback_triggered",
 }
 
 

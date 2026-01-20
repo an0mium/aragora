@@ -33,6 +33,9 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.agents.errors import _build_error_action
 from aragora.debate.phases.consensus_storage import ConsensusStorage
+from aragora.debate.phases.feedback_elo import EloFeedback
+from aragora.debate.phases.feedback_evolution import EvolutionFeedback
+from aragora.debate.phases.feedback_persona import PersonaFeedback
 from aragora.debate.phases.training_emitter import TrainingEmitter
 from aragora.type_protocols import (
     BroadcastPipelineProtocol,
@@ -227,6 +230,24 @@ class FeedbackPhase:
             insight_store=insight_store,
             loop_id=loop_id,
         )
+        self._elo_feedback = EloFeedback(
+            elo_system=elo_system,
+            event_emitter=event_emitter,
+            loop_id=loop_id,
+        )
+        self._persona_feedback = PersonaFeedback(
+            persona_manager=persona_manager,
+            event_emitter=event_emitter,
+            loop_id=loop_id,
+        )
+        self._evolution_feedback = EvolutionFeedback(
+            population_manager=population_manager,
+            prompt_evolver=prompt_evolver,
+            event_emitter=event_emitter,
+            loop_id=loop_id,
+            auto_evolve=auto_evolve,
+            breeding_threshold=breeding_threshold,
+        )
 
     async def execute(self, ctx: "DebateContext") -> None:
         """
@@ -239,17 +260,17 @@ class FeedbackPhase:
             logger.warning("FeedbackPhase called without result")
             return
 
-        # 1. Record ELO match results
-        self._record_elo_match(ctx)
+        # 1. Record ELO match results (delegated to EloFeedback)
+        self._elo_feedback.record_elo_match(ctx)
 
-        # 1b. Record voting accuracy for agents (cross-pollination feedback)
-        self._record_voting_accuracy(ctx)
+        # 1b. Record voting accuracy for agents (delegated to EloFeedback)
+        self._elo_feedback.record_voting_accuracy(ctx)
 
-        # 1c. Apply learning efficiency bonuses (debate outcomes → learning feedback)
-        self._apply_learning_bonuses(ctx)
+        # 1c. Apply learning efficiency bonuses (delegated to EloFeedback)
+        self._elo_feedback.apply_learning_bonuses(ctx)
 
-        # 2. Update PersonaManager
-        self._update_persona_performance(ctx)
+        # 2. Update PersonaManager (delegated to PersonaFeedback)
+        self._persona_feedback.update_persona_performance(ctx)
 
         # 3. Resolve positions in PositionLedger
         self._resolve_positions(ctx)
@@ -283,11 +304,11 @@ class FeedbackPhase:
         # 12. Record calibration data for prediction accuracy
         self._record_calibration(ctx)
 
-        # 13. Update genome fitness for Genesis evolution
-        self._update_genome_fitness(ctx)
+        # 13. Update genome fitness for Genesis evolution (delegated to EvolutionFeedback)
+        self._evolution_feedback.update_genome_fitness(ctx)
 
-        # 14. Maybe trigger population evolution
-        await self._maybe_evolve_population(ctx)
+        # 14. Maybe trigger population evolution (delegated to EvolutionFeedback)
+        await self._evolution_feedback.maybe_evolve_population(ctx)
 
         # 15. Record pulse outcome if debate was on a trending topic
         self._record_pulse_outcome(ctx)
@@ -295,8 +316,8 @@ class FeedbackPhase:
         # 16. Run periodic memory cleanup
         self._run_memory_cleanup(ctx)
 
-        # 17. Record evolution patterns from high-confidence debates
-        self._record_evolution_patterns(ctx)
+        # 17. Record evolution patterns from high-confidence debates (delegated to EvolutionFeedback)
+        self._evolution_feedback.record_evolution_patterns(ctx)
 
         # 18. Assess domain risks and emit warnings
         self._assess_risks(ctx)
@@ -854,316 +875,45 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, OSError, RuntimeError) as e:
             logger.debug(f"[memory] Cleanup error (non-fatal): {e}")
 
+    # =========================================================================
+    # ELO Feedback Methods (delegated to EloFeedback helper)
+    # Kept for backward compatibility
+    # =========================================================================
+
     def _record_elo_match(self, ctx: "DebateContext") -> None:
-        """Record ELO match results."""
-        if not self.elo_system:
-            return
-
-        result = ctx.result
-        if not result.winner:
-            return
-
-        try:
-            participants = [agent.name for agent in ctx.agents]
-            scores = {}
-
-            for agent_name in participants:
-                if agent_name == result.winner:
-                    scores[agent_name] = 1.0
-                elif result.consensus_reached:
-                    scores[agent_name] = 0.5  # Draw for non-winners in consensus
-                else:
-                    scores[agent_name] = 0.0
-
-            self.elo_system.record_match(ctx.debate_id, participants, scores, domain=ctx.domain)
-
-            # Emit MATCH_RECORDED event
-            self._emit_match_recorded_event(ctx, participants)
-
-        except Exception as e:
-            _, msg, exc_info = _build_error_action(e, "elo")
-            logger.warning(
-                "ELO update failed for debate %s: %s", ctx.debate_id, msg, exc_info=exc_info
-            )
+        """Record ELO match results. Delegates to EloFeedback."""
+        self._elo_feedback.record_elo_match(ctx)
 
     def _emit_match_recorded_event(self, ctx: "DebateContext", participants: list[str]) -> None:
-        """Emit MATCH_RECORDED event for real-time leaderboard updates."""
-        if not self.event_emitter or not self.elo_system:
-            return
-
-        try:
-            from aragora.server.stream import StreamEvent, StreamEventType
-
-            # Batch fetch all ratings
-            ratings_batch = self.elo_system.get_ratings_batch(participants)
-            elo_changes = {
-                name: ratings_batch[name].elo if name in ratings_batch else 1500.0
-                for name in participants
-            }
-
-            self.event_emitter.emit(
-                StreamEvent(
-                    type=StreamEventType.MATCH_RECORDED,
-                    loop_id=self.loop_id,
-                    data={
-                        "debate_id": ctx.debate_id,
-                        "participants": participants,
-                        "elo_changes": elo_changes,
-                        "domain": ctx.domain,
-                        "winner": ctx.result.winner,
-                    },
-                )
-            )
-
-            # Emit per-agent ELO updates for granular tracking
-            for agent_name in participants:
-                rating = ratings_batch.get(agent_name)
-                if rating:
-                    self.event_emitter.emit(
-                        StreamEvent(
-                            type=StreamEventType.AGENT_ELO_UPDATED,
-                            loop_id=self.loop_id,
-                            agent=agent_name,
-                            data={
-                                "agent": agent_name,
-                                "new_elo": rating.elo,
-                                "debate_id": ctx.debate_id,
-                                "domain": ctx.domain,
-                                "is_winner": agent_name == ctx.result.winner,
-                            },
-                        )
-                    )
-        except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.warning(f"ELO event emission error: {e}")
+        """Emit MATCH_RECORDED event. Delegates to EloFeedback."""
+        self._elo_feedback._emit_match_recorded_event(ctx, participants)
 
     def _record_voting_accuracy(self, ctx: "DebateContext") -> None:
-        """
-        Record voting accuracy for agents based on consensus outcome.
-
-        Cross-pollinates vote distribution with agent skill tracking.
-        Agents who consistently vote for the consensus winner get small ELO bonus.
-
-        Args:
-            ctx: DebateContext with result and votes
-        """
-        if not self.elo_system:
-            return
-
-        result = ctx.result
-        if not result or not result.votes or not result.winner:
-            return
-
-        try:
-            # Determine what the winning choice was
-            # The winner could be an agent name or a normalized choice
-            winning_choice = result.winner.lower()
-
-            for vote in result.votes:
-                if not hasattr(vote, "agent") or not hasattr(vote, "choice"):
-                    continue
-
-                agent_name = vote.agent
-                vote_choice = str(vote.choice).lower() if vote.choice else ""
-
-                # Check if this agent voted for the consensus winner
-                voted_for_consensus = (
-                    winning_choice in vote_choice
-                    or vote_choice in winning_choice
-                    or winning_choice == vote_choice
-                )
-
-                # Update voting accuracy tracking
-                self.elo_system.update_voting_accuracy(
-                    agent_name=agent_name,
-                    voted_for_consensus=voted_for_consensus,
-                    domain=ctx.domain or "general",
-                    debate_id=ctx.debate_id,
-                    apply_elo_bonus=True,
-                )
-
-            logger.debug(
-                f"[voting_accuracy] Recorded voting accuracy for {len(result.votes)} votes "
-                f"in debate {ctx.debate_id}"
-            )
-
-        except Exception as e:
-            logger.debug(f"[voting_accuracy] Recording failed: {e}")
+        """Record voting accuracy. Delegates to EloFeedback."""
+        self._elo_feedback.record_voting_accuracy(ctx)
 
     def _apply_learning_bonuses(self, ctx: "DebateContext") -> None:
-        """
-        Apply learning efficiency bonuses to participating agents.
+        """Apply learning bonuses. Delegates to EloFeedback."""
+        self._elo_feedback.apply_learning_bonuses(ctx)
 
-        Cross-pollinates debate outcomes with agent learning tracking.
-        Agents who demonstrate consistent improvement over time get ELO bonuses.
-
-        This creates a feedback loop where:
-        1. Debate outcomes update agent ELO
-        2. Learning efficiency is computed from ELO history
-        3. Bonuses are applied to reward consistent learners
-
-        Args:
-            ctx: DebateContext with result and agents
-        """
-        if not self.elo_system:
-            return
-
-        result = ctx.result
-        if not result or not result.winner:
-            return
-
-        # Only apply learning bonuses for successful debates
-        if not result.consensus_reached:
-            return
-
-        try:
-            domain = ctx.domain or "general"
-            for agent in ctx.agents:
-                try:
-                    bonus = self.elo_system.apply_learning_bonus(
-                        agent_name=agent.name,
-                        domain=domain,
-                        debate_id=ctx.debate_id,
-                        bonus_factor=0.5,  # Moderate bonus factor
-                    )
-                    if bonus > 0:
-                        logger.debug(
-                            f"[learning] Applied learning bonus {bonus:.2f} "
-                            f"to {agent.name} in domain {domain}"
-                        )
-                except Exception as e:
-                    logger.debug(f"[learning] Bonus failed for {agent.name}: {e}")
-
-        except Exception as e:
-            logger.debug(f"[learning] Learning bonus application failed: {e}")
+    # =========================================================================
+    # Persona Feedback Methods (delegated to PersonaFeedback helper)
+    # Kept for backward compatibility
+    # =========================================================================
 
     def _update_persona_performance(self, ctx: "DebateContext") -> None:
-        """Update PersonaManager with performance feedback."""
-        if not self.persona_manager:
-            return
-
-        try:
-            result = ctx.result
-            for agent in ctx.agents:
-                success = (agent.name == result.winner) or (
-                    result.consensus_reached and result.confidence > 0.7
-                )
-                self.persona_manager.record_performance(
-                    agent_name=agent.name,
-                    domain=ctx.domain,
-                    success=success,
-                )
-
-            # Check for trait emergence after performance updates
-            self._check_trait_emergence(ctx)
-        except Exception as e:
-            _, msg, exc_info = _build_error_action(e, "persona")
-            logger.warning("Persona update failed: %s", msg, exc_info=exc_info)
+        """Update PersonaManager. Delegates to PersonaFeedback."""
+        self._persona_feedback.update_persona_performance(ctx)
 
     def _check_trait_emergence(self, ctx: "DebateContext") -> None:
-        """Check if any new agent traits emerged from performance patterns.
-
-        Traits emerge when an agent demonstrates consistent behavior patterns:
-        - High win rates in specific domains
-        - Consistent prediction accuracy
-        - Distinct communication styles
-        """
-        if not self.persona_manager or not self.event_emitter:
-            return
-
-        try:
-            from aragora.server.stream import StreamEvent, StreamEventType
-
-            for agent in ctx.agents:
-                # Get agent's current traits
-                persona = self.persona_manager.get_persona(agent.name)
-                if not persona:
-                    continue
-
-                # Check for newly emerged traits
-                new_traits = getattr(persona, "emerging_traits", [])
-                if not new_traits:
-                    # Try to detect traits from performance history
-                    new_traits = self._detect_emerging_traits(agent.name, ctx)
-
-                for trait in new_traits:
-                    self.event_emitter.emit(
-                        StreamEvent(
-                            type=StreamEventType.TRAIT_EMERGED,
-                            loop_id=self.loop_id,
-                            data={
-                                "agent": agent.name,
-                                "trait": trait.get("name", "unknown"),
-                                "description": trait.get("description", ""),
-                                "confidence": trait.get("confidence", 0.5),
-                                "domain": ctx.domain,
-                                "debate_id": ctx.debate_id,
-                            },
-                        )
-                    )
-                    logger.info(
-                        "[persona] Trait emerged for %s: %s",
-                        agent.name,
-                        trait.get("name", "unknown"),
-                    )
-
-        except (TypeError, ValueError, AttributeError, KeyError) as e:
-            logger.debug(f"Trait emergence check error: {e}")
+        """Check trait emergence. Delegates to PersonaFeedback."""
+        self._persona_feedback.check_trait_emergence(ctx)
 
     def _detect_emerging_traits(
         self, agent_name: str, ctx: "DebateContext"
-    ) -> list[dict[str, Any]]:
-        """Detect traits based on agent performance patterns.
-
-        Returns list of trait dicts with name, description, confidence.
-        """
-        traits: list[dict[str, Any]] = []
-
-        try:
-            # Get performance stats if available
-            if not hasattr(self.persona_manager, "get_performance_stats"):
-                return traits
-
-            stats = self.persona_manager.get_performance_stats(agent_name)
-            if not stats:
-                return traits
-
-            # Domain specialist: High win rate in specific domain
-            domain_wins = stats.get("domain_wins", {})
-            if ctx.domain in domain_wins and domain_wins[ctx.domain] >= 3:
-                traits.append(
-                    {
-                        "name": f"{ctx.domain}_specialist",
-                        "description": f"Demonstrated expertise in {ctx.domain} domain",
-                        "confidence": min(0.9, 0.5 + (domain_wins[ctx.domain] * 0.1)),
-                    }
-                )
-
-            # High calibration: Consistent accurate predictions
-            accuracy = stats.get("prediction_accuracy", 0.0)
-            if accuracy >= 0.8 and stats.get("total_predictions", 0) >= 5:
-                traits.append(
-                    {
-                        "name": "well_calibrated",
-                        "description": f"Highly accurate predictions ({accuracy:.0%})",
-                        "confidence": accuracy,
-                    }
-                )
-
-            # Consistent winner: High overall win rate
-            win_rate = stats.get("win_rate", 0.0)
-            if win_rate >= 0.7 and stats.get("total_debates", 0) >= 5:
-                traits.append(
-                    {
-                        "name": "consistent_winner",
-                        "description": f"Wins {win_rate:.0%} of debates",
-                        "confidence": win_rate,
-                    }
-                )
-
-        except (TypeError, ValueError, AttributeError, KeyError, ZeroDivisionError) as e:
-            logger.debug(f"Trait detection error for {agent_name}: {e}")
-
-        return traits
+    ) -> List[Dict[str, Any]]:
+        """Detect emerging traits. Delegates to PersonaFeedback."""
+        return self._persona_feedback.detect_emerging_traits(agent_name, ctx)
 
     def _resolve_positions(self, ctx: "DebateContext") -> None:
         """Resolve positions in PositionLedger."""
@@ -1383,221 +1133,34 @@ class FeedbackPhase:
         if self._update_continuum_memory_outcomes:
             self._update_continuum_memory_outcomes(ctx.result)
 
+    # =========================================================================
+    # Evolution Feedback Methods (delegated to EvolutionFeedback helper)
+    # Kept for backward compatibility
+    # =========================================================================
+
     def _update_genome_fitness(self, ctx: "DebateContext") -> None:
-        """Update genome fitness scores based on debate outcome.
-
-        For agents with genome_id attributes (evolved via Genesis),
-        update their fitness scores based on debate performance.
-        """
-        if not self.population_manager:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        winner_agent = getattr(result, "winner", None)
-
-        for agent in ctx.agents:
-            genome_id = getattr(agent, "genome_id", None)
-            if not genome_id:
-                continue
-
-            try:
-                # Determine if this agent won
-                consensus_win = agent.name == winner_agent
-
-                # Check if agent's prediction was correct
-                prediction_correct = self._check_agent_prediction(agent, ctx)
-
-                # Update fitness in population manager
-                self.population_manager.update_fitness(
-                    genome_id,
-                    consensus_win=consensus_win,
-                    prediction_correct=prediction_correct,
-                )
-
-                logger.debug(
-                    "[genesis] Updated fitness for genome %s: win=%s pred=%s",
-                    genome_id[:8],
-                    consensus_win,
-                    prediction_correct,
-                )
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-                logger.debug("Genome fitness update failed for %s: %s", agent.name, e)
+        """Update genome fitness. Delegates to EvolutionFeedback."""
+        self._evolution_feedback.update_genome_fitness(ctx)
 
     def _check_agent_prediction(
         self,
         agent: "Agent",
         ctx: "DebateContext",
     ) -> bool:
-        """Check if an agent correctly predicted the debate outcome.
-
-        Returns True if the agent's vote matched the final winner.
-        """
-        result = ctx.result
-        if not result or not result.votes:
-            return False
-
-        winner = getattr(result, "winner", None)
-        if not winner:
-            return False
-
-        for vote in result.votes:
-            if vote.agent == agent.name:
-                # Check if the agent's choice matches the winner
-                canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-                return canonical == winner
-
-        return False
+        """Check agent prediction. Delegates to EvolutionFeedback."""
+        return self._evolution_feedback._check_agent_prediction(agent, ctx)
 
     async def _maybe_evolve_population(self, ctx: "DebateContext") -> None:
-        """Trigger population evolution after high-quality debates.
-
-        Evolution is triggered when:
-        1. auto_evolve is True
-        2. Debate confidence >= breeding_threshold
-        3. Population has accumulated enough debate history
-        """
-        if not self.population_manager or not self.auto_evolve:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        # Only evolve after high-confidence debates
-        if result.confidence < self.breeding_threshold:
-            return
-
-        try:
-            # Get the population for these agents
-            agent_names = [a.name for a in ctx.agents]
-            population = self.population_manager.get_or_create_population(agent_names)
-
-            if not population:
-                return
-
-            # Track debate in population history
-            history = getattr(population, "debate_history", []) or []
-            history.append(ctx.debate_id)
-
-            # Evolve every 5 debates
-            if len(history) % 5 == 0:
-                # Fire-and-forget evolution
-                asyncio.create_task(self._evolve_async(population))
-                logger.info(
-                    "[genesis] Triggered evolution after %d debates (confidence=%.2f)",
-                    len(history),
-                    result.confidence,
-                )
-
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.debug("Evolution check failed: %s", e)
+        """Maybe evolve population. Delegates to EvolutionFeedback."""
+        await self._evolution_feedback.maybe_evolve_population(ctx)
 
     async def _evolve_async(self, population: Any) -> None:
-        """Run population evolution asynchronously.
-
-        This is a fire-and-forget task so it doesn't block debate completion.
-        """
-        try:
-            evolved = self.population_manager.evolve_population(population)
-            logger.info(
-                "[genesis] Population evolved to generation %d with %d genomes",
-                evolved.generation,
-                len(evolved.genomes),
-            )
-
-            # Emit event if event_emitter available
-            if self.event_emitter:
-                from aragora.server.stream import StreamEvent, StreamEventType
-
-                self.event_emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.GENESIS_EVOLUTION,
-                        loop_id=self.loop_id,
-                        data={
-                            "generation": evolved.generation,
-                            "genome_count": len(evolved.genomes),
-                            "population_id": getattr(population, "id", ""),
-                            "top_fitness": getattr(evolved, "top_fitness", 0.0),
-                        },
-                    )
-                )
-
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning("[genesis] Evolution failed: %s", e)
+        """Evolve population async. Delegates to EvolutionFeedback."""
+        await self._evolution_feedback._evolve_async(population)
 
     def _record_evolution_patterns(self, ctx: "DebateContext") -> None:
-        """Extract winning patterns from high-confidence debates for prompt evolution.
-
-        When enabled via protocol.enable_evolution, this method:
-        1. Extracts patterns from successful debates (high confidence)
-        2. Stores patterns in the PromptEvolver database
-        3. Updates performance metrics for agent prompts
-
-        Only runs for debates with confidence >= 0.7 to ensure quality patterns.
-        """
-        if not self.prompt_evolver:
-            return
-
-        result = ctx.result
-        if not result:
-            return
-
-        # Only extract patterns from high-confidence debates
-        if result.confidence < 0.7:
-            return
-
-        try:
-            # Build a minimal DebateResult-like object for the evolver
-            # The evolver expects objects with specific attributes
-            class DebateResultProxy:
-                def __init__(self, ctx_result, ctx_obj):
-                    self.id = ctx_obj.debate_id
-                    self.consensus_reached = ctx_result.consensus_reached
-                    self.confidence = ctx_result.confidence
-                    self.final_answer = ctx_result.final_answer or ""
-                    self.critiques = []
-
-                    # Extract critiques from messages if available
-                    if ctx_result.messages:
-                        for msg in ctx_result.messages:
-                            if getattr(msg, "role", "") == "critic":
-                                # Create a critique-like object
-                                class CritiqueProxy:
-                                    def __init__(self, m):
-                                        self.severity = getattr(m, "severity", 0.5)
-                                        self.issues = getattr(m, "issues", [])
-                                        self.suggestions = getattr(m, "suggestions", [])
-
-                                self.critiques.append(CritiqueProxy(msg))
-
-            proxy = DebateResultProxy(result, ctx)
-
-            # Extract patterns from this debate
-            patterns = self.prompt_evolver.extract_winning_patterns([proxy])
-            if patterns:
-                self.prompt_evolver.store_patterns(patterns)
-                logger.info(
-                    "[evolution] Extracted %d patterns from debate %s (confidence=%.2f)",
-                    len(patterns),
-                    ctx.debate_id,
-                    result.confidence,
-                )
-
-            # Update performance for each agent's current prompt version
-            for agent in ctx.agents:
-                prompt_version = getattr(agent, "prompt_version", None)
-                if prompt_version is not None:
-                    self.prompt_evolver.update_performance(
-                        agent_name=agent.name,
-                        version=prompt_version,
-                        debate_result=proxy,
-                    )
-
-        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
-            logger.debug("[evolution] Pattern extraction failed: %s", e)
+        """Record evolution patterns. Delegates to EvolutionFeedback."""
+        self._evolution_feedback.record_evolution_patterns(ctx)
 
     # =========================================================================
     # Backward-compatible delegate methods

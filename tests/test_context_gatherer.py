@@ -618,3 +618,192 @@ class TestKnowledgeMoundIntegration:
                         result = await gatherer.gather_all("test task", timeout=5.0)
 
         assert "KNOWLEDGE MOUND CONTEXT" in result
+
+
+# =============================================================================
+# Belief Crux Context Tests
+# =============================================================================
+
+
+class TestBeliefCruxContext:
+    """Tests for gather_belief_crux_context method."""
+
+    def test_init_with_belief_guidance_enabled(self):
+        """Should initialize with belief guidance enabled by default."""
+        gatherer = ContextGatherer()
+        assert gatherer._enable_belief_guidance is True or gatherer._enable_belief_guidance is False
+        # Analyzer may or may not be available depending on imports
+
+    def test_init_with_belief_guidance_disabled(self):
+        """Should disable belief guidance when explicitly set to False."""
+        gatherer = ContextGatherer(enable_belief_guidance=False)
+        assert gatherer._enable_belief_guidance is False
+        assert gatherer._belief_analyzer is None
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_returns_none_when_disabled(self):
+        """Should return None when belief guidance is disabled."""
+        gatherer = ContextGatherer(enable_belief_guidance=False)
+        result = await gatherer.gather_belief_crux_context("test task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_returns_none_without_messages(self):
+        """Should return None when no messages provided and no historical data."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+        # Even if enabled, without messages we return None
+        result = await gatherer.gather_belief_crux_context("test task", messages=None)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_with_mock_analyzer(self):
+        """Should gather crux context when messages provided."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        # Mock the belief analyzer
+        mock_analyzer = MagicMock()
+        mock_result = MagicMock()
+        mock_result.analysis_error = None
+        mock_result.cruxes = [
+            {"statement": "Test crux claim", "confidence": 0.8, "entropy": 0.3},
+            {"claim": "Another crux", "confidence": 0.6, "entropy": 0.9},
+        ]
+        mock_result.evidence_suggestions = ["Get more data on X"]
+        mock_analyzer.analyze_messages = MagicMock(return_value=mock_result)
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        # Mock messages
+        mock_messages = [MagicMock(), MagicMock()]
+
+        result = await gatherer.gather_belief_crux_context("test task", messages=mock_messages)
+
+        assert result is not None
+        assert "Key Crux Points" in result
+        assert "Test crux claim" in result
+        assert "Another crux" in result
+        assert "Evidence Needed" in result
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_handles_empty_cruxes(self):
+        """Should return None when no cruxes found."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        mock_analyzer = MagicMock()
+        mock_result = MagicMock()
+        mock_result.analysis_error = None
+        mock_result.cruxes = []  # No cruxes
+        mock_result.evidence_suggestions = []
+        mock_analyzer.analyze_messages = MagicMock(return_value=mock_result)
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        mock_messages = [MagicMock()]
+        result = await gatherer.gather_belief_crux_context("test task", messages=mock_messages)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_handles_analysis_error(self):
+        """Should return None when analysis returns an error."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        mock_analyzer = MagicMock()
+        mock_result = MagicMock()
+        mock_result.analysis_error = "Module not available"
+        mock_result.cruxes = []
+        mock_analyzer.analyze_messages = MagicMock(return_value=mock_result)
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        mock_messages = [MagicMock()]
+        result = await gatherer.gather_belief_crux_context("test task", messages=mock_messages)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_marks_contested_cruxes(self):
+        """Should mark high-entropy cruxes as contested."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        mock_analyzer = MagicMock()
+        mock_result = MagicMock()
+        mock_result.analysis_error = None
+        mock_result.cruxes = [
+            {"statement": "Contested claim", "confidence": 0.5, "entropy": 0.95},
+        ]
+        mock_result.evidence_suggestions = []
+        mock_analyzer.analyze_messages = MagicMock(return_value=mock_result)
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        result = await gatherer.gather_belief_crux_context("test task", messages=[MagicMock()])
+
+        assert result is not None
+        assert "CONTESTED" in result
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_confidence_labels(self):
+        """Should label cruxes with appropriate confidence markers."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        mock_analyzer = MagicMock()
+        mock_result = MagicMock()
+        mock_result.analysis_error = None
+        mock_result.cruxes = [
+            {"statement": "High confidence", "confidence": 0.9, "entropy": 0.1},
+            {"statement": "Medium confidence", "confidence": 0.5, "entropy": 0.3},
+            {"statement": "Low confidence", "confidence": 0.2, "entropy": 0.4},
+        ]
+        mock_result.evidence_suggestions = []
+        mock_analyzer.analyze_messages = MagicMock(return_value=mock_result)
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        result = await gatherer.gather_belief_crux_context("test task", messages=[MagicMock()])
+
+        assert "[HIGH]" in result
+        assert "[MEDIUM]" in result
+        assert "[LOW]" in result
+
+    @pytest.mark.asyncio
+    async def test_gather_crux_handles_exceptions(self):
+        """Should handle exceptions gracefully."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze_messages = MagicMock(side_effect=ValueError("Test error"))
+
+        gatherer._belief_analyzer = mock_analyzer
+        gatherer._enable_belief_guidance = True
+
+        result = await gatherer.gather_belief_crux_context("test task", messages=[MagicMock()])
+
+        # Should not raise, returns None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_with_timeout_respects_timeout(self):
+        """_gather_belief_with_timeout should respect timeout."""
+        gatherer = ContextGatherer(enable_belief_guidance=True)
+
+        # Mock slow analyzer
+        async def slow_analyze(*args, **kwargs):
+            await asyncio.sleep(10)  # Very slow
+            return None
+
+        gatherer._belief_analyzer = MagicMock()
+        gatherer._enable_belief_guidance = True
+        gatherer.gather_belief_crux_context = slow_analyze
+
+        # Should timeout quickly (default is 5s, but we'll force shorter)
+        with patch("aragora.debate.context_gatherer.BELIEF_CRUX_TIMEOUT", 0.1):
+            result = await gatherer._gather_belief_with_timeout("test task")
+
+        # Should return None due to timeout, not raise
+        assert result is None

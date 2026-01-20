@@ -209,13 +209,12 @@ class DebateFactory:
 
                 # Apply persona as system prompt modifier if specified
                 if spec.persona:
-                    persona_prompt = self._get_persona_prompt(spec.persona)
-                    if persona_prompt and hasattr(agent, "system_prompt"):
-                        existing = getattr(agent, "system_prompt", "") or ""
-                        agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+                    try:
+                        from aragora.agents.personas import apply_persona_to_agent
 
-                    # Apply persona generation parameters (temperature, top_p, etc.)
-                    self._apply_persona_params(agent, spec.persona)
+                        apply_persona_to_agent(agent, spec.persona)
+                    except ImportError:
+                        pass  # Personas module not available
 
                 # Validate API key for API-based agents
                 if hasattr(agent, "api_key") and not agent.api_key:
@@ -261,12 +260,20 @@ class DebateFactory:
     def _get_persona_prompt(self, persona: str) -> Optional[str]:
         """Get system prompt modifier for a persona.
 
+        DEPRECATED: Use aragora.agents.personas.get_persona_prompt() instead.
+
         Args:
             persona: Persona name (e.g., 'philosopher', 'security_engineer')
 
         Returns:
             Persona-specific system prompt, or None if not found
         """
+        import warnings
+        warnings.warn(
+            "_get_persona_prompt is deprecated. Use aragora.agents.personas.get_persona_prompt() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # First check DEFAULT_PERSONAS from aragora.agents.personas
         try:
             from aragora.agents.personas import DEFAULT_PERSONAS
@@ -303,10 +310,18 @@ class DebateFactory:
     def _apply_persona_params(self, agent: Any, persona: str) -> None:
         """Apply persona generation parameters (temperature, top_p, frequency_penalty) to agent.
 
+        DEPRECATED: Use aragora.agents.personas.apply_persona_to_agent() instead.
+
         Args:
             agent: Agent instance to configure
             persona: Persona name to look up parameters from
         """
+        import warnings
+        warnings.warn(
+            "_apply_persona_params is deprecated. Use aragora.agents.personas.apply_persona_to_agent() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Only apply if agent supports set_generation_params
         if not hasattr(agent, "set_generation_params"):
             return

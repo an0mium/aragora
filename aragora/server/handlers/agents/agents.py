@@ -474,6 +474,38 @@ class AgentsHandler(BaseHandler):
         if available_count == 0 and total_count > 0:
             health["overall_status"] = "unhealthy"
 
+        # Add cross-pollination subscriber health
+        try:
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+            stats = manager.get_stats()
+
+            # Calculate subscriber health
+            total_subs = len(stats)
+            healthy_subs = sum(
+                1 for s in stats.values()
+                if s.get("enabled") and s.get("circuit_breaker", {}).get("available", True)
+            )
+
+            health["cross_pollination"] = {
+                "total_subscribers": total_subs,
+                "healthy_subscribers": healthy_subs,
+                "health_rate": round(healthy_subs / total_subs, 2) if total_subs > 0 else 1.0,
+                "total_events_processed": sum(s.get("events_processed", 0) for s in stats.values()),
+                "total_events_failed": sum(s.get("events_failed", 0) for s in stats.values()),
+            }
+
+            # Downgrade if cross-pollination unhealthy
+            if total_subs > 0 and healthy_subs / total_subs < 0.5:
+                if health["overall_status"] == "healthy":
+                    health["overall_status"] = "degraded"
+        except ImportError:
+            health["cross_pollination"] = {"_note": "Cross-pollination module not available"}
+        except Exception as e:
+            logger.debug(f"Could not get cross-pollination status: {e}")
+            health["cross_pollination"] = {"_error": str(e)}
+
         return json_response(health)
 
     @rate_limit(rpm=30, limiter_name="leaderboard")

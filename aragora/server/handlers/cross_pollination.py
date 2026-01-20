@@ -143,6 +143,41 @@ class CrossPollinationBridgeHandler(BaseHandler):
             return error_response(str(e), status_code=500)
 
 
+class CrossPollinationMetricsHandler(BaseHandler):
+    """
+    Handler for GET /api/cross-pollination/metrics.
+
+    Returns Prometheus-format metrics for cross-pollination event system.
+    """
+
+    async def get(self) -> HandlerResult:
+        """Get cross-pollination metrics in Prometheus format."""
+        try:
+            from aragora.server.prometheus_cross_pollination import (
+                get_cross_pollination_metrics_text,
+                PROMETHEUS_AVAILABLE,
+            )
+
+            metrics_text = get_cross_pollination_metrics_text()
+
+            return {
+                "status": 200,
+                "headers": {
+                    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+                },
+                "body": metrics_text,
+            }
+
+        except ImportError:
+            return error_response(
+                "Metrics module not available",
+                status_code=503,
+            )
+        except Exception as e:
+            logger.exception(f"Failed to get metrics: {e}")
+            return error_response(str(e), status_code=500)
+
+
 class CrossPollinationResetHandler(BaseHandler):
     """
     Handler for POST /api/cross-pollination/reset.
@@ -185,12 +220,14 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
     stats_handler = CrossPollinationStatsHandler(server_context or {})
     subscribers_handler = CrossPollinationSubscribersHandler(server_context or {})
     bridge_handler = CrossPollinationBridgeHandler(server_context or {})
+    metrics_handler = CrossPollinationMetricsHandler(server_context or {})
     reset_handler = CrossPollinationResetHandler(server_context or {})
 
     routes = [
         ("GET", "/api/cross-pollination/stats", stats_handler.get),
         ("GET", "/api/cross-pollination/subscribers", subscribers_handler.get),
         ("GET", "/api/cross-pollination/bridge", bridge_handler.get),
+        ("GET", "/api/cross-pollination/metrics", metrics_handler.get),
         ("POST", "/api/cross-pollination/reset", reset_handler.post),
     ]
 
@@ -208,6 +245,7 @@ __all__ = [
     "CrossPollinationStatsHandler",
     "CrossPollinationSubscribersHandler",
     "CrossPollinationBridgeHandler",
+    "CrossPollinationMetricsHandler",
     "CrossPollinationResetHandler",
     "register_routes",
 ]

@@ -30,7 +30,42 @@ from typing import Callable, Optional
 from aragora.events.types import StreamEvent, StreamEventType
 from aragora.resilience import CircuitBreaker
 
+# Import metrics (optional - graceful fallback if not available)
+try:
+    from aragora.server.prometheus_cross_pollination import (
+        record_event_dispatched,
+        record_handler_call,
+        set_circuit_breaker_state,
+        update_subscriber_count,
+    )
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RetryConfig:
+    """Configuration for retry behavior on handler failures."""
+
+    max_retries: int = 3
+    base_delay_ms: float = 100.0  # Base delay between retries
+    max_delay_ms: float = 5000.0  # Maximum delay cap
+    exponential_base: float = 2.0  # Exponential backoff multiplier
+
+    def get_delay(self, attempt: int) -> float:
+        """Calculate delay for a given retry attempt (0-indexed).
+
+        Uses exponential backoff with jitter: delay = min(base * exp^attempt + jitter, max)
+        """
+        import random
+
+        delay = self.base_delay_ms * (self.exponential_base ** attempt)
+        # Add jitter (±20%)
+        jitter = delay * 0.2 * (random.random() * 2 - 1)
+        delay += jitter
+        return min(delay, self.max_delay_ms)
 
 
 @dataclass
@@ -41,13 +76,18 @@ class SubscriberStats:
     events_processed: int = 0
     events_failed: int = 0
     events_skipped: int = 0  # Skipped due to sampling/filtering
+    events_retried: int = 0  # Events that required retry
     last_event_time: Optional[datetime] = None
     enabled: bool = True
     sample_rate: float = 1.0  # 1.0 = 100% of events, 0.1 = 10% sampling
+    retry_config: Optional[RetryConfig] = None  # Per-handler retry config
     # Latency metrics (in milliseconds)
     total_latency_ms: float = 0.0
     min_latency_ms: float = float("inf")
     max_latency_ms: float = 0.0
+    # Latency histogram buckets (for P50, P90, P99 calculation)
+    latency_samples: list = field(default_factory=list)
+    max_samples: int = 1000  # Keep last N samples for percentile calculation
 
     @property
     def avg_latency_ms(self) -> float:
@@ -55,6 +95,37 @@ class SubscriberStats:
         if self.events_processed == 0:
             return 0.0
         return self.total_latency_ms / self.events_processed
+
+    def record_latency(self, latency_ms: float) -> None:
+        """Record a latency sample for percentile calculation."""
+        self.latency_samples.append(latency_ms)
+        # Maintain bounded sample size
+        if len(self.latency_samples) > self.max_samples:
+            self.latency_samples = self.latency_samples[-self.max_samples:]
+
+    def get_percentile(self, p: float) -> Optional[float]:
+        """Get latency at given percentile (0-100)."""
+        if not self.latency_samples:
+            return None
+        sorted_samples = sorted(self.latency_samples)
+        idx = int(len(sorted_samples) * p / 100)
+        idx = min(idx, len(sorted_samples) - 1)
+        return sorted_samples[idx]
+
+    @property
+    def p50_latency_ms(self) -> Optional[float]:
+        """50th percentile (median) latency."""
+        return self.get_percentile(50)
+
+    @property
+    def p90_latency_ms(self) -> Optional[float]:
+        """90th percentile latency."""
+        return self.get_percentile(90)
+
+    @property
+    def p99_latency_ms(self) -> Optional[float]:
+        """99th percentile latency."""
+        return self.get_percentile(99)
 
 
 class CrossSubscriberManager:
@@ -77,17 +148,26 @@ class CrossSubscriberManager:
         manager.connect(event_emitter)
     """
 
-    def __init__(self, failure_threshold: int = 5, cooldown_seconds: float = 60.0):
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 60.0,
+        default_retry_config: Optional[RetryConfig] = None,
+    ):
         """Initialize the cross-subscriber manager.
 
         Args:
             failure_threshold: Consecutive failures before circuit opens (default: 5)
             cooldown_seconds: Seconds before attempting recovery (default: 60)
+            default_retry_config: Default retry configuration for handlers (default: 3 retries)
         """
         self._subscribers: dict[StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]] = {}
         self._stats: dict[str, SubscriberStats] = {}
         self._filters: dict[str, Callable[[StreamEvent], bool]] = {}
         self._connected = False
+
+        # Default retry configuration
+        self._default_retry_config = default_retry_config or RetryConfig()
 
         # Circuit breaker for handler failure protection
         self._circuit_breaker = CircuitBreaker(
@@ -141,6 +221,25 @@ class CrossSubscriberManager:
             StreamEventType.MOUND_UPDATED,
             self._handle_mound_to_memory,
         )
+
+        # Register webhook delivery for all cross-pollination events
+        webhook_event_types = [
+            StreamEventType.MEMORY_STORED,
+            StreamEventType.MEMORY_RETRIEVED,
+            StreamEventType.AGENT_ELO_UPDATED,
+            StreamEventType.KNOWLEDGE_INDEXED,
+            StreamEventType.KNOWLEDGE_QUERIED,
+            StreamEventType.MOUND_UPDATED,
+            StreamEventType.CALIBRATION_UPDATE,
+            StreamEventType.EVIDENCE_FOUND,
+        ]
+
+        for event_type in webhook_event_types:
+            self.register(
+                f"webhook_{event_type.value.lower()}",
+                event_type,
+                self._handle_webhook_delivery,
+            )
 
         logger.debug("Registered built-in cross-subsystem subscribers")
 
@@ -206,6 +305,10 @@ class CrossSubscriberManager:
         import random
         import time
 
+        # Record event dispatch metric
+        if METRICS_AVAILABLE:
+            record_event_dispatched(event.type.value)
+
         handlers = self._subscribers.get(event.type, [])
 
         for name, handler in handlers:
@@ -217,6 +320,9 @@ class CrossSubscriberManager:
             if not self._circuit_breaker.is_available(name):
                 if name in self._stats:
                     self._stats[name].events_skipped += 1
+                if METRICS_AVAILABLE:
+                    record_handler_call(name, "skipped")
+                    set_circuit_breaker_state(name, is_open=True)
                 logger.debug(f"Circuit open for handler {name}, skipping event")
                 continue
 
@@ -237,36 +343,78 @@ class CrossSubscriberManager:
                 except Exception as e:
                     logger.debug(f"Filter error for {name}: {e}")
 
+            # Get retry config for this handler
+            retry_config = (
+                self._stats[name].retry_config if name in self._stats and self._stats[name].retry_config
+                else self._default_retry_config
+            )
+
             start_time = time.perf_counter()
-            try:
-                handler(event)
+            last_error: Optional[Exception] = None
+            retried = False
 
-                # Record success with circuit breaker
-                self._circuit_breaker.record_success(name)
+            # Retry loop
+            for attempt in range(retry_config.max_retries + 1):
+                try:
+                    if attempt > 0:
+                        # Wait before retry with exponential backoff
+                        delay_ms = retry_config.get_delay(attempt - 1)
+                        time.sleep(delay_ms / 1000.0)
+                        retried = True
+                        logger.debug(f"Retrying handler {name}, attempt {attempt + 1}")
 
-                # Calculate latency
-                latency_ms = (time.perf_counter() - start_time) * 1000
+                    handler(event)
 
-                # Update stats with latency
-                if name in self._stats:
-                    stats = self._stats[name]
-                    stats.events_processed += 1
-                    stats.last_event_time = datetime.now()
-                    stats.total_latency_ms += latency_ms
-                    stats.min_latency_ms = min(stats.min_latency_ms, latency_ms)
-                    stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
+                    # Record success with circuit breaker
+                    self._circuit_breaker.record_success(name)
 
-            except Exception as e:
+                    # Calculate latency (includes retry delays)
+                    latency_ms = (time.perf_counter() - start_time) * 1000
+
+                    # Update stats with latency
+                    if name in self._stats:
+                        stats = self._stats[name]
+                        stats.events_processed += 1
+                        stats.last_event_time = datetime.now()
+                        stats.total_latency_ms += latency_ms
+                        stats.min_latency_ms = min(stats.min_latency_ms, latency_ms)
+                        stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
+                        stats.record_latency(latency_ms)  # For percentile tracking
+                        if retried:
+                            stats.events_retried += 1
+
+                    # Record success metric
+                    if METRICS_AVAILABLE:
+                        record_handler_call(name, "success", duration=latency_ms / 1000.0)
+                        set_circuit_breaker_state(name, is_open=False)
+
+                    last_error = None
+                    break  # Success - exit retry loop
+
+                except Exception as e:
+                    last_error = e
+                    if attempt < retry_config.max_retries:
+                        logger.debug(f"Handler {name} failed (attempt {attempt + 1}), will retry: {e}")
+                    continue  # Try again
+
+            # If all retries exhausted and still failing
+            if last_error is not None:
                 # Record failure with circuit breaker
                 self._circuit_breaker.record_failure(name)
 
-                logger.error(f"Cross-subscriber error in {name}: {e}")
+                logger.error(f"Cross-subscriber error in {name} after {retry_config.max_retries + 1} attempts: {last_error}")
                 if name in self._stats:
                     self._stats[name].events_failed += 1
+
+                # Record failure metric
+                if METRICS_AVAILABLE:
+                    record_handler_call(name, "failure")
 
                 # Check if circuit just opened
                 if not self._circuit_breaker.is_available(name):
                     logger.warning(f"Circuit breaker opened for handler {name} after repeated failures")
+                    if METRICS_AVAILABLE:
+                        set_circuit_breaker_state(name, is_open=True)
 
     async def _dispatch_event_async(self, event: StreamEvent) -> None:
         """Dispatch event to registered subscribers asynchronously.
@@ -521,6 +669,52 @@ class CrossSubscriberManager:
         except Exception as e:
             logger.debug(f"Evidence insight storage failed: {e}")
 
+    def _handle_webhook_delivery(self, event: StreamEvent) -> None:
+        """
+        Event → Webhook delivery.
+
+        When any subscribable event occurs, deliver to registered webhooks.
+        This enables external systems to receive real-time notifications.
+        """
+        try:
+            from aragora.server.handlers.webhooks import get_webhook_store
+            from aragora.events.dispatcher import dispatch_webhook_with_retry
+
+            # Get registered webhooks for this event type
+            store = get_webhook_store()
+            event_type_str = event.type.value.lower()  # Convert enum to string
+            webhooks = store.get_for_event(event_type_str)
+
+            if not webhooks:
+                return  # No webhooks registered for this event
+
+            # Build payload
+            import time
+            import uuid
+
+            payload = {
+                "event": event_type_str,
+                "delivery_id": str(uuid.uuid4()),
+                "timestamp": time.time(),
+                "data": event.data or {},
+            }
+
+            # Deliver to each matching webhook
+            for webhook in webhooks:
+                try:
+                    result = dispatch_webhook_with_retry(webhook, payload)
+                    if not result.success:
+                        logger.warning(
+                            f"Webhook delivery failed for {webhook.id}: {result.error}"
+                        )
+                except Exception as e:
+                    logger.error(f"Webhook dispatch error for {webhook.id}: {e}")
+
+        except ImportError:
+            logger.debug("Webhook modules not available for event delivery")
+        except Exception as e:
+            logger.debug(f"Webhook delivery handler error: {e}")
+
     def _handle_mound_to_memory(self, event: StreamEvent) -> None:
         """
         Mound structure update → Memory/Debate sync.
@@ -566,17 +760,21 @@ class CrossSubscriberManager:
     # =========================================================================
 
     def get_stats(self) -> dict[str, dict]:
-        """Get statistics for all subscribers including latency, sampling, and circuit breaker metrics."""
+        """Get statistics for all subscribers including latency, sampling, retry, and circuit breaker metrics."""
         result = {}
         for name, stats in self._stats.items():
             # Get circuit breaker status for this handler
             cb_state = self._circuit_breaker.get_state(name) if hasattr(self._circuit_breaker, 'get_state') else "unknown"
             cb_available = self._circuit_breaker.is_available(name)
 
+            # Get retry config
+            retry_cfg = stats.retry_config or self._default_retry_config
+
             result[name] = {
                 "events_processed": stats.events_processed,
                 "events_failed": stats.events_failed,
                 "events_skipped": stats.events_skipped,
+                "events_retried": stats.events_retried,
                 "last_event": stats.last_event_time.isoformat() if stats.last_event_time else None,
                 "enabled": stats.enabled,
                 "sample_rate": stats.sample_rate,
@@ -586,6 +784,15 @@ class CrossSubscriberManager:
                     "min": round(stats.min_latency_ms, 3) if stats.min_latency_ms != float("inf") else None,
                     "max": round(stats.max_latency_ms, 3),
                     "total": round(stats.total_latency_ms, 3),
+                    "p50": round(stats.p50_latency_ms, 3) if stats.p50_latency_ms is not None else None,
+                    "p90": round(stats.p90_latency_ms, 3) if stats.p90_latency_ms is not None else None,
+                    "p99": round(stats.p99_latency_ms, 3) if stats.p99_latency_ms is not None else None,
+                    "sample_count": len(stats.latency_samples),
+                },
+                "retry": {
+                    "max_retries": retry_cfg.max_retries,
+                    "base_delay_ms": retry_cfg.base_delay_ms,
+                    "max_delay_ms": retry_cfg.max_delay_ms,
                 },
                 "circuit_breaker": {
                     "available": cb_available,
@@ -609,15 +816,17 @@ class CrossSubscriberManager:
         return False
 
     def reset_stats(self) -> None:
-        """Reset all subscriber statistics including latency."""
+        """Reset all subscriber statistics including latency and retry counts."""
         for stats in self._stats.values():
             stats.events_processed = 0
             stats.events_failed = 0
             stats.events_skipped = 0
+            stats.events_retried = 0
             stats.last_event_time = None
             stats.total_latency_ms = 0.0
             stats.min_latency_ms = float("inf")
             stats.max_latency_ms = 0.0
+            stats.latency_samples = []
 
     def reset_circuit_breaker(self, name: str) -> bool:
         """Reset circuit breaker for a specific handler.
@@ -692,6 +901,123 @@ class CrossSubscriberManager:
         """Get the filter function for a subscriber, if any."""
         return self._filters.get(name)
 
+    def set_retry_config(
+        self,
+        name: str,
+        max_retries: Optional[int] = None,
+        base_delay_ms: Optional[float] = None,
+        max_delay_ms: Optional[float] = None,
+    ) -> bool:
+        """Set retry configuration for a specific handler.
+
+        Args:
+            name: Handler name
+            max_retries: Maximum retry attempts (None to keep current)
+            base_delay_ms: Base delay between retries (None to keep current)
+            max_delay_ms: Maximum delay cap (None to keep current)
+
+        Returns:
+            True if handler found and updated, False otherwise.
+        """
+        if name not in self._stats:
+            return False
+
+        stats = self._stats[name]
+        if stats.retry_config is None:
+            stats.retry_config = RetryConfig()
+
+        if max_retries is not None:
+            stats.retry_config.max_retries = max_retries
+        if base_delay_ms is not None:
+            stats.retry_config.base_delay_ms = base_delay_ms
+        if max_delay_ms is not None:
+            stats.retry_config.max_delay_ms = max_delay_ms
+
+        logger.info(
+            f"Updated retry config for '{name}': "
+            f"max_retries={stats.retry_config.max_retries}, "
+            f"base_delay={stats.retry_config.base_delay_ms}ms"
+        )
+        return True
+
+    def disable_retry(self, name: str) -> bool:
+        """Disable retry for a specific handler.
+
+        Args:
+            name: Handler name
+
+        Returns:
+            True if handler found and updated, False otherwise.
+        """
+        if name not in self._stats:
+            return False
+
+        # Set max_retries to 0 to disable retry
+        self._stats[name].retry_config = RetryConfig(max_retries=0)
+        logger.info(f"Disabled retry for handler '{name}'")
+        return True
+
+    def get_performance_report(self) -> dict:
+        """Get a comprehensive performance profiling report.
+
+        Returns a summary of dispatch performance including:
+        - Total events processed across all handlers
+        - Latency percentiles (P50, P90, P99) per handler
+        - Error rates per handler
+        - Slowest and fastest handlers
+        - Circuit breaker status summary
+        """
+        stats = self.get_stats()
+
+        total_processed = sum(s.get("events_processed", 0) for s in stats.values())
+        total_failed = sum(s.get("events_failed", 0) for s in stats.values())
+        total_skipped = sum(s.get("events_skipped", 0) for s in stats.values())
+        total_retried = sum(s.get("events_retried", 0) for s in stats.values())
+
+        # Find slowest handlers by P90 latency
+        handlers_by_p90 = []
+        for name, s in stats.items():
+            p90 = s.get("latency_ms", {}).get("p90")
+            if p90 is not None:
+                handlers_by_p90.append((name, p90))
+        handlers_by_p90.sort(key=lambda x: x[1], reverse=True)
+
+        # Find handlers with highest error rates
+        handlers_by_error_rate = []
+        for name, s in stats.items():
+            processed = s.get("events_processed", 0)
+            failed = s.get("events_failed", 0)
+            if processed > 0:
+                error_rate = failed / (processed + failed)
+                handlers_by_error_rate.append((name, error_rate))
+        handlers_by_error_rate.sort(key=lambda x: x[1], reverse=True)
+
+        # Circuit breaker summary
+        circuits_open = sum(
+            1 for s in stats.values()
+            if not s.get("circuit_breaker", {}).get("available", True)
+        )
+
+        return {
+            "summary": {
+                "total_handlers": len(stats),
+                "total_events_processed": total_processed,
+                "total_events_failed": total_failed,
+                "total_events_skipped": total_skipped,
+                "total_events_retried": total_retried,
+                "overall_error_rate": round(total_failed / max(total_processed + total_failed, 1), 4),
+                "circuits_open": circuits_open,
+            },
+            "slowest_handlers": [
+                {"name": name, "p90_latency_ms": lat} for name, lat in handlers_by_p90[:5]
+            ],
+            "highest_error_handlers": [
+                {"name": name, "error_rate": round(rate, 4)} for name, rate in handlers_by_error_rate[:5]
+                if rate > 0
+            ],
+            "per_handler": stats,
+        }
+
 
 # Global manager instance
 _global_manager: Optional[CrossSubscriberManager] = None
@@ -714,6 +1040,7 @@ def reset_cross_subscriber_manager() -> None:
 __all__ = [
     "CrossSubscriberManager",
     "SubscriberStats",
+    "RetryConfig",
     "get_cross_subscriber_manager",
     "reset_cross_subscriber_manager",
 ]
