@@ -15,30 +15,41 @@ from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
 class TestAgentSpec:
     """Tests for AgentSpec dataclass."""
 
-    def test_valid_agent_type(self):
-        """Valid agent types are accepted."""
-        spec = AgentSpec(agent_type="anthropic-api")
-        assert spec.agent_type == "anthropic-api"
+    def test_valid_provider(self):
+        """Valid provider types are accepted."""
+        spec = AgentSpec(provider="anthropic-api")
+        assert spec.provider == "anthropic-api"
 
-    def test_invalid_agent_type_raises(self):
-        """Invalid agent types raise ValueError."""
-        with pytest.raises(ValueError, match="Invalid agent type"):
-            AgentSpec(agent_type="nonexistent-agent")
+    def test_invalid_provider_raises(self):
+        """Invalid provider types raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid agent provider"):
+            AgentSpec(provider="nonexistent-agent")
 
-    def test_default_name_generated(self):
-        """Default name is generated from type and role."""
-        spec = AgentSpec(agent_type="anthropic-api", role="critic")
-        assert spec.name == "anthropic-api_critic"
+    def test_default_role(self):
+        """Default role is None (assigned by position)."""
+        spec = AgentSpec(provider="anthropic-api")
+        assert spec.role is None
 
-    def test_default_name_with_no_role(self):
-        """Default name uses 'proposer' when no role specified."""
-        spec = AgentSpec(agent_type="anthropic-api")
-        assert spec.name == "anthropic-api_proposer"
+    def test_explicit_role(self):
+        """Explicit role is preserved."""
+        spec = AgentSpec(provider="anthropic-api", role="critic")
+        assert spec.role == "critic"
 
     def test_custom_name_preserved(self):
         """Custom names are preserved."""
-        spec = AgentSpec(agent_type="anthropic-api", name="custom_agent")
+        spec = AgentSpec(provider="anthropic-api", name="custom_agent")
         assert spec.name == "custom_agent"
+
+    def test_model_and_persona(self):
+        """Model and persona fields are preserved."""
+        spec = AgentSpec(
+            provider="anthropic-api",
+            model="claude-opus",
+            persona="philosopher",
+            role="proposer",
+        )
+        assert spec.model == "claude-opus"
+        assert spec.persona == "philosopher"
 
 
 class TestAgentCreationResult:
@@ -102,7 +113,7 @@ class TestDebateConfig:
         """Mixed agent string (with and without roles) is parsed."""
         config = DebateConfig(question="Q", agents_str="anthropic-api,openai-api:critic")
         specs = config.parse_agent_specs()
-        assert specs[0].role is None
+        assert specs[0].role is None  # Assigned by position
         assert specs[1].role == "critic"
 
     def test_parse_agent_specs_strips_whitespace(self):
@@ -134,7 +145,7 @@ class TestDebateConfig:
     def test_parse_agent_specs_invalid_agent_type(self):
         """Invalid agent type raises ValueError."""
         config = DebateConfig(question="Q", agents_str="anthropic-api,invalid-agent")
-        with pytest.raises(ValueError, match="Invalid agent type"):
+        with pytest.raises(ValueError, match="Invalid agent provider"):
             config.parse_agent_specs()
 
 
@@ -182,8 +193,8 @@ class TestDebateFactoryCreateAgents:
         with patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]):
             factory = DebateFactory()
             specs = [
-                AgentSpec(agent_type="anthropic-api"),
-                AgentSpec(agent_type="openai-api"),
+                AgentSpec(provider="anthropic-api"),
+                AgentSpec(provider="openai-api"),
             ]
 
             result = factory.create_agents(specs)
@@ -205,8 +216,8 @@ class TestDebateFactoryCreateAgents:
         ):
             factory = DebateFactory()
             specs = [
-                AgentSpec(agent_type="anthropic-api"),
-                AgentSpec(agent_type="openai-api"),
+                AgentSpec(provider="anthropic-api"),
+                AgentSpec(provider="openai-api"),
             ]
 
             result = factory.create_agents(specs)
@@ -225,7 +236,7 @@ class TestDebateFactoryCreateAgents:
 
         with patch.object(factory_module, "create_agent", return_value=mock_agent):
             factory = DebateFactory()
-            specs = [AgentSpec(agent_type="anthropic-api")]
+            specs = [AgentSpec(provider="anthropic-api")]
 
             result = factory.create_agents(specs)
 
@@ -244,7 +255,7 @@ class TestDebateFactoryCreateAgents:
 
         with patch.object(factory_module, "create_agent", return_value=mock_agent):
             factory = DebateFactory(stream_emitter=emitter)
-            specs = [AgentSpec(agent_type="anthropic-api")]
+            specs = [AgentSpec(provider="anthropic-api")]
 
             result = factory.create_agents(specs, stream_wrapper=wrapper, debate_id="test-123")
 
@@ -261,7 +272,7 @@ class TestDebateFactoryCreateAgents:
             factory_module, "create_agent", side_effect=ValueError("Creation failed")
         ):
             factory = DebateFactory(stream_emitter=emitter)
-            specs = [AgentSpec(agent_type="anthropic-api")]
+            specs = [AgentSpec(provider="anthropic-api")]
 
             factory.create_agents(specs, debate_id="test-123")
 
@@ -278,18 +289,8 @@ class TestDebateFactoryCreateArena:
 
         mock_agent1 = Mock()
         mock_agent2 = Mock()
-        mock_env = Mock()
-        mock_protocol = Mock()
-        mock_arena = Mock()
 
-        with (
-            patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]),
-            patch("aragora.core.Environment", return_value=mock_env) as env_cls,
-            patch(
-                "aragora.debate.protocol.DebateProtocol", return_value=mock_protocol
-            ) as proto_cls,
-            patch("aragora.debate.orchestrator.Arena", return_value=mock_arena) as arena_cls,
-        ):
+        with patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]):
 
             factory = DebateFactory()
             config = DebateConfig(
@@ -300,12 +301,10 @@ class TestDebateFactoryCreateArena:
 
             arena = factory.create_arena(config)
 
-            env_cls.assert_called_once()
-            proto_cls.assert_called_once()
-            arena_cls.assert_called_once()
-
-            # Verify arena was returned
-            assert arena is mock_arena
+            # Verify arena was created (ArenaBuilder is used internally)
+            assert arena is not None
+            # Verify the arena has the expected agents
+            assert len(arena.agents) == 2
 
     def test_create_arena_insufficient_agents_raises(self):
         """Raises ValueError when not enough agents created."""

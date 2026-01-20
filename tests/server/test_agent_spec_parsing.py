@@ -1,7 +1,7 @@
 """Tests for agent spec parsing in question_classifier.py.
 
-Verifies that agent specs are always in 2-part format (agent_type:persona)
-to ensure correct parsing by debate_factory.
+Verifies that agent specs are in valid pipe format (provider|model|persona|role)
+and can be parsed correctly by debate_factory.
 """
 
 import pytest
@@ -10,7 +10,7 @@ from aragora.server.question_classifier import (
     PERSONA_TO_AGENT,
     QuestionClassification,
     QuestionClassifier,
-    classify_and_assign_agents,
+    classify_and_assign_agents_sync,
 )
 
 
@@ -46,8 +46,8 @@ class TestPersonaToAgentMapping:
 class TestGetAgentString:
     """Tests for QuestionClassifier.get_agent_string()."""
 
-    def test_always_produces_two_part_specs(self):
-        """Agent specs should always be 2-part format: agent_type:persona."""
+    def test_always_produces_pipe_format_specs(self):
+        """Agent specs should be in pipe format: provider|model|persona|role."""
         classifier = QuestionClassifier()
         classification = QuestionClassification(
             category="technical",
@@ -58,14 +58,19 @@ class TestGetAgentString:
         result = classifier.get_agent_string(classification)
 
         for spec in result.split(","):
-            parts = spec.split(":")
-            assert len(parts) == 2, (
-                f"Spec '{spec}' should have exactly 2 parts (agent_type:persona), "
+            parts = spec.split("|")
+            assert len(parts) == 4, (
+                f"Spec '{spec}' should have exactly 4 parts (provider|model|persona|role), "
                 f"but has {len(parts)} parts"
             )
+            provider, model, persona, role = parts
+            assert provider, f"Provider should not be empty in spec '{spec}'"
+            assert role in ("proposer", "critic", "synthesizer", "judge"), (
+                f"Role '{role}' should be a valid debate role"
+            )
 
-    def test_openrouter_specs_are_two_part(self):
-        """OpenRouter agent specs should be 2-part, not 3-part."""
+    def test_openrouter_specs_are_valid(self):
+        """OpenRouter agent specs should be valid pipe format."""
         classifier = QuestionClassifier()
         classification = QuestionClassification(
             category="technical",
@@ -75,20 +80,19 @@ class TestGetAgentString:
 
         result = classifier.get_agent_string(classification)
 
-        # Should produce specs like "qwen:qwen,deepseek:deepseek"
-        # NOT "openrouter:model:qwen,openrouter:model:deepseek"
+        # Should produce specs like "qwen||qwen|proposer,deepseek||deepseek|critic"
         for spec in result.split(","):
-            parts = spec.split(":")
-            assert len(parts) == 2, f"OpenRouter spec '{spec}' should be 2-part format"
-            agent_type, persona = parts
-            # Agent type should not contain slashes (model paths)
-            assert "/" not in agent_type, (
-                f"Agent type '{agent_type}' in spec '{spec}' contains '/'. "
-                f"Model path should not be in the agent type."
+            parts = spec.split("|")
+            assert len(parts) == 4, f"Spec '{spec}' should be pipe format with 4 parts"
+            provider, model, persona, role = parts
+            # Provider should not contain slashes (model paths)
+            assert "/" not in provider, (
+                f"Provider '{provider}' in spec '{spec}' contains '/'. "
+                f"Model path should not be in the provider."
             )
 
     def test_mixed_personas_produce_valid_specs(self):
-        """Mix of OpenRouter and direct API personas should all be 2-part."""
+        """Mix of OpenRouter and direct API personas should all be pipe format."""
         classifier = QuestionClassifier()
         classification = QuestionClassification(
             category="scientific",
@@ -102,8 +106,8 @@ class TestGetAgentString:
         assert len(specs) >= 2, "Should have at least 2 agents"
 
         for spec in specs:
-            parts = spec.split(":")
-            assert len(parts) == 2, f"Spec '{spec}' should be 2-part format"
+            parts = spec.split("|")
+            assert len(parts) == 4, f"Spec '{spec}' should be pipe format with 4 parts"
 
     def test_avoids_duplicate_agent_types(self):
         """Should avoid duplicate agent types for diversity."""
@@ -117,7 +121,8 @@ class TestGetAgentString:
 
         result = classifier.get_agent_string(classification)
         specs = result.split(",")
-        agent_types = [spec.split(":")[0] for spec in specs]
+        # Pipe format: provider|model|persona|role - get providers
+        agent_types = [spec.split("|")[0] for spec in specs]
 
         # anthropic-api should not appear more than twice
         # (we allow up to 2 before filtering kicks in)
@@ -132,10 +137,9 @@ class TestClassifyAndAssignAgents:
     """Integration tests for classify_and_assign_agents()."""
 
     def test_simple_classification_produces_valid_specs(self):
-        """Simple (non-LLM) classification should produce valid 2-part specs."""
-        agent_string, classification = classify_and_assign_agents(
+        """Simple (non-LLM) classification should produce valid pipe format specs."""
+        agent_string, classification = classify_and_assign_agents_sync(
             "What is the best database for high-throughput writes?",
-            use_llm=False,
         )
 
         assert classification.category in [
@@ -151,19 +155,18 @@ class TestClassifyAndAssignAgents:
         ]
 
         for spec in agent_string.split(","):
-            parts = spec.split(":")
-            assert len(parts) == 2, f"Spec '{spec}' should be 2-part format"
+            parts = spec.split("|")
+            assert len(parts) == 4, f"Spec '{spec}' should be pipe format with 4 parts"
 
     def test_compliance_question_produces_valid_specs(self):
         """Compliance question should produce valid agent specs."""
-        agent_string, classification = classify_and_assign_agents(
+        agent_string, classification = classify_and_assign_agents_sync(
             "How do we ensure HIPAA compliance for patient data?",
-            use_llm=False,
         )
 
         for spec in agent_string.split(","):
-            parts = spec.split(":")
-            assert len(parts) == 2, f"Spec '{spec}' should be 2-part format"
+            parts = spec.split("|")
+            assert len(parts) == 4, f"Spec '{spec}' should be pipe format with 4 parts"
 
 
 class TestDebateFactoryCompatibility:
@@ -193,8 +196,11 @@ class TestDebateFactoryCompatibility:
         assert len(specs) >= 2, "Should have at least 2 agent specs"
         for spec in specs:
             assert isinstance(spec, AgentSpec)
-            assert spec.agent_type, f"Agent type should not be empty: {spec}"
-            # Role should be the persona, not a model path
+            assert spec.provider, f"Provider should not be empty: {spec}"
+            # Role should be a valid debate role, not a model path
+            assert spec.role in ("proposer", "critic", "synthesizer", "judge"), (
+                f"Role '{spec.role}' should be a valid debate role"
+            )
             assert "/" not in (spec.role or ""), (
                 f"Role '{spec.role}' contains '/', suggesting a model path leaked into role"
             )
