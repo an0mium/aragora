@@ -566,9 +566,14 @@ class CrossSubscriberManager:
     # =========================================================================
 
     def get_stats(self) -> dict[str, dict]:
-        """Get statistics for all subscribers including latency and sampling metrics."""
-        return {
-            name: {
+        """Get statistics for all subscribers including latency, sampling, and circuit breaker metrics."""
+        result = {}
+        for name, stats in self._stats.items():
+            # Get circuit breaker status for this handler
+            cb_state = self._circuit_breaker.get_state(name) if hasattr(self._circuit_breaker, 'get_state') else "unknown"
+            cb_available = self._circuit_breaker.is_available(name)
+
+            result[name] = {
                 "events_processed": stats.events_processed,
                 "events_failed": stats.events_failed,
                 "events_skipped": stats.events_skipped,
@@ -582,9 +587,12 @@ class CrossSubscriberManager:
                     "max": round(stats.max_latency_ms, 3),
                     "total": round(stats.total_latency_ms, 3),
                 },
+                "circuit_breaker": {
+                    "available": cb_available,
+                    "state": str(cb_state),
+                },
             }
-            for name, stats in self._stats.items()
-        }
+        return result
 
     def enable_subscriber(self, name: str) -> bool:
         """Enable a subscriber by name."""
@@ -610,6 +618,27 @@ class CrossSubscriberManager:
             stats.total_latency_ms = 0.0
             stats.min_latency_ms = float("inf")
             stats.max_latency_ms = 0.0
+
+    def reset_circuit_breaker(self, name: str) -> bool:
+        """Reset circuit breaker for a specific handler.
+
+        Args:
+            name: Handler name to reset
+
+        Returns:
+            True if reset successful, False if handler not found
+        """
+        if name not in self._stats:
+            return False
+        self._circuit_breaker.reset(name)
+        logger.info(f"Reset circuit breaker for handler '{name}'")
+        return True
+
+    def reset_all_circuit_breakers(self) -> None:
+        """Reset all circuit breakers."""
+        for name in self._stats:
+            self._circuit_breaker.reset(name)
+        logger.info("Reset all circuit breakers")
 
     def set_sample_rate(self, name: str, rate: float) -> bool:
         """Set sampling rate for a subscriber.
