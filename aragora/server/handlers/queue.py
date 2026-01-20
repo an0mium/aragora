@@ -62,8 +62,11 @@ async def _get_queue() -> Optional[Any]:
         except ImportError:
             logger.warning("Redis package not available for queue")
             return None
+        except (ConnectionError, OSError) as e:
+            logger.warning(f"Failed to connect to Redis for queue: {e}")
+            return None
         except Exception as e:
-            logger.warning(f"Failed to create queue: {e}")
+            logger.exception(f"Unexpected error creating queue: {e}")
             return None
 
 
@@ -166,8 +169,11 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "stats": stats,
                 "timestamp": datetime.now().isoformat(),
             })
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to get queue stats due to connection error: {e}")
+            return error_response(safe_error_message(e, "get queue stats"), 503)
         except Exception as e:
-            logger.error(f"Failed to get queue stats: {e}")
+            logger.exception(f"Unexpected error getting queue stats: {e}")
             return error_response(safe_error_message(e, "get queue stats"), 500)
 
     async def _get_workers(self) -> HandlerResult:
@@ -207,20 +213,29 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                                     "pending": consumer.get("pending", 0),
                                     "idle_ms": consumer.get("idle", 0),
                                 })
+                    except (ConnectionError, OSError, TimeoutError) as ce:
+                        logger.debug(f"Could not get consumers due to connection error: {ce}")
                     except Exception as ce:
-                        logger.debug(f"Could not get consumers: {ce}")
+                        logger.warning(f"Unexpected error getting consumers: {ce}")
 
             return json_response({
                 "workers": workers,
                 "total": len(workers),
                 "timestamp": datetime.now().isoformat(),
             })
-        except Exception as e:
-            logger.error(f"Failed to get worker status: {e}")
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to get worker status due to connection error: {e}")
             return json_response({
                 "workers": [],
                 "total": 0,
                 "error": str(e),
+            })
+        except Exception as e:
+            logger.exception(f"Unexpected error getting worker status: {e}")
+            return json_response({
+                "workers": [],
+                "total": 0,
+                "error": "Internal error",
             })
 
     async def _submit_job(self, handler: Any) -> HandlerResult:
@@ -267,8 +282,14 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "message": "Job submitted successfully",
             }, status=202)
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid job submission data: {e}")
+            return error_response(safe_error_message(e, "submit job"), 400)
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to submit job due to connection error: {e}")
+            return error_response(safe_error_message(e, "submit job"), 503)
         except Exception as e:
-            logger.error(f"Failed to submit job: {e}")
+            logger.exception(f"Unexpected error submitting job: {e}")
             return error_response(safe_error_message(e, "submit job"), 500)
 
     async def _list_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
@@ -348,8 +369,11 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "counts_by_status": counts,
             })
 
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to list jobs due to connection error: {e}")
+            return error_response(safe_error_message(e, "list jobs"), 503)
         except Exception as e:
-            logger.error(f"Failed to list jobs: {e}")
+            logger.exception(f"Unexpected error listing jobs: {e}")
             return error_response(safe_error_message(e, "list jobs"), 500)
 
     async def _get_job(self, job_id: str) -> HandlerResult:
@@ -388,8 +412,11 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "result": job.metadata.get("result"),
             })
 
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to get job {job_id} due to connection error: {e}")
+            return error_response(safe_error_message(e, "get job"), 503)
         except Exception as e:
-            logger.error(f"Failed to get job {job_id}: {e}")
+            logger.exception(f"Unexpected error getting job {job_id}: {e}")
             return error_response(safe_error_message(e, "get job"), 500)
 
     async def _retry_job(self, job_id: str) -> HandlerResult:
@@ -431,8 +458,11 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "message": "Job queued for retry",
             })
 
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to retry job {job_id} due to connection error: {e}")
+            return error_response(safe_error_message(e, "retry job"), 503)
         except Exception as e:
-            logger.error(f"Failed to retry job {job_id}: {e}")
+            logger.exception(f"Unexpected error retrying job {job_id}: {e}")
             return error_response(safe_error_message(e, "retry job"), 500)
 
     async def _cancel_job(self, job_id: str) -> HandlerResult:
@@ -461,6 +491,9 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 "message": "Job cancelled successfully",
             })
 
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to cancel job {job_id} due to connection error: {e}")
+            return error_response(safe_error_message(e, "cancel job"), 503)
         except Exception as e:
-            logger.error(f"Failed to cancel job {job_id}: {e}")
+            logger.exception(f"Unexpected error cancelling job {job_id}: {e}")
             return error_response(safe_error_message(e, "cancel job"), 500)

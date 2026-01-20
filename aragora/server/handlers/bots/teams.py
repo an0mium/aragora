@@ -86,8 +86,14 @@ class TeamsHandler(BaseHandler):
                 loop.close()
 
             logger.info("Teams bot initialized")
+        except ImportError as e:
+            logger.warning(f"Teams bot module not available: {e}")
+            self._bot = None
+        except (ValueError, KeyError, TypeError) as e:
+            logger.error(f"Failed to initialize Teams bot due to configuration error: {e}")
+            self._bot = None
         except Exception as e:
-            logger.error(f"Failed to initialize Teams bot: {e}")
+            logger.exception(f"Unexpected error initializing Teams bot: {e}")
             self._bot = None
 
         return self._bot
@@ -173,8 +179,13 @@ class TeamsHandler(BaseHandler):
                     claims_identity = await adapter.authenticate_request(
                         activity, auth_header
                     )
+                except (ValueError, KeyError) as auth_error:
+                    logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
+                    response_status = 401
+                    response_body = {"error": "Invalid authentication token"}
+                    return
                 except Exception as auth_error:
-                    logger.warning(f"Teams auth failed: {auth_error}")
+                    logger.exception(f"Unexpected Teams auth error: {auth_error}")
                     response_status = 401
                     response_body = {"error": "Unauthorized"}
                     return
@@ -186,10 +197,14 @@ class TeamsHandler(BaseHandler):
                         auth_header,
                         bot.on_turn,
                     )
-                except Exception as e:
-                    logger.error(f"Error processing Teams activity: {e}", exc_info=True)
-                    response_status = 500
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.warning(f"Data error processing Teams activity: {e}")
+                    response_status = 400
                     response_body = {"error": str(e)[:100]}
+                except Exception as e:
+                    logger.exception(f"Unexpected error processing Teams activity: {e}")
+                    response_status = 500
+                    response_body = {"error": "Internal processing error"}
 
             # Run async processing
             loop = asyncio.new_event_loop()
@@ -201,8 +216,17 @@ class TeamsHandler(BaseHandler):
 
             return json_response(response_body, status=response_status)
 
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Teams message: {e}")
+            return error_response("Invalid JSON payload", 400)
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in Teams message: {e}")
+            return error_response(safe_error_message(e, "teams message"), 400)
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Connection error processing Teams message: {e}")
+            return error_response(safe_error_message(e, "teams message"), 503)
         except Exception as e:
-            logger.error(f"Teams message error: {e}", exc_info=True)
+            logger.exception(f"Unexpected Teams message error: {e}")
             return error_response(safe_error_message(e, "teams message"), 500)
 
 

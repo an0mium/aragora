@@ -160,8 +160,11 @@ class UncertaintyHandler(BaseHandler):
                 "message": "Uncertainty estimated successfully",
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid data for uncertainty estimation: {e}")
+            return error_response(f"Invalid request data: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to estimate uncertainty: {e}")
+            logger.exception(f"Unexpected error estimating uncertainty: {e}")
             return error_response(f"Failed to estimate uncertainty: {e}", 500)
 
     async def _generate_followups(self, handler: Any) -> HandlerResult:
@@ -215,8 +218,11 @@ class UncertaintyHandler(BaseHandler):
                 "total": len(suggestions),
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid data for follow-up generation: {e}")
+            return error_response(f"Invalid request data: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to generate follow-ups: {e}")
+            logger.exception(f"Unexpected error generating follow-ups: {e}")
             return error_response(f"Failed to generate follow-ups: {e}", 500)
 
     async def _get_debate_uncertainty(self, debate_id: str) -> HandlerResult:
@@ -254,8 +260,11 @@ class UncertaintyHandler(BaseHandler):
                 "metrics": metrics.to_dict(),
             })
 
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error getting debate uncertainty: {e}")
+            return error_response(f"Invalid debate data: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to get debate uncertainty: {e}")
+            logger.exception(f"Unexpected error getting debate uncertainty: {e}")
             return error_response(f"Failed to get debate uncertainty: {e}", 500)
 
     def _get_agent_calibration(self, agent_id: str) -> HandlerResult:
@@ -291,6 +300,9 @@ class UncertaintyHandler(BaseHandler):
                 "brier_score": estimator.brier_scores.get(agent_id),
             })
 
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error getting agent calibration: {e}")
+            return error_response(f"Invalid agent data: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to get agent calibration: {e}")
+            logger.exception(f"Unexpected error getting agent calibration: {e}")
             return error_response(f"Failed to get agent calibration: {e}", 500)

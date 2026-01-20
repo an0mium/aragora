@@ -305,8 +305,17 @@ async def execute_workflow(
 
         return execution
 
+    except (ValueError, KeyError, TypeError) as e:
+        logger.warning(f"Invalid workflow configuration or inputs: {e}")
+        execution.update({
+            "status": "failed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "error": str(e),
+        })
+        store.save_execution(execution)
+        raise
     except Exception as e:
-        logger.error(f"Workflow execution failed: {e}")
+        logger.exception(f"Unexpected workflow execution error: {e}")
         execution.update({
             "status": "failed",
             "completed_at": datetime.now(timezone.utc).isoformat(),

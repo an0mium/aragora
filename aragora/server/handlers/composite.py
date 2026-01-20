@@ -88,23 +88,32 @@ class CompositeHandler(BaseHandler):
             # Fetch memory context
             try:
                 context["memory"] = self._get_memory_context(debate_id)
-            except Exception as e:
-                logger.warning(f"Failed to fetch memory for {debate_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching memory for {debate_id}: {e}")
                 context["memory"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching memory for {debate_id}: {e}")
+                context["memory"] = {"error": "Internal error", "available": False}
 
             # Fetch knowledge context
             try:
                 context["knowledge"] = self._get_knowledge_context(debate_id)
-            except Exception as e:
-                logger.warning(f"Failed to fetch knowledge for {debate_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching knowledge for {debate_id}: {e}")
                 context["knowledge"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching knowledge for {debate_id}: {e}")
+                context["knowledge"] = {"error": "Internal error", "available": False}
 
             # Fetch belief context
             try:
                 context["belief"] = self._get_belief_context(debate_id)
-            except Exception as e:
-                logger.warning(f"Failed to fetch belief for {debate_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching belief for {debate_id}: {e}")
                 context["belief"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching belief for {debate_id}: {e}")
+                context["belief"] = {"error": "Internal error", "available": False}
 
             return HandlerResult(
                 status_code=200,
@@ -112,9 +121,12 @@ class CompositeHandler(BaseHandler):
                 body=json.dumps(context).encode(),
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in full-context handler: {e}")
+            return self._error_response(f"Invalid data: {e}", 400)
         except Exception as e:
-            logger.error(f"Error in full-context handler: {e}")
-            return self._error_response(f"Failed to fetch context: {e}", 500)
+            logger.exception(f"Unexpected error in full-context handler: {e}")
+            return self._error_response("Internal server error", 500)
 
     def _handle_reliability(
         self, agent_id: str, query_params: Dict[str, str]
@@ -141,23 +153,32 @@ class CompositeHandler(BaseHandler):
             # Fetch circuit breaker state
             try:
                 metrics["circuit_breaker"] = self._get_circuit_breaker_state(agent_id)
-            except Exception as e:
-                logger.warning(f"Failed to fetch circuit breaker for {agent_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching circuit breaker for {agent_id}: {e}")
                 metrics["circuit_breaker"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching circuit breaker for {agent_id}: {e}")
+                metrics["circuit_breaker"] = {"error": "Internal error", "available": False}
 
             # Fetch airlock metrics
             try:
                 metrics["airlock"] = self._get_airlock_metrics(agent_id)
-            except Exception as e:
-                logger.warning(f"Failed to fetch airlock for {agent_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching airlock for {agent_id}: {e}")
                 metrics["airlock"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error fetching airlock for {agent_id}: {e}")
+                metrics["airlock"] = {"error": "Internal error", "available": False}
 
             # Calculate availability
             try:
                 metrics["availability"] = self._calculate_availability(agent_id)
-            except Exception as e:
-                logger.warning(f"Failed to calculate availability for {agent_id}: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error calculating availability for {agent_id}: {e}")
                 metrics["availability"] = {"error": str(e), "available": False}
+            except Exception as e:
+                logger.exception(f"Unexpected error calculating availability for {agent_id}: {e}")
+                metrics["availability"] = {"error": "Internal error", "available": False}
 
             # Calculate overall reliability score
             metrics["overall_score"] = self._calculate_reliability_score(metrics)
@@ -168,9 +189,12 @@ class CompositeHandler(BaseHandler):
                 body=json.dumps(metrics).encode(),
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in reliability handler: {e}")
+            return self._error_response(f"Invalid data: {e}", 400)
         except Exception as e:
-            logger.error(f"Error in reliability handler: {e}")
-            return self._error_response(f"Failed to fetch reliability: {e}", 500)
+            logger.exception(f"Unexpected error in reliability handler: {e}")
+            return self._error_response("Internal server error", 500)
 
     def _handle_compression_analysis(
         self, debate_id: str, query_params: Dict[str, str]
@@ -210,8 +234,10 @@ class CompositeHandler(BaseHandler):
                     analysis["compression"].update(rlm_data.get("compression", {}))
                     analysis["quality"].update(rlm_data.get("quality", {}))
                     analysis["compression"]["enabled"] = True
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Data error fetching RLM metrics for {debate_id}: {e}")
             except Exception as e:
-                logger.warning(f"Failed to fetch RLM metrics for {debate_id}: {e}")
+                logger.exception(f"Unexpected error fetching RLM metrics for {debate_id}: {e}")
 
             # Generate recommendations
             analysis["recommendations"] = self._generate_compression_recommendations(
@@ -224,9 +250,12 @@ class CompositeHandler(BaseHandler):
                 body=json.dumps(analysis).encode(),
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in compression-analysis handler: {e}")
+            return self._error_response(f"Invalid data: {e}", 400)
         except Exception as e:
-            logger.error(f"Error in compression-analysis handler: {e}")
-            return self._error_response(f"Failed to fetch compression analysis: {e}", 500)
+            logger.exception(f"Unexpected error in compression-analysis handler: {e}")
+            return self._error_response("Internal server error", 500)
 
     # ==========================================================================
     # Data fetching helpers
@@ -274,8 +303,10 @@ class CompositeHandler(BaseHandler):
                 items = knowledge_mound.query(debate_id, limit=10)
                 knowledge_data["facts"] = items
                 knowledge_data["available"] = True
-        except Exception:
-            pass
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Expected error fetching knowledge context: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error fetching knowledge context: {e}")
 
         return knowledge_data
 
@@ -295,8 +326,10 @@ class CompositeHandler(BaseHandler):
                 cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)
                 belief_data["cruxes"] = cruxes
                 belief_data["available"] = True
-        except Exception:
-            pass
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Expected error fetching belief context: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error fetching belief context: {e}")
 
         return belief_data
 

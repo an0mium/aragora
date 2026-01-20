@@ -68,8 +68,14 @@ class ZoomHandler(BaseHandler):
             from aragora.bots.zoom_bot import create_zoom_bot
             self._bot = create_zoom_bot()
             logger.info("Zoom bot initialized")
+        except ImportError as e:
+            logger.warning(f"Zoom bot module not available: {e}")
+            self._bot = None
+        except (ValueError, KeyError, TypeError) as e:
+            logger.error(f"Failed to initialize Zoom bot due to configuration error: {e}")
+            self._bot = None
         except Exception as e:
-            logger.error(f"Failed to initialize Zoom bot: {e}")
+            logger.exception(f"Unexpected error initializing Zoom bot: {e}")
             self._bot = None
 
         return self._bot
@@ -183,8 +189,17 @@ class ZoomHandler(BaseHandler):
 
             return json_response(result)
 
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Zoom event: {e}")
+            return error_response("Invalid JSON payload", 400)
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in Zoom event: {e}")
+            return error_response(safe_error_message(e, "Zoom event"), 400)
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Connection error processing Zoom event: {e}")
+            return error_response(safe_error_message(e, "Zoom event"), 503)
         except Exception as e:
-            logger.error(f"Zoom event error: {e}", exc_info=True)
+            logger.exception(f"Unexpected Zoom event error: {e}")
             return error_response(safe_error_message(e, "Zoom event"), 500)
 
 

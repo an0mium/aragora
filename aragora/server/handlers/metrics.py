@@ -260,8 +260,13 @@ class MetricsHandler(BaseHandler):
                 try:
                     storage.list_debates(limit=1)
                     checks["storage"] = {"status": "healthy"}
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
+                    logger.warning(f"Storage health check failed with database error: {e}")
                     checks["storage"] = {"status": "unhealthy", "error": str(e)}
+                    status = "degraded"
+                except Exception as e:
+                    logger.exception(f"Unexpected error in storage health check: {e}")
+                    checks["storage"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"
             else:
                 checks["storage"] = {"status": "unavailable"}
@@ -272,8 +277,13 @@ class MetricsHandler(BaseHandler):
                 try:
                     elo.get_leaderboard(limit=1)
                     checks["elo_system"] = {"status": "healthy"}
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
+                    logger.warning(f"ELO system health check failed with database error: {e}")
                     checks["elo_system"] = {"status": "unhealthy", "error": str(e)}
+                    status = "degraded"
+                except Exception as e:
+                    logger.exception(f"Unexpected error in ELO system health check: {e}")
+                    checks["elo_system"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"
             else:
                 checks["elo_system"] = {"status": "unavailable"}

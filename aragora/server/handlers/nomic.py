@@ -124,15 +124,19 @@ class NomicHandler(BaseHandler):
             try:
                 _run_async(method(*args, **kwargs))
                 return  # Success
-            except Exception as e:
+            except (ConnectionError, OSError, TimeoutError) as e:
                 last_error = e
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
                     logger.debug(
-                        f"Nomic stream emission attempt {attempt + 1} failed, "
+                        f"Nomic stream emission attempt {attempt + 1} failed with connection error, "
                         f"retrying in {delay:.2f}s: {e}"
                     )
                     time.sleep(delay)
+            except Exception as e:
+                logger.warning(f"Nomic stream emission unexpected error: {e}")
+                last_error = e
+                break  # Don't retry unexpected errors
 
         logger.warning(
             f"Nomic stream emission failed after {max_retries} attempts "
@@ -342,8 +346,11 @@ class NomicHandler(BaseHandler):
                     "message": "Nomic metrics module not available",
                 }
             )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning("Invalid data in nomic metrics: %s", e)
+            return error_response(f"Invalid metrics data: {e}", 500)
         except Exception as e:
-            logger.error("Error getting nomic metrics: %s", e, exc_info=True)
+            logger.exception("Unexpected error getting nomic metrics: %s", e)
             return error_response(f"Failed to get nomic metrics: {e}", 500)
 
     def _get_risk_register(self, limit: int) -> HandlerResult:
@@ -549,8 +556,14 @@ class NomicHandler(BaseHandler):
                 "target_cycles": cycles,
             }, status=202)
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to start nomic loop due to file/process error: %s", e)
+            return error_response(f"Failed to start nomic loop: {e}", 500)
         except Exception as e:
-            logger.error("Failed to start nomic loop: %s", e, exc_info=True)
+            logger.exception("Unexpected error starting nomic loop: %s", e)
             return error_response(f"Failed to start nomic loop: {e}", 500)
 
     def _stop_nomic_loop(self, body: dict) -> HandlerResult:
@@ -609,8 +622,14 @@ class NomicHandler(BaseHandler):
                 "pid": pid,
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to stop nomic loop due to file/process error: %s", e)
+            return error_response(f"Failed to stop nomic loop: {e}", 500)
         except Exception as e:
-            logger.error("Failed to stop nomic loop: %s", e, exc_info=True)
+            logger.exception("Unexpected error stopping nomic loop: %s", e)
             return error_response(f"Failed to stop nomic loop: {e}", 500)
 
     def _pause_nomic_loop(self) -> HandlerResult:
@@ -652,8 +671,14 @@ class NomicHandler(BaseHandler):
                 "phase": state.get("phase", "unknown"),
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to pause nomic loop due to file error: %s", e)
+            return error_response(f"Failed to pause nomic loop: {e}", 500)
         except Exception as e:
-            logger.error("Failed to pause nomic loop: %s", e, exc_info=True)
+            logger.exception("Unexpected error pausing nomic loop: %s", e)
             return error_response(f"Failed to pause nomic loop: {e}", 500)
 
     def _resume_nomic_loop(self) -> HandlerResult:
@@ -692,8 +717,14 @@ class NomicHandler(BaseHandler):
                 "phase": state.get("phase", "unknown"),
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to resume nomic loop due to file error: %s", e)
+            return error_response(f"Failed to resume nomic loop: {e}", 500)
         except Exception as e:
-            logger.error("Failed to resume nomic loop: %s", e, exc_info=True)
+            logger.exception("Unexpected error resuming nomic loop: %s", e)
             return error_response(f"Failed to resume nomic loop: {e}", 500)
 
     def _skip_phase(self) -> HandlerResult:
@@ -746,8 +777,14 @@ class NomicHandler(BaseHandler):
             else:
                 return error_response(f"Unknown phase: {current_phase}", 400)
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in nomic state file: %s", e)
+            return error_response(f"Invalid state file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to skip phase due to file error: %s", e)
+            return error_response(f"Failed to skip phase: {e}", 500)
         except Exception as e:
-            logger.error("Failed to skip phase: %s", e, exc_info=True)
+            logger.exception("Unexpected error skipping phase: %s", e)
             return error_response(f"Failed to skip phase: {e}", 500)
 
     def _get_proposals(self) -> HandlerResult:
@@ -773,8 +810,14 @@ class NomicHandler(BaseHandler):
                 "all_proposals": len(proposals),
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in proposals file: %s", e)
+            return error_response(f"Invalid proposals file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to read proposals file: %s", e)
+            return error_response(f"Failed to get proposals: {e}", 500)
         except Exception as e:
-            logger.error("Failed to get proposals: %s", e, exc_info=True)
+            logger.exception("Unexpected error getting proposals: %s", e)
             return error_response(f"Failed to get proposals: {e}", 500)
 
     def _approve_proposal(self, body: dict) -> HandlerResult:
@@ -824,8 +867,14 @@ class NomicHandler(BaseHandler):
                 "proposal_id": proposal_id,
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in proposals file: %s", e)
+            return error_response(f"Invalid proposals file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to write proposals file: %s", e)
+            return error_response(f"Failed to approve proposal: {e}", 500)
         except Exception as e:
-            logger.error("Failed to approve proposal: %s", e, exc_info=True)
+            logger.exception("Unexpected error approving proposal: %s", e)
             return error_response(f"Failed to approve proposal: {e}", 500)
 
     def _reject_proposal(self, body: dict) -> HandlerResult:
@@ -877,6 +926,12 @@ class NomicHandler(BaseHandler):
                 "proposal_id": proposal_id,
             })
 
+        except json.JSONDecodeError as e:
+            logger.warning("Invalid JSON in proposals file: %s", e)
+            return error_response(f"Invalid proposals file: {e}", 500)
+        except (OSError, PermissionError) as e:
+            logger.error("Failed to write proposals file: %s", e)
+            return error_response(f"Failed to reject proposal: {e}", 500)
         except Exception as e:
-            logger.error("Failed to reject proposal: %s", e, exc_info=True)
+            logger.exception("Unexpected error rejecting proposal: %s", e)
             return error_response(f"Failed to reject proposal: {e}", 500)

@@ -192,8 +192,11 @@ class MLHandler(BaseHandler):
                 "diversity_score": round(decision.diversity_score, 3),
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML routing request: {e}")
+            return error_response(safe_error_message(e, "routing"), 400)
         except Exception as e:
-            logger.error(f"ML routing failed: {e}")
+            logger.exception(f"Unexpected ML routing error: {e}")
             return error_response(safe_error_message(e, "routing"), 500)
 
     def _handle_score(self, data: dict) -> HandlerResult:
@@ -241,8 +244,11 @@ class MLHandler(BaseHandler):
                 "needs_review": score.needs_review,
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML scoring request: {e}")
+            return error_response(safe_error_message(e, "scoring"), 400)
         except Exception as e:
-            logger.error(f"ML scoring failed: {e}")
+            logger.exception(f"Unexpected ML scoring error: {e}")
             return error_response(safe_error_message(e, "scoring"), 500)
 
     def _handle_score_batch(self, data: dict) -> HandlerResult:
@@ -293,8 +299,11 @@ class MLHandler(BaseHandler):
                 ]
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML batch scoring request: {e}")
+            return error_response(safe_error_message(e, "batch scoring"), 400)
         except Exception as e:
-            logger.error(f"ML batch scoring failed: {e}")
+            logger.exception(f"Unexpected ML batch scoring error: {e}")
             return error_response(safe_error_message(e, "batch scoring"), 500)
 
     def _handle_consensus(self, data: dict) -> HandlerResult:
@@ -356,8 +365,11 @@ class MLHandler(BaseHandler):
                 "key_factors": prediction.key_factors,
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML consensus prediction request: {e}")
+            return error_response(safe_error_message(e, "prediction"), 400)
         except Exception as e:
-            logger.error(f"ML consensus prediction failed: {e}")
+            logger.exception(f"Unexpected ML consensus prediction error: {e}")
             return error_response(safe_error_message(e, "prediction"), 500)
 
     def _handle_export_training(self, data: dict) -> HandlerResult:
@@ -415,8 +427,11 @@ class MLHandler(BaseHandler):
                     "data": [ex.to_dict() for ex in training_data.examples],
                 })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML export request: {e}")
+            return error_response(safe_error_message(e, "export"), 400)
         except Exception as e:
-            logger.error(f"ML export failed: {e}")
+            logger.exception(f"Unexpected ML export error: {e}")
             return error_response(safe_error_message(e, "export"), 500)
 
     def _handle_embed(self, data: dict) -> HandlerResult:
@@ -459,8 +474,11 @@ class MLHandler(BaseHandler):
                 "count": len(result),
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML embedding request: {e}")
+            return error_response(safe_error_message(e, "embedding"), 400)
         except Exception as e:
-            logger.error(f"ML embedding failed: {e}")
+            logger.exception(f"Unexpected ML embedding error: {e}")
             return error_response(safe_error_message(e, "embedding"), 500)
 
     def _handle_search(self, data: dict) -> HandlerResult:
@@ -519,8 +537,11 @@ class MLHandler(BaseHandler):
                 "count": len(results),
             })
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid ML search request: {e}")
+            return error_response(safe_error_message(e, "search"), 400)
         except Exception as e:
-            logger.error(f"ML search failed: {e}")
+            logger.exception(f"Unexpected ML search error: {e}")
             return error_response(safe_error_message(e, "search"), 500)
 
     def _handle_list_models(self) -> HandlerResult:

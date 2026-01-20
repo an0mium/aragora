@@ -109,9 +109,14 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             return json_response(summary.to_dict())
 
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"Invalid analytics summary parameter: {e}")
             return error_response(f"Invalid time_range: {time_range_str}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in analytics summary: {e}")
+            return error_response(safe_error_message(e, "analytics summary"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting analytics summary: {e}")
             return error_response(safe_error_message(e, "analytics summary"), 500)
 
     @require_user_auth
@@ -170,8 +175,13 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except ValueError as e:
+            logger.warning(f"Invalid finding trends parameter: {e}")
             return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in finding trends: {e}")
+            return error_response(safe_error_message(e, "finding trends"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting finding trends: {e}")
             return error_response(safe_error_message(e, "finding trends"), 500)
 
     @require_user_auth
@@ -216,7 +226,14 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
+        except ValueError as e:
+            logger.warning(f"Invalid remediation metrics parameter: {e}")
+            return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in remediation metrics: {e}")
+            return error_response(safe_error_message(e, "remediation metrics"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting remediation metrics: {e}")
             return error_response(safe_error_message(e, "remediation metrics"), 500)
 
     @require_user_auth
@@ -266,7 +283,14 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
+        except ValueError as e:
+            logger.warning(f"Invalid agent metrics parameter: {e}")
+            return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in agent metrics: {e}")
+            return error_response(safe_error_message(e, "agent metrics"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting agent metrics: {e}")
             return error_response(safe_error_message(e, "agent metrics"), 500)
 
     @require_user_auth
@@ -310,7 +334,14 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
+        except ValueError as e:
+            logger.warning(f"Invalid cost metrics parameter: {e}")
+            return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in cost metrics: {e}")
+            return error_response(safe_error_message(e, "cost metrics"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting cost metrics: {e}")
             return error_response(safe_error_message(e, "cost metrics"), 500)
 
     @require_user_auth
@@ -358,7 +389,14 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
+        except ValueError as e:
+            logger.warning(f"Invalid compliance scorecard parameter: {e}")
+            return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in compliance scorecard: {e}")
+            return error_response(safe_error_message(e, "compliance scorecard"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting compliance scorecard: {e}")
             return error_response(safe_error_message(e, "compliance scorecard"), 500)
 
     @require_user_auth
@@ -406,5 +444,12 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
+        except ValueError as e:
+            logger.warning(f"Invalid risk heatmap parameter: {e}")
+            return error_response(f"Invalid parameter: {e}", 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in risk heatmap: {e}")
+            return error_response(safe_error_message(e, "risk heatmap"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting risk heatmap: {e}")
             return error_response(safe_error_message(e, "risk heatmap"), 500)

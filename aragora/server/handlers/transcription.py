@@ -163,8 +163,11 @@ class TranscriptionHandler(BaseHandler):
                     "youtube_enabled": True,
                 }
             )
+        except (ImportError, AttributeError) as e:
+            logger.warning(f"Transcription module not available: {e}")
+            return error_response("Transcription service not fully configured", 503)
         except Exception as e:
-            logger.error(f"Error getting transcription config: {e}")
+            logger.exception(f"Unexpected error getting transcription config: {e}")
             return error_response("Failed to get configuration", 500)
 
     def _get_status(self, job_id: str) -> HandlerResult:
@@ -272,8 +275,14 @@ class TranscriptionHandler(BaseHandler):
                 if temp_path.exists():
                     temp_path.unlink()
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid transcription request data: {e}")
+            return error_response(safe_error_message(e, "transcription"), 400)
+        except (OSError, IOError) as e:
+            logger.error(f"File I/O error during transcription: {e}")
+            return error_response(safe_error_message(e, "transcription"), 500)
         except Exception as e:
-            logger.error(f"Transcription failed: {e}", exc_info=True)
+            logger.exception(f"Unexpected transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_video_transcription(self, handler) -> HandlerResult:
@@ -353,8 +362,14 @@ class TranscriptionHandler(BaseHandler):
                 if temp_path.exists():
                     temp_path.unlink()
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid video transcription request data: {e}")
+            return error_response(safe_error_message(e, "transcription"), 400)
+        except (OSError, IOError) as e:
+            logger.error(f"File I/O error during video transcription: {e}")
+            return error_response(safe_error_message(e, "transcription"), 500)
         except Exception as e:
-            logger.error(f"Video transcription failed: {e}", exc_info=True)
+            logger.exception(f"Unexpected video transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_youtube_transcription(self, handler) -> HandlerResult:
@@ -436,8 +451,14 @@ class TranscriptionHandler(BaseHandler):
                 }
                 return error_response(str(e), 400)
 
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Invalid YouTube transcription request data: {e}")
+            return error_response(safe_error_message(e, "transcription"), 400)
+        except (OSError, IOError) as e:
+            logger.error(f"File I/O error during YouTube transcription: {e}")
+            return error_response(safe_error_message(e, "transcription"), 500)
         except Exception as e:
-            logger.error(f"YouTube transcription failed: {e}", exc_info=True)
+            logger.exception(f"Unexpected YouTube transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_youtube_info(self, handler) -> HandlerResult:
@@ -485,8 +506,11 @@ class TranscriptionHandler(BaseHandler):
         except ValueError as e:
             # Invalid URL
             return error_response(str(e), 400)
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Invalid YouTube info request data: {e}")
+            return error_response(safe_error_message(e, "video info"), 400)
         except Exception as e:
-            logger.error(f"Failed to get YouTube info: {e}", exc_info=True)
+            logger.exception(f"Unexpected error getting YouTube info: {e}")
             return error_response(safe_error_message(e, "video info"), 500)
 
     def _parse_multipart(
@@ -541,6 +565,12 @@ class TranscriptionHandler(BaseHandler):
 
             return file_data, filename, params
 
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Invalid multipart form data: {e}")
+            return None, "", {}
+        except (OSError, IOError) as e:
+            logger.error(f"I/O error parsing multipart data: {e}")
+            return None, "", {}
         except Exception as e:
-            logger.error(f"Failed to parse multipart: {e}")
+            logger.exception(f"Unexpected error parsing multipart data: {e}")
             return None, "", {}

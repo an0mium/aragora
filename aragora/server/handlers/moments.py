@@ -189,7 +189,11 @@ class MomentsHandler(BaseHandler):
                     "recent": [self._moment_to_dict(m) for m in recent],
                 }
             )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in moments summary: {e}")
+            return error_response(_safe_error_message(e, "moments summary"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting moments summary: {e}")
             return error_response(_safe_error_message(e, "moments summary"), 500)
 
     def _get_timeline(self, limit: int, offset: int) -> HandlerResult:
@@ -221,7 +225,11 @@ class MomentsHandler(BaseHandler):
                     "has_more": offset + limit < len(all_moments),
                 }
             )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in moments timeline: {e}")
+            return error_response(_safe_error_message(e, "moments timeline"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting moments timeline: {e}")
             return error_response(_safe_error_message(e, "moments timeline"), 500)
 
     def _get_trending(self, limit: int) -> HandlerResult:
@@ -247,7 +255,11 @@ class MomentsHandler(BaseHandler):
                     "count": len(sorted_moments),
                 }
             )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in moments trending: {e}")
+            return error_response(_safe_error_message(e, "moments trending"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting moments trending: {e}")
             return error_response(_safe_error_message(e, "moments trending"), 500)
 
     def _get_by_type(self, moment_type: str, limit: int) -> HandlerResult:
@@ -278,5 +290,9 @@ class MomentsHandler(BaseHandler):
                     "limit": limit,
                 }
             )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in moments by type {moment_type}: {e}")
+            return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting moments by type {moment_type}: {e}")
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 500)

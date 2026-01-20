@@ -167,8 +167,11 @@ class VerticalsHandler(BaseHandler):
                 "total": len(verticals),
             })
 
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Data error listing verticals: {e}")
+            return error_response(safe_error_message(e, "list verticals"), 400)
         except Exception as e:
-            logger.error(f"Failed to list verticals: {e}")
+            logger.exception(f"Unexpected error listing verticals: {e}")
             return error_response(safe_error_message(e, "list verticals"), 500)
 
     def _get_vertical(self, vertical_id: str) -> HandlerResult:
@@ -203,8 +206,11 @@ class VerticalsHandler(BaseHandler):
                 "tags": config.tags,
             })
 
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning(f"Data error getting vertical {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "get vertical"), 400)
         except Exception as e:
-            logger.error(f"Failed to get vertical {vertical_id}: {e}")
+            logger.exception(f"Unexpected error getting vertical {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical"), 500)
 
     def _get_tools(self, vertical_id: str) -> HandlerResult:
@@ -228,8 +234,11 @@ class VerticalsHandler(BaseHandler):
                 "total_count": len(tools),
             })
 
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning(f"Data error getting tools for {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "get vertical tools"), 400)
         except Exception as e:
-            logger.error(f"Failed to get tools for {vertical_id}: {e}")
+            logger.exception(f"Unexpected error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 500)
 
     def _get_compliance(self, vertical_id: str, query_params: Dict[str, Any]) -> HandlerResult:
@@ -268,8 +277,11 @@ class VerticalsHandler(BaseHandler):
 
         except ImportError:
             return error_response("Compliance module not available", 503)
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning(f"Data error getting compliance for {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "get vertical compliance"), 400)
         except Exception as e:
-            logger.error(f"Failed to get compliance for {vertical_id}: {e}")
+            logger.exception(f"Unexpected error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
     def _suggest_vertical(self, query_params: Dict[str, Any]) -> HandlerResult:
@@ -305,8 +317,11 @@ class VerticalsHandler(BaseHandler):
                 "task": task,
             })
 
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.warning(f"Data error suggesting vertical: {e}")
+            return error_response(safe_error_message(e, "suggest vertical"), 400)
         except Exception as e:
-            logger.error(f"Failed to suggest vertical: {e}")
+            logger.exception(f"Unexpected error suggesting vertical: {e}")
             return error_response(safe_error_message(e, "suggest vertical"), 500)
 
     async def _create_debate(self, vertical_id: str, handler: Any) -> HandlerResult:
@@ -388,8 +403,11 @@ class VerticalsHandler(BaseHandler):
         except ImportError as e:
             logger.error(f"Debate infrastructure not available: {e}")
             return error_response("Debate infrastructure not available", 503)
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid data for debate creation in {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "create vertical debate"), 400)
         except Exception as e:
-            logger.error(f"Failed to create debate for {vertical_id}: {e}")
+            logger.exception(f"Unexpected error creating debate for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical debate"), 500)
 
     def _create_agent(self, vertical_id: str, handler: Any) -> HandlerResult:
@@ -433,6 +451,9 @@ class VerticalsHandler(BaseHandler):
 
         except ValueError as e:
             return error_response(str(e), 400)
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error creating agent for {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "create vertical agent"), 400)
         except Exception as e:
-            logger.error(f"Failed to create agent for {vertical_id}: {e}")
+            logger.exception(f"Unexpected error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 500)

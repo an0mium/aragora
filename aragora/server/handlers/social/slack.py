@@ -83,8 +83,14 @@ def get_slack_integration() -> Optional[Any]:
             config = SlackConfig(webhook_url=SLACK_WEBHOOK_URL)
             _slack_integration = SlackIntegration(config)
             logger.info("Slack integration initialized")
+        except ImportError as e:
+            logger.warning(f"Slack integration module not available: {e}")
+            return None
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid Slack configuration: {e}")
+            return None
         except Exception as e:
-            logger.warning(f"Failed to initialize Slack integration: {e}")
+            logger.exception(f"Unexpected error initializing Slack integration: {e}")
             return None
     return _slack_integration
 
@@ -174,8 +180,11 @@ class SlackHandler(BaseHandler):
             # Timing-safe comparison
             return hmac.compare_digest(expected_sig, signature)
 
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid Slack signature format: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Signature verification error: {e}")
+            logger.exception(f"Unexpected signature verification error: {e}")
             return False
 
     def _get_status(self) -> HandlerResult:
@@ -303,8 +312,20 @@ class SlackHandler(BaseHandler):
                 response_type="ephemeral",
             )
 
+        except ImportError as e:
+            logger.warning(f"ELO system not available for status: {e}")
+            return self._slack_response(
+                "Status service temporarily unavailable",
+                response_type="ephemeral",
+            )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in status command: {e}")
+            return self._slack_response(
+                f"Error getting status: {str(e)[:100]}",
+                response_type="ephemeral",
+            )
         except Exception as e:
-            logger.error(f"Status command error: {e}")
+            logger.exception(f"Unexpected status command error: {e}")
             return self._slack_response(
                 f"Error getting status: {str(e)[:100]}",
                 response_type="ephemeral",
@@ -337,8 +358,20 @@ class SlackHandler(BaseHandler):
 
             return self._slack_response(text, response_type="ephemeral")
 
+        except ImportError as e:
+            logger.warning(f"ELO system not available for agents listing: {e}")
+            return self._slack_response(
+                "Agents service temporarily unavailable",
+                response_type="ephemeral",
+            )
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error in agents command: {e}")
+            return self._slack_response(
+                f"Error listing agents: {str(e)[:100]}",
+                response_type="ephemeral",
+            )
         except Exception as e:
-            logger.error(f"Agents command error: {e}")
+            logger.exception(f"Unexpected agents command error: {e}")
             return self._slack_response(
                 f"Error listing agents: {str(e)[:100]}",
                 response_type="ephemeral",
@@ -773,8 +806,10 @@ class SlackHandler(BaseHandler):
                         logger.warning(
                             f"Slack response_url POST failed: {response.status} - {text[:100]}"
                         )
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"Connection error posting to Slack response_url: {e}")
         except Exception as e:
-            logger.error(f"Failed to POST to response_url: {e}")
+            logger.exception(f"Unexpected error posting to Slack response_url: {e}")
 
     @auto_error_response("handle slack interactive")
     @rate_limit(rpm=60, limiter_name="slack_interactive")
@@ -816,8 +851,11 @@ class SlackHandler(BaseHandler):
             # Acknowledge the action
             return json_response({"text": "Action received"})
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid interactive payload data: {e}")
+            return json_response({"text": f"Error: {str(e)[:100]}"})
         except Exception as e:
-            logger.error(f"Interactive handler error: {e}", exc_info=True)
+            logger.exception(f"Unexpected interactive handler error: {e}")
             return json_response({"text": f"Error: {str(e)[:100]}"})
 
     def _handle_vote_action(self, payload: Dict[str, Any], action: Dict[str, Any]) -> HandlerResult:
@@ -1002,8 +1040,14 @@ class SlackHandler(BaseHandler):
             # Acknowledge unknown events
             return json_response({"ok": True})
 
+        except json.JSONDecodeError as e:
+            logger.warning(f"Invalid JSON in Slack event: {e}")
+            return json_response({"ok": True})  # Always 200 for events
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid event data: {e}")
+            return json_response({"ok": True})  # Always 200 for events
         except Exception as e:
-            logger.error(f"Events handler error: {e}", exc_info=True)
+            logger.exception(f"Unexpected events handler error: {e}")
             return json_response({"ok": True})  # Always 200 for events
 
     def _handle_app_mention(self, event: Dict[str, Any]) -> HandlerResult:
@@ -1076,8 +1120,10 @@ class SlackHandler(BaseHandler):
                     result = await response.json()
                     if not result.get("ok"):
                         logger.warning(f"Slack API error: {result.get('error')}")
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"Connection error posting Slack message: {e}")
         except Exception as e:
-            logger.error(f"Failed to post Slack message: {e}")
+            logger.exception(f"Unexpected error posting Slack message: {e}")
 
     def _handle_message_event(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app."""
@@ -1227,8 +1273,14 @@ class SlackHandler(BaseHandler):
             )
             await self._post_message_async(channel, response)
 
+        except ImportError as e:
+            logger.warning(f"Debate modules not available: {e}")
+            await self._post_message_async(channel, "Debate service temporarily unavailable")
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid debate request data: {e}")
+            await self._post_message_async(channel, f"Invalid request: {str(e)[:100]}")
         except Exception as e:
-            logger.error(f"DM debate creation failed: {e}", exc_info=True)
+            logger.exception(f"Unexpected DM debate creation error: {e}")
             await self._post_message_async(channel, f"Debate failed: {str(e)[:100]}")
 
     def _slack_response(

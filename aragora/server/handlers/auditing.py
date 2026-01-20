@@ -402,7 +402,14 @@ class AuditingHandler(BaseHandler):
                 }
             )
 
+        except ImportError as e:
+            logger.warning(f"Red team module not available: {e}")
+            return error_response("Red team module not available", 503)
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error getting attack types: {e}")
+            return error_response(safe_error_message(e, "get attack types"), 400)
         except Exception as e:
+            logger.exception(f"Unexpected error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 500)
 
     def _get_attack_category(self, attack_type) -> str:
@@ -563,8 +570,11 @@ class AuditingHandler(BaseHandler):
                 }
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid capability probe request data: {e}")
+            return error_response(_safe_error_message(e, "capability_probe"), 400)
         except Exception as e:
-            logger.error("Capability probe failed unexpectedly: %s", str(e), exc_info=True)
+            logger.exception(f"Unexpected capability probe error: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
     def _transform_probe_results(self, by_type: dict) -> dict:
@@ -742,8 +752,11 @@ class AuditingHandler(BaseHandler):
                 }
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid deep audit request data: {e}")
+            return error_response(_safe_error_message(e, "deep_audit"), 400)
         except Exception as e:
-            logger.error("Deep audit failed unexpectedly: %s", str(e), exc_info=True)
+            logger.exception(f"Unexpected deep audit error: {e}")
             return error_response(_safe_error_message(e, "deep_audit"), 500)
 
     def _get_audit_config(
@@ -942,10 +955,11 @@ class AuditingHandler(BaseHandler):
                 }
             )
 
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Invalid red team analysis request data for debate {debate_id}: {e}")
+            return error_response(_safe_error_message(e, "red_team_analysis"), 400)
         except Exception as e:
-            logger.error(
-                "Red team analysis failed: debate_id=%s, error=%s", debate_id, str(e), exc_info=True
-            )
+            logger.exception(f"Unexpected red team analysis error for debate {debate_id}: {e}")
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 
     # _read_json_body moved to BaseHandler.read_json_body

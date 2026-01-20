@@ -60,8 +60,11 @@ def _verify_discord_signature(
         return True
     except BadSignature:
         return False
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Invalid signature format: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Signature verification error: {e}")
+        logger.exception(f"Unexpected signature verification error: {e}")
         return False
 
 
@@ -161,12 +164,24 @@ class DiscordHandler(BaseHandler):
                 },
             })
 
-        except Exception as e:
-            logger.error(f"Discord interaction error: {e}", exc_info=True)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Discord interaction: {e}")
+            return error_response("Invalid JSON payload", 400)
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Data error in Discord interaction: {e}")
             return json_response({
                 "type": 4,
                 "data": {
-                    "content": f"Error processing interaction: {str(e)[:100]}",
+                    "content": f"Invalid request data: {str(e)[:100]}",
+                    "flags": 64,
+                },
+            })
+        except Exception as e:
+            logger.exception(f"Unexpected Discord interaction error: {e}")
+            return json_response({
+                "type": 4,
+                "data": {
+                    "content": "An unexpected error occurred",
                     "flags": 64,
                 },
             })
@@ -333,8 +348,10 @@ class DiscordHandler(BaseHandler):
                             vote=vote,
                             source="discord",
                         )
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.warning(f"Failed to record vote due to data error: {e}")
                 except Exception as e:
-                    logger.warning(f"Failed to record vote: {e}")
+                    logger.exception(f"Unexpected error recording vote: {e}")
 
                 emoji = "thumbsup" if vote == "agree" else "thumbsdown"
                 return json_response({
