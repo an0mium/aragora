@@ -25,6 +25,7 @@ from .base import (
     handle_errors,
     json_response,
     require_user_auth,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,8 +110,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except ValueError:
             return error_response(f"Invalid time_range: {time_range_str}", 400)
         except Exception as e:
-            logger.error(f"Failed to get analytics summary: {e}")
-            return error_response(f"Failed to get summary: {str(e)}", 500)
+            return error_response(safe_error_message(e, "analytics summary"), 500)
 
     @require_user_auth
     @handle_errors("get finding trends")
@@ -170,8 +170,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except ValueError as e:
             return error_response(f"Invalid parameter: {e}", 400)
         except Exception as e:
-            logger.error(f"Failed to get finding trends: {e}")
-            return error_response(f"Failed to get trends: {str(e)}", 500)
+            return error_response(safe_error_message(e, "finding trends"), 500)
 
     @require_user_auth
     @handle_errors("get remediation metrics")
@@ -216,8 +215,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Failed to get remediation metrics: {e}")
-            return error_response(f"Failed to get metrics: {str(e)}", 500)
+            return error_response(safe_error_message(e, "remediation metrics"), 500)
 
     @require_user_auth
     @handle_errors("get agent metrics")
@@ -267,8 +265,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Failed to get agent metrics: {e}")
-            return error_response(f"Failed to get metrics: {str(e)}", 500)
+            return error_response(safe_error_message(e, "agent metrics"), 500)
 
     @require_user_auth
     @handle_errors("get cost metrics")
@@ -312,8 +309,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Failed to get cost metrics: {e}")
-            return error_response(f"Failed to get metrics: {str(e)}", 500)
+            return error_response(safe_error_message(e, "cost metrics"), 500)
 
     @require_user_auth
     @handle_errors("get compliance scorecard")
@@ -361,8 +357,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Failed to get compliance scorecard: {e}")
-            return error_response(f"Failed to get scorecard: {str(e)}", 500)
+            return error_response(safe_error_message(e, "compliance scorecard"), 500)
 
     @require_user_auth
     @handle_errors("get risk heatmap")
@@ -410,5 +405,4 @@ class AnalyticsDashboardHandler(BaseHandler):
             )
 
         except Exception as e:
-            logger.error(f"Failed to get risk heatmap: {e}")
-            return error_response(f"Failed to get heatmap: {str(e)}", 500)
+            return error_response(safe_error_message(e, "risk heatmap"), 500)

@@ -29,8 +29,12 @@ from ..base import (
     error_response,
     json_response,
 )
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for Gmail endpoints (20 requests per minute - OAuth + sync operations)
+_gmail_limiter = RateLimiter(requests_per_minute=20)
 
 # In-memory token storage per user (use Redis/DB in production)
 _user_tokens: Dict[str, Dict[str, Any]] = {}
@@ -141,6 +145,12 @@ class GmailIngestHandler(BaseHandler):
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route GET requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _gmail_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Extract user_id from auth (simplified - use real auth in production)
         user_id = query_params.get("user_id", "default")
 
@@ -173,6 +183,12 @@ class GmailIngestHandler(BaseHandler):
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route POST requests."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _gmail_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Extract user_id from body or auth
         user_id = body.get("user_id", "default")
 

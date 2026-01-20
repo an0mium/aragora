@@ -107,6 +107,14 @@ AdminHandler: HandlerType = None
 ControlPlaneHandler: HandlerType = None
 KnowledgeHandler: HandlerType = None
 KnowledgeMoundHandler: HandlerType = None
+PolicyHandler: HandlerType = None
+QueueHandler: HandlerType = None
+RLMContextHandler: HandlerType = None
+TrainingHandler: HandlerType = None
+TranscriptionHandler: HandlerType = None
+UncertaintyHandler: HandlerType = None
+VerticalsHandler: HandlerType = None
+WorkspaceHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -300,6 +308,30 @@ try:
     from aragora.server.handlers import (
         WorkflowHandler as _WorkflowHandler,
     )
+    from aragora.server.handlers import (
+        PolicyHandler as _PolicyHandler,
+    )
+    from aragora.server.handlers import (
+        QueueHandler as _QueueHandler,
+    )
+    from aragora.server.handlers import (
+        RLMContextHandler as _RLMContextHandler,
+    )
+    from aragora.server.handlers import (
+        TrainingHandler as _TrainingHandler,
+    )
+    from aragora.server.handlers import (
+        TranscriptionHandler as _TranscriptionHandler,
+    )
+    from aragora.server.handlers import (
+        UncertaintyHandler as _UncertaintyHandler,
+    )
+    from aragora.server.handlers import (
+        VerticalsHandler as _VerticalsHandler,
+    )
+    from aragora.server.handlers import (
+        WorkspaceHandler as _WorkspaceHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -364,6 +396,14 @@ try:
     ControlPlaneHandler = _ControlPlaneHandler
     KnowledgeHandler = _KnowledgeHandler
     KnowledgeMoundHandler = _KnowledgeMoundHandler
+    PolicyHandler = _PolicyHandler
+    QueueHandler = _QueueHandler
+    RLMContextHandler = _RLMContextHandler
+    TrainingHandler = _TrainingHandler
+    TranscriptionHandler = _TranscriptionHandler
+    UncertaintyHandler = _UncertaintyHandler
+    VerticalsHandler = _VerticalsHandler
+    WorkspaceHandler = _WorkspaceHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -443,6 +483,14 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_control_plane_handler", ControlPlaneHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),
+    ("_policy_handler", PolicyHandler),
+    ("_queue_handler", QueueHandler),
+    ("_rlm_context_handler", RLMContextHandler),
+    ("_training_handler", TrainingHandler),
+    ("_transcription_handler", TranscriptionHandler),
+    ("_uncertainty_handler", UncertaintyHandler),
+    ("_verticals_handler", VerticalsHandler),
+    ("_workspace_handler", WorkspaceHandler),
 ]
 
 
@@ -532,6 +580,14 @@ class RouteIndex:
             "_control_plane_handler": ["/api/control-plane/"],
             "_knowledge_handler": ["/api/knowledge/"],
             "_knowledge_mound_handler": ["/api/knowledge/mound/"],
+            "_policy_handler": ["/api/policies", "/api/compliance/"],
+            "_queue_handler": ["/api/queue/"],
+            "_rlm_context_handler": ["/api/rlm/"],
+            "_training_handler": ["/api/training/"],
+            "_transcription_handler": ["/api/transcription/", "/api/transcribe/"],
+            "_uncertainty_handler": ["/api/uncertainty/"],
+            "_verticals_handler": ["/api/verticals"],
+            "_workspace_handler": ["/api/workspaces", "/api/retention/", "/api/classify", "/api/audit/"],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:

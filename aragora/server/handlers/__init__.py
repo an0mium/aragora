@@ -129,6 +129,7 @@ from .social import SlackHandler  # Moved to social/
 from .social import SocialMediaHandler
 from .admin import SystemHandler  # Moved to admin/
 from .tournaments import TournamentHandler
+from .training import TrainingHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler
 from .workflows import WorkflowHandler
@@ -217,6 +218,7 @@ ALL_HANDLERS = [
     VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
     WorkflowHandler,  # Enterprise workflow engine API
+    TrainingHandler,  # RLM training data collection API
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
     TeamsHandler,  # Microsoft Teams Bot Framework
@@ -261,6 +263,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "OAuthHandler": Stability.STABLE,  # OAuth flow tests, Google integration
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
     "TranscriptionHandler": Stability.EXPERIMENTAL,  # Speech-to-text transcription - new
+    "TrainingHandler": Stability.EXPERIMENTAL,  # RLM training data collection - new
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
     "PulseHandler": Stability.STABLE,  # Trending topics API
     "GalleryHandler": Stability.STABLE,  # Consensus gallery
@@ -443,6 +446,7 @@ __all__ = [
     "VerticalsHandler",
     "WorkspaceHandler",
     "WorkflowHandler",
+    "TrainingHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",

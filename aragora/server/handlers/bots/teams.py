@@ -198,7 +198,7 @@ class TeamsHandler(BaseHandler):
             finally:
                 loop.close()
 
-            return json_response(response_body, status_code=response_status)
+            return json_response(response_body, status=response_status)
 
         except Exception as e:
             logger.error(f"Teams message error: {e}", exc_info=True)

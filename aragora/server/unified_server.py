@@ -12,7 +12,7 @@ import os
 import re
 import sqlite3
 from html import escape as html_escape
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from typing import TYPE_CHECKING, Optional
@@ -931,7 +931,8 @@ class UnifiedServer:
 
         for attempt in range(max_retries):
             try:
-                server = HTTPServer((self.http_host, self.http_port), UnifiedHandler)
+                # Use ThreadingHTTPServer for concurrent request handling
+                server = ThreadingHTTPServer((self.http_host, self.http_port), UnifiedHandler)
 
                 # Configure SSL if cert and key are provided
                 if self.ssl_enabled:

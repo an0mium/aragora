@@ -42,6 +42,7 @@ class HealthHandler(BaseHandler):
         "/api/health/detailed",
         "/api/health/deep",
         "/api/health/stores",
+        "/api/health/sync",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -59,6 +60,7 @@ class HealthHandler(BaseHandler):
             "/api/health/detailed": self._detailed_health_check,
             "/api/health/deep": self._deep_health_check,
             "/api/health/stores": self._database_stores_health,
+            "/api/health/sync": self._sync_status,
         }
 
         endpoint_handler = handlers.get(path)
@@ -961,3 +963,59 @@ class HealthHandler(BaseHandler):
                 "timestamp": datetime.utcnow().isoformat() + "Z",
             }
         )
+
+    def _sync_status(self) -> HandlerResult:
+        """Get Supabase sync service status.
+
+        Returns status of the background sync service including:
+        - enabled: Whether sync is enabled via SUPABASE_SYNC_ENABLED
+        - running: Whether the background thread is running
+        - queue_size: Number of items pending sync
+        - synced_count: Total items successfully synced
+        - failed_count: Total items that failed after max retries
+        - last_sync_at: Timestamp of last sync attempt
+        - last_error: Most recent error message (if any)
+
+        Returns:
+            JSON response with sync service status
+        """
+        try:
+            from aragora.persistence.sync_service import get_sync_service
+
+            sync = get_sync_service()
+            status = sync.get_status()
+
+            return json_response(
+                {
+                    "enabled": status.enabled,
+                    "running": status.running,
+                    "queue_size": status.queue_size,
+                    "synced_count": status.synced_count,
+                    "failed_count": status.failed_count,
+                    "last_sync_at": (
+                        status.last_sync_at.isoformat() + "Z"
+                        if status.last_sync_at
+                        else None
+                    ),
+                    "last_error": status.last_error,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+
+        except ImportError:
+            return json_response(
+                {
+                    "enabled": False,
+                    "error": "sync_service module not available",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Sync status check failed: {e}")
+            return json_response(
+                {
+                    "enabled": False,
+                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )

@@ -24,6 +24,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
@@ -273,7 +274,7 @@ class TranscriptionHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Transcription failed: {e}", exc_info=True)
-            return error_response(f"Transcription failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_video_transcription(self, handler) -> HandlerResult:
         """Handle video file transcription (extract audio and transcribe)."""
@@ -354,7 +355,7 @@ class TranscriptionHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Video transcription failed: {e}", exc_info=True)
-            return error_response(f"Transcription failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_youtube_transcription(self, handler) -> HandlerResult:
         """Handle YouTube video transcription."""
@@ -437,7 +438,7 @@ class TranscriptionHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"YouTube transcription failed: {e}", exc_info=True)
-            return error_response(f"Transcription failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "transcription"), 500)
 
     def _handle_youtube_info(self, handler) -> HandlerResult:
         """Get YouTube video info without transcribing."""
@@ -486,7 +487,7 @@ class TranscriptionHandler(BaseHandler):
             return error_response(str(e), 400)
         except Exception as e:
             logger.error(f"Failed to get YouTube info: {e}", exc_info=True)
-            return error_response(f"Failed to get video info: {str(e)}", 500)
+            return error_response(safe_error_message(e, "video info"), 500)
 
     def _parse_multipart(
         self, handler, content_type: str

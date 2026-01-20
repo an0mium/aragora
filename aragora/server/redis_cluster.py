@@ -44,7 +44,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
-    from aragora.typing import RedisClientProtocol
+    from aragora.type_protocols import RedisClientProtocol
 
 logger = logging.getLogger(__name__)
 

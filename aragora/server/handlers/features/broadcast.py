@@ -69,7 +69,7 @@ class BroadcastHandler(BaseHandler):
     ROUTES = [
         "/api/debates/*/broadcast",
         "/api/debates/*/broadcast/full",
-        "/api/podcast/feed.xml",
+        # Note: /api/podcast/feed.xml is handled by AudioHandler
     ]
 
     # Cached pipeline instance
@@ -79,14 +79,10 @@ class BroadcastHandler(BaseHandler):
         """Check if this handler can handle the request."""
         if path.startswith("/api/debates/") and "/broadcast" in path:
             return True
-        if path == "/api/podcast/feed.xml":
-            return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
-        """Handle GET requests."""
-        if path == "/api/podcast/feed.xml":
-            return self._get_rss_feed()
+        """Handle GET requests (none for this handler - POST only)."""
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
@@ -167,31 +163,6 @@ class BroadcastHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
             return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
-
-    def _get_rss_feed(self) -> HandlerResult:
-        """Get the RSS podcast feed."""
-        pipeline = self._get_pipeline()
-        if not pipeline:
-            return error_response("Broadcast pipeline not available", status=503)
-
-        feed_xml = pipeline.get_rss_feed()
-        if not feed_xml:
-            # Return empty feed if no episodes yet
-            try:
-                from aragora.broadcast.rss_gen import PodcastConfig, PodcastFeedGenerator
-
-                config = PodcastConfig()
-                generator = PodcastFeedGenerator(config)
-                feed_xml = generator.generate_feed([])
-            except ImportError:
-                return error_response("RSS generator not available", status=503)
-
-        # Return XML with correct content type
-        return HandlerResult(
-            status_code=200,
-            content_type="application/rss+xml; charset=utf-8",
-            body=feed_xml.encode("utf-8"),
-        )
 
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:

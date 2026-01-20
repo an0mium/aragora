@@ -36,11 +36,14 @@ try:
         error_response,
         json_response,
     )
-    from ..utils.rate_limit import rate_limit
+    from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
     HANDLER_BASE_AVAILABLE = True
+    # Rate limiter for chat webhook endpoints (60 requests per minute)
+    _chat_limiter = RateLimiter(requests_per_minute=60)
 except ImportError:
     HANDLER_BASE_AVAILABLE = False
+    _chat_limiter = None
     logger.warning("Handler base not available - ChatRouter will have limited functionality")
 
 
@@ -461,6 +464,13 @@ if HANDLER_BASE_AVAILABLE:
             self, path: str, body: Dict[str, Any], handler: Any
         ) -> Optional[HandlerResult]:
             """Handle POST requests (webhooks)."""
+            # Rate limit check
+            if _chat_limiter is not None:
+                client_ip = get_client_ip(handler)
+                if not _chat_limiter.is_allowed(client_ip):
+                    logger.warning(f"Rate limit exceeded for chat webhook: {client_ip}")
+                    return error_response("Rate limit exceeded. Please try again later.", 429)
+
             # Get headers
             headers = {k: v for k, v in handler.headers.items()}
 

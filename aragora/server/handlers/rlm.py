@@ -24,6 +24,7 @@ from .base import (
     handle_errors,
     json_response,
     require_auth,
+    safe_error_message,
 )
 from .utils.rate_limit import rate_limit
 
@@ -405,8 +406,7 @@ class RLMContextHandler(BaseHandler):
             })
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
-            logger.error(f"Compression failed: {e}")
-            return error_response(f"Compression failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "compression"), 500)
 
     @require_auth
     @rate_limit(rpm=30, limiter_name="rlm_query")
@@ -514,8 +514,7 @@ class RLMContextHandler(BaseHandler):
             })
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
-            logger.error(f"Query failed: {e}")
-            return error_response(f"Query failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "query"), 500)
 
     def _fallback_query(
         self,

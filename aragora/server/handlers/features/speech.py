@@ -23,12 +23,17 @@ from typing import Optional
 from ..base import (
     BaseHandler,
     HandlerResult,
+    error_response,
     handle_errors,
     json_response,
     require_user_auth,
 )
+from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for speech endpoints (10 requests per minute - resource intensive)
+_speech_limiter = RateLimiter(requests_per_minute=10)
 
 # File size limits
 MAX_FILE_SIZE_MB = 25
@@ -59,6 +64,12 @@ class SpeechHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests."""
+        # Rate limit check for resource-intensive speech operations
+        client_ip = get_client_ip(handler)
+        if not _speech_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for speech endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/speech/transcribe":
             return self._transcribe_upload(handler, query_params)
         elif path == "/api/speech/transcribe-url":

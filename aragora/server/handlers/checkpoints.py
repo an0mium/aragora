@@ -34,8 +34,12 @@ from .base import (
     json_response,
     safe_json_parse,
 )
+from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for checkpoint endpoints (30 requests per minute)
+_checkpoint_limiter = RateLimiter(requests_per_minute=30)
 
 
 class CheckpointHandler(BaseHandler):
@@ -76,6 +80,12 @@ class CheckpointHandler(BaseHandler):
         body: Optional[bytes] = None,
     ) -> HandlerResult:
         """Route checkpoint requests to appropriate method."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _checkpoint_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for checkpoint endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         method = handler.command
 
         # GET /api/checkpoints
