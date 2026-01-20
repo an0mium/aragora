@@ -424,6 +424,14 @@ import {
   TraverseGraphResponse,
   SearchChunksRequest,
   SearchChunksResponse,
+  // Connector types
+  ListConnectorsResponse,
+  SyncStatusResponse,
+  TriggerSyncResponse,
+  ConnectorHealthResponse,
+  MongoAggregateRequest,
+  MongoAggregateResponse,
+  MongoCollectionsResponse,
 } from './types';
 
 // =============================================================================
@@ -5094,6 +5102,88 @@ class KnowledgeAPI {
 }
 
 // =============================================================================
+// Connectors API
+// =============================================================================
+
+class ConnectorsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all registered connectors.
+   * @param tenantId - Tenant ID (default: 'default')
+   */
+  async list(tenantId = 'default'): Promise<ListConnectorsResponse> {
+    const params = new URLSearchParams({ tenant_id: tenantId });
+    return this.http.get<ListConnectorsResponse>(`/api/connectors?${params}`);
+  }
+
+  /**
+   * Get connector sync status.
+   * @param connectorId - Connector ID
+   * @param tenantId - Tenant ID
+   */
+  async getStatus(connectorId: string, tenantId = 'default'): Promise<SyncStatusResponse> {
+    const params = new URLSearchParams({ tenant_id: tenantId });
+    return this.http.get<SyncStatusResponse>(
+      `/api/connectors/${encodeURIComponent(connectorId)}/sync/status?${params}`
+    );
+  }
+
+  /**
+   * Trigger a sync operation.
+   * @param connectorId - Connector ID
+   * @param options - Sync options
+   */
+  async triggerSync(
+    connectorId: string,
+    options: { fullSync?: boolean; tenantId?: string } = {}
+  ): Promise<TriggerSyncResponse> {
+    const params = new URLSearchParams({ tenant_id: options.tenantId ?? 'default' });
+    return this.http.post<TriggerSyncResponse>(
+      `/api/connectors/${encodeURIComponent(connectorId)}/sync?${params}`,
+      { full_sync: options.fullSync ?? false }
+    );
+  }
+
+  /**
+   * Get connector health status.
+   */
+  async health(): Promise<ConnectorHealthResponse> {
+    return this.http.get<ConnectorHealthResponse>('/api/connectors/health');
+  }
+
+  /**
+   * Execute MongoDB aggregation pipeline.
+   * @param connectorId - MongoDB connector ID
+   * @param request - Aggregation request
+   * @param tenantId - Tenant ID
+   */
+  async mongoAggregate(
+    connectorId: string,
+    request: MongoAggregateRequest,
+    tenantId = 'default'
+  ): Promise<MongoAggregateResponse> {
+    const params = new URLSearchParams({ tenant_id: tenantId });
+    return this.http.post<MongoAggregateResponse>(
+      `/api/connectors/${encodeURIComponent(connectorId)}/aggregate?${params}`,
+      request
+    );
+  }
+
+  /**
+   * List MongoDB collections.
+   * @param connectorId - MongoDB connector ID
+   * @param tenantId - Tenant ID
+   */
+  async mongoCollections(connectorId: string, tenantId = 'default'): Promise<MongoCollectionsResponse> {
+    const params = new URLSearchParams({ tenant_id: tenantId });
+    return this.http.get<MongoCollectionsResponse>(
+      `/api/connectors/${encodeURIComponent(connectorId)}/collections?${params}`
+    );
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -5127,6 +5217,7 @@ export class AragoraClient {
   readonly admin: AdminAPI;
   readonly dashboard: DashboardAPI;
   readonly system: SystemAPI;
+  readonly connectors: ConnectorsAPI;
   readonly features: FeaturesAPI;
   readonly checkpoints: CheckpointsAPI;
   readonly webhooks: WebhooksAPI;
@@ -5222,6 +5313,7 @@ export class AragoraClient {
     this.controlPlane = new ControlPlaneAPI(this.http);
     this.workflows = new WorkflowsAPI(this.http);
     this.knowledge = new KnowledgeAPI(this.http);
+    this.connectors = new ConnectorsAPI(this.http);
   }
 
   /**

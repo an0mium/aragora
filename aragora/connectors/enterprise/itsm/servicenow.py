@@ -644,10 +644,45 @@ class ServiceNowConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
-        """Handle ServiceNow webhook notification (Business Rule)."""
-        # ServiceNow webhooks are typically custom Business Rules
-        # that POST to our endpoint on record changes
+    async def handle_webhook(
+        self,
+        payload: Dict[str, Any],
+        signature: Optional[str] = None,
+        timestamp: Optional[str] = None,
+    ) -> bool:
+        """
+        Handle ServiceNow webhook notification (Business Rule).
+
+        Args:
+            payload: Webhook payload from ServiceNow
+            signature: HMAC-SHA256 signature header (X-ServiceNow-Signature)
+            timestamp: Request timestamp for replay protection (X-ServiceNow-Timestamp)
+
+        Returns:
+            True if webhook was processed successfully
+        """
+        # Verify signature if secret is configured
+        secret = self.get_webhook_secret()
+        if secret:
+            if not signature:
+                logger.warning(f"[{self.name}] Webhook missing signature")
+                return False
+
+            if not self.verify_webhook_signature(payload, signature, secret):
+                logger.warning(f"[{self.name}] Webhook signature verification failed")
+                return False
+
+            # Replay protection: reject requests older than 5 minutes
+            if timestamp:
+                try:
+                    import time
+                    request_time = float(timestamp)
+                    if abs(time.time() - request_time) > 300:
+                        logger.warning(f"[{self.name}] Webhook timestamp too old")
+                        return False
+                except (ValueError, TypeError):
+                    pass
+
         table = payload.get("table_name", "")
         sys_id = payload.get("sys_id", "")
         operation = payload.get("operation", "")
@@ -661,10 +696,123 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return False
 
+    def verify_webhook_signature(
+        self,
+        payload: Dict[str, Any],
+        signature: str,
+        secret: str,
+    ) -> bool:
+        """
+        Verify HMAC-SHA256 signature from ServiceNow webhook.
+
+        ServiceNow Business Rules can be configured to sign payloads
+        using a shared secret.
+
+        Args:
+            payload: Webhook payload
+            signature: Base64-encoded HMAC-SHA256 signature
+            secret: Shared secret key
+
+        Returns:
+            True if signature is valid
+        """
+        import hashlib
+        import hmac
+        import json
+
+        try:
+            # Serialize payload consistently
+            payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+            expected = hmac.new(
+                secret.encode(),
+                payload_bytes,
+                hashlib.sha256,
+            ).digest()
+
+            # Compare with provided signature (base64 or hex)
+            try:
+                provided = base64.b64decode(signature)
+            except Exception:
+                provided = bytes.fromhex(signature)
+
+            return hmac.compare_digest(expected, provided)
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Signature verification error: {e}")
+            return False
+
     def get_webhook_secret(self) -> Optional[str]:
         """Get webhook secret for signature verification."""
         import os
         return os.environ.get("SERVICENOW_WEBHOOK_SECRET")
+
+    async def resolve_reference(
+        self,
+        table: str,
+        sys_id: str,
+        fields: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Resolve a reference field to its full record.
+
+        Args:
+            table: Target table name
+            sys_id: sys_id of the referenced record
+            fields: Fields to retrieve (None = all)
+
+        Returns:
+            Record data or None if not found
+        """
+        if not sys_id:
+            return None
+
+        params: Dict[str, Any] = {
+            "sysparm_query": f"sys_id={sys_id}",
+            "sysparm_limit": 1,
+        }
+
+        if fields:
+            params["sysparm_fields"] = ",".join(fields)
+            params["sysparm_display_value"] = "all"
+
+        try:
+            async with self._client.get(
+                f"{self.instance_url}/api/now/table/{table}",
+                headers=self._get_headers(),
+                params=params,
+            ) as resp:
+                if resp.status_code == 200:
+                    data = resp.json()
+                    results = data.get("result", [])
+                    return results[0] if results else None
+        except Exception as e:
+            logger.error(f"[{self.name}] Reference resolution failed: {e}")
+
+        return None
+
+    async def get_user_details(self, user_sys_id: str) -> Optional[Dict[str, str]]:
+        """
+        Get user details from sys_user table.
+
+        Args:
+            user_sys_id: User's sys_id
+
+        Returns:
+            Dict with user_id, name, email, department
+        """
+        record = await self.resolve_reference(
+            "sys_user",
+            user_sys_id,
+            ["user_name", "name", "email", "department"],
+        )
+        if record:
+            return {
+                "user_id": record.get("user_name", {}).get("value", ""),
+                "name": record.get("name", {}).get("display_value", ""),
+                "email": record.get("email", {}).get("value", ""),
+                "department": record.get("department", {}).get("display_value", ""),
+            }
+        return None
 
 
 __all__ = ["ServiceNowConnector", "ServiceNowRecord", "ServiceNowComment", "SERVICENOW_TABLES"]

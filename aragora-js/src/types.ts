@@ -4854,3 +4854,156 @@ export interface SearchChunksResponse {
   }>;
   count: number;
 }
+
+// =============================================================================
+// Enterprise Connector Types
+// =============================================================================
+
+/** Connector types supported by the platform */
+export type ConnectorType =
+  | 'github'
+  | 's3'
+  | 'postgres'
+  | 'mongodb'
+  | 'fhir'
+  | 'servicenow'
+  | 'confluence'
+  | 'notion'
+  | 'slack';
+
+/** Sync schedule configuration */
+export interface SyncSchedule {
+  cron?: string;
+  interval_minutes?: number;
+  enabled: boolean;
+}
+
+/** Connector job info */
+export interface ConnectorJob {
+  id: string;
+  connector_id: string;
+  tenant_id: string;
+  schedule: SyncSchedule;
+  last_run?: string;
+  next_run?: string;
+  status: 'idle' | 'running' | 'failed';
+}
+
+/** List connectors response */
+export interface ListConnectorsResponse {
+  connectors: ConnectorJob[];
+}
+
+/** Sync status response */
+export interface SyncStatusResponse {
+  connector_id: string;
+  is_running: boolean;
+  last_run?: string;
+  last_status?: 'success' | 'failed' | 'cancelled';
+  items_synced?: number;
+  error?: string;
+}
+
+/** Trigger sync response */
+export interface TriggerSyncResponse {
+  run_id: string;
+  connector_id: string;
+  status: 'started';
+  full_sync: boolean;
+}
+
+// =============================================================================
+// MongoDB Aggregation Types
+// =============================================================================
+
+/** MongoDB aggregation stage */
+export type MongoAggregationStage = Record<string, unknown>;
+
+/** MongoDB aggregation request */
+export interface MongoAggregateRequest {
+  /** Collection to aggregate */
+  collection: string;
+  /** Aggregation pipeline stages */
+  pipeline: MongoAggregationStage[];
+  /** Maximum results to return (default: 1000) */
+  limit?: number;
+  /** Return explain plan instead of results */
+  explain?: boolean;
+}
+
+/** MongoDB aggregation response */
+export interface MongoAggregateResponse {
+  connector_id: string;
+  collection: string;
+  pipeline_stages: number;
+  result_count: number;
+  results: Record<string, unknown>[];
+  /** Explain plan (when explain=true) */
+  explain?: Record<string, unknown>;
+}
+
+/** MongoDB collections list response */
+export interface MongoCollectionsResponse {
+  connector_id: string;
+  database: string;
+  collections: string[];
+}
+
+// =============================================================================
+// ServiceNow Types
+// =============================================================================
+
+/** ServiceNow table types */
+export type ServiceNowTable =
+  | 'incident'
+  | 'problem'
+  | 'change_request'
+  | 'sc_req_item'
+  | 'kb_knowledge';
+
+/** ServiceNow record base fields */
+export interface ServiceNowRecord {
+  sys_id: string;
+  number: string;
+  table: ServiceNowTable;
+  short_description: string;
+  description?: string;
+  state?: string;
+  priority?: string;
+  urgency?: string;
+  impact?: string;
+  assigned_to?: string;
+  caller_id?: string;
+  category?: string;
+  sys_created_on?: string;
+  sys_updated_on?: string;
+}
+
+/** ServiceNow webhook payload */
+export interface ServiceNowWebhookPayload {
+  table_name: string;
+  sys_id: string;
+  operation: 'insert' | 'update' | 'delete';
+  fields?: Record<string, unknown>;
+}
+
+/** ServiceNow user details */
+export interface ServiceNowUser {
+  user_id: string;
+  name: string;
+  email: string;
+  department?: string;
+}
+
+// =============================================================================
+// Connector Health Types
+// =============================================================================
+
+/** Connector subsystem health */
+export interface ConnectorHealthResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  scheduler_running: boolean;
+  total_connectors: number;
+  running_syncs: number;
+  success_rate: number;
+}

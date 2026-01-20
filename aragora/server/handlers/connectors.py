@@ -452,6 +452,119 @@ async def handle_get_workflow_template(
 
 
 # =============================================================================
+# MongoDB Aggregation Handlers
+# =============================================================================
+
+async def handle_mongodb_aggregate(
+    connector_id: str,
+    collection: str,
+    pipeline: list[Dict[str, Any]],
+    tenant_id: str = "default",
+    limit: int = 1000,
+    explain: bool = False,
+) -> Dict[str, Any]:
+    """
+    Execute MongoDB aggregation pipeline.
+
+    POST /api/connectors/:connector_id/aggregate
+    {
+        "collection": "users",
+        "pipeline": [
+            {"$match": {"status": "active"}},
+            {"$group": {"_id": "$department", "count": {"$sum": 1}}}
+        ],
+        "limit": 1000,
+        "explain": false
+    }
+
+    The pipeline supports all MongoDB aggregation stages:
+    - $match, $group, $sort, $limit, $skip
+    - $project, $unwind, $lookup, $facet
+    - $graphLookup, $bucket, $bucketAuto
+    - $addFields, $replaceRoot, $merge
+    """
+    from aragora.connectors.enterprise.registry import get_connector
+
+    connector = get_connector(connector_id, tenant_id=tenant_id)
+    if not connector:
+        raise ValueError(f"Connector not found: {connector_id}")
+
+    if not isinstance(connector, MongoDBConnector):
+        raise ValueError(f"Connector {connector_id} is not a MongoDB connector")
+
+    # Validate pipeline structure
+    if not isinstance(pipeline, list):
+        raise ValueError("Pipeline must be a list of stage documents")
+
+    for i, stage in enumerate(pipeline):
+        if not isinstance(stage, dict):
+            raise ValueError(f"Pipeline stage {i} must be a document")
+        if len(stage) == 0:
+            raise ValueError(f"Pipeline stage {i} is empty")
+
+    # Add limit stage if not present to prevent unbounded results
+    has_limit = any("$limit" in stage for stage in pipeline)
+    if not has_limit and limit > 0:
+        pipeline = pipeline + [{"$limit": limit}]
+
+    if explain:
+        # Return explain plan instead of results
+        await connector._get_client()
+        if connector._db is None:
+            raise RuntimeError("Database not initialized")
+
+        coll = connector._db[collection]
+        explain_result = await coll.aggregate(pipeline).explain()
+        return {
+            "connector_id": connector_id,
+            "collection": collection,
+            "explain": explain_result,
+        }
+
+    # Execute aggregation
+    results = await connector.aggregate(collection, pipeline)
+
+    return {
+        "connector_id": connector_id,
+        "collection": collection,
+        "pipeline_stages": len(pipeline),
+        "result_count": len(results),
+        "results": results,
+    }
+
+
+async def handle_mongodb_collections(
+    connector_id: str,
+    tenant_id: str = "default",
+) -> Dict[str, Any]:
+    """
+    List collections in MongoDB database.
+
+    GET /api/connectors/:connector_id/collections
+    """
+    from aragora.connectors.enterprise.registry import get_connector
+
+    connector = get_connector(connector_id, tenant_id=tenant_id)
+    if not connector:
+        raise ValueError(f"Connector not found: {connector_id}")
+
+    if not isinstance(connector, MongoDBConnector):
+        raise ValueError(f"Connector {connector_id} is not a MongoDB connector")
+
+    await connector._get_client()
+    if connector._db is None:
+        raise RuntimeError("Database not initialized")
+
+    collections = await connector._db.list_collection_names()
+
+    return {
+        "connector_id": connector_id,
+        "database": connector._database,
+        "collections": collections,
+    }
+
+
+# =============================================================================
 # Health Check
 # =============================================================================
 
