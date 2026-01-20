@@ -240,6 +240,9 @@ class RankingAdapter:
             }
         )
 
+        # Invalidate cache for this domain to ensure fresh data
+        self.invalidate_domain_cache(domain)
+
         logger.info(
             f"Stored expertise: {agent_name} in {domain} -> {elo} (confidence={confidence:.2f})"
         )
@@ -278,6 +281,7 @@ class RankingAdapter:
         domain: str,
         limit: int = 10,
         min_confidence: float = 0.0,
+        use_cache: bool = True,
     ) -> List[AgentExpertise]:
         """
         Get top experts for a domain.
@@ -286,10 +290,28 @@ class RankingAdapter:
             domain: Domain to query
             limit: Maximum experts to return
             min_confidence: Minimum confidence threshold
+            use_cache: Whether to use cached results (default: True)
 
         Returns:
             List of AgentExpertise sorted by ELO descending
         """
+        import time
+
+        # Check cache first
+        cache_key = f"{domain}:{limit}:{min_confidence}"
+        if use_cache and cache_key in self._domain_experts_cache:
+            timestamp, cached_results = self._domain_experts_cache[cache_key]
+            if time.time() - timestamp < self._cache_ttl_seconds:
+                self._cache_hits += 1
+                logger.debug(f"Cache hit for domain experts: {domain}")
+                return cached_results
+            else:
+                # Cache expired, remove it
+                del self._domain_experts_cache[cache_key]
+
+        self._cache_misses += 1
+
+        # Query fresh data
         agents = self._domain_agents.get(domain, [])
         results = []
 
@@ -311,8 +333,53 @@ class RankingAdapter:
 
         # Sort by ELO descending
         results.sort(key=lambda x: x.elo, reverse=True)
+        results = results[:limit]
 
-        return results[:limit]
+        # Cache results
+        if use_cache:
+            self._domain_experts_cache[cache_key] = (time.time(), results)
+            logger.debug(f"Cached domain experts for {domain}: {len(results)} results")
+
+        return results
+
+    def invalidate_domain_cache(self, domain: Optional[str] = None) -> int:
+        """
+        Invalidate the domain experts cache.
+
+        Args:
+            domain: If specified, only invalidate cache for this domain.
+                   If None, invalidate all cached entries.
+
+        Returns:
+            Number of cache entries invalidated
+        """
+        if domain is None:
+            count = len(self._domain_experts_cache)
+            self._domain_experts_cache.clear()
+            return count
+
+        # Invalidate entries for specific domain
+        keys_to_remove = [k for k in self._domain_experts_cache if k.startswith(f"{domain}:")]
+        for key in keys_to_remove:
+            del self._domain_experts_cache[key]
+        return len(keys_to_remove)
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics.
+
+        Returns:
+            Dict with cache_hits, cache_misses, cache_size, hit_rate
+        """
+        total = self._cache_hits + self._cache_misses
+        hit_rate = self._cache_hits / total if total > 0 else 0.0
+
+        return {
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "cache_size": len(self._domain_experts_cache),
+            "hit_rate": hit_rate,
+            "ttl_seconds": self._cache_ttl_seconds,
+        }
 
     def get_agent_history(
         self,

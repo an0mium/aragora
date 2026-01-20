@@ -1,6 +1,8 @@
 # Data Connectors Reference
 
-Evidence connectors ground debates in real-world data from external sources.
+Aragora is **omnivorous by design**—it ingests information from many sources to fuel multi-agent decision making. Evidence connectors ground debates in real-world data from external sources.
+
+**Input Sources**: Documents, APIs, databases, web searches, academic papers, news, social media, financial filings, and more.
 
 > **Full documentation**: See [Evidence System Guide](EVIDENCE.md) for detailed usage examples.
 

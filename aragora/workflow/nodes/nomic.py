@@ -108,7 +108,7 @@ class NomicLoopStep(BaseStep):
             # Map phase names to state machine states
 
             # Build phase instances
-            phase_instances = {}
+            phase_instances: Dict[str, Any] = {}
 
             if "context" in phases:
                 phase_instances["context"] = ContextPhase(  # type: ignore[call-arg]

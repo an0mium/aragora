@@ -1,8 +1,12 @@
 # Bot Integrations Guide
 
-> **Last Updated:** 2026-01-19
+> **Last Updated:** 2026-01-20
 
-This guide covers setting up Aragora bots for various chat platforms to enable bidirectional communication - running debates and gauntlet validations directly from your team's chat.
+Aragora is **omnivorous by design**—it communicates bidirectionally across multiple channels. Query from wherever you work; get multi-agent consensus delivered back to you.
+
+**Output Channels**: Web, Slack, Discord, Microsoft Teams, Zoom, WhatsApp Business, Telegram, API.
+
+This guide covers setting up Aragora bots for various chat platforms to enable bidirectional communication - running debates and receiving results directly from your team's chat.
 
 ## Table of Contents
 

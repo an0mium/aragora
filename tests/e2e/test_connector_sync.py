@@ -75,6 +75,7 @@ class TestGitHubConnectorE2E:
     async def test_github_sync_error_recovery(self, mock_github_api, tenant_a: TestTenant):
         """Test sync recovery from API errors."""
         from aragora.connectors.enterprise.git.github import GitHubEnterpriseConnector
+        import json
 
         connector = GitHubEnterpriseConnector(
             repo="test-org/test-repo",
@@ -87,25 +88,26 @@ class TestGitHubConnectorE2E:
 
         async def mock_run_gh_with_retry(args):
             call_count[0] += 1
-            if call_count[0] == 1:
+            if call_count[0] <= 2:  # First two calls fail (commit check)
                 raise ConnectionError("API temporarily unavailable")
             # Return valid commit response for subsequent calls
-            import json
-            if "commits/" in " ".join(args):
+            args_str = " ".join(args)
+            if "commits/" in args_str:
                 return "abc123"
+            if "/git/trees/" in args_str:
+                return json.dumps([])
             return json.dumps([])
 
         with patch.object(connector, "_run_gh", side_effect=mock_run_gh_with_retry):
             with patch.object(connector, "_check_gh_cli", return_value=True):
-                # Connector initializes on first sync
+                # First attempt should fail (returns SyncResult with success=False)
+                result1 = await connector.sync()
+                assert result1.success is False
+                assert len(result1.errors) > 0
 
-                # First attempt should fail
-                with pytest.raises(Exception):
-                    await connector.sync()
-
-                # Retry should succeed
-                result = await connector.sync()
-                assert result is not None
+                # Retry should succeed (after error clears)
+                result2 = await connector.sync()
+                assert result2 is not None
 
 
 # ============================================================================
