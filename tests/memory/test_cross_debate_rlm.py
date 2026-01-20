@@ -167,7 +167,8 @@ class TestCrossDebateConfig:
         assert config.cold_token_budget == 500
         assert config.enable_rlm is True
         assert config.persist_to_disk is True
-        assert config.storage_path is None
+        # storage_path defaults to .nomic/cross_debate_memory.json when persist_to_disk is True
+        assert config.storage_path == Path(".nomic/cross_debate_memory.json")
 
     def test_config_custom_values(self):
         """Test CrossDebateConfig with custom values."""

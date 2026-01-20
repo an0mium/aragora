@@ -190,6 +190,65 @@ class MemoryCoordinator:
         # Rollback handlers for each target
         self._rollback_handlers: Dict[str, Callable[[WriteOperation], Awaitable[bool]]] = {}
 
+        # Register default rollback handlers for available systems
+        self._register_default_rollback_handlers()
+
+    def _register_default_rollback_handlers(self) -> None:
+        """Register default rollback handlers for each memory system.
+
+        Handlers are only registered for systems that support deletion.
+        Systems without delete support log warnings during rollback.
+        """
+        # Continuum memory has delete() method
+        if self.continuum_memory:
+            self._rollback_handlers["continuum"] = self._rollback_continuum
+
+        # Knowledge mound has delete methods via semantic/graph stores
+        if self.knowledge_mound:
+            self._rollback_handlers["mound"] = self._rollback_mound
+
+        # Note: ConsensusMemory and CritiqueStore don't currently support deletion
+        # Rollback for these will log warnings (handled in _rollback_successful)
+
+    async def _rollback_continuum(self, op: WriteOperation) -> bool:
+        """Rollback a continuum memory write."""
+        if not self.continuum_memory or not op.result:
+            return False
+
+        try:
+            # op.result contains the entry_id returned from store_pattern
+            result = self.continuum_memory.delete(
+                memory_id=op.result,
+                archive=True,
+                reason="transaction_rollback",
+            )
+            return result.get("deleted", False)
+        except Exception as e:
+            logger.error("[coordinator] Continuum rollback failed: %s", e)
+            return False
+
+    async def _rollback_mound(self, op: WriteOperation) -> bool:
+        """Rollback a knowledge mound write."""
+        if not self.knowledge_mound or not op.result:
+            return False
+
+        try:
+            # op.result contains the item_id returned from ingest_debate_outcome
+            if hasattr(self.knowledge_mound, "delete_entry"):
+                return await self.knowledge_mound.delete_entry(
+                    km_id=op.result,
+                    archive=True,
+                    reason="transaction_rollback",
+                )
+            elif hasattr(self.knowledge_mound, "delete_node_async"):
+                return await self.knowledge_mound.delete_node_async(op.result)
+            else:
+                logger.warning("[coordinator] Mound has no delete method")
+                return False
+        except Exception as e:
+            logger.error("[coordinator] Mound rollback failed: %s", e)
+            return False
+
     async def commit_debate_outcome(
         self,
         ctx: "DebateContext",
