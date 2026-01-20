@@ -24,8 +24,11 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, cast
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +245,7 @@ class EvidenceCollector:
         require_url_consent: bool = False,
         url_consent_callback: Optional[Callable[[str, str], bool]] = None,
         audit_callback: Optional[Callable[[str, str, str, bool], None]] = None,
+        km_adapter: Optional["EvidenceAdapter"] = None,
     ):
         """Initialize the evidence collector.
 
@@ -259,6 +263,7 @@ class EvidenceCollector:
             audit_callback: Optional callback for audit logging of URL fetches.
                           Signature: (url: str, org_id: str, action: str, success: bool)
                           action is one of: "fetch", "blocked_ssrf", "blocked_domain", "blocked_consent"
+            km_adapter: Optional Knowledge Mound adapter for querying existing evidence
         """
         self.connectors = connectors or {}
         self.provenance_manager = ProvenanceManager()
@@ -273,6 +278,9 @@ class EvidenceCollector:
         self._url_consent_callback = url_consent_callback
         self._audit_callback = audit_callback
         self._org_id: Optional[str] = None  # Set via set_org_context()
+
+        # Knowledge Mound integration
+        self._km_adapter = km_adapter
 
         if require_url_consent and url_consent_callback is None:
             raise ValueError("url_consent_callback is required when require_url_consent=True")
@@ -298,6 +306,46 @@ class EvidenceCollector:
     def set_org_context(self, org_id: str) -> None:
         """Set the organization context for consent and audit tracking."""
         self._org_id = org_id
+
+    def set_km_adapter(self, adapter: "EvidenceAdapter") -> None:
+        """Set Knowledge Mound adapter for querying existing evidence.
+
+        Args:
+            adapter: EvidenceAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
+
+    def query_km_for_existing(
+        self,
+        topic: str,
+        limit: int = 10,
+        min_reliability: float = 0.6,
+    ) -> List[Dict[str, Any]]:
+        """Query Knowledge Mound for existing evidence on a topic.
+
+        This implements the query-before-action pattern, checking KM
+        for relevant evidence before collecting from external sources.
+
+        Args:
+            topic: Topic to search for
+            limit: Maximum results to return
+            min_reliability: Minimum reliability score
+
+        Returns:
+            List of existing evidence items from KM
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.search_by_topic(
+                query=topic,
+                limit=limit,
+                min_reliability=min_reliability,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to query KM for existing evidence: {e}")
+            return []
 
     def _check_url_consent(self, url: str) -> bool:
         """Check if URL fetch is allowed via consent gate.

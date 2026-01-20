@@ -61,7 +61,7 @@ class KnowledgePipelineStep(BaseStep):
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
-        self._pipeline = None
+        self._pipeline: Optional[Any] = None
         self._documents_processed = 0
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -111,18 +111,16 @@ class KnowledgePipelineStep(BaseStep):
 
             # Build pipeline configuration
             chunking_config = ChunkingConfig(
-                strategy=chunk_strategy,
                 chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
+                overlap=chunk_overlap,
             )
 
             pipeline_config = PipelineConfig(
                 workspace_id=workspace_id,
-                chunking=chunking_config,
-                embedding_model=embedding_model,
-                use_knowledge_mound=use_knowledge_mound,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                chunking_strategy=chunk_strategy,
                 extract_facts=extract_facts,
-                timeout_seconds=timeout_seconds,
             )
 
             # Create and start pipeline
@@ -251,7 +249,7 @@ class KnowledgePipelineStep(BaseStep):
         try:
             from aragora.connectors.web import WebConnector
 
-            connector = WebConnector(config=connector_config)
+            connector = WebConnector(**connector_config)  # type: ignore[arg-type]
             content = await connector.fetch(url)
 
             result = await self._pipeline.process_document(

@@ -307,7 +307,7 @@ class GauntletStep(BaseStep):
                 try:
                     persona = persona_class()
                     # Run compliance check
-                    check_result = await persona.evaluate(input_content)
+                    check_result = await persona.evaluate(input_content)  # type: ignore[attr-defined]
                     results.append(
                         {
                             "framework": framework,

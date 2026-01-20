@@ -365,6 +365,77 @@ class TestCruxDetectorKMFlow:
         assert detector._km_adapter is mock_adapter
 
 
+class TestEvidenceCollectorKMFlow:
+    """Tests for Evidence Collector ↔ Knowledge Mound bidirectional flow."""
+
+    def test_evidence_collector_has_km_adapter(self):
+        """Evidence collector accepts KM adapter."""
+        from aragora.evidence.collector import EvidenceCollector
+        from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+        mock_adapter = Mock(spec=EvidenceAdapter)
+        collector = EvidenceCollector(km_adapter=mock_adapter)
+
+        assert collector._km_adapter is mock_adapter
+
+    def test_evidence_collector_set_km_adapter(self):
+        """Evidence collector can set KM adapter after init."""
+        from aragora.evidence.collector import EvidenceCollector
+        from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+        collector = EvidenceCollector()
+        assert collector._km_adapter is None
+
+        mock_adapter = Mock(spec=EvidenceAdapter)
+        collector.set_km_adapter(mock_adapter)
+
+        assert collector._km_adapter is mock_adapter
+
+    def test_evidence_collector_queries_km_for_existing(self):
+        """Evidence collector can query KM for existing evidence."""
+        from aragora.evidence.collector import EvidenceCollector
+        from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+        mock_adapter = Mock(spec=EvidenceAdapter)
+        mock_adapter.search_by_topic.return_value = [
+            {"id": "ev_1", "snippet": "existing evidence"},
+        ]
+
+        collector = EvidenceCollector(km_adapter=mock_adapter)
+
+        # Query for existing evidence
+        results = collector.query_km_for_existing("AI safety")
+
+        mock_adapter.search_by_topic.assert_called_once_with(
+            query="AI safety",
+            limit=10,
+            min_reliability=0.6,
+        )
+        assert len(results) == 1
+
+    def test_evidence_collector_handles_km_failure_gracefully(self):
+        """Evidence collector handles KM query failures gracefully."""
+        from aragora.evidence.collector import EvidenceCollector
+        from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+        mock_adapter = Mock(spec=EvidenceAdapter)
+        mock_adapter.search_by_topic.side_effect = Exception("KM unavailable")
+
+        collector = EvidenceCollector(km_adapter=mock_adapter)
+
+        # Should not raise, returns empty list
+        results = collector.query_km_for_existing("AI safety")
+        assert results == []
+
+    def test_evidence_collector_returns_empty_without_adapter(self):
+        """Evidence collector returns empty results when no adapter."""
+        from aragora.evidence.collector import EvidenceCollector
+
+        collector = EvidenceCollector()
+        results = collector.query_km_for_existing("AI safety")
+        assert results == []
+
+
 class TestAdapterIntegration:
     """Tests for adapter cross-integration."""
 
