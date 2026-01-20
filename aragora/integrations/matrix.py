@@ -231,22 +231,22 @@ class MatrixIntegration:
         lines = [
             "ARAGORA DEBATE COMPLETE",
             "",
-            f"Question: {result.question}",
+            f"Question: {result.task}",
         ]
 
-        if result.answer:
-            lines.extend(["", f"Answer: {result.answer[:500]}"])
+        if result.final_answer:
+            lines.extend(["", f"Answer: {result.final_answer[:500]}"])
 
-        stats = [f"Rounds: {result.total_rounds}"]
-        if result.consensus_confidence:
-            stats.append(f"Confidence: {result.consensus_confidence:.0%}")
-        if result.participating_agents:
-            stats.append(f"Agents: {len(result.participating_agents)}")
+        stats = [f"Rounds: {result.rounds_used}"]
+        if result.confidence:
+            stats.append(f"Confidence: {result.confidence:.0%}")
+        if result.participants:
+            stats.append(f"Agents: {len(result.participants)}")
 
         lines.extend(["", " | ".join(stats)])
 
-        if result.participating_agents:
-            lines.append(f"\nParticipants: {', '.join(result.participating_agents[:5])}")
+        if result.participants:
+            lines.append(f"\nParticipants: {', '.join(result.participants[:5])}")
 
         lines.append(f"\nhttps://aragora.ai/debate/{result.debate_id}")
 
@@ -255,21 +255,21 @@ class MatrixIntegration:
         # HTML version
         html = f"""
 <h3>ARAGORA DEBATE COMPLETE</h3>
-<p><strong>Question:</strong> {self._escape_html(result.question)}</p>
+<p><strong>Question:</strong> {self._escape_html(result.task)}</p>
 """
 
-        if result.answer:
-            answer_preview = result.answer[:500]
-            if len(result.answer) > 500:
+        if result.final_answer:
+            answer_preview = result.final_answer[:500]
+            if len(result.final_answer) > 500:
                 answer_preview += "..."
             html += f"<p><strong>Answer:</strong> {self._escape_html(answer_preview)}</p>"
 
         html += f"<p><code>{' | '.join(stats)}</code></p>"
 
-        if result.participating_agents:
-            agents_list = ", ".join(result.participating_agents[:5])
-            if len(result.participating_agents) > 5:
-                agents_list += f" +{len(result.participating_agents) - 5} more"
+        if result.participants:
+            agents_list = ", ".join(result.participants[:5])
+            if len(result.participants) > 5:
+                agents_list += f" +{len(result.participants) - 5} more"
             html += f"<p><em>Participants: {agents_list}</em></p>"
 
         html += f'<p><a href="https://aragora.ai/debate/{result.debate_id}">View Details</a></p>'

@@ -209,27 +209,27 @@ class TeamsIntegration:
         body.append(
             {
                 "type": "TextBlock",
-                "text": f"**Question:** {result.question}",
+                "text": f"**Question:** {result.task}",
                 "wrap": True,
             }
         )
 
         # Answer
-        if result.answer:
+        if result.final_answer:
             body.append(
                 {
                     "type": "TextBlock",
-                    "text": f"**Answer:** {result.answer}",
+                    "text": f"**Answer:** {result.final_answer}",
                     "wrap": True,
                 }
             )
 
         # Statistics
-        stats_text = f"Rounds: {result.total_rounds}"
-        if result.consensus_confidence:
-            stats_text += f" | Confidence: {result.consensus_confidence:.0%}"
-        if result.participating_agents:
-            stats_text += f" | Agents: {len(result.participating_agents)}"
+        stats_text = f"Rounds: {result.rounds_used}"
+        if result.confidence:
+            stats_text += f" | Confidence: {result.confidence:.0%}"
+        if result.participants:
+            stats_text += f" | Agents: {len(result.participants)}"
 
         body.append(
             {
@@ -241,10 +241,10 @@ class TeamsIntegration:
         )
 
         # Agents column set
-        if result.participating_agents:
-            agent_list = ", ".join(result.participating_agents[:5])
-            if len(result.participating_agents) > 5:
-                agent_list += f" +{len(result.participating_agents) - 5} more"
+        if result.participants:
+            agent_list = ", ".join(result.participants[:5])
+            if len(result.participants) > 5:
+                agent_list += f" +{len(result.participants) - 5} more"
             body.append(
                 {
                     "type": "TextBlock",

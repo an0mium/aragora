@@ -542,18 +542,18 @@ class ZoomIntegration:
         lines = [
             "**ARAGORA DEBATE COMPLETE**",
             "",
-            f"**Question:** {result.question[:200]}",
+            f"**Question:** {result.task[:200]}",
         ]
 
-        if result.answer:
-            answer_preview = result.answer[:400]
-            if len(result.answer) > 400:
+        if result.final_answer:
+            answer_preview = result.final_answer[:400]
+            if len(result.final_answer) > 400:
                 answer_preview += "..."
             lines.extend(["", f"**Answer:** {answer_preview}"])
 
-        stats = [f"Rounds: {result.total_rounds}"]
-        if result.consensus_confidence:
-            stats.append(f"Confidence: {result.consensus_confidence:.0%}")
+        stats = [f"Rounds: {result.rounds_used}"]
+        if result.confidence:
+            stats.append(f"Confidence: {result.confidence:.0%}")
         lines.extend(["", " | ".join(stats)])
 
         lines.extend(["", f"View: https://aragora.ai/debate/{result.debate_id}"])

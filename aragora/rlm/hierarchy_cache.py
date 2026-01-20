@@ -55,6 +55,16 @@ class RLMHierarchyCache:
         self._cache_hits = 0
         self._cache_misses = 0
 
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        total = self._cache_hits + self._cache_misses
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "hit_rate": self._cache_hits / total if total > 0 else 0.0,
+            "size": len(self._local_cache),
+        }
+
     def _compute_task_hash(self, content: str, source_type: str = "text") -> str:
         """Compute a hash for the content to use as cache key."""
         import hashlib
@@ -154,7 +164,7 @@ class RLMHierarchyCache:
                 await self.knowledge_mound.store(
                     IngestionRequest(
                         content=f"RLM compression hierarchy for {source_type} content",
-                        source_type=KnowledgeSource.INTERNAL,
+                        source_type=KnowledgeSource.RLM,
                         workspace_id=self.knowledge_mound.workspace_id,
                         metadata={
                             "task_hash": task_hash,

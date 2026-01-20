@@ -29,6 +29,8 @@ from aragora.connectors.enterprise.documents import (
     S3Connector,
     SharePointConnector,
     GoogleDriveConnector,
+    OneDriveConnector,
+    DropboxConnector,
 )
 from aragora.connectors.enterprise.database import PostgreSQLConnector, MongoDBConnector
 from aragora.connectors.enterprise.sync import SyncScheduler, SyncJob, SyncSchedule, SyncHistory
@@ -57,6 +59,8 @@ __all__ = [
     "S3Connector",
     "SharePointConnector",
     "GoogleDriveConnector",
+    "OneDriveConnector",
+    "DropboxConnector",
     # Database connectors
     "PostgreSQLConnector",
     "MongoDBConnector",

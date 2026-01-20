@@ -659,6 +659,15 @@ def create_hook_manager_from_emitter(
     manager.register(
         HookType.POST_DEBATE, on_post_debate, priority=HookPriority.LOW, name="ws_post_debate"
     )
+
+    # Register result router hook (routes results back to originating chat channels)
+    try:
+        from aragora.server.result_router import register_result_router_hooks
+
+        register_result_router_hooks(manager)
+    except ImportError:
+        pass  # Result router not available
+
     manager.register(
         HookType.PRE_ROUND, on_pre_round, priority=HookPriority.LOW, name="ws_pre_round"
     )

@@ -286,8 +286,8 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
         if leaderboard:
             print("\nTop 5 Agents by ELO:")
             for i, entry in enumerate(leaderboard, 1):
-                name = entry.get("agent_name", "unknown")
-                rating = entry.get("elo", 1500)
+                name = entry.agent_name
+                rating = entry.elo
                 # Get learning efficiency
                 efficiency = elo.get_learning_efficiency(name)
                 category = efficiency.get("learning_category", "unknown")
@@ -658,7 +658,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
                 )
             )
 
-        processes = []
+        processes: list[multiprocessing.Process] = []
 
         def shutdown_workers(signum, frame):
             print("\nShutting down workers...")

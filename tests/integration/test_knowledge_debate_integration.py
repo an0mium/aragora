@@ -393,3 +393,158 @@ class TestConcurrentDebatesWithKnowledge:
 
         # All should have been stored
         assert len(mound._stored_items) == 5
+
+
+class TestArenaInitializerKnowledgeMound:
+    """Tests for KnowledgeMound auto-initialization in ArenaInitializer."""
+
+    def test_auto_init_knowledge_mound_creates_instance(self):
+        """Test that _auto_init_knowledge_mound creates a KnowledgeMound."""
+        from aragora.debate.arena_initializer import ArenaInitializer
+
+        init = ArenaInitializer(broadcast_callback=lambda x: None)
+        mound = init._auto_init_knowledge_mound()
+
+        assert mound is not None
+        assert hasattr(mound, "query_semantic")
+        assert hasattr(mound, "store")
+
+    def test_auto_init_knowledge_mound_returns_singleton(self):
+        """Test that auto-init returns the same singleton instance."""
+        from aragora.debate.arena_initializer import ArenaInitializer
+
+        init = ArenaInitializer(broadcast_callback=lambda x: None)
+
+        mound1 = init._auto_init_knowledge_mound()
+        mound2 = init._auto_init_knowledge_mound()
+
+        # Should be same instance (singleton)
+        assert mound1 is mound2
+
+    def test_knowledge_mound_auto_init_with_retrieval_enabled(self):
+        """Test that knowledge mound is auto-initialized when retrieval is enabled."""
+        from aragora.debate.arena_initializer import ArenaInitializer
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
+        from unittest.mock import MagicMock
+
+        init = ArenaInitializer(broadcast_callback=lambda x: None)
+
+        # Create minimal mocks
+        protocol = DebateProtocol(rounds=1)
+        mock_agent_pool = MagicMock(spec=AgentPool)
+        mock_agent_pool._config = AgentPoolConfig()
+        mock_agent_pool.set_scoring_systems = MagicMock()
+
+        # Call _init_trackers with retrieval enabled but no mound provided
+        # This should auto-initialize the knowledge mound
+        components = init.init_trackers(
+            protocol=protocol,
+            loop_id="test-loop",
+            agent_pool=mock_agent_pool,
+            enable_position_ledger=False,
+            position_tracker=MagicMock(),
+            position_ledger=None,
+            elo_system=None,
+            persona_manager=MagicMock(),
+            dissent_retriever=None,
+            consensus_memory=None,
+            flip_detector=None,
+            calibration_tracker=None,
+            continuum_memory=None,
+            relationship_tracker=None,
+            moment_detector=None,
+            tier_analytics_tracker=None,
+            knowledge_mound=None,  # Not provided
+            enable_knowledge_retrieval=True,  # Enabled
+            enable_knowledge_ingestion=True,
+            enable_belief_guidance=False,
+        )
+
+        # Should have auto-initialized knowledge_mound
+        assert components.knowledge_mound is not None
+
+    def test_knowledge_mound_not_auto_init_when_disabled(self):
+        """Test that knowledge mound is NOT auto-initialized when both are disabled."""
+        from aragora.debate.arena_initializer import ArenaInitializer
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.agent_pool import AgentPoolConfig
+        from unittest.mock import MagicMock
+
+        init = ArenaInitializer(broadcast_callback=lambda x: None)
+
+        protocol = DebateProtocol(rounds=1)
+        mock_agent_pool = MagicMock()
+        mock_agent_pool._config = AgentPoolConfig()
+        mock_agent_pool.set_scoring_systems = MagicMock()
+
+        components = init.init_trackers(
+            protocol=protocol,
+            loop_id="test-loop",
+            agent_pool=mock_agent_pool,
+            enable_position_ledger=False,
+            position_tracker=MagicMock(),
+            position_ledger=None,
+            elo_system=None,
+            persona_manager=MagicMock(),
+            dissent_retriever=None,
+            consensus_memory=None,
+            flip_detector=None,
+            calibration_tracker=None,
+            continuum_memory=None,
+            relationship_tracker=None,
+            moment_detector=None,
+            tier_analytics_tracker=None,
+            knowledge_mound=None,
+            enable_knowledge_retrieval=False,  # Disabled
+            enable_knowledge_ingestion=False,  # Disabled
+            enable_belief_guidance=False,
+        )
+
+        # Should remain None since both retrieval and ingestion are disabled
+        assert components.knowledge_mound is None
+
+    def test_knowledge_mound_preserves_provided_instance(self):
+        """Test that a provided knowledge_mound is used instead of auto-init."""
+        from aragora.debate.arena_initializer import ArenaInitializer
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.agent_pool import AgentPoolConfig
+        from unittest.mock import MagicMock
+
+        init = ArenaInitializer(broadcast_callback=lambda x: None)
+
+        protocol = DebateProtocol(rounds=1)
+        mock_agent_pool = MagicMock()
+        mock_agent_pool._config = AgentPoolConfig()
+        mock_agent_pool.set_scoring_systems = MagicMock()
+
+        # Provide a mock knowledge mound
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "custom-workspace"
+
+        components = init.init_trackers(
+            protocol=protocol,
+            loop_id="test-loop",
+            agent_pool=mock_agent_pool,
+            enable_position_ledger=False,
+            position_tracker=MagicMock(),
+            position_ledger=None,
+            elo_system=None,
+            persona_manager=MagicMock(),
+            dissent_retriever=None,
+            consensus_memory=None,
+            flip_detector=None,
+            calibration_tracker=None,
+            continuum_memory=None,
+            relationship_tracker=None,
+            moment_detector=None,
+            tier_analytics_tracker=None,
+            knowledge_mound=mock_mound,  # Provided
+            enable_knowledge_retrieval=True,
+            enable_knowledge_ingestion=True,
+            enable_belief_guidance=False,
+        )
+
+        # Should use the provided mound, not auto-init
+        assert components.knowledge_mound is mock_mound
+        assert components.knowledge_mound.workspace_id == "custom-workspace"

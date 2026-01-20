@@ -69,10 +69,19 @@ class InputSource(str, Enum):
     EMAIL = "email"
     GMAIL = "gmail"
 
+    # Cloud storage
+    GOOGLE_DRIVE = "google_drive"
+    ONEDRIVE = "onedrive"
+    SHAREPOINT = "sharepoint"
+    DROPBOX = "dropbox"
+    S3 = "s3"
+
     # Enterprise integrations
     JIRA = "jira"
     GITHUB = "github"
     SERVICENOW = "servicenow"
+    CONFLUENCE = "confluence"
+    NOTION = "notion"
 
     # Event streams
     KAFKA = "kafka"
@@ -531,6 +540,55 @@ class DecisionRequest:
 
         return cls(
             content=transcription,
+            source=source,
+            response_channels=[response_channel],
+            context=context,
+        )
+
+    @classmethod
+    def from_document(
+        cls,
+        content: str,
+        source_platform: str,
+        document_id: str,
+        document_title: Optional[str] = None,
+        document_url: Optional[str] = None,
+        user_id: Optional[str] = None,
+        **kwargs,
+    ) -> "DecisionRequest":
+        """Create from a document source (Google Drive, SharePoint, etc.)."""
+        source_map = {
+            "google_drive": InputSource.GOOGLE_DRIVE,
+            "gdrive": InputSource.GOOGLE_DRIVE,
+            "onedrive": InputSource.ONEDRIVE,
+            "sharepoint": InputSource.SHAREPOINT,
+            "dropbox": InputSource.DROPBOX,
+            "s3": InputSource.S3,
+            "confluence": InputSource.CONFLUENCE,
+            "notion": InputSource.NOTION,
+        }
+        source = source_map.get(source_platform.lower(), InputSource.INTERNAL)
+
+        context = RequestContext(
+            user_id=user_id,
+            metadata={
+                "document_id": document_id,
+                "document_title": document_title,
+                "document_url": document_url,
+                "source_platform": source_platform,
+                **kwargs,
+            }
+        )
+
+        # For document sources, typically respond via webhook or the originating system
+        response_channel = ResponseChannel(
+            platform=source_platform,
+            webhook_url=kwargs.get("webhook_url"),
+            response_format="full",
+        )
+
+        return cls(
+            content=content,
             source=source,
             response_channels=[response_channel],
             context=context,

@@ -296,31 +296,31 @@ class BaseIntegration(ABC):
             FormattedDebateData with all common fields
         """
         # Build stats line
-        stats_parts = [f"Rounds: {result.total_rounds}"]
-        if result.consensus_confidence:
-            stats_parts.append(f"Confidence: {self.format_confidence(result.consensus_confidence)}")
-        if result.participating_agents:
-            stats_parts.append(f"Agents: {len(result.participating_agents)}")
+        stats_parts = [f"Rounds: {result.rounds_used}"]
+        if result.confidence:
+            stats_parts.append(f"Confidence: {self.format_confidence(result.confidence)}")
+        if result.participants:
+            stats_parts.append(f"Agents: {len(result.participants)}")
         stats_line = " | ".join(stats_parts)
 
         return FormattedDebateData(
             debate_id=result.debate_id,
-            question=result.question,
-            question_truncated=self.truncate_text(result.question, question_limit),
-            answer=result.answer,
+            question=result.task,
+            question_truncated=self.truncate_text(result.task, question_limit),
+            answer=result.final_answer,
             answer_truncated=(
-                self.truncate_text(result.answer, answer_limit) if result.answer else None
+                self.truncate_text(result.final_answer, answer_limit) if result.final_answer else None
             ),
-            total_rounds=result.total_rounds,
-            confidence=result.consensus_confidence,
+            total_rounds=result.rounds_used,
+            confidence=result.confidence,
             confidence_percent=(
-                self.format_confidence(result.consensus_confidence)
-                if result.consensus_confidence
+                self.format_confidence(result.confidence)
+                if result.confidence
                 else None
             ),
-            agents=result.participating_agents or [],
-            agents_display=self.format_agents_list(result.participating_agents or [], agents_limit),
-            agent_count=len(result.participating_agents) if result.participating_agents else 0,
+            agents=result.participants or [],
+            agents_display=self.format_agents_list(result.participants or [], agents_limit),
+            agent_count=len(result.participants) if result.participants else 0,
             stats_line=stats_line,
             debate_url=self.get_debate_url(result.debate_id),
         )
