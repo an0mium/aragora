@@ -167,6 +167,8 @@ __all__ = [
     # Heatmap
     "RiskHeatmap",
     "HeatmapCell",
+    # Stable API (v1)
+    "api",
     # Orchestrator (full 5-phase) - lazy loaded
     "GauntletOrchestrator",
     "OrchestratorConfig",
@@ -187,3 +189,7 @@ __all__ = [
     "SECURITY_GAUNTLET",
     "SOX_GAUNTLET",
 ]
+
+
+# Import stable API module
+from aragora.gauntlet import api

@@ -641,3 +641,247 @@ class DecisionReceipt:
     def to_json(self, indent: int = 2) -> str:
         """Export as JSON string."""
         return json.dumps(self.to_dict(), indent=indent)
+
+    def to_sarif(self) -> dict:
+        """Export as SARIF 2.1.0 format.
+
+        SARIF (Static Analysis Results Interchange Format) is the OASIS standard
+        for exchanging static analysis results. This enables interoperability with:
+        - GitHub Security (code scanning)
+        - Azure DevOps
+        - VS Code SARIF Viewer
+        - SonarQube
+        - DefectDojo
+        """
+        # Map severity to SARIF levels
+        sarif_level_map = {
+            "CRITICAL": "error",
+            "HIGH": "error",
+            "MEDIUM": "warning",
+            "LOW": "note",
+        }
+
+        # Map severity to SARIF security-severity scores (CVSS-like)
+        sarif_severity_map = {
+            "CRITICAL": "9.0",
+            "HIGH": "7.0",
+            "MEDIUM": "4.0",
+            "LOW": "1.0",
+        }
+
+        # Build rules from unique vulnerability categories
+        rules = []
+        rule_ids: dict[str, int] = {}
+
+        for idx, vuln in enumerate(self.vulnerability_details):
+            category = vuln.get("category", "unknown")
+            if category not in rule_ids:
+                rule_id = f"ARAGORA-{len(rule_ids) + 1:03d}"
+                rule_ids[category] = len(rules)
+                rules.append(
+                    {
+                        "id": rule_id,
+                        "name": category.replace("_", " ").title(),
+                        "shortDescription": {
+                            "text": f"Aragora Gauntlet: {category}"
+                        },
+                        "fullDescription": {
+                            "text": f"Security finding in category: {category}"
+                        },
+                        "helpUri": "https://aragora.ai/docs/gauntlet",
+                        "properties": {
+                            "security-severity": sarif_severity_map.get(
+                                str(vuln.get("severity_level", "MEDIUM")).upper(), "4.0"
+                            ),
+                            "tags": ["security", "aragora", category],
+                        },
+                    }
+                )
+
+        # Build results from vulnerability details
+        results = []
+        for vuln in self.vulnerability_details:
+            category = vuln.get("category", "unknown")
+            severity = str(vuln.get("severity_level", vuln.get("severity", "MEDIUM"))).upper()
+            rule_idx = rule_ids.get(category, 0)
+            rule_id = rules[rule_idx]["id"] if rule_idx < len(rules) else "ARAGORA-000"
+
+            result = {
+                "ruleId": rule_id,
+                "ruleIndex": rule_idx,
+                "level": sarif_level_map.get(severity, "warning"),
+                "message": {
+                    "text": vuln.get("description", vuln.get("title", "Finding"))
+                },
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": f"input/{self.input_hash[:8]}",
+                                "uriBaseId": "GAUNTLET_ROOT",
+                            }
+                        },
+                        "logicalLocations": [
+                            {
+                                "name": vuln.get("title", "Unknown"),
+                                "kind": "finding",
+                            }
+                        ],
+                    }
+                ],
+                "fingerprints": {
+                    "aragora/v1": hashlib.sha256(
+                        f"{vuln.get('id', '')}:{vuln.get('title', '')}".encode()
+                    ).hexdigest()[:32]
+                },
+                "properties": {
+                    "gauntlet_id": self.gauntlet_id,
+                    "receipt_id": self.receipt_id,
+                    "category": category,
+                    "severity": severity,
+                    "verified": vuln.get("verified", False),
+                },
+            }
+
+            # Add fix suggestions if mitigation is present
+            if vuln.get("mitigation"):
+                result["fixes"] = [
+                    {
+                        "description": {
+                            "text": vuln.get("mitigation", "")
+                        }
+                    }
+                ]
+
+            results.append(result)
+
+        # Build SARIF document
+        sarif = {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "Aragora Gauntlet",
+                            "version": "1.0.0",
+                            "informationUri": "https://aragora.ai/gauntlet",
+                            "rules": rules,
+                            "properties": {
+                                "verdict": self.verdict,
+                                "confidence": self.confidence,
+                                "robustness_score": self.robustness_score,
+                            },
+                        }
+                    },
+                    "results": results,
+                    "invocations": [
+                        {
+                            "executionSuccessful": True,
+                            "endTimeUtc": self.timestamp,
+                            "properties": {
+                                "gauntlet_id": self.gauntlet_id,
+                                "receipt_id": self.receipt_id,
+                                "attacks_attempted": self.attacks_attempted,
+                                "attacks_successful": self.attacks_successful,
+                                "probes_run": self.probes_run,
+                            },
+                        }
+                    ],
+                    "artifacts": [
+                        {
+                            "location": {
+                                "uri": f"input/{self.input_hash[:8]}",
+                                "uriBaseId": "GAUNTLET_ROOT",
+                            },
+                            "hashes": {
+                                "sha-256": self.input_hash,
+                            },
+                            "length": -1,
+                            "properties": {
+                                "summary": self.input_summary[:200],
+                            },
+                        }
+                    ],
+                    "properties": {
+                        "risk_summary": self.risk_summary,
+                        "artifact_hash": self.artifact_hash,
+                        "consensus_proof": (
+                            self.consensus_proof.to_dict() if self.consensus_proof else None
+                        ),
+                    },
+                }
+            ],
+        }
+
+        return sarif
+
+    def to_sarif_json(self, indent: int = 2) -> str:
+        """Export as SARIF JSON string."""
+        return json.dumps(self.to_sarif(), indent=indent)
+
+    def to_pdf(self) -> bytes:
+        """Export as PDF document.
+
+        Requires weasyprint to be installed: pip install weasyprint
+
+        Returns:
+            PDF content as bytes
+
+        Raises:
+            ImportError: If weasyprint is not installed
+        """
+        try:
+            from weasyprint import HTML
+        except ImportError as e:
+            raise ImportError(
+                "weasyprint is required for PDF export. "
+                "Install with: pip install weasyprint"
+            ) from e
+
+        html_content = self.to_html()
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        return pdf_bytes
+
+    def to_csv(self) -> str:
+        """Export findings as CSV format.
+
+        Returns:
+            CSV content with vulnerability details
+        """
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        writer.writerow(
+            [
+                "Finding ID",
+                "Category",
+                "Severity",
+                "Title",
+                "Description",
+                "Mitigation",
+                "Verified",
+                "Source",
+            ]
+        )
+
+        # Data rows
+        for vuln in self.vulnerability_details:
+            writer.writerow(
+                [
+                    vuln.get("id", ""),
+                    vuln.get("category", ""),
+                    vuln.get("severity_level", vuln.get("severity", "")),
+                    vuln.get("title", ""),
+                    vuln.get("description", "")[:500],
+                    vuln.get("mitigation", ""),
+                    vuln.get("verified", False),
+                    vuln.get("source", ""),
+                ]
+            )
+
+        return output.getvalue()

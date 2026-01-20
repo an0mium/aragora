@@ -45,6 +45,46 @@ class GauntletMetadata:
     duration_seconds: float
 
 
+@dataclass
+class GauntletInflightRun:
+    """In-flight gauntlet run for durability across server restarts."""
+
+    gauntlet_id: str
+    status: str  # pending, running, completed, failed
+    input_type: str
+    input_summary: str
+    input_hash: str
+    persona: Optional[str]
+    profile: str
+    agents: list[str]
+    created_at: datetime
+    updated_at: datetime
+    current_phase: Optional[str] = None
+    progress_percent: float = 0.0
+    error: Optional[str] = None
+    org_id: Optional[str] = None
+    config_json: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "gauntlet_id": self.gauntlet_id,
+            "status": self.status,
+            "input_type": self.input_type,
+            "input_summary": self.input_summary,
+            "input_hash": self.input_hash,
+            "persona": self.persona,
+            "profile": self.profile,
+            "agents": self.agents,
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
+            "updated_at": self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at,
+            "current_phase": self.current_phase,
+            "progress_percent": self.progress_percent,
+            "error": self.error,
+            "org_id": self.org_id,
+        }
+
+
 class GauntletStorage:
     """
     Persistent storage for Gauntlet validation results.
@@ -158,6 +198,40 @@ class GauntletStorage:
             except Exception as e:
                 # Index may already exist with different definition
                 logger.debug(f"Index creation skipped: {e}")
+
+        # Create inflight runs table for durability
+        create_inflight_sql = """
+            CREATE TABLE IF NOT EXISTS gauntlet_inflight (
+                gauntlet_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                input_type TEXT,
+                input_summary TEXT,
+                input_hash TEXT,
+                persona TEXT,
+                profile TEXT,
+                agents TEXT,
+                config_json TEXT,
+                current_phase TEXT,
+                progress_percent REAL DEFAULT 0,
+                error TEXT,
+                org_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        self._backend.execute_write(create_inflight_sql)
+
+        # Indexes for inflight table
+        inflight_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_inflight_status ON gauntlet_inflight(status)",
+            "CREATE INDEX IF NOT EXISTS idx_inflight_org ON gauntlet_inflight(org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_inflight_created ON gauntlet_inflight(created_at)",
+        ]
+        for idx_sql in inflight_indexes:
+            try:
+                self._backend.execute_write(idx_sql)
+            except Exception as e:
+                logger.debug(f"Inflight index creation skipped: {e}")
 
     def save(self, result: Any, org_id: Optional[str] = None) -> str:
         """
@@ -640,6 +714,320 @@ class GauntletStorage:
     def close(self) -> None:
         """Close the database connection/pool."""
         self._backend.close()
+
+    # =========================================================================
+    # Inflight Run Management (for durability across server restarts)
+    # =========================================================================
+
+    def save_inflight(
+        self,
+        gauntlet_id: str,
+        status: str,
+        input_type: str,
+        input_summary: str,
+        input_hash: str,
+        persona: Optional[str],
+        profile: str,
+        agents: list[str],
+        org_id: Optional[str] = None,
+        config_json: Optional[str] = None,
+    ) -> str:
+        """
+        Save or create an inflight gauntlet run.
+
+        Args:
+            gauntlet_id: Unique gauntlet ID
+            status: Run status (pending, running, completed, failed)
+            input_type: Type of input (spec, architecture, etc.)
+            input_summary: Summary of input content
+            input_hash: SHA-256 hash of input
+            persona: Persona used for validation
+            profile: Profile used
+            agents: List of agents used
+            org_id: Organization ID
+            config_json: Serialized config (optional)
+
+        Returns:
+            The gauntlet_id
+        """
+        now = datetime.now().isoformat()
+        backend_type = getattr(self, "backend_type", None) or "sqlite"
+
+        if backend_type == "postgresql":
+            sql = """
+                INSERT INTO gauntlet_inflight (
+                    gauntlet_id, status, input_type, input_summary, input_hash,
+                    persona, profile, agents, config_json, org_id,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (gauntlet_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    updated_at = EXCLUDED.updated_at
+            """
+        else:
+            sql = """
+                INSERT OR REPLACE INTO gauntlet_inflight (
+                    gauntlet_id, status, input_type, input_summary, input_hash,
+                    persona, profile, agents, config_json, org_id,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+
+        self._backend.execute_write(
+            sql,
+            (
+                gauntlet_id,
+                status,
+                input_type,
+                input_summary,
+                input_hash,
+                persona,
+                profile,
+                json.dumps(agents),
+                config_json,
+                org_id,
+                now,
+                now,
+            ),
+        )
+
+        logger.debug(f"Saved inflight gauntlet run: {gauntlet_id} (status={status})")
+        return gauntlet_id
+
+    def update_inflight_status(
+        self,
+        gauntlet_id: str,
+        status: str,
+        current_phase: Optional[str] = None,
+        progress_percent: Optional[float] = None,
+        error: Optional[str] = None,
+    ) -> bool:
+        """
+        Update the status of an inflight run.
+
+        Args:
+            gauntlet_id: Gauntlet ID to update
+            status: New status
+            current_phase: Current execution phase
+            progress_percent: Progress percentage (0-100)
+            error: Error message if failed
+
+        Returns:
+            True if updated, False if not found
+        """
+        now = datetime.now().isoformat()
+
+        # Build dynamic update
+        updates = ["status = ?", "updated_at = ?"]
+        params: list = [status, now]
+
+        if current_phase is not None:
+            updates.append("current_phase = ?")
+            params.append(current_phase)
+
+        if progress_percent is not None:
+            updates.append("progress_percent = ?")
+            params.append(progress_percent)
+
+        if error is not None:
+            updates.append("error = ?")
+            params.append(error)
+
+        params.append(gauntlet_id)
+
+        sql = f"UPDATE gauntlet_inflight SET {', '.join(updates)} WHERE gauntlet_id = ?"
+        self._backend.execute_write(sql, tuple(params))
+
+        logger.debug(f"Updated inflight gauntlet: {gauntlet_id} -> {status}")
+        return True
+
+    def get_inflight(self, gauntlet_id: str) -> Optional[GauntletInflightRun]:
+        """
+        Get an inflight run by ID.
+
+        Args:
+            gauntlet_id: Gauntlet ID
+
+        Returns:
+            GauntletInflightRun or None
+        """
+        row = self._backend.fetch_one(
+            """
+            SELECT gauntlet_id, status, input_type, input_summary, input_hash,
+                   persona, profile, agents, current_phase, progress_percent,
+                   error, org_id, config_json, created_at, updated_at
+            FROM gauntlet_inflight
+            WHERE gauntlet_id = ?
+            """,
+            (gauntlet_id,),
+        )
+
+        if not row:
+            return None
+
+        return self._row_to_inflight(row)
+
+    def list_inflight(
+        self,
+        status: Optional[str] = None,
+        org_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[GauntletInflightRun]:
+        """
+        List inflight runs.
+
+        Args:
+            status: Filter by status
+            org_id: Filter by organization
+            limit: Maximum results
+
+        Returns:
+            List of GauntletInflightRun
+        """
+        query = """
+            SELECT gauntlet_id, status, input_type, input_summary, input_hash,
+                   persona, profile, agents, current_phase, progress_percent,
+                   error, org_id, config_json, created_at, updated_at
+            FROM gauntlet_inflight
+            WHERE 1=1
+        """
+        params: list = []
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        if org_id:
+            query += " AND org_id = ?"
+            params.append(org_id)
+
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+
+        rows = self._backend.fetch_all(query, tuple(params))
+        return [self._row_to_inflight(row) for row in rows]
+
+    def list_stale_inflight(
+        self,
+        max_age_seconds: int = 7200,
+        status: Optional[str] = None,
+    ) -> list[GauntletInflightRun]:
+        """
+        List stale inflight runs (for recovery after restart).
+
+        Args:
+            max_age_seconds: Maximum age in seconds (default 2 hours)
+            status: Filter by status (default: pending, running)
+
+        Returns:
+            List of stale GauntletInflightRun
+        """
+        query = """
+            SELECT gauntlet_id, status, input_type, input_summary, input_hash,
+                   persona, profile, agents, current_phase, progress_percent,
+                   error, org_id, config_json, created_at, updated_at
+            FROM gauntlet_inflight
+            WHERE status IN ('pending', 'running')
+        """
+        params: list = []
+
+        if status:
+            query = query.replace("status IN ('pending', 'running')", "status = ?")
+            params.append(status)
+
+        query += " ORDER BY created_at ASC"
+
+        rows = self._backend.fetch_all(query, tuple(params))
+        results = []
+
+        now = datetime.now()
+        for row in rows:
+            inflight = self._row_to_inflight(row)
+            age = (now - inflight.created_at).total_seconds()
+            if age > max_age_seconds:
+                results.append(inflight)
+
+        return results
+
+    def delete_inflight(self, gauntlet_id: str) -> bool:
+        """
+        Delete an inflight run (after completion or cleanup).
+
+        Args:
+            gauntlet_id: Gauntlet ID to delete
+
+        Returns:
+            True if deleted
+        """
+        self._backend.execute_write(
+            "DELETE FROM gauntlet_inflight WHERE gauntlet_id = ?",
+            (gauntlet_id,),
+        )
+        logger.debug(f"Deleted inflight gauntlet: {gauntlet_id}")
+        return True
+
+    def cleanup_completed_inflight(self, max_age_seconds: int = 3600) -> int:
+        """
+        Clean up completed/failed inflight runs older than max_age.
+
+        Args:
+            max_age_seconds: Maximum age in seconds
+
+        Returns:
+            Number of runs cleaned up
+        """
+        # Get count first
+        count_row = self._backend.fetch_one(
+            """
+            SELECT COUNT(*) FROM gauntlet_inflight
+            WHERE status IN ('completed', 'failed')
+            """,
+        )
+        count = count_row[0] if count_row else 0
+
+        if count > 0:
+            self._backend.execute_write(
+                """
+                DELETE FROM gauntlet_inflight
+                WHERE status IN ('completed', 'failed')
+                """,
+            )
+            logger.info(f"Cleaned up {count} completed/failed inflight runs")
+
+        return count
+
+    def _row_to_inflight(self, row: tuple) -> GauntletInflightRun:
+        """Convert a database row to GauntletInflightRun."""
+        # Parse datetime
+        def parse_dt(val: Any) -> datetime:
+            if isinstance(val, datetime):
+                return val
+            if isinstance(val, str):
+                try:
+                    return datetime.fromisoformat(val)
+                except ValueError:
+                    pass
+            return datetime.now()
+
+        return GauntletInflightRun(
+            gauntlet_id=row[0],
+            status=row[1],
+            input_type=row[2] or "",
+            input_summary=row[3] or "",
+            input_hash=row[4] or "",
+            persona=row[5],
+            profile=row[6] or "default",
+            agents=json.loads(row[7]) if row[7] else [],
+            current_phase=row[8],
+            progress_percent=row[9] or 0.0,
+            error=row[10],
+            org_id=row[11],
+            config_json=row[12],
+            created_at=parse_dt(row[13]),
+            updated_at=parse_dt(row[14]),
+        )
 
 
 # Module-level singleton for convenience

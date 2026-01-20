@@ -466,20 +466,38 @@ class GauntletHandler(BaseHandler):
         # Cleanup old completed runs before storing new one
         _cleanup_gauntlet_runs()
 
-        # Store initial state
+        # Calculate input summary
+        input_summary = input_content[:200] + "..." if len(input_content) > 200 else input_content
+
+        # Store initial state in-memory (for immediate access)
         _gauntlet_runs[gauntlet_id] = {
             "gauntlet_id": gauntlet_id,
             "status": "pending",
             "input_type": input_type,
-            "input_summary": (
-                input_content[:200] + "..." if len(input_content) > 200 else input_content
-            ),
+            "input_summary": input_summary,
             "input_hash": input_hash,
             "persona": persona,
             "profile": profile,
             "created_at": datetime.now().isoformat(),
             "result": None,
         }
+
+        # Persist to database for durability across server restarts
+        try:
+            storage = _get_storage()
+            storage.save_inflight(
+                gauntlet_id=gauntlet_id,
+                status="pending",
+                input_type=input_type,
+                input_summary=input_summary,
+                input_hash=input_hash,
+                persona=persona,
+                profile=profile,
+                agents=agents,
+            )
+            logger.debug(f"Persisted inflight gauntlet run: {gauntlet_id}")
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.warning(f"Failed to persist inflight gauntlet {gauntlet_id}: {e}")
 
         # In a production system, this would be queued for async processing
         # For now, we'll run it synchronously in a background task
@@ -529,8 +547,13 @@ class GauntletHandler(BaseHandler):
                     gauntlet_id=gauntlet_id,
                 )
 
-            # Update status
+            # Update status (both in-memory and persistent)
             _gauntlet_runs[gauntlet_id]["status"] = "running"
+            try:
+                storage = _get_storage()
+                storage.update_inflight_status(gauntlet_id, "running")
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.debug(f"Failed to update inflight status: {e}")
 
             # Create agents
             agent_instances = []
@@ -579,9 +602,9 @@ class GauntletHandler(BaseHandler):
                     config_summary={"profile": profile, "persona": persona},
                 )
 
-            # Create progress callback that also emits streaming events
+            # Create progress callback that also emits streaming events and persists state
             def on_progress(progress: GauntletProgress) -> None:
-                """Handle progress updates with streaming."""
+                """Handle progress updates with streaming and persistence."""
                 if emitter:
                     emitter.emit_progress(
                         progress=progress.percent / 100.0,
@@ -590,6 +613,20 @@ class GauntletHandler(BaseHandler):
                     )
                     if progress.current_task:
                         emitter.emit_phase(progress.current_task, progress.message)
+
+                # Update persistent status (throttled to avoid too many DB writes)
+                # Only update on significant progress changes (every 10%)
+                if int(progress.percent) % 10 == 0:
+                    try:
+                        storage = _get_storage()
+                        storage.update_inflight_status(
+                            gauntlet_id,
+                            "running",
+                            current_phase=progress.phase,
+                            progress_percent=progress.percent,
+                        )
+                    except (OSError, RuntimeError, ValueError):
+                        pass  # Non-critical, continue execution
 
             # Run gauntlet with progress callback
             orchestrator = GauntletOrchestrator(agent_instances, on_progress=on_progress)
@@ -653,6 +690,9 @@ class GauntletHandler(BaseHandler):
                 storage = _get_storage()
                 storage.save(result)
                 logger.info(f"Gauntlet {gauntlet_id} persisted to storage")
+
+                # Clean up inflight record after successful completion
+                storage.delete_inflight(gauntlet_id)
             except (OSError, RuntimeError, ValueError) as storage_err:
                 logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {storage_err}")
 
@@ -664,6 +704,17 @@ class GauntletHandler(BaseHandler):
             _gauntlet_runs[gauntlet_id]["status"] = "failed"
             _gauntlet_runs[gauntlet_id]["error"] = str(e)
 
+            # Update persistent status to failed
+            try:
+                storage = _get_storage()
+                storage.update_inflight_status(
+                    gauntlet_id,
+                    "failed",
+                    error=str(e),
+                )
+            except (OSError, RuntimeError, ValueError):
+                pass
+
     async def _get_status(self, gauntlet_id: str) -> HandlerResult:
         """Get gauntlet run status."""
         # Check in-memory first (for pending/running)
@@ -672,9 +723,16 @@ class GauntletHandler(BaseHandler):
             safe_run = {k: v for k, v in run.items() if k != "result_obj"}
             return json_response(safe_run)
 
-        # Check persistent storage (for completed runs)
+        # Check persistent storage
         try:
             storage = _get_storage()
+
+            # Check inflight table first (for in-progress runs after restart)
+            inflight = storage.get_inflight(gauntlet_id)
+            if inflight:
+                return json_response(inflight.to_dict())
+
+            # Check completed results table
             stored = storage.get(gauntlet_id)
             if stored:
                 return json_response(
