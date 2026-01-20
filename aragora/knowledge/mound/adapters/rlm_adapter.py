@@ -384,6 +384,140 @@ class RlmAdapter:
             ),
         }
 
+    # =========================================================================
+    # Knowledge Mound Persistence Methods
+    # =========================================================================
+
+    async def sync_to_mound(
+        self,
+        mound: Any,
+        workspace_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Persist compression patterns to the Knowledge Mound.
+
+        Args:
+            mound: KnowledgeMound instance
+            workspace_id: Workspace ID for storage
+
+        Returns:
+            Dict with sync statistics
+        """
+        from aragora.knowledge.mound.types import IngestionRequest, SourceType
+
+        result = {
+            "patterns_synced": 0,
+            "errors": [],
+        }
+
+        for pattern_id, pattern_data in self._patterns.items():
+            try:
+                # Only sync patterns with significant usage
+                if pattern_data.get("usage_count", 0) < 2:
+                    continue
+
+                markers_str = ", ".join(pattern_data.get("content_markers", []))
+                content = (
+                    f"Compression Pattern: {pattern_id}\n"
+                    f"Content Type: {pattern_data.get('content_type', 'general')}\n"
+                    f"Compression Ratio: {pattern_data.get('compression_ratio', 0):.2f}\n"
+                    f"Value Score: {pattern_data.get('value_score', 0):.2f}\n"
+                    f"Usage Count: {pattern_data.get('usage_count', 0)}\n"
+                    f"Content Markers: {markers_str}"
+                )
+
+                request = IngestionRequest(
+                    content=content,
+                    source_type=SourceType.RLM,
+                    workspace_id=workspace_id,
+                    confidence=pattern_data.get("value_score", 0.5),
+                    tier=3,  # Slow tier for pattern data
+                    metadata={
+                        "type": "compression_pattern",
+                        "pattern_id": pattern_id,
+                        "compression_ratio": pattern_data.get("compression_ratio"),
+                        "value_score": pattern_data.get("value_score"),
+                        "content_type": pattern_data.get("content_type"),
+                        "content_markers": pattern_data.get("content_markers"),
+                        "usage_count": pattern_data.get("usage_count"),
+                    },
+                )
+
+                await mound.ingest(request)
+                result["patterns_synced"] += 1
+
+            except Exception as e:
+                result["errors"].append(f"Pattern {pattern_id}: {e}")
+
+        logger.info(
+            f"RLM sync to KM: patterns={result['patterns_synced']}, "
+            f"errors={len(result['errors'])}"
+        )
+        return result
+
+    async def load_from_mound(
+        self,
+        mound: Any,
+        workspace_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Load compression patterns from the Knowledge Mound.
+
+        This restores adapter state from KM persistence.
+
+        Args:
+            mound: KnowledgeMound instance
+            workspace_id: Workspace ID to load from
+
+        Returns:
+            Dict with load statistics
+        """
+        result = {
+            "patterns_loaded": 0,
+            "errors": [],
+        }
+
+        try:
+            # Query KM for compression patterns
+            nodes = await mound.query_nodes(
+                workspace_id=workspace_id,
+                source_type="rlm",
+                limit=500,
+            )
+
+            for node in nodes:
+                metadata = node.metadata or {}
+                if metadata.get("type") != "compression_pattern":
+                    continue
+
+                pattern_id = metadata.get("pattern_id")
+                if not pattern_id:
+                    continue
+
+                self._patterns[pattern_id] = {
+                    "id": pattern_id,
+                    "compression_ratio": metadata.get("compression_ratio", 0.5),
+                    "value_score": metadata.get("value_score", 0.7),
+                    "content_type": metadata.get("content_type", "general"),
+                    "content_markers": metadata.get("content_markers", []),
+                    "usage_count": metadata.get("usage_count", 1),
+                    "created_at": node.created_at.isoformat() if node.created_at else datetime.utcnow().isoformat(),
+                    "updated_at": node.updated_at.isoformat() if node.updated_at else datetime.utcnow().isoformat(),
+                    "metadata": {},
+                }
+
+                result["patterns_loaded"] += 1
+
+        except Exception as e:
+            result["errors"].append(f"Load failed: {e}")
+            logger.error(f"Failed to load patterns from KM: {e}")
+
+        logger.info(
+            f"RLM load from KM: loaded={result['patterns_loaded']}, "
+            f"errors={len(result['errors'])}"
+        )
+        return result
+
 
 __all__ = [
     "RlmAdapter",

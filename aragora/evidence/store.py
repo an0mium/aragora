@@ -21,6 +21,12 @@ from aragora.evidence.quality import QualityContext, QualityScorer
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.fts_utils import MAX_FTS_TERMS, sanitize_fts_query
 
+# Type checking import for KM adapter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,6 +88,8 @@ class EvidenceStore(SQLiteStore):
         db_path: Optional[Path] = None,
         enricher: Optional[MetadataEnricher] = None,
         scorer: Optional[QualityScorer] = None,
+        km_adapter: Optional["EvidenceAdapter"] = None,
+        km_min_reliability: float = 0.6,
     ):
         """Initialize the evidence store.
 
@@ -89,12 +97,24 @@ class EvidenceStore(SQLiteStore):
             db_path: Path to SQLite database (default: ~/.aragora/evidence.db)
             enricher: Optional metadata enricher
             scorer: Optional quality scorer
+            km_adapter: Optional Knowledge Mound adapter for bidirectional sync
+            km_min_reliability: Minimum reliability score for KM ingestion (default: 0.6)
         """
         self.enricher = enricher or MetadataEnricher()
         self.scorer = scorer or QualityScorer()
+        self._km_adapter = km_adapter
+        self._km_min_reliability = km_min_reliability
 
         # Initialize SQLiteStore with db_path
         super().__init__(db_path=db_path or self.DEFAULT_DB_PATH)
+
+    def set_km_adapter(self, adapter: "EvidenceAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: EvidenceAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     def save_evidence(
         self,
@@ -208,6 +228,30 @@ class EvidenceStore(SQLiteStore):
                     """,
                     (debate_id, evidence_id, round_number, relevance),
                 )
+
+        # Sync to Knowledge Mound if adapter configured and meets threshold
+        if self._km_adapter and reliability_score >= self._km_min_reliability:
+            try:
+                from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+                request = IngestionRequest(
+                    content=snippet,
+                    workspace_id=metadata.get("workspace_id", "default") if metadata else "default",
+                    source_type=KnowledgeSource.EVIDENCE,
+                    confidence=reliability_score,
+                    debate_id=debate_id,
+                    metadata={
+                        "source": source,
+                        "title": title,
+                        "url": url,
+                        "evidence_id": evidence_id,
+                    },
+                )
+                self._km_adapter.store(**self._km_adapter.from_ingestion_request(request, evidence_id=evidence_id))
+                logger.debug(f"Evidence synced to Knowledge Mound: {evidence_id}")
+            except Exception as e:
+                # Log but don't fail - KM sync is optional
+                logger.warning(f"Failed to sync evidence to Knowledge Mound: {e}")
 
         return evidence_id
 

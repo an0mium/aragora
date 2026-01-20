@@ -66,7 +66,11 @@ class GenesisHandler(BaseHandler):
         "/api/genesis/events",
         "/api/genesis/genomes",
         "/api/genesis/genomes/top",
+        "/api/genesis/genomes/*",
         "/api/genesis/population",
+        "/api/genesis/lineage/*",
+        "/api/genesis/tree/*",
+        "/api/genesis/descendants/*",
     ]
 
     def can_handle(self, path: str) -> bool:

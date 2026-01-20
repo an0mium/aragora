@@ -78,6 +78,18 @@ from aragora.control_plane.leader import (
     LeaderInfo,
     LeaderState,
 )
+from aragora.control_plane.multi_tenancy import (
+    TenantContext,
+    TenantEnforcer,
+    TenantEnforcementError,
+    TenantQuota,
+    TenantState,
+    get_current_tenant,
+    get_global_enforcer,
+    set_current_tenant,
+    set_global_enforcer,
+    with_tenant,
+)
 
 __all__ = [
     # Registry
@@ -102,4 +114,15 @@ __all__ = [
     "LeaderConfig",
     "LeaderInfo",
     "LeaderState",
+    # Multi-Tenancy
+    "TenantContext",
+    "TenantEnforcer",
+    "TenantEnforcementError",
+    "TenantQuota",
+    "TenantState",
+    "get_current_tenant",
+    "get_global_enforcer",
+    "set_current_tenant",
+    "set_global_enforcer",
+    "with_tenant",
 ]

@@ -61,6 +61,12 @@ class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
     ROUTES: list[str] = [
+        "/api/belief-network/*/cruxes",
+        "/api/belief-network/*/load-bearing-claims",
+        "/api/belief-network/*/graph",
+        "/api/belief-network/*/export",
+        "/api/provenance/*/claims/*/support",
+        "/api/debate/*/graph-stats",
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 

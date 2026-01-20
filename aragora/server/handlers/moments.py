@@ -65,6 +65,7 @@ class MomentsHandler(BaseHandler):
         "/api/moments/summary",
         "/api/moments/timeline",
         "/api/moments/trending",
+        "/api/moments/by-type/*",
     ]
 
     def can_handle(self, path: str) -> bool:

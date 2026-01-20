@@ -36,6 +36,8 @@ class CrossPollinationStatsHandler(BaseHandler):
     - Enabled status
     """
 
+    ROUTES = ["/api/cross-pollination/stats"]
+
     async def get(self) -> HandlerResult:
         """Get cross-subscriber statistics."""
         try:
@@ -77,6 +79,8 @@ class CrossPollinationSubscribersHandler(BaseHandler):
     Returns list of all registered subscribers with their event types.
     """
 
+    ROUTES = ["/api/cross-pollination/subscribers"]
+
     async def get(self) -> HandlerResult:
         """List all subscribers."""
         try:
@@ -116,6 +120,8 @@ class CrossPollinationBridgeHandler(BaseHandler):
     Returns status of the Arena event bridge connection.
     """
 
+    ROUTES = ["/api/cross-pollination/bridge"]
+
     async def get(self) -> HandlerResult:
         """Get bridge status."""
         try:
@@ -149,6 +155,8 @@ class CrossPollinationMetricsHandler(BaseHandler):
 
     Returns Prometheus-format metrics for cross-pollination event system.
     """
+
+    ROUTES = ["/api/cross-pollination/metrics"]
 
     async def get(self) -> HandlerResult:
         """Get cross-pollination metrics in Prometheus format."""
@@ -184,6 +192,8 @@ class CrossPollinationResetHandler(BaseHandler):
 
     Resets subscriber statistics (for testing/debugging).
     """
+
+    ROUTES = ["/api/cross-pollination/reset"]
 
     async def post(self) -> HandlerResult:
         """Reset subscriber statistics."""

@@ -10,15 +10,21 @@ Key components:
 - FlipDetector: Main detection logic with semantic comparison
 """
 
+import logging
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from aragora.insights.database import InsightsDatabase
 from aragora.persistence.db_config import DatabaseType, get_db_path
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -122,13 +128,23 @@ class FlipDetector:
         self,
         db_path: str | Path | None = None,
         similarity_threshold: float = 0.6,
+        km_adapter: Optional["InsightsAdapter"] = None,
     ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.PERSONAS)
         self.db_path = Path(db_path)
         self.db = InsightsDatabase(str(db_path))
         self.similarity_threshold = similarity_threshold
+        self._km_adapter = km_adapter
         self._init_tables()
+
+    def set_km_adapter(self, adapter: "InsightsAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: InsightsAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     def _init_tables(self) -> None:
         """Create flips and positions tables if not exist."""
@@ -358,6 +374,15 @@ class FlipDetector:
                 ],
             )
             conn.commit()
+
+        # Sync flips to Knowledge Mound (flips are always stored for meta-learning)
+        if self._km_adapter:
+            for flip in flips:
+                try:
+                    self._km_adapter.store_flip(flip)
+                    logger.debug(f"Flip synced to Knowledge Mound: {flip.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to sync flip to KM: {e}")
 
     def get_agent_consistency(self, agent_name: str) -> AgentConsistencyScore:
         """Get consistency score and metrics for an agent."""

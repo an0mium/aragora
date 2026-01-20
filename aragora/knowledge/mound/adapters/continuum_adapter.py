@@ -582,6 +582,116 @@ class ContinuumAdapter:
 
         return validated
 
+    async def sync_memory_to_mound(
+        self,
+        mound: Any,
+        workspace_id: str,
+        min_importance: float = 0.7,
+        limit: int = 100,
+        tiers: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Sync high-importance continuum memories to the Knowledge Mound.
+
+        This is the forward flow: significant memories are stored in KM for
+        long-term persistence, semantic search, and cross-debate retrieval.
+
+        Args:
+            mound: KnowledgeMound instance to sync to
+            workspace_id: Workspace ID for the KM entries
+            min_importance: Minimum importance threshold (default 0.7)
+            limit: Maximum entries to sync
+            tiers: Optional list of tier names to filter
+
+        Returns:
+            Dict with sync statistics (synced, skipped, errors)
+        """
+        from aragora.knowledge.mound.types import (
+            IngestionRequest,
+            SourceType,
+        )
+
+        result = {
+            "synced": 0,
+            "skipped": 0,
+            "already_synced": 0,
+            "errors": [],
+        }
+
+        # Get high-importance memories
+        entries = self.search_by_keyword(
+            query="",  # Empty query returns all
+            limit=limit,
+            tiers=tiers,
+            min_importance=min_importance,
+        )
+
+        for entry in entries:
+            try:
+                # Check if already synced to KM
+                if entry.metadata.get("km_synced"):
+                    result["already_synced"] += 1
+                    continue
+
+                # Skip if below importance threshold
+                if entry.importance < min_importance:
+                    result["skipped"] += 1
+                    continue
+
+                # Create ingestion request
+                request = IngestionRequest(
+                    content=entry.content,
+                    source_type=SourceType.CONTINUUM,
+                    workspace_id=workspace_id,
+                    confidence=entry.importance,
+                    tier=self._tier_to_km_tier(entry.tier.value),
+                    metadata={
+                        "continuum_id": entry.id,
+                        "continuum_tier": entry.tier.value,
+                        "surprise_score": entry.surprise_score,
+                        "consolidation_score": entry.consolidation_score,
+                        "tags": entry.tags,
+                    },
+                )
+
+                # Ingest into KM
+                km_id = await mound.ingest(request)
+
+                # Mark entry as synced in continuum
+                entry_metadata = entry.metadata.copy()
+                entry_metadata["km_synced"] = True
+                entry_metadata["km_node_id"] = km_id
+                self._continuum.update(entry.id, metadata=entry_metadata)
+
+                # Create bidirectional link
+                self.link_to_mound(entry.id, km_id)
+
+                result["synced"] += 1
+                logger.debug(f"Synced continuum entry to KM: {entry.id} -> {km_id}")
+
+            except Exception as e:
+                error_msg = f"Error syncing {entry.id}: {e}"
+                logger.warning(error_msg)
+                result["errors"].append(error_msg)
+
+        logger.info(
+            f"Memory to KM sync complete: synced={result['synced']}, "
+            f"skipped={result['skipped']}, already_synced={result['already_synced']}, "
+            f"errors={len(result['errors'])}"
+        )
+
+        return result
+
+    def _tier_to_km_tier(self, tier_name: str) -> int:
+        """Convert continuum tier name to KM tier number."""
+        mapping = {
+            "fast": 1,
+            "medium": 2,
+            "slow": 3,
+            "glacial": 4,
+        }
+        return mapping.get(tier_name, 3)
+
     def get_reverse_sync_stats(self) -> Dict[str, Any]:
         """
         Get statistics about reverse sync (KM → ContinuumMemory).

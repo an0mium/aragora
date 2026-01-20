@@ -805,6 +805,47 @@ class Arena:
         except Exception as e:
             logger.warning(f"[arena] Failed to initialize cross-subscriber bridge: {e}")
 
+    async def _init_km_context(self, debate_id: str, domain: str) -> None:
+        """Initialize Knowledge Mound context for the debate.
+
+        Emits DEBATE_START event to trigger cross-subsystem handlers:
+        - mound_to_belief: Initialize belief priors from historical cruxes
+        - mound_to_team_selection: Query domain experts for team assembly
+        - mound_to_trickster: Load flip history for consistency checking
+        - culture_to_debate: Load learned culture patterns
+
+        Args:
+            debate_id: Unique debate identifier
+            domain: Detected debate domain for targeted retrieval
+        """
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+
+            # Emit DEBATE_START to trigger KM→subsystem flows
+            event = StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={
+                    "debate_id": debate_id,
+                    "domain": domain,
+                    "question": self.env.task,
+                    "agent_count": len(self.agents),
+                    "protocol": {
+                        "rounds": self.protocol.rounds,
+                        "consensus": self.protocol.consensus,
+                    },
+                },
+            )
+            manager.dispatch(event)
+            logger.debug(f"[arena] KM context initialized for debate {debate_id}")
+
+        except ImportError:
+            logger.debug("[arena] KM context initialization skipped (events not available)")
+        except Exception as e:
+            logger.warning(f"[arena] Failed to initialize KM context: {e}")
+
     def _init_rlm_limiter(
         self,
         use_rlm_limiter: bool,
@@ -1341,6 +1382,9 @@ class Arena:
 
         # Extract domain early for metrics
         domain = self._extract_debate_domain()
+
+        # Initialize Knowledge Mound context for bidirectional integration
+        await self._init_km_context(debate_id, domain)
 
         # Create shared context for all phases
         ctx = DebateContext(

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { KnowledgeEmptyState } from '@/components/ui/EmptyState';
+import { useRightSidebar } from '@/context/RightSidebarContext';
 import {
   type KnowledgeNode,
   type KnowledgeRelationship,
@@ -64,6 +65,63 @@ export default function KnowledgeMoundPage() {
 
   // View mode state
   const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
+
+  const { setContext, clearContext } = useRightSidebar();
+
+  // Set up right sidebar content
+  useEffect(() => {
+    setContext({
+      title: 'Knowledge Mound',
+      subtitle: stats ? `${stats.totalNodes} nodes` : 'Loading...',
+      statsContent: stats ? (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Total Nodes</span>
+            <span className="text-sm font-mono text-[var(--acid-green)]">{stats.totalNodes}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Relationships</span>
+            <span className="text-sm font-mono text-[var(--text)]">{stats.totalRelationships}</span>
+          </div>
+          {stats.nodesByTier && (
+            <div className="pt-2 border-t border-[var(--border)]">
+              <span className="text-xs text-[var(--text-muted)] block mb-2">By Tier</span>
+              {Object.entries(stats.nodesByTier).map(([tier, count]) => (
+                <div key={tier} className="flex justify-between items-center text-xs">
+                  <span className="text-[var(--text-muted)] capitalize">{tier}</span>
+                  <span className="font-mono text-[var(--text)]">{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null,
+      actionsContent: (
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowAddFact(true)}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+          >
+            + ADD FACT
+          </button>
+          <button
+            onClick={() => setShowIndexRepo(true)}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          >
+            INDEX REPO
+          </button>
+          <button
+            onClick={() => setShowStalePanel(true)}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          >
+            CHECK STALE
+          </button>
+        </div>
+      ),
+    });
+
+    return () => clearContext();
+  }, [stats, setContext, clearContext, setShowAddFact, setShowIndexRepo, setShowStalePanel]);
 
   const fetchNodes = useCallback(async () => {
     try {

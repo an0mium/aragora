@@ -21,6 +21,12 @@ from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
 
+# Type checking import for KM adapter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
+
 logger = logging.getLogger(__name__)
 
 # Schema version for InsightStore migrations
@@ -149,10 +155,25 @@ class InsightStore(SQLiteStore):
     SCHEMA_VERSION = INSIGHT_STORE_SCHEMA_VERSION
     INITIAL_SCHEMA = INSIGHT_INITIAL_SCHEMA
 
-    def __init__(self, db_path: str | Path | None = None):
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        km_adapter: Optional["InsightsAdapter"] = None,
+        km_min_confidence: float = 0.7,
+    ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.INSIGHTS)
         super().__init__(resolve_db_path(str(db_path)))
+        self._km_adapter = km_adapter
+        self._km_min_confidence = km_min_confidence
+
+    def set_km_adapter(self, adapter: "InsightsAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: InsightsAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
 
     def register_migrations(self, manager: SchemaManager) -> None:
         """Register InsightStore schema migrations."""
@@ -285,6 +306,16 @@ class InsightStore(SQLiteStore):
                 )
 
             conn.commit()
+
+        # Sync high-confidence insights to Knowledge Mound
+        if self._km_adapter:
+            for insight in all_insights:
+                if insight.confidence >= self._km_min_confidence:
+                    try:
+                        self._km_adapter.store_insight(insight)
+                        logger.debug(f"Insight synced to Knowledge Mound: {insight.id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to sync insight to KM: {e}")
 
         return stored_count
 

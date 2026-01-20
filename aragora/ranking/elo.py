@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.type_protocols import EventEmitterProtocol
+    from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
 
 from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,

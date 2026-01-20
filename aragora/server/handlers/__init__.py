@@ -77,6 +77,7 @@ from .cross_pollination import (
     CrossPollinationStatsHandler,
     CrossPollinationSubscribersHandler,
     CrossPollinationBridgeHandler,
+    CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
 )
 from .admin import DashboardHandler  # Moved to admin/
@@ -164,6 +165,7 @@ ALL_HANDLERS = [
     CrossPollinationStatsHandler,  # Cross-subsystem event observability
     CrossPollinationSubscribersHandler,
     CrossPollinationBridgeHandler,
+    CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
     ConsensusHandler,
     BeliefHandler,
