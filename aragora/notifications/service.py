@@ -846,6 +846,233 @@ def _severity_to_priority(severity: str) -> NotificationPriority:
     return mapping.get(severity.lower(), NotificationPriority.NORMAL)
 
 
+# =============================================================================
+# Human Checkpoint Notifications
+# =============================================================================
+
+
+async def notify_checkpoint_approval_requested(
+    request_id: str,
+    workflow_id: str,
+    step_id: str,
+    title: str,
+    description: str,
+    workspace_id: Optional[str] = None,
+    assignees: Optional[list[str]] = None,
+    timeout_seconds: Optional[float] = None,
+    action_url: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a human checkpoint approval is requested.
+
+    Args:
+        request_id: ID of the approval request
+        workflow_id: ID of the workflow
+        step_id: ID of the checkpoint step
+        title: Title of the approval request
+        description: Description for the approver
+        workspace_id: Optional workspace ID
+        assignees: Optional list of assignee emails/slack handles
+        timeout_seconds: Timeout before escalation
+        action_url: URL to view/respond to the approval request
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    timeout_info = ""
+    if timeout_seconds:
+        hours = int(timeout_seconds // 3600)
+        minutes = int((timeout_seconds % 3600) // 60)
+        if hours > 0:
+            timeout_info = f"\n\nThis request will timeout in {hours}h {minutes}m."
+        else:
+            timeout_info = f"\n\nThis request will timeout in {minutes} minutes."
+
+    notification = Notification(
+        title=f"Approval Required: {title}",
+        message=f"{description}{timeout_info}",
+        severity="warning",
+        priority=NotificationPriority.HIGH,
+        resource_type="approval_request",
+        resource_id=request_id,
+        workspace_id=workspace_id,
+        action_url=action_url,
+        action_label="Review & Approve",
+        metadata={
+            "workflow_id": workflow_id,
+            "step_id": step_id,
+            "timeout_seconds": timeout_seconds,
+        },
+    )
+
+    # Build recipients mapping
+    recipients: dict[NotificationChannel, list[str]] = {}
+    if assignees:
+        # Split by channel type
+        slack_recipients = [a for a in assignees if a.startswith("#") or a.startswith("@")]
+        email_recipients = [a for a in assignees if "@" in a and not a.startswith("@")]
+
+        if slack_recipients:
+            recipients[NotificationChannel.SLACK] = slack_recipients
+        if email_recipients:
+            recipients[NotificationChannel.EMAIL] = email_recipients
+
+    # Send to configured channels (or specified recipients)
+    results = await service.notify(
+        notification,
+        recipients=recipients if recipients else None,
+    )
+
+    # Also send to webhooks
+    await service.notify_all_webhooks(notification, "checkpoint.approval_requested")
+
+    return results
+
+
+async def notify_checkpoint_escalation(
+    request_id: str,
+    workflow_id: str,
+    step_id: str,
+    title: str,
+    escalation_emails: list[str],
+    workspace_id: Optional[str] = None,
+    original_timeout_seconds: Optional[float] = None,
+    action_url: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send escalation notification when a checkpoint approval times out.
+
+    Args:
+        request_id: ID of the approval request
+        workflow_id: ID of the workflow
+        step_id: ID of the checkpoint step
+        title: Title of the approval request
+        escalation_emails: List of emails to escalate to
+        workspace_id: Optional workspace ID
+        original_timeout_seconds: The original timeout that was exceeded
+        action_url: URL to view/respond to the approval request
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    timeout_info = ""
+    if original_timeout_seconds:
+        hours = int(original_timeout_seconds // 3600)
+        minutes = int((original_timeout_seconds % 3600) // 60)
+        if hours > 0:
+            timeout_info = f" after {hours}h {minutes}m"
+        else:
+            timeout_info = f" after {minutes} minutes"
+
+    notification = Notification(
+        title=f"ESCALATION: {title}",
+        message=f"An approval request has timed out{timeout_info} and requires immediate attention.",
+        severity="critical",
+        priority=NotificationPriority.URGENT,
+        resource_type="approval_request",
+        resource_id=request_id,
+        workspace_id=workspace_id,
+        action_url=action_url,
+        action_label="Review Urgently",
+        metadata={
+            "workflow_id": workflow_id,
+            "step_id": step_id,
+            "escalation": True,
+        },
+    )
+
+    # Send to escalation recipients
+    recipients = {
+        NotificationChannel.EMAIL: escalation_emails,
+    }
+
+    # Also try Slack if escalation emails contain Slack handles
+    slack_recipients = [e for e in escalation_emails if e.startswith("#") or e.startswith("@")]
+    if slack_recipients:
+        recipients[NotificationChannel.SLACK] = slack_recipients
+
+    results = await service.notify(
+        notification,
+        recipients=recipients,
+    )
+
+    # Also send to webhooks
+    await service.notify_all_webhooks(notification, "checkpoint.escalation")
+
+    return results
+
+
+async def notify_checkpoint_resolved(
+    request_id: str,
+    workflow_id: str,
+    step_id: str,
+    title: str,
+    status: str,  # approved, rejected
+    responder_id: Optional[str] = None,
+    responder_notes: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a checkpoint approval is resolved.
+
+    Args:
+        request_id: ID of the approval request
+        workflow_id: ID of the workflow
+        step_id: ID of the checkpoint step
+        title: Title of the approval request
+        status: Resolution status (approved/rejected)
+        responder_id: ID of the person who responded
+        responder_notes: Notes from the responder
+        workspace_id: Optional workspace ID
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    if status == "approved":
+        severity = "info"
+        status_text = "APPROVED"
+        emoji = "✓"
+    else:
+        severity = "warning"
+        status_text = "REJECTED"
+        emoji = "✗"
+
+    message_parts = [f"Checkpoint '{title}' has been {status_text.lower()}."]
+    if responder_id:
+        message_parts.append(f"Resolved by: {responder_id}")
+    if responder_notes:
+        message_parts.append(f"Notes: {responder_notes}")
+
+    notification = Notification(
+        title=f"{emoji} Checkpoint {status_text}: {title}",
+        message="\n".join(message_parts),
+        severity=severity,
+        priority=NotificationPriority.NORMAL,
+        resource_type="approval_request",
+        resource_id=request_id,
+        workspace_id=workspace_id,
+        metadata={
+            "workflow_id": workflow_id,
+            "step_id": step_id,
+            "status": status,
+            "responder_id": responder_id,
+        },
+    )
+
+    results = await service.notify(notification)
+
+    # Also send to webhooks
+    await service.notify_all_webhooks(notification, f"checkpoint.{status}")
+
+    return results
+
+
 # Global instance
 _notification_service: Optional[NotificationService] = None
 _lock = threading.Lock()

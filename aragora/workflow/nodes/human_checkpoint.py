@@ -179,6 +179,9 @@ class HumanCheckpointStep(BaseStep):
             except Exception as e:
                 logger.warning(f"Failed to notify approval listener: {e}")
 
+        # Send notifications via notification service (Slack/Email)
+        await self._send_approval_notification(request, config, context)
+
         # Store request ID in context for external resolution
         context.set_state(f"approval_request_{self.name}", request.id)
 
@@ -248,8 +251,23 @@ class HumanCheckpointStep(BaseStep):
         request.status = ApprovalStatus.ESCALATED
         logger.info(f"Escalating approval request {request.id} to: {request.escalation_emails}")
 
-        # In production, this would send emails/notifications
-        # For now, just log the escalation
+        # Send escalation notifications via Slack/Email
+        try:
+            from aragora.notifications import notify_checkpoint_escalation
+
+            await notify_checkpoint_escalation(
+                request_id=request.id,
+                workflow_id=request.workflow_id,
+                step_id=request.step_id,
+                title=request.title,
+                escalation_emails=request.escalation_emails,
+                original_timeout_seconds=request.timeout_seconds,
+                action_url=self._build_action_url(request),
+            )
+        except ImportError:
+            logger.debug("Notification service not available for escalation")
+        except Exception as e:
+            logger.warning(f"Failed to send escalation notification: {e}")
 
     def _build_description(self, config: Dict[str, Any], context: WorkflowContext) -> str:
         """Build the approval request description."""
@@ -281,6 +299,43 @@ class HumanCheckpointStep(BaseStep):
             return safe_eval_bool(condition, namespace)
         except SafeEvalError:
             return False
+
+    async def _send_approval_notification(
+        self,
+        request: ApprovalRequest,
+        config: Dict[str, Any],
+        context: WorkflowContext,
+    ) -> None:
+        """Send notification for new approval request via Slack/Email."""
+        try:
+            from aragora.notifications import notify_checkpoint_approval_requested
+
+            # Get assignees from config
+            assignees = config.get("assignees") or config.get("escalation_emails") or []
+
+            await notify_checkpoint_approval_requested(
+                request_id=request.id,
+                workflow_id=request.workflow_id,
+                step_id=request.step_id,
+                title=request.title,
+                description=request.description,
+                assignees=assignees,
+                timeout_seconds=request.timeout_seconds,
+                action_url=self._build_action_url(request),
+            )
+        except ImportError:
+            logger.debug("Notification service not available")
+        except Exception as e:
+            logger.warning(f"Failed to send approval notification: {e}")
+
+    def _build_action_url(self, request: ApprovalRequest) -> Optional[str]:
+        """Build the URL for viewing/responding to an approval request."""
+        import os
+
+        base_url = os.environ.get("ARAGORA_BASE_URL", "")
+        if base_url:
+            return f"{base_url}/workflows/{request.workflow_id}/approvals/{request.id}"
+        return None
 
 
 # Helper functions for external approval resolution
@@ -321,7 +376,45 @@ def resolve_approval(
                 item.checked = checklist_updates[item.id]
 
     logger.info(f"Resolved approval request {request_id}: {status.value}")
+
+    # Send resolution notification (async in background)
+    _send_resolution_notification_background(request)
+
     return True
+
+
+def _send_resolution_notification_background(request: ApprovalRequest) -> None:
+    """Send resolution notification in background (fire-and-forget)."""
+    import asyncio
+
+    async def _send():
+        try:
+            from aragora.notifications import notify_checkpoint_resolved
+
+            await notify_checkpoint_resolved(
+                request_id=request.id,
+                workflow_id=request.workflow_id,
+                step_id=request.step_id,
+                title=request.title,
+                status=request.status.value,
+                responder_id=request.responder_id,
+                responder_notes=request.responder_notes,
+            )
+        except ImportError:
+            pass  # Notification service not available
+        except Exception as e:
+            logger.warning(f"Failed to send resolution notification: {e}")
+
+    # Try to schedule in existing event loop or create new one
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_send())
+    except RuntimeError:
+        # No running loop, run synchronously in new loop
+        try:
+            asyncio.run(_send())
+        except Exception:
+            pass  # Best effort
 
 
 def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalRequest]:

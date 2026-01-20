@@ -54,6 +54,9 @@ from .service import (
     init_notification_service,
     notify_finding_created,
     notify_audit_completed,
+    notify_checkpoint_approval_requested,
+    notify_checkpoint_escalation,
+    notify_checkpoint_resolved,
 )
 
 __all__ = [
@@ -78,4 +81,8 @@ __all__ = [
     # Convenience functions
     "notify_finding_created",
     "notify_audit_completed",
+    # Checkpoint notifications
+    "notify_checkpoint_approval_requested",
+    "notify_checkpoint_escalation",
+    "notify_checkpoint_resolved",
 ]
