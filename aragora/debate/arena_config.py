@@ -155,6 +155,11 @@ class ArenaConfig:
     # Belief Network guidance (cross-debate crux injection)
     enable_belief_guidance: bool = True  # Inject historical cruxes from similar debates as context
 
+    # Post-debate workflow automation
+    post_debate_workflow: Optional[Any] = None  # Workflow DAG to trigger after high-confidence debates
+    enable_post_debate_workflow: bool = False  # Auto-trigger workflow after debates
+    post_debate_workflow_threshold: float = 0.7  # Min confidence to trigger workflow
+
     # Genesis evolution
     population_manager: Optional[PopulationManagerProtocol] = None
     auto_evolve: bool = False  # Trigger evolution after high-quality debates
@@ -224,6 +229,20 @@ class ArenaConfig:
     rlm_summary_level: str = "SUMMARY"  # Abstraction level for older content (ABSTRACT, SUMMARY, DETAILED)
     rlm_compression_round_threshold: int = 3  # Start auto-compression after this many rounds
 
+    # Memory Coordination (cross-system atomic writes)
+    enable_coordinated_writes: bool = True  # Use MemoryCoordinator for atomic multi-system writes
+    memory_coordinator: Optional[Any] = None  # Pre-configured MemoryCoordinator
+    coordinator_parallel_writes: bool = False  # Execute memory writes in parallel (False = safer sequential)
+    coordinator_rollback_on_failure: bool = True  # Roll back successful writes if any fails
+    coordinator_min_confidence_for_mound: float = 0.7  # Min confidence to write to KnowledgeMound
+
+    # Performance → Selection Feedback Loop
+    enable_performance_feedback: bool = True  # Adjust selection weights based on debate performance
+    selection_feedback_loop: Optional[Any] = None  # Pre-configured SelectionFeedbackLoop
+    feedback_loop_weight: float = 0.15  # Weight for feedback adjustments (0.0-1.0)
+    feedback_loop_decay: float = 0.9  # Decay factor for old feedback
+    feedback_loop_min_debates: int = 3  # Min debates before applying feedback
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -271,6 +290,10 @@ class ArenaConfig:
             # Note: revalidation_staleness_threshold, revalidation_check_interval_seconds,
             # and revalidation_scheduler are stored in config but Arena reads them from config
             "enable_belief_guidance": self.enable_belief_guidance,
+            # Post-debate workflow automation
+            "post_debate_workflow": self.post_debate_workflow,
+            "enable_post_debate_workflow": self.enable_post_debate_workflow,
+            "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,
@@ -318,6 +341,18 @@ class ArenaConfig:
             "rlm_max_recent_messages": self.rlm_max_recent_messages,
             "rlm_summary_level": self.rlm_summary_level,
             "rlm_compression_round_threshold": self.rlm_compression_round_threshold,
+            # Memory Coordination
+            "enable_coordinated_writes": self.enable_coordinated_writes,
+            "memory_coordinator": self.memory_coordinator,
+            "coordinator_parallel_writes": self.coordinator_parallel_writes,
+            "coordinator_rollback_on_failure": self.coordinator_rollback_on_failure,
+            "coordinator_min_confidence_for_mound": self.coordinator_min_confidence_for_mound,
+            # Selection Feedback Loop
+            "enable_performance_feedback": self.enable_performance_feedback,
+            "selection_feedback_loop": self.selection_feedback_loop,
+            "feedback_loop_weight": self.feedback_loop_weight,
+            "feedback_loop_decay": self.feedback_loop_decay,
+            "feedback_loop_min_debates": self.feedback_loop_min_debates,
             # Note: broadcast_platforms, training_export_path not yet in Arena.__init__
         }
 

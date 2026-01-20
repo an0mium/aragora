@@ -23,6 +23,8 @@ Arena._run_inner() method, handling post-debate updates:
 18. Consensus outcome storage
 19. Crux extraction
 20. Training data emission (Tinker integration)
+21. Coordinated memory writes (cross-system atomic)
+22. Selection feedback loop (performance → selection)
 """
 
 import asyncio
@@ -122,6 +124,18 @@ class FeedbackPhase:
         knowledge_mound: Optional[Any] = None,  # KnowledgeMound for unified knowledge ingestion
         enable_knowledge_ingestion: bool = True,  # Store debate outcomes in mound
         ingest_debate_outcome: Optional[Callable[[Any], Any]] = None,  # Callback to ingest outcome
+        knowledge_bridge_hub: Optional[Any] = None,  # KnowledgeBridgeHub for bridge access
+        # Memory Coordination (cross-system atomic writes)
+        memory_coordinator: Optional[Any] = None,  # MemoryCoordinator for atomic writes
+        enable_coordinated_writes: bool = True,  # Use coordinator instead of individual writes
+        coordinator_options: Optional[Any] = None,  # CoordinatorOptions for behavior
+        # Selection Feedback Loop
+        selection_feedback_loop: Optional[Any] = None,  # SelectionFeedbackLoop for performance feedback
+        enable_performance_feedback: bool = True,  # Update selection weights based on performance
+        # Post-debate workflow automation
+        post_debate_workflow: Optional[Any] = None,  # Workflow DAG to trigger after debates
+        enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
+        post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
     ):
         """
         Initialize the feedback phase.
@@ -156,6 +170,7 @@ class FeedbackPhase:
             knowledge_mound: Optional KnowledgeMound for unified knowledge ingestion
             enable_knowledge_ingestion: If True, store debate outcomes in mound
             ingest_debate_outcome: Async callback to ingest outcome into mound
+            knowledge_bridge_hub: Optional KnowledgeBridgeHub for unified bridge access
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -181,6 +196,21 @@ class FeedbackPhase:
         self.broadcast_min_confidence = broadcast_min_confidence
         self.knowledge_mound = knowledge_mound
         self.enable_knowledge_ingestion = enable_knowledge_ingestion
+        self.knowledge_bridge_hub = knowledge_bridge_hub
+
+        # Memory Coordination
+        self.memory_coordinator = memory_coordinator
+        self.enable_coordinated_writes = enable_coordinated_writes
+        self.coordinator_options = coordinator_options
+
+        # Selection Feedback Loop
+        self.selection_feedback_loop = selection_feedback_loop
+        self.enable_performance_feedback = enable_performance_feedback
+
+        # Post-debate workflow automation
+        self.post_debate_workflow = post_debate_workflow
+        self.enable_post_debate_workflow = enable_post_debate_workflow
+        self.post_debate_workflow_threshold = post_debate_workflow_threshold
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -274,8 +304,209 @@ class FeedbackPhase:
         # 21. Ingest debate outcome into Knowledge Mound
         await self._ingest_knowledge_outcome(ctx)
 
-        # 22. Auto-trigger broadcast for high-quality debates
+        # 22. Store collected evidence in Knowledge Mound via EvidenceBridge
+        await self._store_evidence_in_mound(ctx)
+
+        # 23. Observe debate for culture patterns
+        await self._observe_debate_culture(ctx)
+
+        # 24. Auto-trigger broadcast for high-quality debates
         await self._maybe_trigger_broadcast(ctx)
+
+        # 25. Execute coordinated memory writes (alternative to individual writes)
+        await self._execute_coordinated_writes(ctx)
+
+        # 26. Update selection feedback loop with debate outcome
+        await self._update_selection_feedback(ctx)
+
+        # 27. Trigger post-debate workflow for high-quality debates
+        await self._maybe_trigger_workflow(ctx)
+
+    async def _maybe_trigger_workflow(self, ctx: "DebateContext") -> None:
+        """Trigger post-debate workflow for high-quality debates.
+
+        When enabled via enable_post_debate_workflow, this method:
+        1. Checks if debate confidence meets workflow threshold
+        2. Triggers the workflow engine asynchronously (fire-and-forget)
+        3. Logs success/failure without blocking debate completion
+
+        Workflows can be used for automated refinement, documentation,
+        knowledge extraction, or other post-debate processing.
+        """
+        if not self.post_debate_workflow or not self.enable_post_debate_workflow:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Check confidence threshold
+        confidence = getattr(result, "confidence", 0.0)
+        if confidence < self.post_debate_workflow_threshold:
+            logger.debug(
+                "[workflow] Skipping workflow: confidence %.2f < threshold %.2f",
+                confidence,
+                self.post_debate_workflow_threshold,
+            )
+            return
+
+        # Fire-and-forget workflow to not block debate completion
+        asyncio.create_task(self._run_workflow_async(ctx))
+        logger.info(
+            "[workflow] Triggered post-debate workflow for debate %s (confidence=%.2f)",
+            ctx.debate_id,
+            confidence,
+        )
+
+    async def _run_workflow_async(self, ctx: "DebateContext") -> None:
+        """Run workflow engine asynchronously.
+
+        This is a fire-and-forget task so it doesn't block debate completion.
+        Failures are logged but don't affect the debate result.
+        """
+        try:
+            from aragora.workflow.engine import WorkflowEngine
+
+            engine = WorkflowEngine()
+            workflow_input = {
+                "debate_id": ctx.debate_id,
+                "task": ctx.env.task,
+                "result": {
+                    "winner": ctx.result.winner if ctx.result else None,
+                    "confidence": ctx.result.confidence if ctx.result else 0.0,
+                    "consensus_reached": ctx.result.consensus_reached if ctx.result else False,
+                    "final_answer": ctx.result.final_answer if ctx.result else "",
+                },
+                "domain": ctx.domain,
+                "agents": [a.name for a in ctx.agents] if ctx.agents else [],
+            }
+
+            workflow_result = await engine.execute(
+                self.post_debate_workflow,
+                input_data=workflow_input,
+            )
+
+            if workflow_result.success:
+                logger.info(
+                    "[workflow] Completed workflow for %s: output=%s",
+                    ctx.debate_id,
+                    str(workflow_result.output)[:200] if workflow_result.output else "None",
+                )
+            else:
+                logger.warning(
+                    "[workflow] Workflow failed for %s: %s",
+                    ctx.debate_id,
+                    workflow_result.error_message,
+                )
+
+        except ImportError:
+            logger.debug("[workflow] WorkflowEngine not available")
+        except Exception as e:
+            logger.warning("[workflow] Post-debate workflow failed: %s", e)
+
+    async def _execute_coordinated_writes(self, ctx: "DebateContext") -> None:
+        """Execute coordinated atomic writes to all memory systems.
+
+        When enabled, this provides transaction semantics for multi-system
+        writes with rollback on partial failure. This is an alternative to
+        the individual write operations in steps 8-11.
+
+        Note: Individual writes still run for backward compatibility.
+        The coordinator can be used for additional atomic operations.
+        """
+        if not self.memory_coordinator or not self.enable_coordinated_writes:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            transaction = await self.memory_coordinator.commit_debate_outcome(
+                ctx=ctx,
+                options=self.coordinator_options,
+            )
+
+            if transaction.success:
+                logger.info(
+                    "[coordinator] Committed %d writes for debate %s",
+                    len(transaction.operations),
+                    ctx.debate_id,
+                )
+            elif transaction.partial_failure:
+                failed = transaction.get_failed_operations()
+                logger.warning(
+                    "[coordinator] Partial failure for debate %s: %d/%d failed",
+                    ctx.debate_id,
+                    len(failed),
+                    len(transaction.operations),
+                )
+                for op in failed:
+                    logger.warning("[coordinator] Failed: %s - %s", op.target, op.error)
+
+            # Store transaction reference in context for debugging
+            setattr(ctx, "_memory_transaction", transaction)
+
+        except Exception as e:
+            logger.error("[coordinator] Transaction failed for %s: %s", ctx.debate_id, e)
+
+    async def _update_selection_feedback(self, ctx: "DebateContext") -> None:
+        """Update selection feedback loop with debate outcome.
+
+        Records debate performance metrics and computes selection weight
+        adjustments for participating agents based on their performance.
+        """
+        if not self.selection_feedback_loop or not self.enable_performance_feedback:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            adjustments = self.selection_feedback_loop.process_debate_outcome(
+                debate_id=ctx.debate_id,
+                participants=[a.name for a in ctx.agents],
+                winner=result.winner,
+                domain=ctx.domain,
+            )
+
+            if adjustments:
+                logger.debug(
+                    "[feedback] Updated selection weights for %d agents",
+                    len(adjustments),
+                )
+
+                # Emit selection feedback event
+                self._emit_selection_feedback_event(ctx, adjustments)
+
+        except Exception as e:
+            logger.debug("[feedback] Selection feedback update failed: %s", e)
+
+    def _emit_selection_feedback_event(
+        self, ctx: "DebateContext", adjustments: Dict[str, float]
+    ) -> None:
+        """Emit SELECTION_FEEDBACK event for real-time monitoring."""
+        if not self.event_emitter:
+            return
+
+        try:
+            from aragora.server.stream import StreamEvent, StreamEventType
+
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.SELECTION_FEEDBACK,
+                    loop_id=self.loop_id,
+                    data={
+                        "debate_id": ctx.debate_id,
+                        "adjustments": adjustments,
+                        "domain": ctx.domain,
+                        "winner": ctx.result.winner if ctx.result else None,
+                    },
+                )
+            )
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
+            logger.debug("Selection feedback event emission error: %s", e)
 
     async def _ingest_knowledge_outcome(self, ctx: "DebateContext") -> None:
         """Ingest debate outcome into Knowledge Mound for future retrieval.
@@ -297,6 +528,68 @@ class FeedbackPhase:
             await self._ingest_debate_outcome(result)
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("[knowledge_mound] Failed to ingest outcome: %s", e)
+
+    async def _store_evidence_in_mound(self, ctx: "DebateContext") -> None:
+        """Store collected evidence in Knowledge Mound via EvidenceBridge.
+
+        Persists evidence gathered during the debate (sources, quotes, data)
+        in the Knowledge Mound so it can inform future debates on related topics.
+        """
+        if not self.knowledge_bridge_hub:
+            return
+
+        evidence_items = getattr(ctx, "collected_evidence", [])
+        if not evidence_items:
+            return
+
+        try:
+            evidence_bridge = self.knowledge_bridge_hub.evidence
+            stored_count = 0
+
+            for evidence in evidence_items:
+                try:
+                    await evidence_bridge.store_from_collector_evidence(evidence)
+                    stored_count += 1
+                except (TypeError, ValueError, AttributeError) as e:
+                    logger.debug("[evidence] Failed to store single item: %s", e)
+
+            if stored_count > 0:
+                logger.info(
+                    "[evidence] Stored %d/%d evidence items in mound for debate %s",
+                    stored_count,
+                    len(evidence_items),
+                    ctx.debate_id,
+                )
+
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.warning("[evidence] Failed to store evidence: %s", e)
+
+    async def _observe_debate_culture(self, ctx: "DebateContext") -> None:
+        """Observe debate for organizational culture patterns.
+
+        Extracts patterns from debate outcomes to build institutional knowledge
+        about effective debate strategies, common arguments, and consensus patterns.
+        This feeds into the CultureAccumulator for organizational learning.
+        """
+        if not self.knowledge_mound or not ctx.result:
+            return
+
+        try:
+            # Check if the knowledge mound has observe_debate method
+            if not hasattr(self.knowledge_mound, "observe_debate"):
+                return
+
+            patterns = await self.knowledge_mound.observe_debate(ctx.result)
+
+            if patterns:
+                logger.info(
+                    "[culture] Extracted %d patterns from debate %s",
+                    len(patterns),
+                    ctx.debate_id,
+                )
+
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[culture] Pattern observation failed: %s", e)
 
     async def _maybe_trigger_broadcast(self, ctx: "DebateContext") -> None:
         """Trigger broadcast for high-quality debates.

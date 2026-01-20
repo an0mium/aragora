@@ -14,13 +14,19 @@ Arena._run_inner() method, handling:
 """
 
 import asyncio
+import hashlib
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+import time
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
+# Knowledge query cache (TTL-based to reduce redundant semantic searches)
+_knowledge_cache: Dict[str, Tuple[str, float]] = {}
+_KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 
 # Check for RLM availability (prefer factory for TRUE RLM support)
 try:
@@ -72,6 +78,9 @@ class ContextInitializer:
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         # Belief Network guidance
         enable_belief_guidance: bool = True,  # Inject historical cruxes from similar debates
+        # Cross-debate memory for institutional knowledge
+        cross_debate_memory: Any = None,  # CrossDebateMemory for institutional knowledge
+        enable_cross_debate_memory: bool = True,  # Query cross-debate memory before debates
         # RLM (Recursive Language Models) for context compression
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
@@ -120,6 +129,8 @@ class ContextInitializer:
         self.knowledge_mound = knowledge_mound
         self.enable_knowledge_retrieval = enable_knowledge_retrieval
         self.enable_belief_guidance = enable_belief_guidance
+        self.cross_debate_memory = cross_debate_memory
+        self.enable_cross_debate_memory = enable_cross_debate_memory
 
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
@@ -235,6 +246,10 @@ class ContextInitializer:
         # 12b. Inject belief cruxes from similar past debates (belief guidance)
         if self.enable_belief_guidance:
             self._inject_belief_cruxes(ctx)
+
+        # 12c. Inject cross-debate institutional knowledge
+        if self.enable_cross_debate_memory:
+            await self._inject_cross_debate_context(ctx)
 
         # 13. Start research in background (non-blocking for fast startup)
         # Research runs in parallel with proposals, results injected before round 2
@@ -378,7 +393,12 @@ class ContextInitializer:
         Queries the unified knowledge superstructure for semantically related
         knowledge items that can inform the debate. This provides agents with
         organizational memory and previously learned conclusions.
+
+        Uses TTL-based caching to reduce redundant semantic searches for
+        similar tasks within a short time window.
         """
+        global _knowledge_cache
+
         if not self.knowledge_mound or not self.enable_knowledge_retrieval:
             return
 
@@ -386,10 +406,31 @@ class ContextInitializer:
             return
 
         try:
+            # Generate cache key from task content
+            query_hash = hashlib.md5(ctx.env.task.encode()).hexdigest()
+
+            # Check cache first
+            cached = self._get_cached_knowledge(query_hash)
+            if cached is not None:
+                if cached:  # Non-empty cached result
+                    if ctx.env.context:
+                        ctx.env.context += "\n\n" + cached
+                    else:
+                        ctx.env.context = cached
+                    logger.info(
+                        "[knowledge_mound] Used cached knowledge context (%d chars)",
+                        len(cached),
+                    )
+                return
+
+            # Fetch fresh knowledge context
             knowledge_context = await asyncio.wait_for(
                 self._fetch_knowledge_context(ctx.env.task, limit=10),
                 timeout=10.0,  # 10 second timeout
             )
+
+            # Cache the result (even if empty, to avoid re-fetching)
+            _knowledge_cache[query_hash] = (knowledge_context or "", time.time())
 
             if knowledge_context:
                 if ctx.env.context:
@@ -405,6 +446,20 @@ class ContextInitializer:
             logger.warning("[knowledge_mound] Knowledge context fetch timed out")
         except Exception as e:
             logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
+
+    def _get_cached_knowledge(self, query_hash: str) -> Optional[str]:
+        """Get cached knowledge context if still valid.
+
+        Returns:
+            Cached knowledge string if found and not expired, None otherwise.
+        """
+        if query_hash in _knowledge_cache:
+            result, ts = _knowledge_cache[query_hash]
+            if time.time() - ts < _KNOWLEDGE_CACHE_TTL:
+                return result
+            # Expired - remove from cache
+            del _knowledge_cache[query_hash]
+        return None
 
     async def _inject_insight_patterns(self, ctx: "DebateContext") -> None:
         """Inject learned patterns and high-confidence insights from past debates.
@@ -608,6 +663,55 @@ class ContextInitializer:
 
         except Exception as e:
             logger.debug(f"[belief_guidance] Crux injection error: {e}")
+
+    async def _inject_cross_debate_context(self, ctx: "DebateContext") -> None:
+        """Inject institutional knowledge from CrossDebateMemory.
+
+        Queries the cross-debate memory system for relevant context from past
+        debates on similar topics. This provides agents with institutional
+        knowledge - conclusions, insights, and patterns that the system has
+        learned from previous debates.
+
+        This is distinct from historical dissents (which focus on minority views)
+        and belief cruxes (which focus on key disagreement points). Cross-debate
+        memory provides a broader view of what the system has learned.
+        """
+        if not self.cross_debate_memory:
+            return
+
+        try:
+            topic = ctx.env.task
+
+            # Query cross-debate memory for relevant context
+            relevant_context = await asyncio.wait_for(
+                self.cross_debate_memory.get_relevant_context(task=topic),
+                timeout=5.0,  # Quick timeout to avoid blocking
+            )
+
+            if not relevant_context or len(relevant_context.strip()) < 50:
+                return
+
+            # Inject as institutional knowledge section
+            institutional_section = "\n\n## INSTITUTIONAL KNOWLEDGE\n"
+            institutional_section += (
+                "The following insights are from previous debates on related topics:\n\n"
+            )
+            institutional_section += relevant_context
+
+            if ctx.env.context:
+                ctx.env.context += institutional_section
+            else:
+                ctx.env.context = institutional_section.strip()
+
+            logger.info(
+                "[cross_debate] Injected institutional knowledge (%d chars) from past debates",
+                len(relevant_context),
+            )
+
+        except asyncio.TimeoutError:
+            logger.debug("[cross_debate] Context fetch timed out")
+        except Exception as e:
+            logger.debug(f"[cross_debate] Context injection error: {e}")
 
     async def _perform_pre_debate_research(self, ctx: "DebateContext") -> None:
         """Perform pre-debate research if enabled."""

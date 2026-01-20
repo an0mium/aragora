@@ -250,6 +250,8 @@ def init_phases(arena: "Arena") -> None:
         auto_fetch_trending=arena.auto_fetch_trending,
         knowledge_mound=getattr(arena, "knowledge_mound", None),
         enable_knowledge_retrieval=getattr(arena, "enable_knowledge_retrieval", True),
+        cross_debate_memory=getattr(arena, "cross_debate_memory", None),
+        enable_cross_debate_memory=getattr(arena, "enable_cross_debate_memory", True),
         fetch_historical_context=arena._fetch_historical_context,
         format_patterns_for_prompt=arena._format_patterns_for_prompt,
         get_successful_patterns_from_memory=arena._get_successful_patterns_from_memory,
@@ -420,6 +422,11 @@ def init_phases(arena: "Arena") -> None:
         knowledge_mound=getattr(arena, "knowledge_mound", None),
         enable_knowledge_ingestion=getattr(arena, "enable_knowledge_ingestion", True),
         ingest_debate_outcome=arena._ingest_debate_outcome,
+        knowledge_bridge_hub=getattr(arena, "knowledge_bridge_hub", None),
+        # Post-debate workflow automation
+        post_debate_workflow=getattr(arena, "post_debate_workflow", None),
+        enable_post_debate_workflow=getattr(arena, "enable_post_debate_workflow", False),
+        post_debate_workflow_threshold=getattr(arena, "post_debate_workflow_threshold", 0.7),
     )
 
 

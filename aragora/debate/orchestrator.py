@@ -647,6 +647,31 @@ class Arena:
             notify_callback=self._knowledge_notify_callback,
         )
 
+        # Initialize KnowledgeBridgeHub for unified bridge access
+        self.knowledge_bridge_hub = None
+        if self.knowledge_mound:
+            from aragora.knowledge.bridges import KnowledgeBridgeHub
+            self.knowledge_bridge_hub = KnowledgeBridgeHub(self.knowledge_mound)
+
+        # Initialize RevalidationScheduler for automatic knowledge revalidation
+        self.revalidation_scheduler = None
+        if self.enable_auto_revalidation and self.knowledge_mound:
+            try:
+                from aragora.knowledge.mound.revalidation_scheduler import RevalidationScheduler
+
+                self.revalidation_scheduler = RevalidationScheduler(
+                    mound=self.knowledge_mound,
+                    staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
+                    check_interval_seconds=getattr(self, "revalidation_check_interval_seconds", 3600),
+                )
+                logger.info(
+                    "[knowledge_mound] RevalidationScheduler initialized "
+                    "(staleness_threshold=%.2f)",
+                    getattr(self, "revalidation_staleness_threshold", 0.7),
+                )
+            except ImportError as e:
+                logger.debug(f"[knowledge_mound] RevalidationScheduler unavailable: {e}")
+
     def _knowledge_notify_callback(self, event_type: str, data: dict) -> None:
         """Callback for knowledge mound notifications."""
         self._notify_spectator(event_type, **data)
