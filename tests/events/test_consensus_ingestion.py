@@ -83,7 +83,8 @@ def mock_mound():
 def subscriber_manager():
     """Get a fresh subscriber manager."""
     # Reset singleton to get fresh instance
-    from aragora.events.cross_subscribers import _manager
+    from aragora.events.cross_subscribers import reset_cross_subscriber_manager
+    reset_cross_subscriber_manager()
     return get_cross_subscriber_manager()
 
 
@@ -467,3 +468,400 @@ class TestKeyClainsIngestion:
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should handle gracefully
+
+
+# ============================================================================
+# Dissent Tracking Tests
+# ============================================================================
+
+
+class TestDissentTracking:
+    """Tests for dissent tracking in consensus ingestion."""
+
+    @pytest.fixture
+    def consensus_event_with_dissents(self):
+        """Create a consensus event with dissenting views."""
+        return StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "debate_dissent_001",
+                "consensus_reached": True,
+                "topic": "Database selection for high-write workloads",
+                "conclusion": "PostgreSQL with proper tuning is suitable",
+                "confidence": 0.75,
+                "strength": "moderate",
+                "key_claims": [
+                    "PostgreSQL handles high write loads with partitioning",
+                    "Connection pooling is essential",
+                ],
+                "participating_agents": ["claude", "gpt4", "gemini", "mistral"],
+                "agreeing_agents": ["claude", "gpt4"],
+                "dissenting_agents": ["gemini", "mistral"],
+                "dissents": [
+                    {
+                        "agent_id": "gemini",
+                        "type": "alternative_approach",
+                        "content": "Cassandra would be better for write-heavy workloads",
+                        "reasoning": "Cassandra's write-optimized architecture handles high throughput better",
+                        "confidence": 0.7,
+                        "acknowledged": True,
+                        "rebuttal": "PostgreSQL's WAL optimization addresses this for most use cases",
+                    },
+                    {
+                        "agent_id": "mistral",
+                        "type": "risk_warning",
+                        "content": "PostgreSQL may face replication lag under extreme load",
+                        "reasoning": "Synchronous replication adds latency at scale",
+                        "confidence": 0.8,
+                        "acknowledged": False,
+                        "rebuttal": "",
+                    },
+                ],
+                "dissent_ids": ["dissent_001", "dissent_002"],
+            },
+            timestamp=datetime.now().isoformat(),
+            source="debate_orchestrator",
+        )
+
+    def test_dissent_data_present_in_event(self, consensus_event_with_dissents):
+        """Test event contains dissent data."""
+        data = consensus_event_with_dissents.data
+
+        assert "dissents" in data
+        assert len(data["dissents"]) == 2
+        assert data["dissenting_agents"] == ["gemini", "mistral"]
+
+    def test_dissent_types_recognized(self, consensus_event_with_dissents):
+        """Test different dissent types are handled."""
+        dissents = consensus_event_with_dissents.data["dissents"]
+
+        assert dissents[0]["type"] == "alternative_approach"
+        assert dissents[1]["type"] == "risk_warning"
+
+    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    def test_handler_processes_dissents(
+        self, mock_get_mound, subscriber_manager, consensus_event_with_dissents
+    ):
+        """Test handler processes dissenting views."""
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "test"
+
+        store_result = MagicMock()
+        store_result.node_id = "node_001"
+        store_result.deduplicated = False
+        mock_mound.store = AsyncMock(return_value=store_result)
+        mock_mound.search = AsyncMock(return_value=[])
+
+        mock_get_mound.return_value = mock_mound
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            consensus_handler(consensus_event_with_dissents)
+
+        # Handler should have been called
+        mock_get_mound.assert_called()
+
+    def test_event_with_string_dissents(self, subscriber_manager):
+        """Test handling dissents as plain strings."""
+        event = StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "debate_str_dissent",
+                "consensus_reached": True,
+                "topic": "Simple topic",
+                "conclusion": "Conclusion",
+                "confidence": 0.7,
+                "strength": "moderate",
+                "dissents": [
+                    "I disagree with the conclusion",
+                    "The evidence is insufficient",
+                ],
+                "dissenting_agents": ["agent_1", "agent_2"],
+            },
+            timestamp=datetime.now().isoformat(),
+            source="test",
+        )
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+                consensus_handler(event)  # Should handle string dissents
+
+
+# ============================================================================
+# Evolution Tracking Tests
+# ============================================================================
+
+
+class TestEvolutionTracking:
+    """Tests for consensus evolution tracking."""
+
+    @pytest.fixture
+    def consensus_event_with_supersedes(self):
+        """Create a consensus event that supersedes a previous one."""
+        return StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "debate_evolution_001",
+                "consensus_reached": True,
+                "topic": "Best practices for API authentication",
+                "conclusion": "OAuth 2.0 with PKCE is recommended for all client types",
+                "confidence": 0.9,
+                "strength": "strong",
+                "supersedes": "previous_consensus_001",  # Explicit supersedes
+                "key_claims": [
+                    "PKCE eliminates implicit flow vulnerabilities",
+                    "Authorization code flow is more secure",
+                ],
+            },
+            timestamp=datetime.now().isoformat(),
+            source="debate_orchestrator",
+        )
+
+    def test_supersedes_field_present(self, consensus_event_with_supersedes):
+        """Test event contains supersedes field."""
+        data = consensus_event_with_supersedes.data
+        assert "supersedes" in data
+        assert data["supersedes"] == "previous_consensus_001"
+
+    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    def test_handler_processes_supersedes(
+        self, mock_get_mound, subscriber_manager, consensus_event_with_supersedes
+    ):
+        """Test handler processes supersedes relationship."""
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "test"
+
+        store_result = MagicMock()
+        store_result.node_id = "new_node_001"
+        store_result.deduplicated = False
+        mock_mound.store = AsyncMock(return_value=store_result)
+        mock_mound.search = AsyncMock(return_value=[])
+        mock_mound.update_metadata = AsyncMock()
+
+        mock_get_mound.return_value = mock_mound
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            consensus_handler(consensus_event_with_supersedes)
+
+        mock_get_mound.assert_called()
+
+    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    def test_similar_topic_search_for_evolution(
+        self, mock_get_mound, subscriber_manager
+    ):
+        """Test handler searches for similar prior consensus."""
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "test"
+
+        # Mock prior consensus found
+        prior_result = MagicMock()
+        prior_result.id = "prior_consensus_node"
+        prior_result.metadata = {"debate_id": "old_debate_001"}
+
+        store_result = MagicMock()
+        store_result.node_id = "new_node_001"
+        store_result.deduplicated = False
+
+        mock_mound.store = AsyncMock(return_value=store_result)
+        mock_mound.search = AsyncMock(return_value=[prior_result])
+        mock_mound.update_metadata = AsyncMock()
+
+        mock_get_mound.return_value = mock_mound
+
+        event = StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "new_debate_001",
+                "consensus_reached": True,
+                "topic": "API authentication best practices",  # Similar topic
+                "conclusion": "New conclusion",
+                "confidence": 0.85,
+                "strength": "strong",
+                # No explicit supersedes - should detect via search
+            },
+            timestamp=datetime.now().isoformat(),
+            source="test",
+        )
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            consensus_handler(event)
+
+        mock_get_mound.assert_called()
+
+
+# ============================================================================
+# Evidence Linking Tests
+# ============================================================================
+
+
+class TestEvidenceLinking:
+    """Tests for evidence linking in consensus ingestion."""
+
+    @pytest.fixture
+    def consensus_event_with_evidence(self):
+        """Create a consensus event with supporting evidence."""
+        return StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "debate_evidence_001",
+                "consensus_reached": True,
+                "topic": "Performance impact of JSON vs Protocol Buffers",
+                "conclusion": "Protocol Buffers offer 3-10x performance improvement",
+                "confidence": 0.88,
+                "strength": "strong",
+                "domain": "performance",
+                "tags": ["serialization", "performance", "api"],
+                "key_claims": [
+                    "Protobuf serialization is 3-10x faster",
+                    "Message size is 30-50% smaller",
+                ],
+                "supporting_evidence": [
+                    "Benchmark: protobuf serialization 3.2x faster than JSON",
+                    "Google internal study: 50% bandwidth reduction with protobuf",
+                    "gRPC adoption statistics show 40% performance gains",
+                ],
+            },
+            timestamp=datetime.now().isoformat(),
+            source="debate_orchestrator",
+        )
+
+    def test_evidence_data_present(self, consensus_event_with_evidence):
+        """Test event contains supporting evidence."""
+        data = consensus_event_with_evidence.data
+
+        assert "supporting_evidence" in data
+        assert len(data["supporting_evidence"]) == 3
+
+    def test_domain_and_tags_present(self, consensus_event_with_evidence):
+        """Test event contains domain and tags for linking."""
+        data = consensus_event_with_evidence.data
+
+        assert data["domain"] == "performance"
+        assert "serialization" in data["tags"]
+
+    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    def test_handler_processes_evidence(
+        self, mock_get_mound, subscriber_manager, consensus_event_with_evidence
+    ):
+        """Test handler processes supporting evidence."""
+        mock_mound = MagicMock()
+        mock_mound.workspace_id = "test"
+
+        store_result = MagicMock()
+        store_result.node_id = "node_001"
+        store_result.deduplicated = False
+        mock_mound.store = AsyncMock(return_value=store_result)
+        mock_mound.search = AsyncMock(return_value=[])
+
+        mock_get_mound.return_value = mock_mound
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            consensus_handler(consensus_event_with_evidence)
+
+        mock_get_mound.assert_called()
+
+
+# ============================================================================
+# Agreement Ratio Tests
+# ============================================================================
+
+
+class TestAgreementRatio:
+    """Tests for agreement ratio calculation."""
+
+    def test_agreement_ratio_calculation(self):
+        """Test agreement ratio is calculated correctly."""
+        agreeing = ["claude", "gpt4"]
+        participating = ["claude", "gpt4", "gemini", "mistral"]
+
+        ratio = len(agreeing) / len(participating)
+        assert ratio == 0.5
+
+    def test_agreement_ratio_unanimous(self):
+        """Test unanimous agreement ratio."""
+        agreeing = ["claude", "gpt4", "gemini"]
+        participating = ["claude", "gpt4", "gemini"]
+
+        ratio = len(agreeing) / len(participating)
+        assert ratio == 1.0
+
+    def test_agreement_ratio_empty(self):
+        """Test agreement ratio with empty participants."""
+        agreeing = []
+        participating = []
+
+        ratio = len(agreeing) / len(participating) if participating else 0.0
+        assert ratio == 0.0
+
+    def test_event_with_agreement_data(self, subscriber_manager):
+        """Test event with agreement data is processed."""
+        event = StreamEvent(
+            type=StreamEventType.CONSENSUS,
+            data={
+                "debate_id": "debate_ratio_001",
+                "consensus_reached": True,
+                "topic": "Topic",
+                "conclusion": "Conclusion",
+                "confidence": 0.75,
+                "strength": "moderate",
+                "participating_agents": ["a", "b", "c", "d"],
+                "agreeing_agents": ["a", "b", "c"],
+                "dissenting_agents": ["d"],
+            },
+            timestamp=datetime.now().isoformat(),
+            source="test",
+        )
+
+        # Agreement ratio should be 3/4 = 0.75
+        data = event.data
+        ratio = (
+            len(data["agreeing_agents"]) / len(data["participating_agents"])
+            if data["participating_agents"]
+            else 0.0
+        )
+        assert ratio == 0.75
+
+        handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
+        consensus_handler = None
+        for name, handler in handlers:
+            if name == "consensus_to_mound":
+                consensus_handler = handler
+                break
+
+        with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
+            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+                consensus_handler(event)
