@@ -6,6 +6,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useAuth } from '@/context/AuthContext';
 import { useProgressiveMode, ProgressiveMode } from '@/context/ProgressiveModeContext';
 import { ModeSelector } from '@/components/ui/FeatureCard';
+import { useEdgeSwipe, useSwipeGesture } from '@/hooks/useSwipeGesture';
 
 interface NavItem {
   label: string;
@@ -74,13 +75,35 @@ const adminNavItems: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const { isOpen, close } = useSidebar();
+  const { isOpen, close, open } = useSidebar();
   const { isAuthenticated, user, logout } = useAuth();
   const { isFeatureVisible, modeLabel } = useProgressiveMode();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
   const isAdmin = user?.role === 'admin';
+
+  // Edge swipe to open sidebar (from left edge of screen)
+  useEdgeSwipe({
+    edge: 'left',
+    onSwipe: open,
+    edgeWidth: 20,
+    threshold: 50,
+    enabled: !isOpen, // Only enable when sidebar is closed
+  });
+
+  // Swipe gesture on sidebar to close (swipe left)
+  const swipeRef = useSwipeGesture<HTMLDivElement>({
+    onSwipeLeft: close,
+    threshold: 50,
+    enabled: isOpen,
+  });
+
+  // Combine refs
+  const combinedRef = (el: HTMLDivElement | null) => {
+    (sidebarRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
 
   // Focus trap
   useEffect(() => {
@@ -160,11 +183,11 @@ export function Sidebar() {
 
       {/* Sidebar panel - fully opaque background */}
       <div
-        ref={sidebarRef}
+        ref={combinedRef}
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className={`fixed top-0 left-0 h-full w-72 bg-bg border-r border-acid-green/30 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 sm:w-72 bg-bg border-r border-acid-green/30 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

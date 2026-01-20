@@ -171,6 +171,76 @@ export default function WorkflowBuilderPage() {
     setKey((k) => k + 1); // Force canvas re-render
   }, []);
 
+  // Execute the current workflow
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [savedWorkflowId, setSavedWorkflowId] = useState<string | null>(null);
+
+  const handleSaveAndExecute = useCallback(
+    async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
+      setIsExecuting(true);
+      try {
+        // First save the workflow
+        const workflow = {
+          name: workflowName,
+          description: '',
+          category: 'custom',
+          version: '1.0',
+          tags: [],
+          steps: nodes.map((node) => ({
+            id: node.id,
+            name: node.data?.label || node.id,
+            type: node.data?.type || 'task',
+            config: node.data,
+          })),
+          transitions: edges.map((edge) => ({
+            from: edge.source,
+            to: edge.target,
+            condition: edge.data?.condition,
+          })),
+        };
+
+        // Save workflow
+        const saveResponse = await fetch(`${API_BASE_URL}/api/workflows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(workflow),
+        });
+
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save workflow');
+        }
+
+        const savedWorkflow = await saveResponse.json();
+        const workflowId = savedWorkflow.id;
+        setSavedWorkflowId(workflowId);
+
+        // Execute workflow
+        const executeResponse = await fetch(`${API_BASE_URL}/api/workflows/${workflowId}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputs: {} }),
+        });
+
+        if (!executeResponse.ok) {
+          throw new Error('Failed to execute workflow');
+        }
+
+        const execution = await executeResponse.json();
+        showToast(`Workflow started! Execution ID: ${execution.id}`, 'success');
+
+        // Redirect to runtime page to monitor execution
+        window.location.href = `/workflows/runtime?execution=${execution.id}`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Execution failed';
+        logger.error('Workflow execution error:', error);
+        showToast(message, 'error');
+      } finally {
+        setIsExecuting(false);
+      }
+    },
+    [workflowName, showToast]
+  );
+
   return (
     <div className="flex flex-col h-screen bg-bg">
       {/* Header */}
@@ -196,6 +266,13 @@ export default function WorkflowBuilderPage() {
             <span>Templates</span>
           </button>
           <a
+            href="/workflows/runtime"
+            className="px-4 py-2 bg-surface border border-border text-text-muted font-mono text-sm hover:text-text hover:border-text transition-colors rounded flex items-center gap-2"
+          >
+            <span>📊</span>
+            <span>Runtime</span>
+          </a>
+          <a
             href="/workflows"
             className="px-4 py-2 bg-surface border border-border text-text-muted font-mono text-sm hover:text-text hover:border-text transition-colors rounded"
           >
@@ -211,6 +288,8 @@ export default function WorkflowBuilderPage() {
           initialNodes={initialNodes}
           initialEdges={initialEdges}
           onSave={handleSave}
+          onExecute={handleSaveAndExecute}
+          isExecuting={isExecuting}
         />
       </div>
 

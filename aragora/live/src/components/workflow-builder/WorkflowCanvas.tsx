@@ -135,6 +135,8 @@ interface WorkflowCanvasProps {
   initialNodes?: WorkflowNode[];
   initialEdges?: WorkflowEdge[];
   onSave?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+  onExecute?: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+  isExecuting?: boolean;
   readOnly?: boolean;
 }
 
@@ -142,6 +144,8 @@ export function WorkflowCanvas({
   initialNodes = [],
   initialEdges = [],
   onSave,
+  onExecute,
+  isExecuting = false,
   readOnly = false,
 }: WorkflowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -255,6 +259,11 @@ export function WorkflowCanvas({
     onSave?.(nodes as WorkflowNode[], edges as WorkflowEdge[]);
   }, [nodes, edges, onSave]);
 
+  // Handle execute
+  const handleExecute = useCallback(() => {
+    onExecute?.(nodes as WorkflowNode[], edges as WorkflowEdge[]);
+  }, [nodes, edges, onExecute]);
+
   return (
     <div className="flex h-full bg-bg">
       {/* Node Palette (left sidebar) */}
@@ -334,6 +343,29 @@ export function WorkflowCanvas({
                 >
                   SAVE WORKFLOW
                 </button>
+                {onExecute && (
+                  <button
+                    onClick={handleExecute}
+                    disabled={isExecuting || nodes.length === 0}
+                    className={`px-4 py-2 font-mono text-sm font-bold transition-colors rounded flex items-center gap-2 ${
+                      isExecuting || nodes.length === 0
+                        ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-500'
+                    }`}
+                  >
+                    {isExecuting ? (
+                      <>
+                        <span className="animate-spin">⚡</span>
+                        <span>EXECUTING...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>▶</span>
+                        <span>EXECUTE</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setNodes([]);

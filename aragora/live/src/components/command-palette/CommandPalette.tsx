@@ -208,19 +208,31 @@ export function CommandPalette() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-bg/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-4 sm:pt-[15vh] bg-bg/80 backdrop-blur-sm px-0 sm:px-4">
       <div
         id="command-palette-modal"
         ref={focusTrapRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
-        className="w-full max-w-2xl mx-4 border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10 rounded-sm overflow-hidden"
+        className="w-full h-full sm:h-auto sm:max-h-[70vh] max-w-2xl border-0 sm:border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10 rounded-none sm:rounded-sm overflow-hidden flex flex-col"
       >
         {/* Hidden title for accessibility */}
         <h2 id="command-palette-title" className="sr-only">
           Command Palette
         </h2>
+
+        {/* Mobile header with close button */}
+        <div className="flex sm:hidden items-center justify-between px-4 py-3 border-b border-acid-green/20 bg-bg/50">
+          <span className="text-acid-green font-mono text-sm font-medium">Search</span>
+          <button
+            onClick={close}
+            className="text-text-muted hover:text-acid-green transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close search"
+          >
+            <span className="text-xl">&times;</span>
+          </button>
+        </div>
 
         {/* Search input */}
         <CommandPaletteInput
@@ -232,14 +244,14 @@ export function CommandPalette() {
           selectedIndex={selectedIndex}
         />
 
-        {/* Category tabs */}
-        <div className="flex gap-1 px-4 py-2 border-b border-acid-green/10 bg-bg/30 overflow-x-auto">
+        {/* Category tabs - horizontal scroll on mobile */}
+        <div className="flex gap-1 px-3 sm:px-4 py-2 border-b border-acid-green/10 bg-bg/30 overflow-x-auto scrollbar-hide">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={`
-                px-3 py-1 text-xs font-mono transition-colors rounded-sm
+                flex-shrink-0 px-3 py-2 sm:py-1 text-xs font-mono transition-colors rounded-sm min-h-[44px] sm:min-h-0
                 ${activeCategory === cat.id
                   ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
                   : 'text-text-muted hover:text-text border border-transparent'
@@ -247,35 +259,41 @@ export function CommandPalette() {
               `}
             >
               <span className="mr-1">{cat.icon}</span>
-              {cat.label}
+              <span className="hidden xs:inline">{cat.label}</span>
             </button>
           ))}
         </div>
 
-        {/* Results */}
-        <CommandPaletteResults
-          sections={sections}
-          selectedIndex={selectedIndex}
-          onSelect={handleSelect}
-          onHover={handleHover}
-          isSearching={isSearching}
-          searchError={searchError}
-          query={query}
-        />
+        {/* Results - flex-1 to fill remaining space */}
+        <div className="flex-1 overflow-y-auto">
+          <CommandPaletteResults
+            sections={sections}
+            selectedIndex={selectedIndex}
+            onSelect={handleSelect}
+            onHover={handleHover}
+            isSearching={isSearching}
+            searchError={searchError}
+            query={query}
+          />
+        </div>
 
-        {/* Footer with keyboard hints */}
-        <div className="px-4 py-2 border-t border-acid-green/10 bg-bg/30 flex gap-4 text-xs font-mono text-text-muted">
-          <span>
+        {/* Footer with keyboard hints - simplified on mobile */}
+        <div className="px-4 py-3 sm:py-2 border-t border-acid-green/10 bg-bg/30 flex gap-4 text-xs font-mono text-text-muted safe-area-bottom">
+          {/* Hide keyboard hints on mobile (touch users) */}
+          <span className="hidden sm:inline">
             <kbd className="text-acid-green">↑↓</kbd> navigate
           </span>
-          <span>
+          <span className="hidden sm:inline">
             <kbd className="text-acid-green">↵</kbd> select
           </span>
-          <span>
+          <span className="hidden sm:inline">
             <kbd className="text-acid-green">tab</kbd> category
           </span>
+          {/* Show on mobile */}
+          <span className="sm:hidden">Tap to select</span>
           <span className="ml-auto">
-            <kbd className="text-acid-green">⌘K</kbd> toggle
+            <kbd className="text-acid-green hidden sm:inline">⌘K</kbd>
+            <span className="sm:hidden text-text-muted">Swipe down to close</span>
           </span>
         </div>
       </div>

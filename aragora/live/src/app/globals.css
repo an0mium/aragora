@@ -908,3 +908,44 @@ input:focus, textarea:focus {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Safe area padding for devices with notches/home indicators */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.safe-area-left {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.safe-area-right {
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+
+/* Pull-to-refresh prevention for mobile */
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Improve touch feedback */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  a:active,
+  [role="button"]:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+/* Prevent text selection on interactive elements for mobile */
+button,
+[role="button"],
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

@@ -50,6 +50,24 @@ export const DEFAULT_FEATURE_CONFIG: FeatureConfig = {
   consensus_alert_threshold: 0.7,
 };
 
+export interface ApiKeyUsageStats {
+  total_requests: number;
+  requests_today: number;
+  requests_this_month: number;
+  avg_latency_ms: number;
+  rate_limit_remaining: number;
+  rate_limit_total: number;
+}
+
+export interface ApiKey {
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used: string | null;
+  expires_at?: string | null;
+  usage?: ApiKeyUsageStats;
+}
+
 export interface UserPreferences {
   theme: 'dark' | 'light' | 'system';
   notifications: {
@@ -62,12 +80,7 @@ export interface UserPreferences {
     show_agent_icons: boolean;
     auto_scroll_messages: boolean;
   };
-  api_keys: {
-    name: string;
-    prefix: string;
-    created_at: string;
-    last_used: string | null;
-  }[];
+  api_keys: ApiKey[];
   integrations: {
     slack_webhook: string | null;
     discord_webhook: string | null;
