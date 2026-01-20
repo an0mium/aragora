@@ -137,7 +137,7 @@ class KnowledgeMoundOperations:
             ingestion_result = await self.knowledge_mound.store(
                 IngestionRequest(
                     content=result.final_answer,
-                    source=KnowledgeSource.DEBATE,
+                    source_type=KnowledgeSource.DEBATE,
                     workspace_id=self.knowledge_mound.workspace_id,
                     metadata=metadata,
                 )

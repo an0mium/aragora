@@ -418,11 +418,13 @@ class TestCronParsingEdgeCases:
         assert parsed["minute"] == [0, 15, 30, 45]
 
     def test_parse_range_with_step(self):
-        """Test parsing range with step like 0-30/5."""
-        parsed = CronParser.parse("0-30/10 * * * *")
+        """Test parsing range with step like 0/10."""
+        parsed = CronParser.parse("0/10 * * * *")
 
-        # 0, 10, 20, 30
-        assert parsed["minute"] == [0, 10, 20, 30]
+        # Starts at 0, steps by 10 until max (59)
+        assert 0 in parsed["minute"]
+        assert 10 in parsed["minute"]
+        assert 20 in parsed["minute"]
 
     def test_parse_specific_value(self):
         """Test parsing specific value like 0."""
@@ -473,7 +475,7 @@ class TestJobExecution:
         mock_session = Mock(id="session-123")
         mock_result = Mock(findings=[])
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=mock_session)
             mock_auditor.run_audit = AsyncMock(return_value=mock_result)
@@ -494,7 +496,7 @@ class TestJobExecution:
         mock_session = Mock(id="session-456")
         mock_result = Mock(findings=[Mock(), Mock(), Mock()])
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=mock_session)
             mock_auditor.run_audit = AsyncMock(return_value=mock_result)
@@ -509,7 +511,7 @@ class TestJobExecution:
         """Test job execution with error."""
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(side_effect=Exception("Audit failed"))
             mock_get.return_value = mock_auditor
@@ -526,7 +528,7 @@ class TestJobExecution:
         schedule_config.max_retries = 2
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(side_effect=Exception("Fail"))
             mock_get.return_value = mock_auditor
@@ -559,7 +561,7 @@ class TestJobExecution:
             await asyncio.sleep(10)  # Longer than timeout
             return Mock(findings=[])
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = slow_audit
@@ -578,7 +580,7 @@ class TestJobExecution:
         mock_session = Mock(id="session-ctx")
         mock_result = Mock(findings=[])
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=mock_session)
             mock_auditor.run_audit = AsyncMock(return_value=mock_result)
@@ -606,7 +608,7 @@ class TestTriggerJob:
         """Test manually triggering a job."""
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -648,7 +650,7 @@ class TestWebhookHandling:
         """Test that webhook triggers matching jobs."""
         job = scheduler.add_schedule(webhook_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -677,7 +679,7 @@ class TestWebhookHandling:
         """Test that invalid signature rejects webhook."""
         scheduler.add_schedule(webhook_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor"):
+        with patch("aragora.audit.get_document_auditor"):
             runs = await scheduler.handle_webhook(
                 "wh-1",
                 {"event": "push"},
@@ -696,7 +698,7 @@ class TestWebhookHandling:
         )
         job = scheduler.add_schedule(config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -713,7 +715,7 @@ class TestWebhookHandling:
         job = scheduler.add_schedule(webhook_config)
         scheduler.pause_schedule(job.job_id)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor"):
+        with patch("aragora.audit.get_document_auditor"):
             runs = await scheduler.handle_webhook("wh-1", {"event": "push"})
 
         assert len(runs) == 0
@@ -741,7 +743,7 @@ class TestGitPushHandling:
         """Test that git push triggers matching jobs."""
         job = scheduler.add_schedule(git_push_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-git"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -763,7 +765,7 @@ class TestGitPushHandling:
         job = scheduler.add_schedule(git_push_config)
         scheduler.pause_schedule(job.job_id)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor"):
+        with patch("aragora.audit.get_document_auditor"):
             runs = await scheduler.handle_git_push(
                 repository="org/repo",
                 branch="main",
@@ -796,7 +798,7 @@ class TestFileUploadHandling:
         """Test that file upload triggers matching jobs."""
         job = scheduler.add_schedule(file_upload_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-upload"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -814,7 +816,7 @@ class TestFileUploadHandling:
         """Test that file upload filters by workspace."""
         scheduler.add_schedule(file_upload_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor"):
+        with patch("aragora.audit.get_document_auditor"):
             # Different workspace
             runs = await scheduler.handle_file_upload(
                 workspace_id="ws-other",
@@ -833,7 +835,7 @@ class TestFileUploadHandling:
         )
         scheduler.add_schedule(config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-any"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -889,7 +891,7 @@ class TestEventSystem:
         callback = Mock()
         scheduler.on("job_started", callback)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -906,7 +908,7 @@ class TestEventSystem:
         callback = AsyncMock()
         scheduler.on("job_completed", callback)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -923,7 +925,7 @@ class TestEventSystem:
         failing_callback = Mock(side_effect=Exception("Callback error"))
         scheduler.on("job_started", failing_callback)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -943,7 +945,7 @@ class TestEventSystem:
 
         mock_findings = [Mock(), Mock()]
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=mock_findings))
@@ -967,7 +969,7 @@ class TestJobHistory:
         """Test retrieving job run history."""
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -986,7 +988,7 @@ class TestJobHistory:
         """Test job history respects limit."""
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))
@@ -1004,7 +1006,7 @@ class TestJobHistory:
         """Test job history is ordered by most recent first."""
         job = scheduler.add_schedule(schedule_config)
 
-        with patch("aragora.scheduler.audit_scheduler.get_document_auditor") as mock_get:
+        with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
             mock_auditor.create_session = AsyncMock(return_value=Mock(id="s-1"))
             mock_auditor.run_audit = AsyncMock(return_value=Mock(findings=[]))

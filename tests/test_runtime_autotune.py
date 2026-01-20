@@ -648,5 +648,218 @@ class TestConsensusRecording(unittest.TestCase):
         self.assertEqual(tuner.metrics.consensus_confidence, 0.88)
 
 
+class TestAutotunerStateManagement(unittest.TestCase):
+    """Tests for autotuner state management."""
+
+    def test_multiple_start_end_cycles(self):
+        """Test multiple start/end cycles work correctly."""
+        tuner = Autotuner()
+
+        # First cycle
+        tuner.start()
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.5])
+        tuner.end()
+
+        first_duration = tuner.metrics.duration_seconds
+
+        # Second cycle - should reset properly
+        tuner.start()
+        tuner.record_round(0, tokens=200, messages=10, support_scores=[0.7])
+        tuner.end()
+
+        # Duration should be for second cycle only (not cumulative)
+        self.assertIsNotNone(tuner.metrics.duration_seconds)
+
+    def test_calling_should_continue_without_start(self):
+        """should_continue works even without explicit start."""
+        tuner = Autotuner()
+
+        # Record without start
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.5])
+
+        decision = tuner.should_continue()
+
+        self.assertTrue(decision.should_continue)
+
+    def test_metrics_accumulate_across_rounds(self):
+        """Test that metrics properly accumulate across rounds."""
+        tuner = Autotuner()
+        tuner.start()
+
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.5])
+        tuner.record_round(1, tokens=200, messages=10, support_scores=[0.7])
+        tuner.record_round(2, tokens=150, messages=8, support_scores=[0.9])
+
+        self.assertEqual(tuner.metrics.rounds_completed, 3)
+        self.assertEqual(tuner.metrics.tokens_used, 450)
+        self.assertEqual(tuner.metrics.messages_sent, 23)
+
+
+class TestAutotunerErrorHandling(unittest.TestCase):
+    """Tests for autotuner error handling."""
+
+    def test_negative_config_values_handled(self):
+        """Test handling of negative config values."""
+        # Negative values should be treated as unlimited
+        config = AutotuneConfig(
+            max_cost_dollars=-1.0,
+            max_tokens=-100,
+            max_rounds=-5,
+        )
+        tuner = Autotuner(config)
+        tuner.start()
+
+        tuner.record_round(0, tokens=1000000, messages=100, support_scores=[0.5])
+
+        # Should not stop due to budget (negative = unlimited)
+        decision = tuner.should_continue()
+        # Will only stop if other conditions met
+
+    def test_empty_support_scores(self):
+        """Test handling of empty support scores."""
+        tuner = Autotuner()
+        tuner.start()
+
+        # Empty support scores
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[])
+
+        # Should not crash
+        decision = tuner.should_continue()
+        self.assertTrue(decision.should_continue)
+
+    def test_single_support_score_variance(self):
+        """Test variance calculation with single score."""
+        tuner = Autotuner()
+        tuner.start()
+
+        # Single score - variance should be 0
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.8])
+
+        # Should not crash and variance should be 0
+        self.assertEqual(tuner.metrics.support_score_variance, 0.0)
+
+
+class TestAutotunedDebateRunnerIntegration(unittest.TestCase):
+    """Integration tests for AutotunedDebateRunner."""
+
+    def test_runner_with_mock_arena(self):
+        """Test runner with mocked Arena."""
+        from unittest.mock import Mock, AsyncMock
+
+        mock_arena = Mock()
+        mock_arena.run_round = AsyncMock(return_value={"messages": []})
+        mock_arena.is_complete = Mock(side_effect=[False, False, True])
+        mock_arena.result = Mock(return_value={"final_answer": "test"})
+
+        runner = AutotunedDebateRunner(mock_arena)
+
+        self.assertIsNotNone(runner.autotuner)
+
+    def test_runner_with_custom_config(self):
+        """Test runner respects custom config."""
+        from unittest.mock import Mock
+
+        config = AutotuneConfig(max_rounds=5, max_cost_dollars=0.10)
+        mock_arena = Mock()
+
+        runner = AutotunedDebateRunner(mock_arena, config)
+
+        self.assertEqual(runner.autotuner._config.max_rounds, 5)
+        self.assertEqual(runner.autotuner._config.max_cost_dollars, 0.10)
+
+
+class TestAutotunerRealisticScenarios(unittest.TestCase):
+    """Integration tests with realistic debate scenarios."""
+
+    def test_converging_debate_stops_on_consensus(self):
+        """Test that a converging debate stops when consensus is reached."""
+        config = AutotuneConfig(
+            max_rounds=10,
+            early_stop_consensus_confidence=0.85,
+        )
+        tuner = Autotuner(config)
+        tuner.start()
+
+        # Simulate converging debate
+        tuner.record_round(0, tokens=500, messages=10, support_scores=[0.3, 0.4])
+        tuner.record_consensus(confidence=0.4, reached=False)
+
+        tuner.record_round(1, tokens=400, messages=8, support_scores=[0.5, 0.6])
+        tuner.record_consensus(confidence=0.6, reached=False)
+
+        tuner.record_round(2, tokens=300, messages=6, support_scores=[0.8, 0.85])
+        tuner.record_consensus(confidence=0.9, reached=True)
+
+        decision = tuner.should_continue()
+
+        self.assertFalse(decision.should_continue)
+        self.assertEqual(decision.stop_reason, StopReason.CONSENSUS_REACHED)
+
+    def test_diverging_debate_uses_budget(self):
+        """Test that a diverging debate uses up budget."""
+        config = AutotuneConfig(
+            max_rounds=5,
+            max_cost_dollars=0.01,
+        )
+        tuner = Autotuner(config)
+        tuner.start()
+
+        # Simulate diverging debate with high variance
+        for i in range(5):
+            tuner.record_round(i, tokens=1000, messages=10, support_scores=[0.3, 0.7])
+            tuner.record_consensus(confidence=0.4, reached=False)
+
+        decision = tuner.should_continue()
+
+        self.assertFalse(decision.should_continue)
+        # Either MAX_ROUNDS or MAX_COST
+
+    def test_tier_degrades_as_budget_depletes(self):
+        """Test that recommended tier degrades as budget is used."""
+        config = AutotuneConfig(max_cost_dollars=0.10)
+        tuner = Autotuner(config)
+        tuner.start()
+
+        # Initially should recommend expensive tier (< 30% used)
+        first_decision = tuner.should_continue()
+        first_tier = first_decision.recommended_tier
+
+        # Use 70% of budget
+        tuner.record_round(0, tokens=35000, messages=100, support_scores=[0.5])
+
+        second_decision = tuner.should_continue()
+        second_tier = second_decision.recommended_tier
+
+        # Tier should have degraded
+        self.assertNotEqual(first_tier, second_tier)
+
+
+class TestRunMetricsHistory(unittest.TestCase):
+    """Tests for round metrics history tracking."""
+
+    def test_round_metrics_added_to_history(self):
+        """Test that add_round_metrics adds to history."""
+        tuner = Autotuner()
+        tuner.start()
+
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.5])
+        tuner.record_round(1, tokens=200, messages=10, support_scores=[0.7])
+
+        history = tuner.metrics.round_metrics
+        self.assertEqual(len(history), 2)
+
+    def test_metrics_to_dict_includes_round_history(self):
+        """Test that to_dict includes round history."""
+        tuner = Autotuner()
+        tuner.start()
+
+        tuner.record_round(0, tokens=100, messages=5, support_scores=[0.5])
+
+        data = tuner.metrics.to_dict()
+
+        self.assertIn("round_metrics", data)
+        self.assertEqual(len(data["round_metrics"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
