@@ -38,8 +38,11 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch(`${apiBase}/autonomous/triggers`);
-      setTriggers(response.triggers ?? []);
+      const result = await apiFetch<{ triggers: Trigger[] }>(`${apiBase}/autonomous/triggers`);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setTriggers(result.data?.triggers ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch triggers');
     } finally {

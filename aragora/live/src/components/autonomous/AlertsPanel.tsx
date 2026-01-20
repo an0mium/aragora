@@ -39,8 +39,11 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch(`${apiBase}/autonomous/alerts/active`);
-      setAlerts(response.alerts ?? []);
+      const result = await apiFetch<{ alerts: Alert[] }>(`${apiBase}/autonomous/alerts/active`);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setAlerts(result.data?.alerts ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch alerts');
     } finally {

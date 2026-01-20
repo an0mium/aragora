@@ -45,11 +45,17 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
       setLoading(true);
       setError(null);
       const [trendsRes, anomaliesRes] = await Promise.all([
-        apiFetch(`${apiBase}/autonomous/monitoring/trends`),
-        apiFetch(`${apiBase}/autonomous/monitoring/anomalies?hours=24`),
+        apiFetch<{ trends: Record<string, Trend> }>(`${apiBase}/autonomous/monitoring/trends`),
+        apiFetch<{ anomalies: Anomaly[] }>(`${apiBase}/autonomous/monitoring/anomalies?hours=24`),
       ]);
-      setTrends(trendsRes.trends ?? {});
-      setAnomalies(anomaliesRes.anomalies ?? []);
+      if (trendsRes.error) {
+        throw new Error(trendsRes.error);
+      }
+      if (anomaliesRes.error) {
+        throw new Error(anomaliesRes.error);
+      }
+      setTrends(trendsRes.data?.trends ?? {});
+      setAnomalies(anomaliesRes.data?.anomalies ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch monitoring data');
     } finally {

@@ -38,8 +38,11 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch(`${apiBase}/autonomous/approvals/pending`);
-      setRequests(response.pending ?? []);
+      const result = await apiFetch<{ pending: ApprovalRequest[] }>(`${apiBase}/autonomous/approvals/pending`);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setRequests(result.data?.pending ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch approvals');
     } finally {

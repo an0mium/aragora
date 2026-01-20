@@ -46,19 +46,19 @@ export function AutonomousDashboard({ apiBase }: AutonomousDashboardProps) {
 
       // Fetch stats from multiple endpoints
       const [approvals, alerts, triggers, calibrations, anomalies] = await Promise.all([
-        apiFetch(`${apiBase}/autonomous/approvals/pending`).catch(() => ({ pending: [] })),
-        apiFetch(`${apiBase}/autonomous/alerts/active`).catch(() => ({ alerts: [] })),
-        apiFetch(`${apiBase}/autonomous/triggers`).catch(() => ({ triggers: [] })),
-        apiFetch(`${apiBase}/autonomous/learning/calibrations`).catch(() => ({ calibrations: {} })),
-        apiFetch(`${apiBase}/autonomous/monitoring/anomalies?hours=24`).catch(() => ({ anomalies: [] })),
+        apiFetch<{ pending: unknown[] }>(`${apiBase}/autonomous/approvals/pending`).catch(() => ({ data: { pending: [] }, error: null })),
+        apiFetch<{ alerts: unknown[] }>(`${apiBase}/autonomous/alerts/active`).catch(() => ({ data: { alerts: [] }, error: null })),
+        apiFetch<{ triggers: unknown[] }>(`${apiBase}/autonomous/triggers`).catch(() => ({ data: { triggers: [] }, error: null })),
+        apiFetch<{ calibrations: Record<string, unknown> }>(`${apiBase}/autonomous/learning/calibrations`).catch(() => ({ data: { calibrations: {} }, error: null })),
+        apiFetch<{ anomalies: unknown[] }>(`${apiBase}/autonomous/monitoring/anomalies?hours=24`).catch(() => ({ data: { anomalies: [] }, error: null })),
       ]);
 
       setStats({
-        pending_approvals: approvals.pending?.length ?? 0,
-        active_alerts: alerts.alerts?.length ?? 0,
-        scheduled_triggers: triggers.triggers?.length ?? 0,
-        agent_count: Object.keys(calibrations.calibrations ?? {}).length,
-        anomalies_24h: anomalies.anomalies?.length ?? 0,
+        pending_approvals: approvals.data?.pending?.length ?? 0,
+        active_alerts: alerts.data?.alerts?.length ?? 0,
+        scheduled_triggers: triggers.data?.triggers?.length ?? 0,
+        agent_count: Object.keys(calibrations.data?.calibrations ?? {}).length,
+        anomalies_24h: anomalies.data?.anomalies?.length ?? 0,
         patterns_discovered: 0, // Will be updated from learning endpoint
       });
     } catch (err) {

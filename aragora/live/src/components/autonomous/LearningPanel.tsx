@@ -40,13 +40,22 @@ export function LearningPanel({ apiBase }: LearningPanelProps) {
       setLoading(true);
       setError(null);
       const [ratingsRes, calibrationsRes, patternsRes] = await Promise.all([
-        apiFetch(`${apiBase}/autonomous/learning/ratings`),
-        apiFetch(`${apiBase}/autonomous/learning/calibrations`),
-        apiFetch(`${apiBase}/autonomous/learning/patterns`),
+        apiFetch<{ ratings: Record<string, number> }>(`${apiBase}/autonomous/learning/ratings`),
+        apiFetch<{ calibrations: Record<string, Calibration> }>(`${apiBase}/autonomous/learning/calibrations`),
+        apiFetch<{ patterns: Pattern[] }>(`${apiBase}/autonomous/learning/patterns`),
       ]);
-      setRatings(ratingsRes.ratings ?? {});
-      setCalibrations(calibrationsRes.calibrations ?? {});
-      setPatterns(patternsRes.patterns ?? []);
+      if (ratingsRes.error) {
+        throw new Error(ratingsRes.error);
+      }
+      if (calibrationsRes.error) {
+        throw new Error(calibrationsRes.error);
+      }
+      if (patternsRes.error) {
+        throw new Error(patternsRes.error);
+      }
+      setRatings(ratingsRes.data?.ratings ?? {});
+      setCalibrations(calibrationsRes.data?.calibrations ?? {});
+      setPatterns(patternsRes.data?.patterns ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch learning data');
     } finally {

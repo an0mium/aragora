@@ -57,6 +57,7 @@ const toolsItems: NavItem[] = [
   { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },
   { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'advanced' },
   { label: 'Templates', href: '/templates', icon: '[', minMode: 'advanced' },
+  { label: 'Autonomous', href: '/autonomous', icon: '!', minMode: 'advanced' },
 ];
 
 // Advanced section - power user features
