@@ -497,7 +497,7 @@ class BeliefPropagationAnalyzer:
     def __init__(self, network: "BeliefNetwork"):
         self.network = network
 
-    def identify_debate_cruxes(self, top_k: int = 3) -> list[dict]:
+    def identify_debate_cruxes(self, top_k: int = 3) -> list[dict[str, Any]]:
         """
         Identify the key claims that, if resolved, would most
         impact the debate outcome.
@@ -524,7 +524,7 @@ class BeliefPropagationAnalyzer:
 
         return sorted(cruxes, key=lambda x: -float(x["crux_score"]))[:top_k]
 
-    def suggest_evidence_targets(self) -> list[dict]:
+    def suggest_evidence_targets(self) -> list[dict[str, Any]]:
         """
         Suggest which claims need more evidence to reduce uncertainty.
         """
@@ -546,7 +546,7 @@ class BeliefPropagationAnalyzer:
 
         return sorted(suggestions, key=lambda x: -x["importance"])
 
-    def compute_consensus_probability(self) -> dict:
+    def compute_consensus_probability(self) -> dict[str, Any]:
         """
         Estimate probability of reaching consensus.
 
@@ -582,7 +582,7 @@ class BeliefPropagationAnalyzer:
     def what_if_analysis(
         self,
         hypothetical: dict[str, bool],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Analyze: "What if these claims were true/false?"
 

@@ -114,6 +114,27 @@ class EvidenceAdapter:
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
+    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+        """Record Prometheus metric for adapter operation.
+
+        Args:
+            operation: Operation name (search, store, sync)
+            success: Whether operation succeeded
+            latency: Operation latency in seconds
+        """
+        try:
+            from aragora.observability.metrics.km import (
+                record_km_operation,
+                record_km_adapter_sync,
+            )
+            record_km_operation(operation, success, latency)
+            if operation in ("store", "sync"):
+                record_km_adapter_sync("evidence", "forward", success)
+        except ImportError:
+            pass  # Metrics not available
+        except Exception as e:
+            logger.debug(f"Failed to record metric: {e}")
+
     @property
     def evidence_store(self) -> Optional["EvidenceStore"]:
         """Access the underlying EvidenceStore."""
@@ -141,17 +162,24 @@ class EvidenceAdapter:
         Returns:
             List of evidence dicts matching the query
         """
-        results = self._store.search_evidence(
-            query=query,
-            limit=limit,
-            min_reliability=min_reliability,
-        )
+        import time
+        start = time.time()
+        success = False
+        try:
+            results = self._store.search_evidence(
+                query=query,
+                limit=limit,
+                min_reliability=min_reliability,
+            )
 
-        # Filter by source if specified
-        if source:
-            results = [r for r in results if r.get("source") == source]
+            # Filter by source if specified
+            if source:
+                results = [r for r in results if r.get("source") == source]
 
-        return results
+            success = True
+            return results
+        finally:
+            self._record_metric("search", success, time.time() - start)
 
     def search_similar(
         self,
@@ -359,27 +387,34 @@ class EvidenceAdapter:
         Returns:
             The evidence ID (may be deduplicated)
         """
-        result_id = self._store.save_evidence(
-            evidence_id=evidence_id,
-            source=source,
-            title=title,
-            snippet=snippet,
-            url=url,
-            reliability_score=reliability_score,
-            metadata=metadata,
-            debate_id=debate_id,
-        )
+        import time
+        start = time.time()
+        success = False
+        try:
+            result_id = self._store.save_evidence(
+                evidence_id=evidence_id,
+                source=source,
+                title=title,
+                snippet=snippet,
+                url=url,
+                reliability_score=reliability_score,
+                metadata=metadata,
+                debate_id=debate_id,
+            )
 
-        # Emit event for WebSocket updates
-        self._emit_event("knowledge_indexed", {
-            "source": "evidence",
-            "evidence_id": result_id,
-            "title": title,
-            "reliability": reliability_score,
-            "debate_id": debate_id,
-        })
+            # Emit event for WebSocket updates
+            self._emit_event("knowledge_indexed", {
+                "source": "evidence",
+                "evidence_id": result_id,
+                "title": title,
+                "reliability": reliability_score,
+                "debate_id": debate_id,
+            })
 
-        return result_id
+            success = True
+            return result_id
+        finally:
+            self._record_metric("store", success, time.time() - start)
 
     def mark_used_in_consensus(
         self,
