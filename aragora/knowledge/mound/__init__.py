@@ -133,6 +133,8 @@ from aragora.knowledge.mound.event_batcher import (
 # WebSocket bridge for real-time KM events
 from aragora.knowledge.mound.websocket_bridge import (
     KMWebSocketBridge,
+    KMSubscription,
+    KMSubscriptionManager,
     get_km_bridge,
     set_km_bridge,
     create_km_bridge,
@@ -144,10 +146,69 @@ from aragora.knowledge.mound.federated_query import (
     FederatedQueryResult,
     FederatedResult,
     QuerySource,
+    EmbeddingRelevanceScorer,
+)
+
+# Persistence resilience (retry, transactions, health monitoring)
+from aragora.knowledge.mound.resilience import (
+    CacheInvalidationBus,
+    CacheInvalidationEvent,
+    ConnectionHealthMonitor,
+    IntegrityCheckResult,
+    IntegrityVerifier,
+    ResilientPostgresStore,
+    RetryConfig,
+    RetryStrategy,
+    TransactionConfig,
+    TransactionIsolation,
+    TransactionManager,
+    get_invalidation_bus,
+    with_retry,
 )
 
 # Singleton instance
 _knowledge_mound_instance: "KnowledgeMound" = None
+_knowledge_mound_config: "MoundConfig" = None
+
+
+def set_mound_config(config: "MoundConfig") -> None:
+    """
+    Set the global MoundConfig before creating the singleton.
+
+    Call this early in application startup to configure the Knowledge Mound
+    with environment-specific settings (database URLs, feature flags, etc.)
+    before any code calls get_knowledge_mound().
+
+    Args:
+        config: MoundConfig with environment-specific settings
+
+    Raises:
+        RuntimeError: If called after singleton has been created
+    """
+    global _knowledge_mound_config, _knowledge_mound_instance
+
+    if _knowledge_mound_instance is not None:
+        raise RuntimeError(
+            "Cannot set MoundConfig after KnowledgeMound singleton has been created. "
+            "Call set_mound_config() before any calls to get_knowledge_mound()."
+        )
+
+    _knowledge_mound_config = config
+
+
+def get_mound_config() -> "MoundConfig":
+    """
+    Get the current global MoundConfig.
+
+    Returns:
+        MoundConfig if set, or a default config otherwise
+    """
+    global _knowledge_mound_config
+
+    if _knowledge_mound_config is None:
+        return MoundConfig(backend=MoundBackend.SQLITE)
+
+    return _knowledge_mound_config
 
 
 def get_knowledge_mound(
@@ -164,23 +225,23 @@ def get_knowledge_mound(
 
     Args:
         workspace_id: Workspace ID for multi-tenant isolation
-        config: Optional MoundConfig for customization
+        config: Optional MoundConfig for customization (or use set_mound_config())
         auto_initialize: If True, automatically initialize the mound
 
     Returns:
         KnowledgeMound instance
     """
-    global _knowledge_mound_instance
+    global _knowledge_mound_instance, _knowledge_mound_config
 
     if _knowledge_mound_instance is None:
         import logging
         logger = logging.getLogger(__name__)
 
+        # Use provided config, global config, or default
         if config is None:
-            # Use default SQLite-based config for simplicity
-            config = MoundConfig(backend=MoundBackend.SQLITE)
+            config = _knowledge_mound_config or MoundConfig(backend=MoundBackend.SQLITE)
 
-        logger.info(f"[knowledge_mound] Creating singleton instance (workspace={workspace_id})")
+        logger.info(f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})")
         _knowledge_mound_instance = KnowledgeMound(
             config=config,
             workspace_id=workspace_id,
@@ -217,6 +278,8 @@ __all__ = [
     # Singleton access
     "get_knowledge_mound",
     "reset_knowledge_mound",
+    "set_mound_config",
+    "get_mound_config",
     # Types
     "ConfidenceLevel",
     "CulturePattern",
@@ -284,6 +347,8 @@ __all__ = [
     "AdapterEventBatcher",
     # WebSocket bridge
     "KMWebSocketBridge",
+    "KMSubscription",
+    "KMSubscriptionManager",
     "get_km_bridge",
     "set_km_bridge",
     "create_km_bridge",
@@ -292,4 +357,5 @@ __all__ = [
     "FederatedQueryResult",
     "FederatedResult",
     "QuerySource",
+    "EmbeddingRelevanceScorer",
 ]
