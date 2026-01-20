@@ -10,6 +10,10 @@ Provides agent orchestration and monitoring endpoints for the UI dashboard:
 Note: This is the UI-focused dashboard handler. For the enterprise control plane
 with Redis-backed task scheduling, see aragora/server/handlers/control_plane.py.
 
+The handler now supports shared state persistence via SharedControlPlaneState,
+which can use Redis for multi-instance deployments or fall back to in-memory
+for single-instance development.
+
 Usage:
     GET    /api/agent-dashboard/agents         - List running agents
     GET    /api/agent-dashboard/agents/{id}    - Get agent details
@@ -29,7 +33,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
@@ -37,7 +41,7 @@ from aragora.server.handlers.base import BaseHandler
 logger = logging.getLogger(__name__)
 
 
-# In-memory agent registry (would sync with actual agent system in production)
+# In-memory agent registry (fallback when shared state not available)
 _agents: dict[str, dict[str, Any]] = {}
 _task_queue: list[dict[str, Any]] = []
 _stream_clients: list[asyncio.Queue] = []
@@ -47,6 +51,24 @@ _metrics: dict[str, Any] = {
     "active_sessions": 0,
     "agent_uptime": {},
 }
+
+# Shared state for multi-instance persistence (initialized lazily)
+_shared_state: Optional[Any] = None
+
+
+def _get_shared_state() -> Optional[Any]:
+    """Get shared state if available, otherwise None."""
+    global _shared_state
+    if _shared_state is not None:
+        return _shared_state
+
+    try:
+        from aragora.control_plane.shared_state import get_shared_state_sync
+
+        _shared_state = get_shared_state_sync()
+        return _shared_state
+    except ImportError:
+        return None
 
 
 class AgentDashboardHandler(BaseHandler):
@@ -122,20 +144,36 @@ class AgentDashboardHandler(BaseHandler):
         status_filter = request.query.get("status")
         type_filter = request.query.get("type")
 
-        # Get agents from registry (or create mock data if empty)
-        agents = list(_agents.values())
+        # Try shared state first for persistent storage
+        shared = _get_shared_state()
+        if shared:
+            agents = await shared.list_agents(
+                status_filter=status_filter,
+                type_filter=type_filter,
+            )
+            if not agents:
+                # Populate with default agents for demo purposes
+                for agent_data in self._get_default_agents():
+                    await shared.register_agent(agent_data)
+                agents = await shared.list_agents(
+                    status_filter=status_filter,
+                    type_filter=type_filter,
+                )
+        else:
+            # Fall back to in-memory
+            agents = list(_agents.values())
 
-        if not agents:
-            # Populate with default agents for demo purposes
-            agents = self._get_default_agents()
-            for agent in agents:
-                _agents[agent["id"]] = agent
+            if not agents:
+                # Populate with default agents for demo purposes
+                agents = self._get_default_agents()
+                for agent in agents:
+                    _agents[agent["id"]] = agent
 
-        # Apply filters
-        if status_filter:
-            agents = [a for a in agents if a["status"] == status_filter]
-        if type_filter:
-            agents = [a for a in agents if a["type"] == type_filter]
+            # Apply filters
+            if status_filter:
+                agents = [a for a in agents if a["status"] == status_filter]
+            if type_filter:
+                agents = [a for a in agents if a["type"] == type_filter]
 
         return self._json_response(
             200,
@@ -150,7 +188,12 @@ class AgentDashboardHandler(BaseHandler):
 
     async def _get_agent(self, request: Any, agent_id: str) -> dict[str, Any]:
         """Get details for a specific agent."""
-        agent = _agents.get(agent_id)
+        shared = _get_shared_state()
+        if shared:
+            agent = await shared.get_agent(agent_id)
+        else:
+            agent = _agents.get(agent_id)
+
         if not agent:
             return self._error_response(404, f"Agent {agent_id} not found")
 
@@ -158,23 +201,34 @@ class AgentDashboardHandler(BaseHandler):
 
     async def _pause_agent(self, request: Any, agent_id: str) -> dict[str, Any]:
         """Pause a running agent."""
-        agent = _agents.get(agent_id)
-        if not agent:
-            return self._error_response(404, f"Agent {agent_id} not found")
+        shared = _get_shared_state()
+        if shared:
+            agent = await shared.get_agent(agent_id)
+            if not agent:
+                return self._error_response(404, f"Agent {agent_id} not found")
 
-        if agent["status"] != "active":
-            return self._error_response(400, f"Agent is not active (current: {agent['status']})")
+            if agent["status"] != "active":
+                return self._error_response(400, f"Agent is not active (current: {agent['status']})")
 
-        agent["status"] = "paused"
-        agent["paused_at"] = datetime.utcnow().isoformat()
+            agent = await shared.update_agent_status(agent_id, "paused")
+        else:
+            agent = _agents.get(agent_id)
+            if not agent:
+                return self._error_response(404, f"Agent {agent_id} not found")
 
-        await self._broadcast_update(
-            {
-                "type": "agent_paused",
-                "agent_id": agent_id,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-        )
+            if agent["status"] != "active":
+                return self._error_response(400, f"Agent is not active (current: {agent['status']})")
+
+            agent["status"] = "paused"
+            agent["paused_at"] = datetime.utcnow().isoformat()
+
+            await self._broadcast_update(
+                {
+                    "type": "agent_paused",
+                    "agent_id": agent_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
         logger.info(f"Paused agent {agent_id}")
 
@@ -182,24 +236,35 @@ class AgentDashboardHandler(BaseHandler):
 
     async def _resume_agent(self, request: Any, agent_id: str) -> dict[str, Any]:
         """Resume a paused agent."""
-        agent = _agents.get(agent_id)
-        if not agent:
-            return self._error_response(404, f"Agent {agent_id} not found")
+        shared = _get_shared_state()
+        if shared:
+            agent = await shared.get_agent(agent_id)
+            if not agent:
+                return self._error_response(404, f"Agent {agent_id} not found")
 
-        if agent["status"] != "paused":
-            return self._error_response(400, f"Agent is not paused (current: {agent['status']})")
+            if agent["status"] != "paused":
+                return self._error_response(400, f"Agent is not paused (current: {agent['status']})")
 
-        agent["status"] = "active"
-        agent["paused_at"] = None
-        agent["resumed_at"] = datetime.utcnow().isoformat()
+            agent = await shared.update_agent_status(agent_id, "active")
+        else:
+            agent = _agents.get(agent_id)
+            if not agent:
+                return self._error_response(404, f"Agent {agent_id} not found")
 
-        await self._broadcast_update(
-            {
-                "type": "agent_resumed",
-                "agent_id": agent_id,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-        )
+            if agent["status"] != "paused":
+                return self._error_response(400, f"Agent is not paused (current: {agent['status']})")
+
+            agent["status"] = "active"
+            agent["paused_at"] = None
+            agent["resumed_at"] = datetime.utcnow().isoformat()
+
+            await self._broadcast_update(
+                {
+                    "type": "agent_resumed",
+                    "agent_id": agent_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
         logger.info(f"Resumed agent {agent_id}")
 
@@ -207,7 +272,12 @@ class AgentDashboardHandler(BaseHandler):
 
     async def _get_agent_metrics(self, request: Any, agent_id: str) -> dict[str, Any]:
         """Get metrics for a specific agent."""
-        agent = _agents.get(agent_id)
+        shared = _get_shared_state()
+        if shared:
+            agent = await shared.get_agent(agent_id)
+        else:
+            agent = _agents.get(agent_id)
+
         if not agent:
             return self._error_response(404, f"Agent {agent_id} not found")
 
@@ -229,12 +299,21 @@ class AgentDashboardHandler(BaseHandler):
 
         Returns tasks ordered by priority and submission time.
         """
-        # Get queue (or create mock data if empty)
-        queue = _task_queue
+        shared = _get_shared_state()
+        if shared:
+            queue = await shared.list_tasks()
+            if not queue:
+                # Populate with sample tasks for demo
+                for task_data in self._get_sample_queue():
+                    await shared.add_task(task_data)
+                queue = await shared.list_tasks()
+        else:
+            # Fall back to in-memory
+            queue = _task_queue
 
-        if not queue:
-            queue = self._get_sample_queue()
-            _task_queue.extend(queue)
+            if not queue:
+                queue = self._get_sample_queue()
+                _task_queue.extend(queue)
 
         return self._json_response(
             200,
@@ -276,34 +355,44 @@ class AgentDashboardHandler(BaseHandler):
         priority = body.get("priority")
         position = body.get("position")
 
-        # Find and update task
-        task = None
-        task_index = None
-        for i, t in enumerate(_task_queue):
-            if t.get("id") == task_id:
-                task = t
-                task_index = i
-                break
+        shared = _get_shared_state()
+        if shared:
+            task = await shared.update_task_priority(
+                task_id,
+                priority or "normal",
+                position=position,
+            )
+            if not task:
+                return self._error_response(404, f"Task {task_id} not found")
+        else:
+            # Fall back to in-memory
+            task = None
+            task_index = None
+            for i, t in enumerate(_task_queue):
+                if t.get("id") == task_id:
+                    task = t
+                    task_index = i
+                    break
 
-        if not task:
-            return self._error_response(404, f"Task {task_id} not found")
+            if not task:
+                return self._error_response(404, f"Task {task_id} not found")
 
-        # Update priority
-        if priority:
-            task["priority"] = priority
+            # Update priority
+            if priority:
+                task["priority"] = priority
 
-        # Move to position
-        if position is not None and task_index != position:
-            _task_queue.pop(task_index)
-            _task_queue.insert(min(position, len(_task_queue)), task)
+            # Move to position
+            if position is not None and task_index != position:
+                _task_queue.pop(task_index)
+                _task_queue.insert(min(position, len(_task_queue)), task)
 
-        await self._broadcast_update(
-            {
-                "type": "queue_updated",
-                "task_id": task_id,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-        )
+            await self._broadcast_update(
+                {
+                    "type": "queue_updated",
+                    "task_id": task_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
         logger.info(f"Updated priority for task {task_id}")
 
@@ -315,33 +404,37 @@ class AgentDashboardHandler(BaseHandler):
 
         Returns aggregated metrics across all agents and sessions.
         """
-        # Calculate real-time metrics
-        agents = list(_agents.values())
+        shared = _get_shared_state()
+        if shared:
+            metrics = await shared.get_metrics()
+        else:
+            # Fall back to in-memory
+            agents = list(_agents.values())
 
-        metrics = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "agents": {
-                "total": len(agents),
-                "active": sum(1 for a in agents if a["status"] == "active"),
-                "paused": sum(1 for a in agents if a["status"] == "paused"),
-                "idle": sum(1 for a in agents if a["status"] == "idle"),
-            },
-            "queue": {
-                "total_tasks": len(_task_queue),
-                "pending": sum(1 for t in _task_queue if t.get("status") == "pending"),
-                "processing": sum(1 for t in _task_queue if t.get("status") == "processing"),
-            },
-            "processing": {
-                "total_tasks_processed": _metrics["total_tasks_processed"],
-                "total_findings_generated": _metrics["total_findings_generated"],
-                "active_sessions": _metrics["active_sessions"],
-            },
-            "performance": {
-                "avg_task_duration_ms": self._calculate_avg_task_duration(agents),
-                "tasks_per_minute": self._calculate_throughput(agents),
-                "error_rate": self._calculate_error_rate(agents),
-            },
-        }
+            metrics = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "agents": {
+                    "total": len(agents),
+                    "active": sum(1 for a in agents if a["status"] == "active"),
+                    "paused": sum(1 for a in agents if a["status"] == "paused"),
+                    "idle": sum(1 for a in agents if a["status"] == "idle"),
+                },
+                "queue": {
+                    "total_tasks": len(_task_queue),
+                    "pending": sum(1 for t in _task_queue if t.get("status") == "pending"),
+                    "processing": sum(1 for t in _task_queue if t.get("status") == "processing"),
+                },
+                "processing": {
+                    "total_tasks_processed": _metrics["total_tasks_processed"],
+                    "total_findings_generated": _metrics["total_findings_generated"],
+                    "active_sessions": _metrics["active_sessions"],
+                },
+                "performance": {
+                    "avg_task_duration_ms": self._calculate_avg_task_duration(agents),
+                    "tasks_per_minute": self._calculate_throughput(agents),
+                    "error_rate": self._calculate_error_rate(agents),
+                },
+            }
 
         return self._json_response(200, metrics)
 
@@ -387,12 +480,25 @@ class AgentDashboardHandler(BaseHandler):
 
         Returns overall system health status.
         """
-        agents = list(_agents.values())
-        active_agents = sum(1 for a in agents if a["status"] == "active")
+        shared = _get_shared_state()
+        if shared:
+            agents = await shared.list_agents()
+            tasks = await shared.list_tasks()
+            is_persistent = shared.is_persistent
+        else:
+            agents = list(_agents.values())
+            tasks = _task_queue
+            is_persistent = False
+
+        active_agents = sum(1 for a in agents if a.get("status") == "active")
 
         health = {
             "status": "healthy" if active_agents > 0 or not agents else "degraded",
             "timestamp": datetime.utcnow().isoformat(),
+            "persistence": {
+                "enabled": is_persistent,
+                "backend": "redis" if is_persistent else "in_memory",
+            },
             "components": {
                 "agents": {
                     "status": "healthy" if active_agents > 0 else "no_active_agents",
@@ -401,7 +507,7 @@ class AgentDashboardHandler(BaseHandler):
                 },
                 "queue": {
                     "status": "healthy",
-                    "tasks": len(_task_queue),
+                    "tasks": len(tasks),
                 },
                 "api": {
                     "status": "healthy",

@@ -90,6 +90,15 @@ from aragora.control_plane.multi_tenancy import (
     set_global_enforcer,
     with_tenant,
 )
+from aragora.control_plane.shared_state import (
+    AgentState,
+    SharedControlPlaneState,
+    TaskState,
+    close_shared_state,
+    get_shared_state,
+    get_shared_state_sync,
+    set_shared_state,
+)
 
 __all__ = [
     # Registry
@@ -125,4 +134,12 @@ __all__ = [
     "set_current_tenant",
     "set_global_enforcer",
     "with_tenant",
+    # Shared State
+    "SharedControlPlaneState",
+    "AgentState",
+    "TaskState",
+    "get_shared_state",
+    "get_shared_state_sync",
+    "set_shared_state",
+    "close_shared_state",
 ]
