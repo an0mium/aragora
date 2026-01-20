@@ -2,6 +2,31 @@
 
 All notable changes to the Aragora TypeScript SDK will be documented in this file.
 
+## [2.0.3] - 2026-01-20
+
+### Added
+- ConnectorsAPI for enterprise data source management
+  - `list()` - List registered connectors
+  - `getStatus()` - Get connector sync status
+  - `triggerSync()` - Trigger sync operations
+  - `health()` - Connector subsystem health
+  - `mongoAggregate()` - Execute MongoDB aggregation pipelines
+  - `mongoCollections()` - List MongoDB collections
+- Full TypeScript types for connector operations
+  - `ConnectorType`, `SyncSchedule`, `ConnectorJob`
+  - `MongoAggregateRequest/Response`
+  - `ServiceNowRecord`, `ServiceNowUser`
+  - `ConnectorHealthResponse`
+
+### Changed
+- Version aligned with core Aragora package (2.0.3)
+
+## [2.0.0] - 2026-01-17
+
+### Changed
+- Major version bump to align with Aragora core v2.0.0
+- All APIs updated for v2 compatibility
+
 ## [1.0.0] - 2026-01-14
 
 ### Added
