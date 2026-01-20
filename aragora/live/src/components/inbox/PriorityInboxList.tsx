@@ -32,7 +32,7 @@ export function PriorityInboxList({
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${apiBase}/api/inbox/priority?user_id=${userId}`, {
+        const response = await fetch(`${apiBase}/api/gmail/inbox/priority?user_id=${userId}`, {
           headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
         });
         if (!response.ok) throw new Error('Failed to fetch emails');

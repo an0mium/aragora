@@ -23,7 +23,7 @@ export function InboxQueryPanel({ apiBase, userId, authToken }: InboxQueryPanelP
     setAnswer(null);
 
     try {
-      const response = await fetch(`${apiBase}/api/inbox/query`, {
+      const response = await fetch(`${apiBase}/api/gmail/query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
