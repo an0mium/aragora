@@ -581,9 +581,13 @@ class CrossDebateMemory:
 
     def _build_rlm_context(self, max_debates: int = 5) -> str:
         """Build context string for official RLM REPL."""
+        # Take snapshot to avoid race conditions with concurrent modifications
+        # (dict.values() returns a view that can change during iteration)
+        entries_snapshot = list(self._entries.values())
+
         # Get most relevant entries by recency
         entries = sorted(
-            self._entries.values(),
+            entries_snapshot,
             key=lambda e: e.timestamp,
             reverse=True,
         )[:max_debates]
@@ -615,7 +619,9 @@ Consensus: {'Yes' if entry.consensus_reached else 'No'}
         query_terms = set(query.lower().split())
         relevant_entries = []
 
-        for entry in self._entries.values():
+        # Take snapshot to avoid race conditions with concurrent modifications
+        entries_snapshot = list(self._entries.values())
+        for entry in entries_snapshot:
             # Score by keyword overlap
             entry_text = f"{entry.task} {entry.final_answer} {' '.join(entry.key_insights)}"
             entry_words = set(entry_text.lower().split())
