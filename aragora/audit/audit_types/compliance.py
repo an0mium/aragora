@@ -280,7 +280,7 @@ class ComplianceAuditor:
         chunks: list[dict[str, Any]],
     ) -> list[AuditFinding]:
         """Check a compliance rule against content."""
-        findings = []
+        findings: list[AuditFinding] = []
         content_lower = content.lower()
 
         # Check if any trigger keywords are present

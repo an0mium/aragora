@@ -1086,10 +1086,10 @@ class SoftwareAuditor(BaseAuditor):
         licenses: list[LicenseInfo],
     ) -> list[AuditFinding]:
         """Check for license compatibility issues across files."""
-        findings = []
+        findings: list[AuditFinding] = []
 
         # Group by category
-        categories = {}
+        categories: dict[str, list[Any]] = {}
         for lic in licenses:
             if lic.category not in categories:
                 categories[lic.category] = []

@@ -299,7 +299,7 @@ class AcademicAuditor(BaseAuditor):
         context: AuditContext,
     ) -> List[AuditFinding]:
         """Check citation formatting consistency."""
-        findings = []
+        findings: List[AuditFinding] = []
 
         if not citations:
             return findings
