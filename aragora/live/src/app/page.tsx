@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useNomicStream } from '@/hooks/useNomicStream';
 import { MetricsCards } from '@/components/MetricsCards';
 import { PhaseProgress } from '@/components/PhaseProgress';
@@ -16,7 +15,6 @@ import { DebateBrowser } from '@/components/DebateBrowser';
 import { DebateExportModal } from '@/components/DebateExportModal';
 import { VerdictCard } from '@/components/VerdictCard';
 import { DocumentUpload } from '@/components/DocumentUpload';
-import { StatusBar } from '@/components/StatusBar';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend, BACKENDS } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
@@ -27,8 +25,10 @@ import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { useProgressiveMode } from '@/context/ProgressiveModeContext';
 import { UseCaseGuide } from '@/components/ui/UseCaseGuide';
+import { useRightSidebar } from '@/context/RightSidebarContext';
+import { useLayout } from '@/context/LayoutContext';
 import type { NomicState } from '@/types/events';
-import { DashboardHeader, QuickLinksBar, DashboardFooter } from './components';
+import { DashboardFooter } from './components';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -100,21 +100,6 @@ import {
 type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 type SiteMode = 'landing' | 'dashboard' | 'loading';
 
-// Mobile sidebar toggle state
-const useMobileSidebar = () => {
-  const [showSidebar, setShowSidebar] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return { showSidebar, setShowSidebar, isMobile };
-};
-
 export default function Home() {
   const router = useRouter();
 
@@ -134,8 +119,9 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
-  // Mobile sidebar state
-  const { showSidebar, setShowSidebar, isMobile } = useMobileSidebar();
+  // Layout context for responsive behavior
+  const { isMobile } = useLayout();
+  const { setContext: setRightSidebarContext, clearContext: clearRightSidebarContext } = useRightSidebar();
 
   // Boot sequence state (must be declared before useEffect that uses it)
   const [showBoot, setShowBoot] = useState(true);
@@ -163,7 +149,6 @@ export default function Home() {
 
   // Site mode - preference-based (no hostname detection)
   const [siteMode, setSiteMode] = useState<SiteMode>('loading');
-  const [showHeaderAscii, setShowHeaderAscii] = useState(false);
 
   // Load site mode from localStorage or default based on returning user
   useEffect(() => {
@@ -180,7 +165,6 @@ export default function Home() {
       setSiteMode('landing');
       localStorage.setItem('aragora-has-visited', 'true');
     }
-    setShowHeaderAscii(false);
   }, []);
 
   // Handler to switch to dashboard mode
@@ -435,26 +419,71 @@ export default function Home() {
           />
         )}
 
-        {/* Header - Responsive */}
-        <DashboardHeader
-          connected={connected}
-          showHeaderAscii={showHeaderAscii}
-          isMobile={isMobile}
-          showSidebar={showSidebar}
-          onToggleSidebar={() => setShowSidebar(!showSidebar)}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          dashboardMode={preferences.mode}
-          onDashboardModeChange={setMode}
-          currentPhase={currentPhase}
-          onShowCompare={() => setShowCompare(true)}
-          activeLoops={activeLoops}
-          selectedLoopId={selectedLoopId}
-          onSelectLoop={selectLoop}
-        />
-
-        {/* Quick Links Bar */}
-        <QuickLinksBar />
+        {/* View Mode Controls - Simplified inline bar */}
+        <div className="border-b border-[var(--border)] bg-[var(--surface)]/50 px-4 py-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-[var(--text-muted)]">VIEW:</span>
+              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] p-0.5 font-mono text-xs">
+                <button
+                  onClick={() => setViewMode('tabs')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'tabs'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  TABS
+                </button>
+                <button
+                  onClick={() => setViewMode('stream')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'stream'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  STREAM
+                </button>
+                <button
+                  onClick={() => setViewMode('deep-audit')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'deep-audit'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  AUDIT
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeLoops.length > 0 && (
+                <select
+                  value={selectedLoopId || ''}
+                  onChange={(e) => selectLoop(e.target.value)}
+                  className="text-xs font-mono bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded"
+                >
+                  <option value="">Select loop...</option>
+                  {activeLoops.map((loop) => (
+                    <option key={loop.loop_id} value={loop.loop_id}>
+                      {loop.name || loop.loop_id.slice(0, 8)} (Cycle {loop.cycle})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => setShowCompare(true)}
+                className="text-xs font-mono text-[var(--acid-cyan)] hover:text-[var(--acid-green)] transition-colors"
+              >
+                [COMPARE]
+              </button>
+              <span className={`text-xs font-mono ${connected ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+                {connected ? '● LIVE' : '○ OFFLINE'}
+              </span>
+            </div>
+          </div>
+        </div>
 
       {/* Main Content - Wider container */}
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -488,25 +517,10 @@ export default function Home() {
         {/* Verdict Card (when available) */}
         {hasVerdict && <VerdictCard events={events} />}
 
-        {/* Mobile Progress Summary - shown when sidebar hidden */}
-        {isMobile && !showSidebar && currentPhase !== 'idle' && (
-          <div className="p-3 border border-acid-green/30 rounded-lg bg-surface/50">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-acid-green">{currentPhase.toUpperCase()}</span>
-              <button
-                onClick={() => setShowSidebar(true)}
-                className="text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [VIEW DETAILS]
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Main Panels - Responsive grid with wider main panel */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6">
-          {/* Agent Activity - Takes more space on wider screens */}
-          <div className="xl:col-span-3 min-h-[400px] sm:min-h-[500px]">
+        {/* Main Panels - Responsive grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          {/* Agent Activity - Main content area */}
+          <div className="lg:col-span-2 min-h-[400px] sm:min-h-[500px]">
             {viewMode === 'deep-audit' ? (
               <PanelErrorBoundary panelName="Deep Audit">
                 <DeepAuditView
@@ -526,8 +540,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* Side Panel - Hidden on mobile unless toggled */}
-          <div className={`xl:col-span-2 space-y-2 ${isMobile && !showSidebar ? 'hidden' : ''}`}>
+          {/* Side Panel - Collapsible sections */}
+          <div className="space-y-2 hidden lg:block">
             {/* Use Case Guide for simple/standard users */}
             {progressiveMode === 'simple' && (
               <CollapsibleSection
@@ -872,14 +886,6 @@ export default function Home() {
         {/* Footer */}
         <DashboardFooter />
       </div>
-
-      {/* Status Bar */}
-      <StatusBar
-        connected={connected}
-        events={events}
-        cycle={nomicState?.cycle || 0}
-        phase={currentPhase}
-      />
     </main>
     </FeaturesProvider>
   );
