@@ -922,7 +922,7 @@ describe('VerticalsPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Start Specialist Debate')).toBeInTheDocument();
-        const link = screen.getByRole('link', { name: 'Start Finance Debate' });
+        const link = screen.getByRole('link', { name: 'Quick Start' });
         expect(link).toHaveAttribute('href', '/debate?vertical=finance');
       });
     });

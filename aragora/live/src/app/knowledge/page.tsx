@@ -20,6 +20,7 @@ import {
   getMockStats,
   getMockRelationships,
 } from './types';
+import { KnowledgeGraphView } from './KnowledgeGraphView';
 
 export default function KnowledgeMoundPage() {
   const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
@@ -60,6 +61,9 @@ export default function KnowledgeMoundPage() {
 
   // Export state
   const [exporting, setExporting] = useState(false);
+
+  // View mode state
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -372,6 +376,30 @@ export default function KnowledgeMoundPage() {
           >
             {showStalePanel ? 'Hide' : 'Check'} Staleness
           </button>
+          {/* View Toggle */}
+          <div className="flex gap-1 border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 font-mono text-sm transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-acid-green text-bg'
+                  : 'bg-surface text-text-muted hover:bg-surface/80'
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('graph')}
+              className={`px-4 py-2 font-mono text-sm transition-colors ${
+                viewMode === 'graph'
+                  ? 'bg-acid-green text-bg'
+                  : 'bg-surface text-text-muted hover:bg-surface/80'
+              }`}
+            >
+              Graph
+            </button>
+          </div>
+
           <div className="flex gap-2 ml-auto">
             <button
               onClick={() => exportGraph('d3')}
@@ -597,12 +625,125 @@ export default function KnowledgeMoundPage() {
           </div>
         </form>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Nodes List */}
-          <div>
-            <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
-              Knowledge Nodes ({nodes.length})
-            </h2>
+        {/* View Mode Content */}
+        {viewMode === 'graph' ? (
+          /* Graph View */
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="lg:col-span-1">
+              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+                Knowledge Graph
+              </h2>
+              <KnowledgeGraphView
+                nodes={nodes}
+                selectedNode={selectedNode}
+                onNodeSelect={setSelectedNode}
+                searchQuery={searchQuery}
+              />
+            </div>
+
+            {/* Node Details (shared with list view) */}
+            <div>
+              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+                Node Details & Provenance
+              </h2>
+
+              {selectedNode ? (
+                <div className="bg-surface border border-border rounded-lg p-4">
+                  {/* Node Header */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-2xl">{NODE_TYPE_ICONS[selectedNode.nodeType] || '📦'}</span>
+                    <div>
+                      <div className="font-mono font-bold text-text">{selectedNode.nodeType}</div>
+                      <div className="text-xs text-text-muted">{selectedNode.id}</div>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-3 bg-bg border border-border rounded-lg mb-4">
+                    <p className="text-sm text-text whitespace-pre-wrap">{selectedNode.content}</p>
+                  </div>
+
+                  {/* Metadata Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="p-2 bg-bg rounded">
+                      <div className="text-xs text-text-muted">Confidence</div>
+                      <div className={`font-mono font-bold ${getConfidenceColor(selectedNode.confidence)}`}>
+                        {Math.round(selectedNode.confidence * 100)}%
+                      </div>
+                    </div>
+                    <div className="p-2 bg-bg rounded">
+                      <div className="text-xs text-text-muted">Tier</div>
+                      <div className="font-mono font-bold text-text">{selectedNode.tier}</div>
+                    </div>
+                    <div className="p-2 bg-bg rounded">
+                      <div className="text-xs text-text-muted">Source</div>
+                      <div className="font-mono font-bold text-text">{selectedNode.sourceType}</div>
+                    </div>
+                    <div className="p-2 bg-bg rounded">
+                      <div className="text-xs text-text-muted">Created</div>
+                      <div className="font-mono text-text text-sm">{formatRelativeDate(selectedNode.createdAt)}</div>
+                    </div>
+                  </div>
+
+                  {/* Relationships in graph view */}
+                  {relationships.length > 0 && (
+                    <div className="border-t border-border pt-4 mt-4">
+                      <h3 className="text-xs font-mono text-acid-green uppercase mb-3">
+                        Relationships ({relationships.length})
+                      </h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {relationships.map((rel) => (
+                          <div
+                            key={rel.id}
+                            className="p-2 bg-bg rounded-lg flex items-center justify-between"
+                          >
+                            <div>
+                              <span className="text-xs text-text-muted">{rel.relationshipType}</span>
+                              <div className="font-mono text-xs text-acid-cyan">
+                                {rel.sourceId === selectedNode.id ? rel.targetId : rel.sourceId}
+                              </div>
+                            </div>
+                            <div className="text-xs text-text-muted">
+                              {Math.round(rel.strength * 100)}%
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Topics */}
+                  {selectedNode.topics && selectedNode.topics.length > 0 && (
+                    <div className="border-t border-border pt-4 mt-4">
+                      <h3 className="text-xs font-mono text-acid-green uppercase mb-3">Topics</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedNode.topics.map((topic) => (
+                          <span
+                            key={topic}
+                            className="px-2 py-1 text-xs bg-bg text-text-muted rounded"
+                          >
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-muted">
+                  Click a node in the graph to view details
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* List View (original) */
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Nodes List */}
+            <div>
+              <h2 className="text-sm font-mono text-acid-green uppercase mb-4">
+                Knowledge Nodes ({nodes.length})
+              </h2>
 
             {loading ? (
               <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
@@ -860,6 +1001,7 @@ export default function KnowledgeMoundPage() {
             )}
           </div>
         </div>
+        )}
         </div>
       </PanelErrorBoundary>
     </main>

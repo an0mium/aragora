@@ -314,14 +314,14 @@ describe('ApiError', () => {
     it('shows retry button when onRetry provided', () => {
       render(<ApiError error="Error" onRetry={() => {}} />);
 
-      expect(screen.getByText('> RETRY_REQUEST')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     });
 
     it('calls onRetry when clicked', () => {
       const onRetry = jest.fn();
       render(<ApiError error="Error" onRetry={onRetry} />);
 
-      fireEvent.click(screen.getByText('> RETRY_REQUEST'));
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
       expect(onRetry).toHaveBeenCalled();
     });
