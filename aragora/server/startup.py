@@ -295,6 +295,60 @@ async def init_shared_control_plane_state() -> bool:
         return False
 
 
+async def init_persistent_task_queue() -> int:
+    """Initialize persistent task queue with recovery of pending tasks.
+
+    Creates the singleton PersistentTaskQueue and recovers any tasks that
+    were pending/running when the server was previously stopped.
+
+    Returns:
+        Number of tasks recovered
+    """
+    try:
+        from aragora.workflow.queue import (
+            get_persistent_task_queue,
+            PersistentTaskQueue,
+        )
+
+        # Get or create the singleton queue
+        queue = get_persistent_task_queue()
+
+        # Start the queue processor
+        await queue.start()
+
+        # Recover pending tasks from previous runs
+        recovered = await queue.recover_tasks()
+
+        # Schedule cleanup of old completed tasks (24h retention)
+        import asyncio
+
+        async def cleanup_loop():
+            while True:
+                await asyncio.sleep(3600)  # Run hourly
+                try:
+                    deleted = queue.delete_completed_tasks(older_than_hours=24)
+                    if deleted > 0:
+                        logger.debug(f"Cleaned up {deleted} old completed tasks")
+                except Exception as e:
+                    logger.warning(f"Task cleanup failed: {e}")
+
+        asyncio.create_task(cleanup_loop())
+
+        if recovered > 0:
+            logger.info(f"Persistent task queue started, recovered {recovered} tasks")
+        else:
+            logger.info("Persistent task queue started")
+
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Persistent task queue not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize persistent task queue: {e}")
+
+    return 0
+
+
 async def init_tts_integration() -> bool:
     """Initialize TTS integration for live voice responses.
 
@@ -595,6 +649,7 @@ async def run_startup_sequence(
         "workflow_checkpoint_persistence": False,
         "shared_control_plane_state": False,
         "tts_integration": False,
+        "persistent_task_queue": 0,
     }
 
     # Initialize in parallel where possible
@@ -613,6 +668,7 @@ async def run_startup_sequence(
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()
+    status["persistent_task_queue"] = await init_persistent_task_queue()
 
     return status
 
@@ -629,6 +685,7 @@ __all__ = [
     "init_control_plane_coordinator",
     "init_shared_control_plane_state",
     "init_tts_integration",
+    "init_persistent_task_queue",
     "init_km_adapters",
     "init_workflow_checkpoint_persistence",
     "run_startup_sequence",

@@ -160,7 +160,7 @@ class KnowledgeMoundCore:
         logger.debug(f"SQLite backend initialized at {db_path}")
 
     async def _init_postgres(self) -> None:
-        """Initialize PostgreSQL backend."""
+        """Initialize PostgreSQL backend with optional resilience hardening."""
         if not self.config.postgres_url:
             logger.warning("PostgreSQL URL not configured, falling back to SQLite")
             await self._init_sqlite()
@@ -169,15 +169,52 @@ class KnowledgeMoundCore:
         try:
             from aragora.knowledge.mound.postgres_store import PostgresStore
 
-            self._meta_store = PostgresStore(
+            base_store = PostgresStore(
                 url=self.config.postgres_url,
                 pool_size=self.config.postgres_pool_size,
                 max_overflow=self.config.postgres_pool_max_overflow,
             )
-            await self._meta_store.initialize()
-            logger.debug("PostgreSQL backend initialized")
-        except ImportError:
-            logger.warning("asyncpg not available, falling back to SQLite")
+
+            # Wrap with resilience features if enabled
+            if self.config.enable_resilience:
+                from aragora.knowledge.mound.resilience import (
+                    ResilientPostgresStore,
+                    RetryConfig,
+                    TransactionConfig,
+                )
+
+                retry_config = RetryConfig(
+                    max_retries=self.config.retry_max_attempts,
+                    base_delay=self.config.retry_base_delay,
+                )
+                tx_config = TransactionConfig(
+                    timeout_seconds=self.config.transaction_timeout,
+                )
+
+                self._meta_store = ResilientPostgresStore(
+                    store=base_store,
+                    retry_config=retry_config,
+                    transaction_config=tx_config,
+                )
+
+                # Initialize with integrity checks
+                integrity_result = await self._meta_store.initialize()
+                if self.config.enable_integrity_checks and not integrity_result.passed:
+                    logger.warning(
+                        f"Integrity check found issues: {integrity_result.issues_found}"
+                    )
+                logger.debug(
+                    f"PostgreSQL backend initialized with resilience "
+                    f"(integrity: {integrity_result.checks_performed} checks, "
+                    f"{'passed' if integrity_result.passed else 'issues found'})"
+                )
+            else:
+                self._meta_store = base_store
+                await self._meta_store.initialize()
+                logger.debug("PostgreSQL backend initialized (resilience disabled)")
+
+        except ImportError as e:
+            logger.warning(f"asyncpg not available ({e}), falling back to SQLite")
             await self._init_sqlite()
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"PostgreSQL init failed: {e}, falling back to SQLite")
@@ -187,7 +224,7 @@ class KnowledgeMoundCore:
             await self._init_sqlite()
 
     async def _init_redis(self) -> None:
-        """Initialize Redis cache."""
+        """Initialize Redis cache with optional invalidation bus subscription."""
         if not self.config.redis_url:
             return
 
@@ -200,7 +237,14 @@ class KnowledgeMoundCore:
                 culture_ttl=self.config.redis_culture_ttl,
             )
             await self._cache.connect()
-            logger.debug("Redis cache initialized")
+
+            # Subscribe to invalidation bus for event-driven cache updates
+            if self.config.enable_cache_invalidation_events:
+                await self._cache.subscribe_to_invalidation_bus()
+                logger.debug("Redis cache initialized with invalidation bus subscription")
+            else:
+                logger.debug("Redis cache initialized")
+
         except ImportError:
             logger.warning("redis not available, caching disabled")
         except (ConnectionError, TimeoutError, OSError) as e:

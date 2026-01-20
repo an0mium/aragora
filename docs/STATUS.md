@@ -1,8 +1,91 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (21:00 UTC)*
+*Last updated: January 20, 2026 (23:00 UTC)*
 
 ## Current Release
+
+### v2.0.8 - Strategic API Consolidation (January 2026)
+
+**Production Ready** - Aragora 2.0.8 completes 4 strategic priorities: Gauntlet + Receipts API productization, Decision Explainability API, Workflow Templates packaging, and Knowledge Mound persistence hardening.
+
+#### Key Highlights
+- **38,200+ tests** collected and passing (+100 new tests)
+- **1,050 test files** across all modules
+- **Strategic API completions** - 4 major priorities shipped
+- **Resilient storage** - ResilientPostgresStore with retry, circuit breaker, health monitoring
+- **Lines of Code**: 448,000+ LOC (+2,000)
+- **0 production blockers**
+- **102 fully integrated features** (+4 strategic priorities)
+
+#### What's New in 2.0.8
+
+**Gauntlet + Receipts API Productization** (PRIORITY 1 - COMPLETE)
+- `aragora/gauntlet/receipts.py` - DecisionReceipt dataclass with cryptographic hashing
+  - SHA-256 artifact hashing for tamper-evident audit trails
+  - Serialization to JSON/dict for compliance documentation
+  - Verdict summary (PASS/FAIL/WARN) with finding counts
+- `aragora/server/handlers/gauntlet.py` - 6 API endpoints:
+  - GET `/api/gauntlet/receipts` - List receipts with filters (verdict, date range)
+  - GET `/api/gauntlet/receipts/{id}` - Get receipt by ID
+  - POST `/api/gauntlet/receipts/{id}/verify` - Verify artifact integrity
+  - GET `/api/gauntlet/receipts/{id}/export` - Export as HTML/JSON
+  - GET `/api/gauntlet/runs` - List gauntlet runs
+  - GET `/api/gauntlet/runs/{id}` - Get run details
+- 23 tests in `tests/server/handlers/test_gauntlet_handler.py`
+
+**Decision Explainability API** (PRIORITY 3 - COMPLETE)
+- `aragora/server/handlers/explainability.py` - 4 API endpoints:
+  - GET `/api/debates/{id}/explainability` - Get full explanation
+  - GET `/api/debates/{id}/explainability/factors` - Get contributing factors
+  - GET `/api/debates/{id}/explainability/counterfactual` - Generate what-if scenarios
+  - GET `/api/debates/{id}/explainability/provenance` - Get decision provenance chain
+- Natural language decision narratives with confidence scores
+- Factor decomposition: agent contributions, evidence quality, consensus strength
+- Counterfactual analysis for alternative outcome exploration
+- 31 tests in `tests/server/handlers/test_explainability_handler.py`
+
+**Workflow Templates Package** (PRIORITY 4 - COMPLETE)
+- `aragora/workflow/templates/` - Comprehensive template system:
+  - `registry.py` - WORKFLOW_TEMPLATES registry with 15+ templates
+  - `package.py` - TemplatePackage, TemplateAuthor, TemplateCategory enums
+  - `patterns.py` - Pattern-based template factories (hive-mind, map-reduce, review-cycle)
+- Pre-built templates across 6 categories:
+  - Legal: contract review, compliance audit, policy analysis
+  - Research: literature review, data analysis, hypothesis testing
+  - Content: article writing, editing, summarization
+  - Development: code review, architecture design, debugging
+  - Business: strategy analysis, market research, financial modeling
+  - General: brainstorming, decision making, problem solving
+- `aragora/server/handlers/workflow_templates.py` - 4 handlers:
+  - WorkflowTemplatesHandler - Template CRUD and execution
+  - WorkflowCategoriesHandler - Category listing
+  - WorkflowPatternsHandler - Pattern listing
+  - WorkflowPatternTemplatesHandler - Pattern instantiation
+- 23 tests in `tests/server/handlers/test_workflow_templates_handler.py`
+
+**Knowledge Mound Persistence Hardening** (PRIORITY 5 - COMPLETE)
+- `aragora/knowledge/mound/resilience.py` - Production-hardened storage layer:
+  - ResilientPostgresStore wrapper with automatic retry logic
+  - RetryConfig for configurable retry attempts and backoff
+  - TransactionConfig for timeout and isolation level settings
+  - CacheInvalidationBus for event-driven cache coherence
+  - IntegrityChecker for startup verification and repair
+  - HealthMonitor for continuous connection monitoring
+- `aragora/knowledge/mound/types.py` - New MoundConfig resilience settings:
+  - `enable_resilience` - Use ResilientPostgresStore wrapper
+  - `enable_integrity_checks` - Run verification on startup
+  - `enable_health_monitoring` - Background health checks
+  - `enable_cache_invalidation_events` - Emit invalidation events
+  - `retry_max_attempts`, `retry_base_delay`, `transaction_timeout`
+- `aragora/knowledge/mound/redis_cache.py` - Invalidation bus integration:
+  - `subscribe_to_invalidation_bus()` for automatic cache invalidation
+  - Event-driven updates on node_updated, node_deleted, query_invalidated, culture_updated
+- `aragora/knowledge/mound/core.py` - Wired resilience into production:
+  - `_init_postgres()` conditionally wraps store with ResilientPostgresStore
+  - `_init_redis()` subscribes to invalidation bus when enabled
+- 115 resilience tests in `tests/knowledge/mound/test_resilience.py`
+
+---
 
 ### v2.0.7 - Enterprise Streaming & Chat Integration (January 2026)
 

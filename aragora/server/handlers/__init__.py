@@ -167,7 +167,9 @@ from .workflow_templates import (
 )
 from .email import EmailHandler  # Email prioritization API
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
-from .bots import DiscordHandler, TeamsHandler, TelegramHandler, WhatsAppHandler, ZoomHandler  # Bot platform handlers
+from .bots import DiscordHandler, GoogleChatHandler, TeamsHandler, TelegramHandler, WhatsAppHandler, ZoomHandler  # Bot platform handlers
+from .explainability import ExplainabilityHandler  # Decision explainability API
+from .a2a import A2AHandler  # A2A protocol handler
 from .autonomous import (  # Autonomous operations handlers (Phase 5)
     ApprovalHandler,
     AlertHandler,
@@ -286,10 +288,15 @@ ALL_HANDLERS = [
     EmailHandler,  # Email prioritization API
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
+    GoogleChatHandler,  # Google Chat Cards API
     TeamsHandler,  # Microsoft Teams Bot Framework
     TelegramHandler,  # Telegram Bot API webhooks
     WhatsAppHandler,  # WhatsApp Cloud API
     ZoomHandler,  # Zoom webhooks and chat
+    # Explainability
+    ExplainabilityHandler,  # Decision explainability API
+    # Protocols
+    A2AHandler,  # A2A protocol handler
     # Autonomous operations handlers (Phase 5)
     ApprovalHandler,  # Human-in-the-loop approval flows
     AlertHandler,  # Alert management and thresholds
@@ -404,10 +411,15 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
     # Bot platform handlers
     "DiscordHandler": Stability.EXPERIMENTAL,  # Discord Interactions API - new
+    "GoogleChatHandler": Stability.EXPERIMENTAL,  # Google Chat Cards API - new
     "TeamsHandler": Stability.EXPERIMENTAL,  # Microsoft Teams Bot Framework - new
     "TelegramHandler": Stability.EXPERIMENTAL,  # Telegram Bot API webhooks - new
     "WhatsAppHandler": Stability.EXPERIMENTAL,  # WhatsApp Cloud API - new
     "ZoomHandler": Stability.EXPERIMENTAL,  # Zoom webhooks and chat - new
+    # Explainability
+    "ExplainabilityHandler": Stability.EXPERIMENTAL,  # Decision explainability API - new
+    # Protocols
+    "A2AHandler": Stability.EXPERIMENTAL,  # A2A protocol handler - new
     # Autonomous operations handlers (Phase 5)
     "ApprovalHandler": Stability.EXPERIMENTAL,  # Human-in-the-loop approval flows - Phase 5.1
     "AlertHandler": Stability.EXPERIMENTAL,  # Alert management and thresholds - Phase 5.3
@@ -565,10 +577,15 @@ __all__ = [
     "get_collaboration_handlers",
     # Bot platform handlers
     "DiscordHandler",
+    "GoogleChatHandler",
     "TeamsHandler",
     "TelegramHandler",
     "WhatsAppHandler",
     "ZoomHandler",
+    # Explainability
+    "ExplainabilityHandler",
+    # Protocols
+    "A2AHandler",
     # Autonomous operations handlers (Phase 5)
     "ApprovalHandler",
     "AlertHandler",

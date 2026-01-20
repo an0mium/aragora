@@ -77,6 +77,18 @@ class ExplainabilityHandler(BaseHandler):
         "/api/explain/*",
     ]
 
+    def __init__(self, server_context: Optional[Dict] = None):
+        """Initialize with server context for richer explanations."""
+        super().__init__(server_context)
+        self.elo_system = (server_context or {}).get("elo_system")
+        self.calibration_tracker = None
+        # Try to get calibration tracker from global
+        try:
+            from aragora.ranking.calibration import get_calibration_tracker
+            self.calibration_tracker = get_calibration_tracker()
+        except (ImportError, Exception):
+            pass
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         if method != "GET":
@@ -177,10 +189,13 @@ class ExplainabilityHandler(BaseHandler):
             if not debate_data:
                 return None
 
-            # Build decision
+            # Build decision with available tracking systems
             from aragora.explainability import ExplanationBuilder
 
-            builder = ExplanationBuilder()
+            builder = ExplanationBuilder(
+                elo_system=self.elo_system,
+                calibration_tracker=self.calibration_tracker,
+            )
 
             # Convert dict to simple object for builder
             class ResultProxy:

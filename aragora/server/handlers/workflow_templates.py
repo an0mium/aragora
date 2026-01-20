@@ -21,6 +21,7 @@ from .base import (
     HandlerResult,
     error_response,
     get_bounded_string_param,
+    get_clamped_int_param,
     get_int_param,
     handle_errors,
     json_response,
@@ -106,8 +107,8 @@ class WorkflowTemplatesHandler(BaseHandler):
         )
         tag = get_bounded_string_param(query_params, "tag", None, max_length=50)
         search = get_bounded_string_param(query_params, "search", None, max_length=100)
-        limit = get_int_param(query_params, "limit", 50, min_val=1, max_val=100)
-        offset = get_int_param(query_params, "offset", 0, min_val=0)
+        limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=100)
+        offset = get_int_param(query_params, "offset", 0)
 
         # Get templates
         templates = list_templates(category=category)

@@ -170,9 +170,12 @@ class CacheInvalidationBus:
         for subscriber in self._subscribers:
             try:
                 await subscriber(event)
+            except (ValueError, TypeError, RuntimeError, AttributeError) as e:
+                errors.append(str(e))
+                logger.warning(f"Cache invalidation subscriber error (expected): {e}")
             except Exception as e:
                 errors.append(str(e))
-                logger.warning(f"Cache invalidation subscriber error: {e}")
+                logger.exception(f"Cache invalidation subscriber error (unexpected): {e}")
 
         if errors:
             logger.warning(f"Cache invalidation had {len(errors)} subscriber errors")
@@ -428,6 +431,14 @@ class ConnectionHealthMonitor:
                 latency_ms=latency,
             )
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            self._status = HealthStatus(
+                healthy=self._status.consecutive_failures < self._failure_threshold,
+                last_check=datetime.now(timezone.utc),
+                consecutive_failures=self._status.consecutive_failures + 1,
+                last_error=str(e),
+            )
+            logger.debug(f"Health check failed with expected error: {e}")
         except Exception as e:
             self._status = HealthStatus(
                 healthy=self._status.consecutive_failures < self._failure_threshold,
@@ -435,6 +446,7 @@ class ConnectionHealthMonitor:
                 consecutive_failures=self._status.consecutive_failures + 1,
                 last_error=str(e),
             )
+            logger.warning(f"Health check failed with unexpected error: {e}")
 
         return self._status
 
@@ -446,8 +458,10 @@ class ConnectionHealthMonitor:
                 await self.check_health()
             except asyncio.CancelledError:
                 break
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Health check loop error (expected): {e}")
             except Exception as e:
-                logger.warning(f"Health check error: {e}")
+                logger.warning(f"Health check loop error (unexpected): {e}")
 
     def record_success(self) -> None:
         """Record a successful operation."""
@@ -624,8 +638,10 @@ class IntegrityVerifier:
                 )
                 for row in invalid:
                     issues.append(f"Invalid index: {row['index_name']}")
-        except Exception as e:
-            logger.warning(f"Index health check failed: {e}")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Index health check failed (connection error): {e}")
+        except (KeyError, TypeError, ValueError) as e:
+            logger.warning(f"Index health check failed (data error): {e}")
         return issues
 
     async def _check_duplicate_content(self) -> int:

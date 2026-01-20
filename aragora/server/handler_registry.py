@@ -117,6 +117,9 @@ UncertaintyHandler: HandlerType = None
 VerticalsHandler: HandlerType = None
 WorkspaceHandler: HandlerType = None
 EmailHandler: HandlerType = None
+GoogleChatHandler: HandlerType = None
+ExplainabilityHandler: HandlerType = None
+A2AHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -340,6 +343,15 @@ try:
     from aragora.server.handlers import (
         EmailHandler as _EmailHandler,
     )
+    from aragora.server.handlers import (
+        GoogleChatHandler as _GoogleChatHandler,
+    )
+    from aragora.server.handlers import (
+        ExplainabilityHandler as _ExplainabilityHandler,
+    )
+    from aragora.server.handlers import (
+        A2AHandler as _A2AHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -414,6 +426,9 @@ try:
     VerticalsHandler = _VerticalsHandler
     WorkspaceHandler = _WorkspaceHandler
     EmailHandler = _EmailHandler
+    GoogleChatHandler = _GoogleChatHandler
+    ExplainabilityHandler = _ExplainabilityHandler
+    A2AHandler = _A2AHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -503,6 +518,9 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_verticals_handler", VerticalsHandler),
     ("_workspace_handler", WorkspaceHandler),
     ("_email_handler", EmailHandler),
+    ("_google_chat_handler", GoogleChatHandler),
+    ("_explainability_handler", ExplainabilityHandler),
+    ("_a2a_handler", A2AHandler),
 ]
 
 
@@ -607,6 +625,19 @@ class RouteIndex:
             ],
             "_email_handler": [
                 "/api/email/",
+            ],
+            "_google_chat_handler": [
+                "/api/bots/google-chat/",
+            ],
+            "_explainability_handler": [
+                "/api/v1/debates/",
+                "/api/v1/explain/",
+                "/api/debates/",
+                "/api/explain/",
+            ],
+            "_a2a_handler": [
+                "/api/a2a/",
+                "/.well-known/agent.json",
             ],
         }
 
@@ -981,6 +1012,9 @@ class HandlerRegistryMixin:
     _knowledge_handler: Optional["BaseHandler"] = None
     _knowledge_mound_handler: Optional["BaseHandler"] = None
     _email_handler: Optional["BaseHandler"] = None
+    _google_chat_handler: Optional["BaseHandler"] = None
+    _explainability_handler: Optional["BaseHandler"] = None
+    _a2a_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

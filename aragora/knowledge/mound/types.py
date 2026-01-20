@@ -193,6 +193,15 @@ class MoundConfig:
     staleness_age_threshold: timedelta = timedelta(days=7)
     staleness_revalidation_threshold: float = 0.8
 
+    # Resilience settings (production hardening)
+    enable_resilience: bool = True  # Use ResilientPostgresStore wrapper
+    enable_integrity_checks: bool = True  # Run integrity verification on startup
+    enable_health_monitoring: bool = True  # Background connection health checks
+    enable_cache_invalidation_events: bool = True  # Emit cache invalidation events
+    retry_max_attempts: int = 3  # Max retries for transient failures
+    retry_base_delay: float = 0.1  # Base delay between retries (seconds)
+    transaction_timeout: float = 30.0  # Transaction timeout (seconds)
+
 
 @dataclass
 class IngestionRequest:

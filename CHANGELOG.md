@@ -5,6 +5,35 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5] - 2026-01-20
+
+### Changed
+
+- **RLM Bridge Refactoring** - Further reduced `bridge.py` (979 → 691 lines):
+  - Extracted streaming methods to `streaming_mixin.py` (330 lines)
+  - `RLMStreamingMixin` provides `query_stream()`, `query_with_refinement_stream()`, `compress_stream()`
+  - `AragoraRLM` now inherits from `RLMStreamingMixin` for cleaner separation of concerns
+
+### Added
+
+- **New Prometheus Metrics** for observability:
+  - TTS metrics: `aragora_tts_synthesis_total`, `aragora_tts_latency_seconds`
+  - Convergence metrics: `aragora_convergence_check_total`, `aragora_convergence_blocked_total`
+  - RLM metrics: `aragora_rlm_ready_quorum_total`
+  - Vote bonus metrics: `aragora_evidence_citation_bonus_total`, `aragora_process_evaluation_bonus_total`
+
+- **Integration Tests** for new features (19 tests):
+  - TTS integration: initialization, event bus registration, agent message handling, rate limiting
+  - Convergence tracker: initialization, reset, convergence check, novelty tracking
+  - Vote bonus calculator: evidence citation bonuses, quality weighting
+  - RLM streaming mixin: event sequence, error handling, node examination
+  - Cross-feature integration: singleton patterns, metrics recording
+
+### Technical
+
+- Metrics wired in: `tts_integration.py`, `convergence_tracker.py`, `vote_bonus_calculator.py`
+- Type ignore audit: 208 total (mostly legitimate decorator/mixin/optional-import patterns)
+
 ## [2.0.4] - 2026-01-20
 
 ### Changed

@@ -390,6 +390,71 @@ class RedisCache:
         return deleted
 
     # =========================================================================
+    # Cache Invalidation Bus Integration
+    # =========================================================================
+
+    async def subscribe_to_invalidation_bus(self) -> None:
+        """
+        Subscribe to the CacheInvalidationBus for event-driven cache updates.
+
+        This enables automatic cache invalidation when knowledge is updated
+        through the ResilientPostgresStore or any other component that
+        publishes to the invalidation bus.
+        """
+        from aragora.knowledge.mound.resilience import (
+            CacheInvalidationEvent,
+            get_invalidation_bus,
+        )
+
+        bus = get_invalidation_bus()
+
+        async def handle_invalidation(event: CacheInvalidationEvent) -> None:
+            """Handle cache invalidation events."""
+            try:
+                if event.event_type == "node_updated":
+                    if event.item_id:
+                        await self.invalidate_node(event.item_id)
+                    # Also invalidate related queries
+                    await self.invalidate_queries(event.workspace_id)
+                    logger.debug(
+                        f"Cache invalidated: node {event.item_id} in {event.workspace_id}"
+                    )
+
+                elif event.event_type == "node_deleted":
+                    if event.item_id:
+                        await self.invalidate_node(event.item_id)
+                        await self.remove_stale_node(event.item_id)
+                    await self.invalidate_queries(event.workspace_id)
+                    logger.debug(
+                        f"Cache invalidated: deleted node {event.item_id} in {event.workspace_id}"
+                    )
+
+                elif event.event_type == "query_invalidated":
+                    await self.invalidate_queries(event.workspace_id)
+                    logger.debug(
+                        f"Cache invalidated: queries in {event.workspace_id}"
+                    )
+
+                elif event.event_type == "culture_updated":
+                    await self.invalidate_culture(event.workspace_id)
+                    logger.debug(
+                        f"Cache invalidated: culture in {event.workspace_id}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Cache invalidation failed for event {event.event_type}: {e}")
+
+        self._unsubscribe = bus.subscribe(handle_invalidation)
+        logger.info("Redis cache subscribed to invalidation bus")
+
+    def unsubscribe_from_invalidation_bus(self) -> None:
+        """Unsubscribe from the CacheInvalidationBus."""
+        if hasattr(self, "_unsubscribe") and self._unsubscribe:
+            self._unsubscribe()
+            self._unsubscribe = None
+            logger.info("Redis cache unsubscribed from invalidation bus")
+
+    # =========================================================================
     # Helpers
     # =========================================================================
 

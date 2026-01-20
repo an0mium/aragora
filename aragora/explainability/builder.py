@@ -234,7 +234,11 @@ class ExplanationBuilder:
                 "freshness": scores.get("freshness", 0.5),
                 "completeness": scores.get("completeness", 0.5),
             }
-        except Exception:
+        except (KeyError, TypeError, AttributeError) as e:
+            logger.debug(f"Evidence scoring returned incomplete data: {e}")
+            return {}
+        except Exception as e:
+            logger.warning(f"Unexpected error during evidence scoring: {e}")
             return {}
 
     def _extract_provenance_evidence(self) -> List[EvidenceLink]:
@@ -342,16 +346,20 @@ class ExplanationBuilder:
                 elo = self.elo_system.get_rating(agent)
                 elo_factor = (elo - 1000) / 500
                 base *= max(0.5, min(2.0, 1.0 + elo_factor * 0.3))
-            except Exception:
-                pass
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"ELO rating not available for {agent}: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
 
         # Calibration contribution
         if self.calibration_tracker:
             try:
                 calibration = self.calibration_tracker.get_weight(agent)
                 base *= calibration
-            except Exception:
-                pass
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"Calibration weight not available for {agent}: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error getting calibration for {agent}: {e}")
 
         return base
 
@@ -361,7 +369,11 @@ class ExplanationBuilder:
             return None
         try:
             return self.calibration_tracker.get_adjustment(agent)
-        except Exception:
+        except (KeyError, AttributeError) as e:
+            logger.debug(f"Calibration adjustment not available for {agent}: {e}")
+            return None
+        except Exception as e:
+            logger.warning(f"Unexpected error getting calibration adjustment for {agent}: {e}")
             return None
 
     def _get_elo_rating(self, agent: str) -> Optional[float]:
@@ -370,7 +382,11 @@ class ExplanationBuilder:
             return None
         try:
             return self.elo_system.get_rating(agent)
-        except Exception:
+        except (KeyError, AttributeError) as e:
+            logger.debug(f"ELO rating not available for {agent}: {e}")
+            return None
+        except Exception as e:
+            logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
             return None
 
     def _detect_flip(self, agent: str, result: Any) -> bool:
@@ -494,8 +510,10 @@ class ExplanationBuilder:
                         raw_value=avg_calibration,
                     )
                 )
-            except Exception:
-                pass
+            except (KeyError, AttributeError, ZeroDivisionError) as e:
+                logger.debug(f"Calibration factor calculation skipped: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error calculating calibration factor: {e}")
 
         # Rounds to consensus factor
         rounds_used = decision.rounds_used
