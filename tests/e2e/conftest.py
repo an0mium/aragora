@@ -223,6 +223,11 @@ class MockAgentResponse:
 
 @pytest.fixture
 def mock_llm_agents():
+    """Provide mock LLM responses for tests that need them.
+
+    Note: Most tests create their own mock agents inline.
+    This fixture provides standard mock responses when needed.
+    """
     responses = [
         MockAgentResponse(content="Thoughtful response to the debate topic.", model="claude-3-opus"),
         MockAgentResponse(content="Counter-argument with evidence.", model="gpt-4"),
@@ -235,9 +240,8 @@ def mock_llm_agents():
         response_idx[0] += 1
         return responses[idx]
 
-    with patch("aragora.agents.cli_agents.call_agent") as mock:
-        mock.side_effect = get_next
-        yield mock
+    # Yield the response generator - tests create their own agent mocks
+    yield {"responses": responses, "get_next": get_next}
 
 
 # ============================================================================

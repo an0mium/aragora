@@ -43,7 +43,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, Union
 
-from aragora.config import DB_KNOWLEDGE_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.knowledge.types import (
     Fact,
     ValidationStatus,
@@ -794,7 +794,11 @@ class KnowledgeMound:
             embedding_fn: Function to generate embeddings (defaults to internal)
         """
         self.workspace_id = workspace_id
-        self._db_path = Path(db_path) if db_path else DB_KNOWLEDGE_PATH / "mound.db"
+        if db_path is None:
+            knowledge_dir = get_db_path(DatabaseType.KNOWLEDGE).parent
+            self._db_path = knowledge_dir / "mound.db"
+        else:
+            self._db_path = Path(db_path)
         self._weaviate_config = weaviate_config
         self._embedding_fn = embedding_fn
 

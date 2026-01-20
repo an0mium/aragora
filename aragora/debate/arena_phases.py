@@ -217,9 +217,13 @@ def init_phases(arena: "Arena") -> None:
     )
 
     # Initialize ContextGatherer for research and evidence collection
+    # Includes Knowledge Mound auto-grounding for institutional knowledge
     arena.context_gatherer = ContextGatherer(
         evidence_store_callback=arena._store_evidence_in_memory,
         prompt_builder=arena.prompt_builder,
+        enable_knowledge_grounding=getattr(arena, "enable_knowledge_retrieval", True),
+        knowledge_mound=getattr(arena, "knowledge_mound", None),
+        knowledge_workspace_id=getattr(arena, "loop_id", None) or "debate",
     )
 
     # Auto-initialize PopulationManager for genome evolution when auto_evolve is enabled

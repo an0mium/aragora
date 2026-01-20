@@ -75,7 +75,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Import config for database paths (consolidated persona database)
-from aragora.config import DB_PERSONAS_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 
 # =============================================================================
 # MODULAR PACKAGE IMPORTS (scripts/nomic/)
@@ -1723,8 +1723,8 @@ class NomicLoop:
         # Phase 4: PersonaManager for agent traits/expertise evolution
         self.persona_manager = None
         if PERSONAS_AVAILABLE:
-            persona_db_path = self.nomic_dir / DB_PERSONAS_PATH
-            self.persona_manager = PersonaManager(str(persona_db_path))
+            persona_db_path = get_db_path(DatabaseType.PERSONAS, nomic_dir=self.nomic_dir)
+            self.persona_manager = PersonaManager(persona_db_path)
             print("[personas] Agent personality evolution enabled")
 
         # Phase 4: PromptEvolver for prompt evolution from winning patterns

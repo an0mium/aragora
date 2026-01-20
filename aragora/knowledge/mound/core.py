@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional
 
-from aragora.config import DB_KNOWLEDGE_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.knowledge.mound.types import (
     KnowledgeItem,
     KnowledgeLink,

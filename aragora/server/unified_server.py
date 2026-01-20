@@ -59,6 +59,7 @@ from aragora.server.validation import safe_query_float, safe_query_int
 
 # Import extracted modules
 from aragora.server.agent_selection import auto_select_agents
+from aragora.server.request_lifecycle import create_lifecycle_manager
 from aragora.server.response_utils import ResponseHelpersMixin
 from aragora.server.upload_rate_limit import get_upload_limiter
 
@@ -500,41 +501,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def do_GET(self) -> None:
         """Handle GET requests."""
-        self._rate_limit_result = None  # Reset per-request state
-        self._response_status = 200  # Track response status for metrics
-        start_time = time.time()
-        parsed = urlparse(self.path)
-        path = parsed.path
-        query = parse_qs(parsed.query)
-
-        # Start tracing span for API requests
-        span = None
-        if path.startswith("/api/"):
-            span = self.tracing.start_request_span("GET", path, dict(self.headers))
-
-        try:
-            self._do_GET_internal(path, query)
-        except Exception as e:
-            # Top-level safety net for GET handlers
-            self._response_status = 500
-            logger.exception(f"[request] Unhandled exception in GET {path}: {e}")
-            if span:
-                span.set_error(e)
-            try:
-                self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
-                logger.debug(f"Could not send error response (already sent?): {send_err}")
-        finally:
-            status_code = getattr(self, "_response_status", 200)
-            if span:
-                self.tracing.finish_request_span(span, status_code)
-            duration_seconds = time.time() - start_time
-            # Record Prometheus metrics for API requests
-            if path.startswith("/api/"):
-                # Normalize endpoint path for metrics (strip IDs)
-                endpoint = self._normalize_endpoint(path)
-                record_http_request("GET", endpoint, status_code, duration_seconds)
-                self._log_request("GET", path, status_code, duration_seconds * 1000)
+        lifecycle = create_lifecycle_manager(self)
+        lifecycle.handle_request("GET", self._do_GET_internal, with_query=True)
 
     def _do_GET_internal(self, path: str, query: dict) -> None:
         """Internal GET handler with actual routing logic."""
@@ -572,39 +540,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def do_POST(self) -> None:
         """Handle POST requests."""
-        self._rate_limit_result = None  # Reset per-request state
-        self._response_status = 200  # Track response status for metrics
-        start_time = time.time()
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        # Start tracing span for API requests
-        span = None
-        if path.startswith("/api/"):
-            span = self.tracing.start_request_span("POST", path, dict(self.headers))
-
-        try:
-            self._do_POST_internal(path)
-        except Exception as e:
-            # Top-level safety net for POST handlers
-            self._response_status = 500
-            logger.exception(f"[request] Unhandled exception in POST {path}: {e}")
-            if span:
-                span.set_error(e)
-            try:
-                self._send_json({"error": "Internal server error"}, status=500)
-            except Exception as send_err:
-                logger.debug(f"Could not send error response (already sent?): {send_err}")
-        finally:
-            status_code = getattr(self, "_response_status", 200)
-            if span:
-                self.tracing.finish_request_span(span, status_code)
-            duration_seconds = time.time() - start_time
-            # Record Prometheus metrics for API requests
-            if path.startswith("/api/"):
-                endpoint = self._normalize_endpoint(path)
-                record_http_request("POST", endpoint, status_code, duration_seconds)
-            self._log_request("POST", path, status_code, duration_seconds * 1000)
+        lifecycle = create_lifecycle_manager(self)
+        lifecycle.handle_request("POST", self._do_POST_internal)
 
     def _do_POST_internal(self, path: str) -> None:
         """Internal POST handler with actual routing logic."""

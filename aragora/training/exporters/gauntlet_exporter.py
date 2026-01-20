@@ -12,9 +12,11 @@ Data Sources:
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from aragora.config import DB_ELO_PATH, resolve_db_path
+from aragora.config import resolve_db_path
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.ranking.elo import EloSystem
 from aragora.training.exporters.base import BaseExporter
 
@@ -47,8 +49,10 @@ class GauntletExporter(BaseExporter):
 
     exporter_type = "gauntlet"
 
-    def __init__(self, elo_db_path: str = DB_ELO_PATH):
-        self.elo_db_path = resolve_db_path(elo_db_path)
+    def __init__(self, elo_db_path: str | Path | None = None):
+        if elo_db_path is None:
+            elo_db_path = get_db_path(DatabaseType.ELO)
+        self.elo_db_path = resolve_db_path(str(elo_db_path))
         self._elo: EloSystem | None = None
 
     @property

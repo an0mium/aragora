@@ -285,12 +285,12 @@ def cmd_status(args: argparse.Namespace) -> None:
 
     # Check database
     print("\n💾 Databases:")
-    from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH, DB_MEMORY_PATH
+    from aragora.persistence.db_config import DatabaseType, get_db_path
 
     db_paths = [
-        (DB_MEMORY_PATH, "Memory store"),
-        (DB_INSIGHTS_PATH, "Insights store"),
-        (DB_ELO_PATH, "ELO rankings"),
+        (get_db_path(DatabaseType.CONTINUUM_MEMORY), "Memory store"),
+        (get_db_path(DatabaseType.INSIGHTS), "Insights store"),
+        (get_db_path(DatabaseType.ELO), "ELO rankings"),
     ]
     for db_path, name in db_paths:
         if Path(db_path).exists():
@@ -663,10 +663,10 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
 
 def cmd_memory(args: argparse.Namespace) -> None:
     """Handle 'memory' command - inspect ContinuumMemory tiers."""
-    from aragora.config import DB_MEMORY_PATH
     from aragora.memory.continuum import ContinuumMemory, MemoryTier
+    from aragora.persistence.db_config import DatabaseType, get_db_path
 
-    db_path = getattr(args, "db", None) or DB_MEMORY_PATH
+    db_path = getattr(args, "db", None) or get_db_path(DatabaseType.CONTINUUM_MEMORY)
     memory = ContinuumMemory(db_path=db_path)
 
     action = getattr(args, "action", "stats")
@@ -730,10 +730,10 @@ def cmd_memory(args: argparse.Namespace) -> None:
 
 def cmd_elo(args: argparse.Namespace) -> None:
     """Handle 'elo' command - view ELO ratings and history."""
-    from aragora.config import DB_ELO_PATH
+    from aragora.persistence.db_config import DatabaseType, get_db_path
     from aragora.ranking.elo import EloSystem
 
-    db_path = getattr(args, "db", None) or DB_ELO_PATH
+    db_path = getattr(args, "db", None) or get_db_path(DatabaseType.ELO)
     elo = EloSystem(db_path=db_path)
 
     action = getattr(args, "action", "leaderboard")

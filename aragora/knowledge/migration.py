@@ -636,13 +636,13 @@ async def run_migration_cli(
         workspace_id: Workspace to migrate into
         dry_run: If True, only estimate without migrating
     """
-    from aragora.config import DB_MEMORY_PATH, DB_CONSENSUS_PATH
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.consensus import ConsensusMemory
+    from aragora.persistence.db_config import DatabaseType, get_db_path
 
-    # Initialize sources
-    continuum = ContinuumMemory(db_path=DB_MEMORY_PATH)
-    consensus = ConsensusMemory(db_path=DB_CONSENSUS_PATH)
+    # Initialize sources with new API
+    continuum = ContinuumMemory(db_path=get_db_path(DatabaseType.CONTINUUM_MEMORY))
+    consensus = ConsensusMemory(db_path=get_db_path(DatabaseType.CONSENSUS_MEMORY))
 
     # Initialize target
     mound = KnowledgeMound(workspace_id=workspace_id)
