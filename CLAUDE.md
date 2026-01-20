@@ -12,9 +12,11 @@ Context for Claude Code when working with the Aragora codebase.
 | Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
-| Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
+| Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/`, `templates/` |
 | RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
-| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/adapters/factory.py` |
+| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/resilience.py` |
+| Explainability | `aragora/explainability/` | `builder.py`, `factors.py` |
+| Gauntlet | `aragora/gauntlet/` | `receipts.py`, `runner.py`, `findings.py` |
 | Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
 | Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/`, `enterprise/streaming/` |
 | Streaming | `aragora/connectors/enterprise/streaming/` | `kafka.py`, `rabbitmq.py` |
@@ -22,6 +24,7 @@ Context for Claude Code when working with the Aragora codebase.
 | TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
 | Control Plane | `aragora/control_plane/` | `leader.py`, `registry.py`, `scheduler.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
+| KM Resilience | `aragora/knowledge/mound/` | `resilience.py` (retry, health, invalidation) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 
@@ -29,7 +32,7 @@ Context for Claude Code when working with the Aragora codebase.
 
 Aragora is an **omnivorous multi-agent decision making engine** where diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—collaborate through structured debate to reach well-reasoned conclusions. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 1000+ Python modules | 38,100+ tests | 117 debate modules | 65 HTTP handlers + 15 WebSocket streams | 26+ enterprise connectors
+**Codebase Scale:** 1000+ Python modules | 38,200+ tests | 117 debate modules | 70 HTTP handlers + 15 WebSocket streams | 26+ enterprise connectors
 
 ## Architecture
 
@@ -192,7 +195,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 38,100+ tests across 1,047 test files
+**Test Suite:** 38,200+ tests across 1,050 test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -225,6 +228,10 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Bidirectional chat routing - `debate_origin.py` routes results to originating platform
 - Adapter factory - auto-create KM adapters from Arena subsystems
 - TTS integration - voice synthesis for debates and chat channels
+- Decision Explainability - natural language explanations, factor decomposition, counterfactuals
+- Workflow Templates - 15+ pre-built templates across 6 categories, pattern factories
+- Gauntlet Receipts - cryptographic audit trails with SHA-256 hashing
+- KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management
