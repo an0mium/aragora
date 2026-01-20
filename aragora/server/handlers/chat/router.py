@@ -2,12 +2,20 @@
 Unified Chat Webhook Router.
 
 Routes incoming webhooks from all chat platforms (Slack, Teams, Discord,
-Google Chat) to the appropriate connector and handler.
+Google Chat, Telegram, WhatsApp) to the appropriate connector and handler.
 
 Endpoints:
 - POST /api/chat/{platform}/webhook - Platform-specific webhook
 - POST /api/chat/webhook - Auto-detect platform from headers
 - GET  /api/chat/status - Get status of all configured platforms
+
+Supported platforms:
+- Slack: /api/chat/slack/webhook
+- Teams: /api/chat/teams/webhook
+- Discord: /api/chat/discord/webhook
+- Google Chat: /api/chat/google_chat/webhook
+- Telegram: /api/chat/telegram/webhook
+- WhatsApp: /api/chat/whatsapp/webhook
 """
 
 from __future__ import annotations
@@ -80,6 +88,8 @@ class ChatWebhookRouter:
         "discord": ["X-Signature-Ed25519", "X-Signature-Timestamp"],
         "teams": ["Authorization"],  # Bot Framework uses Bearer tokens
         "google_chat": ["Authorization"],  # Google uses Bearer tokens
+        "telegram": ["X-Telegram-Bot-Api-Secret-Token"],  # Telegram webhook secret
+        "whatsapp": ["X-Hub-Signature-256"],  # WhatsApp/Meta signature
     }
 
     def __init__(
@@ -115,6 +125,14 @@ class ChatWebhookRouter:
         # Check for Discord
         if headers.get("X-Signature-Ed25519"):
             return "discord"
+
+        # Check for Telegram
+        if headers.get("X-Telegram-Bot-Api-Secret-Token"):
+            return "telegram"
+
+        # Check for WhatsApp/Meta (uses X-Hub-Signature-256)
+        if headers.get("X-Hub-Signature-256"):
+            return "whatsapp"
 
         # Teams and Google Chat both use Authorization headers
         # Check content for clues
@@ -207,6 +225,16 @@ class ChatWebhookRouter:
 
         if platform == "google_chat":
             # Google Chat verification is handled by auth
+            return {"success": True}
+
+        if platform == "telegram":
+            # Telegram webhook verification is done via setWebhook call
+            return {"success": True}
+
+        if platform == "whatsapp":
+            # WhatsApp webhook verification requires hub.challenge echo
+            if event.challenge:
+                return {"hub.challenge": event.challenge}
             return {"success": True}
 
         return {"success": True}
@@ -437,6 +465,8 @@ if HANDLER_BASE_AVAILABLE:
             "/api/chat/teams/webhook",
             "/api/chat/discord/webhook",
             "/api/chat/google_chat/webhook",
+            "/api/chat/telegram/webhook",
+            "/api/chat/whatsapp/webhook",
         ]
 
         def __init__(self):
@@ -492,6 +522,10 @@ if HANDLER_BASE_AVAILABLE:
                 platform = "discord"
             elif "/google_chat/" in path:
                 platform = "google_chat"
+            elif "/telegram/" in path:
+                platform = "telegram"
+            elif "/whatsapp/" in path:
+                platform = "whatsapp"
             else:
                 platform = self.router.detect_platform(headers)
 

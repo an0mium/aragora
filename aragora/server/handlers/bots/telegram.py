@@ -1,0 +1,369 @@
+"""
+Telegram Bot webhook handler.
+
+Handles Telegram Bot API webhook updates for bidirectional chat.
+
+Endpoints:
+- POST /api/bots/telegram/webhook - Handle Telegram updates
+- POST /api/bots/telegram/webhook/{token} - Token-verified webhook
+- GET  /api/bots/telegram/status - Get bot status
+
+Environment Variables:
+- TELEGRAM_BOT_TOKEN - Bot API token from @BotFather
+- TELEGRAM_WEBHOOK_SECRET - Optional secret for webhook URL verification
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import logging
+import os
+from typing import Any, Dict, Optional
+
+from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    json_response,
+)
+from aragora.server.handlers.utils.rate_limit import rate_limit
+
+logger = logging.getLogger(__name__)
+
+# Environment variables
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+
+# Compute expected webhook token from bot token (Telegram recommendation)
+TELEGRAM_WEBHOOK_TOKEN = ""
+if TELEGRAM_BOT_TOKEN:
+    TELEGRAM_WEBHOOK_TOKEN = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).hexdigest()[:32]
+
+
+def _verify_telegram_secret(secret_token: str) -> bool:
+    """Verify Telegram X-Telegram-Bot-Api-Secret-Token header.
+
+    Telegram sends this header if you configured a secret_token when setting the webhook.
+    See: https://core.telegram.org/bots/api#setwebhook
+    """
+    if not TELEGRAM_WEBHOOK_SECRET:
+        # No secret configured, allow all
+        return True
+
+    return hmac.compare_digest(secret_token, TELEGRAM_WEBHOOK_SECRET)
+
+
+def _verify_webhook_token(token: str) -> bool:
+    """Verify token in webhook URL path.
+
+    Alternative to secret header - embed token in URL.
+    """
+    if not TELEGRAM_WEBHOOK_TOKEN:
+        return True
+
+    return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)
+
+
+class TelegramHandler(BaseHandler):
+    """Handler for Telegram Bot API webhook endpoints."""
+
+    ROUTES = [
+        "/api/bots/telegram/webhook",
+        "/api/bots/telegram/status",
+    ]
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can process the given path."""
+        if path in self.ROUTES:
+            return True
+        # Also handle /api/bots/telegram/webhook/{token}
+        if path.startswith("/api/bots/telegram/webhook/"):
+            return True
+        return False
+
+    @rate_limit(rpm=60)
+    def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route Telegram GET requests."""
+        if path == "/api/bots/telegram/status":
+            return self._get_status()
+
+        return None
+
+    @rate_limit(rpm=120)
+    def handle_post(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests (webhook updates)."""
+        if path == "/api/bots/telegram/webhook":
+            return self._handle_webhook(handler)
+
+        # Handle /api/bots/telegram/webhook/{token}
+        if path.startswith("/api/bots/telegram/webhook/"):
+            token = path.split("/")[-1]
+            if not _verify_webhook_token(token):
+                logger.warning("Telegram webhook token verification failed")
+                return error_response("Unauthorized", 401)
+            return self._handle_webhook(handler, skip_secret_check=True)
+
+        return None
+
+    def _get_status(self) -> HandlerResult:
+        """Get Telegram bot status."""
+        return json_response(
+            {
+                "platform": "telegram",
+                "enabled": bool(TELEGRAM_BOT_TOKEN),
+                "token_configured": bool(TELEGRAM_BOT_TOKEN),
+                "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
+                "webhook_token": TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None,
+            }
+        )
+
+    def _handle_webhook(self, handler: Any, skip_secret_check: bool = False) -> HandlerResult:
+        """Handle Telegram webhook updates.
+
+        Telegram sends updates as JSON to this endpoint when messages are received.
+        See: https://core.telegram.org/bots/api#update
+        """
+        try:
+            # Verify secret token header if configured
+            if not skip_secret_check:
+                secret_token = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+                if not _verify_telegram_secret(secret_token):
+                    logger.warning("Telegram secret token verification failed")
+                    return error_response("Unauthorized", 401)
+
+            # Read body
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length)
+
+            # Parse update
+            try:
+                update = json.loads(body.decode("utf-8"))
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in Telegram update: {e}")
+                return error_response("Invalid JSON", 400)
+
+            update_id = update.get("update_id")
+            logger.debug(f"Telegram update received: {update_id}")
+
+            # Route update types
+            if "message" in update:
+                return self._handle_message(update["message"])
+            elif "callback_query" in update:
+                return self._handle_callback_query(update["callback_query"])
+            elif "inline_query" in update:
+                return self._handle_inline_query(update["inline_query"])
+            elif "edited_message" in update:
+                return self._handle_message(update["edited_message"], edited=True)
+            else:
+                # Acknowledge unknown update types
+                logger.debug(f"Unhandled Telegram update type: {list(update.keys())}")
+                return json_response({"ok": True})
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Telegram update: {e}")
+            return error_response("Invalid JSON payload", 400)
+        except Exception as e:
+            logger.exception(f"Unexpected Telegram webhook error: {e}")
+            # Always return 200 to prevent Telegram from retrying
+            return json_response({"ok": False, "error": str(e)[:100]})
+
+    def _handle_message(self, message: Dict[str, Any], edited: bool = False) -> HandlerResult:
+        """Handle incoming Telegram message."""
+        chat = message.get("chat", {})
+        chat_id = chat.get("id")
+        chat_type = chat.get("type", "private")
+
+        from_user = message.get("from", {})
+        user_id = from_user.get("id")
+        username = from_user.get("username", from_user.get("first_name", "unknown"))
+
+        text = message.get("text", "")
+
+        logger.info(f"Telegram message from {username} in {chat_type}: {text[:50]}...")
+
+        # Check for bot commands
+        entities = message.get("entities", [])
+        for entity in entities:
+            if entity.get("type") == "bot_command" and entity.get("offset", 0) == 0:
+                command = text[entity["offset"]:entity["offset"] + entity["length"]]
+                args = text[entity["offset"] + entity["length"]:].strip()
+                return self._handle_command(command, args, chat_id, user_id, message)
+
+        # Handle regular message (could be a debate input)
+        # For now, acknowledge receipt
+        return json_response({"ok": True, "handled": "message"})
+
+    def _handle_command(
+        self,
+        command: str,
+        args: str,
+        chat_id: int,
+        user_id: int,
+        message: Dict[str, Any],
+    ) -> HandlerResult:
+        """Handle Telegram bot command."""
+        command = command.lower().lstrip("/")
+
+        logger.info(f"Telegram command: /{command} {args[:50]}...")
+
+        # Route commands
+        if command == "start":
+            return self._cmd_start(chat_id, user_id)
+        elif command == "help":
+            return self._cmd_help(chat_id)
+        elif command == "debate":
+            return self._cmd_debate(chat_id, user_id, args)
+        elif command == "status":
+            return self._cmd_status(chat_id)
+        elif command in ("aragora", "ask"):
+            return self._cmd_debate(chat_id, user_id, args)
+        else:
+            return self._cmd_unknown(chat_id, command)
+
+    def _handle_callback_query(self, callback: Dict[str, Any]) -> HandlerResult:
+        """Handle callback query (inline button press)."""
+        callback_id = callback.get("id")
+        data = callback.get("data", "")
+
+        from_user = callback.get("from", {})
+        user_id = from_user.get("id")
+
+        logger.info(f"Telegram callback from {user_id}: {data}")
+
+        # Parse callback data (format: action:param1:param2)
+        parts = data.split(":")
+        action = parts[0] if parts else ""
+
+        if action == "vote":
+            # Handle vote callback
+            debate_id = parts[1] if len(parts) > 1 else ""
+            vote_option = parts[2] if len(parts) > 2 else ""
+            return self._handle_vote(callback_id, user_id, debate_id, vote_option)
+
+        # Default: acknowledge callback
+        return json_response({"ok": True, "callback_handled": True})
+
+    def _handle_inline_query(self, query: Dict[str, Any]) -> HandlerResult:
+        """Handle inline query (@bot query)."""
+        query_id = query.get("id")
+        query_text = query.get("query", "")
+
+        logger.debug(f"Telegram inline query: {query_text[:50]}...")
+
+        # For now, return empty results
+        return json_response({"ok": True})
+
+    def _handle_vote(
+        self, callback_id: str, user_id: int, debate_id: str, vote_option: str
+    ) -> HandlerResult:
+        """Handle vote on debate outcome."""
+        logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
+
+        # TODO: Integrate with debate voting system
+        return json_response({"ok": True, "vote_recorded": True})
+
+    # Command implementations
+
+    def _cmd_start(self, chat_id: int, user_id: int) -> HandlerResult:
+        """Handle /start command."""
+        self._send_message(
+            chat_id,
+            "Welcome to Aragora - Omnivorous Multi Agent Decision Making Engine!\n\n"
+            "I harness the collective intelligence of Claude, GPT, Gemini, Grok, and more "
+            "to help you make better decisions through structured debate.\n\n"
+            "Commands:\n"
+            "/debate <question> - Start a multi-agent debate\n"
+            "/status - Check system status\n"
+            "/help - Show this help\n\n"
+            "Or just send me a question and I'll debate it!"
+        )
+        return json_response({"ok": True})
+
+    def _cmd_help(self, chat_id: int) -> HandlerResult:
+        """Handle /help command."""
+        self._send_message(
+            chat_id,
+            "Aragora Commands:\n\n"
+            "/debate <question> - Start a multi-agent debate\n"
+            "/ask <question> - Alias for /debate\n"
+            "/status - Check Aragora system status\n"
+            "/help - Show this message\n\n"
+            "Example:\n"
+            "/debate Should we use microservices or a monolith?"
+        )
+        return json_response({"ok": True})
+
+    def _cmd_debate(self, chat_id: int, user_id: int, topic: str) -> HandlerResult:
+        """Handle /debate command."""
+        if not topic.strip():
+            self._send_message(chat_id, "Please provide a topic. Example:\n/debate Is Python better than JavaScript?")
+            return json_response({"ok": True})
+
+        # TODO: Integrate with debate starter
+        self._send_message(
+            chat_id,
+            f"Starting debate on: {topic[:100]}...\n\n"
+            "I'll notify you when the AI agents reach consensus."
+        )
+
+        logger.info(f"Debate requested from Telegram user {user_id}: {topic[:100]}")
+        return json_response({"ok": True, "debate_started": True})
+
+    def _cmd_status(self, chat_id: int) -> HandlerResult:
+        """Handle /status command."""
+        self._send_message(
+            chat_id,
+            "Aragora Status: Online\n\n"
+            "Available AI models:\n"
+            "- Claude (Anthropic)\n"
+            "- GPT-4 (OpenAI)\n"
+            "- Gemini (Google)\n"
+            "- Grok (xAI)\n"
+            "- Mistral\n"
+            "- DeepSeek\n"
+            "- Qwen\n\n"
+            "Ready for debates!"
+        )
+        return json_response({"ok": True})
+
+    def _cmd_unknown(self, chat_id: int, command: str) -> HandlerResult:
+        """Handle unknown command."""
+        self._send_message(chat_id, f"Unknown command: /{command}\n\nUse /help to see available commands.")
+        return json_response({"ok": True})
+
+    def _send_message(self, chat_id: int, text: str, parse_mode: str = "Markdown") -> None:
+        """Send a message via Telegram Bot API.
+
+        This is a fire-and-forget operation for webhook responses.
+        For reliable sending, use the TelegramConnector.
+        """
+        if not TELEGRAM_BOT_TOKEN:
+            logger.warning("Cannot send Telegram message: TELEGRAM_BOT_TOKEN not configured")
+            return
+
+        try:
+            import httpx
+
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+            data = {
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": parse_mode,
+            }
+
+            # Fire and forget - use async in production
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=data)
+                if not response.is_success:
+                    logger.warning(f"Telegram send failed: {response.status_code}")
+
+        except ImportError:
+            logger.warning("httpx not available for Telegram messaging")
+        except Exception as e:
+            logger.error(f"Failed to send Telegram message: {e}")

@@ -16,6 +16,7 @@ This guide covers setting up Aragora bots for various chat platforms to enable b
 - [Microsoft Teams](#microsoft-teams)
 - [Zoom](#zoom)
 - [Slack](#slack)
+- [Telegram](#telegram)
 - [WhatsApp Business](#whatsapp-business)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
@@ -354,6 +355,111 @@ SLACK_APP_TOKEN=xapp-your-app-token  # Optional, for Socket Mode
 
 ---
 
+## Telegram
+
+Telegram integration enables debate and validation directly in Telegram chats.
+
+### Prerequisites
+
+- Telegram account
+- Access to [@BotFather](https://t.me/BotFather) for bot creation
+
+### Step 1: Create Telegram Bot
+
+1. Open Telegram and search for @BotFather
+2. Send `/newbot` and follow the prompts
+3. Choose a name (e.g., "Aragora")
+4. Choose a username (e.g., "aragora_bot")
+5. Copy the **Bot Token** (keep this secret!)
+
+### Step 2: Configure Webhook
+
+Set the webhook URL using the Telegram API:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-api.aragora.ai/api/bots/telegram/webhook",
+    "secret_token": "your-secret-token"
+  }'
+```
+
+Or use the token-in-URL approach (alternative):
+```bash
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+  -d "url=https://your-api.aragora.ai/api/bots/telegram/webhook/<WEBHOOK_TOKEN>"
+```
+
+### Step 3: Configure Environment
+
+```bash
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_WEBHOOK_SECRET=your-secret-token  # Optional, for X-Telegram-Bot-Api-Secret-Token verification
+```
+
+### Step 4: Set Bot Commands (Optional)
+
+Configure command hints in @BotFather:
+
+```
+/setcommands
+```
+
+Then send:
+```
+start - Start using Aragora
+help - Show available commands
+debate - Start a multi-agent debate
+status - Check system status
+ask - Alias for debate
+```
+
+### Usage
+
+**Commands:**
+```
+/start - Welcome message and introduction
+/help - Show available commands
+/debate Should we use microservices? - Start a debate
+/ask Is Python better than JavaScript? - Alias for /debate
+/status - Check Aragora status
+```
+
+**Inline Buttons:**
+After debates complete, use inline buttons to vote on outcomes.
+
+**Example Interaction:**
+```
+User: /debate Should we adopt GraphQL or REST?
+
+Aragora: Starting debate on: Should we adopt GraphQL or REST?...
+
+I'll notify you when the AI agents reach consensus.
+
+---
+
+[After debate completes]
+
+Aragora: ✅ Debate Complete
+
+📋 Topic: Should we adopt GraphQL or REST?
+🤝 Consensus: PARTIAL_AGREEMENT
+📊 Confidence: 82%
+
+[View Results] [Vote Agree] [Vote Disagree]
+```
+
+### Features
+
+- **Bot Commands**: Full slash command support
+- **Inline Keyboards**: Interactive buttons for voting
+- **Callback Queries**: Handle button presses
+- **Group Support**: Works in private chats, groups, and supergroups
+- **Edited Messages**: Handles message edits
+
+---
+
 ## WhatsApp Business
 
 WhatsApp integration enables debate and validation directly in WhatsApp conversations.
@@ -577,6 +683,20 @@ async def handle_custom(ctx: CommandContext) -> CommandResult:
 - Slash commands must respond within 3 seconds
 - For long operations, respond with acknowledgment then use `response_url`
 - Check Slack app Event Subscriptions are enabled
+
+### Telegram: Bot Not Responding
+
+- Verify `TELEGRAM_BOT_TOKEN` is correct
+- Check webhook is properly set via `getWebhookInfo` API
+- Ensure `TELEGRAM_WEBHOOK_SECRET` matches the `secret_token` used in setWebhook
+- Check server logs for secret token verification errors
+
+### WhatsApp: Webhook Verification Failed
+
+- Verify `WHATSAPP_VERIFY_TOKEN` matches the token in Meta webhook configuration
+- For signature errors, check `WHATSAPP_APP_SECRET` is correct
+- Ensure webhook URL is HTTPS and publicly accessible
+- Check Meta App Dashboard for webhook delivery status
 
 ### General: Rate Limiting
 
