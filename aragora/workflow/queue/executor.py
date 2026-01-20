@@ -112,7 +112,8 @@ class TaskExecutor(ABC):
 
             return result
 
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Task execution failed: {e}")
             self._stats.tasks_failed += 1
             raise
 

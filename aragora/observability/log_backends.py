@@ -314,7 +314,7 @@ class LocalFileBackend(AuditLogBackend):
 
                     count += 1
 
-                except Exception:
+                except (json.JSONDecodeError, KeyError, ValueError):
                     continue
 
         return count
@@ -446,7 +446,8 @@ class S3ObjectLockBackend(AuditLogBackend):
                 )
                 data = json.loads(response["Body"].read())
                 return AuditEntry.from_dict(data)
-            except Exception:
+            except (KeyError, json.JSONDecodeError, ConnectionError) as e:
+                logger.debug(f"Cache miss for sequence {sequence_number}: {e}")
                 del self._sequence_cache[sequence_number]
 
         # Search by prefix pattern

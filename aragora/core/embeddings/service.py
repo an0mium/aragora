@@ -59,7 +59,12 @@ class UnifiedEmbeddingService:
             cache: Cache instance (global cache used if not specified)
         """
         self.config = config or EmbeddingConfig()
-        self._cache = cache or (get_global_cache() if self.config.cache_enabled else None)
+        if cache is not None:
+            self._cache = cache
+        elif self.config.cache_enabled:
+            self._cache = get_global_cache()
+        else:
+            self._cache = None
         self._backend = self._create_backend()
 
     def _create_backend(self) -> EmbeddingBackend:
@@ -115,7 +120,7 @@ class UnifiedEmbeddingService:
             EmbeddingResult with vector and metadata
         """
         # Check cache first
-        if self._cache:
+        if self._cache is not None:
             cached = self._cache.get(text)
             if cached is not None:
                 logger.debug(f"Cache hit for {self._backend.provider_name}")
@@ -132,7 +137,7 @@ class UnifiedEmbeddingService:
         embedding = await self._backend.embed(text)
 
         # Cache result
-        if self._cache:
+        if self._cache is not None:
             self._cache.set(text, embedding)
 
         return EmbeddingResult(
@@ -163,7 +168,7 @@ class UnifiedEmbeddingService:
 
         # Check cache for each text
         for i, text in enumerate(texts):
-            if self._cache:
+            if self._cache is not None:
                 cached = self._cache.get(text)
                 if cached is not None:
                     results.append(EmbeddingResult(
@@ -185,7 +190,7 @@ class UnifiedEmbeddingService:
             embeddings = await self._backend.embed_batch(uncached_texts)
 
             for (original_idx, text), embedding in zip(texts_to_embed, embeddings):
-                if self._cache:
+                if self._cache is not None:
                     self._cache.set(text, embedding)
 
                 results[original_idx] = EmbeddingResult(
@@ -284,13 +289,13 @@ class UnifiedEmbeddingService:
         Returns:
             CacheStats if caching is enabled, None otherwise
         """
-        if self._cache:
+        if self._cache is not None:
             return self._cache.get_stats()
         return None
 
     def clear_cache(self) -> None:
         """Clear the embedding cache."""
-        if self._cache:
+        if self._cache is not None:
             self._cache.clear()
 
 

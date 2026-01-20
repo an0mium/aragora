@@ -153,7 +153,7 @@ class TaskStep(BaseStep):
                     try:
                         import json
                         response_data = json.loads(response_text)
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError):
                         response_data = response_text
 
                     return {

@@ -336,7 +336,8 @@ def measure_compression(
 
     try:
         yield context
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Compression context failed: {e}")
         context["success"] = False
         raise
     finally:

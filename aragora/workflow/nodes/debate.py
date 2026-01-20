@@ -291,7 +291,8 @@ class QuickDebateStep(BaseStep):
                         synth_prompt += f"- {r['agent']}: {r['response']}\n\n"
                     synth_prompt += "Provide a brief synthesis:"
                     synthesis = await synth_agent.generate(synth_prompt)
-                except Exception:
+                except (RuntimeError, TimeoutError, ConnectionError) as e:
+                    logger.warning(f"Synthesis generation failed: {e}")
                     synthesis = None
 
             return {

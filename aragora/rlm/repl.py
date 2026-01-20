@@ -654,7 +654,8 @@ class RLMEnvironment:
                         raise SecurityError(
                             f"Collection variable '{key}' exceeds size limit"
                         )
-                except Exception:
+                except (TypeError, RecursionError) as e:
+                    logger.debug(f"Could not check collection size: {e}")
                     pass  # Can't check size, allow it
 
     def _validate_ast(self, tree: ast.AST) -> None:

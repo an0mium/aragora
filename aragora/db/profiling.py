@@ -293,10 +293,11 @@ def instrument_sqlite_connection(conn: sqlite3.Connection) -> sqlite3.Connection
             if profiler:
                 profiler.record(query, params, duration_ms, result.rowcount or 0)
             return result
-        except Exception:
+        except (sqlite3.Error, ValueError) as e:
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(query, params, duration_ms)
+            logger.debug(f"Query failed after {duration_ms:.2f}ms: {e}")
             raise
 
     def profiled_executemany(query: str, params_list: list) -> sqlite3.Cursor:
@@ -308,10 +309,11 @@ def instrument_sqlite_connection(conn: sqlite3.Connection) -> sqlite3.Connection
             if profiler:
                 profiler.record(f"{query} (x{len(params_list)})", (), duration_ms, result.rowcount or 0)
             return result
-        except Exception:
+        except (sqlite3.Error, ValueError) as e:
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(f"{query} (x{len(params_list)})", (), duration_ms)
+            logger.debug(f"Query batch failed after {duration_ms:.2f}ms: {e}")
             raise
 
     conn.execute = profiled_execute  # type: ignore
