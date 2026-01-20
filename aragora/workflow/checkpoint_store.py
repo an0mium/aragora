@@ -417,20 +417,70 @@ class FileCheckpointStore:
         )
 
 
+# Module-level default KnowledgeMound for checkpoint storage
+_default_mound: Optional["KnowledgeMound"] = None
+
+
+def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
+    """
+    Set the default KnowledgeMound for checkpoint storage.
+
+    When set, get_checkpoint_store() will use KnowledgeMoundCheckpointStore
+    instead of FileCheckpointStore, enabling durable checkpoint persistence
+    with the Knowledge Mound backend.
+
+    Usage:
+        from aragora.knowledge.mound import KnowledgeMound
+        from aragora.workflow.checkpoint_store import set_default_knowledge_mound
+
+        mound = KnowledgeMound(workspace_id="production")
+        await mound.initialize()
+        set_default_knowledge_mound(mound)
+
+    Args:
+        mound: KnowledgeMound instance to use for checkpoints
+    """
+    global _default_mound
+    _default_mound = mound
+    logger.info("Set default KnowledgeMound for workflow checkpoints")
+
+
+def get_default_knowledge_mound() -> Optional["KnowledgeMound"]:
+    """Get the default KnowledgeMound for checkpoint storage."""
+    return _default_mound
+
+
 def get_checkpoint_store(
     mound: Optional["KnowledgeMound"] = None,
     fallback_dir: str = ".checkpoints",
+    use_default_mound: bool = True,
 ) -> CheckpointStore:
     """
     Get the appropriate checkpoint store based on availability.
 
+    Priority order:
+    1. Explicitly provided KnowledgeMound
+    2. Default KnowledgeMound (if set via set_default_knowledge_mound)
+    3. FileCheckpointStore (persistent file-based fallback)
+
     Args:
-        mound: Optional KnowledgeMound instance
+        mound: Optional KnowledgeMound instance (highest priority)
         fallback_dir: Fallback directory for file-based storage
+        use_default_mound: Whether to use the default mound if no mound provided
 
     Returns:
         CheckpointStore implementation
     """
+    # Use explicitly provided mound
     if mound is not None:
+        logger.debug("Using provided KnowledgeMound for checkpoints")
         return KnowledgeMoundCheckpointStore(mound)
+
+    # Try default mound
+    if use_default_mound and _default_mound is not None:
+        logger.debug("Using default KnowledgeMound for checkpoints")
+        return KnowledgeMoundCheckpointStore(_default_mound)
+
+    # Fall back to file-based storage
+    logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
     return FileCheckpointStore(fallback_dir)

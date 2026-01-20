@@ -41,6 +41,7 @@ from aragora.workflow.step import (
     ConditionalStep,
     LoopStep,
 )
+from aragora.workflow.checkpoint_store import CheckpointStore, get_checkpoint_store
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class WorkflowEngine:
         self,
         config: Optional[WorkflowConfig] = None,
         step_registry: Optional[Dict[str, Type[WorkflowStep]]] = None,
+        checkpoint_store: Optional[CheckpointStore] = None,
     ):
         self._config = config or WorkflowConfig()
 
@@ -90,8 +92,10 @@ class WorkflowEngine:
         self._termination_reason: Optional[str] = None
         self._results: List[StepResult] = []
 
-        # Checkpoint storage (in-memory for now, will be persisted)
-        self._checkpoints: Dict[str, WorkflowCheckpoint] = {}
+        # Checkpoint storage - use provided store or fall back to file-based
+        self._checkpoint_store: CheckpointStore = checkpoint_store or get_checkpoint_store()
+        # In-memory cache for fast lookups during execution
+        self._checkpoints_cache: Dict[str, WorkflowCheckpoint] = {}
 
     def _register_default_step_types(self) -> None:
         """Register built-in step types."""
@@ -546,19 +550,60 @@ class WorkflowEngine:
             checksum=checksum,
         )
 
-        # Store checkpoint
-        self._checkpoints[checkpoint_id] = checkpoint
-        logger.debug(f"Created checkpoint {checkpoint_id} at step {current_step}")
+        # Persist checkpoint to storage
+        try:
+            await self._checkpoint_store.save(checkpoint)
+            logger.debug(f"Persisted checkpoint {checkpoint_id} at step {current_step}")
+        except Exception as e:
+            logger.warning(f"Failed to persist checkpoint {checkpoint_id}: {e}")
+
+        # Also cache in memory for fast access during execution
+        self._checkpoints_cache[checkpoint_id] = checkpoint
 
         return checkpoint
 
-    def get_checkpoint(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+    async def get_checkpoint(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
         """Get a checkpoint by ID."""
-        return self._checkpoints.get(checkpoint_id)
+        # Check cache first
+        if checkpoint_id in self._checkpoints_cache:
+            return self._checkpoints_cache[checkpoint_id]
 
-    def list_checkpoints(self, workflow_id: str) -> List[WorkflowCheckpoint]:
-        """List all checkpoints for a workflow."""
-        return [cp for cp in self._checkpoints.values() if cp.workflow_id == workflow_id]
+        # Load from persistent storage
+        try:
+            checkpoint = await self._checkpoint_store.load(checkpoint_id)
+            if checkpoint:
+                self._checkpoints_cache[checkpoint_id] = checkpoint
+            return checkpoint
+        except Exception as e:
+            logger.warning(f"Failed to load checkpoint {checkpoint_id}: {e}")
+            return None
+
+    async def get_latest_checkpoint(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+        """Get the most recent checkpoint for a workflow."""
+        try:
+            return await self._checkpoint_store.load_latest(workflow_id)
+        except Exception as e:
+            logger.warning(f"Failed to load latest checkpoint for {workflow_id}: {e}")
+            return None
+
+    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+        """List all checkpoint IDs for a workflow."""
+        try:
+            return await self._checkpoint_store.list_checkpoints(workflow_id)
+        except Exception as e:
+            logger.warning(f"Failed to list checkpoints for {workflow_id}: {e}")
+            return []
+
+    async def delete_checkpoint(self, checkpoint_id: str) -> bool:
+        """Delete a checkpoint."""
+        try:
+            # Remove from cache
+            self._checkpoints_cache.pop(checkpoint_id, None)
+            # Remove from persistent storage
+            return await self._checkpoint_store.delete(checkpoint_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            return False
 
     # =========================================================================
     # Termination Control
@@ -601,3 +646,35 @@ class WorkflowEngine:
             "terminated_early": self._should_terminate,
             "termination_reason": self._termination_reason,
         }
+
+
+# Singleton instance
+_workflow_engine_instance: Optional[WorkflowEngine] = None
+
+
+def get_workflow_engine(config: Optional[WorkflowConfig] = None) -> WorkflowEngine:
+    """
+    Get or create the global WorkflowEngine singleton.
+
+    This provides a shared WorkflowEngine instance that can be used
+    across the application for executing workflows.
+
+    Args:
+        config: Optional WorkflowConfig for customization
+
+    Returns:
+        WorkflowEngine instance
+    """
+    global _workflow_engine_instance
+
+    if _workflow_engine_instance is None:
+        logger.info("[workflow] Creating singleton WorkflowEngine instance")
+        _workflow_engine_instance = WorkflowEngine(config=config)
+
+    return _workflow_engine_instance
+
+
+def reset_workflow_engine() -> None:
+    """Reset the global WorkflowEngine singleton (for testing)."""
+    global _workflow_engine_instance
+    _workflow_engine_instance = None

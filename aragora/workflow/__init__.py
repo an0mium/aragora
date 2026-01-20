@@ -65,7 +65,11 @@ from aragora.workflow.step import (
     ConditionalStep,
     LoopStep,
 )
-from aragora.workflow.engine import WorkflowEngine
+from aragora.workflow.engine import (
+    WorkflowEngine,
+    get_workflow_engine,
+    reset_workflow_engine,
+)
 from aragora.workflow.engine_v2 import (
     EnhancedWorkflowEngine,
     ResourceLimits,
@@ -85,6 +89,8 @@ from aragora.workflow.schema import (
 __all__ = [
     # Engines
     "WorkflowEngine",
+    "get_workflow_engine",
+    "reset_workflow_engine",
     "EnhancedWorkflowEngine",
     # Resource management
     "ResourceLimits",
