@@ -103,6 +103,17 @@ EVIDENCE_CITATION_BONUSES: Any = None
 PROCESS_EVALUATION_BONUSES: Any = None
 RLM_READY_QUORUM_EVENTS: Any = None
 
+# Knowledge Mound metrics
+KM_OPERATIONS_TOTAL: Any = None
+KM_OPERATION_LATENCY: Any = None
+KM_CACHE_HITS_TOTAL: Any = None
+KM_CACHE_MISSES_TOTAL: Any = None
+KM_HEALTH_STATUS: Any = None
+KM_ADAPTER_SYNCS_TOTAL: Any = None
+KM_FEDERATED_QUERIES_TOTAL: Any = None
+KM_EVENTS_EMITTED_TOTAL: Any = None
+KM_ACTIVE_ADAPTERS: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -455,6 +466,66 @@ def _init_metrics() -> bool:
             "RLM ready signal quorum events",
         )
 
+        # Knowledge Mound metrics
+        global KM_OPERATIONS_TOTAL, KM_OPERATION_LATENCY
+        global KM_CACHE_HITS_TOTAL, KM_CACHE_MISSES_TOTAL
+        global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
+        global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
+        global KM_ACTIVE_ADAPTERS
+
+        KM_OPERATIONS_TOTAL = Counter(
+            "aragora_km_operations_total",
+            "Total Knowledge Mound operations",
+            ["operation", "status"],  # query/store/get/delete/sync, success/error
+        )
+
+        KM_OPERATION_LATENCY = Histogram(
+            "aragora_km_operation_latency_seconds",
+            "Knowledge Mound operation latency",
+            ["operation"],
+            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+        )
+
+        KM_CACHE_HITS_TOTAL = Counter(
+            "aragora_km_cache_hits_total",
+            "Knowledge Mound cache hits",
+            ["adapter"],  # source adapter or "global"
+        )
+
+        KM_CACHE_MISSES_TOTAL = Counter(
+            "aragora_km_cache_misses_total",
+            "Knowledge Mound cache misses",
+            ["adapter"],
+        )
+
+        KM_HEALTH_STATUS = Gauge(
+            "aragora_km_health_status",
+            "Knowledge Mound health status (0=unknown, 1=unhealthy, 2=degraded, 3=healthy)",
+        )
+
+        KM_ADAPTER_SYNCS_TOTAL = Counter(
+            "aragora_km_adapter_syncs_total",
+            "Knowledge Mound adapter sync operations",
+            ["adapter", "direction", "status"],  # adapter name, forward/reverse, success/error
+        )
+
+        KM_FEDERATED_QUERIES_TOTAL = Counter(
+            "aragora_km_federated_queries_total",
+            "Knowledge Mound federated query operations",
+            ["adapters_queried", "status"],  # count of adapters, success/error
+        )
+
+        KM_EVENTS_EMITTED_TOTAL = Counter(
+            "aragora_km_events_emitted_total",
+            "Knowledge Mound WebSocket events emitted",
+            ["event_type"],  # km_batch, knowledge_indexed, etc.
+        )
+
+        KM_ACTIVE_ADAPTERS = Gauge(
+            "aragora_km_active_adapters",
+            "Number of active Knowledge Mound adapters",
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -496,6 +567,11 @@ def _init_noop_metrics() -> None:
     global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
     global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
     global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
+    global KM_OPERATIONS_TOTAL, KM_OPERATION_LATENCY
+    global KM_CACHE_HITS_TOTAL, KM_CACHE_MISSES_TOTAL
+    global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
+    global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
+    global KM_ACTIVE_ADAPTERS
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -560,6 +636,16 @@ def _init_noop_metrics() -> None:
     EVIDENCE_CITATION_BONUSES = NoOpMetric()
     PROCESS_EVALUATION_BONUSES = NoOpMetric()
     RLM_READY_QUORUM_EVENTS = NoOpMetric()
+    # Knowledge Mound
+    KM_OPERATIONS_TOTAL = NoOpMetric()
+    KM_OPERATION_LATENCY = NoOpMetric()
+    KM_CACHE_HITS_TOTAL = NoOpMetric()
+    KM_CACHE_MISSES_TOTAL = NoOpMetric()
+    KM_HEALTH_STATUS = NoOpMetric()
+    KM_ADAPTER_SYNCS_TOTAL = NoOpMetric()
+    KM_FEDERATED_QUERIES_TOTAL = NoOpMetric()
+    KM_EVENTS_EMITTED_TOTAL = NoOpMetric()
+    KM_ACTIVE_ADAPTERS = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -1250,3 +1336,129 @@ def record_rlm_ready_quorum() -> None:
     """Record an RLM ready signal quorum event."""
     _init_metrics()
     RLM_READY_QUORUM_EVENTS.inc()
+
+
+# =============================================================================
+# Knowledge Mound Metrics
+# =============================================================================
+
+
+def record_km_operation(operation: str, success: bool, latency_seconds: float) -> None:
+    """Record a Knowledge Mound operation.
+
+    Args:
+        operation: Operation type (query, store, get, delete, sync)
+        success: Whether the operation succeeded
+        latency_seconds: Operation latency in seconds
+    """
+    _init_metrics()
+    status = "success" if success else "error"
+    KM_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
+    KM_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+def record_km_cache_access(hit: bool, adapter: str = "global") -> None:
+    """Record a Knowledge Mound cache access.
+
+    Args:
+        hit: Whether it was a cache hit
+        adapter: Adapter name or "global" for general cache
+    """
+    _init_metrics()
+    if hit:
+        KM_CACHE_HITS_TOTAL.labels(adapter=adapter).inc()
+    else:
+        KM_CACHE_MISSES_TOTAL.labels(adapter=adapter).inc()
+
+
+def set_km_health_status(status: int) -> None:
+    """Set the Knowledge Mound health status.
+
+    Args:
+        status: Health status (0=unknown, 1=unhealthy, 2=degraded, 3=healthy)
+    """
+    _init_metrics()
+    KM_HEALTH_STATUS.set(status)
+
+
+def record_km_adapter_sync(adapter: str, direction: str, success: bool) -> None:
+    """Record a Knowledge Mound adapter sync operation.
+
+    Args:
+        adapter: Adapter name (continuum, consensus, elo, etc.)
+        direction: Sync direction (forward, reverse)
+        success: Whether the sync succeeded
+    """
+    _init_metrics()
+    status = "success" if success else "error"
+    KM_ADAPTER_SYNCS_TOTAL.labels(adapter=adapter, direction=direction, status=status).inc()
+
+
+def record_km_federated_query(adapters_queried: int, success: bool) -> None:
+    """Record a federated query operation.
+
+    Args:
+        adapters_queried: Number of adapters queried
+        success: Whether the query succeeded
+    """
+    _init_metrics()
+    status = "success" if success else "error"
+    KM_FEDERATED_QUERIES_TOTAL.labels(adapters_queried=str(adapters_queried), status=status).inc()
+
+
+def record_km_event_emitted(event_type: str) -> None:
+    """Record a Knowledge Mound WebSocket event emission.
+
+    Args:
+        event_type: Event type (km_batch, knowledge_indexed, etc.)
+    """
+    _init_metrics()
+    KM_EVENTS_EMITTED_TOTAL.labels(event_type=event_type).inc()
+
+
+def set_km_active_adapters(count: int) -> None:
+    """Set the number of active Knowledge Mound adapters.
+
+    Args:
+        count: Number of active adapters
+    """
+    _init_metrics()
+    KM_ACTIVE_ADAPTERS.set(count)
+
+
+def sync_km_metrics_to_prometheus() -> None:
+    """Sync KMMetrics to Prometheus metrics.
+
+    Reads the current state from the global KMMetrics instance and
+    updates Prometheus metrics accordingly. Call this periodically
+    (e.g., every 30 seconds) to keep Prometheus in sync.
+    """
+    _init_metrics()
+
+    try:
+        from aragora.knowledge.mound.metrics import get_metrics, HealthStatus
+
+        km_metrics = get_metrics()
+        health = km_metrics.get_health()
+
+        # Map health status to numeric value
+        status_map = {
+            HealthStatus.UNKNOWN: 0,
+            HealthStatus.UNHEALTHY: 1,
+            HealthStatus.DEGRADED: 2,
+            HealthStatus.HEALTHY: 3,
+        }
+        set_km_health_status(status_map.get(health.status, 0))
+
+        # Sync operation stats
+        stats = km_metrics.get_stats()
+        for op_name, op_stats in stats.items():
+            # The stats are already aggregated, so we just ensure they're recorded
+            # Note: Prometheus counters are cumulative, so we'd need to track deltas
+            # For simplicity, health status and gauges are the main sync targets
+            pass
+
+    except ImportError:
+        logger.debug("KMMetrics not available for Prometheus sync")
+    except Exception as e:
+        logger.warning(f"Failed to sync KM metrics to Prometheus: {e}")
