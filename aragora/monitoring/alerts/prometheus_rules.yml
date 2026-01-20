@@ -377,3 +377,148 @@ groups:
         annotations:
           summary: "No culture patterns extracted"
           description: "Culture observation may be disabled. Check KnowledgeMound configuration."
+
+  # =========================================================================
+  # Notification Delivery Alerts
+  # =========================================================================
+  - name: aragora_notifications
+    rules:
+      - alert: HighNotificationFailureRate
+        expr: |
+          (
+            sum(rate(aragora_notification_sent_total{status="failed"}[5m]))
+            /
+            sum(rate(aragora_notification_sent_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "High notification failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 10% of notifications are failing. Check provider connectivity and credentials."
+          runbook_url: "https://docs.aragora.io/runbooks/notification-failures"
+
+      - alert: NotificationChannelDown
+        expr: |
+          (
+            sum(rate(aragora_notification_sent_total{status="failed"}[5m])) by (channel)
+            /
+            sum(rate(aragora_notification_sent_total[5m])) by (channel)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "Notification channel {{ $labels.channel }} is mostly failing"
+          description: "Channel {{ $labels.channel }} has over 50% failure rate. Check provider status and configuration."
+          runbook_url: "https://docs.aragora.io/runbooks/notification-channel-down"
+
+      - alert: HighNotificationLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_notification_latency_seconds_bucket[5m])) by (le, channel)
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "High notification latency on {{ $labels.channel }} (p95 > 10s)"
+          description: "95th percentile notification latency is {{ $value | humanizeDuration }}. Check provider performance."
+
+      - alert: NotificationQueueBacklog
+        expr: |
+          aragora_notification_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "Notification queue backlog on {{ $labels.channel }}"
+          description: "Queue size is {{ $value }}. Notifications may be delayed. Check delivery workers."
+
+      - alert: SlackNotificationErrors
+        expr: |
+          increase(aragora_notification_errors_total{channel="slack"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "Slack notification errors increasing"
+          description: "{{ $value }} Slack errors in the last 5 minutes. Check webhook URL and rate limits."
+
+      - alert: EmailNotificationErrors
+        expr: |
+          increase(aragora_notification_errors_total{channel="email"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "Email notification errors increasing"
+          description: "{{ $value }} email errors in the last 5 minutes. Check SMTP configuration."
+
+      - alert: NoNotificationsSent
+        expr: |
+          increase(aragora_notification_sent_total[1h]) == 0
+          and
+          increase(aragora_checkpoint_approval_requests_total[1h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+          component: notifications
+        annotations:
+          summary: "No notifications sent despite checkpoint requests"
+          description: "Checkpoint approvals are being requested but no notifications sent. Check notification service."
+
+  # =========================================================================
+  # Redis Cluster Alerts
+  # =========================================================================
+  - name: aragora_redis_cluster
+    rules:
+      - alert: RedisClusterUnhealthy
+        expr: |
+          aragora_redis_cluster_health == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: aragora
+          component: redis
+        annotations:
+          summary: "Redis cluster is unhealthy"
+          description: "Redis cluster health check is failing. Check cluster node connectivity."
+          runbook_url: "https://docs.aragora.io/runbooks/redis-cluster-unhealthy"
+
+      - alert: RedisClusterNodeDown
+        expr: |
+          aragora_redis_cluster_nodes_up < 3
+        for: 2m
+        labels:
+          severity: warning
+          service: aragora
+          component: redis
+        annotations:
+          summary: "Redis cluster has fewer than 3 nodes"
+          description: "Only {{ $value }} Redis cluster nodes are up. Check cluster membership."
+
+      - alert: RedisClusterReconnections
+        expr: |
+          increase(aragora_redis_cluster_reconnections_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: redis
+        annotations:
+          summary: "High Redis cluster reconnection rate"
+          description: "{{ $value }} reconnections in the last 5 minutes. Check network stability."
