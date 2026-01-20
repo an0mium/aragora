@@ -404,7 +404,26 @@ class StorageSettings(BaseSettings):
 
 
 class EvidenceSettings(BaseSettings):
-    """Evidence collection configuration."""
+    """Evidence collection configuration.
+
+    URL Fetching Security:
+        By default, URL fetching is restricted to a curated allowlist of trusted
+        domains to prevent SSRF attacks. This can be customized:
+
+        - `url_fetch_all_enabled`: When True, allows fetching from ANY URL
+          (still blocked: private IPs, localhost, non-HTTP schemes).
+          Use only in trusted environments.
+
+        - `additional_allowed_domains`: Extend the default allowlist with
+          custom domains (comma-separated).
+
+    Examples:
+        # Allow all URLs (trusted environment)
+        ARAGORA_URL_FETCH_ALL_ENABLED=true
+
+        # Add custom domains to allowlist
+        ARAGORA_URL_ALLOWED_DOMAINS=internal-docs.company.com,wiki.company.com
+    """
 
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
@@ -415,6 +434,26 @@ class EvidenceSettings(BaseSettings):
     snippet_max_length: int = Field(
         default=1000, ge=100, le=10000, alias="ARAGORA_SNIPPET_MAX_LENGTH"
     )
+
+    # URL Fetching Security Settings
+    url_fetch_all_enabled: bool = Field(
+        default=False,
+        alias="ARAGORA_URL_FETCH_ALL_ENABLED",
+        description="When enabled, allows fetching from any URL (with basic safety checks). "
+        "Use only in trusted environments.",
+    )
+    additional_allowed_domains_str: str = Field(
+        default="",
+        alias="ARAGORA_URL_ALLOWED_DOMAINS",
+        description="Comma-separated list of additional domains to allow for URL fetching.",
+    )
+
+    @property
+    def additional_allowed_domains(self) -> list[str]:
+        """Get additional allowed domains as a list."""
+        if not self.additional_allowed_domains_str:
+            return []
+        return [d.strip().lower() for d in self.additional_allowed_domains_str.split(",") if d.strip()]
 
 
 class FeatureSettings(BaseSettings):

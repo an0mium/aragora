@@ -6,8 +6,15 @@ to provide factual grounding for debates.
 
 SSRF Protection:
     URL fetching is restricted to prevent Server-Side Request Forgery attacks.
-    By default, only URLs from allowlisted domains are fetched. The caller can
-    opt-in to broader URL fetching with explicit safety checks.
+    By default, only URLs from allowlisted domains are fetched.
+
+    Configuration via environment variables:
+    - ARAGORA_URL_FETCH_ALL_ENABLED=true: Allow fetching any URL (still blocks
+      private IPs and localhost for basic security).
+    - ARAGORA_URL_ALLOWED_DOMAINS=domain1.com,domain2.com: Add custom domains
+      to the allowlist.
+
+    See aragora.config.settings.EvidenceSettings for details.
 """
 
 import asyncio
@@ -208,8 +215,11 @@ class EvidenceCollector:
 
     SSRF Protection:
         By default, URL fetching is restricted to allowlisted domains to prevent
-        Server-Side Request Forgery attacks. Use `fetch_urls=True` in collect_evidence()
-        to enable broader URL fetching with safety checks.
+        Server-Side Request Forgery attacks.
+
+        Configure via environment variables:
+        - ARAGORA_URL_FETCH_ALL_ENABLED=true: Allow any URL (trusted environments)
+        - ARAGORA_URL_ALLOWED_DOMAINS=domain1,domain2: Extend allowlist
     """
 
     def __init__(
@@ -226,7 +236,7 @@ class EvidenceCollector:
             event_emitter: Optional event emitter for real-time updates
             loop_id: Optional loop ID for event context
             allowed_domains: Set of allowed domains for URL fetching.
-                           Defaults to DEFAULT_ALLOWED_DOMAINS.
+                           Merged with DEFAULT_ALLOWED_DOMAINS and settings.
         """
         self.connectors = connectors or {}
         self.provenance_manager = ProvenanceManager()
@@ -235,7 +245,23 @@ class EvidenceCollector:
         self.snippet_max_length = 1000
         self.event_emitter = event_emitter
         self.loop_id = loop_id
-        self._allowed_domains = allowed_domains or set(DEFAULT_ALLOWED_DOMAINS)
+
+        # Load URL security settings
+        try:
+            from aragora.config.settings import get_settings
+            settings = get_settings()
+            self._url_fetch_all_enabled = settings.evidence.url_fetch_all_enabled
+            additional_domains = settings.evidence.additional_allowed_domains
+        except Exception:
+            # Fallback if settings not available
+            self._url_fetch_all_enabled = False
+            additional_domains = []
+
+        # Build final allowlist: default + settings + explicit
+        self._allowed_domains = set(DEFAULT_ALLOWED_DOMAINS)
+        self._allowed_domains.update(additional_domains)
+        if allowed_domains:
+            self._allowed_domains.update(allowed_domains)
 
     def add_connector(self, name: str, connector: Connector) -> None:
         """Add a connector for evidence collection."""
@@ -345,22 +371,28 @@ class EvidenceCollector:
         self,
         task: str,
         enabled_connectors: List[str] = None,
-        fetch_urls: bool = False,
+        fetch_urls: Optional[bool] = None,
     ) -> EvidencePack:
         """Collect evidence relevant to the task.
 
         Args:
             task: The task/topic to collect evidence for
             enabled_connectors: List of connector names to use
-            fetch_urls: If True, fetch non-allowlisted URLs with safety checks.
-                       If False (default), only fetch URLs from allowlisted domains.
-                       This provides SSRF protection by default.
+            fetch_urls: Override for URL fetching behavior.
+                       - None (default): Use settings (ARAGORA_URL_FETCH_ALL_ENABLED)
+                       - True: Allow any URL with safety checks
+                       - False: Strict allowlist mode
 
         Returns:
             EvidencePack with collected evidence snippets
         """
         if enabled_connectors is None:
             enabled_connectors = list(self.connectors.keys())
+
+        # Determine URL fetching mode (explicit parameter > settings > default)
+        allow_all_urls = (
+            fetch_urls if fetch_urls is not None else self._url_fetch_all_enabled
+        )
 
         all_snippets = []
         total_searched = 0
@@ -379,17 +411,15 @@ class EvidenceCollector:
                         )
                         parsed = urlparse(full_url)
 
-                        # SSRF Protection: Check if URL is safe to fetch
-                        if fetch_urls:
-                            # Opt-in mode: allow with safety checks
-                            if not self._is_safe_url(full_url):
-                                logger.warning(f"SSRF: Blocked unsafe URL: {full_url}")
-                                continue
-                        else:
-                            # Default mode: only allowlisted domains
-                            if not self._is_domain_allowed(parsed.netloc):
-                                logger.info(f"Skipping non-allowlisted URL: {full_url}")
-                                continue
+                        # SSRF Protection: Always check basic safety first
+                        if not self._is_safe_url(full_url):
+                            logger.warning(f"SSRF: Blocked unsafe URL: {full_url}")
+                            continue
+
+                        # Then check allowlist (unless feature flag bypasses it)
+                        if not allow_all_urls and not self._is_domain_allowed(parsed.netloc):
+                            logger.info(f"Skipping non-allowlisted URL: {full_url}")
+                            continue
 
                         # Special handling for GitHub repos: fetch README
                         if self._is_github_repo_url(full_url):
