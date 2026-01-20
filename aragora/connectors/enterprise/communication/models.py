@@ -61,6 +61,11 @@ class EmailMessage:
     importance_score: float = 0.0  # AI-computed priority 0.0-1.0
     importance_reason: str = ""  # AI-generated explanation
 
+    @property
+    def message_id_header(self) -> Optional[str]:
+        """Get the Message-ID header for reply threading."""
+        return self.headers.get("Message-ID") or self.headers.get("Message-Id")
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {

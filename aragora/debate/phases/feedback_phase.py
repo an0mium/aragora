@@ -393,9 +393,9 @@ class FeedbackPhase:
         Failures are logged but don't affect the debate result.
         """
         try:
-            from aragora.workflow.engine import WorkflowEngine
+            from aragora.workflow.engine import get_workflow_engine
 
-            engine = WorkflowEngine()
+            engine = get_workflow_engine()
             workflow_input = {
                 "debate_id": ctx.debate_id,
                 "task": ctx.env.task,
@@ -410,8 +410,8 @@ class FeedbackPhase:
             }
 
             workflow_result = await engine.execute(
-                self.post_debate_workflow,
-                input_data=workflow_input,
+                definition=self.post_debate_workflow,
+                inputs=workflow_input,
             )
 
             if workflow_result.success:

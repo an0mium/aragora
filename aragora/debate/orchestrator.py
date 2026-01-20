@@ -164,6 +164,7 @@ class Arena:
         moment_detector=None,  # Optional MomentDetector for significant moments
         tier_analytics_tracker=None,  # Optional TierAnalyticsTracker for memory ROI
         knowledge_mound=None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
+        auto_create_knowledge_mound: bool = True,  # Auto-create KM if not provided (recommended)
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
         enable_belief_guidance: bool = False,  # Inject historical cruxes from similar debates
@@ -298,6 +299,41 @@ class Arena:
         # Unpack core components to instance attributes
         self._apply_core_components(core)
 
+        # Auto-create Knowledge Mound if not provided (recommended for decision engine)
+        if knowledge_mound is None and auto_create_knowledge_mound:
+            if enable_knowledge_retrieval or enable_knowledge_ingestion:
+                try:
+                    from aragora.knowledge.mound import get_knowledge_mound
+                    knowledge_mound = get_knowledge_mound(
+                        workspace_id=org_id or "default",
+                        auto_initialize=True,
+                    )
+                    logger.info(
+                        "[knowledge_mound] Auto-created KM instance for debate "
+                        "(enable_retrieval=%s, enable_ingestion=%s)",
+                        enable_knowledge_retrieval,
+                        enable_knowledge_ingestion,
+                    )
+                except ImportError as e:
+                    logger.warning(
+                        "[knowledge_mound] Could not auto-create: %s. "
+                        "Debates will run without knowledge grounding.",
+                        e,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[knowledge_mound] Failed to initialize: %s. "
+                        "Debates will run without knowledge grounding.",
+                        e,
+                    )
+        elif knowledge_mound is None:
+            # User explicitly disabled auto-create
+            if enable_knowledge_retrieval or enable_knowledge_ingestion:
+                logger.warning(
+                    "[knowledge_mound] KM not provided and auto_create_knowledge_mound=False. "
+                    "Knowledge retrieval/ingestion features will be disabled."
+                )
+
         # Initialize tracking subsystems via ArenaInitializer
         trackers = initializer.init_trackers(
             protocol=self.protocol,
@@ -358,6 +394,15 @@ class Arena:
         self.enable_cross_debate_memory = enable_cross_debate_memory
 
         # Post-debate workflow automation
+        # Auto-create default workflow if enabled but none provided
+        if enable_post_debate_workflow and post_debate_workflow is None:
+            try:
+                from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
+
+                post_debate_workflow = get_default_post_debate_workflow()
+                logger.debug("[arena] Auto-created default post-debate workflow")
+            except ImportError:
+                logger.warning("[arena] Post-debate workflow enabled but pattern not available")
         self.post_debate_workflow = post_debate_workflow
         self.enable_post_debate_workflow = enable_post_debate_workflow
         self.post_debate_workflow_threshold = post_debate_workflow_threshold

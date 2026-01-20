@@ -468,7 +468,10 @@ class ArenaConfig:
             # Cross-debate institutional memory
             "cross_debate_memory": self.cross_debate_memory,
             "enable_cross_debate_memory": self.enable_cross_debate_memory,
-            # Note: post_debate_workflow params stored in ArenaConfig but not yet in Arena.__init__
+            # Post-debate workflow automation
+            "post_debate_workflow": self.post_debate_workflow,
+            "enable_post_debate_workflow": self.enable_post_debate_workflow,
+            "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,

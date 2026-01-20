@@ -39,10 +39,21 @@ logger = logging.getLogger(__name__)
 
 
 # Gmail API scopes
-GMAIL_SCOPES = [
+GMAIL_SCOPES_READONLY = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.metadata",
 ]
+
+# Full scopes including send (required for bidirectional email)
+GMAIL_SCOPES_FULL = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.metadata",
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.modify",
+]
+
+# Default to read-only for backward compatibility
+GMAIL_SCOPES = GMAIL_SCOPES_READONLY
 
 
 class GmailConnector(EnterpriseConnector):
@@ -780,6 +791,175 @@ class GmailConnector(EnterpriseConnector):
             if not page_token:
                 break
 
+    async def send_message(
+        self,
+        to: List[str],
+        subject: str,
+        body: str,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+        reply_to: Optional[str] = None,
+        html_body: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Send an email message.
+
+        Requires gmail.send scope to be authorized.
+
+        Args:
+            to: List of recipient email addresses
+            subject: Email subject line
+            body: Plain text body
+            cc: Optional CC recipients
+            bcc: Optional BCC recipients
+            reply_to: Optional reply-to address
+            html_body: Optional HTML body (sent as alternative)
+
+        Returns:
+            Dict with message_id and thread_id of sent message
+        """
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        # Build MIME message
+        if html_body:
+            message = MIMEMultipart("alternative")
+            message.attach(MIMEText(body, "plain"))
+            message.attach(MIMEText(html_body, "html"))
+        else:
+            message = MIMEText(body, "plain")
+
+        message["To"] = ", ".join(to)
+        message["Subject"] = subject
+
+        if cc:
+            message["Cc"] = ", ".join(cc)
+        if bcc:
+            message["Bcc"] = ", ".join(bcc)
+        if reply_to:
+            message["Reply-To"] = reply_to
+
+        # Encode message
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+        # Send via Gmail API
+        async with self._get_client() as client:
+            response = await client.post(
+                f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
+                headers={"Authorization": f"Bearer {self._access_token}"},
+                json={"raw": raw_message},
+            )
+
+            if response.status_code != 200:
+                error = response.json().get("error", {})
+                raise RuntimeError(
+                    f"Failed to send email: {error.get('message', response.text)}"
+                )
+
+            result = response.json()
+            logger.info(f"[Gmail] Sent message: {result.get('id')}")
+
+            return {
+                "message_id": result.get("id"),
+                "thread_id": result.get("threadId"),
+                "success": True,
+            }
+
+    async def reply_to_message(
+        self,
+        original_message_id: str,
+        body: str,
+        cc: Optional[List[str]] = None,
+        html_body: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Reply to an existing email message.
+
+        Maintains thread context and proper In-Reply-To headers.
+
+        Args:
+            original_message_id: Gmail message ID to reply to
+            body: Reply body text
+            cc: Optional additional CC recipients
+            html_body: Optional HTML body
+
+        Returns:
+            Dict with message_id and thread_id of sent reply
+        """
+        if not self._access_token:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        # Fetch original message for context
+        original = await self.get_message(original_message_id)
+        if not original:
+            raise ValueError(f"Original message not found: {original_message_id}")
+
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        # Build reply subject
+        subject = original.subject
+        if not subject.lower().startswith("re:"):
+            subject = f"Re: {subject}"
+
+        # Determine reply recipients (reply to sender, CC original recipients)
+        to = [original.from_address]
+        reply_cc = list(set(original.to_addresses + original.cc_addresses) - {original.from_address})
+        if cc:
+            reply_cc.extend(cc)
+
+        # Build MIME message
+        if html_body:
+            message = MIMEMultipart("alternative")
+            message.attach(MIMEText(body, "plain"))
+            message.attach(MIMEText(html_body, "html"))
+        else:
+            message = MIMEText(body, "plain")
+
+        message["To"] = ", ".join(to)
+        message["Subject"] = subject
+
+        if reply_cc:
+            message["Cc"] = ", ".join(reply_cc)
+
+        # Thread headers
+        if original.message_id_header:
+            message["In-Reply-To"] = original.message_id_header
+            message["References"] = original.message_id_header
+
+        # Encode message
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+        # Send via Gmail API (include threadId to maintain thread)
+        async with self._get_client() as client:
+            response = await client.post(
+                f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
+                headers={"Authorization": f"Bearer {self._access_token}"},
+                json={
+                    "raw": raw_message,
+                    "threadId": original.thread_id,
+                },
+            )
+
+            if response.status_code != 200:
+                error = response.json().get("error", {})
+                raise RuntimeError(
+                    f"Failed to send reply: {error.get('message', response.text)}"
+                )
+
+            result = response.json()
+            logger.info(f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}")
+
+            return {
+                "message_id": result.get("id"),
+                "thread_id": result.get("threadId"),
+                "in_reply_to": original_message_id,
+                "success": True,
+            }
+
     def _message_to_sync_item(self, msg: EmailMessage) -> SyncItem:
         """Convert EmailMessage to SyncItem for Knowledge Mound ingestion."""
         # Build content with context
@@ -822,4 +1002,9 @@ class GmailConnector(EnterpriseConnector):
         )
 
 
-__all__ = ["GmailConnector", "GMAIL_SCOPES"]
+__all__ = [
+    "GmailConnector",
+    "GMAIL_SCOPES",
+    "GMAIL_SCOPES_READONLY",
+    "GMAIL_SCOPES_FULL",
+]

@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.knowledge import KnowledgeHandler
+from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
 
 @pytest.fixture
@@ -604,7 +604,7 @@ class TestKnowledgeHandlerIntegration:
 # Knowledge Mound Handler Tests
 # ============================================================================
 
-from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
 
 @pytest.fixture
