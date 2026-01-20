@@ -1511,18 +1511,30 @@
                 {
                   "key": "limit",
                   "value": "",
-                  "description": "",
+                  "description": "Maximum number of debates to return",
                   "disabled": true
                 },
                 {
                   "key": "offset",
                   "value": "",
-                  "description": "",
+                  "description": "Number of debates to skip",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by debate status",
+                  "disabled": true
+                },
+                {
+                  "key": "since",
+                  "value": "",
+                  "description": "Filter debates created after this timestamp",
                   "disabled": true
                 }
               ]
             },
-            "description": "Get list of all debates (requires auth)"
+            "description": "Get list of all debates for the authenticated user.\n\n**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)\n\n**Pagination:** Use `limit` and `offset` for pagination. Maximum 100 items per request.\n\n**Filtering:** Results are filtered to debates owned by or shared with the authenticated user."
           },
           "response": []
         },
@@ -1550,7 +1562,7 @@
                 "debates"
               ]
             },
-            "description": "Start a new multi-agent debate on a given topic",
+            "description": "Start a new multi-agent debate on a given topic.\n\n**Rate Limit:** 10 debates per day (free), 100/day (pro), unlimited (enterprise)\n\n**Concurrent Limit:** 1 concurrent debate (free), 5 (pro), 20 (enterprise)\n\n**Authentication:** Required. The debate will be owned by the authenticated user.\n\n**WebSocket:** After creation, connect to the returned `websocket_url` to stream real-time debate progress.",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -4945,6 +4957,1498 @@
               ]
             },
             "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "description": "Workflow management and execution",
+      "item": [
+        {
+          "name": "List workflows",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter by workflow category",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "description": "Filter by tags (comma-separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search in workflow name and description",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of workflows with optional filtering by category, tags, or search term."
+          },
+          "response": []
+        },
+        {
+          "name": "Create workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows"
+              ]
+            },
+            "description": "Create a new workflow definition with steps and transitions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get workflow",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/:workflow_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows",
+                ":workflow_id"
+              ],
+              "variable": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Path parameter: workflow_id"
+                }
+              ]
+            },
+            "description": "Get detailed workflow definition by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Update workflow",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/:workflow_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows",
+                ":workflow_id"
+              ],
+              "variable": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Path parameter: workflow_id"
+                }
+              ]
+            },
+            "description": "Update an existing workflow definition. Creates a new version.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete workflow",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/:workflow_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows",
+                ":workflow_id"
+              ],
+              "variable": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Path parameter: workflow_id"
+                }
+              ]
+            },
+            "description": "Delete a workflow definition."
+          },
+          "response": []
+        },
+        {
+          "name": "Execute workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/:workflow_id/execute",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows",
+                ":workflow_id",
+                "execute"
+              ],
+              "variable": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Path parameter: workflow_id"
+                }
+              ]
+            },
+            "description": "Start execution of a workflow with provided inputs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get workflow versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows/:workflow_id/versions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows",
+                ":workflow_id",
+                "versions"
+              ],
+              "variable": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Path parameter: workflow_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get version history of a workflow."
+          },
+          "response": []
+        },
+        {
+          "name": "List workflow templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-templates"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter templates by category",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get gallery of workflow templates for quick start."
+          },
+          "response": []
+        },
+        {
+          "name": "Get workflow template",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-templates/:template_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-templates",
+                ":template_id"
+              ],
+              "variable": [
+                {
+                  "key": "template_id",
+                  "value": "",
+                  "description": "Path parameter: template_id"
+                }
+              ]
+            },
+            "description": "Get a specific workflow template for use as starting point."
+          },
+          "response": []
+        },
+        {
+          "name": "List workflow executions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-executions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-executions"
+              ],
+              "query": [
+                {
+                  "key": "workflow_id",
+                  "value": "",
+                  "description": "Filter by workflow ID",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by execution status",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of all workflow executions for the runtime dashboard."
+          },
+          "response": []
+        },
+        {
+          "name": "Get execution status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-executions/:execution_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-executions",
+                ":execution_id"
+              ],
+              "variable": [
+                {
+                  "key": "execution_id",
+                  "value": "",
+                  "description": "Path parameter: execution_id"
+                }
+              ]
+            },
+            "description": "Get detailed status of a workflow execution."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel execution",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-executions/:execution_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-executions",
+                ":execution_id"
+              ],
+              "variable": [
+                {
+                  "key": "execution_id",
+                  "value": "",
+                  "description": "Path parameter: execution_id"
+                }
+              ]
+            },
+            "description": "Cancel a running workflow execution."
+          },
+          "response": []
+        },
+        {
+          "name": "List pending approvals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-approvals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-approvals"
+              ]
+            },
+            "description": "Get list of workflow steps awaiting human approval."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit approval decision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow-approvals/:approval_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow-approvals",
+                ":approval_id"
+              ],
+              "variable": [
+                {
+                  "key": "approval_id",
+                  "value": "",
+                  "description": "Path parameter: approval_id"
+                }
+              ]
+            },
+            "description": "Approve or reject a workflow step requiring human approval.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Classification",
+      "description": "Question and content classification",
+      "item": [
+        {
+          "name": "Classify content sensitivity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/classify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "classify"
+              ]
+            },
+            "description": "Analyze content and determine its sensitivity classification level.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get classification policy",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/classify/policy/:level",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "classify",
+                "policy",
+                ":level"
+              ],
+              "variable": [
+                {
+                  "key": "level",
+                  "value": "",
+                  "description": "Path parameter: level"
+                }
+              ]
+            },
+            "description": "Get handling policy for a specific sensitivity level."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Retention",
+      "description": "Data retention policies",
+      "item": [
+        {
+          "name": "List retention policies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/retention/policies",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "retention",
+                "policies"
+              ]
+            },
+            "description": "Get all configured data retention policies."
+          },
+          "response": []
+        },
+        {
+          "name": "Create retention policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/retention/policies",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "retention",
+                "policies"
+              ]
+            },
+            "description": "Create a new data retention policy for automated data lifecycle management.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Execute retention policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/retention/policies/:policy_id/execute",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "retention",
+                "policies",
+                ":policy_id",
+                "execute"
+              ],
+              "variable": [
+                {
+                  "key": "policy_id",
+                  "value": "",
+                  "description": "Path parameter: policy_id"
+                }
+              ]
+            },
+            "description": "Manually execute a retention policy to process affected data."
+          },
+          "response": []
+        },
+        {
+          "name": "Get expiring items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/retention/expiring",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "retention",
+                "expiring"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "",
+                  "description": "Days until expiration to include",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of items approaching their retention expiration date."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OAuth",
+      "description": "OAuth authentication flows",
+      "item": [
+        {
+          "name": "Start Google OAuth flow",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/google",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "google"
+              ],
+              "query": [
+                {
+                  "key": "redirect_url",
+                  "value": "",
+                  "description": "URL to redirect after successful authentication (must be in allowlist)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Redirect user to Google OAuth consent screen for authentication. Supports optional account linking for already-authenticated users."
+          },
+          "response": []
+        },
+        {
+          "name": "Google OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/google/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "google",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "",
+                  "description": "Authorization code from Google",
+                  "disabled": false
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "description": "State parameter for CSRF protection",
+                  "disabled": false
+                },
+                {
+                  "key": "error",
+                  "value": "",
+                  "description": "Error code if user denied consent",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Handle the OAuth callback from Google after user consent. Exchanges authorization code for tokens and creates/links user account."
+          },
+          "response": []
+        },
+        {
+          "name": "Start GitHub OAuth flow",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/github",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "github"
+              ],
+              "query": [
+                {
+                  "key": "redirect_url",
+                  "value": "",
+                  "description": "URL to redirect after successful authentication",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Redirect user to GitHub OAuth consent screen for authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "GitHub OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/github/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "github",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "",
+                  "description": "Authorization code from GitHub",
+                  "disabled": false
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "description": "State parameter for CSRF protection",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Handle the OAuth callback from GitHub after user consent."
+          },
+          "response": []
+        },
+        {
+          "name": "Link OAuth account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "link"
+              ]
+            },
+            "description": "Link an OAuth provider account to the current authenticated user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unlink OAuth account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/unlink",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "unlink"
+              ],
+              "query": [
+                {
+                  "key": "provider",
+                  "value": "",
+                  "description": "OAuth provider to unlink",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Remove OAuth provider link from the current user's account."
+          },
+          "response": []
+        },
+        {
+          "name": "List available OAuth providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/oauth/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "oauth",
+                "providers"
+              ]
+            },
+            "description": "Get list of configured OAuth providers available for authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Get user's linked providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/oauth-providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "oauth-providers"
+              ]
+            },
+            "description": "Get list of OAuth providers linked to the current user's account."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Audit",
+      "description": "Audit logging and compliance",
+      "item": [
+        {
+          "name": "Query audit entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                "entries"
+              ],
+              "query": [
+                {
+                  "key": "actor_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "resource_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "outcome",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "start_time",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "end_time",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Search and filter privacy audit log entries. SOC 2 Control: CC6.1"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate compliance report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "format",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Generate a compliance report for a specified time period. SOC 2 Control: CC6.3"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify audit log integrity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                "verify"
+              ],
+              "query": [
+                {
+                  "key": "start_sequence",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "end_sequence",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Verify the cryptographic integrity of audit log entries to detect tampering."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workspace",
+      "description": "Workspace management",
+      "item": [
+        {
+          "name": "List workspaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workspaces",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workspaces"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of workspaces the authenticated user has access to."
+          },
+          "response": []
+        },
+        {
+          "name": "Create workspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workspaces",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workspaces"
+              ]
+            },
+            "description": "Create a new isolated workspace for data segregation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get workspace details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workspaces/:workspace_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":workspace_id"
+              ],
+              "variable": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "Path parameter: workspace_id"
+                }
+              ]
+            },
+            "description": "Get detailed information about a specific workspace."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workspaces/:workspace_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":workspace_id"
+              ],
+              "variable": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "Path parameter: workspace_id"
+                }
+              ]
+            },
+            "description": "Delete a workspace and all associated data. Requires admin permissions."
+          },
+          "response": []
+        },
+        {
+          "name": "Add workspace member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workspaces/:workspace_id/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workspaces",
+                ":workspace_id",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "workspace_id",
+                  "value": "",
+                  "description": "Path parameter: workspace_id"
+                }
+              ]
+            },
+            "description": "Add a user to the workspace with specified permissions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }

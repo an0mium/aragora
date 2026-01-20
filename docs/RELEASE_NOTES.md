@@ -1,4 +1,135 @@
-# Aragora 1.0 Release Notes
+# Aragora Release Notes
+
+---
+
+# v2.0.3 - Cross-Functional Integration
+
+**Release Date:** January 20, 2026
+**Version:** 2.0.3
+**Codename:** Unified Intelligence
+
+---
+
+## Overview
+
+Aragora 2.0.3 activates 700+ lines of previously implemented but disconnected features, creating a unified system where subsystems share data and enhance each other. This release connects KnowledgeMound, MemoryCoordinator, SelectionFeedbackLoop, and other components into a cohesive whole.
+
+---
+
+## What's New
+
+### Cross-Functional Features
+
+Seven major integrations now fully wired:
+
+| Feature | Purpose | Default |
+|---------|---------|---------|
+| `KnowledgeBridgeHub` | Unified access to MetaLearner, Evidence, Pattern bridges | Auto-enabled with KnowledgeMound |
+| `MemoryCoordinator` | Atomic writes across memory systems | `enable_coordinated_writes=True` |
+| `SelectionFeedbackLoop` | Performance-based agent selection | `enable_performance_feedback=True` |
+| `CrossDebateMemory` | Institutional knowledge injection | `enable_cross_debate_memory=True` |
+| `EvidenceBridge` | Persist collected evidence | Auto-enabled with KnowledgeBridgeHub |
+| `CultureAccumulator` | Extract organizational patterns | Auto-enabled with KnowledgeMound |
+| Post-debate workflows | Automated processing after debates | `enable_post_debate_workflow=False` |
+
+```python
+from aragora.debate.arena_config import ArenaConfig
+
+config = ArenaConfig(
+    # Enable all cross-functional features
+    enable_knowledge_retrieval=True,
+    enable_cross_debate_memory=True,
+    enable_coordinated_writes=True,
+    enable_performance_feedback=True,
+)
+```
+
+### New Prometheus Metrics
+
+7 new metrics for monitoring cross-functional features:
+
+- `aragora_knowledge_cache_hits_total` / `aragora_knowledge_cache_misses_total`
+- `aragora_memory_coordinator_writes_total`
+- `aragora_selection_feedback_adjustments_total`
+- `aragora_workflow_triggers_total`
+- `aragora_evidence_stored_total`
+- `aragora_culture_patterns_total`
+
+### New Prometheus Alerts
+
+6 alerts for cross-functional feature health:
+
+| Alert | Trigger |
+|-------|---------|
+| `LowKnowledgeCacheHitRate` | Cache hit rate < 50% for 15m |
+| `MemoryCoordinatorFailures` | Failed atomic writes detected |
+| `HighSelectionFeedbackVolatility` | >10 weight adjustments/sec for 10m |
+| `WorkflowTriggerFailures` | >20% workflow failures for 10m |
+| `NoEvidenceBeingStored` | No evidence stored despite 10+ debates/hr |
+| `NoCulturePatternsExtracted` | No patterns extracted despite 20+ debates/6hr |
+
+### Performance Benchmarks
+
+MemoryCoordinator benchmarks with SLO verification:
+
+| Operation | Performance |
+|-----------|-------------|
+| Metrics update | ~681ns (1.47M ops/sec) |
+| Build operations | ~50μs (20K ops/sec) |
+| Sequential write | SLO verified |
+| Parallel write | SLO verified |
+
+### API Updates
+
+- OpenAPI spec regenerated with **2210 endpoints**
+- 64 API tags for comprehensive documentation
+- All new cross-functional endpoints documented
+
+---
+
+## Upgrade Guide
+
+### From v2.0.2
+
+No breaking changes. New features are opt-in via ArenaConfig flags.
+
+```python
+# Minimal upgrade - all new features use sensible defaults
+arena = Arena.from_config(env, agents, protocol)
+
+# Full cross-functional activation
+arena = Arena.from_config(
+    env, agents, protocol,
+    config=ArenaConfig(
+        enable_cross_debate_memory=True,
+        enable_coordinated_writes=True,
+        enable_performance_feedback=True,
+    ),
+)
+```
+
+### Configuration Reference
+
+See [docs/CROSS_FUNCTIONAL_FEATURES.md](CROSS_FUNCTIONAL_FEATURES.md) for detailed configuration options.
+
+---
+
+## Known Issues
+
+- Knowledge pipeline tests marked as xfail pending API alignment
+- TypeScript SDK needs update for new endpoints
+
+---
+
+## Contributors
+
+- Aragora Team
+- Claude Opus 4.5 (Co-Author)
+
+---
+---
+
+# v1.0.0 - Production Ready
 
 **Release Date:** January 13, 2026
 **Version:** 1.0.0

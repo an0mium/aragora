@@ -259,3 +259,132 @@ task_ids = await scheduler.check_and_schedule_revalidations()
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Phase 9: Cross-Pollination Bridges
+
+In addition to the event-driven architecture, Aragora includes 7 specialized bridges that connect subsystems for self-improving feedback loops.
+
+### Bridge Overview
+
+| Tier | Bridge | Source → Target | Purpose |
+|------|--------|-----------------|---------|
+| 1 | PerformanceRouterBridge | PerformanceMonitor → AgentRouter | Performance-aware routing |
+| 1 | OutcomeComplexityBridge | OutcomeTracker → ComplexityGovernor | Adaptive complexity budgets |
+| 1 | AnalyticsSelectionBridge | AnalyticsCoordinator → TeamSelector | Analytics-driven team selection |
+| 2 | NoveltySelectionBridge | NoveltyTracker → SelectionFeedbackLoop | Novelty-based selection |
+| 2 | RelationshipBiasBridge | RelationshipTracker → BiasMitigation | Echo chamber detection |
+| 3 | RLMSelectionBridge | RLMBridge → SelectionFeedbackLoop | RLM efficiency optimization |
+| 3 | CalibrationCostBridge | CalibrationTracker → CostTracker | Cost-efficient selection |
+
+### Auto-Initialization
+
+Bridges auto-initialize in `SubsystemCoordinator` when source subsystems are available:
+
+```python
+from aragora.debate.subsystem_coordinator import SubsystemCoordinator
+
+coordinator = SubsystemCoordinator(
+    performance_monitor=monitor,
+    relationship_tracker=tracker,
+    calibration_tracker=calibration,
+    enable_performance_router=True,
+    enable_relationship_bias=True,
+    enable_calibration_cost=True,
+)
+
+# Check active bridges
+status = coordinator.get_status()
+print(f"Active bridges: {status['active_bridges_count']}")
+```
+
+### Configuration via ArenaConfig
+
+All bridges support configuration through `ArenaConfig`:
+
+```python
+from aragora.debate.arena_config import ArenaConfig
+
+config = ArenaConfig(
+    # Performance Router Bridge
+    enable_performance_router=True,
+    performance_router_latency_weight=0.3,
+    performance_router_quality_weight=0.4,
+
+    # Relationship Bias Bridge
+    enable_relationship_bias=True,
+    relationship_bias_alliance_threshold=0.7,
+    relationship_bias_vote_penalty=0.3,
+
+    # Calibration Cost Bridge
+    enable_calibration_cost=True,
+    calibration_cost_min_predictions=20,
+)
+```
+
+### Key Bridge Features
+
+#### RelationshipBiasBridge - Echo Chamber Detection
+
+```python
+from aragora.debate.relationship_bias_bridge import create_relationship_bias_bridge
+
+bridge = create_relationship_bias_bridge(relationship_tracker=tracker)
+
+# Assess team echo chamber risk
+risk = bridge.compute_team_echo_risk(["claude", "gpt", "gemini"])
+if risk.recommendation == "high_risk":
+    print(f"High alliance pairs: {risk.high_alliance_pairs}")
+
+# Get diverse team candidates
+candidates = bridge.get_diverse_team_candidates(
+    available_agents=all_agents,
+    team_size=3,
+)
+```
+
+#### CalibrationCostBridge - Cost Optimization
+
+```python
+from aragora.billing.calibration_cost_bridge import create_calibration_cost_bridge
+
+bridge = create_calibration_cost_bridge(
+    calibration_tracker=tracker,
+    cost_tracker=cost_tracker,
+)
+
+# Get cost-efficient recommendation
+agent = bridge.recommend_cost_efficient_agent(
+    available_agents=["claude", "gpt", "gemini"],
+    min_accuracy=0.7,
+)
+
+# Budget-aware selection
+agents = bridge.get_budget_aware_selection(
+    available_agents=all_agents,
+    budget_remaining=Decimal("0.50"),
+)
+```
+
+### Testing
+
+```bash
+# Run bridge unit tests
+pytest tests/bridges/ -v
+
+# Run Phase 9 integration tests
+pytest tests/integration/test_phase9_bridges.py -v
+```
+
+### Bridge Locations
+
+| Bridge | Location |
+|--------|----------|
+| PerformanceRouterBridge | `aragora/debate/performance_router_bridge.py` |
+| OutcomeComplexityBridge | `aragora/debate/outcome_complexity_bridge.py` |
+| AnalyticsSelectionBridge | `aragora/debate/analytics_selection_bridge.py` |
+| NoveltySelectionBridge | `aragora/debate/novelty_selection_bridge.py` |
+| RelationshipBiasBridge | `aragora/debate/relationship_bias_bridge.py` |
+| RLMSelectionBridge | `aragora/rlm/rlm_selection_bridge.py` |
+| CalibrationCostBridge | `aragora/billing/calibration_cost_bridge.py` |

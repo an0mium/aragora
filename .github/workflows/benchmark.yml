@@ -6,6 +6,9 @@ on:
     paths:
       - 'aragora/**'
       - 'tests/benchmark/**'
+      - 'tests/benchmarks/**'
+      - 'tests/memory/test_benchmark.py'
+      - 'tests/rlm/test_benchmark.py'
       - 'pyproject.toml'
       - '.github/workflows/benchmark.yml'
   pull_request:
@@ -13,6 +16,9 @@ on:
     paths:
       - 'aragora/**'
       - 'tests/benchmark/**'
+      - 'tests/benchmarks/**'
+      - 'tests/memory/test_benchmark.py'
+      - 'tests/rlm/test_benchmark.py'
       - 'pyproject.toml'
   schedule:
     # Run daily at 2 AM UTC to track performance trends
@@ -61,7 +67,7 @@ jobs:
 
       - name: Run benchmark tests
         run: |
-          pytest tests/benchmarks/ \
+          pytest tests/benchmarks/ tests/memory/test_benchmark.py tests/rlm/test_benchmark.py \
             -v \
             --benchmark-only \
             --benchmark-json=benchmark-results.json \

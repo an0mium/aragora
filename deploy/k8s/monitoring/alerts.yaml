@@ -213,6 +213,31 @@ spec:
             summary: "No active debates for 1 hour"
             description: "Platform has had no active debates, may indicate upstream issues"
 
+        - alert: SlowDebateDetected
+          expr: |
+            histogram_quantile(0.95, sum(rate(aragora_debate_duration_seconds_bucket[15m])) by (le)) > 60
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Slow debates detected"
+            description: "p95 debate duration is {{ $value | humanizeDuration }}, exceeds 60s threshold"
+            runbook_url: "https://docs.aragora.io/runbooks/slow-debates"
+            dashboard_url: "https://grafana.aragora.io/d/debate-metrics"
+
+        - alert: DebateRoundLatencyHigh
+          expr: |
+            histogram_quantile(0.99, sum(rate(aragora_debate_phase_duration_seconds_bucket{phase="propose"}[5m])) by (le)) > 30
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Debate round latency high"
+            description: "p99 propose phase duration is {{ $value | humanizeDuration }}"
+            runbook_url: "https://docs.aragora.io/runbooks/debate-performance"
+
     # =========================================================================
     # SLO Alerts (Error Budget)
     # =========================================================================
