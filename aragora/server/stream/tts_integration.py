@@ -17,7 +17,10 @@ Usage:
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Optional
+
+from aragora.observability.metrics import record_tts_synthesis, record_tts_latency
 
 if TYPE_CHECKING:
     from aragora.debate.event_bus import DebateEvent, EventBus
@@ -129,8 +132,6 @@ class TTSIntegration:
             return
 
         # Rate limiting - avoid overlapping audio
-        import time
-
         now = time.time()
         last = self._last_synthesis.get(debate_id, 0)
         if now - last < self._min_interval:
@@ -152,6 +153,9 @@ class TTSIntegration:
             # Truncate very long content for TTS
             tts_content = content[:2000] if len(content) > 2000 else content
 
+            # Track synthesis time
+            synthesis_start = time.perf_counter()
+
             # Synthesize and send to voice sessions
             sessions_sent = await self._voice_handler.synthesize_agent_message(
                 debate_id=debate_id,
@@ -159,10 +163,14 @@ class TTSIntegration:
                 message=tts_content,
             )
 
+            # Record metrics
+            synthesis_duration = time.perf_counter() - synthesis_start
             if sessions_sent > 0:
+                record_tts_synthesis(voice=agent_name, platform="debate_stream")
+                record_tts_latency(synthesis_duration)
                 logger.debug(
                     f"[TTS Integration] Synthesized for {agent_name} -> "
-                    f"{sessions_sent} voice session(s)"
+                    f"{sessions_sent} voice session(s) in {synthesis_duration:.2f}s"
                 )
 
         except Exception as e:
@@ -209,6 +217,9 @@ class TTSIntegration:
             # Truncate for TTS
             tts_text = text[:2000] if len(text) > 2000 else text
 
+            # Track synthesis time
+            synthesis_start = time.perf_counter()
+
             # Synthesize to temp file
             audio_path = await backend.synthesize(
                 text=tts_text,
@@ -228,9 +239,14 @@ class TTSIntegration:
             except Exception:
                 pass
 
+            # Record metrics
+            synthesis_duration = time.perf_counter() - synthesis_start
+            record_tts_synthesis(voice=voice or "narrator", platform=channel_type)
+            record_tts_latency(synthesis_duration)
+
             logger.debug(
                 f"[TTS Integration] Synthesized {len(tts_text)} chars -> "
-                f"{len(audio_bytes)} bytes for {channel_type}"
+                f"{len(audio_bytes)} bytes for {channel_type} in {synthesis_duration:.2f}s"
             )
             return audio_bytes
 
