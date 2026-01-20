@@ -27,6 +27,17 @@ from .webhook_store import (
     reset_webhook_store,
     set_webhook_store,
 )
+from .integration_store import (
+    IntegrationConfig,
+    IntegrationStoreBackend,
+    InMemoryIntegrationStore,
+    SQLiteIntegrationStore,
+    RedisIntegrationStore,
+    get_integration_store,
+    set_integration_store,
+    reset_integration_store,
+    VALID_INTEGRATION_TYPES,
+)
 
 __all__ = [
     # Legacy base classes
@@ -51,4 +62,14 @@ __all__ = [
     "POSTGRESQL_AVAILABLE",
     # Share links
     "ShareLinkStore",
+    # Integration config storage
+    "IntegrationConfig",
+    "IntegrationStoreBackend",
+    "InMemoryIntegrationStore",
+    "SQLiteIntegrationStore",
+    "RedisIntegrationStore",
+    "get_integration_store",
+    "set_integration_store",
+    "reset_integration_store",
+    "VALID_INTEGRATION_TYPES",
 ]

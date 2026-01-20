@@ -11,11 +11,15 @@ Provides REST API endpoints for chat platform integration management:
 
 Supported integration types:
 - slack, discord, telegram, email, teams, whatsapp, matrix
+
+Storage:
+- Integration configs are persisted to SQLite/Redis via IntegrationStore
+- Survives server restarts and supports multi-instance deployments
 """
 
 import logging
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Literal, Optional
 
 from aragora.server.handlers.base import (
@@ -24,6 +28,11 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.storage.integration_store import (
+    IntegrationConfig,
+    VALID_INTEGRATION_TYPES,
+    get_integration_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,80 +42,6 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
-
-VALID_INTEGRATION_TYPES: set[str] = {
-    "slack",
-    "discord",
-    "telegram",
-    "email",
-    "teams",
-    "whatsapp",
-    "matrix",
-}
-
-
-@dataclass
-class IntegrationConfig:
-    """Configuration for a chat platform integration."""
-
-    type: IntegrationType
-    enabled: bool = True
-    created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
-
-    # Notification settings
-    notify_on_consensus: bool = True
-    notify_on_debate_end: bool = True
-    notify_on_error: bool = False
-    notify_on_leaderboard: bool = False
-
-    # Provider-specific settings (stored as dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
-
-    # Delivery tracking
-    messages_sent: int = 0
-    errors_24h: int = 0
-    last_activity: Optional[float] = None
-    last_error: Optional[str] = None
-
-    # Owner (for multi-tenant)
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-
-    def to_dict(self, include_secrets: bool = False) -> dict:
-        """Convert to dict, optionally excluding secrets."""
-        result = asdict(self)
-        if not include_secrets:
-            # Remove sensitive fields from settings
-            settings = result.get("settings", {})
-            sensitive_keys = [
-                "access_token",
-                "api_key",
-                "bot_token",
-                "webhook_url",
-                "secret",
-                "password",
-                "auth_token",
-                "sendgrid_api_key",
-                "ses_secret_access_key",
-                "twilio_auth_token",
-            ]
-            for key in sensitive_keys:
-                if key in settings:
-                    settings[key] = "••••••••" if settings[key] else None
-            result["settings"] = settings
-        return result
-
-    @property
-    def status(self) -> str:
-        """Get integration status."""
-        if not self.enabled:
-            return "disconnected"
-        if self.errors_24h > 5:
-            return "degraded"
-        if self.last_activity:
-            return "connected"
-        return "not_configured"
 
 
 @dataclass
@@ -125,18 +60,6 @@ class IntegrationStatus:
 
 
 # =============================================================================
-# In-Memory Storage (would be database in production)
-# =============================================================================
-
-_integrations: Dict[str, IntegrationConfig] = {}
-
-
-def _get_integration_key(integration_type: str, user_id: str = "default") -> str:
-    """Generate storage key for integration."""
-    return f"{user_id}:{integration_type}"
-
-
-# =============================================================================
 # Handler Class
 # =============================================================================
 
@@ -150,11 +73,11 @@ class IntegrationsHandler(BaseHandler):
         Returns:
             Status for each integration type
         """
+        store = get_integration_store()
         statuses: List[IntegrationStatus] = []
 
         for int_type in VALID_INTEGRATION_TYPES:
-            key = _get_integration_key(int_type, user_id)
-            config = _integrations.get(key)
+            config = await store.get(int_type, user_id)
 
             if config:
                 status = IntegrationStatus(
@@ -195,8 +118,8 @@ class IntegrationsHandler(BaseHandler):
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
-        key = _get_integration_key(integration_type, user_id)
-        config = _integrations.get(key)
+        store = get_integration_store()
+        config = await store.get(integration_type, user_id)
 
         if not config:
             return error_response(f"Integration not configured: {integration_type}", status=404)
@@ -222,8 +145,8 @@ class IntegrationsHandler(BaseHandler):
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
-        key = _get_integration_key(integration_type, user_id)
-        existing = _integrations.get(key)
+        store = get_integration_store()
+        existing = await store.get(integration_type, user_id)
 
         # Extract notification settings
         notify_settings = {
@@ -280,14 +203,14 @@ class IntegrationsHandler(BaseHandler):
         else:
             # Create new
             config = IntegrationConfig(
-                type=integration_type,  # type: ignore
+                type=integration_type,
                 enabled=data.get("enabled", True),
                 settings=settings,
                 user_id=user_id,
                 **notify_settings,
             )
-            _integrations[key] = config
 
+        await store.save(config)
         logger.info(f"Integration configured: {integration_type} for user {user_id}")
         return json_response({"integration": config.to_dict()}, status=201 if not existing else 200)
 
@@ -310,8 +233,8 @@ class IntegrationsHandler(BaseHandler):
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
-        key = _get_integration_key(integration_type, user_id)
-        config = _integrations.get(key)
+        store = get_integration_store()
+        config = await store.get(integration_type, user_id)
 
         if not config:
             return error_response(f"Integration not configured: {integration_type}", status=404)
@@ -330,6 +253,7 @@ class IntegrationsHandler(BaseHandler):
                 setattr(config, notify_key, bool(data[notify_key]))
 
         config.updated_at = time.time()
+        await store.save(config)
 
         logger.info(f"Integration updated: {integration_type} for user {user_id}")
         return json_response({"integration": config.to_dict()})
@@ -349,12 +273,11 @@ class IntegrationsHandler(BaseHandler):
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
-        key = _get_integration_key(integration_type, user_id)
+        store = get_integration_store()
+        deleted = await store.delete(integration_type, user_id)
 
-        if key not in _integrations:
+        if not deleted:
             return error_response(f"Integration not configured: {integration_type}", status=404)
-
-        del _integrations[key]
 
         logger.info(f"Integration deleted: {integration_type} for user {user_id}")
         return json_response({"message": f"Integration {integration_type} deleted"})
@@ -374,8 +297,8 @@ class IntegrationsHandler(BaseHandler):
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
-        key = _get_integration_key(integration_type, user_id)
-        config = _integrations.get(key)
+        store = get_integration_store()
+        config = await store.get(integration_type, user_id)
 
         if not config:
             return error_response(f"Integration not configured: {integration_type}", status=404)
@@ -386,6 +309,7 @@ class IntegrationsHandler(BaseHandler):
 
             if success:
                 config.last_activity = time.time()
+                await store.save(config)
                 return json_response(
                     {
                         "success": True,
@@ -395,6 +319,7 @@ class IntegrationsHandler(BaseHandler):
             else:
                 config.errors_24h += 1
                 config.last_error = "Connection test failed"
+                await store.save(config)
                 return json_response(
                     {
                         "success": False,
@@ -405,6 +330,7 @@ class IntegrationsHandler(BaseHandler):
         except Exception as e:
             config.errors_24h += 1
             config.last_error = str(e)
+            await store.save(config)
             logger.error(f"Integration test failed for {integration_type}: {e}")
             return json_response(
                 {
@@ -577,4 +503,5 @@ __all__ = [
     "IntegrationType",
     "VALID_INTEGRATION_TYPES",
     "register_integration_routes",
+    "get_integration_store",
 ]
