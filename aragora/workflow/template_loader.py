@@ -23,6 +23,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 # Category to directory mapping
+# Note: Multiple directories can map to same category
 CATEGORY_DIRS: Dict[WorkflowCategory, str] = {
     WorkflowCategory.GENERAL: "general",
     WorkflowCategory.LEGAL: "legal",
@@ -31,6 +32,11 @@ CATEGORY_DIRS: Dict[WorkflowCategory, str] = {
     WorkflowCategory.CODE: "software",
     WorkflowCategory.ACADEMIC: "academic",
     WorkflowCategory.COMPLIANCE: "regulatory",
+}
+
+# Additional directories that also contain templates (mapped to categories)
+ADDITIONAL_TEMPLATE_DIRS: Dict[str, WorkflowCategory] = {
+    "finance": WorkflowCategory.FINANCE,  # Investment/trading templates
 }
 
 
@@ -76,6 +82,12 @@ class TemplateLoader:
 
         # Load templates from each category subdirectory
         for category, dir_name in CATEGORY_DIRS.items():
+            category_dir = self._templates_dir / dir_name
+            if category_dir.exists():
+                self._load_category(category_dir, category)
+
+        # Load from additional template directories
+        for dir_name, category in ADDITIONAL_TEMPLATE_DIRS.items():
             category_dir = self._templates_dir / dir_name
             if category_dir.exists():
                 self._load_category(category_dir, category)

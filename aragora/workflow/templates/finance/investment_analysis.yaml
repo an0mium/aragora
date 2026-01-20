@@ -1,0 +1,152 @@
+id: template_finance_investment_analysis
+name: Investment Analysis
+description: Multi-agent investment analysis with fundamental, technical, and risk assessment
+version: "1.0.0"
+category: finance
+tags:
+  - finance
+  - investment
+  - analysis
+  - risk
+  - due-diligence
+icon: chart-line
+is_template: true
+
+inputs:
+  company_or_asset: Company name or asset identifier
+  financial_data: Financial statements, metrics, or market data
+  investment_thesis: Initial investment thesis or hypothesis
+  time_horizon: Investment time horizon (short/medium/long term)
+
+outputs:
+  analysis_summary: Complete investment analysis summary
+  risk_assessment: Identified risks and mitigations
+  recommendation: Buy/Hold/Sell recommendation with confidence
+  key_metrics: Key financial metrics and ratios
+
+steps:
+  - id: fundamental_analysis
+    name: Fundamental Analysis
+    step_type: agent
+    description: Analyze financial fundamentals and intrinsic value
+    config:
+      agent_type: finance
+      prompt_template: |
+        Perform fundamental analysis on: {company_or_asset}
+
+        Financial Data:
+        {financial_data}
+
+        Investment Thesis:
+        {investment_thesis}
+
+        Analyze:
+        - Revenue trends and growth rates
+        - Profit margins and profitability
+        - Balance sheet strength (debt, cash, assets)
+        - Cash flow analysis
+        - Valuation metrics (P/E, P/B, EV/EBITDA)
+        - Competitive moat and market position
+        - Management quality indicators
+    visual:
+      position: {x: 100, y: 100}
+      category: agent
+      color: "#48bb78"
+    next_steps:
+      - risk_assessment
+
+  - id: technical_analysis
+    name: Technical Analysis
+    step_type: agent
+    description: Analyze price trends and market sentiment
+    config:
+      agent_type: finance
+      prompt_template: |
+        Perform technical analysis on: {company_or_asset}
+
+        Time Horizon: {time_horizon}
+
+        Analyze:
+        - Price trends and momentum
+        - Support and resistance levels
+        - Volume patterns
+        - Moving averages and indicators
+        - Market sentiment indicators
+        - Relative strength vs benchmarks
+    visual:
+      position: {x: 300, y: 100}
+      category: agent
+      color: "#4299e1"
+    next_steps:
+      - risk_assessment
+
+  - id: risk_assessment
+    name: Risk Assessment
+    step_type: debate
+    description: Multi-agent debate on investment risks
+    config:
+      task: |
+        Debate the investment risks for: {company_or_asset}
+
+        Investment Thesis: {investment_thesis}
+        Time Horizon: {time_horizon}
+
+        Consider:
+        - Market risk and volatility
+        - Company-specific risks
+        - Industry and competitive risks
+        - Regulatory and political risks
+        - Macroeconomic factors
+        - Liquidity risks
+        - Concentration risks
+      agents:
+        - finance:risk_analyst
+        - finance:contrarian
+        - finance:macro_strategist
+      rounds: 3
+      consensus_type: judge
+    visual:
+      position: {x: 200, y: 250}
+      category: debate
+      color: "#ed8936"
+    next_steps:
+      - synthesis
+
+  - id: synthesis
+    name: Investment Synthesis
+    step_type: agent
+    description: Synthesize all analyses into recommendation
+    config:
+      agent_type: finance
+      prompt_template: |
+        Synthesize investment analysis for: {company_or_asset}
+
+        Fundamental Analysis:
+        {steps.fundamental_analysis.output}
+
+        Technical Analysis:
+        {steps.technical_analysis.output}
+
+        Risk Assessment:
+        {steps.risk_assessment.output}
+
+        Investment Thesis: {investment_thesis}
+        Time Horizon: {time_horizon}
+
+        Provide:
+        1. Executive summary
+        2. Key strengths and weaknesses
+        3. Risk/reward assessment
+        4. Clear recommendation (Buy/Hold/Sell) with confidence level
+        5. Key metrics to monitor
+        6. Suggested position sizing guidance
+    visual:
+      position: {x: 200, y: 400}
+      category: agent
+      color: "#9f7aea"
+    next_steps: []
+    outputs:
+      - analysis_summary
+      - risk_assessment
+      - recommendation
+      - key_metrics
