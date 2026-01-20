@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
@@ -26,7 +26,7 @@ class MatrixDebatesAPI:
         self,
         task: str,
         agents: list[str] | None = None,
-        scenarios: list[dict] | None = None,
+        scenarios: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """
@@ -64,7 +64,7 @@ class MatrixDebatesAPI:
         self,
         task: str,
         agents: list[str] | None = None,
-        scenarios: list[dict] | None = None,
+        scenarios: list[dict[str, Any]] | None = None,
         max_rounds: int = 3,
     ) -> MatrixDebateCreateResponse:
         """Async version of create()."""
