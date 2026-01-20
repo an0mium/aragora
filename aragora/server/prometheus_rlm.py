@@ -243,7 +243,7 @@ def timed_rlm_compression(source_type: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "levels"):
                     levels = len(result.levels) if hasattr(result.levels, "__len__") else result.levels
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Re-raised after recording status
                 success = False
                 raise
             finally:

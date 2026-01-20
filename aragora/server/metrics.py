@@ -665,7 +665,7 @@ def track_vector_operation(
     status = "success"
     try:
         yield
-    except Exception:
+    except Exception:  # noqa: BLE001 - Re-raised after recording status
         status = "error"
         raise
     finally:

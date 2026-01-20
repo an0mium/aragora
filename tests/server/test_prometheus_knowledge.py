@@ -2,8 +2,8 @@
 
 import pytest
 
-# Import from main prometheus module to avoid circular import
-from aragora.server.prometheus import (
+# Import from dedicated prometheus_knowledge module
+from aragora.server.prometheus_knowledge import (
     record_knowledge_access_grant,
     record_knowledge_federation_sync,
     record_knowledge_global_fact,

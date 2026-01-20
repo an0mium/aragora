@@ -2116,7 +2116,7 @@ class NomicLoop:
         aragora.server.prometheus recording functions.
         """
         try:
-            from aragora.server.prometheus import record_nomic_phase, record_nomic_agent_phase
+            from aragora.server.prometheus_nomic import record_nomic_phase, record_nomic_agent_phase
             from aragora.nomic.phases import set_metrics_recorder
 
             set_metrics_recorder(

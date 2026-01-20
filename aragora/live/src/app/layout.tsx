@@ -3,18 +3,16 @@ import './globals.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
-import { SidebarProvider } from '@/context/SidebarContext';
 import { ConnectionProvider } from '@/context/ConnectionContext';
 import { DebateSelectionProvider } from '@/context/DebateSelectionContext';
 import { ProgressiveModeProvider } from '@/context/ProgressiveModeContext';
 import { AdaptiveModeProvider } from '@/context/AdaptiveModeContext';
-import { Sidebar } from '@/components/Sidebar';
-import { TopNavigation } from '@/components/navigation/TopNavigation';
+import { LayoutProvider } from '@/context/LayoutContext';
+import { RightSidebarProvider } from '@/context/RightSidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
-import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { AppShell } from '@/components/layout';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -72,26 +70,20 @@ export default function RootLayout({
             <DebateSelectionProvider>
               <ProgressiveModeProvider>
                 <AdaptiveModeProvider>
-                  <SidebarProvider>
-                    <CommandPaletteProvider>
-                      <ToastProvider>
-                        <ErrorBoundary>
-                          <Sidebar />
-                          <GlobalConnectionStatus />
-                          <CommandPalette />
-                          <div id="main-content" tabIndex={-1} className="flex flex-col min-h-screen">
-                            <TopNavigation />
-                            <div className="px-4 py-2 border-b border-acid-green/10 bg-surface/30">
-                              <Breadcrumbs />
-                            </div>
-                            <main className="flex-1">
+                  <LayoutProvider>
+                    <RightSidebarProvider>
+                      <CommandPaletteProvider>
+                        <ToastProvider>
+                          <ErrorBoundary>
+                            <CommandPalette />
+                            <AppShell>
                               {children}
-                            </main>
-                          </div>
-                        </ErrorBoundary>
-                      </ToastProvider>
-                    </CommandPaletteProvider>
-                  </SidebarProvider>
+                            </AppShell>
+                          </ErrorBoundary>
+                        </ToastProvider>
+                      </CommandPaletteProvider>
+                    </RightSidebarProvider>
+                  </LayoutProvider>
                 </AdaptiveModeProvider>
               </ProgressiveModeProvider>
             </DebateSelectionProvider>

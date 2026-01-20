@@ -125,6 +125,7 @@ from .debate_integration import (
     reset_debate_trajectory_collector,
     create_training_hook,
 )
+from .hierarchy_cache import RLMHierarchyCache
 
 __all__ = [
     # Types
@@ -194,4 +195,6 @@ __all__ = [
     "get_debate_trajectory_collector",
     "reset_debate_trajectory_collector",
     "create_training_hook",
+    # Hierarchy cache (Phase 24 extraction)
+    "RLMHierarchyCache",
 ]

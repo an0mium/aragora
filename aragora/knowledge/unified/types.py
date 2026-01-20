@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Literal, Optional
 class KnowledgeSource(str, Enum):
     """Source types for knowledge items."""
 
+    # Core memory systems
     CONTINUUM = "continuum"  # ContinuumMemory entries
     CONSENSUS = "consensus"  # ConsensusMemory debate outcomes
     DEBATE = "debate"  # Debate orchestrator outcomes
@@ -30,6 +31,15 @@ class KnowledgeSource(str, Enum):
     EXTERNAL = "external"  # External data sources
     EVIDENCE = "evidence"  # EvidenceStore snippets
     CRITIQUE = "critique"  # CritiqueStore patterns
+
+    # Bidirectional integration sources
+    PULSE = "pulse"  # Trending topics and scheduled debates
+    INSIGHT = "insight"  # Debate insights and patterns
+    FLIP = "flip"  # Position flip events (Trickster)
+    ELO = "elo"  # Agent rankings and calibration
+    BELIEF = "belief"  # Belief network nodes and cruxes
+    PROVENANCE = "provenance"  # Evidence provenance chains
+    COST = "cost"  # Cost patterns and anomalies
 
 
 class RelationshipType(str, Enum):

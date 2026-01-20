@@ -397,7 +397,7 @@ class TestMetricsBenchmarks:
 
     def test_benchmark_record_compression(self, benchmark: Any):
         """Benchmark recording compression metrics."""
-        from aragora.server.prometheus import record_rlm_compression
+        from aragora.server.prometheus_rlm import record_rlm_compression
 
         def record_metrics():
             for _ in range(100):
@@ -413,7 +413,7 @@ class TestMetricsBenchmarks:
 
     def test_benchmark_record_refinement(self, benchmark: Any):
         """Benchmark recording refinement metrics."""
-        from aragora.server.prometheus import record_rlm_refinement
+        from aragora.server.prometheus_rlm import record_rlm_refinement
 
         def record_metrics():
             for _ in range(100):

@@ -723,7 +723,7 @@ def get_cost_tracker() -> CostTracker:
     if _cost_tracker is None:
         try:
             usage_tracker = UsageTracker()
-        except Exception:
+        except Exception:  # noqa: BLE001 - Optional dependency, graceful degradation
             usage_tracker = None
         _cost_tracker = CostTracker(usage_tracker=usage_tracker)
     return _cost_tracker

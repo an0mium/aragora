@@ -283,7 +283,7 @@ class EvidenceCollector:
             settings = get_settings()
             self._url_fetch_all_enabled = settings.evidence.url_fetch_all_enabled
             additional_domains = settings.evidence.additional_allowed_domains
-        except Exception:
+        except Exception:  # noqa: BLE001 - Settings may not be available
             # Fallback if settings not available
             self._url_fetch_all_enabled = False
             additional_domains = []

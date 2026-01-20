@@ -53,7 +53,7 @@ class OpenAIWhisperProvider(STTProvider):
         try:
             self._get_client()
             return True
-        except Exception:
+        except Exception:  # noqa: BLE001 - API availability check
             return False
 
     async def transcribe(

@@ -511,6 +511,17 @@ module = [
     "aragora.agents.types",
     "aragora.rbac.models",
     "aragora.rbac.defaults",
+    # Added strict - Phase 24 extracted modules (Jan 2026)
+    "aragora.server.prometheus_nomic",
+    "aragora.server.prometheus_control_plane",
+    "aragora.server.prometheus_rlm",
+    "aragora.debate.phases.feedback_elo",
+    "aragora.debate.phases.feedback_persona",
+    "aragora.debate.phases.feedback_evolution",
+    "aragora.rlm.debate_adapter",
+    "aragora.rlm.knowledge_adapter",
+    "aragora.rlm.hierarchy_cache",
+    "aragora.rlm.types",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

@@ -794,6 +794,6 @@ def get_default_fallback_enabled() -> bool:
 
         settings = get_settings()
         return settings.agent.openrouter_fallback_enabled
-    except Exception:
+    except Exception:  # noqa: BLE001 - Settings load may fail in various ways
         # If settings can't be loaded, default to False (opt-in)
         return False

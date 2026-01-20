@@ -301,7 +301,7 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
         misses = cache_stats.get("misses", 0)
         hit_rate = cache_stats.get("hit_rate", 0.0)
         print(f"\nRLM Cache: {hits} hits, {misses} misses ({hit_rate:.1%} hit rate)")
-    except Exception:
+    except Exception:  # noqa: BLE001 - Optional feature availability check
         print("\nRLM Cache: not initialized")
 
     # Calibration stats
@@ -311,7 +311,7 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
         tracker = CalibrationTracker()
         # Get summary for any available agents
         print("\nCalibration: enabled")
-    except Exception:
+    except Exception:  # noqa: BLE001 - Optional feature availability check
         print("\nCalibration: unavailable")
 
 

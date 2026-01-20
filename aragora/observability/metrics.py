@@ -1099,7 +1099,7 @@ def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
     success = True
     try:
         yield
-    except Exception:
+    except Exception:  # noqa: BLE001 - Re-raised after recording status
         success = False
         raise
     finally:

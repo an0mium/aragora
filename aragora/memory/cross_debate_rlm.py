@@ -181,7 +181,7 @@ class CrossDebateConfig:
                 logging.getLogger(__name__).debug(
                     f"CrossDebateConfig: Using default storage_path: {self.storage_path}"
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - Graceful degradation for path resolution
                 # If we can't get nomic_dir, disable persistence
                 warnings.warn(
                     "CrossDebateConfig: persist_to_disk=True but no storage_path and "

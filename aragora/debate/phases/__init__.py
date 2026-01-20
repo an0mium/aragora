@@ -40,6 +40,9 @@ from aragora.debate.phases.ready_signal import (
     parse_ready_signal,
 )
 from aragora.debate.phases.feedback_phase import FeedbackPhase
+from aragora.debate.phases.feedback_elo import EloFeedback
+from aragora.debate.phases.feedback_persona import PersonaFeedback
+from aragora.debate.phases.feedback_evolution import EvolutionFeedback
 from aragora.debate.phases.judgment import JudgmentPhase
 from aragora.debate.phases.metrics import MetricsHelper, build_relationship_updates
 from aragora.debate.phases.proposal_phase import ProposalPhase
@@ -103,4 +106,8 @@ __all__ = [
     "batch_with_agents",
     "batch_generate_critiques",
     "batch_collect_votes",
+    # Feedback phase components (Phase 24 extraction)
+    "EloFeedback",
+    "PersonaFeedback",
+    "EvolutionFeedback",
 ]

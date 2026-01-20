@@ -957,56 +957,12 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
 
 
 # ============================================================================
-# Re-exports from extracted modules (for backwards compatibility)
+# Extracted modules (import directly to avoid circular imports)
 # ============================================================================
-
-# Nomic metrics
-from aragora.server.prometheus_nomic import (
-    record_nomic_agent_phase,
-    record_nomic_cycle,
-    record_nomic_phase,
-    timed_nomic_phase,
-)
-
-# Control Plane metrics
-from aragora.server.prometheus_control_plane import (
-    record_control_plane_agent_health,
-    record_control_plane_agent_latency,
-    record_control_plane_agents,
-    record_control_plane_claim_latency,
-    record_control_plane_dead_letter_queue,
-    record_control_plane_queue_depth,
-    record_control_plane_task_completed,
-    record_control_plane_task_retry,
-    record_control_plane_task_status,
-    record_control_plane_task_submitted,
-)
-
-# RLM metrics
-from aragora.server.prometheus_rlm import (
-    record_rlm_cache_hit,
-    record_rlm_cache_miss,
-    record_rlm_compression,
-    record_rlm_query,
-    record_rlm_ready_false,
-    record_rlm_refinement,
-    set_rlm_memory_usage,
-    timed_rlm_compression,
-    timed_rlm_refinement,
-)
-
-# Knowledge Mound metrics
-from aragora.server.prometheus_knowledge import (
-    record_knowledge_access_grant,
-    record_knowledge_federation_sync,
-    record_knowledge_global_fact,
-    record_knowledge_global_query,
-    record_knowledge_share,
-    record_knowledge_visibility_change,
-    set_knowledge_federation_regions,
-    set_knowledge_shared_items,
-    timed_knowledge_federation_sync,
-)
+# Nomic metrics: from aragora.server.prometheus_nomic import record_nomic_phase, ...
+# Control Plane metrics: from aragora.server.prometheus_control_plane import ...
+# RLM metrics: from aragora.server.prometheus_rlm import record_rlm_compression, ...
+# Knowledge metrics: from aragora.server.prometheus_knowledge import ...
 
 __all__ = [
     # Core
@@ -1040,40 +996,7 @@ __all__ = [
     "timed_agent_generation",
     "timed_db_query",
     "timed_db_query_async",
-    # Nomic (re-exported)
-    "record_nomic_phase",
-    "record_nomic_cycle",
-    "record_nomic_agent_phase",
-    "timed_nomic_phase",
-    # Control Plane (re-exported)
-    "record_control_plane_task_submitted",
-    "record_control_plane_task_status",
-    "record_control_plane_task_completed",
-    "record_control_plane_queue_depth",
-    "record_control_plane_agents",
-    "record_control_plane_agent_health",
-    "record_control_plane_agent_latency",
-    "record_control_plane_task_retry",
-    "record_control_plane_dead_letter_queue",
-    "record_control_plane_claim_latency",
-    # RLM (re-exported)
-    "record_rlm_compression",
-    "record_rlm_query",
-    "record_rlm_cache_hit",
-    "record_rlm_cache_miss",
-    "set_rlm_memory_usage",
-    "record_rlm_refinement",
-    "record_rlm_ready_false",
-    "timed_rlm_compression",
-    "timed_rlm_refinement",
-    # Knowledge Mound (re-exported)
-    "record_knowledge_visibility_change",
-    "record_knowledge_access_grant",
-    "record_knowledge_share",
-    "set_knowledge_shared_items",
-    "record_knowledge_global_fact",
-    "record_knowledge_global_query",
-    "record_knowledge_federation_sync",
-    "set_knowledge_federation_regions",
-    "timed_knowledge_federation_sync",
+    # Note: Nomic, Control Plane, RLM, and Knowledge metrics are in extracted modules.
+    # Import directly from: prometheus_nomic, prometheus_control_plane,
+    # prometheus_rlm, prometheus_knowledge
 ]

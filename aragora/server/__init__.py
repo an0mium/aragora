@@ -22,6 +22,8 @@ _EXPORTS = {
     "DebateMetadata": ("aragora.server.storage", "DebateMetadata"),
     "run_api_server": ("aragora.server.api", "run_api_server"),
 }
+# Note: Prometheus metrics (prometheus_nomic, prometheus_control_plane, prometheus_rlm)
+# are internal infrastructure - import directly from submodules to avoid circular imports.
 
 __all__ = list(_EXPORTS.keys())
 

@@ -7,8 +7,30 @@ import { logger } from './logger';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Create client (can be null if not configured)
-export const supabase = supabaseUrl && supabaseAnonKey
+/**
+ * Validate that a Supabase key is in the correct JWT format.
+ * Valid Supabase anon keys are JWTs that start with 'eyJ' and have 3 dot-separated parts.
+ */
+function isValidSupabaseKey(key: string): boolean {
+  if (!key || key.length < 100) return false;
+  // Valid Supabase keys are JWTs (base64-encoded, start with 'eyJ')
+  return key.startsWith('eyJ') && key.split('.').length === 3;
+}
+
+/**
+ * Check if the URL looks like a valid Supabase project URL.
+ */
+function isValidSupabaseUrl(url: string): boolean {
+  if (!url) return false;
+  return url.includes('.supabase.co') || url.includes('supabase.in');
+}
+
+// Determine why Supabase might not work
+const urlValid = isValidSupabaseUrl(supabaseUrl);
+const keyValid = isValidSupabaseKey(supabaseAnonKey);
+
+// Create client only if both URL and key appear valid
+export const supabase = urlValid && keyValid
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
@@ -28,11 +50,25 @@ export function getSupabaseWarning(): string | null {
     return null;
   }
 
-  const missing: string[] = [];
-  if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL');
-  if (!supabaseAnonKey) missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const issues: string[] = [];
 
-  return `Supabase not configured (missing: ${missing.join(', ')}). History and persistence features are disabled.`;
+  if (!supabaseUrl) {
+    issues.push('NEXT_PUBLIC_SUPABASE_URL is missing');
+  } else if (!urlValid) {
+    issues.push('NEXT_PUBLIC_SUPABASE_URL is not a valid Supabase URL');
+  }
+
+  if (!supabaseAnonKey) {
+    issues.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing');
+  } else if (!keyValid) {
+    issues.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not a valid JWT key (should start with "eyJ...")');
+  }
+
+  if (issues.length === 0) {
+    return 'Supabase configuration error. Check your environment variables.';
+  }
+
+  return `Supabase not configured: ${issues.join('; ')}. Get valid keys from Supabase Dashboard → Settings → API.`;
 }
 
 // Types matching the database schema

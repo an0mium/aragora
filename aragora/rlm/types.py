@@ -100,7 +100,7 @@ class AbstractionNode:
     key_topics: list[str] = field(default_factory=list)
     confidence: float = 1.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             import uuid
             self.id = str(uuid.uuid4())[:8]
@@ -298,7 +298,7 @@ class RLMStreamEvent:
     # Full result (only on completion events)
     result: Optional["RLMResult"] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.timestamp == 0.0:
             import time
             self.timestamp = time.time()

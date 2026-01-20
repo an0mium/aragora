@@ -94,7 +94,7 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
-          # Phase 23: Expanded to 19 modules (Jan 2026)
+          # Phase 24: Expanded to 29 modules (Jan 2026)
           python -m mypy \
             aragora/core.py \
             aragora/ranking/elo.py \
@@ -115,6 +115,16 @@ jobs:
             aragora/agents/types.py \
             aragora/rbac/models.py \
             aragora/rbac/defaults.py \
+            aragora/server/prometheus_nomic.py \
+            aragora/server/prometheus_control_plane.py \
+            aragora/server/prometheus_rlm.py \
+            aragora/debate/phases/feedback_elo.py \
+            aragora/debate/phases/feedback_persona.py \
+            aragora/debate/phases/feedback_evolution.py \
+            aragora/rlm/debate_adapter.py \
+            aragora/rlm/knowledge_adapter.py \
+            aragora/rlm/hierarchy_cache.py \
+            aragora/rlm/types.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"
