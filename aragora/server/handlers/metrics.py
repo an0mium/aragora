@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-from aragora.config import DB_ELO_PATH, DB_INSIGHTS_PATH
+from aragora.persistence.db_config import LEGACY_DB_NAMES, DatabaseType
 
 from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
 from .admin.cache import _cache, get_cache_stats
