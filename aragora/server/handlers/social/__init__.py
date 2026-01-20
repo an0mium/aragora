@@ -13,6 +13,10 @@ from .relationship import (
 from .sharing import DebateVisibility, ShareSettings, SharingHandler
 from .slack import SlackHandler
 from .telegram import TelegramHandler, get_telegram_handler
+from .telemetry import (
+    PROMETHEUS_AVAILABLE as SOCIAL_PROMETHEUS_AVAILABLE,
+    get_metrics_summary as get_social_metrics_summary,
+)
 from .whatsapp import WhatsAppHandler, get_whatsapp_handler
 from .relationship import _safe_error_message
 from .social_media import (
@@ -38,6 +42,7 @@ __all__ = [
     "SharingHandler",
     "SlackHandler",
     "SocialMediaHandler",
+    "SOCIAL_PROMETHEUS_AVAILABLE",
     "TelegramHandler",
     "WhatsAppHandler",
     "_OAUTH_STATE_TTL",
@@ -51,6 +56,7 @@ __all__ = [
     "compute_rivalry_score",
     "determine_relationship_type",
     "get_collaboration_handlers",
+    "get_social_metrics_summary",
     "get_telegram_handler",
     "get_whatsapp_handler",
 ]

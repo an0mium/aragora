@@ -445,6 +445,13 @@ class CrossSubscriberManager:
             self._handle_mound_to_provenance,
         )
 
+        # Phase 9: Consensus → KM (direct content ingestion)
+        self.register(
+            "consensus_to_mound",
+            StreamEventType.CONSENSUS,
+            self._handle_consensus_to_mound,
+        )
+
         # Register webhook delivery for all cross-pollination events
         webhook_event_types = [
             StreamEventType.MEMORY_STORED,
@@ -1657,6 +1664,124 @@ class CrossSubscriberManager:
             pass
         except Exception as e:
             logger.debug(f"KM→Provenance query failed: {e}")
+
+    def _handle_consensus_to_mound(self, event: StreamEvent) -> None:
+        """
+        Consensus reached → Ingest consensus content to Knowledge Mound.
+
+        After debate consensus, store the consensus conclusion and key claims
+        as knowledge nodes for organizational learning.
+        """
+        if not self._is_km_handler_enabled("consensus_to_mound"):
+            return
+
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        consensus_reached = data.get("consensus_reached", False)
+
+        if not consensus_reached:
+            return
+
+        topic = data.get("topic", "")
+        conclusion = data.get("conclusion", "")
+        confidence = data.get("confidence", 0.5)
+        strength = data.get("strength", "moderate")
+        key_claims = data.get("key_claims", [])
+
+        if not topic and not conclusion:
+            return
+
+        logger.info(f"Ingesting consensus from debate {debate_id} to Knowledge Mound")
+
+        # Record KM inbound metric
+        record_km_inbound_event("consensus", event.type.value)
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+            from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+            mound = get_knowledge_mound()
+            if not mound:
+                logger.debug("Knowledge Mound not available for consensus ingestion")
+                return
+
+            # Build content from topic and conclusion
+            content = f"{topic}: {conclusion}" if conclusion else topic
+
+            # Map strength to tier
+            strength_to_tier = {
+                "unanimous": "glacial",  # Highly stable
+                "strong": "slow",
+                "moderate": "slow",
+                "weak": "medium",
+                "split": "medium",
+                "contested": "fast",  # May change
+            }
+            tier = strength_to_tier.get(strength, "slow")
+
+            # Create ingestion request for the consensus
+            import asyncio
+
+            async def ingest_consensus():
+                request = IngestionRequest(
+                    content=content,
+                    workspace_id=mound.workspace_id,
+                    source_type=KnowledgeSource.CONSENSUS,
+                    debate_id=debate_id,
+                    node_type="consensus",
+                    confidence=confidence,
+                    tier=tier,
+                    metadata={
+                        "debate_id": debate_id,
+                        "strength": strength,
+                        "topic": topic,
+                        "conclusion": conclusion,
+                        "key_claims_count": len(key_claims),
+                        "ingested_at": datetime.now().isoformat(),
+                    },
+                )
+
+                result = await mound.store(request)
+                logger.debug(
+                    f"Ingested consensus {debate_id}: node_id={result.node_id}, "
+                    f"deduplicated={result.deduplicated}"
+                )
+
+                # Also ingest key claims as separate nodes
+                for i, claim in enumerate(key_claims[:10]):  # Limit to 10 claims
+                    if isinstance(claim, str) and claim.strip():
+                        claim_request = IngestionRequest(
+                            content=claim,
+                            workspace_id=mound.workspace_id,
+                            source_type=KnowledgeSource.CONSENSUS,
+                            debate_id=debate_id,
+                            node_type="claim",
+                            confidence=confidence * 0.9,  # Slightly lower than main consensus
+                            tier=tier,
+                            derived_from=[result.node_id] if result.node_id else None,
+                            metadata={
+                                "debate_id": debate_id,
+                                "claim_index": i,
+                                "parent_consensus_id": result.node_id,
+                            },
+                        )
+                        await mound.store(claim_request)
+
+            # Run async ingestion
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(ingest_consensus())
+                else:
+                    loop.run_until_complete(ingest_consensus())
+            except RuntimeError:
+                # No event loop, create one
+                asyncio.run(ingest_consensus())
+
+        except ImportError as e:
+            logger.debug(f"Consensus→KM ingestion import failed: {e}")
+        except Exception as e:
+            logger.warning(f"Consensus→KM ingestion failed: {e}")
 
     # =========================================================================
     # Management Methods

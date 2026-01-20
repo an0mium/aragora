@@ -56,6 +56,22 @@ from ..base import (
     json_response,
 )
 from ..utils.rate_limit import rate_limit
+from .telemetry import (
+    record_api_call,
+    record_api_latency,
+    record_command,
+    record_debate_completed,
+    record_debate_failed,
+    record_debate_started,
+    record_error,
+    record_gauntlet_completed,
+    record_gauntlet_failed,
+    record_gauntlet_started,
+    record_message,
+    record_vote,
+    record_webhook_latency,
+    record_webhook_request,
+)
 
 # TTS support
 TTS_VOICE_ENABLED = os.environ.get("TELEGRAM_TTS_ENABLED", "false").lower() == "true"
@@ -201,6 +217,10 @@ class TelegramHandler(BaseHandler):
         - edited_message: Edited message
         - inline_query: Inline bot query
         """
+        import time
+
+        start_time = time.time()
+        status = "success"
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
@@ -212,11 +232,14 @@ class TelegramHandler(BaseHandler):
             if "message" in update:
                 return self._handle_message(update["message"])
             elif "callback_query" in update:
+                record_message("telegram", "callback")
                 return self._handle_callback_query(update["callback_query"])
             elif "edited_message" in update:
                 # Ignore edited messages for now
+                record_message("telegram", "edited")
                 return json_response({"ok": True})
             elif "inline_query" in update:
+                record_message("telegram", "inline")
                 return self._handle_inline_query(update["inline_query"])
 
             # Acknowledge unknown updates
@@ -224,10 +247,18 @@ class TelegramHandler(BaseHandler):
 
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in Telegram webhook")
+            status = "error"
+            record_error("telegram", "json_parse")
             return json_response({"ok": True})
         except Exception as e:
             logger.error(f"Error handling Telegram webhook: {e}", exc_info=True)
+            status = "error"
+            record_error("telegram", "unknown")
             return json_response({"ok": True})
+        finally:
+            latency = time.time() - start_time
+            record_webhook_request("telegram", status)
+            record_webhook_latency("telegram", latency)
 
     def _handle_message(self, message: Dict[str, Any]) -> HandlerResult:
         """Handle incoming text message."""
@@ -244,7 +275,10 @@ class TelegramHandler(BaseHandler):
 
         # Parse bot commands
         if text.startswith("/"):
+            record_message("telegram", "command")
             return self._handle_command(chat_id, user_id, username, text)
+
+        record_message("telegram", "text")
 
         # Handle regular messages as questions/topics
         if len(text) > 10:
@@ -279,19 +313,29 @@ class TelegramHandler(BaseHandler):
             command = command.split("@")[0]
         args = parts[1] if len(parts) > 1 else ""
 
+        # Record command metric (strip leading /)
+        cmd_name = command[1:] if command.startswith("/") else command
+
         if command == "/start":
+            record_command("telegram", "start")
             response = self._command_start(username)
         elif command == "/help":
+            record_command("telegram", "help")
             response = self._command_help()
         elif command == "/status":
+            record_command("telegram", "status")
             response = self._command_status()
         elif command == "/agents":
+            record_command("telegram", "agents")
             response = self._command_agents()
         elif command == "/debate":
+            record_command("telegram", "debate")
             return self._command_debate(chat_id, user_id, username, args)
         elif command == "/gauntlet":
+            record_command("telegram", "gauntlet")
             return self._command_gauntlet(chat_id, user_id, username, args)
         else:
+            record_command("telegram", "unknown")
             response = f"Unknown command: {command}\nSend /help for available commands."
 
         create_tracked_task(
@@ -428,6 +472,7 @@ class TelegramHandler(BaseHandler):
         message_id: Optional[int] = None,
     ) -> None:
         """Run debate asynchronously and send result to chat."""
+        record_debate_started("telegram")
         try:
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
@@ -465,6 +510,7 @@ class TelegramHandler(BaseHandler):
                     chat_id,
                     "Failed to start debate: No agents available",
                 )
+                record_debate_failed("telegram")
                 return
 
             arena = Arena.from_env(env, agents, protocol)
@@ -524,8 +570,12 @@ class TelegramHandler(BaseHandler):
                     result.rounds_used,
                 )
 
+            # Record successful debate completion
+            record_debate_completed("telegram", result.consensus_reached)
+
         except Exception as e:
             logger.error(f"Telegram debate failed: {e}", exc_info=True)
+            record_debate_failed("telegram")
             await self._send_message_async(
                 chat_id,
                 f"Debate failed: {str(e)[:100]}",
@@ -593,6 +643,7 @@ class TelegramHandler(BaseHandler):
         """Run gauntlet asynchronously and send result to chat."""
         import aiohttp
 
+        record_gauntlet_started("telegram")
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -615,6 +666,7 @@ class TelegramHandler(BaseHandler):
                             chat_id,
                             f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                         )
+                        record_gauntlet_failed("telegram")
                         return
 
                     run_id = data.get("run_id", "unknown")
@@ -649,8 +701,12 @@ class TelegramHandler(BaseHandler):
                         parse_mode="Markdown",
                     )
 
+                    # Record successful gauntlet completion
+                    record_gauntlet_completed("telegram", passed)
+
         except Exception as e:
             logger.error(f"Telegram gauntlet failed: {e}", exc_info=True)
+            record_gauntlet_failed("telegram")
             await self._send_message_async(
                 chat_id,
                 f"Gauntlet failed: {str(e)[:100]}",
@@ -700,7 +756,10 @@ class TelegramHandler(BaseHandler):
         """Handle vote callback."""
         logger.info(f"Vote received: {debate_id} -> {vote_option} from {username}")
 
-        # Record vote
+        # Record vote metrics
+        record_vote("telegram", vote_option)
+
+        # Record vote in storage
         try:
             from aragora.server.storage import get_debates_db
 
@@ -836,11 +895,14 @@ class TelegramHandler(BaseHandler):
     ) -> None:
         """Send a message to Telegram chat."""
         import aiohttp
+        import time
 
         if not TELEGRAM_BOT_TOKEN:
             logger.warning("Cannot send message: TELEGRAM_BOT_TOKEN not configured")
             return
 
+        start_time = time.time()
+        status = "success"
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendMessage"
             payload: Dict[str, Any] = {
@@ -861,8 +923,14 @@ class TelegramHandler(BaseHandler):
                     result = await response.json()
                     if not result.get("ok"):
                         logger.warning(f"Telegram API error: {result.get('description')}")
+                        status = "error"
         except Exception as e:
             logger.error(f"Error sending Telegram message: {e}")
+            status = "error"
+        finally:
+            latency = time.time() - start_time
+            record_api_call("telegram", "sendMessage", status)
+            record_api_latency("telegram", "sendMessage", latency)
 
     async def _answer_callback_async(
         self,
@@ -872,10 +940,13 @@ class TelegramHandler(BaseHandler):
     ) -> None:
         """Answer a callback query."""
         import aiohttp
+        import time
 
         if not TELEGRAM_BOT_TOKEN:
             return
 
+        start_time = time.time()
+        status = "success"
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
             payload = {
@@ -893,8 +964,14 @@ class TelegramHandler(BaseHandler):
                     result = await response.json()
                     if not result.get("ok"):
                         logger.warning(f"Telegram callback answer failed: {result.get('description')}")
+                        status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram callback: {e}")
+            status = "error"
+        finally:
+            latency = time.time() - start_time
+            record_api_call("telegram", "answerCallbackQuery", status)
+            record_api_latency("telegram", "answerCallbackQuery", latency)
 
     async def _answer_inline_query_async(
         self,
@@ -903,10 +980,13 @@ class TelegramHandler(BaseHandler):
     ) -> None:
         """Answer an inline query."""
         import aiohttp
+        import time
 
         if not TELEGRAM_BOT_TOKEN:
             return
 
+        start_time = time.time()
+        status = "success"
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/answerInlineQuery"
             payload = {
@@ -924,8 +1004,14 @@ class TelegramHandler(BaseHandler):
                     result = await response.json()
                     if not result.get("ok"):
                         logger.warning(f"Telegram inline answer failed: {result.get('description')}")
+                        status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram inline query: {e}")
+            status = "error"
+        finally:
+            latency = time.time() - start_time
+            record_api_call("telegram", "answerInlineQuery", status)
+            record_api_latency("telegram", "answerInlineQuery", latency)
 
     async def _send_voice_summary(
         self,

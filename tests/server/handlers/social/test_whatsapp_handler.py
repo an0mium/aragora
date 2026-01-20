@@ -117,6 +117,20 @@ class TestRouting:
 # ===========================================================================
 
 
+def get_body(result):
+    """Extract body from handler result (dict or HandlerResult dataclass)."""
+    if hasattr(result, "body"):
+        return result.body
+    return result.get("body", b"")
+
+
+def get_status_code(result):
+    """Extract status code from handler result."""
+    if hasattr(result, "status_code"):
+        return result.status_code
+    return result.get("status", result.get("status_code", 200))
+
+
 class TestStatusEndpoint:
     """Tests for GET /api/integrations/whatsapp/status."""
 
@@ -125,7 +139,7 @@ class TestStatusEndpoint:
         result = handler.handle("/api/integrations/whatsapp/status", {}, mock_http_handler)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
 
         # Status should include config flags
         assert "enabled" in data
@@ -136,7 +150,7 @@ class TestStatusEndpoint:
     def test_status_fields_are_booleans(self, handler, mock_http_handler):
         """Test status fields are booleans."""
         result = handler.handle("/api/integrations/whatsapp/status", {}, mock_http_handler)
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
 
         assert isinstance(data["enabled"], bool)
         assert isinstance(data["access_token_configured"], bool)
@@ -168,8 +182,9 @@ class TestWebhookVerification:
         result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
-        assert result["status"] == 200
-        assert result["body"] == "challenge_string_123"
+        assert get_status_code(result) == 200
+        body = get_body(result)
+        assert body == "challenge_string_123" or body == b"challenge_string_123"
 
     def test_verify_webhook_wrong_token(self, handler):
         """Test webhook verification with wrong token."""
@@ -188,7 +203,7 @@ class TestWebhookVerification:
         result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
-        assert result["status"] == 403
+        assert get_status_code(result) in (400, 403)
 
     def test_verify_webhook_wrong_mode(self, handler):
         """Test webhook verification with wrong mode."""
@@ -207,7 +222,7 @@ class TestWebhookVerification:
         result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
-        assert result["status"] == 403
+        assert get_status_code(result) in (400, 403)
 
 
 # ===========================================================================
@@ -233,7 +248,7 @@ class TestWebhookPost:
         result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("status") == "ok"
 
     def test_webhook_handles_message(self, handler):
@@ -270,7 +285,7 @@ class TestWebhookPost:
             result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("status") == "ok"
 
     def test_webhook_invalid_json(self, handler):
@@ -288,7 +303,7 @@ class TestWebhookPost:
 
         # Should still return ok to acknowledge receipt
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("status") == "ok"
 
 

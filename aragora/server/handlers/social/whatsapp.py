@@ -61,6 +61,22 @@ from ..base import (
     json_response,
 )
 from ..utils.rate_limit import rate_limit
+from .telemetry import (
+    record_api_call,
+    record_api_latency,
+    record_command,
+    record_debate_completed,
+    record_debate_failed,
+    record_debate_started,
+    record_error,
+    record_gauntlet_completed,
+    record_gauntlet_failed,
+    record_gauntlet_started,
+    record_message,
+    record_vote,
+    record_webhook_latency,
+    record_webhook_request,
+)
 
 # TTS support
 TTS_VOICE_ENABLED = os.environ.get("WHATSAPP_TTS_ENABLED", "false").lower() == "true"
@@ -206,6 +222,10 @@ class WhatsAppHandler(BaseHandler):
           }]
         }
         """
+        import time
+
+        start_time = time.time()
+        status = "success"
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
@@ -228,10 +248,18 @@ class WhatsAppHandler(BaseHandler):
 
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in WhatsApp webhook")
+            status = "error"
+            record_error("whatsapp", "json_parse")
             return json_response({"status": "ok"})
         except Exception as e:
             logger.error(f"Error handling WhatsApp webhook: {e}", exc_info=True)
+            status = "error"
+            record_error("whatsapp", "unknown")
             return json_response({"status": "ok"})
+        finally:
+            latency = time.time() - start_time
+            record_webhook_request("whatsapp", status)
+            record_webhook_latency("whatsapp", latency)
 
     def _process_messages(self, value: Dict[str, Any]) -> None:
         """Process incoming messages from webhook."""
@@ -249,10 +277,13 @@ class WhatsAppHandler(BaseHandler):
 
             if msg_type == "text":
                 text = message.get("text", {}).get("body", "")
+                record_message("whatsapp", "text")
                 self._handle_text_message(from_number, profile_name, text)
             elif msg_type == "interactive":
+                record_message("whatsapp", "interactive")
                 self._handle_interactive_reply(from_number, profile_name, message)
             elif msg_type == "button":
+                record_message("whatsapp", "button")
                 # Quick reply button
                 button_text = message.get("button", {}).get("text", "")
                 self._handle_button_reply(from_number, profile_name, button_text, message)
@@ -271,16 +302,21 @@ class WhatsAppHandler(BaseHandler):
         lower_text = text.lower()
 
         if lower_text == "help":
+            record_command("whatsapp", "help")
             response = self._command_help()
         elif lower_text == "status":
+            record_command("whatsapp", "status")
             response = self._command_status()
         elif lower_text == "agents":
+            record_command("whatsapp", "agents")
             response = self._command_agents()
         elif lower_text.startswith("debate "):
+            record_command("whatsapp", "debate")
             topic = text[7:].strip()
             self._command_debate(from_number, profile_name, topic)
             return
         elif lower_text.startswith("gauntlet "):
+            record_command("whatsapp", "gauntlet")
             statement = text[9:].strip()
             self._command_gauntlet(from_number, profile_name, statement)
             return
@@ -401,6 +437,7 @@ class WhatsAppHandler(BaseHandler):
         topic: str,
     ) -> None:
         """Run debate and send result."""
+        record_debate_started("whatsapp")
         debate_id = None
         try:
             from aragora import Arena, DebateProtocol, Environment
@@ -437,6 +474,7 @@ class WhatsAppHandler(BaseHandler):
                     from_number,
                     "Failed to start debate: No agents available",
                 )
+                record_debate_failed("whatsapp")
                 return
 
             arena = Arena.from_env(env, agents, protocol)
@@ -485,8 +523,12 @@ class WhatsAppHandler(BaseHandler):
                     result.rounds_used,
                 )
 
+            # Record successful debate completion
+            record_debate_completed("whatsapp", result.consensus_reached)
+
         except Exception as e:
             logger.error(f"WhatsApp debate failed: {e}", exc_info=True)
+            record_debate_failed("whatsapp")
             await self._send_text_message_async(
                 from_number,
                 f"Debate failed: {str(e)[:100]}",
@@ -545,6 +587,7 @@ class WhatsAppHandler(BaseHandler):
         """Run gauntlet and send result."""
         import aiohttp
 
+        record_gauntlet_started("whatsapp")
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -566,6 +609,7 @@ class WhatsAppHandler(BaseHandler):
                             from_number,
                             f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                         )
+                        record_gauntlet_failed("whatsapp")
                         return
 
                     run_id = data.get("run_id", "unknown")
@@ -593,8 +637,12 @@ class WhatsAppHandler(BaseHandler):
 
                     await self._send_text_message_async(from_number, response)
 
+                    # Record successful gauntlet completion
+                    record_gauntlet_completed("whatsapp", passed)
+
         except Exception as e:
             logger.error(f"WhatsApp gauntlet failed: {e}", exc_info=True)
+            record_gauntlet_failed("whatsapp")
             await self._send_text_message_async(
                 from_number,
                 f"Gauntlet failed: {str(e)[:100]}",
@@ -665,6 +713,9 @@ class WhatsAppHandler(BaseHandler):
     ) -> None:
         """Record a vote."""
         logger.info(f"Vote received: {debate_id} -> {vote_option} from {profile_name}")
+
+        # Record vote metrics
+        record_vote("whatsapp", vote_option)
 
         try:
             from aragora.server.storage import get_debates_db
@@ -745,11 +796,14 @@ class WhatsAppHandler(BaseHandler):
     ) -> None:
         """Send a text message via WhatsApp Cloud API."""
         import aiohttp
+        import time
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
             logger.warning("Cannot send message: WhatsApp not configured")
             return
 
+        start_time = time.time()
+        status = "success"
         try:
             url = f"{WHATSAPP_API_BASE}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
             payload = {
@@ -773,8 +827,14 @@ class WhatsAppHandler(BaseHandler):
                     result = await response.json()
                     if response.status != 200:
                         logger.warning(f"WhatsApp API error: {result}")
+                        status = "error"
         except Exception as e:
             logger.error(f"Error sending WhatsApp message: {e}")
+            status = "error"
+        finally:
+            latency = time.time() - start_time
+            record_api_call("whatsapp", "sendMessage", status)
+            record_api_latency("whatsapp", "sendMessage", latency)
 
     async def _send_interactive_buttons_async(
         self,
@@ -788,11 +848,14 @@ class WhatsAppHandler(BaseHandler):
         buttons: List of dicts with 'id' and 'title' keys (max 3 buttons)
         """
         import aiohttp
+        import time
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
             logger.warning("Cannot send message: WhatsApp not configured")
             return
 
+        start_time = time.time()
+        status = "success"
         try:
             url = f"{WHATSAPP_API_BASE}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
 
@@ -832,12 +895,18 @@ class WhatsAppHandler(BaseHandler):
                     result = await response.json()
                     if response.status != 200:
                         logger.warning(f"WhatsApp API error: {result}")
+                        status = "error"
                         # Fall back to plain text if interactive fails
                         await self._send_text_message_async(to_number, body_text)
         except Exception as e:
             logger.error(f"Error sending WhatsApp interactive message: {e}")
+            status = "error"
             # Fall back to plain text
             await self._send_text_message_async(to_number, body_text)
+        finally:
+            latency = time.time() - start_time
+            record_api_call("whatsapp", "sendInteractive", status)
+            record_api_latency("whatsapp", "sendInteractive", latency)
 
     async def _send_voice_summary(
         self,

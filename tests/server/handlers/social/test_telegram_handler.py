@@ -119,6 +119,20 @@ class TestRouting:
 # ===========================================================================
 
 
+def get_body(result):
+    """Extract body from handler result (dict or HandlerResult dataclass)."""
+    if hasattr(result, "body"):
+        return result.body
+    return result.get("body", b"")
+
+
+def get_status_code(result):
+    """Extract status code from handler result."""
+    if hasattr(result, "status_code"):
+        return result.status_code
+    return result.get("status", result.get("status_code", 200))
+
+
 class TestStatusEndpoint:
     """Tests for GET /api/integrations/telegram/status."""
 
@@ -127,7 +141,7 @@ class TestStatusEndpoint:
         result = handler.handle("/api/integrations/telegram/status", {}, mock_http_handler)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
 
         # Status should include config flags
         assert "enabled" in data
@@ -137,7 +151,7 @@ class TestStatusEndpoint:
     def test_status_fields_are_booleans(self, handler, mock_http_handler):
         """Test status fields are booleans."""
         result = handler.handle("/api/integrations/telegram/status", {}, mock_http_handler)
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
 
         assert isinstance(data["enabled"], bool)
         assert isinstance(data["bot_token_configured"], bool)
@@ -162,7 +176,7 @@ class TestWebhookEndpoint:
 
         # Should return method not allowed
         assert result is not None
-        assert result["status"] == 405
+        assert get_status_code(result) == 405
 
     def test_webhook_handles_empty_update(self, handler):
         """Test webhook handles empty/minimal update."""
@@ -180,7 +194,7 @@ class TestWebhookEndpoint:
             result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("ok") is True
 
     def test_webhook_handles_message(self, handler):
@@ -210,7 +224,7 @@ class TestWebhookEndpoint:
                 result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
 
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("ok") is True
 
     def test_webhook_invalid_json(self, handler):
@@ -229,7 +243,7 @@ class TestWebhookEndpoint:
 
         # Should still return ok to acknowledge receipt
         assert result is not None
-        data = json.loads(result["body"])
+        data = json.loads(get_body(result))
         assert data.get("ok") is True
 
 
@@ -459,7 +473,7 @@ class TestSetWebhook:
     """Tests for POST /api/integrations/telegram/set-webhook."""
 
     def test_set_webhook_missing_url(self, handler):
-        """Test set webhook with missing URL."""
+        """Test set webhook with missing URL (when token configured)."""
         body = json.dumps({}).encode()
         mock_http = MockHandler(
             headers={
@@ -470,8 +484,27 @@ class TestSetWebhook:
             method="POST",
         )
 
-        result = handler._set_webhook(mock_http)
-        assert result["status"] == 400
+        # Mock the token being configured
+        with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
+            result = handler._set_webhook(mock_http)
+            assert get_status_code(result) == 400
+
+    def test_set_webhook_no_token(self, handler):
+        """Test set webhook returns 500 when token not configured."""
+        body = json.dumps({"url": "https://example.com/webhook"}).encode()
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(len(body)),
+            },
+            body=body,
+            method="POST",
+        )
+
+        # Token not configured should return 500
+        with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", ""):
+            result = handler._set_webhook(mock_http)
+            assert get_status_code(result) == 500
 
     def test_set_webhook_invalid_json(self, handler):
         """Test set webhook with invalid JSON."""
@@ -484,8 +517,9 @@ class TestSetWebhook:
             method="POST",
         )
 
-        result = handler._set_webhook(mock_http)
-        assert result["status"] == 400
+        with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
+            result = handler._set_webhook(mock_http)
+            assert get_status_code(result) == 400
 
 
 # ===========================================================================
