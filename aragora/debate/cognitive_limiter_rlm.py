@@ -317,7 +317,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         Args:
             level: Stress level (nominal, elevated, high, critical)
-            rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
+            rlm_backend: DEPRECATED - Backend is determined by rlm_model.
+                        Kept for backward compatibility but ignored.
             rlm_model: Model for real RLM queries
 
         Returns:
@@ -892,7 +893,8 @@ def create_rlm_limiter(
     Args:
         stress_level: Current system stress level
         compressor: Optional pre-configured compressor (for fallback)
-        rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
+        rlm_backend: DEPRECATED - Backend is determined by rlm_model.
+                    Kept for backward compatibility but ignored.
         rlm_model: Model for real RLM queries
 
     Returns:
@@ -902,7 +904,6 @@ def create_rlm_limiter(
         # Create limiter with real RLM support
         limiter = create_rlm_limiter(
             stress_level="elevated",
-            rlm_backend="anthropic",
             rlm_model="claude-3-5-sonnet-20241022"
         )
 
