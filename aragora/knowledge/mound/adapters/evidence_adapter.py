@@ -72,21 +72,21 @@ class EvidenceAdapter:
 
     def __init__(
         self,
-        store: "EvidenceStore",
+        store: Optional["EvidenceStore"] = None,
         enable_dual_write: bool = False,
     ):
         """
         Initialize the adapter.
 
         Args:
-            store: The EvidenceStore instance to wrap
+            store: Optional EvidenceStore instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
         """
         self._store = store
         self._enable_dual_write = enable_dual_write
 
     @property
-    def store(self) -> "EvidenceStore":
+    def evidence_store(self) -> Optional["EvidenceStore"]:
         """Access the underlying EvidenceStore."""
         return self._store
 

@@ -6,13 +6,14 @@ system and the Knowledge Mound:
 
 - Data flow IN: Agent ratings, match results, calibration data stored in KM
 - Data flow OUT: Agent skill history and domain expertise retrieved
-- Reverse flow: KM patterns inform team selection and task assignment
+- Reverse flow: KM patterns inform ELO adjustments based on debate quality
 
 The adapter provides:
 - Rating storage after matches
 - Calibration prediction persistence
 - Relationship metrics tracking
 - Skill history retrieval for team selection
+- **KM pattern → ELO adjustment (reverse flow)**
 
 ID Prefix: el_
 """
@@ -20,7 +21,7 @@ ID Prefix: el_
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -29,6 +30,55 @@ if TYPE_CHECKING:
     from aragora.ranking.relationships import RelationshipMetrics
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class KMEloPattern:
+    """Pattern detected in Knowledge Mound that can influence ELO.
+
+    These patterns are derived from analyzing debate outcomes, claim
+    validation, and knowledge contribution across debates.
+    """
+
+    agent_name: str
+    pattern_type: str  # "success_contributor", "contradiction_source", "domain_expert", "crux_resolver"
+    confidence: float  # 0.0-1.0 KM confidence in this pattern
+    observation_count: int = 1  # How many times observed
+    domain: Optional[str] = None  # Domain if pattern is domain-specific
+    debate_ids: List[str] = field(default_factory=list)  # Debates that formed this pattern
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EloAdjustmentRecommendation:
+    """Recommendation for ELO adjustment based on KM patterns.
+
+    These are recommendations that should be reviewed before applying,
+    as they represent inferred quality from knowledge patterns rather
+    than direct match outcomes.
+    """
+
+    agent_name: str
+    adjustment: float  # Positive = boost, negative = penalty
+    reason: str  # Human-readable explanation
+    patterns: List[KMEloPattern] = field(default_factory=list)  # Supporting patterns
+    confidence: float = 0.7  # Overall confidence in recommendation
+    domain: Optional[str] = None  # If domain-specific
+    applied: bool = False
+
+
+@dataclass
+class EloSyncResult:
+    """Result of syncing KM patterns to ELO."""
+
+    total_patterns: int = 0
+    adjustments_recommended: int = 0
+    adjustments_applied: int = 0
+    adjustments_skipped: int = 0
+    total_elo_change: float = 0.0
+    agents_affected: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    duration_ms: int = 0
 
 
 @dataclass

@@ -58,8 +58,8 @@ export function useDedup({ workspaceId = 'default' }: UseDedupOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const getBaseUrl = useCallback(() => {
-    return config?.baseUrl || '';
-  }, [config?.baseUrl]);
+    return config?.api || '';
+  }, [config?.api]);
 
   /**
    * Find duplicate clusters in the workspace

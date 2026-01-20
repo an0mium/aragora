@@ -57,8 +57,8 @@ export function usePruning({ workspaceId = 'default' }: UsePruningOptions = {}) 
   const [error, setError] = useState<string | null>(null);
 
   const getBaseUrl = useCallback(() => {
-    return config?.baseUrl || '';
-  }, [config?.baseUrl]);
+    return config?.api || '';
+  }, [config?.api]);
 
   /**
    * Get items eligible for pruning

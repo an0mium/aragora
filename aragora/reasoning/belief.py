@@ -308,11 +308,13 @@ class BeliefNetwork:
         damping: float = 0.5,
         max_iterations: int = BELIEF_MAX_ITERATIONS,
         convergence_threshold: float = BELIEF_CONVERGENCE_THRESHOLD,
+        event_emitter: Optional[Any] = None,
     ):
         self.debate_id = debate_id or str(uuid.uuid4())
         self.damping = damping  # For stable convergence
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
+        self._event_emitter = event_emitter
 
         # Graph structure
         self.nodes: dict[str, BeliefNode] = {}
@@ -488,6 +490,10 @@ class BeliefNetwork:
         for node_id, centrality in centralities.items():
             self.nodes[node_id].centrality = centrality
 
+        # Emit BELIEF_CONVERGED event for bidirectional KM integration
+        if converged and self._event_emitter:
+            self._emit_convergence_event(iteration, max_change, centralities)
+
         return PropagationResult(
             converged=converged,
             iterations=iteration,
@@ -495,6 +501,53 @@ class BeliefNetwork:
             node_posteriors={nid: node.posterior for nid, node in self.nodes.items()},
             centralities=centralities,
         )
+
+    def _emit_convergence_event(
+        self,
+        iterations: int,
+        max_change: float,
+        centralities: dict[str, float],
+    ) -> None:
+        """Emit BELIEF_CONVERGED event for cross-subsystem integration."""
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            # Collect high-confidence beliefs (≥0.8)
+            high_confidence_beliefs = []
+            for node_id, node in self.nodes.items():
+                confidence = node.posterior.p_true
+                if confidence >= 0.8 or (1 - confidence) >= 0.8:
+                    high_confidence_beliefs.append({
+                        "node_id": node_id,
+                        "claim_id": node.claim_id,
+                        "claim_statement": node.claim_statement,
+                        "author": node.author,
+                        "confidence": confidence,
+                        "centrality": centralities.get(node_id, 0.0),
+                    })
+
+            event = StreamEvent(
+                type=StreamEventType.BELIEF_CONVERGED,
+                data={
+                    "debate_id": self.debate_id,
+                    "iterations": iterations,
+                    "max_change": max_change,
+                    "beliefs_count": len(self.nodes),
+                    "high_confidence_count": len(high_confidence_beliefs),
+                    "beliefs": high_confidence_beliefs,
+                    "cruxes": [],  # Cruxes added by CruxDetector separately
+                },
+            )
+
+            if hasattr(self._event_emitter, "emit"):
+                self._event_emitter.emit(event)
+            elif hasattr(self._event_emitter, "notify"):
+                self._event_emitter.notify("belief_converged", event.data)
+
+        except ImportError:
+            pass  # Events module not available
+        except Exception:
+            pass  # Non-critical, don't fail propagation
 
     def _send_messages(self, factor: Factor) -> None:
         """Send messages from factor to connected nodes."""

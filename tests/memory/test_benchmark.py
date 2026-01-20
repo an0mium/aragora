@@ -7,6 +7,9 @@ Run with:
     pytest tests/memory/test_benchmark.py -v --benchmark-only
     pytest tests/memory/test_benchmark.py -v --benchmark-compare
     pytest tests/memory/test_benchmark.py -v --benchmark-autosave
+
+Note: These tests use the 'serial' marker to avoid parallel execution
+which can cause resource contention and timeouts.
 """
 
 import asyncio
@@ -16,6 +19,12 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+# Mark entire module as serial to avoid parallel execution issues
+pytestmark = [
+    pytest.mark.serial,
+    pytest.mark.timeout(300),  # 5 minute timeout for benchmarks
+]
 
 from aragora.core_types import Message, DebateResult
 from aragora.memory.coordinator import (

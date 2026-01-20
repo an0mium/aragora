@@ -1,20 +1,25 @@
 """
 ContinuumAdapter - Bridges ContinuumMemory to the Knowledge Mound.
 
-This adapter enables the Knowledge Mound to query and store knowledge in
-ContinuumMemory's multi-tier system while maintaining backward compatibility.
+This adapter enables bidirectional integration between ContinuumMemory's
+multi-tier system and the Knowledge Mound:
+
+- Data flow IN: ContinuumMemory entries with importance scores are stored in KM
+- Data flow OUT: Similar memories are retrieved for context/grounding
+- Reverse flow: KM validation feeds back to memory tier promotions/demotions
 
 The adapter provides:
 - Unified search interface (search_by_keyword)
 - Bidirectional sync (store to both systems)
 - Tier-to-importance mapping
 - Cross-reference tracking
+- **KM validation → tier adjustment (reverse flow)**
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -23,6 +28,37 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, IngestionRequest
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class KMValidationResult:
+    """Result of Knowledge Mound validation for a memory item.
+
+    This represents feedback from KM analysis that can improve
+    ContinuumMemory tier placement and importance scores.
+    """
+
+    memory_id: str
+    km_confidence: float  # 0.0-1.0 KM's confidence in the memory
+    cross_debate_utility: float = 0.0  # How useful across debates (0.0-1.0)
+    validation_count: int = 1  # Number of validations/uses
+    was_contradicted: bool = False  # If KM found contradicting evidence
+    was_supported: bool = False  # If KM found supporting evidence
+    recommendation: str = "keep"  # "promote", "demote", "keep", "review"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ValidationSyncResult:
+    """Result of batch syncing KM validations to ContinuumMemory."""
+
+    total_processed: int = 0
+    promoted: int = 0
+    demoted: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: List[str] = field(default_factory=list)
+    duration_ms: int = 0
 
 
 @dataclass
@@ -316,3 +352,278 @@ class ContinuumAdapter:
     def get_tier_metrics(self) -> Dict[str, Any]:
         """Get per-tier metrics."""
         return self._continuum.get_tier_metrics()
+
+    # =========================================================================
+    # Reverse Flow Methods (KM → ContinuumMemory)
+    # =========================================================================
+
+    async def update_continuum_from_km(
+        self,
+        memory_id: str,
+        km_validation: KMValidationResult,
+    ) -> bool:
+        """
+        Update continuum memory entry based on KM validation feedback.
+
+        This is the reverse flow: KM validation improves continuum memory placement.
+
+        If KM determines an item has high cross-debate utility:
+        - Promote to higher tier (FAST→MEDIUM→SLOW→GLACIAL)
+        - Increase importance score
+        - Mark as KM-validated
+
+        If KM determines an item is low-value or contradicted:
+        - Demote to lower tier
+        - Decrease importance
+        - Mark for review
+
+        Args:
+            memory_id: The continuum memory entry ID
+            km_validation: Validation data from Knowledge Mound
+
+        Returns:
+            True if the entry was updated, False if not found or skipped
+        """
+        from aragora.memory.tier_manager import MemoryTier
+
+        # Strip mound prefix if present
+        if memory_id.startswith("cm_"):
+            memory_id = memory_id[3:]
+
+        # Get current entry
+        entry = self._continuum.get(memory_id)
+        if not entry:
+            logger.warning(f"Continuum entry not found for KM validation: {memory_id}")
+            return False
+
+        # Calculate new importance based on KM feedback
+        current_importance = entry.importance
+        km_confidence = km_validation.km_confidence
+        validation_count = km_validation.validation_count
+        cross_debate_utility = km_validation.cross_debate_utility
+
+        # Weighted average: more validations = more weight on KM confidence
+        # Also factor in cross-debate utility
+        weight = min(0.5, validation_count * 0.1)  # Max 50% weight
+        utility_boost = cross_debate_utility * 0.1  # Up to 10% boost
+
+        new_importance = (
+            current_importance * (1 - weight) +
+            km_confidence * weight +
+            utility_boost
+        )
+        new_importance = min(1.0, max(0.0, new_importance))  # Clamp to [0, 1]
+
+        # Determine if tier change is needed based on recommendation
+        recommendation = km_validation.recommendation
+        tier_changed = False
+
+        if recommendation == "promote" and entry.tier != MemoryTier.GLACIAL:
+            # Promote to a more permanent tier
+            tier_order = [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
+            current_idx = tier_order.index(entry.tier)
+            if current_idx < len(tier_order) - 1:
+                new_tier = tier_order[current_idx + 1]
+                tier_changed = self._continuum.promote_entry(memory_id, new_tier)
+                if tier_changed:
+                    logger.info(
+                        f"Promoted continuum entry from KM validation: {memory_id} "
+                        f"{entry.tier.value} -> {new_tier.value}"
+                    )
+
+        elif recommendation == "demote" and entry.tier != MemoryTier.FAST:
+            # Demote to a less permanent tier
+            tier_order = [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
+            current_idx = tier_order.index(entry.tier)
+            if current_idx > 0:
+                new_tier = tier_order[current_idx - 1]
+                tier_changed = self._continuum.demote_entry(memory_id, new_tier)
+                if tier_changed:
+                    logger.info(
+                        f"Demoted continuum entry from KM validation: {memory_id} "
+                        f"{entry.tier.value} -> {new_tier.value}"
+                    )
+
+        # Check if importance changed significantly
+        importance_changed = abs(new_importance - current_importance) > 0.01
+
+        # Always update metadata to mark as KM-validated
+        # Even if importance/tier don't change, we want to track validation
+        metadata = entry.metadata.copy()
+        metadata["km_validated"] = True
+        metadata["km_validation_count"] = validation_count
+        metadata["km_confidence"] = km_confidence
+        metadata["km_cross_debate_utility"] = cross_debate_utility
+        if km_validation.was_contradicted:
+            metadata["km_contradicted"] = True
+        if km_validation.was_supported:
+            metadata["km_supported"] = True
+
+        # Update the entry via direct method
+        self._continuum.update(
+            memory_id,
+            importance=new_importance if importance_changed else None,
+            metadata=metadata,
+        )
+
+        if importance_changed:
+            logger.info(
+                f"Updated continuum entry from KM: {memory_id} "
+                f"importance {current_importance:.2f} -> {new_importance:.2f}"
+            )
+        else:
+            logger.debug(
+                f"Updated continuum metadata from KM: {memory_id} "
+                f"(importance unchanged at {current_importance:.2f})"
+            )
+
+        # Return True if any meaningful update was made
+        return True
+
+    async def sync_validations_to_continuum(
+        self,
+        workspace_id: str,
+        validations: List[KMValidationResult],
+        min_confidence: float = 0.7,
+    ) -> ValidationSyncResult:
+        """
+        Batch sync KM validations back to ContinuumMemory.
+
+        Processes a list of KM validations and updates the corresponding
+        continuum memory entries. High-confidence validations can trigger
+        tier promotions; low-confidence or contradicted items can trigger demotions.
+
+        Args:
+            workspace_id: Workspace ID for filtering
+            validations: List of KM validation results
+            min_confidence: Minimum confidence to apply changes (default 0.7)
+
+        Returns:
+            ValidationSyncResult with counts of promotions, demotions, and updates
+        """
+        import time
+
+        start_time = time.time()
+        result = ValidationSyncResult()
+        result.total_processed = len(validations)
+
+        for validation in validations:
+            try:
+                # Skip low-confidence validations
+                if validation.km_confidence < min_confidence:
+                    result.skipped += 1
+                    continue
+
+                # Apply validation
+                updated = await self.update_continuum_from_km(
+                    validation.memory_id,
+                    validation,
+                )
+
+                if updated:
+                    if validation.recommendation == "promote":
+                        result.promoted += 1
+                    elif validation.recommendation == "demote":
+                        result.demoted += 1
+                    else:
+                        result.updated += 1
+                else:
+                    result.skipped += 1
+
+            except Exception as e:
+                error_msg = f"Error validating {validation.memory_id}: {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        result.duration_ms = int((time.time() - start_time) * 1000)
+
+        logger.info(
+            f"KM validation sync complete: "
+            f"promoted={result.promoted}, demoted={result.demoted}, "
+            f"updated={result.updated}, skipped={result.skipped}, "
+            f"errors={len(result.errors)}, duration={result.duration_ms}ms"
+        )
+
+        return result
+
+    async def get_km_validated_entries(
+        self,
+        limit: int = 50,
+        min_km_confidence: float = 0.7,
+    ) -> List["ContinuumMemoryEntry"]:
+        """
+        Get continuum entries that have been validated by KM.
+
+        Useful for:
+        - Finding high-quality memories for context injection
+        - Auditing which memories have KM validation
+        - Building training data from validated examples
+
+        Args:
+            limit: Maximum entries to return
+            min_km_confidence: Minimum KM confidence score
+
+        Returns:
+            List of validated continuum memory entries
+        """
+        # Retrieve all entries and filter by KM validation
+        all_entries = self._continuum.retrieve(limit=limit * 2)
+
+        validated = []
+        for entry in all_entries:
+            km_validated = entry.metadata.get("km_validated", False)
+            km_confidence = entry.metadata.get("km_confidence", 0.0)
+
+            if km_validated and km_confidence >= min_km_confidence:
+                validated.append(entry)
+
+            if len(validated) >= limit:
+                break
+
+        return validated
+
+    def get_reverse_sync_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about reverse sync (KM → ContinuumMemory).
+
+        Returns counts of KM-validated entries by tier and validation status.
+        """
+        stats = {
+            "total_km_validated": 0,
+            "km_validated_by_tier": {},
+            "km_supported": 0,
+            "km_contradicted": 0,
+            "avg_km_confidence": 0.0,
+            "avg_cross_debate_utility": 0.0,
+        }
+
+        # Sample entries to compute stats
+        all_entries = self._continuum.retrieve(limit=1000)
+
+        confidence_sum = 0.0
+        utility_sum = 0.0
+        validated_count = 0
+
+        for entry in all_entries:
+            if entry.metadata.get("km_validated"):
+                validated_count += 1
+                stats["total_km_validated"] += 1
+
+                tier = entry.tier.value
+                stats["km_validated_by_tier"][tier] = (
+                    stats["km_validated_by_tier"].get(tier, 0) + 1
+                )
+
+                if entry.metadata.get("km_supported"):
+                    stats["km_supported"] += 1
+                if entry.metadata.get("km_contradicted"):
+                    stats["km_contradicted"] += 1
+
+                confidence_sum += entry.metadata.get("km_confidence", 0.0)
+                utility_sum += entry.metadata.get("km_cross_debate_utility", 0.0)
+
+        if validated_count > 0:
+            stats["avg_km_confidence"] = round(confidence_sum / validated_count, 3)
+            stats["avg_cross_debate_utility"] = round(utility_sum / validated_count, 3)
+
+        return stats

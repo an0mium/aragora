@@ -827,6 +827,15 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         POST   /api/workflow-approvals/{id}/resolve - Resolve approval
     """
 
+    ROUTES = [
+        "/api/workflows",
+        "/api/workflows/*",
+        "/api/workflow-templates",
+        "/api/workflow-approvals",
+        "/api/workflow-approvals/*",
+        "/api/workflow-executions",
+    ]
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return (

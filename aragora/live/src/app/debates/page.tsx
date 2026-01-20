@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { DebatesEmptyState } from '@/components/ui/EmptyState';
+import { useRightSidebar } from '@/context/RightSidebarContext';
 
 const PAGE_SIZE = 20;
 
@@ -20,6 +19,62 @@ export default function DebatesPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState<'all' | 'consensus' | 'no-consensus'>('all');
+
+  const { setContext, clearContext } = useRightSidebar();
+
+  // Set up right sidebar content
+  useEffect(() => {
+    const consensusCount = debates.filter(d => d.consensus_reached).length;
+    const consensusRate = debates.length > 0 ? Math.round((consensusCount / debates.length) * 100) : 0;
+    const avgConfidence = debates.length > 0
+      ? Math.round(debates.reduce((sum, d) => sum + (d.confidence || 0), 0) / debates.length * 100)
+      : 0;
+
+    setContext({
+      title: 'Debate Archive',
+      subtitle: `${debates.length} debates`,
+      statsContent: (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Total</span>
+            <span className="text-sm font-mono text-[var(--acid-green)]">{debates.length}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Consensus Rate</span>
+            <span className="text-sm font-mono text-[var(--acid-green)]">{consensusRate}%</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Avg Confidence</span>
+            <span className="text-sm font-mono text-[var(--acid-cyan)]">{avgConfidence}%</span>
+          </div>
+        </div>
+      ),
+      actionsContent: (
+        <div className="space-y-2">
+          <Link
+            href="/arena"
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+          >
+            + NEW DEBATE
+          </Link>
+          <Link
+            href="/debates/graph"
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          >
+            GRAPH VIEW
+          </Link>
+          <Link
+            href="/debates/matrix"
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          >
+            MATRIX VIEW
+          </Link>
+        </div>
+      ),
+    });
+
+    return () => clearContext();
+  }, [debates, setContext, clearContext]);
 
   useEffect(() => {
     async function loadDebates() {
@@ -97,62 +152,29 @@ export default function DebatesPage() {
       <Scanlines opacity={0.02} />
       <CRTVignette />
 
-      <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [BACK TO LIVE]
-              </Link>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
+      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="container mx-auto px-4 py-6">
           {/* Page Title & Filters */}
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-acid-green mb-2">
+                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
                   {'>'} DEBATE ARCHIVE
                 </h1>
-                <p className="text-xs text-text-muted font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-mono">
                   Browse and share past debates with permalinks
                 </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Link
-                    href="/debates/graph"
-                    className="px-2 py-1 text-xs font-mono bg-acid-cyan/10 text-teal-700 dark:text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/20 transition-colors"
-                  >
-                    GRAPH DEBATES
-                  </Link>
-                  <Link
-                    href="/debates/matrix"
-                    className="px-2 py-1 text-xs font-mono bg-gold/10 text-amber-700 dark:text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
-                  >
-                    SCENARIO MATRIX
-                  </Link>
-                </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted font-mono">Filter:</span>
+                <span className="text-xs text-[var(--text-muted)] font-mono">Filter:</span>
                 {(['all', 'consensus', 'no-consensus'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
                     className={`px-2 py-1 text-xs font-mono border transition-colors ${
                       filter === f
-                        ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
-                        : 'bg-surface text-text-muted border-border hover:border-acid-green/40'
+                        ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
+                        : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/40'
                     }`}
                   >
                     {f === 'all' ? 'ALL' : f === 'consensus' ? 'CONSENSUS' : 'NO CONSENSUS'}
@@ -160,7 +182,7 @@ export default function DebatesPage() {
                 ))}
               </div>
             </div>
-            <div className="mt-2 text-xs text-text-muted font-mono">
+            <div className="mt-2 text-xs text-[var(--text-muted)] font-mono">
               Showing {filteredDebates.length} of {debates.length} debates
             </div>
           </div>

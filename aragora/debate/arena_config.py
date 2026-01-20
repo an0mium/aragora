@@ -336,6 +336,72 @@ class ArenaConfig:
     calibration_cost_overconfident_multiplier: float = 1.3  # Cost multiplier for overconfident
     calibration_cost_weight: float = 0.3  # Weight for cost in efficiency score
 
+    # =============================================================================
+    # Phase 10: Bidirectional Knowledge Mound Integration (Session 7+)
+    # These integrations enable two-way data flow between KM and source systems
+    # =============================================================================
+
+    # Master switch for all bidirectional KM integrations
+    enable_km_bidirectional: bool = True  # Enable all reverse flows from KM
+
+    # ContinuumMemory ↔ KM bidirectional sync
+    # KM validation improves memory tier placement and importance scores
+    enable_km_continuum_sync: bool = True  # Enable KM → ContinuumMemory reverse flow
+    km_continuum_adapter: Optional[Any] = None  # Pre-configured ContinuumAdapter
+    km_continuum_min_confidence: float = 0.7  # Min KM confidence for tier changes
+    km_continuum_promotion_threshold: float = 0.8  # Cross-debate utility for promotion
+    km_continuum_demotion_threshold: float = 0.3  # KM confidence for demotion
+    km_continuum_sync_batch_size: int = 50  # Batch size for validation syncs
+
+    # ELO/Ranking ↔ KM bidirectional sync
+    # KM patterns influence agent ELO adjustments
+    enable_km_elo_sync: bool = True  # Enable KM → ELO reverse flow
+    km_elo_bridge: Optional[Any] = None  # Pre-configured KMEloBridge
+    km_elo_min_pattern_confidence: float = 0.7  # Min confidence for ELO adjustments
+    km_elo_max_adjustment: float = 50.0  # Max ELO change per sync
+    km_elo_sync_interval_hours: int = 24  # Interval between KM → ELO syncs
+
+    # OutcomeTracker ↔ KM bidirectional sync
+    # Debate outcomes validate/invalidate KM entries
+    enable_km_outcome_validation: bool = True  # Enable Outcome → KM validation
+    km_outcome_bridge: Optional[Any] = None  # Pre-configured KMOutcomeBridge
+    km_outcome_success_boost: float = 0.1  # Confidence boost for successful outcomes
+    km_outcome_failure_penalty: float = 0.05  # Confidence penalty for failed outcomes
+    km_outcome_propagation_depth: int = 2  # How deep to propagate validation in graph
+
+    # BeliefNetwork ↔ KM bidirectional sync
+    # KM patterns improve belief detection thresholds
+    enable_km_belief_sync: bool = True  # Enable KM → BeliefNetwork reverse flow
+    km_belief_adapter: Optional[Any] = None  # Pre-configured BeliefAdapter
+    km_belief_threshold_min_samples: int = 50  # Min samples before threshold updates
+    km_belief_crux_sensitivity_range: tuple = (0.2, 0.8)  # Bounds for crux sensitivity
+
+    # InsightStore/FlipDetector ↔ KM bidirectional sync
+    # KM patterns improve flip detection baselines
+    enable_km_flip_sync: bool = True  # Enable KM → FlipDetector reverse flow
+    km_insights_adapter: Optional[Any] = None  # Pre-configured InsightsAdapter
+    km_flip_min_outcomes: int = 20  # Min outcomes before baseline updates
+    km_flip_sensitivity_range: tuple = (0.3, 0.9)  # Bounds for flip sensitivity
+
+    # CritiqueStore ↔ KM bidirectional sync
+    # KM validation boosts successful critique patterns
+    enable_km_critique_sync: bool = True  # Enable KM → CritiqueStore reverse flow
+    km_critique_adapter: Optional[Any] = None  # Pre-configured CritiqueAdapter
+    km_critique_success_boost: float = 0.15  # Pattern score boost for success
+    km_critique_min_validations: int = 5  # Min validations before boosting
+
+    # Pulse/Trending ↔ KM bidirectional sync
+    # KM coverage influences topic scheduling
+    enable_km_pulse_sync: bool = True  # Enable KM → Pulse reverse flow
+    km_pulse_adapter: Optional[Any] = None  # Pre-configured PulseAdapter
+    km_pulse_coverage_weight: float = 0.2  # Weight for KM coverage in scheduling
+    km_pulse_recommend_limit: int = 10  # Max topic recommendations per sync
+
+    # Global bidirectional sync settings
+    km_sync_interval_seconds: int = 300  # Interval between bidirectional syncs (5 min)
+    km_min_confidence_for_reverse: float = 0.7  # Min confidence for any reverse flow
+    km_bidirectional_coordinator: Optional[Any] = None  # Pre-configured BidirectionalCoordinator
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:

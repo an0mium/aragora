@@ -76,6 +76,7 @@ class StalenessDetector:
         mound: "KnowledgeMound",
         config: Optional[StalenessConfig] = None,
         age_threshold: Optional[timedelta] = None,
+        event_emitter: Optional[Any] = None,
     ):
         """
         Initialize staleness detector.
@@ -84,9 +85,11 @@ class StalenessDetector:
             mound: Reference to the Knowledge Mound
             config: Staleness configuration
             age_threshold: Override default age threshold
+            event_emitter: Optional event emitter for cross-subsystem integration
         """
         self._mound = mound
         self._config = config or StalenessConfig()
+        self._event_emitter = event_emitter
 
         if age_threshold:
             # Apply override to all tiers
@@ -150,7 +153,7 @@ class StalenessDetector:
         # Clamp to [0, 1]
         total_score = max(0.0, min(1.0, total_score))
 
-        return StalenessCheck(
+        result = StalenessCheck(
             node_id=node_id,
             staleness_score=total_score,
             reasons=reasons,
@@ -162,6 +165,12 @@ class StalenessDetector:
                 "tier": node.metadata.get("tier", "slow"),
             },
         )
+
+        # Emit event if staleness exceeds threshold
+        if total_score >= self._config.auto_revalidation_threshold:
+            self._emit_staleness_event(result, node)
+
+        return result
 
     def _compute_age_score(self, node: Any) -> float:
         """Compute age-based staleness score."""
@@ -276,6 +285,48 @@ class StalenessDetector:
         except Exception as e:
             logger.warning(f"Failed to compute consensus score: {e}")
             return 0.0
+
+    def _emit_staleness_event(self, check: StalenessCheck, node: Any) -> None:
+        """Emit KNOWLEDGE_STALE event for cross-subsystem integration."""
+        if self._event_emitter is None:
+            return
+
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event = StreamEvent(
+                type=StreamEventType.KNOWLEDGE_STALE,
+                data={
+                    "node_id": check.node_id,
+                    "staleness_score": check.staleness_score,
+                    "reasons": [r.value for r in check.reasons],
+                    "revalidation_recommended": check.revalidation_recommended,
+                    "tier": node.metadata.get("tier", "slow") if node else "unknown",
+                    "content_preview": (
+                        node.content[:200] if node and hasattr(node, "content") else None
+                    ),
+                    "workspace_id": (
+                        node.metadata.get("workspace_id") if node else None
+                    ),
+                },
+            )
+
+            if hasattr(self._event_emitter, "emit"):
+                self._event_emitter.emit(event)
+            elif hasattr(self._event_emitter, "publish"):
+                self._event_emitter.publish(event)
+            elif callable(self._event_emitter):
+                self._event_emitter(event)
+
+            logger.debug(
+                f"Emitted KNOWLEDGE_STALE: node={check.node_id}, "
+                f"score={check.staleness_score:.2f}, reasons={check.reasons}"
+            )
+
+        except ImportError:
+            pass  # Events module not available
+        except Exception as e:
+            logger.warning(f"Failed to emit staleness event: {e}")
 
     async def get_stale_nodes(
         self,

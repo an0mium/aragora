@@ -594,6 +594,74 @@ class ContinuumMemory(SQLiteStore):
             conn.commit()
             return cursor.rowcount > 0
 
+    def update(
+        self,
+        memory_id: str,
+        content: Optional[str] = None,
+        importance: Optional[float] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        surprise_score: Optional[float] = None,
+        consolidation_score: Optional[float] = None,
+    ) -> bool:
+        """Update specific fields of a memory entry.
+
+        Flexible update method for modifying individual fields.
+        Used by ContinuumAdapter for KM validation reverse flow.
+
+        Args:
+            memory_id: The ID of the memory entry to update
+            content: New content (optional)
+            importance: New importance score (optional)
+            metadata: New metadata dict (optional, replaces existing)
+            surprise_score: New surprise score (optional)
+            consolidation_score: New consolidation score (optional)
+
+        Returns:
+            True if the entry was updated, False if not found
+        """
+        # Build update clauses dynamically
+        updates = []
+        params = []
+
+        if content is not None:
+            updates.append("content = ?")
+            params.append(content)
+        if importance is not None:
+            updates.append("importance = ?")
+            params.append(importance)
+        if metadata is not None:
+            updates.append("metadata = ?")
+            params.append(json.dumps(metadata))
+        if surprise_score is not None:
+            updates.append("surprise_score = ?")
+            params.append(surprise_score)
+        if consolidation_score is not None:
+            updates.append("consolidation_score = ?")
+            params.append(consolidation_score)
+
+        if not updates:
+            return False
+
+        # Always update timestamp
+        updates.append("updated_at = ?")
+        params.append(datetime.now().isoformat())
+
+        # Add memory_id as final parameter
+        params.append(memory_id)
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                UPDATE continuum_memory
+                SET {", ".join(updates)}
+                WHERE id = ?
+                """,
+                tuple(params),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def promote_entry(self, memory_id: str, new_tier: "MemoryTier") -> bool:
         """Promote an entry to a specific tier.
 

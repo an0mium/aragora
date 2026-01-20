@@ -162,6 +162,21 @@ class MoundConfig:
     enable_deduplication: bool = True
     enable_provenance_tracking: bool = True
 
+    # Bidirectional adapter flags
+    enable_evidence_adapter: bool = True
+    enable_pulse_adapter: bool = True
+    enable_insights_adapter: bool = True
+    enable_elo_adapter: bool = True
+    enable_belief_adapter: bool = True
+    enable_cost_adapter: bool = False  # Opt-in (sensitive data)
+
+    # Adapter confidence thresholds
+    evidence_min_reliability: float = 0.6
+    pulse_min_quality: float = 0.6
+    insight_min_confidence: float = 0.7
+    crux_min_score: float = 0.3
+    belief_min_confidence: float = 0.8
+
     # Multi-tenant
     default_workspace_id: str = "default"
 

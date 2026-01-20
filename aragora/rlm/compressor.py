@@ -220,6 +220,7 @@ Conclusion:""",
         self,
         config: Optional[RLMConfig] = None,
         agent_call: Optional[Callable[[str, str], str]] = None,
+        event_emitter: Optional[Any] = None,
     ):
         """
         Initialize the compressor.
@@ -228,9 +229,11 @@ Conclusion:""",
             config: RLM configuration
             agent_call: Callback to invoke LLM for compression
                        Signature: (prompt, model) -> response
+            event_emitter: Optional event emitter for cross-subsystem integration
         """
         self.config = config or RLMConfig()
         self.agent_call = agent_call
+        self._event_emitter = event_emitter
 
     async def compress(
         self,
@@ -362,7 +365,7 @@ Conclusion:""",
 
         elapsed = time.time() - start_time
 
-        return CompressionResult(
+        result = CompressionResult(
             context=context,
             original_tokens=original_tokens,
             compressed_tokens=compressed_tokens,
@@ -373,6 +376,11 @@ Conclusion:""",
             estimated_fidelity=self._estimate_fidelity(compression_ratios),
             key_topics_extracted=key_topics[:20],
         )
+
+        # Emit compression event for cross-subsystem integration
+        self._emit_compression_event(result, source_type, key_topics)
+
+        return result
 
     async def compress_debate_history(
         self,
@@ -622,6 +630,60 @@ Conclusion:""",
         min_ratio = min(compression_ratios.values())
         # Assume RLM preserves ~80% of semantic content even at high compression
         return max(0.4, 0.8 + (0.2 * min_ratio))
+
+    def _emit_compression_event(
+        self,
+        result: CompressionResult,
+        source_type: str,
+        key_topics: list[str],
+    ) -> None:
+        """Emit RLM_COMPRESSION_COMPLETE event for cross-subsystem integration."""
+        if self._event_emitter is None:
+            return
+
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            # Only emit for significant compressions (high value score)
+            value_score = result.estimated_fidelity
+            if value_score < 0.7:  # Skip low-fidelity compressions
+                return
+
+            # Get the best compression ratio achieved
+            best_ratio = 1.0
+            if result.compression_ratio:
+                best_ratio = min(result.compression_ratio.values())
+
+            event = StreamEvent(
+                type=StreamEventType.RLM_COMPRESSION_COMPLETE,
+                data={
+                    "original_tokens": result.original_tokens,
+                    "best_compression_ratio": best_ratio,
+                    "value_score": value_score,
+                    "source_type": source_type,
+                    "content_markers": key_topics[:10],  # Top 10 topics as markers
+                    "sub_calls_made": result.sub_calls_made,
+                    "time_seconds": result.time_seconds,
+                    "levels_created": len(result.compression_ratio),
+                },
+            )
+
+            if hasattr(self._event_emitter, "emit"):
+                self._event_emitter.emit(event)
+            elif hasattr(self._event_emitter, "publish"):
+                self._event_emitter.publish(event)
+            elif callable(self._event_emitter):
+                self._event_emitter(event)
+
+            logger.debug(
+                f"Emitted RLM_COMPRESSION_COMPLETE: ratio={best_ratio:.2f}, "
+                f"fidelity={value_score:.2f}, topics={len(key_topics)}"
+            )
+
+        except ImportError:
+            pass  # Events module not available
+        except Exception as e:
+            logger.warning(f"Failed to emit compression event: {e}")
 
 
 def clear_compression_cache() -> None:
