@@ -549,6 +549,121 @@ Key architectural decisions are documented in the [ADR directory](./ADR/):
 | [004](./ADR/004-incremental-type-safety.md) | Incremental type safety migration |
 | [005](./ADR/005-composition-over-inheritance.md) | Composition over inheritance for APIs |
 
+## Debate Phase Flow (Mermaid)
+
+```mermaid
+flowchart TB
+    subgraph init["Phase 0: Context Init"]
+        A[Environment Setup] --> B[Fetch Knowledge Context]
+        B --> C[Inject Belief Cruxes]
+        C --> D[Build Agent Context]
+    end
+
+    subgraph proposal["Phase 1: Proposals"]
+        E[Each Agent Generates Proposal] --> F[Store as Messages]
+    end
+
+    subgraph debate["Phase 2: Debate Rounds"]
+        G[Critique Phase] --> H{Convergence?}
+        H -->|No| I[Revision Phase]
+        I --> J{Max Rounds?}
+        J -->|No| G
+        J -->|Yes| K[Exit Rounds]
+        H -->|Yes| K
+    end
+
+    subgraph consensus["Phase 3: Consensus"]
+        L[Collect Votes] --> M[Weight by ELO/Calibration]
+        M --> N[Aggregate Results]
+        N --> O{Consensus Mode}
+        O -->|majority| P[Plurality Winner]
+        O -->|unanimous| Q[All Agree Check]
+        O -->|judge| R[Judge Synthesis]
+        P --> S[Create DebateResult]
+        Q --> S
+        R --> S
+    end
+
+    subgraph analytics["Phases 4-6: Analytics"]
+        T[Record Metrics] --> U[Extract Insights]
+        U --> V[Generate Verdict]
+        V --> W[Store Patterns]
+    end
+
+    subgraph feedback["Phase 7: Feedback"]
+        X[Update ELO Ratings] --> Y[Refine Personas]
+        Y --> Z[Persist to Memory]
+        Z --> AA[Ingest to Knowledge Mound]
+    end
+
+    init --> proposal
+    proposal --> debate
+    debate --> consensus
+    consensus --> analytics
+    analytics --> feedback
+
+    style init fill:#1a1a2e,stroke:#0f0
+    style proposal fill:#1a1a2e,stroke:#0ff
+    style debate fill:#1a1a2e,stroke:#ff0
+    style consensus fill:#1a1a2e,stroke:#f0f
+    style analytics fill:#1a1a2e,stroke:#f90
+    style feedback fill:#1a1a2e,stroke:#09f
+```
+
+## Data Flow Diagram (Mermaid)
+
+```mermaid
+flowchart LR
+    subgraph inputs["Inputs"]
+        Task[Task/Question]
+        Agents[Agent Pool]
+        Config[Protocol Config]
+    end
+
+    subgraph memory["Memory Systems"]
+        KM[Knowledge Mound]
+        CM[Consensus Memory]
+        Cont[Continuum Memory]
+        Crit[Critique Store]
+    end
+
+    subgraph core["Debate Engine"]
+        Arena[Arena Orchestrator]
+        Phases[Phase Executor]
+        Conv[Convergence Detector]
+    end
+
+    subgraph outputs["Outputs"]
+        Result[Debate Result]
+        Insights[Insights]
+        ELO[ELO Updates]
+    end
+
+    Task --> Arena
+    Agents --> Arena
+    Config --> Arena
+
+    KM -.->|context| Arena
+    CM -.->|history| Arena
+    Cont -.->|patterns| Arena
+
+    Arena --> Phases
+    Phases --> Conv
+    Conv -->|early stop| Result
+    Phases --> Result
+
+    Result --> Insights
+    Result --> ELO
+    Result -.->|store| KM
+    Insights -.->|store| Crit
+    ELO -.->|update| Agents
+
+    style inputs fill:#0d1117,stroke:#238636
+    style memory fill:#0d1117,stroke:#1f6feb
+    style core fill:#0d1117,stroke:#f78166
+    style outputs fill:#0d1117,stroke:#a371f7
+```
+
 ## Performance Characteristics
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
