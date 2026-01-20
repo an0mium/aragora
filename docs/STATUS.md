@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (17:30 UTC)*
+*Last updated: January 20, 2026 (02:15 UTC)*
 
 ## Current Release
 
@@ -98,6 +98,14 @@
 - Entropy bonuses, temporal discounting, margin-based rewards
 
 #### Recent Changes (2026-01-20)
+- **Whisper Transcription Fixes** - 7 test failures resolved:
+  - Fixed `OpenAIWhisperBackend` initialization (model property, API key validation)
+  - Added "auto" backend selection support to `get_transcription_backend()`
+  - Fixed file size validation test to use configurable limits
+  - All 24 whisper backend tests now pass (4 skipped due to optional deps)
+- **Billing & AgentSpec Verified** - Code audit confirmed proper implementation:
+  - Usage sync correctly handles token delta flooring and remainder preservation
+  - AgentSpec model/persona properly wired through to agent creation
 - **New Test Suites** - 5 new test modules with 260+ tests:
   - `tests/runtime/test_autotune.py` - 58 tests for budget-aware debate autotuning
   - `tests/scheduler/test_audit_scheduler.py` - 67 tests for cron/webhook scheduling

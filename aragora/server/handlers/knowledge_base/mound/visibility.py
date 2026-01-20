@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.metrics import track_access_grant, track_visibility_change
 
 from ...base import (
     HandlerResult,
@@ -97,6 +98,15 @@ class VisibilityOperationsMixin:
         except Exception as e:
             logger.error(f"Failed to set visibility: {e}")
             return error_response(f"Failed to set visibility: {e}", 500)
+
+        # Track metrics
+        workspace_id = getattr(user, "workspace_id", None) or "unknown"
+        track_visibility_change(
+            node_id=node_id,
+            from_level="unknown",  # We don't fetch old value for efficiency
+            to_level=visibility.value,
+            workspace_id=workspace_id,
+        )
 
         return json_response({
             "success": True,
@@ -204,6 +214,14 @@ class VisibilityOperationsMixin:
             logger.error(f"Failed to grant access: {e}")
             return error_response(f"Failed to grant access: {e}", 500)
 
+        # Track metrics
+        workspace_id = getattr(user, "workspace_id", None) or "unknown"
+        track_access_grant(
+            action="grant",
+            grantee_type=grantee_type.value,
+            workspace_id=workspace_id,
+        )
+
         return json_response({
             "success": True,
             "grant": grant.to_dict() if hasattr(grant, "to_dict") else {
@@ -257,6 +275,14 @@ class VisibilityOperationsMixin:
         except Exception as e:
             logger.error(f"Failed to revoke access: {e}")
             return error_response(f"Failed to revoke access: {e}", 500)
+
+        # Track metrics
+        workspace_id = getattr(user, "workspace_id", None) or "unknown"
+        track_access_grant(
+            action="revoke",
+            grantee_type="unknown",  # We don't know the type after revocation
+            workspace_id=workspace_id,
+        )
 
         return json_response({
             "success": True,

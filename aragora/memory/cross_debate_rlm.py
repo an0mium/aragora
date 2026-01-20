@@ -166,6 +166,31 @@ class CrossDebateConfig:
     persist_to_disk: bool = True
     storage_path: Optional[Path] = None
 
+    def __post_init__(self) -> None:
+        """Validate config and set defaults."""
+        import logging
+        import warnings
+
+        # If persist_to_disk is True but no storage_path, set a default
+        if self.persist_to_disk and self.storage_path is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            try:
+                nomic_dir = get_nomic_dir()
+                self.storage_path = nomic_dir / "cross_debate_memory.json"
+                logging.getLogger(__name__).debug(
+                    f"CrossDebateConfig: Using default storage_path: {self.storage_path}"
+                )
+            except Exception:
+                # If we can't get nomic_dir, disable persistence
+                warnings.warn(
+                    "CrossDebateConfig: persist_to_disk=True but no storage_path and "
+                    "couldn't determine default path. Disabling disk persistence.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                self.persist_to_disk = False
+
 
 class CrossDebateMemory:
     """

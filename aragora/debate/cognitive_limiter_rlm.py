@@ -148,9 +148,21 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             budget: RLM-aware cognitive budget
             compressor: HierarchicalCompressor instance (lazy-loaded if None)
             summarize_fn: Optional sync function for rule-based summarization
-            rlm_backend: Backend for real RLM (openai, anthropic, openrouter)
-            rlm_model: Model for real RLM queries
+            rlm_backend: DEPRECATED - Backend is determined by rlm_model.
+                         This parameter is ignored.
+            rlm_model: Model for real RLM queries (e.g., 'claude', 'gpt-4o')
         """
+        import warnings
+
+        # rlm_backend is deprecated - warn if non-default value is passed
+        if rlm_backend != "openai":
+            warnings.warn(
+                "rlm_backend parameter is deprecated and ignored. "
+                "Backend is determined by rlm_model. Use rlm_model to select provider.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         rlm_budget = budget or RLMCognitiveBudget()
         super().__init__(budget=rlm_budget)
         self._compressor = compressor

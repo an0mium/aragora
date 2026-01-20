@@ -38,7 +38,7 @@ if TYPE_CHECKING:
         provider: str
         model: str | None
         persona: str | None
-        role: str
+        role: str | None  # None = assign automatically
         name: str | None
 
 # Import ALLOWED_AGENT_TYPES for validation
@@ -78,7 +78,7 @@ class AgentSpec:
     provider: str
     model: Optional[str] = None
     persona: Optional[str] = None
-    role: str = "proposer"  # Default to proposer
+    role: Optional[str] = None  # None = assign automatically based on position
     name: Optional[str] = None  # Optional display name
 
     def __post_init__(self) -> None:
@@ -93,8 +93,8 @@ class AgentSpec:
                 f"Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
             )
 
-        # Validate role
-        if self.role not in VALID_ROLES:
+        # Validate role (None is allowed to indicate "assign automatically")
+        if self.role is not None and self.role not in VALID_ROLES:
             raise ValueError(
                 f"Invalid agent role: '{self.role}'. " f"Allowed: {', '.join(sorted(VALID_ROLES))}"
             )
@@ -104,7 +104,8 @@ class AgentSpec:
             parts = [self.provider]
             if self.persona:
                 parts.append(self.persona)
-            parts.append(self.role)
+            if self.role:
+                parts.append(self.role)
             self.name = "_".join(parts)
 
     @property
@@ -209,37 +210,54 @@ class AgentSpec:
 
     @classmethod
     def _parse_pipe_format(cls, spec_str: str) -> "AgentSpec":
-        """Parse new pipe-delimited format: provider|model|persona|role."""
+        """Parse new pipe-delimited format: provider|model|persona|role.
+
+        Empty or missing role returns None to allow automatic role assignment.
+        """
         parts = spec_str.split("|")
 
         provider = parts[0] if parts else ""
         model = parts[1] if len(parts) > 1 and parts[1] else None
         persona = parts[2] if len(parts) > 2 and parts[2] else None
-        role = parts[3] if len(parts) > 3 and parts[3] else "proposer"
+        # Empty or missing role = None (assign automatically)
+        role = parts[3] if len(parts) > 3 and parts[3] else None
 
         return cls(provider=provider, model=model, persona=persona, role=role)
 
     @classmethod
     def _parse_legacy_format(cls, spec_str: str) -> "AgentSpec":
         """
-        Parse legacy colon format: provider:persona or just provider.
+        Parse legacy colon format: provider:role or provider:persona or just provider.
 
-        Note: The second part is interpreted as PERSONA, not role.
-        This was the actual behavior of question_classifier.py, even though
-        parsers incorrectly treated it as role.
+        The second part is interpreted as:
+        - ROLE if it matches a valid role (proposer, critic, synthesizer, judge)
+        - PERSONA otherwise (for behavioral archetypes like philosopher, skeptic)
+
+        This allows both:
+        - agent_selection.py style: "anthropic-api:critic" -> role=critic
+        - persona style: "anthropic-api:philosopher" -> persona=philosopher
+
+        Note: When role is not explicitly specified, it returns None to allow
+        callers to assign roles based on position (first=proposer, last=synth, etc).
         """
         if ":" in spec_str:
             # Split only on first colon to handle edge cases
             parts = spec_str.split(":", 1)
             provider = parts[0]
-            persona = parts[1] if len(parts) > 1 else None
-        else:
-            # Just provider name
-            provider = spec_str
-            persona = None
+            second_part = parts[1] if len(parts) > 1 else None
 
-        # Legacy format defaults to proposer role
-        return cls(provider=provider, persona=persona, role="proposer")
+            # Check if second part is a valid role
+            if second_part and second_part.lower() in VALID_ROLES:
+                # Treat as role (e.g., "anthropic-api:critic") - explicitly specified
+                return cls(provider=provider, persona=None, role=second_part.lower())
+            else:
+                # Treat as persona (e.g., "anthropic-api:philosopher")
+                # Role not explicitly set - return None to allow smart assignment
+                return cls(provider=provider, persona=second_part, role=None)
+        else:
+            # Just provider name - role not explicitly set
+            provider = spec_str
+            return cls(provider=provider, persona=None, role=None)
 
     @classmethod
     def parse_list(cls, specs_str: str, _warn: bool = True) -> list["AgentSpec"]:

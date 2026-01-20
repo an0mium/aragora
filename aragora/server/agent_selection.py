@@ -75,7 +75,9 @@ def auto_select_agents(
 
     # Fall back to AgentSelector
     if not ROUTING_AVAILABLE:
-        return "gemini,anthropic-api"  # Fallback
+        # Fallback with explicit roles for productive debate
+        # (proposer + critic ensures constructive disagreement)
+        return "gemini|||proposer,anthropic-api|||critic"
 
     try:
         # Build task requirements from question and config
@@ -109,14 +111,13 @@ def auto_select_agents(
         # Select optimal team
         team = selector.select_team(requirements)
 
-        # Build agent string with roles if available
+        # Build agent string with roles using pipe format: provider||persona|role
+        # Empty model and persona fields, role at the end
         agent_specs = []
         for agent in team.agents:
-            role = team.roles.get(agent.name, "")
-            if role:
-                agent_specs.append(f"{agent.agent_type}:{role}")
-            else:
-                agent_specs.append(agent.agent_type)
+            role = team.roles.get(agent.name, "proposer")
+            # Use pipe format: provider|||role (empty model and persona)
+            agent_specs.append(f"{agent.agent_type}|||{role}")
 
         logger.info(
             f"[auto_select] Selected team: {agent_specs} (rationale: {team.rationale[:100]})"
@@ -125,7 +126,8 @@ def auto_select_agents(
 
     except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"[auto_select] Failed: {e}, using fallback")
-        return "gemini,anthropic-api"  # Fallback on error
+        # Fallback with explicit roles for productive debate
+        return "gemini|||proposer,anthropic-api|||critic"
 
 
 __all__ = ["auto_select_agents"]

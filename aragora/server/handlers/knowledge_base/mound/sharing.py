@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.metrics import track_share, track_shared_items_count
 
 from ...base import (
     HandlerResult,
@@ -118,6 +119,9 @@ class SharingOperationsMixin:
         except Exception as e:
             logger.error(f"Failed to share item: {e}")
             return error_response(f"Failed to share item: {e}", 500)
+
+        # Track metrics
+        track_share(action="share", target_type=target_type)
 
         return json_response({
             "success": True,

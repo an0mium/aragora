@@ -70,6 +70,16 @@ aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
 | `--no-learn` | - | Don't store patterns in memory |
 | `--demo` | - | Run with demo agents (no API keys required) |
 
+**Agent Spec Formats:**
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `provider` | `anthropic-api` | Just the provider, role assigned by position |
+| `provider:role` | `claude:critic` | Provider with explicit role |
+| `provider\|model\|persona\|role` | `anthropic-api\|claude-opus\|philosopher\|proposer` | Full pipe format |
+
+Valid roles: `proposer`, `critic`, `synthesizer`, `judge`
+
 **Examples:**
 
 ```bash
@@ -79,8 +89,11 @@ aragora ask "Should we use microservices or monolith?"
 # Recommended default if you only have API keys configured
 aragora ask "Should we use microservices or monolith?" --agents anthropic-api,openai-api
 
-# Specify agents and roles
+# Specify agents with explicit roles (colon format)
 aragora ask "Design an auth system" -a "anthropic-api:proposer,openai-api:critic,gemini:synthesizer"
+
+# Full pipe format with model and persona
+aragora ask "Design an auth system" -a "anthropic-api|claude-opus|philosopher|proposer,openai-api|||critic"
 
 # Quick demo without API keys
 aragora ask "Rate limiter design" --demo
