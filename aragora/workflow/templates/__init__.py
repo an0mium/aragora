@@ -102,10 +102,37 @@ def list_templates(category: str = None) -> list:
     return templates
 
 
+# Export packaging utilities
+from aragora.workflow.templates.package import (
+    TemplatePackage,
+    TemplateMetadata,
+    TemplateAuthor,
+    TemplateDependency,
+    TemplateStatus,
+    TemplateCategory,
+    create_package,
+    package_all_templates,
+    register_package,
+    get_package,
+    list_packages,
+)
+
 __all__ = [
     "WORKFLOW_TEMPLATES",
     "get_template",
     "list_templates",
+    # Packaging
+    "TemplatePackage",
+    "TemplateMetadata",
+    "TemplateAuthor",
+    "TemplateDependency",
+    "TemplateStatus",
+    "TemplateCategory",
+    "create_package",
+    "package_all_templates",
+    "register_package",
+    "get_package",
+    "list_packages",
     # Legal
     "CONTRACT_REVIEW_TEMPLATE",
     "DUE_DILIGENCE_TEMPLATE",

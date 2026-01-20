@@ -74,6 +74,7 @@ from .checkpoints import CheckpointHandler
 from .composite import CompositeHandler
 from .consensus import ConsensusHandler
 from .control_plane import ControlPlaneHandler
+from .decisions import DecisionExplainHandler
 from .critique import CritiqueHandler
 from .cross_pollination import (
     CrossPollinationStatsHandler,
@@ -104,6 +105,16 @@ from .features import FeaturesHandler  # Moved to features/
 from .verification import FormalVerificationHandler  # Moved to verification/
 from .gallery import GalleryHandler
 from .gauntlet import GauntletHandler
+from .gauntlet_v1 import (
+    GauntletSchemaHandler,
+    GauntletAllSchemasHandler,
+    GauntletTemplatesListHandler,
+    GauntletTemplateHandler,
+    GauntletReceiptExportHandler,
+    GauntletHeatmapExportHandler,
+    GauntletValidateReceiptHandler,
+    GAUNTLET_V1_HANDLERS,
+)
 from .genesis import GenesisHandler
 from .debates import GraphDebatesHandler  # Moved to debates/
 from .admin import HealthHandler  # Moved to admin/
@@ -148,6 +159,12 @@ from .training import TrainingHandler
 from .verification import VerificationHandler
 from .webhooks import WebhookHandler
 from .workflows import WorkflowHandler
+from .workflow_templates import (
+    WorkflowTemplatesHandler,
+    WorkflowCategoriesHandler,
+    WorkflowPatternsHandler,
+)
+from .email import EmailHandler  # Email prioritization API
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 from .bots import DiscordHandler, TeamsHandler, TelegramHandler, WhatsAppHandler, ZoomHandler  # Bot platform handlers
 from .autonomous import (  # Autonomous operations handlers (Phase 5)
@@ -186,6 +203,7 @@ ALL_HANDLERS = [
     CrossPollinationKMCultureHandler,  # Culture patterns query
     ConsensusHandler,
     BeliefHandler,
+    DecisionExplainHandler,  # Decision explainability API
     ControlPlaneHandler,  # Enterprise control plane API
     CritiqueHandler,
     GenesisHandler,
@@ -236,7 +254,15 @@ ALL_HANDLERS = [
     OAuthHandler,
     FeaturesHandler,
     MemoryAnalyticsHandler,
-    GauntletHandler,
+    # Gauntlet v1 API (versioned endpoints - more specific paths)
+    GauntletSchemaHandler,
+    GauntletAllSchemasHandler,
+    GauntletTemplatesListHandler,
+    GauntletTemplateHandler,
+    GauntletReceiptExportHandler,
+    GauntletHeatmapExportHandler,
+    GauntletValidateReceiptHandler,
+    GauntletHandler,  # Legacy endpoints
     ReviewsHandler,
     FormalVerificationHandler,
     SlackHandler,
@@ -251,7 +277,11 @@ ALL_HANDLERS = [
     VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
     WorkflowHandler,  # Enterprise workflow engine API
+    WorkflowTemplatesHandler,  # Workflow template marketplace API
+    WorkflowCategoriesHandler,  # Workflow template categories
+    WorkflowPatternsHandler,  # Workflow patterns listing
     TrainingHandler,  # RLM training data collection API
+    EmailHandler,  # Email prioritization API
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
     TeamsHandler,  # Microsoft Teams Bot Framework
@@ -311,6 +341,14 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "PulseHandler": Stability.STABLE,  # Trending topics API
     "GalleryHandler": Stability.STABLE,  # Consensus gallery
     "GauntletHandler": Stability.STABLE,  # Adversarial validation - 6+ test files
+    # Gauntlet v1 API (versioned, documented endpoints)
+    "GauntletSchemaHandler": Stability.STABLE,
+    "GauntletAllSchemasHandler": Stability.STABLE,
+    "GauntletTemplatesListHandler": Stability.STABLE,
+    "GauntletTemplateHandler": Stability.STABLE,
+    "GauntletReceiptExportHandler": Stability.STABLE,
+    "GauntletHeatmapExportHandler": Stability.STABLE,
+    "GauntletValidateReceiptHandler": Stability.STABLE,
     "BeliefHandler": Stability.STABLE,  # Belief networks - 4 test files
     "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
     "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
@@ -354,6 +392,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
     "WorkflowHandler": Stability.EXPERIMENTAL,  # Enterprise workflow engine API - Phase 2
+    "WorkflowTemplatesHandler": Stability.STABLE,  # Workflow template marketplace API - new
+    "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
+    "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.EXPERIMENTAL,  # Repository indexing API - Phase A3
     "UncertaintyHandler": Stability.EXPERIMENTAL,  # Uncertainty estimation API - Phase A1
@@ -370,6 +411,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "TriggerHandler": Stability.EXPERIMENTAL,  # Scheduled debate triggers - Phase 5.3
     "MonitoringHandler": Stability.EXPERIMENTAL,  # Trend and anomaly monitoring - Phase 5.3
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
+    "EmailHandler": Stability.EXPERIMENTAL,  # Email prioritization API - new
 }
 
 
@@ -435,6 +477,7 @@ __all__ = [
     "ConsensusHandler",
     "BeliefHandler",
     "ControlPlaneHandler",
+    "DecisionExplainHandler",
     "CritiqueHandler",
     "GenesisHandler",
     "ReplaysHandler",
@@ -485,6 +528,15 @@ __all__ = [
     "FeaturesHandler",
     "MemoryAnalyticsHandler",
     "GauntletHandler",
+    # Gauntlet v1 API
+    "GauntletSchemaHandler",
+    "GauntletAllSchemasHandler",
+    "GauntletTemplatesListHandler",
+    "GauntletTemplateHandler",
+    "GauntletReceiptExportHandler",
+    "GauntletHeatmapExportHandler",
+    "GauntletValidateReceiptHandler",
+    "GAUNTLET_V1_HANDLERS",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",
@@ -499,7 +551,11 @@ __all__ = [
     "VerticalsHandler",
     "WorkspaceHandler",
     "WorkflowHandler",
+    "WorkflowTemplatesHandler",
+    "WorkflowCategoriesHandler",
+    "WorkflowPatternsHandler",
     "TrainingHandler",
+    "EmailHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",
