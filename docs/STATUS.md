@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 19, 2026 (12:00 UTC)*
+*Last updated: January 19, 2026 (19:30 UTC)*
 
 ## Current Release
 
@@ -198,11 +198,20 @@ else:
 - SQL query auto-filtering by tenant
 - Rate limiting and usage quotas per tenant
 
-**Usage Metering & Billing** (NEW)
+**Usage Metering & Billing** (NEW - Enhanced)
 - `aragora/billing/metering.py` - Tenant-aware usage tracking
 - BillingEvent collection with periodic flush
 - Per-tenant cost calculation and projections
 - Integration with quota enforcement
+- **Two-phase commit sync** - Crash-safe Stripe reporting with `usage_sync_records` table
+- **Content-based idempotency** - Stable keys prevent double-billing across restarts
+
+**Agent Specification Parsing** (NEW)
+- `aragora/agents/spec.py` - Unified AgentSpec class
+- Pipe-delimited format: `provider|model|persona|role`
+- Legacy colon format support: `provider:persona` (backward compatible)
+- Clear separation of provider, model, persona, and role concepts
+- 34 comprehensive parsing tests
 
 **Extended Debates (50+ Rounds)** (NEW)
 - `aragora/debate/extended_rounds.py` - RLM context management
