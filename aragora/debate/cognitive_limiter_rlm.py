@@ -186,7 +186,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                     self._debate_adapter = DebateContextAdapter(self._aragora_rlm)
                 if HAS_OFFICIAL_RLM:
                     logger.info(
-                        f"TRUE RLM initialized via factory with backend={rlm_backend}, model={rlm_model}"
+                        f"TRUE RLM initialized via factory with model={rlm_model}"
                     )
                 else:
                     logger.info(

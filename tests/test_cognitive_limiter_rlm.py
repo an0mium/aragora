@@ -624,28 +624,49 @@ class TestRealRLMIntegration:
         assert hasattr(limiter, "has_real_rlm")
         assert isinstance(limiter.has_real_rlm, bool)
 
-    def test_limiter_rlm_backend_parameters(self):
-        """Limiter accepts RLM backend parameters."""
-        limiter = RLMCognitiveLoadLimiter(
-            rlm_backend="anthropic", rlm_model="claude-3-5-sonnet-20241022"
-        )
-        assert limiter._rlm_backend == "anthropic"
+    def test_limiter_rlm_model_parameter(self):
+        """Limiter accepts RLM model parameter."""
+        import warnings
+
+        # rlm_backend is deprecated but should still be accepted for backward compatibility
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            limiter = RLMCognitiveLoadLimiter(
+                rlm_backend="anthropic", rlm_model="claude-3-5-sonnet-20241022"
+            )
+            # Check deprecation warning was issued
+            assert len(w) == 1
+            assert "deprecated" in str(w[0].message).lower()
+
+        # Only rlm_model is stored
         assert limiter._rlm_model == "claude-3-5-sonnet-20241022"
 
-    def test_for_stress_level_accepts_rlm_params(self):
-        """for_stress_level accepts RLM backend parameters."""
-        limiter = RLMCognitiveLoadLimiter.for_stress_level(
-            level="elevated", rlm_backend="openrouter", rlm_model="mistral-large"
-        )
-        assert limiter._rlm_backend == "openrouter"
+    def test_for_stress_level_accepts_rlm_model(self):
+        """for_stress_level accepts RLM model parameter."""
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            limiter = RLMCognitiveLoadLimiter.for_stress_level(
+                level="elevated", rlm_backend="openrouter", rlm_model="mistral-large"
+            )
+            # rlm_backend triggers deprecation warning
+            assert len(w) == 1
+
         assert limiter._rlm_model == "mistral-large"
 
-    def test_create_rlm_limiter_accepts_backend_params(self):
-        """create_rlm_limiter factory accepts RLM backend parameters."""
-        limiter = create_rlm_limiter(
-            stress_level="nominal", rlm_backend="anthropic", rlm_model="claude-3-opus-20240229"
-        )
-        assert limiter._rlm_backend == "anthropic"
+    def test_create_rlm_limiter_accepts_model_param(self):
+        """create_rlm_limiter factory accepts RLM model parameter."""
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            limiter = create_rlm_limiter(
+                stress_level="nominal", rlm_backend="anthropic", rlm_model="claude-3-opus-20240229"
+            )
+            # rlm_backend triggers deprecation warning
+            assert len(w) == 1
+
         assert limiter._rlm_model == "claude-3-opus-20240229"
 
     def test_stats_include_rlm_queries(self):
