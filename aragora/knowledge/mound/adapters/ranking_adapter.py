@@ -466,7 +466,7 @@ class RankingAdapter:
         """
         from aragora.knowledge.mound.types import IngestionRequest, SourceType
 
-        result = {
+        result: Dict[str, Any] = {
             "expertise_synced": 0,
             "history_synced": 0,
             "errors": [],
@@ -488,7 +488,7 @@ class RankingAdapter:
                     source_type=SourceType.RANKING,
                     workspace_id=workspace_id,
                     confidence=expertise_data["confidence"],
-                    tier=3,  # Slow tier for expertise data
+                    tier="slow",  # Slow tier for expertise data
                     metadata={
                         "type": "agent_expertise",
                         "expertise_id": expertise_data["id"],
@@ -528,7 +528,7 @@ class RankingAdapter:
         Returns:
             Dict with load statistics
         """
-        result = {
+        result: Dict[str, Any] = {
             "expertise_loaded": 0,
             "errors": [],
         }

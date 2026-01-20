@@ -20,12 +20,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.evidence.store import EvidenceStore
     from aragora.knowledge.mound.types import IngestionRequest
+
+# Type alias for event callback
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,7 @@ class EvidenceAdapter:
         self,
         store: Optional["EvidenceStore"] = None,
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -82,9 +86,33 @@ class EvidenceAdapter:
         Args:
             store: Optional EvidenceStore instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
+                          Used for WebSocket updates when adapter is in server context
         """
         self._store = store
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications.
+
+        Args:
+            callback: Function taking (event_type: str, data: Dict)
+        """
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured.
+
+        Args:
+            event_type: Type of event (e.g., 'knowledge_indexed')
+            data: Event data payload
+        """
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def evidence_store(self) -> Optional["EvidenceStore"]:
@@ -331,7 +359,7 @@ class EvidenceAdapter:
         Returns:
             The evidence ID (may be deduplicated)
         """
-        return self._store.save_evidence(
+        result_id = self._store.save_evidence(
             evidence_id=evidence_id,
             source=source,
             title=title,
@@ -341,6 +369,17 @@ class EvidenceAdapter:
             metadata=metadata,
             debate_id=debate_id,
         )
+
+        # Emit event for WebSocket updates
+        self._emit_event("knowledge_indexed", {
+            "source": "evidence",
+            "evidence_id": result_id,
+            "title": title,
+            "reliability": reliability_score,
+            "debate_id": debate_id,
+        })
+
+        return result_id
 
     def mark_used_in_consensus(
         self,

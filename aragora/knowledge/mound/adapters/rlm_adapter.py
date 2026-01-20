@@ -366,7 +366,7 @@ class RlmAdapter:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored patterns and priorities."""
-        pattern_types = {}
+        pattern_types: Dict[str, int] = {}
         for pattern in self._patterns.values():
             ct = pattern.get("content_type", "general")
             pattern_types[ct] = pattern_types.get(ct, 0) + 1
@@ -410,7 +410,7 @@ class RlmAdapter:
         """
         from aragora.knowledge.mound.types import IngestionRequest, SourceType
 
-        result = {
+        result: Dict[str, Any] = {
             "patterns_synced": 0,
             "errors": [],
         }
@@ -436,7 +436,7 @@ class RlmAdapter:
                     source_type=SourceType.RLM,
                     workspace_id=workspace_id,
                     confidence=pattern_data.get("value_score", 0.5),
-                    tier=3,  # Slow tier for pattern data
+                    tier="slow",  # Slow tier for pattern data
                     metadata={
                         "type": "compression_pattern",
                         "pattern_id": pattern_id,
@@ -477,7 +477,7 @@ class RlmAdapter:
         Returns:
             Dict with load statistics
         """
-        result = {
+        result: Dict[str, Any] = {
             "patterns_loaded": 0,
             "errors": [],
         }

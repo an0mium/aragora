@@ -58,6 +58,25 @@ class GlobalKnowledgeProtocol(Protocol):
         self, node_id: str, workspace_id: Optional[str] = None
     ) -> Optional["KnowledgeItem"]: ...
 
+    # Mixin methods that call each other
+    async def store_verified_fact(
+        self,
+        content: str,
+        source: str,
+        confidence: float = 0.9,
+        evidence_ids: Optional[List[str]] = None,
+        verified_by: str = "system",
+        topics: Optional[List[str]] = None,
+    ) -> str: ...
+
+    async def query_global_knowledge(
+        self,
+        query: str,
+        limit: int = 10,
+        min_confidence: float = 0.5,
+        topics: Optional[List[str]] = None,
+    ) -> List["KnowledgeItem"]: ...
+
 
 class GlobalKnowledgeMixin:
     """Mixin providing global knowledge operations for KnowledgeMound."""
@@ -206,8 +225,9 @@ class GlobalKnowledgeMixin:
             raise ValueError(f"Item {item_id} not found in workspace {workspace_id}")
 
         # Extract confidence - handle both enum and float
-        confidence = item.confidence
-        if hasattr(confidence, "value"):
+        raw_confidence = item.confidence
+        confidence_value: float = 0.8
+        if hasattr(raw_confidence, "value"):
             # It's an enum like ConfidenceLevel
             confidence_map = {
                 "verified": 0.95,
@@ -216,7 +236,9 @@ class GlobalKnowledgeMixin:
                 "low": 0.5,
                 "speculative": 0.3,
             }
-            confidence = confidence_map.get(confidence.value, 0.7)
+            confidence_value = confidence_map.get(raw_confidence.value, 0.7)
+        elif isinstance(raw_confidence, (int, float)):
+            confidence_value = float(raw_confidence)
 
         # Get existing evidence from metadata
         existing_evidence = (item.metadata or {}).get("evidence_ids", [])
@@ -226,7 +248,7 @@ class GlobalKnowledgeMixin:
         return await self.store_verified_fact(
             content=item.content,
             source=f"promoted_from:{workspace_id}:{item_id}",
-            confidence=confidence if isinstance(confidence, (int, float)) else 0.8,
+            confidence=confidence_value,
             evidence_ids=all_evidence,
             verified_by=promoted_by,
             topics=(item.metadata or {}).get("topics", []),

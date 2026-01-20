@@ -111,11 +111,77 @@ from aragora.knowledge.mound.revalidation_scheduler import (
     handle_revalidation_task,
 )
 
+# Singleton instance
+_knowledge_mound_instance: "KnowledgeMound" = None
+
+
+def get_knowledge_mound(
+    workspace_id: str = "default",
+    config: "MoundConfig" = None,
+    auto_initialize: bool = True,
+) -> "KnowledgeMound":
+    """
+    Get or create the global KnowledgeMound singleton.
+
+    This provides a lazy-loaded default Knowledge Mound instance that can be
+    shared across the application. Use this when you need a KM instance but
+    don't have one configured.
+
+    Args:
+        workspace_id: Workspace ID for multi-tenant isolation
+        config: Optional MoundConfig for customization
+        auto_initialize: If True, automatically initialize the mound
+
+    Returns:
+        KnowledgeMound instance
+    """
+    global _knowledge_mound_instance
+
+    if _knowledge_mound_instance is None:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if config is None:
+            # Use default SQLite-based config for simplicity
+            config = MoundConfig(backend=MoundBackend.SQLITE)
+
+        logger.info(f"[knowledge_mound] Creating singleton instance (workspace={workspace_id})")
+        _knowledge_mound_instance = KnowledgeMound(
+            config=config,
+            workspace_id=workspace_id,
+        )
+
+        if auto_initialize:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Can't await in running loop, schedule for later
+                    logger.debug("[knowledge_mound] Deferring initialization (event loop running)")
+                else:
+                    loop.run_until_complete(_knowledge_mound_instance.initialize())
+                    logger.info("[knowledge_mound] Singleton initialized successfully")
+            except RuntimeError:
+                # No event loop available
+                logger.debug("[knowledge_mound] No event loop, deferring initialization")
+
+    return _knowledge_mound_instance
+
+
+def reset_knowledge_mound() -> None:
+    """Reset the global KnowledgeMound singleton (for testing)."""
+    global _knowledge_mound_instance
+    _knowledge_mound_instance = None
+
+
 __all__ = [
     # Enhanced facade (primary export)
     "KnowledgeMound",
     "MoundConfig",
     "MoundBackend",
+    # Singleton access
+    "get_knowledge_mound",
+    "reset_knowledge_mound",
     # Types
     "ConfidenceLevel",
     "CulturePattern",
