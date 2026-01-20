@@ -514,6 +514,10 @@ module = [
     "aragora.auth.rate_limiter",
     "aragora.debate.metrics",
     "aragora.persistence.connection",
+    "aragora.knowledge.types",
+    "aragora.agents.types",
+    "aragora.rbac.models",
+    "aragora.rbac.defaults",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

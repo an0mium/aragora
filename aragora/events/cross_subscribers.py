@@ -202,7 +202,7 @@ class CrossSubscriberManager:
         logger.info("CrossSubscriberManager connected to event stream")
 
     def _dispatch_event(self, event: StreamEvent) -> None:
-        """Dispatch event to registered subscribers with sampling support."""
+        """Dispatch event to registered subscribers with sampling and circuit breaker support."""
         import random
         import time
 
@@ -211,6 +211,13 @@ class CrossSubscriberManager:
         for name, handler in handlers:
             # Check if handler is enabled
             if name in self._stats and not self._stats[name].enabled:
+                continue
+
+            # Check circuit breaker - skip if handler circuit is open
+            if not self._circuit_breaker.is_available(name):
+                if name in self._stats:
+                    self._stats[name].events_skipped += 1
+                logger.debug(f"Circuit open for handler {name}, skipping event")
                 continue
 
             # Apply sampling - skip based on sample_rate
@@ -234,6 +241,9 @@ class CrossSubscriberManager:
             try:
                 handler(event)
 
+                # Record success with circuit breaker
+                self._circuit_breaker.record_success(name)
+
                 # Calculate latency
                 latency_ms = (time.perf_counter() - start_time) * 1000
 
@@ -247,9 +257,16 @@ class CrossSubscriberManager:
                     stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
 
             except Exception as e:
+                # Record failure with circuit breaker
+                self._circuit_breaker.record_failure(name)
+
                 logger.error(f"Cross-subscriber error in {name}: {e}")
                 if name in self._stats:
                     self._stats[name].events_failed += 1
+
+                # Check if circuit just opened
+                if not self._circuit_breaker.is_available(name):
+                    logger.warning(f"Circuit breaker opened for handler {name} after repeated failures")
 
     async def _dispatch_event_async(self, event: StreamEvent) -> None:
         """Dispatch event to registered subscribers asynchronously.
