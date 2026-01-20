@@ -328,10 +328,11 @@ class CrossDebateMemory:
         self,
         debate_id: str,
         topic: str,
-        consensus: str,
+        consensus: str = "",
         key_points: Optional[list[str]] = None,
         domain: str = "general",
         participants: Optional[list[str]] = None,
+        timestamp_hours_ago: Optional[float] = None,
     ) -> str:
         """
         Convenience method to store a debate with explicit fields.
@@ -346,13 +347,18 @@ class CrossDebateMemory:
             key_points: Key points or insights from the debate
             domain: Domain category for the debate
             participants: List of participant agent IDs
+            timestamp_hours_ago: Optional hours in the past for the timestamp
+                (useful for testing tier transitions)
 
         Returns:
             The debate ID
         """
         await self.initialize()
         async with self._lock:
-            timestamp = datetime.now()
+            if timestamp_hours_ago is not None:
+                timestamp = datetime.now() - timedelta(hours=timestamp_hours_ago)
+            else:
+                timestamp = datetime.now()
 
             # Build compressed context from the provided fields
             context_parts = [f"Topic: {topic}", f"Consensus: {consensus}"]
@@ -365,13 +371,16 @@ class CrossDebateMemory:
             # Compress the context
             compressed_context = await self._compress_context(full_context)
 
+            # Determine tier based on timestamp
+            tier = self._determine_tier(timestamp)
+
             # Create entry
             entry = DebateMemoryEntry(
                 debate_id=debate_id,
                 task=topic,
                 domain=domain,
                 timestamp=timestamp,
-                tier=MemoryTier.HOT,
+                tier=tier,
                 participants=participants or [],
                 consensus_reached=True,
                 final_answer=consensus,
@@ -390,6 +399,21 @@ class CrossDebateMemory:
                 await self._save_to_disk()
 
             return debate_id
+
+    def get_tier(self, debate_id: str) -> Optional[MemoryTier]:
+        """
+        Get the memory tier for a debate entry.
+
+        Args:
+            debate_id: The debate ID to look up
+
+        Returns:
+            The MemoryTier for the debate, or None if not found
+        """
+        entry = self._entries.get(debate_id)
+        if entry:
+            return entry.tier
+        return None
 
     async def _extract_insights(self, result: "DebateResult") -> list[str]:
         """Extract key insights from a debate result."""
