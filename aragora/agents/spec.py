@@ -1,26 +1,45 @@
 """
 Unified Agent Specification for Aragora.
 
-This module provides a single AgentSpec class that separates four distinct concepts
-that were previously conflated through colon-separated format:
+This module provides a single AgentSpec class that separates four distinct concepts:
 
 - provider: API/service type (e.g., 'anthropic-api', 'qwen', 'deepseek')
 - model: Specific model identifier (e.g., 'claude-opus-4-5-20251101')
 - persona: Behavioral archetype (e.g., 'philosopher', 'security_engineer')
 - role: Debate function (proposer, critic, synthesizer, judge)
 
-Supports two formats:
-- New format: provider|model|persona|role (unambiguous, recommended)
-- Legacy format: provider:persona (backward compatible)
+RECOMMENDED: Use explicit field creation for clarity and type safety:
+
+    # Single agent
+    spec = AgentSpec(provider="anthropic-api", persona="philosopher", role="proposer")
+
+    # Team of agents
+    team = AgentSpec.create_team([
+        {"provider": "anthropic-api", "persona": "philosopher", "role": "proposer"},
+        {"provider": "openai-api", "persona": "skeptic", "role": "critic"},
+        {"provider": "gemini", "role": "synthesizer"},
+    ])
+
+DEPRECATED: String parsing is maintained for backward compatibility but discouraged:
+    AgentSpec.parse("anthropic-api|claude-opus|philosopher|proposer")  # Deprecated
+    AgentSpec.parse_list("anthropic-api,openai-api")  # Deprecated
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Sequence
 
 if TYPE_CHECKING:
-    pass
+    from typing import TypedDict
+
+    class AgentSpecDict(TypedDict, total=False):
+        provider: str
+        model: str | None
+        persona: str | None
+        role: str
+        name: str | None
 
 # Import ALLOWED_AGENT_TYPES for validation
 from aragora.config.legacy import ALLOWED_AGENT_TYPES
@@ -41,15 +60,19 @@ class AgentSpec:
     - persona: Behavioral persona for prompting (optional)
     - role: Debate role - one of 'proposer', 'critic', 'synthesizer', 'judge'
 
-    Example specs:
-        # New format (unambiguous)
-        "anthropic-api|claude-opus|philosopher|proposer"  # Full spec
-        "anthropic-api|||proposer"                        # Provider + role only
-        "qwen||qwen|critic"                               # Provider + persona + role
+    RECOMMENDED - Explicit field creation:
+        # Single agent with explicit fields
+        spec = AgentSpec(provider="anthropic-api", persona="philosopher", role="proposer")
 
-        # Legacy format (backward compatible)
-        "anthropic-api:claude"    # provider=anthropic-api, persona=claude
-        "qwen"                    # provider=qwen
+        # Team creation with dicts
+        team = AgentSpec.create_team([
+            {"provider": "anthropic-api", "persona": "philosopher", "role": "proposer"},
+            {"provider": "openai-api", "role": "critic"},
+        ])
+
+    DEPRECATED - String parsing (for backward compatibility only):
+        AgentSpec.parse("anthropic-api|claude-opus|philosopher|proposer")
+        AgentSpec.parse_list("anthropic-api,openai-api")
     """
 
     provider: str
@@ -90,28 +113,88 @@ class AgentSpec:
         return self.provider
 
     @classmethod
-    def parse(cls, spec_str: str) -> "AgentSpec":
+    def create_team(
+        cls,
+        specs: Sequence["AgentSpecDict | AgentSpec"],
+        default_role_rotation: bool = True,
+    ) -> list["AgentSpec"]:
         """
-        Parse a spec string in either new pipe format or legacy colon format.
+        Create a team of agents from explicit field specifications.
+
+        This is the RECOMMENDED way to create multiple agents for a debate.
+
+        Args:
+            specs: List of AgentSpec instances or dicts with spec fields.
+                   Required field: 'provider'
+                   Optional fields: 'model', 'persona', 'role', 'name'
+            default_role_rotation: If True, assigns roles in rotation
+                                   (proposer, critic, synthesizer, judge)
+                                   for specs without explicit role.
+
+        Returns:
+            List of AgentSpec instances
+
+        Example:
+            team = AgentSpec.create_team([
+                {"provider": "anthropic-api", "persona": "philosopher"},
+                {"provider": "openai-api", "persona": "skeptic"},
+                {"provider": "gemini"},
+            ])
+            # Results in: proposer (anthropic), critic (openai), synthesizer (gemini)
+        """
+        role_rotation = ["proposer", "critic", "synthesizer", "judge"]
+        result = []
+
+        for i, spec in enumerate(specs):
+            if isinstance(spec, AgentSpec):
+                result.append(spec)
+            else:
+                # Dict-based creation
+                provider = spec.get("provider")
+                if not provider:
+                    raise ValueError(f"Agent spec at index {i} missing required 'provider' field")
+
+                role = spec.get("role")
+                if role is None and default_role_rotation:
+                    role = role_rotation[i % len(role_rotation)]
+                elif role is None:
+                    role = "proposer"
+
+                result.append(cls(
+                    provider=provider,
+                    model=spec.get("model"),
+                    persona=spec.get("persona"),
+                    role=role,
+                    name=spec.get("name"),
+                ))
+
+        return result
+
+    @classmethod
+    def parse(cls, spec_str: str, _warn: bool = True) -> "AgentSpec":
+        """
+        Parse a spec string in either pipe format or legacy colon format.
+
+        DEPRECATED: Prefer explicit field creation instead:
+            AgentSpec(provider="anthropic-api", persona="philosopher", role="critic")
 
         Args:
             spec_str: Agent specification string
+            _warn: Internal flag to suppress warning (for parse_list)
 
         Returns:
             Parsed AgentSpec instance
 
         Raises:
             ValueError: If the spec is invalid
-
-        Examples:
-            # New format
-            AgentSpec.parse("anthropic-api|claude-opus|philosopher|critic")
-            AgentSpec.parse("qwen|||proposer")
-
-            # Legacy format
-            AgentSpec.parse("anthropic-api:claude")
-            AgentSpec.parse("qwen")
         """
+        if _warn:
+            warnings.warn(
+                "AgentSpec.parse() is deprecated. Use explicit field creation: "
+                "AgentSpec(provider='...', persona='...', role='...')",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         spec_str = spec_str.strip()
 
         if not spec_str:
@@ -159,19 +242,30 @@ class AgentSpec:
         return cls(provider=provider, persona=persona, role="proposer")
 
     @classmethod
-    def parse_list(cls, specs_str: str) -> list["AgentSpec"]:
+    def parse_list(cls, specs_str: str, _warn: bool = True) -> list["AgentSpec"]:
         """
         Parse a comma-separated string of agent specs.
 
+        DEPRECATED: Prefer AgentSpec.create_team() with explicit fields:
+            AgentSpec.create_team([
+                {"provider": "anthropic-api", "persona": "philosopher"},
+                {"provider": "qwen", "role": "critic"},
+            ])
+
         Args:
             specs_str: Comma-separated agent specs
+            _warn: Internal flag to suppress warning
 
         Returns:
             List of AgentSpec instances
-
-        Example:
-            specs = AgentSpec.parse_list("anthropic-api|||,qwen||qwen|critic")
         """
+        if _warn:
+            warnings.warn(
+                "AgentSpec.parse_list() is deprecated. Use AgentSpec.create_team() "
+                "with explicit field dicts instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if not specs_str:
             return []
 
@@ -179,7 +273,7 @@ class AgentSpec:
         for spec in specs_str.split(","):
             spec = spec.strip()
             if spec:
-                specs.append(cls.parse(spec))
+                specs.append(cls.parse(spec, _warn=False))
 
         return specs
 

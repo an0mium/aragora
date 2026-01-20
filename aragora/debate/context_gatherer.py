@@ -56,9 +56,17 @@ class ContextGatherer:
     - Local documentation
     - Pulse/trending topics from social platforms
 
+    IMPORTANT: ContextGatherer should be instantiated ONCE PER DEBATE.
+    It maintains internal caches keyed by task hash to prevent context leakage.
+    Do not reuse a single ContextGatherer instance across multiple debates.
+
     Usage:
+        # Create per-debate (done automatically by Arena.init_phases())
         gatherer = ContextGatherer(evidence_store_callback=store_evidence)
         context = await gatherer.gather_all(task="Discuss AI safety")
+
+        # Clear cache if reusing (not recommended)
+        gatherer.clear_cache()
     """
 
     def __init__(

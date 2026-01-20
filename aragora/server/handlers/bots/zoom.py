@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ class ZoomHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @rate_limit(rpm=30)
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -86,6 +88,7 @@ class ZoomHandler(BaseHandler):
 
         return None
 
+    @rate_limit(rpm=30)
     def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:

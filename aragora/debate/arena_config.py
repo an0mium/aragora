@@ -180,7 +180,7 @@ class ArenaConfig:
 
     # Agent selection (performance-based team formation)
     agent_selector: Optional[Any] = None  # AgentSelector for performance-based selection
-    use_performance_selection: bool = False  # Enable ELO/calibration-based agent selection
+    use_performance_selection: bool = True  # Enable ELO/calibration-based agent selection (default: on)
 
     # Airlock resilience layer
     use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
