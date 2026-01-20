@@ -360,10 +360,10 @@ class TestRabbitMQConnection:
         mock_connection = AsyncMock()
         mock_connection.channel = AsyncMock(return_value=mock_channel)
 
-        with patch(
-            "aio_pika.connect_robust",
-            AsyncMock(return_value=mock_connection),
-        ):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.connect_robust = AsyncMock(return_value=mock_connection)
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.connect()
 
             assert result is True
@@ -399,10 +399,10 @@ class TestRabbitMQConnection:
         mock_connection = AsyncMock()
         mock_connection.channel = AsyncMock(return_value=mock_channel)
 
-        with patch(
-            "aio_pika.connect_robust",
-            AsyncMock(return_value=mock_connection),
-        ):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.connect_robust = AsyncMock(return_value=mock_connection)
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.connect()
 
             assert result is True
@@ -459,10 +459,14 @@ class TestRabbitMQPublish:
 
         connector._channel = mock_channel
 
-        with patch("aio_pika.Message") as mock_message_class:
-            mock_message = MagicMock()
-            mock_message_class.return_value = mock_message
+        mock_aio_pika = MagicMock()
+        mock_message = MagicMock()
+        mock_aio_pika.Message.return_value = mock_message
+        mock_aio_pika.DeliveryMode = MagicMock()
+        mock_aio_pika.DeliveryMode.PERSISTENT = 2
+        mock_aio_pika.DeliveryMode.NOT_PERSISTENT = 1
 
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.publish(
                 body={"type": "event", "data": "test"},
                 routing_key="events.new",
@@ -491,7 +495,13 @@ class TestRabbitMQPublish:
 
         connector._channel = mock_channel
 
-        with patch("aio_pika.Message"):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.Message.return_value = MagicMock()
+        mock_aio_pika.DeliveryMode = MagicMock()
+        mock_aio_pika.DeliveryMode.PERSISTENT = 2
+        mock_aio_pika.DeliveryMode.NOT_PERSISTENT = 1
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.publish(
                 body="test message",
                 routing_key="test.key",
@@ -572,10 +582,10 @@ class TestRabbitMQErrorHandling:
         config = RabbitMQConfig()
         connector = RabbitMQConnector(config)
 
-        with patch(
-            "aio_pika.connect_robust",
-            AsyncMock(side_effect=Exception("Connection refused")),
-        ):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.connect_robust = AsyncMock(side_effect=Exception("Connection refused"))
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.connect()
 
         assert result is False
@@ -599,7 +609,13 @@ class TestRabbitMQErrorHandling:
 
         connector._channel = mock_channel
 
-        with patch("aio_pika.Message"):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.Message.return_value = MagicMock()
+        mock_aio_pika.DeliveryMode = MagicMock()
+        mock_aio_pika.DeliveryMode.PERSISTENT = 2
+        mock_aio_pika.DeliveryMode.NOT_PERSISTENT = 1
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.publish(body="test")
 
         assert result is False
@@ -653,10 +669,10 @@ class TestRabbitMQDeadLetterQueue:
         mock_connection = AsyncMock()
         mock_connection.channel = AsyncMock(return_value=mock_channel)
 
-        with patch(
-            "aio_pika.connect_robust",
-            AsyncMock(return_value=mock_connection),
-        ):
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.connect_robust = AsyncMock(return_value=mock_connection)
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
             result = await connector.connect()
 
             # Verify queue was declared with DLQ arguments

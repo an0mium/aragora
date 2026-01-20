@@ -32,11 +32,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
+from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
     SyncState,
 )
+from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +326,61 @@ class KafkaConnector(EnterpriseConnector):
             "consumed_count": self._consumed_count,
             "error_count": self._error_count,
         }
+
+    # Required abstract method implementations
+
+    @property
+    def source_type(self) -> SourceType:
+        """The source type for this connector."""
+        return SourceType.EXTERNAL_API
+
+    @property
+    def name(self) -> str:
+        """Human-readable name for this connector."""
+        return "Kafka"
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> list[Evidence]:
+        """
+        Search is not supported for streaming connectors.
+
+        Kafka is a real-time stream - historical search requires
+        specialized tooling like ksqlDB or Kafka Connect with search index.
+        """
+        logger.warning("[Kafka] Search not supported for streaming connector")
+        return []
+
+    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+        """
+        Fetch is not supported for streaming connectors.
+
+        Kafka messages are consumed once and not randomly accessible
+        without specialized offset management.
+        """
+        logger.warning("[Kafka] Fetch not supported for streaming connector")
+        return None
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """
+        Yield items from Kafka topics for incremental sync.
+
+        Args:
+            state: Sync state with cursor position
+            batch_size: Number of messages to consume per batch
+
+        Yields:
+            SyncItem objects for Knowledge Mound ingestion
+        """
+        async for item in self.sync(batch_size=batch_size):
+            yield item
 
 
 __all__ = ["KafkaConnector", "KafkaConfig", "KafkaMessage"]
