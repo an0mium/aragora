@@ -73,6 +73,8 @@ class StreamEventType(Enum):
     # Memory/learning events
     MEMORY_RECALL = "memory_recall"  # Historical context retrieved from memory
     INSIGHT_EXTRACTED = "insight_extracted"  # New insight extracted from debate
+    MEMORY_STORED = "memory_stored"  # New memory stored in ContinuumMemory
+    MEMORY_RETRIEVED = "memory_retrieved"  # Memory retrieved from any tier
 
     # Ranking/leaderboard events (debate consensus feature)
     MATCH_RECORDED = "match_recorded"  # ELO match recorded, leaderboard updated
@@ -80,6 +82,13 @@ class StreamEventType(Enum):
     GROUNDED_VERDICT = "grounded_verdict"  # Evidence-backed verdict with citations
     MOMENT_DETECTED = "moment_detected"  # Significant narrative moment detected
     AGENT_ELO_UPDATED = "agent_elo_updated"  # Individual agent ELO change
+    AGENT_CALIBRATION_CHANGED = "agent_calibration_changed"  # Agent calibration updated
+    AGENT_FALLBACK_TRIGGERED = "agent_fallback_triggered"  # Agent fell back to alternate provider
+
+    # Knowledge Mound events (cross-pollination)
+    KNOWLEDGE_INDEXED = "knowledge_indexed"  # Document/chunk indexed in Knowledge Mound
+    KNOWLEDGE_QUERIED = "knowledge_queried"  # Knowledge Mound semantic search executed
+    MOUND_UPDATED = "mound_updated"  # Knowledge Mound structure updated
 
     # Claim verification events
     CLAIM_VERIFICATION_RESULT = "claim_verification_result"  # Claim verification outcome

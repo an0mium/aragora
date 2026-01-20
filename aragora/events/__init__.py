@@ -37,6 +37,11 @@ from .types import (
     StreamEvent,
     StreamEventType,
 )
+from .cross_subscribers import (
+    CrossSubscriberManager,
+    SubscriberStats,
+    get_cross_subscriber_manager,
+)
 
 __all__ = [
     # Event types (shared layer)
@@ -50,4 +55,8 @@ __all__ = [
     "dispatch_event",
     "dispatch_webhook",
     "shutdown_dispatcher",
+    # Cross-subsystem subscribers
+    "CrossSubscriberManager",
+    "SubscriberStats",
+    "get_cross_subscriber_manager",
 ]
