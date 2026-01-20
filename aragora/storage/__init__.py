@@ -38,6 +38,17 @@ from .integration_store import (
     reset_integration_store,
     VALID_INTEGRATION_TYPES,
 )
+from .gmail_token_store import (
+    GmailUserState,
+    SyncJobState,
+    GmailTokenStoreBackend,
+    InMemoryGmailTokenStore,
+    SQLiteGmailTokenStore,
+    RedisGmailTokenStore,
+    get_gmail_token_store,
+    set_gmail_token_store,
+    reset_gmail_token_store,
+)
 
 __all__ = [
     # Legacy base classes
@@ -72,4 +83,14 @@ __all__ = [
     "set_integration_store",
     "reset_integration_store",
     "VALID_INTEGRATION_TYPES",
+    # Gmail token storage
+    "GmailUserState",
+    "SyncJobState",
+    "GmailTokenStoreBackend",
+    "InMemoryGmailTokenStore",
+    "SQLiteGmailTokenStore",
+    "RedisGmailTokenStore",
+    "get_gmail_token_store",
+    "set_gmail_token_store",
+    "reset_gmail_token_store",
 ]
