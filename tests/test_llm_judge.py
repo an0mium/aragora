@@ -652,3 +652,586 @@ class TestEvaluationIntegration:
 
         # Creative profile should rate this higher
         assert creative_score > factual_score
+
+
+# =============================================================================
+# Parsing Robustness Tests
+# =============================================================================
+
+
+class TestParseEvaluation:
+    """Tests for _parse_evaluation method robustness."""
+
+    def test_parse_json_in_code_block(self):
+        """Test parsing JSON wrapped in markdown code block."""
+        judge = LLMJudge()
+        text = '''Here is the evaluation:
+```json
+{
+    "dimension_scores": {
+        "relevance": {"score": 4, "confidence": 0.9, "feedback": "Very relevant"},
+        "accuracy": {"score": 5, "confidence": 0.95, "feedback": "Accurate"}
+    }
+}
+```
+'''
+        scores = judge._parse_evaluation(text)
+
+        assert EvaluationDimension.RELEVANCE in scores
+        assert scores[EvaluationDimension.RELEVANCE].score == 4.0
+        assert scores[EvaluationDimension.ACCURACY].score == 5.0
+
+    def test_parse_raw_json(self):
+        """Test parsing raw JSON without code block."""
+        judge = LLMJudge()
+        text = '''{"dimension_scores": {"relevance": {"score": 3, "confidence": 0.7, "feedback": "Ok"}}}'''
+
+        scores = judge._parse_evaluation(text)
+
+        assert EvaluationDimension.RELEVANCE in scores
+        assert scores[EvaluationDimension.RELEVANCE].score == 3.0
+
+    def test_parse_malformed_json_returns_defaults(self):
+        """Test that malformed JSON returns default scores."""
+        judge = LLMJudge()
+        text = '''```json
+{"dimension_scores": {"relevance": {invalid json here
+```'''
+
+        scores = judge._parse_evaluation(text)
+
+        # Should return default scores for all dimensions
+        assert len(scores) == 8
+        for dim_score in scores.values():
+            assert dim_score.confidence == 0.2
+            assert "Parse error" in dim_score.feedback
+
+    def test_parse_missing_dimension_uses_default(self):
+        """Test that missing dimensions get default scores."""
+        judge = LLMJudge()
+        text = '''```json
+{"dimension_scores": {"relevance": {"score": 5, "confidence": 1.0, "feedback": "Perfect"}}}
+```'''
+
+        scores = judge._parse_evaluation(text)
+
+        # Relevance should have the parsed score
+        assert scores[EvaluationDimension.RELEVANCE].score == 5.0
+
+        # Other dimensions should have defaults
+        assert scores[EvaluationDimension.ACCURACY].score == 3.0
+        assert scores[EvaluationDimension.ACCURACY].feedback == "Dimension not evaluated"
+
+    def test_parse_no_json_uses_text_extraction(self):
+        """Test fallback to text extraction when no JSON found."""
+        judge = LLMJudge()
+        text = '''
+        relevance: 4
+        accuracy: 5
+        completeness: 3
+        '''
+
+        scores = judge._parse_evaluation(text)
+
+        assert scores[EvaluationDimension.RELEVANCE].score == 4.0
+        assert scores[EvaluationDimension.ACCURACY].score == 5.0
+        assert scores[EvaluationDimension.COMPLETENESS].score == 3.0
+
+
+class TestExtractScoreFromText:
+    """Tests for _extract_score_from_text method."""
+
+    def test_extract_score_with_colon(self):
+        """Test extracting score with colon format."""
+        judge = LLMJudge()
+
+        assert judge._extract_score_from_text("relevance: 4", "relevance") == 4.0
+        assert judge._extract_score_from_text("accuracy:5", "accuracy") == 5.0
+
+    def test_extract_score_with_space(self):
+        """Test extracting score with space format."""
+        judge = LLMJudge()
+
+        assert judge._extract_score_from_text("clarity 3", "clarity") == 3.0
+
+    def test_extract_decimal_score(self):
+        """Test extracting decimal scores."""
+        judge = LLMJudge()
+
+        assert judge._extract_score_from_text("reasoning: 4.5", "reasoning") == 4.5
+
+    def test_clamp_score_to_range(self):
+        """Test that scores are clamped to 1-5 range."""
+        judge = LLMJudge()
+
+        # Above 5 should clamp to 5
+        assert judge._extract_score_from_text("relevance: 9", "relevance") == 5.0
+
+        # Below 1 should clamp to 1
+        assert judge._extract_score_from_text("accuracy: 0", "accuracy") == 1.0
+
+    def test_no_match_returns_default(self):
+        """Test that no match returns default score of 3."""
+        judge = LLMJudge()
+
+        assert judge._extract_score_from_text("no score here", "relevance") == 3.0
+
+    def test_case_insensitive_matching(self):
+        """Test case insensitive dimension matching."""
+        judge = LLMJudge()
+
+        assert judge._extract_score_from_text("RELEVANCE: 4", "relevance") == 4.0
+        assert judge._extract_score_from_text("Accuracy: 5", "accuracy") == 5.0
+
+
+class TestExtractFeedback:
+    """Tests for _extract_feedback method."""
+
+    def test_extract_all_feedback_fields(self):
+        """Test extracting all feedback fields from JSON."""
+        judge = LLMJudge()
+        text = '''```json
+{
+    "summary": "Good response overall",
+    "strengths": ["Clear", "Concise"],
+    "weaknesses": ["Lacks detail"],
+    "suggestions": ["Add examples"]
+}
+```'''
+
+        feedback = judge._extract_feedback(text)
+
+        assert feedback["summary"] == "Good response overall"
+        assert feedback["strengths"] == ["Clear", "Concise"]
+        assert feedback["weaknesses"] == ["Lacks detail"]
+        assert feedback["suggestions"] == ["Add examples"]
+
+    def test_extract_partial_feedback(self):
+        """Test extracting partial feedback fields."""
+        judge = LLMJudge()
+        text = '''```json
+{"summary": "Brief summary"}
+```'''
+
+        feedback = judge._extract_feedback(text)
+
+        assert feedback["summary"] == "Brief summary"
+        assert feedback["strengths"] == []
+        assert feedback["weaknesses"] == []
+
+    def test_extract_feedback_no_json(self):
+        """Test feedback extraction with no JSON returns empty defaults."""
+        judge = LLMJudge()
+        text = "Just some text without JSON"
+
+        feedback = judge._extract_feedback(text)
+
+        assert feedback["summary"] == ""
+        assert feedback["strengths"] == []
+
+
+class TestParseComparison:
+    """Tests for _parse_comparison method."""
+
+    def test_parse_winner_a(self):
+        """Test parsing comparison with winner A."""
+        judge = LLMJudge()
+        text = '''```json
+{
+    "winner": "A",
+    "confidence": 0.85,
+    "dimension_preferences": {"relevance": "A", "accuracy": "B"},
+    "explanation": "A was more relevant"
+}
+```'''
+
+        result = judge._parse_comparison(text)
+
+        assert result["winner"] == "A"
+        assert result["confidence"] == 0.85
+        assert result["dimension_preferences"]["relevance"] == "A"
+
+    def test_parse_tie(self):
+        """Test parsing comparison with tie."""
+        judge = LLMJudge()
+        text = '''```json
+{"winner": "tie", "confidence": 0.5, "explanation": "Both equally good"}
+```'''
+
+        result = judge._parse_comparison(text)
+
+        assert result["winner"] == "tie"
+
+    def test_parse_no_json_returns_defaults(self):
+        """Test parsing with no JSON returns defaults."""
+        judge = LLMJudge()
+        text = "No JSON here"
+
+        result = judge._parse_comparison(text)
+
+        assert result["winner"] == "tie"
+        assert result["confidence"] == 0.5
+
+
+# =============================================================================
+# Prompt Building Tests
+# =============================================================================
+
+
+class TestBuildEvaluationPrompt:
+    """Tests for _build_evaluation_prompt method."""
+
+    def test_prompt_includes_query_and_response(self):
+        """Test prompt includes query and response."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(
+            query="What is Python?",
+            response="Python is a programming language.",
+        )
+
+        assert "What is Python?" in prompt
+        assert "Python is a programming language." in prompt
+
+    def test_prompt_includes_context_when_provided(self):
+        """Test prompt includes context when provided."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(
+            query="Explain this code",
+            response="The code does X",
+            context="def foo(): pass",
+        )
+
+        assert "def foo(): pass" in prompt
+        assert "Context" in prompt
+
+    def test_prompt_includes_reference_when_provided(self):
+        """Test prompt includes reference answer when provided."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(
+            query="What is 2+2?",
+            response="4",
+            reference="The answer is 4",
+        )
+
+        assert "The answer is 4" in prompt
+        assert "Reference" in prompt
+
+    def test_prompt_includes_all_dimension_rubrics(self):
+        """Test prompt includes rubrics for all dimensions."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(
+            query="Test",
+            response="Test",
+        )
+
+        for dim in EvaluationDimension:
+            assert dim.value.upper() in prompt
+
+    def test_prompt_respects_dimension_subset(self):
+        """Test prompt only includes specified dimensions."""
+        config = JudgeConfig(
+            dimensions=[EvaluationDimension.RELEVANCE, EvaluationDimension.ACCURACY]
+        )
+        judge = LLMJudge(config)
+        prompt = judge._build_evaluation_prompt(
+            query="Test",
+            response="Test",
+        )
+
+        assert "RELEVANCE" in prompt
+        assert "ACCURACY" in prompt
+        # Other dimensions should not be in prompt (rubric section)
+        # Note: they may appear in JSON format example
+
+
+class TestBuildComparisonPrompt:
+    """Tests for _build_comparison_prompt method."""
+
+    def test_comparison_prompt_includes_both_responses(self):
+        """Test comparison prompt includes both responses."""
+        judge = LLMJudge()
+        prompt = judge._build_comparison_prompt(
+            query="Which is better?",
+            response_a="Answer A",
+            response_b="Answer B",
+        )
+
+        assert "Response A" in prompt
+        assert "Answer A" in prompt
+        assert "Response B" in prompt
+        assert "Answer B" in prompt
+
+    def test_comparison_prompt_includes_dimensions(self):
+        """Test comparison prompt lists dimensions."""
+        judge = LLMJudge()
+        prompt = judge._build_comparison_prompt(
+            query="Test",
+            response_a="A",
+            response_b="B",
+        )
+
+        assert "relevance" in prompt
+        assert "accuracy" in prompt
+
+
+# =============================================================================
+# Multi-Judge Tests
+# =============================================================================
+
+
+class TestMultiJudge:
+    """Tests for multi-judge evaluation."""
+
+    @pytest.mark.asyncio
+    async def test_secondary_evaluation_averages_scores(self):
+        """Test that secondary evaluation averages scores by confidence."""
+        config = JudgeConfig(use_multiple_judges=True)
+        judge = LLMJudge(config)
+
+        # Create initial result
+        result = EvaluationResult()
+        result.dimension_scores = {
+            EvaluationDimension.RELEVANCE: DimensionScore(
+                dimension=EvaluationDimension.RELEVANCE,
+                score=4.0,
+                confidence=0.8,
+                feedback="Primary: Good",
+            ),
+        }
+
+        # Mock secondary evaluation
+        secondary_scores = {
+            EvaluationDimension.RELEVANCE: DimensionScore(
+                dimension=EvaluationDimension.RELEVANCE,
+                score=5.0,
+                confidence=0.9,
+                feedback="Secondary: Excellent",
+            ),
+        }
+
+        with patch.object(LLMJudge, "evaluate", new_callable=AsyncMock) as mock_eval:
+            mock_result = EvaluationResult(dimension_scores=secondary_scores)
+            mock_eval.return_value = mock_result
+
+            await judge._add_secondary_evaluation(
+                result, "query", "response", None, None
+            )
+
+        # Check averaging: (4.0 * 0.8 + 5.0 * 0.9) / (0.8 + 0.9) ≈ 4.53
+        assert result.dimension_scores[EvaluationDimension.RELEVANCE].score > 4.0
+        assert result.dimension_scores[EvaluationDimension.RELEVANCE].score < 5.0
+
+    @pytest.mark.asyncio
+    async def test_secondary_evaluation_failure_graceful(self):
+        """Test that secondary evaluation failure is handled gracefully."""
+        config = JudgeConfig(use_multiple_judges=True)
+        judge = LLMJudge(config)
+
+        result = EvaluationResult()
+        result.dimension_scores = {
+            EvaluationDimension.RELEVANCE: DimensionScore(
+                dimension=EvaluationDimension.RELEVANCE,
+                score=4.0,
+                confidence=0.8,
+                feedback="Good",
+            ),
+        }
+        original_score = result.dimension_scores[EvaluationDimension.RELEVANCE].score
+
+        with patch.object(LLMJudge, "evaluate", new_callable=AsyncMock) as mock_eval:
+            mock_eval.side_effect = Exception("Secondary failed")
+
+            await judge._add_secondary_evaluation(
+                result, "query", "response", None, None
+            )
+
+        # Original scores should be unchanged
+        assert result.dimension_scores[EvaluationDimension.RELEVANCE].score == original_score
+
+
+# =============================================================================
+# Batch Processing Tests
+# =============================================================================
+
+
+class TestBatchEvaluation:
+    """Tests for batch evaluation."""
+
+    @pytest.mark.asyncio
+    async def test_evaluate_batch_parallel(self):
+        """Test batch evaluation runs in parallel."""
+        judge = LLMJudge()
+
+        items = [
+            {"query": "Q1", "response": "R1"},
+            {"query": "Q2", "response": "R2"},
+            {"query": "Q3", "response": "R3"},
+        ]
+
+        with patch.object(judge, "evaluate", new_callable=AsyncMock) as mock_eval:
+            mock_eval.return_value = EvaluationResult()
+
+            results = await judge.evaluate_batch(items)
+
+        assert len(results) == 3
+        assert mock_eval.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_evaluate_batch_passes_optional_fields(self):
+        """Test batch evaluation passes optional fields."""
+        judge = LLMJudge()
+
+        items = [
+            {
+                "query": "Q1",
+                "response": "R1",
+                "context": "C1",
+                "reference": "Ref1",
+                "response_id": "id-1",
+            },
+        ]
+
+        with patch.object(judge, "evaluate", new_callable=AsyncMock) as mock_eval:
+            mock_eval.return_value = EvaluationResult()
+
+            await judge.evaluate_batch(items)
+
+        mock_eval.assert_called_once_with(
+            query="Q1",
+            response="R1",
+            context="C1",
+            reference="Ref1",
+            response_id="id-1",
+        )
+
+
+# =============================================================================
+# Edge Cases Tests
+# =============================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_threshold_exactly_at_boundary(self):
+        """Test threshold check at exact boundary."""
+        result = EvaluationResult()
+        result.dimension_scores = {
+            EvaluationDimension.RELEVANCE: DimensionScore(
+                dimension=EvaluationDimension.RELEVANCE,
+                score=3.5,
+                confidence=1.0,
+                feedback="Average",
+            ),
+        }
+
+        result.calculate_overall_score()
+        result.threshold_used = 3.5
+        result.passes_threshold = result.overall_score >= result.threshold_used
+
+        # Exactly at threshold should pass
+        assert result.passes_threshold is True
+
+    def test_threshold_just_below_boundary(self):
+        """Test threshold check just below boundary."""
+        result = EvaluationResult()
+        result.dimension_scores = {
+            EvaluationDimension.RELEVANCE: DimensionScore(
+                dimension=EvaluationDimension.RELEVANCE,
+                score=3.49,
+                confidence=1.0,
+                feedback="Below average",
+            ),
+        }
+
+        result.calculate_overall_score()
+        result.threshold_used = 3.5
+        result.passes_threshold = result.overall_score >= result.threshold_used
+
+        assert result.passes_threshold is False
+
+    def test_empty_query_and_response(self):
+        """Test handling of empty query and response."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(query="", response="")
+
+        # Should still build a valid prompt
+        assert "Query/Task" in prompt
+        assert "Response to Evaluate" in prompt
+
+    def test_very_long_response(self):
+        """Test handling of very long response."""
+        judge = LLMJudge()
+        long_response = "x" * 10000
+
+        prompt = judge._build_evaluation_prompt(
+            query="Summarize",
+            response=long_response,
+        )
+
+        assert long_response in prompt
+
+    def test_special_characters_in_content(self):
+        """Test handling of special characters."""
+        judge = LLMJudge()
+        prompt = judge._build_evaluation_prompt(
+            query='What is "Python"?',
+            response='It\'s a <language> with {curly} braces',
+        )
+
+        assert '"Python"' in prompt
+        assert "<language>" in prompt
+
+    def test_subset_of_dimensions(self):
+        """Test evaluation with subset of dimensions."""
+        config = JudgeConfig(
+            dimensions=[EvaluationDimension.SAFETY, EvaluationDimension.ACCURACY]
+        )
+        judge = LLMJudge(config)
+
+        assert len(judge._dimensions) == 2
+        assert EvaluationDimension.SAFETY in judge._dimensions
+        assert EvaluationDimension.ACCURACY in judge._dimensions
+        assert EvaluationDimension.CREATIVITY not in judge._dimensions
+
+
+# =============================================================================
+# Convenience Function Tests
+# =============================================================================
+
+
+class TestConvenienceFunctions:
+    """Tests for module-level convenience functions."""
+
+    @pytest.mark.asyncio
+    async def test_evaluate_response_creates_judge(self):
+        """Test evaluate_response convenience function."""
+        from aragora.evaluation.llm_judge import evaluate_response
+
+        with patch.object(LLMJudge, "evaluate", new_callable=AsyncMock) as mock_eval:
+            mock_eval.return_value = EvaluationResult()
+
+            result = await evaluate_response(
+                query="Test query",
+                response="Test response",
+                use_case="debate",
+            )
+
+        assert isinstance(result, EvaluationResult)
+
+    @pytest.mark.asyncio
+    async def test_compare_responses_creates_judge(self):
+        """Test compare_responses convenience function."""
+        from aragora.evaluation.llm_judge import compare_responses
+
+        with patch.object(LLMJudge, "compare", new_callable=AsyncMock) as mock_compare:
+            mock_compare.return_value = PairwiseResult()
+
+            result = await compare_responses(
+                query="Which is better?",
+                response_a="A",
+                response_b="B",
+                use_case="factual_qa",
+            )
+
+        assert isinstance(result, PairwiseResult)

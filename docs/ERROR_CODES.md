@@ -252,8 +252,46 @@ Webhook error events include:
   }
 ```
 
+## RLM (Context Compression) Errors
+
+| Code | Status | Message | Solution |
+|------|--------|---------|----------|
+| `RLM_UNAVAILABLE` | 503 | RLM compression service unavailable | RLM backend not configured |
+| `CONTEXT_NOT_FOUND` | 404 | Context ID not found | Verify context ID from compress response |
+| `CONTENT_TOO_LARGE` | 413 | Content exceeds 10MB limit | Split content into smaller chunks |
+| `INVALID_SOURCE_TYPE` | 400 | Invalid source_type | Use: text, code, document, conversation |
+| `INVALID_COMPRESSION_LEVELS` | 400 | Levels must be 1-5 | Reduce compression levels |
+| `INVALID_QUERY_STRATEGY` | 400 | Invalid query strategy | Use: auto, bm25, semantic, hybrid |
+
+## Knowledge Errors
+
+| Code | Status | Message | Solution |
+|------|--------|---------|----------|
+| `KNOWLEDGE_NOT_FOUND` | 404 | Knowledge item not found | Verify item ID |
+| `INGESTION_FAILED` | 500 | Knowledge ingestion failed | Check content format |
+| `RETRIEVAL_FAILED` | 500 | Knowledge retrieval failed | Retry or check embeddings |
+
+## Workflow Errors
+
+| Code | Status | Message | Solution |
+|------|--------|---------|----------|
+| `WORKFLOW_NOT_FOUND` | 404 | Workflow not found | Verify workflow ID |
+| `WORKFLOW_INVALID` | 400 | Invalid workflow definition | Check workflow YAML syntax |
+| `NODE_EXECUTION_FAILED` | 500 | Workflow node failed | Check node configuration |
+| `WORKFLOW_TIMEOUT` | 504 | Workflow execution timed out | Increase timeout or simplify workflow |
+
+## Checkpoint Errors
+
+| Code | Status | Message | Solution |
+|------|--------|---------|----------|
+| `CHECKPOINT_NOT_FOUND` | 404 | Checkpoint not found | Verify checkpoint ID |
+| `CHECKPOINT_EXPIRED` | 410 | Checkpoint has expired | Checkpoints expire after 24h |
+| `CHECKPOINT_CORRUPTED` | 500 | Checkpoint data corrupted | Create new debate |
+| `RESUME_FAILED` | 500 | Failed to resume from checkpoint | Verify checkpoint integrity |
+
 ## Related Documentation
 
 - [API Reference](API_REFERENCE.md) - Full API documentation
 - [WebSocket Events](WEBSOCKET_EVENTS.md) - Real-time event reference
 - [Rate Limiting](API_REFERENCE.md#rate-limiting) - Rate limit details
+- [API Quick Start](API_QUICK_START.md) - Getting started guide

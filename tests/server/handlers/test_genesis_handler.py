@@ -42,8 +42,9 @@ def mock_http_handler():
 def reset_rate_limiter():
     """Reset rate limiter before each test."""
     from aragora.server.handlers.genesis import _genesis_limiter
-    if hasattr(_genesis_limiter, '_requests'):
-        _genesis_limiter._requests.clear()
+    # RateLimiter uses _buckets (dict of timestamp lists), not _requests
+    if hasattr(_genesis_limiter, '_buckets'):
+        _genesis_limiter._buckets.clear()
     yield
 
 
@@ -663,13 +664,13 @@ class TestGenesisHandlerPopulationEndpoint:
 
     def test_population_returns_503_when_unavailable(self, handler, mock_http_handler):
         """Population endpoint returns 503 when breeding module unavailable."""
-        with patch("aragora.server.handlers.genesis.PopulationManager", None):
-            with patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
-                result = handler.handle(
-                    "/api/genesis/population",
-                    {},
-                    mock_http_handler,
-                )
+        # PopulationManager is imported inside _get_population, so patch the module
+        with patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
+            result = handler.handle(
+                "/api/genesis/population",
+                {},
+                mock_http_handler,
+            )
 
         assert result is not None
         # Either 503 (module unavailable) or 500 (import error)

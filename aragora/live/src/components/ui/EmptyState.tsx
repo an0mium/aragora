@@ -154,4 +154,60 @@ export const MemoryEmptyState = () => (
   />
 );
 
+export const MomentsEmptyState = ({ onViewDebates }: { onViewDebates?: () => void }) => (
+  <EmptyState
+    icon="✨"
+    title="No moments yet"
+    description="Moments are significant events and achievements captured during debates."
+    action={onViewDebates ? { label: 'VIEW DEBATES', onClick: onViewDebates } : undefined}
+    secondaryAction={{ label: 'What are moments?', href: '/docs/moments' }}
+  />
+);
+
+export const WorkflowsEmptyState = ({ onCreate }: { onCreate?: () => void }) => (
+  <EmptyState
+    icon="🔄"
+    title="No workflows yet"
+    description="Create automated workflows to orchestrate multi-step debate processes."
+    action={onCreate ? { label: 'CREATE WORKFLOW', onClick: onCreate } : undefined}
+    secondaryAction={{ label: 'Browse templates', href: '/workflows/builder' }}
+  />
+);
+
+export const SocialEmptyState = ({ onConnect }: { onConnect?: () => void }) => (
+  <EmptyState
+    icon="📱"
+    title="No social connections"
+    description="Connect your social accounts to publish debate results and insights."
+    action={onConnect ? { label: 'CONNECT ACCOUNT', onClick: onConnect } : undefined}
+  />
+);
+
+export const MLEmptyState = ({ onTrain }: { onTrain?: () => void }) => (
+  <EmptyState
+    icon="🧪"
+    title="No ML models trained"
+    description="Train machine learning models on your debate data to improve routing and quality."
+    action={onTrain ? { label: 'START TRAINING', onClick: onTrain } : undefined}
+    secondaryAction={{ label: 'Learn about ML features', href: '/docs/ml' }}
+  />
+);
+
+export const InsightsEmptyState = ({ onRunDebate }: { onRunDebate?: () => void }) => (
+  <EmptyState
+    icon="💡"
+    title="No insights available"
+    description="Run debates to generate insights from agent discussions and conclusions."
+    action={onRunDebate ? { label: 'START DEBATE', onClick: onRunDebate } : undefined}
+  />
+);
+
+export const HistoryEmptyState = () => (
+  <EmptyState
+    icon="📜"
+    title="No history yet"
+    description="Your activity history will appear here as you use the platform."
+  />
+);
+
 export default EmptyState;

@@ -480,6 +480,8 @@ def cmd_improve(args: argparse.Namespace) -> None:
 def cmd_serve(args: argparse.Namespace) -> None:
     """Handle 'serve' command - run live debate server."""
     import asyncio
+    import multiprocessing
+    import signal
     from pathlib import Path
 
     try:
@@ -500,28 +502,82 @@ def cmd_serve(args: argparse.Namespace) -> None:
         if docs_dir.exists():
             static_dir = docs_dir
 
+    workers = getattr(args, "workers", 1)
+    workers = max(1, workers)
+
     print("\n" + "=" * 60)
     print("ARAGORA LIVE DEBATE SERVER")
     print("=" * 60)
-    print(f"\nWebSocket: ws://{args.host}:{args.ws_port}")
-    print(f"HTTP API:  http://{args.host}:{args.api_port}")
-    if static_dir:
-        print(f"Dashboard: http://{args.host}:{args.api_port}/")
-    print("\nPress Ctrl+C to stop\n")
-    print("=" * 60 + "\n")
 
-    try:
-        asyncio.run(
-            run_unified_server(
-                http_port=args.api_port,
-                ws_port=args.ws_port,
-                http_host=args.host,
-                ws_host=args.host,
-                static_dir=static_dir,
+    if workers == 1:
+        print(f"\nWebSocket: ws://{args.host}:{args.ws_port}")
+        print(f"HTTP API:  http://{args.host}:{args.api_port}")
+        if static_dir:
+            print(f"Dashboard: http://{args.host}:{args.api_port}/")
+        print("\nPress Ctrl+C to stop\n")
+        print("=" * 60 + "\n")
+
+        try:
+            asyncio.run(
+                run_unified_server(
+                    http_port=args.api_port,
+                    ws_port=args.ws_port,
+                    http_host=args.host,
+                    ws_host=args.host,
+                    static_dir=static_dir,
+                )
             )
-        )
-    except KeyboardInterrupt:
-        print("\n\nServer stopped.")
+        except KeyboardInterrupt:
+            print("\n\nServer stopped.")
+    else:
+        # Multi-worker mode
+        print(f"\nWorkers: {workers}")
+        print(f"HTTP ports: {args.api_port}-{args.api_port + workers - 1}")
+        print(f"WS ports: {args.ws_port}-{args.ws_port + workers - 1}")
+        print("\nTip: Use a load balancer (nginx/haproxy) to distribute traffic.")
+        print("\nPress Ctrl+C to stop\n")
+        print("=" * 60 + "\n")
+
+        def run_worker(http_port, ws_port, host, static):
+            asyncio.run(
+                run_unified_server(
+                    http_port=http_port,
+                    ws_port=ws_port,
+                    http_host=host,
+                    ws_host=host,
+                    static_dir=static,
+                )
+            )
+
+        processes = []
+
+        def shutdown_workers(signum, frame):
+            print("\nShutting down workers...")
+            for p in processes:
+                if p.is_alive():
+                    p.terminate()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, shutdown_workers)
+        signal.signal(signal.SIGTERM, shutdown_workers)
+
+        for i in range(workers):
+            http_port = args.api_port + i
+            ws_port = args.ws_port + i
+            p = multiprocessing.Process(
+                target=run_worker,
+                args=(http_port, ws_port, args.host, static_dir),
+                name=f"aragora-worker-{i}",
+            )
+            p.start()
+            processes.append(p)
+            print(f"  Worker {i}: HTTP={http_port}, WS={ws_port} (PID {p.pid})")
+
+        try:
+            for p in processes:
+                p.join()
+        except KeyboardInterrupt:
+            shutdown_workers(None, None)
 
 
 def cmd_init(args: argparse.Namespace) -> None:
