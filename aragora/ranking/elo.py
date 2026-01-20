@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.typing import EventEmitterProtocol
+    from aragora.type_protocols import EventEmitterProtocol
 
 from aragora.config import (
     CACHE_TTL_CALIBRATION_LB,

@@ -32,6 +32,17 @@ class DebateStep(BaseStep):
         timeout_seconds: float - Timeout per round (default: 120)
         memory_enabled: bool - Use memory for context (default: True)
         tenant_id: str - Tenant for multi-tenant isolation
+        arena_config: Dict - Full ArenaConfig options for advanced configuration:
+            - enable_knowledge_retrieval: bool - Pull context from Knowledge Mound
+            - enable_knowledge_ingestion: bool - Store outcomes in Knowledge Mound
+            - use_performance_selection: bool - Use ELO for agent selection
+            - enable_checkpointing: bool - Enable debate pause/resume
+            - org_id: str - Organization ID for multi-tenant isolation
+            - loop_id: str - Debate lifecycle identifier
+
+    Workflow Context State (auto-injected if present):
+        knowledge_mound: KnowledgeMound - Shared knowledge graph
+        continuum_memory: ContinuumMemory - Cross-step memory persistence
 
     Topologies:
         - "round_robin": Each agent speaks in turn
@@ -50,6 +61,10 @@ class DebateStep(BaseStep):
                 "rounds": 3,
                 "topology": "round_robin",
                 "consensus_mechanism": "unanimous",
+                "arena_config": {
+                    "enable_knowledge_retrieval": True,
+                    "org_id": "{inputs.org_id}",
+                }
             }
         )
     """
@@ -98,13 +113,48 @@ class DebateStep(BaseStep):
                 enable_synthesis=config.get("enable_synthesis", True),
             )
 
-            # Create arena
-            arena = Arena(
-                env=env,
-                agents=agents,
-                protocol=protocol,
-                timeout_seconds=config.get("timeout_seconds", 120),
-            )
+            # Build ArenaConfig if advanced options specified
+            arena_config = None
+            arena_config_dict = config.get("arena_config", {})
+            if arena_config_dict:
+                try:
+                    from aragora.debate.arena_config import ArenaConfig
+
+                    # Interpolate any template values in arena_config
+                    interpolated_config = {}
+                    for key, value in arena_config_dict.items():
+                        if isinstance(value, str):
+                            interpolated_config[key] = self._interpolate_text(value, context)
+                        else:
+                            interpolated_config[key] = value
+
+                    arena_config = ArenaConfig(**interpolated_config)
+                except Exception as e:
+                    logger.warning(f"Failed to build ArenaConfig: {e}")
+
+            # Get memory systems from context if available
+            knowledge_mound = context.state.get("knowledge_mound")
+            continuum_memory = context.state.get("continuum_memory")
+
+            # Create arena with full configuration support
+            arena_kwargs = {
+                "env": env,
+                "agents": agents,
+                "protocol": protocol,
+                "timeout_seconds": config.get("timeout_seconds", 120),
+            }
+
+            # Add arena_config if available
+            if arena_config:
+                arena_kwargs["config"] = arena_config
+
+            # Add memory systems from workflow context if available
+            if knowledge_mound:
+                arena_kwargs["knowledge_mound"] = knowledge_mound
+            if continuum_memory:
+                arena_kwargs["continuum_memory"] = continuum_memory
+
+            arena = Arena(**arena_kwargs)
 
             # Execute debate
             logger.info(f"Starting debate '{self.name}' on topic: {topic[:100]}...")

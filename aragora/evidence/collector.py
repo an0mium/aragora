@@ -3,17 +3,63 @@ Evidence Collector.
 
 Auto-collects citations and snippets from existing connectors
 to provide factual grounding for debates.
+
+SSRF Protection:
+    URL fetching is restricted to prevent Server-Side Request Forgery attacks.
+    By default, only URLs from allowlisted domains are fetched. The caller can
+    opt-in to broader URL fetching with explicit safety checks.
 """
 
 import asyncio
 import hashlib
+import ipaddress
 import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, cast
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+# Default allowed domains for URL fetching (SSRF protection)
+# These are well-known, trusted sources for research
+DEFAULT_ALLOWED_DOMAINS: FrozenSet[str] = frozenset({
+    # Code/Documentation
+    "github.com",
+    "raw.githubusercontent.com",
+    "gist.github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "docs.python.org",
+    "docs.anthropic.com",
+    "platform.openai.com",
+    "cloud.google.com",
+    "docs.microsoft.com",
+    "learn.microsoft.com",
+    "developer.mozilla.org",
+    # Research/Academic
+    "arxiv.org",
+    "wikipedia.org",
+    "en.wikipedia.org",
+    "scholar.google.com",
+    "pubmed.ncbi.nlm.nih.gov",
+    "ncbi.nlm.nih.gov",
+    # Q&A/Forums
+    "stackoverflow.com",
+    "stackexchange.com",
+    "reddit.com",
+    "news.ycombinator.com",
+    # News/Media
+    "nytimes.com",
+    "bbc.com",
+    "bbc.co.uk",
+    "reuters.com",
+    "theguardian.com",
+    # Cloud providers
+    "aws.amazon.com",
+    "azure.microsoft.com",
+})
 
 from aragora.connectors.base import Connector
 from aragora.reasoning.provenance import ProvenanceManager
@@ -158,14 +204,30 @@ class EvidencePack:
 
 
 class EvidenceCollector:
-    """Collects evidence from multiple connectors for debate grounding."""
+    """Collects evidence from multiple connectors for debate grounding.
+
+    SSRF Protection:
+        By default, URL fetching is restricted to allowlisted domains to prevent
+        Server-Side Request Forgery attacks. Use `fetch_urls=True` in collect_evidence()
+        to enable broader URL fetching with safety checks.
+    """
 
     def __init__(
         self,
         connectors: Optional[Dict[str, Connector]] = None,
         event_emitter: Optional[Any] = None,
         loop_id: Optional[str] = None,
+        allowed_domains: Optional[Set[str]] = None,
     ):
+        """Initialize the evidence collector.
+
+        Args:
+            connectors: Dict of connector name to Connector instance
+            event_emitter: Optional event emitter for real-time updates
+            loop_id: Optional loop ID for event context
+            allowed_domains: Set of allowed domains for URL fetching.
+                           Defaults to DEFAULT_ALLOWED_DOMAINS.
+        """
         self.connectors = connectors or {}
         self.provenance_manager = ProvenanceManager()
         self.max_snippets_per_connector = 3
@@ -173,10 +235,70 @@ class EvidenceCollector:
         self.snippet_max_length = 1000
         self.event_emitter = event_emitter
         self.loop_id = loop_id
+        self._allowed_domains = allowed_domains or set(DEFAULT_ALLOWED_DOMAINS)
 
     def add_connector(self, name: str, connector: Connector) -> None:
         """Add a connector for evidence collection."""
         self.connectors[name] = connector
+
+    def _is_domain_allowed(self, domain: str) -> bool:
+        """Check if domain is in the allowlist.
+
+        Handles subdomains (e.g., api.github.com matches github.com).
+        """
+        domain = domain.lower()
+        for allowed in self._allowed_domains:
+            if domain == allowed or domain.endswith(f".{allowed}"):
+                return True
+        return False
+
+    def _is_safe_url(self, url: str) -> bool:
+        """Perform SSRF safety checks on a URL.
+
+        Blocks:
+        - localhost and loopback addresses
+        - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
+        - Link-local addresses (169.254.x)
+        - Non-standard ports
+        - Non-HTTP(S) schemes
+        """
+        try:
+            parsed = urlparse(url)
+
+            # Block non-HTTP schemes
+            if parsed.scheme not in ("http", "https"):
+                logger.debug(f"SSRF: Blocked non-HTTP scheme: {parsed.scheme}")
+                return False
+
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            # Block localhost variants
+            if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+                logger.debug(f"SSRF: Blocked localhost: {hostname}")
+                return False
+
+            # Block private IP ranges
+            try:
+                ip = ipaddress.ip_address(hostname)
+                if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
+                    logger.debug(f"SSRF: Blocked private/reserved IP: {hostname}")
+                    return False
+            except ValueError:
+                # Not an IP address (hostname), which is fine
+                pass
+
+            # Block non-standard ports (only allow 80 and 443)
+            if parsed.port and parsed.port not in (80, 443):
+                logger.debug(f"SSRF: Blocked non-standard port: {parsed.port}")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.debug(f"SSRF: URL parse error: {e}")
+            return False
 
     def _emit_evidence_events(
         self,
@@ -220,19 +342,33 @@ class EvidenceCollector:
             logger.warning(f"Failed to emit evidence_found event: {e}")
 
     async def collect_evidence(
-        self, task: str, enabled_connectors: List[str] = None
+        self,
+        task: str,
+        enabled_connectors: List[str] = None,
+        fetch_urls: bool = False,
     ) -> EvidencePack:
-        """Collect evidence relevant to the task."""
+        """Collect evidence relevant to the task.
+
+        Args:
+            task: The task/topic to collect evidence for
+            enabled_connectors: List of connector names to use
+            fetch_urls: If True, fetch non-allowlisted URLs with safety checks.
+                       If False (default), only fetch URLs from allowlisted domains.
+                       This provides SSRF protection by default.
+
+        Returns:
+            EvidencePack with collected evidence snippets
+        """
         if enabled_connectors is None:
             enabled_connectors = list(self.connectors.keys())
 
         all_snippets = []
         total_searched = 0
 
-        # NEW: First, fetch any explicit URLs mentioned in the task
+        # First, fetch any explicit URLs mentioned in the task (with SSRF protection)
         explicit_urls = self._extract_urls(task)
         if explicit_urls:
-            logger.info(f"Fetching {len(explicit_urls)} explicit URL(s): {explicit_urls}")
+            logger.info(f"Found {len(explicit_urls)} URL(s) in task: {explicit_urls}")
             if "web" in self.connectors:
                 web_connector = self.connectors["web"]
                 for url in explicit_urls:
@@ -241,6 +377,19 @@ class EvidenceCollector:
                         full_url = (
                             url if url.startswith(("http://", "https://")) else f"https://{url}"
                         )
+                        parsed = urlparse(full_url)
+
+                        # SSRF Protection: Check if URL is safe to fetch
+                        if fetch_urls:
+                            # Opt-in mode: allow with safety checks
+                            if not self._is_safe_url(full_url):
+                                logger.warning(f"SSRF: Blocked unsafe URL: {full_url}")
+                                continue
+                        else:
+                            # Default mode: only allowlisted domains
+                            if not self._is_domain_allowed(parsed.netloc):
+                                logger.info(f"Skipping non-allowlisted URL: {full_url}")
+                                continue
 
                         # Special handling for GitHub repos: fetch README
                         if self._is_github_repo_url(full_url):
@@ -776,3 +925,11 @@ class EvidenceCollector:
 
         # Deduplicate
         return list(dict.fromkeys(claims))[:10]  # Max 10 claims
+
+
+__all__ = [
+    "EvidenceSnippet",
+    "EvidencePack",
+    "EvidenceCollector",
+    "DEFAULT_ALLOWED_DOMAINS",
+]

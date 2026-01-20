@@ -78,13 +78,15 @@ class RLMBackendConfig:
     model_name: str = "gpt-4o"
     sub_model_name: str = "gpt-4o-mini"
 
-    # REPL configuration
-    repl_type: str = "local"  # local, docker, modal
-    repl_timeout: int = 120
+    # Environment configuration (REPL sandbox type)
+    environment_type: str = "local"  # local, docker, modal
+    environment_timeout: int = 120
+    max_depth: int = 1  # Maximum recursion depth
+    max_iterations: int = 30  # Maximum iterations per execution
 
     # Official RLM kwargs
     verbose: bool = False
-    log_dir: Optional[str] = None
+    persistent: bool = False  # Keep environment alive between calls
 
 
 class AragoraRLM:
@@ -149,20 +151,30 @@ class AragoraRLM:
     def _init_official_rlm(self) -> None:
         """Initialize the official RLM library."""
         try:
+            # Build environment kwargs if timeout specified
+            env_kwargs = None
+            if self.backend_config.environment_timeout != 120:
+                env_kwargs = {"timeout": self.backend_config.environment_timeout}
+
             self._official_rlm = OfficialRLM(
                 backend=self.backend_config.backend,
                 backend_kwargs={
                     "model_name": self.backend_config.model_name,
                 },
-                repl=self.backend_config.repl_type,
+                environment=self.backend_config.environment_type,
+                environment_kwargs=env_kwargs,
+                max_depth=self.backend_config.max_depth,
+                max_iterations=self.backend_config.max_iterations,
                 verbose=self.backend_config.verbose,
+                persistent=self.backend_config.persistent,
             )
             logger.info(
-                f"Initialized official RLM with backend={self.backend_config.backend}, "
-                f"model={self.backend_config.model_name}"
+                f"[AragoraRLM] Initialized TRUE RLM with backend={self.backend_config.backend}, "
+                f"model={self.backend_config.model_name}, "
+                f"environment={self.backend_config.environment_type}"
             )
         except Exception as e:
-            logger.error(f"Failed to initialize official RLM: {e}")
+            logger.error(f"[AragoraRLM] Failed to initialize official RLM: {e}")
             self._official_rlm = None
 
     def _agent_call(self, prompt: str, model: str) -> str:
@@ -170,7 +182,8 @@ class AragoraRLM:
         if self._official_rlm:
             # Use official RLM for simple completions
             try:
-                return self._official_rlm.completion(prompt)
+                completion = self._official_rlm.completion(prompt)
+                return completion.response
             except Exception as e:
                 logger.warning(f"Official RLM call failed: {e}")
 
@@ -241,67 +254,79 @@ class AragoraRLM:
         Query using TRUE RLM (REPL-based recursive decomposition).
 
         This is the CORRECT approach per official RLM methodology:
-        - Model has access to context as Python variables in REPL
+        - Model has access to context via REPL environment
         - Model WRITES CODE to query/grep/partition context
         - Model can recursively call itself on subsets
         - Model has ACTIVE AGENCY in deciding how to process context
 
         Falls back to compression ONLY if TRUE RLM fails.
         """
+        import time as time_module
+
         # Format context for RLM REPL
         formatted = self._format_context_for_repl(context)
 
-        # Build RLM prompt - note we're giving model REPL access, not stuffing context
-        rlm_prompt = f"""You have access to a hierarchical context with multiple abstraction levels.
+        # Get context at different abstraction levels
+        summary_content = context.get_at_level(AbstractionLevel.SUMMARY) or ""
+        abstract_content = context.get_at_level(AbstractionLevel.ABSTRACT) or ""
+
+        # Build RLM prompt with context included
+        # The official RLM handles REPL interaction internally - model writes code
+        # to decompose and query this context recursively
+        rlm_prompt = f"""You are analyzing a hierarchical document context. Use Python code in the REPL to examine, grep, filter, and recursively process the context.
 
 ## Context Structure
 {formatted['structure']}
 
-## Available Variables (in your REPL environment)
-- CONTEXT_FULL: Full original content ({context.original_tokens} tokens)
-- CONTEXT_SUMMARY: Summary level content
-- CONTEXT_ABSTRACT: High-level abstract
-- get_node(id): Get specific node by ID
-- drill_down(id): Get children of a node
+## Context Data
+
+### Abstract Level
+{abstract_content if abstract_content else '[No abstract available]'}
+
+### Summary Level
+{summary_content if summary_content else '[No summary available]'}
+
+### Full Content ({context.original_tokens} tokens)
+{context.original_content}
 
 ## Instructions
-Use Python code to examine the context programmatically.
-You can grep, filter, partition, and recursively call yourself on subsets.
-Start with abstracts, drill down only as needed.
+1. Use Python code to programmatically examine the context
+2. You can grep for patterns, filter sections, and partition data
+3. Use RLM_M(prompt) to recursively call yourself on subsets
+4. Call FINAL(answer) when you have the answer
 
 ## Task
 Answer this question: {query}
 
-Use FINAL(answer) when done.
+Write Python code to analyze the context and call FINAL(answer) with your answer.
 """
 
+        start_time = time_module.perf_counter()
         try:
             # Run RLM completion (handles REPL internally)
-            # The model will write code to examine context
-            result = self._official_rlm.completion(
+            # The model writes code to examine context recursively
+            completion = self._official_rlm.completion(
                 rlm_prompt,
-                # Inject context as REPL variables (NOT in prompt)
-                context_vars={
-                    "CONTEXT_FULL": context.original_content,
-                    "CONTEXT_SUMMARY": context.get_at_level(AbstractionLevel.SUMMARY),
-                    "CONTEXT_ABSTRACT": context.get_at_level(AbstractionLevel.ABSTRACT),
-                    "get_node": lambda nid: self._get_node_dict(context, nid),
-                    "drill_down": lambda nid: self._drill_down_dicts(context, nid),
-                },
+                root_prompt=query,  # Small prompt visible to root LM
             )
+
+            elapsed = time_module.perf_counter() - start_time
 
             # TRUE RLM succeeded
             self._last_query_used_true_rlm = True
-            logger.info("[AragoraRLM] TRUE RLM query completed successfully")
+            logger.info(
+                f"[AragoraRLM] TRUE RLM query completed successfully "
+                f"in {completion.execution_time:.2f}s"
+            )
 
             return RLMResult(
-                answer=result,
+                answer=completion.response,
                 nodes_examined=[],  # Would need trajectory parsing
                 levels_traversed=[],
                 citations=[],
                 tokens_processed=context.original_tokens,
-                sub_calls_made=0,  # Tracked by official RLM
-                time_seconds=0.0,
+                sub_calls_made=0,  # Could parse from usage_summary
+                time_seconds=completion.execution_time,
                 confidence=0.8,
                 uncertainty_sources=[],
             )

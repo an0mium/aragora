@@ -247,6 +247,7 @@ class TournamentManager:
         self,
         db_path: Optional[str] = None,
         nomic_dir: Optional[Path] = None,
+        elo_system: Optional[Any] = None,
     ):
         """
         Initialize TournamentManager.
@@ -254,6 +255,7 @@ class TournamentManager:
         Args:
             db_path: Path to tournament SQLite database
             nomic_dir: Base directory for tournament storage
+            elo_system: Optional EloSystem instance for rating updates
         """
         from aragora.storage.base_store import SQLiteStore
 
@@ -272,6 +274,19 @@ class TournamentManager:
 
         self._db = _TournamentDB(str(self.db_path), timeout=30.0)
         self._lock = threading.RLock()
+        self._elo_system = elo_system
+
+    def set_elo_system(self, elo_system: Any) -> None:
+        """Set or update the ELO system for rating integration.
+
+        Args:
+            elo_system: EloSystem instance for rating updates
+        """
+        self._elo_system = elo_system
+
+    def get_elo_system(self) -> Optional[Any]:
+        """Get the current ELO system if configured."""
+        return self._elo_system
 
     @contextmanager
     def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -604,9 +619,11 @@ class TournamentManager:
         score1: float = 0.0,
         score2: float = 0.0,
         debate_id: Optional[str] = None,
-    ) -> None:
+        update_elo: bool = True,
+        elo_k_multiplier: float = 1.5,
+    ) -> dict[str, float]:
         """
-        Record the result of a match.
+        Record the result of a match and optionally update ELO ratings.
 
         Args:
             match_id: Match identifier
@@ -614,6 +631,11 @@ class TournamentManager:
             score1: Score for agent1
             score2: Score for agent2
             debate_id: Optional associated debate ID
+            update_elo: Whether to update ELO ratings (default True)
+            elo_k_multiplier: K-factor multiplier for tournament matches (default 1.5)
+
+        Returns:
+            Dict of agent -> ELO change (empty if ELO not configured)
 
         Raises:
             ValidationError: If scores are invalid
@@ -624,6 +646,9 @@ class TournamentManager:
         score2 = self._validate_score(score2)
 
         completed_at = datetime.utcnow().isoformat()
+        elo_changes: dict[str, float] = {}
+        agent1 = ""
+        agent2 = ""
 
         with self._lock:
             with self._get_connection() as conn:
@@ -668,6 +693,67 @@ class TournamentManager:
 
                 conn.commit()
                 logger.info(f"Recorded result for match {match_id}: winner={winner}")
+
+        # Update ELO ratings if configured and requested
+        if update_elo and self._elo_system and agent1 and agent2:
+            try:
+                # Tournament matches get higher K-factor for more impactful rating changes
+                elo_changes = self._elo_system.record_match(
+                    debate_id=debate_id or f"tournament_{match_id}",
+                    participants=[agent1, agent2],
+                    scores={agent1: score1, agent2: score2},
+                    confidence_weight=elo_k_multiplier,
+                )
+                logger.info(
+                    f"Updated ELO for tournament match {match_id}: "
+                    f"{agent1}={elo_changes.get(agent1, 0):+.1f}, "
+                    f"{agent2}={elo_changes.get(agent2, 0):+.1f}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update ELO for match {match_id}: {e}")
+
+        return elo_changes
+
+    def record_match_result_with_elo(
+        self,
+        match_id: str,
+        winner: Optional[str],
+        score1: float = 0.0,
+        score2: float = 0.0,
+        debate_id: Optional[str] = None,
+        elo_system: Optional[Any] = None,
+    ) -> dict[str, float]:
+        """
+        Record match result and update ELO ratings with a specific ELO system.
+
+        Convenience method for one-off ELO updates when no persistent ELO system
+        is configured on the tournament manager.
+
+        Args:
+            match_id: Match identifier
+            winner: Winner agent name
+            score1: Score for agent1
+            score2: Score for agent2
+            debate_id: Optional associated debate ID
+            elo_system: EloSystem instance to use for this match
+
+        Returns:
+            Dict of agent -> ELO change
+        """
+        # Temporarily set ELO system for this call
+        original_elo = self._elo_system
+        self._elo_system = elo_system
+        try:
+            return self.record_match_result(
+                match_id=match_id,
+                winner=winner,
+                score1=score1,
+                score2=score2,
+                debate_id=debate_id,
+                update_elo=True,
+            )
+        finally:
+            self._elo_system = original_elo
 
     def get_current_standings(
         self, tournament_id: Optional[str] = None
