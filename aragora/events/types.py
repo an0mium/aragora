@@ -226,6 +226,49 @@ class StreamEventType(Enum):
     TRANSCRIPTION_COMPLETE = "transcription_complete"  # Transcription finished
     TRANSCRIPTION_FAILED = "transcription_failed"  # Transcription error
 
+    # Phase 5: Autonomous Operations Events
+    # 5.1 Approval Flow events
+    APPROVAL_REQUESTED = "approval_requested"  # New approval request created
+    APPROVAL_APPROVED = "approval_approved"  # Request was approved
+    APPROVAL_REJECTED = "approval_rejected"  # Request was rejected
+    APPROVAL_TIMEOUT = "approval_timeout"  # Request timed out
+    APPROVAL_AUTO_APPROVED = "approval_auto_approved"  # Low-risk auto-approved
+
+    # 5.1 Rollback events
+    ROLLBACK_POINT_CREATED = "rollback_point_created"  # Backup point created
+    ROLLBACK_EXECUTED = "rollback_executed"  # Rollback was performed
+
+    # 5.1 Verification events (improvement cycle)
+    IMPROVEMENT_CYCLE_START = "improvement_cycle_start"  # Self-improvement started
+    IMPROVEMENT_CYCLE_VERIFIED = "improvement_cycle_verified"  # Verification passed
+    IMPROVEMENT_CYCLE_FAILED = "improvement_cycle_failed"  # Verification failed
+    IMPROVEMENT_CYCLE_COMPLETE = "improvement_cycle_complete"  # Cycle completed
+
+    # 5.2 Continuous Learning events
+    LEARNING_EVENT = "learning_event"  # Generic learning event
+    ELO_UPDATED = "elo_updated"  # ELO rating changed
+    PATTERN_DISCOVERED = "pattern_discovered"  # New pattern extracted
+    CALIBRATION_UPDATED = "calibration_updated"  # Agent calibration changed
+    KNOWLEDGE_DECAYED = "knowledge_decayed"  # Knowledge confidence reduced
+
+    # 5.3 Alert events
+    ALERT_CREATED = "alert_created"  # New alert generated
+    ALERT_ACKNOWLEDGED = "alert_acknowledged"  # Alert was acknowledged
+    ALERT_RESOLVED = "alert_resolved"  # Alert was resolved
+    ALERT_ESCALATED = "alert_escalated"  # Alert severity escalated
+
+    # 5.3 Trigger events
+    TRIGGER_ADDED = "trigger_added"  # Scheduled trigger added
+    TRIGGER_REMOVED = "trigger_removed"  # Scheduled trigger removed
+    TRIGGER_EXECUTED = "trigger_executed"  # Scheduled trigger fired
+    TRIGGER_SCHEDULER_START = "trigger_scheduler_start"  # Scheduler started
+    TRIGGER_SCHEDULER_STOP = "trigger_scheduler_stop"  # Scheduler stopped
+
+    # 5.3 Monitoring events
+    TREND_DETECTED = "trend_detected"  # Trend detected in metrics
+    ANOMALY_DETECTED = "anomaly_detected"  # Anomaly detected in metrics
+    METRIC_RECORDED = "metric_recorded"  # Metric value recorded
+
 
 @dataclass
 class StreamEvent:

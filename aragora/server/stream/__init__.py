@@ -105,6 +105,51 @@ _EXPORTS = {
         "aragora.server.stream.voice_stream",
         "VoiceSession",
     ),
+    # Autonomous operations stream (Phase 5)
+    "AutonomousStreamEmitter": (
+        "aragora.server.stream.autonomous_stream",
+        "AutonomousStreamEmitter",
+    ),
+    "AutonomousStreamClient": (
+        "aragora.server.stream.autonomous_stream",
+        "AutonomousStreamClient",
+    ),
+    "get_autonomous_emitter": (
+        "aragora.server.stream.autonomous_stream",
+        "get_autonomous_emitter",
+    ),
+    "set_autonomous_emitter": (
+        "aragora.server.stream.autonomous_stream",
+        "set_autonomous_emitter",
+    ),
+    "emit_approval_event": (
+        "aragora.server.stream.autonomous_stream",
+        "emit_approval_event",
+    ),
+    "emit_alert_event": (
+        "aragora.server.stream.autonomous_stream",
+        "emit_alert_event",
+    ),
+    "emit_trigger_event": (
+        "aragora.server.stream.autonomous_stream",
+        "emit_trigger_event",
+    ),
+    "emit_monitoring_event": (
+        "aragora.server.stream.autonomous_stream",
+        "emit_monitoring_event",
+    ),
+    "emit_learning_event": (
+        "aragora.server.stream.autonomous_stream",
+        "emit_learning_event",
+    ),
+    "autonomous_websocket_handler": (
+        "aragora.server.stream.autonomous_stream",
+        "autonomous_websocket_handler",
+    ),
+    "register_autonomous_stream_routes": (
+        "aragora.server.stream.autonomous_stream",
+        "register_autonomous_stream_routes",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -172,6 +217,18 @@ __all__ = [
     # Voice stream
     "VoiceStreamHandler",
     "VoiceSession",
+    # Autonomous operations stream (Phase 5)
+    "AutonomousStreamEmitter",
+    "AutonomousStreamClient",
+    "get_autonomous_emitter",
+    "set_autonomous_emitter",
+    "emit_approval_event",
+    "emit_alert_event",
+    "emit_trigger_event",
+    "emit_monitoring_event",
+    "emit_learning_event",
+    "autonomous_websocket_handler",
+    "register_autonomous_stream_routes",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",
