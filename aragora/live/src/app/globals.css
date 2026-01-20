@@ -41,6 +41,12 @@
     transparent 1px,
     transparent 2px
   );
+
+  /* Layout dimensions */
+  --sidebar-left-width: 256px;
+  --sidebar-left-collapsed: 64px;
+  --sidebar-right-width: 280px;
+  --topbar-height: 48px;
 }
 
 /* Light theme - warm, humanistic but still techy */
