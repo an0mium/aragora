@@ -250,7 +250,7 @@ class RLMSelectionBridge:
     ) -> float:
         """Record any RLM operation result.
 
-        Automatically detects result type and delegates.
+        Automatically detects result type and delegates based on attributes.
 
         Args:
             agent_name: Name of the agent
@@ -259,12 +259,11 @@ class RLMSelectionBridge:
         Returns:
             Current RLM boost for this agent
         """
-        # Import here to avoid circular imports
-        from aragora.rlm.types import CompressionResult, RLMResult
-
-        if isinstance(result, CompressionResult):
+        # Use duck typing to detect result type by attributes
+        # CompressionResult has estimated_fidelity, RLMResult has confidence
+        if hasattr(result, "estimated_fidelity"):
             return self.record_compression(agent_name, result)
-        elif isinstance(result, RLMResult):
+        elif hasattr(result, "confidence") and hasattr(result, "sub_calls_made"):
             return self.record_query(agent_name, result)
         else:
             logger.warning(f"Unknown RLM result type: {type(result)}")

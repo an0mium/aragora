@@ -60,15 +60,25 @@ class SyncOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
+            # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_from_continuum(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_continuum_incremental(workspace_id=workspace_id, since=since, limit=limit)
             )
         except AttributeError:
-            return json_response({
-                "synced": 0,
-                "message": "Sync from ContinuumMemory not yet implemented",
-                "workspace_id": workspace_id,
-            })
+            # Fallback: Connect continuum and try direct sync
+            try:
+                from aragora.memory import get_continuum_memory
+                continuum = get_continuum_memory()
+                _run_async(mound.connect_memory_stores(continuum=continuum))
+                result = _run_async(
+                    mound.sync_continuum_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                )
+            except Exception:
+                return json_response({
+                    "synced": 0,
+                    "message": "ContinuumMemory not available or not connected",
+                    "workspace_id": workspace_id,
+                })
         except Exception as e:
             logger.error(f"Failed to sync from continuum: {e}")
             return error_response(f"Failed to sync from continuum: {e}", 500)
@@ -102,15 +112,25 @@ class SyncOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
+            # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_from_consensus(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_consensus_incremental(workspace_id=workspace_id, since=since, limit=limit)
             )
         except AttributeError:
-            return json_response({
-                "synced": 0,
-                "message": "Sync from ConsensusMemory not yet implemented",
-                "workspace_id": workspace_id,
-            })
+            # Fallback: Connect consensus and try direct sync
+            try:
+                from aragora.memory import ConsensusMemory
+                consensus = ConsensusMemory()
+                _run_async(mound.connect_memory_stores(consensus=consensus))
+                result = _run_async(
+                    mound.sync_consensus_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                )
+            except Exception:
+                return json_response({
+                    "synced": 0,
+                    "message": "ConsensusMemory not available or not connected",
+                    "workspace_id": workspace_id,
+                })
         except Exception as e:
             logger.error(f"Failed to sync from consensus: {e}")
             return error_response(f"Failed to sync from consensus: {e}", 500)
@@ -144,15 +164,25 @@ class SyncOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
+            # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_from_facts(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_facts_incremental(workspace_id=workspace_id, since=since, limit=limit)
             )
         except AttributeError:
-            return json_response({
-                "synced": 0,
-                "message": "Sync from FactStore not yet implemented",
-                "workspace_id": workspace_id,
-            })
+            # Fallback: Connect facts store and try direct sync
+            try:
+                from aragora.knowledge.fact_store import FactStore
+                facts = FactStore()
+                _run_async(mound.connect_memory_stores(facts=facts))
+                result = _run_async(
+                    mound.sync_facts_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                )
+            except Exception:
+                return json_response({
+                    "synced": 0,
+                    "message": "FactStore not available or not connected",
+                    "workspace_id": workspace_id,
+                })
         except Exception as e:
             logger.error(f"Failed to sync from facts: {e}")
             return error_response(f"Failed to sync from facts: {e}", 500)

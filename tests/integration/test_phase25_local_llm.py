@@ -69,7 +69,8 @@ class TestLocalFallbackChain:
         """get_local_fallback_providers() returns available server names."""
         from aragora.agents.fallback import get_local_fallback_providers
 
-        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
+        # Patch _AgentRegistry (the cached import) not AgentRegistry
+        with patch("aragora.agents.fallback._AgentRegistry") as mock_registry:
             mock_registry.detect_local_agents.return_value = [
                 {"name": "ollama", "available": True},
                 {"name": "lm-studio", "available": False},

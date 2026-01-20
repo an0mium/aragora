@@ -300,10 +300,6 @@ class RelationshipBiasBridge:
         """
         echo_pairs: List[Tuple[str, str, float]] = []
 
-        # Get all relationships from tracker
-        if self.relationship_tracker is None:
-            return echo_pairs
-
         if agents:
             # Check specific pairs
             for agent_a, agent_b in combinations(agents, 2):

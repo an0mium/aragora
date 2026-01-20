@@ -272,6 +272,70 @@ class ArenaConfig:
     checkpoint_memory_max_entries: int = 100  # Max entries per tier in checkpoint snapshot
     checkpoint_memory_restore_mode: str = "replace"  # Restore mode: replace, keep, or merge
 
+    # =============================================================================
+    # Phase 9: Cross-Pollination Bridges (Session 5+)
+    # These bridges connect previously isolated subsystems for self-improvement
+    # =============================================================================
+
+    # Performance → Agent Router Bridge
+    # Routes agents based on performance metrics (latency, quality, consistency)
+    enable_performance_router: bool = True  # Use performance metrics to inform routing
+    performance_router_bridge: Optional[Any] = None  # Pre-configured PerformanceRouterBridge
+    performance_router_latency_weight: float = 0.3  # Weight for latency in routing score
+    performance_router_quality_weight: float = 0.4  # Weight for quality in routing score
+    performance_router_consistency_weight: float = 0.3  # Weight for consistency
+
+    # Outcome → Complexity Governor Bridge
+    # Adjusts complexity budgets based on outcome patterns
+    enable_outcome_complexity: bool = True  # Use outcomes to inform complexity governance
+    outcome_complexity_bridge: Optional[Any] = None  # Pre-configured OutcomeComplexityBridge
+    outcome_complexity_high_success_boost: float = 0.1  # Boost for high-success agents
+    outcome_complexity_low_success_penalty: float = 0.15  # Penalty for low-success agents
+    outcome_complexity_min_outcomes: int = 5  # Min outcomes before applying adjustments
+
+    # Analytics → Team Selection Bridge
+    # Uses analytics patterns to improve team composition
+    enable_analytics_selection: bool = True  # Use analytics to inform team selection
+    analytics_selection_bridge: Optional[Any] = None  # Pre-configured AnalyticsSelectionBridge
+    analytics_selection_diversity_weight: float = 0.2  # Weight for cognitive diversity
+    analytics_selection_synergy_weight: float = 0.3  # Weight for historical synergy
+
+    # Novelty → Selection Feedback Bridge
+    # Penalizes low-novelty agents in selection, rewards diverse thinkers
+    enable_novelty_selection: bool = True  # Use novelty metrics for selection feedback
+    novelty_selection_bridge: Optional[Any] = None  # Pre-configured NoveltySelectionBridge
+    novelty_selection_low_penalty: float = 0.15  # Penalty for consistently low novelty
+    novelty_selection_high_bonus: float = 0.1  # Bonus for consistently high novelty
+    novelty_selection_min_proposals: int = 10  # Min proposals before applying adjustments
+    novelty_selection_low_threshold: float = 0.3  # Below this = low novelty
+
+    # Relationship → Bias Mitigation Bridge
+    # Detects echo chambers and adjusts voting weights
+    enable_relationship_bias: bool = True  # Use relationships to detect/mitigate bias
+    relationship_bias_bridge: Optional[Any] = None  # Pre-configured RelationshipBiasBridge
+    relationship_bias_alliance_threshold: float = 0.7  # Alliance score threshold for echo chamber risk
+    relationship_bias_agreement_threshold: float = 0.8  # Agreement rate for echo chamber detection
+    relationship_bias_vote_penalty: float = 0.3  # Weight penalty for allied voter-votee pairs
+    relationship_bias_min_debates: int = 5  # Min debates before considering relationship
+
+    # RLM → Selection Feedback Bridge
+    # Optimizes selection for agents efficient with compressed context
+    enable_rlm_selection: bool = True  # Use RLM metrics for selection feedback
+    rlm_selection_bridge: Optional[Any] = None  # Pre-configured RLMSelectionBridge
+    rlm_selection_min_operations: int = 5  # Min RLM operations before applying boost
+    rlm_selection_compression_weight: float = 0.15  # Weight for compression efficiency
+    rlm_selection_query_weight: float = 0.15  # Weight for query efficiency
+    rlm_selection_max_boost: float = 0.25  # Maximum selection boost from RLM efficiency
+
+    # Calibration → Cost Optimizer Bridge
+    # Selects cost-efficient agents based on calibration quality
+    enable_calibration_cost: bool = True  # Use calibration to optimize costs
+    calibration_cost_bridge: Optional[Any] = None  # Pre-configured CalibrationCostBridge
+    calibration_cost_min_predictions: int = 20  # Min predictions before scoring
+    calibration_cost_ece_threshold: float = 0.1  # ECE threshold for "well-calibrated"
+    calibration_cost_overconfident_multiplier: float = 1.3  # Cost multiplier for overconfident
+    calibration_cost_weight: float = 0.3  # Weight for cost in efficiency score
+
     def __post_init__(self) -> None:
         """Initialize defaults that can't be set in field definitions."""
         if self.broadcast_platforms is None:
@@ -378,6 +442,27 @@ class ArenaConfig:
             #   feedback_loop_weight, feedback_loop_decay, feedback_loop_min_debates
             # - Hook System: enable_hook_handlers, hook_handler_registry
             # - Broadcast: broadcast_platforms, training_export_path
+            # - Phase 9 Cross-Pollination Bridges (auto-initialized by SubsystemCoordinator):
+            #   * Performance Router: enable_performance_router, performance_router_bridge,
+            #     performance_router_latency_weight, performance_router_quality_weight,
+            #     performance_router_consistency_weight
+            #   * Outcome Complexity: enable_outcome_complexity, outcome_complexity_bridge,
+            #     outcome_complexity_high_success_boost, outcome_complexity_low_success_penalty,
+            #     outcome_complexity_min_outcomes
+            #   * Analytics Selection: enable_analytics_selection, analytics_selection_bridge,
+            #     analytics_selection_diversity_weight, analytics_selection_synergy_weight
+            #   * Novelty Selection: enable_novelty_selection, novelty_selection_bridge,
+            #     novelty_selection_low_penalty, novelty_selection_high_bonus,
+            #     novelty_selection_min_proposals, novelty_selection_low_threshold
+            #   * Relationship Bias: enable_relationship_bias, relationship_bias_bridge,
+            #     relationship_bias_alliance_threshold, relationship_bias_agreement_threshold,
+            #     relationship_bias_vote_penalty, relationship_bias_min_debates
+            #   * RLM Selection: enable_rlm_selection, rlm_selection_bridge,
+            #     rlm_selection_min_operations, rlm_selection_compression_weight,
+            #     rlm_selection_query_weight, rlm_selection_max_boost
+            #   * Calibration Cost: enable_calibration_cost, calibration_cost_bridge,
+            #     calibration_cost_min_predictions, calibration_cost_ece_threshold,
+            #     calibration_cost_overconfident_multiplier, calibration_cost_weight
         }
 
 
