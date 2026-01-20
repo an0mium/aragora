@@ -12,9 +12,16 @@ interface VoiceInputProps {
   sendSuggestion?: (suggestion: string) => void;
   /** Auto-submit final transcripts as suggestions (requires sendSuggestion) */
   autoSubmitSuggestion?: boolean;
+  /** Enable TTS playback for agent responses */
+  enableTTS?: boolean;
+  /** Callback when TTS audio starts playing */
+  onTTSStart?: (agent: string) => void;
+  /** Callback when TTS audio finishes playing */
+  onTTSEnd?: (agent: string) => void;
 }
 
 type VoiceStatus = 'idle' | 'connecting' | 'recording' | 'processing' | 'error';
+type TTSStatus = 'idle' | 'receiving' | 'playing';
 
 interface TranscriptSegment {
   text: string;
@@ -30,6 +37,9 @@ export function VoiceInput({
   disabled = false,
   sendSuggestion,
   autoSubmitSuggestion = false,
+  enableTTS = true,
+  onTTSStart,
+  onTTSEnd,
 }: VoiceInputProps) {
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
@@ -37,6 +47,11 @@ export function VoiceInput({
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
+
+  // TTS playback state
+  const [ttsStatus, setTtsStatus] = useState<TTSStatus>('idle');
+  const [ttsAvailable, setTtsAvailable] = useState(false);
+  const [currentAgent, setCurrentAgent] = useState<string>('');
 
   const wsRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -48,8 +63,14 @@ export function VoiceInput({
   const stopRecordingRef = useRef<() => void>(() => {});
   const handleErrorRef = useRef<(message: string) => void>(() => {});
   const handleServerMessageRef = useRef<(data: Record<string, unknown>) => void>(() => {});
+  const handleBinaryMessageRef = useRef<(data: ArrayBuffer) => void>(() => {});
   const startAudioCaptureRef = useRef<() => void>(() => {});
   const startDurationTimerRef = useRef<() => void>(() => {});
+
+  // TTS audio playback refs
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const audioChunksRef = useRef<Uint8Array[]>([]);
+  const audioFormatRef = useRef<string>('mp3');
 
   // Keep statusRef in sync
   useEffect(() => {
@@ -98,6 +119,19 @@ export function VoiceInput({
       };
 
       ws.onmessage = (event) => {
+        // Handle binary data (TTS audio chunks)
+        if (event.data instanceof ArrayBuffer) {
+          handleBinaryMessageRef.current(event.data);
+          return;
+        }
+        if (event.data instanceof Blob) {
+          event.data.arrayBuffer().then((buffer) => {
+            handleBinaryMessageRef.current(buffer);
+          });
+          return;
+        }
+
+        // Handle JSON messages
         try {
           const data = JSON.parse(event.data);
           handleServerMessageRef.current(data);
@@ -132,6 +166,11 @@ export function VoiceInput({
         startTimeRef.current = Date.now();
         startAudioCaptureRef.current();
         startDurationTimerRef.current();
+        // Check TTS availability from config
+        const config = data.config as Record<string, unknown> | undefined;
+        if (config) {
+          setTtsAvailable(Boolean(config.tts_available));
+        }
         break;
 
       case 'transcript':
@@ -157,6 +196,23 @@ export function VoiceInput({
         onTranscript?.(text, isFinal);
         break;
 
+      // TTS messages
+      case 'tts_start':
+        setTtsStatus('receiving');
+        setCurrentAgent(data.agent as string || '');
+        onTTSStart?.(data.agent as string || '');
+        break;
+
+      case 'tts_audio_start':
+        audioChunksRef.current = [];
+        audioFormatRef.current = data.format as string || 'mp3';
+        break;
+
+      case 'tts_audio_end':
+        // All chunks received, play the audio
+        playAudio();
+        break;
+
       case 'error':
         handleErrorRef.current(data.message as string || 'Unknown error');
         break;
@@ -166,7 +222,61 @@ export function VoiceInput({
         console.warn('Voice warning:', data.message);
         break;
     }
-  }, [onTranscript, autoSubmitSuggestion, sendSuggestion]);
+  }, [onTranscript, autoSubmitSuggestion, sendSuggestion, onTTSStart]);
+
+  // Handle binary TTS audio chunks
+  const handleBinaryMessage = useCallback((data: ArrayBuffer) => {
+    if (ttsStatus === 'receiving' || audioChunksRef.current.length > 0) {
+      audioChunksRef.current.push(new Uint8Array(data));
+    }
+  }, [ttsStatus]);
+
+  // Play accumulated TTS audio
+  const playAudio = useCallback(() => {
+    if (audioChunksRef.current.length === 0) return;
+
+    // Combine all chunks into a single Uint8Array
+    const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of audioChunksRef.current) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Create blob and URL
+    const mimeType = audioFormatRef.current === 'wav' ? 'audio/wav' : 'audio/mpeg';
+    const blob = new Blob([combined], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+
+    // Create audio element if needed
+    if (!audioElementRef.current) {
+      audioElementRef.current = new Audio();
+    }
+
+    const audio = audioElementRef.current;
+    audio.src = url;
+    setTtsStatus('playing');
+
+    audio.onended = () => {
+      setTtsStatus('idle');
+      onTTSEnd?.(currentAgent);
+      URL.revokeObjectURL(url);
+      audioChunksRef.current = [];
+    };
+
+    audio.onerror = () => {
+      console.error('Error playing TTS audio');
+      setTtsStatus('idle');
+      URL.revokeObjectURL(url);
+      audioChunksRef.current = [];
+    };
+
+    audio.play().catch((err) => {
+      console.error('Failed to play TTS audio:', err);
+      setTtsStatus('idle');
+    });
+  }, [currentAgent, onTTSEnd]);
 
   // Handle errors
   const handleError = useCallback((message: string) => {
@@ -264,6 +374,7 @@ export function VoiceInput({
   stopRecordingRef.current = stopRecording;
   handleErrorRef.current = handleError;
   handleServerMessageRef.current = handleServerMessage;
+  handleBinaryMessageRef.current = handleBinaryMessage;
   startAudioCaptureRef.current = startAudioCapture;
   startDurationTimerRef.current = startDurationTimer;
 
@@ -295,6 +406,20 @@ export function VoiceInput({
             <span className="flex items-center gap-1 text-crimson text-xs">
               <span className="w-2 h-2 bg-crimson rounded-full animate-pulse" />
               {formatDuration(duration)}
+            </span>
+          )}
+          {ttsStatus === 'playing' && (
+            <span className="flex items-center gap-1 text-acid-green text-xs">
+              <svg className="w-3 h-3 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+              </svg>
+              Playing{currentAgent ? `: ${currentAgent}` : ''}
+            </span>
+          )}
+          {ttsStatus === 'receiving' && (
+            <span className="flex items-center gap-1 text-amber text-xs">
+              <span className="w-2 h-2 bg-amber rounded-full animate-pulse" />
+              Receiving audio...
             </span>
           )}
         </h3>
@@ -451,6 +576,34 @@ export function VoiceInput({
           <div className="text-sm text-text-muted">
             <p>Click &quot;Start Recording&quot; to speak your argument.</p>
             <p className="mt-1 text-xs">Your speech will be transcribed in real-time and can be added to the debate.</p>
+          </div>
+        )}
+
+        {/* TTS Status */}
+        {enableTTS && sessionId && (
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+              </svg>
+              {ttsAvailable ? (
+                <span className="text-acid-green">Voice responses enabled</span>
+              ) : (
+                <span>Voice responses unavailable</span>
+              )}
+            </div>
+            {ttsStatus === 'playing' && audioElementRef.current && (
+              <button
+                onClick={() => {
+                  audioElementRef.current?.pause();
+                  setTtsStatus('idle');
+                  onTTSEnd?.(currentAgent);
+                }}
+                className="text-xs px-2 py-1 bg-surface hover:bg-border rounded transition-colors"
+              >
+                Stop Playback
+              </button>
+            )}
           </div>
         )}
       </div>
