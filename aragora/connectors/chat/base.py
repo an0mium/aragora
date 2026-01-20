@@ -282,6 +282,53 @@ class ChatPlatformConnector(ABC):
         """
         raise NotImplementedError
 
+    async def send_voice_message(
+        self,
+        channel_id: str,
+        audio_content: bytes,
+        filename: str = "voice_response.mp3",
+        content_type: str = "audio/mpeg",
+        reply_to: Optional[str] = None,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """
+        Send a voice/audio message to a channel.
+
+        Default implementation uploads as a file attachment.
+        Platforms may override for native voice message support.
+
+        Args:
+            channel_id: Target channel
+            audio_content: Audio file content as bytes
+            filename: Audio filename
+            content_type: MIME type (audio/mpeg, audio/ogg, etc.)
+            reply_to: Optional message ID to reply to
+            **kwargs: Platform-specific options
+
+        Returns:
+            SendMessageResponse with status
+        """
+        try:
+            # Default implementation: upload as file
+            attachment = await self.upload_file(
+                channel_id=channel_id,
+                content=audio_content,
+                filename=filename,
+                content_type=content_type,
+                thread_id=reply_to,
+                **kwargs,
+            )
+            return SendMessageResponse(
+                success=True,
+                message_id=attachment.id,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send voice message on {self.platform_name}: {e}")
+            return SendMessageResponse(
+                success=False,
+                error=str(e),
+            )
+
     # ==========================================================================
     # Rich Content Formatting
     # ==========================================================================

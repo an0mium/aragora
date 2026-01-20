@@ -108,6 +108,18 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
             _CONNECTOR_CLASSES["gchat"] = GoogleChatConnector
             return GoogleChatConnector
 
+        elif platform == "telegram":
+            from aragora.connectors.chat.telegram import TelegramConnector
+
+            _CONNECTOR_CLASSES["telegram"] = TelegramConnector
+            return TelegramConnector
+
+        elif platform == "whatsapp":
+            from aragora.connectors.chat.whatsapp import WhatsAppConnector
+
+            _CONNECTOR_CLASSES["whatsapp"] = WhatsAppConnector
+            return WhatsAppConnector
+
     except ImportError as e:
         logger.debug(f"Could not load {platform} connector: {e}")
 
@@ -117,7 +129,7 @@ def _lazy_load_connector(platform: str) -> Optional[Type[ChatPlatformConnector]]
 def list_available_platforms() -> list[str]:
     """List all registered platform identifiers."""
     # Ensure all connectors are loaded
-    for platform in ["slack", "teams", "discord", "google_chat"]:
+    for platform in ["slack", "teams", "discord", "google_chat", "telegram", "whatsapp"]:
         _lazy_load_connector(platform)
 
     return list(_CONNECTOR_CLASSES.keys())
@@ -142,6 +154,14 @@ def get_configured_platforms() -> list[str]:
     # Check Google Chat
     if os.environ.get("GOOGLE_CHAT_CREDENTIALS"):
         configured.append("google_chat")
+
+    # Check Telegram
+    if os.environ.get("TELEGRAM_BOT_TOKEN"):
+        configured.append("telegram")
+
+    # Check WhatsApp
+    if os.environ.get("WHATSAPP_ACCESS_TOKEN") and os.environ.get("WHATSAPP_PHONE_NUMBER_ID"):
+        configured.append("whatsapp")
 
     return configured
 

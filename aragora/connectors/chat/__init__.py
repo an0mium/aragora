@@ -49,6 +49,7 @@ from .registry import (
     register_connector,
 )
 from .voice_bridge import VoiceBridge, get_voice_bridge
+from .tts_bridge import TTSBridge, TTSConfig, get_tts_bridge, clear_tts_bridge
 
 __all__ = [
     # Base class
@@ -75,9 +76,14 @@ __all__ = [
     "get_configured_platforms",
     "list_available_platforms",
     "register_connector",
-    # Voice
+    # Voice (STT)
     "VoiceBridge",
     "get_voice_bridge",
+    # TTS (Text-to-Speech)
+    "TTSBridge",
+    "TTSConfig",
+    "get_tts_bridge",
+    "clear_tts_bridge",
 ]
 
 
