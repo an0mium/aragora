@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (02:15 UTC)*
+*Last updated: January 20, 2026 (11:30 UTC)*
 
 ## Current Release
 
@@ -9,7 +9,7 @@
 **Production Ready** - Aragora 2.0.3 completes feature cross-pollination, connecting isolated subsystems for mutual benefit.
 
 #### Key Highlights
-- **37,580+ tests** collected and passing (+3,080 new tests)
+- **37,800+ tests** collected and passing (+3,300 new tests)
 - **1,002 test files** across all modules
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
@@ -98,6 +98,13 @@
 - Entropy bonuses, temporal discounting, margin-based rewards
 
 #### Recent Changes (2026-01-20)
+- **Knowledge Mound Phase 3** - Deduplication and pruning operations:
+  - `aragora/knowledge/mound/ops/dedup.py` - Find/merge duplicate knowledge items
+  - `aragora/knowledge/mound/ops/pruning.py` - Archive/delete stale items with policies
+  - HTTP handlers: dedup.py, pruning.py in `handlers/knowledge_base/mound/`
+  - 24 new tests in `tests/knowledge/test_dedup_pruning.py`
+  - Prometheus metrics for Knowledge Mound Phase 2 in `prometheus_knowledge.py`
+  - Fixed Control Plane prometheus import issues
 - **Test Performance Fix** - Added `fast_convergence_backend` autouse fixture:
   - By default, tests use Jaccard backend (fast) instead of SentenceTransformer (slow)
   - Tests marked `@pytest.mark.slow` still use real ML models
@@ -353,7 +360,7 @@ else:
 
 **Knowledge Mound** (STABLE - Production Ready)
 - `aragora/knowledge/mound/` - Unified enterprise knowledge storage
-- **146 tests passing**, 7 skipped (optional deps)
+- **170 tests passing**, 7 skipped (optional deps)
 - SemanticStore with mandatory embeddings for semantic search
 - KnowledgeGraphStore for relationship tracking and lineage
 - DomainTaxonomy for hierarchical organization
@@ -363,14 +370,16 @@ else:
 - **Cross-Workspace Sharing**: Share items between workspaces with permission tracking
 - **Global Knowledge**: System-wide verified facts in `__system__` workspace
 - **Federation**: Multi-region sync with push/pull/bidirectional modes
+- **Deduplication** (PHASE 3): Find/merge duplicate knowledge items
+- **Pruning** (PHASE 3): Archive/delete stale items with policy-based automation
 - React hooks: `useVisibility`, `useSharing`, `useFederation`, `useGlobalKnowledge`
 - TypeScript types: `aragora/live/src/types/knowledge.ts` (50+ type definitions)
-- Backend handlers: visibility.py, sharing.py, global_knowledge.py, federation.py
-- Integration tests: 23 tests covering visibility, sharing, global knowledge, federation
+- Backend handlers: visibility.py, sharing.py, global_knowledge.py, federation.py, dedup.py, pruning.py
+- Integration tests: 47 tests covering visibility, sharing, global knowledge, federation, dedup, pruning
 - Staleness detection with automatic revalidation scheduling
 - Culture accumulation for organizational learning
 - Multi-backend support (SQLite, PostgreSQL, Redis)
-- **357 tests passing** across facade, core, adapters, and integration
+- **381 tests passing** across facade, core, adapters, and integration
 
 **API Versioning** (NEW)
 - `aragora/server/versioning/` - URL prefix versioning
