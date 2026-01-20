@@ -66,6 +66,14 @@ WORKFLOW_TRIGGERS: Any = None
 EVIDENCE_STORED: Any = None
 CULTURE_PATTERNS: Any = None
 
+# Phase 9 Cross-Pollination metrics
+RLM_CACHE_HITS: Any = None
+RLM_CACHE_MISSES: Any = None
+CALIBRATION_ADJUSTMENTS: Any = None
+LEARNING_BONUSES: Any = None
+VOTING_ACCURACY_UPDATES: Any = None
+ADAPTIVE_ROUND_CHANGES: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -225,6 +233,45 @@ def _init_metrics() -> bool:
             "Culture patterns extracted from debates",
         )
 
+        # Phase 9 Cross-Pollination metrics
+        global RLM_CACHE_HITS, RLM_CACHE_MISSES
+        global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
+        global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
+
+        RLM_CACHE_HITS = Counter(
+            "aragora_rlm_cache_hits_total",
+            "RLM compression cache hits",
+        )
+
+        RLM_CACHE_MISSES = Counter(
+            "aragora_rlm_cache_misses_total",
+            "RLM compression cache misses",
+        )
+
+        CALIBRATION_ADJUSTMENTS = Counter(
+            "aragora_calibration_adjustments_total",
+            "Proposal confidence calibrations applied",
+            ["agent"],
+        )
+
+        LEARNING_BONUSES = Counter(
+            "aragora_learning_bonuses_total",
+            "Learning efficiency ELO bonuses applied",
+            ["agent", "category"],  # rapid, steady, slow
+        )
+
+        VOTING_ACCURACY_UPDATES = Counter(
+            "aragora_voting_accuracy_updates_total",
+            "Voting accuracy records updated",
+            ["result"],  # correct, incorrect
+        )
+
+        ADAPTIVE_ROUND_CHANGES = Counter(
+            "aragora_adaptive_round_changes_total",
+            "Debate round count adjustments from memory strategy",
+            ["direction"],  # increased, decreased, unchanged
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -253,6 +300,9 @@ def _init_noop_metrics() -> None:
     global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
     global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
     global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
+    global RLM_CACHE_HITS, RLM_CACHE_MISSES
+    global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
+    global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -291,6 +341,12 @@ def _init_noop_metrics() -> None:
     WORKFLOW_TRIGGERS = NoOpMetric()
     EVIDENCE_STORED = NoOpMetric()
     CULTURE_PATTERNS = NoOpMetric()
+    RLM_CACHE_HITS = NoOpMetric()
+    RLM_CACHE_MISSES = NoOpMetric()
+    CALIBRATION_ADJUSTMENTS = NoOpMetric()
+    LEARNING_BONUSES = NoOpMetric()
+    VOTING_ACCURACY_UPDATES = NoOpMetric()
+    ADAPTIVE_ROUND_CHANGES = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -652,3 +708,59 @@ def record_culture_patterns(count: int = 1) -> None:
     """
     _init_metrics()
     CULTURE_PATTERNS.inc(count)
+
+
+# Phase 9 Cross-Pollination metrics helpers
+
+
+def record_rlm_cache_hit() -> None:
+    """Record an RLM compression cache hit."""
+    _init_metrics()
+    RLM_CACHE_HITS.inc()
+
+
+def record_rlm_cache_miss() -> None:
+    """Record an RLM compression cache miss."""
+    _init_metrics()
+    RLM_CACHE_MISSES.inc()
+
+
+def record_calibration_adjustment(agent: str) -> None:
+    """Record a proposal confidence calibration adjustment.
+
+    Args:
+        agent: Agent name whose confidence was calibrated
+    """
+    _init_metrics()
+    CALIBRATION_ADJUSTMENTS.labels(agent=agent).inc()
+
+
+def record_learning_bonus(agent: str, category: str) -> None:
+    """Record a learning efficiency ELO bonus.
+
+    Args:
+        agent: Agent name
+        category: Learning category (rapid, steady, slow)
+    """
+    _init_metrics()
+    LEARNING_BONUSES.labels(agent=agent, category=category).inc()
+
+
+def record_voting_accuracy_update(result: str) -> None:
+    """Record a voting accuracy update.
+
+    Args:
+        result: Vote result (correct, incorrect)
+    """
+    _init_metrics()
+    VOTING_ACCURACY_UPDATES.labels(result=result).inc()
+
+
+def record_adaptive_round_change(direction: str) -> None:
+    """Record a debate round count adjustment.
+
+    Args:
+        direction: Change direction (increased, decreased, unchanged)
+    """
+    _init_metrics()
+    ADAPTIVE_ROUND_CHANGES.labels(direction=direction).inc()
