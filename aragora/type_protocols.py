@@ -5,7 +5,7 @@ Provides Protocol classes for duck-typed interfaces, enabling better
 type checking without requiring concrete inheritance relationships.
 
 Usage:
-    from aragora.typing import AgentProtocol, MemoryProtocol
+    from aragora.type_protocols import AgentProtocol, MemoryProtocol
 
     def process_agent(agent: AgentProtocol) -> str:
         return agent.respond("prompt")
