@@ -90,6 +90,7 @@ class StreamEventType(Enum):
     KNOWLEDGE_QUERIED = "knowledge_queried"  # Knowledge Mound semantic search executed
     MOUND_UPDATED = "mound_updated"  # Knowledge Mound structure updated
     KNOWLEDGE_STALE = "knowledge_stale"  # Knowledge item detected as stale
+    KM_BATCH = "km_batch"  # Batched KM events for efficient WebSocket transmission
 
     # Belief Network events (bidirectional KM integration)
     BELIEF_CONVERGED = "belief_converged"  # Belief network propagation converged

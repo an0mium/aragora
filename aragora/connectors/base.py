@@ -388,6 +388,8 @@ class BaseConnector(ABC):
 
                 else:
                     # 4xx errors (except 429) - not retryable
+                    if metrics_available:
+                        record_sync_error(connector_type, f"http_{status}")
                     raise ConnectorAPIError(
                         f"{operation} failed (HTTP {status})",
                         connector_name=self.name,
@@ -397,12 +399,16 @@ class BaseConnector(ABC):
             except Exception as e:
                 # Unexpected error - log and don't retry
                 if "json" in str(e).lower() or "decode" in str(e).lower():
+                    if metrics_available:
+                        record_sync_error(connector_type, "parse")
                     raise ConnectorParseError(
                         f"{operation} parse error: {e}",
                         connector_name=self.name,
                     ) from e
 
                 logger.error(f"[{self.name}] {operation} unexpected error: {e}")
+                if metrics_available:
+                    record_sync_error(connector_type, "unexpected")
                 raise ConnectorAPIError(
                     f"{operation} failed unexpectedly: {e}",
                     connector_name=self.name,
