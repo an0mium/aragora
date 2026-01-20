@@ -1,6 +1,6 @@
 # Aragora CLI Reference
 
-Complete command-line interface reference for Aragora - AI Red Team for Decision Stress-Testing.
+Complete command-line interface reference for Aragora - Omnivorous Multi Agent Decision Making Engine.
 
 ## Installation
 
