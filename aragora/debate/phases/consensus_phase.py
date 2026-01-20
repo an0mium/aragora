@@ -1267,18 +1267,18 @@ class ConsensusPhase:
                     evidence_pack=evidence_pack,
                 )
 
-                process_scores[agent_name] = result.overall_score
+                process_scores[agent_name] = result.weighted_total
                 canonical = choice_mapping.get(agent_name, agent_name)
 
                 if canonical in vote_counts:
                     # Apply bonus proportional to process score (0-1)
-                    bonus = process_bonus * result.overall_score
+                    bonus = process_bonus * result.weighted_total
                     vote_counts[canonical] = vote_counts.get(canonical, 0.0) + bonus
 
                     logger.debug(
                         f"process_evaluation agent={agent_name} "
-                        f"overall={result.overall_score:.2f} bonus={bonus:.2f} "
-                        f"criteria={[c.name for c in result.criteria_scores]}"
+                        f"overall={result.weighted_total:.2f} bonus={bonus:.2f} "
+                        f"criteria={list(result.criterion_scores.keys())}"
                     )
 
             except Exception as e:

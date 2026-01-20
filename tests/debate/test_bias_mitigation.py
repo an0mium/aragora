@@ -304,12 +304,14 @@ class TestProcessEvaluation:
         )
 
         assert isinstance(result, ProcessEvaluationResult)
-        assert 0.0 <= result.overall_score <= 1.0
-        assert len(result.criteria_scores) > 0
+        assert 0.0 <= result.weighted_total <= 1.0
+        assert len(result.criterion_scores) > 0
 
     @pytest.mark.asyncio
     async def test_process_evaluator_custom_criteria(self):
-        """Test process evaluation with custom criteria."""
+        """Test process evaluation with custom criteria via config."""
+        from aragora.debate.bias_mitigation import ProcessEvaluationConfig
+
         custom_criteria = [
             EvaluationCriterion(
                 name="creativity",
@@ -323,7 +325,8 @@ class TestProcessEvaluation:
             ),
         ]
 
-        evaluator = ProcessEvaluator(criteria=custom_criteria)
+        config = ProcessEvaluationConfig(criteria=custom_criteria)
+        evaluator = ProcessEvaluator(config=config)
 
         result = await evaluator.evaluate_proposal(
             agent_name="test_agent",
@@ -331,7 +334,7 @@ class TestProcessEvaluation:
             task="Design a new feature",
         )
 
-        assert len(result.criteria_scores) == 2
+        assert len(result.criterion_scores) == 2
 
     @pytest.mark.asyncio
     async def test_process_evaluator_evidence_bonus(self):
@@ -378,7 +381,7 @@ class TestProcessEvaluation:
         )
 
         # Score with evidence citations should be higher
-        assert result_with.overall_score >= result_without.overall_score
+        assert result_with.weighted_total >= result_without.weighted_total
 
 
 # =============================================================================
