@@ -44,6 +44,7 @@ class HealthHandler(BaseHandler):
         "/api/health/stores",
         "/api/health/sync",
         "/api/health/circuits",
+        "/api/health/slow-debates",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -63,6 +64,7 @@ class HealthHandler(BaseHandler):
             "/api/health/stores": self._database_stores_health,
             "/api/health/sync": self._sync_status,
             "/api/health/circuits": self._circuit_breakers_status,
+            "/api/health/slow-debates": self._slow_debates_status,
         }
 
         endpoint_handler = handlers.get(path)
@@ -1021,6 +1023,69 @@ class HealthHandler(BaseHandler):
                     "timestamp": datetime.utcnow().isoformat() + "Z",
                 }
             )
+
+    def _slow_debates_status(self) -> HandlerResult:
+        """Get status of slow-running debates.
+
+        Returns debates that have been running longer than the slow threshold
+        (default 30 seconds per round). Useful for identifying performance
+        bottlenecks and stuck debates.
+
+        Returns:
+            JSON response with slow debate information
+        """
+        # Slow threshold: 30 seconds total, or configurable via env
+        import os
+        slow_threshold = float(os.getenv("ARAGORA_SLOW_DEBATE_THRESHOLD", "30"))
+
+        try:
+            from aragora.server.stream.state_manager import (
+                get_active_debates,
+                get_active_debates_lock,
+            )
+
+            now = time.time()
+            slow_debates = []
+
+            with get_active_debates_lock():
+                for debate_id, debate_info in get_active_debates().items():
+                    start_time = debate_info.get("start_time", now)
+                    duration = now - start_time
+                    if duration > slow_threshold:
+                        slow_debates.append({
+                            "debate_id": debate_id,
+                            "duration_seconds": round(duration, 2),
+                            "task": debate_info.get("task", "")[:100],
+                            "agents": debate_info.get("agents", []),
+                            "current_round": debate_info.get("current_round", 0),
+                            "total_rounds": debate_info.get("total_rounds", 0),
+                            "started_at": datetime.fromtimestamp(start_time).isoformat() + "Z",
+                        })
+
+            # Sort by duration descending
+            slow_debates.sort(key=lambda x: x["duration_seconds"], reverse=True)
+
+            return json_response({
+                "status": "healthy" if len(slow_debates) == 0 else "degraded",
+                "slow_threshold_seconds": slow_threshold,
+                "slow_debate_count": len(slow_debates),
+                "slow_debates": slow_debates[:20],  # Limit to top 20
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            })
+
+        except ImportError:
+            return json_response({
+                "status": "unavailable",
+                "error": "state_manager not available",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            })
+        except Exception as e:
+            logger.warning(f"Slow debates check failed: {e}")
+            return json_response({
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            })
 
     def _circuit_breakers_status(self) -> HandlerResult:
         """Get detailed circuit breaker status for all registered breakers.
