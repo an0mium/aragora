@@ -108,6 +108,16 @@ from .factory import (
     log_metrics_summary,
     RLMFactoryMetrics,
 )
+from .metrics_export import (
+    MetricsSnapshot,
+    MetricsCollector,
+    get_metrics_collector,
+    export_to_json,
+    export_to_prometheus,
+    export_to_statsd,
+    export_to_opentelemetry,
+    create_periodic_exporter,
+)
 
 __all__ = [
     # Types
@@ -162,4 +172,13 @@ __all__ = [
     "reset_metrics",
     "log_metrics_summary",
     "RLMFactoryMetrics",
+    # Metrics export (Prometheus, StatsD, OTEL)
+    "MetricsSnapshot",
+    "MetricsCollector",
+    "get_metrics_collector",
+    "export_to_json",
+    "export_to_prometheus",
+    "export_to_statsd",
+    "export_to_opentelemetry",
+    "create_periodic_exporter",
 ]

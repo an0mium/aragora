@@ -420,3 +420,93 @@ class TestUpdatedConsumerModules:
 
         # HAS_RLM should be a boolean
         assert isinstance(HAS_RLM, bool)
+
+
+class TestMetricsExport:
+    """Test metrics export functionality."""
+
+    def test_export_to_json_returns_valid_json(self):
+        """export_to_json() should return valid JSON."""
+        import json
+        from aragora.rlm import export_to_json, reset_singleton, reset_metrics
+
+        reset_singleton()
+        reset_metrics()
+
+        json_str = export_to_json()
+        data = json.loads(json_str)
+
+        assert "timestamp" in data
+        assert "timestamp_iso" in data
+        assert "metrics" in data
+        assert isinstance(data["metrics"], dict)
+
+    def test_metrics_collector_tracks_snapshots(self):
+        """MetricsCollector should track metric snapshots."""
+        from aragora.rlm import get_metrics_collector, get_rlm, reset_singleton, reset_metrics
+
+        reset_singleton()
+        reset_metrics()
+
+        collector = get_metrics_collector()
+
+        # Collect initial snapshot
+        snapshot1 = collector.collect()
+        assert snapshot1.metrics["get_rlm_calls"] == 0
+
+        # Make some calls
+        get_rlm()
+
+        # Collect again
+        snapshot2 = collector.collect()
+        assert snapshot2.metrics["get_rlm_calls"] > snapshot1.metrics["get_rlm_calls"]
+
+    def test_metrics_collector_calculates_delta(self):
+        """MetricsCollector should calculate delta between snapshots."""
+        from aragora.rlm import get_metrics_collector, get_rlm, reset_singleton, reset_metrics
+
+        reset_singleton()
+        reset_metrics()
+
+        collector = get_metrics_collector()
+        collector.collect()  # Initial snapshot
+
+        # Make calls
+        get_rlm()
+        get_rlm()
+
+        # Get delta
+        delta = collector.get_delta()
+        assert delta is not None
+        assert delta["get_rlm_calls"] >= 2
+
+    def test_metrics_snapshot_to_dict(self):
+        """MetricsSnapshot should convert to dictionary."""
+        from aragora.rlm import MetricsSnapshot
+
+        snapshot = MetricsSnapshot(
+            timestamp=1234567890.0,
+            metrics={"test_metric": 42}
+        )
+
+        data = snapshot.to_dict()
+        assert data["timestamp"] == 1234567890.0
+        assert "timestamp_iso" in data
+        assert data["metrics"]["test_metric"] == 42
+
+    def test_export_to_prometheus_without_library(self):
+        """export_to_prometheus() should handle missing prometheus_client gracefully."""
+        from aragora.rlm import export_to_prometheus
+
+        # Should return empty dict if prometheus_client not installed
+        # (or actual metrics if it is installed)
+        result = export_to_prometheus()
+        assert isinstance(result, dict)
+
+    def test_export_to_statsd_without_library(self):
+        """export_to_statsd() should handle missing statsd client gracefully."""
+        from aragora.rlm import export_to_statsd
+
+        # Should return False if statsd not installed (no server to connect to anyway)
+        result = export_to_statsd(host="nonexistent.local", port=9999)
+        assert isinstance(result, bool)
