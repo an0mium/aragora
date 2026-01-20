@@ -654,7 +654,7 @@ function ConnectorDetailsModal({
                         {new Date(sync.started_at).toLocaleString()}
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
                       <div>
                         <span className="text-text-muted">Items:</span>
                         <span className="ml-1 text-text">{sync.items_synced || sync.items_processed || 0}</span>

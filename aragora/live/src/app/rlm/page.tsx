@@ -428,7 +428,7 @@ export default function RLMDashboard() {
                   REFINEMENT STATS
                 </h3>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <div className="text-text-muted font-mono text-[10px]">AVG ITERATIONS</div>
                       <div className="text-acid-cyan font-mono text-xl">

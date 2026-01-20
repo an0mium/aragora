@@ -346,7 +346,7 @@ export default function ReceiptsPage() {
               <div className="text-xs text-text-muted">Low</div>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-4 text-center border-t border-border pt-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center border-t border-border pt-4">
             <div>
               <div className="text-xl font-mono">{r.attacks_attempted}</div>
               <div className="text-xs text-text-muted">Attacks Attempted</div>

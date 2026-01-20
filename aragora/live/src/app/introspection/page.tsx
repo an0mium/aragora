@@ -275,7 +275,7 @@ export default function IntrospectionPage() {
         {introspection.calibration && (
           <div className="p-4 bg-surface border border-border rounded-lg">
             <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">Calibration</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <div className="text-xs text-text-muted">Confidence</div>
                 <div className="text-xl font-mono font-bold text-text">

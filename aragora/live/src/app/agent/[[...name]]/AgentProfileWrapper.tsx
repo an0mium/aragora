@@ -534,7 +534,7 @@ export function AgentProfileWrapper() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                     <div className="bg-green-900/20 border border-green-800/30 rounded-lg p-4">
                       <div className="text-3xl font-bold text-green-400">{headToHead.wins || 0}</div>
                       <div className="text-xs text-green-400/70">Wins</div>

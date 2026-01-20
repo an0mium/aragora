@@ -439,7 +439,7 @@ export default function EvaluationPage() {
                       <h3 className="text-lg font-mono text-acid-green mb-4">[COMPARISON RESULT]</h3>
 
                       <div className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className={`p-4 bg-bg rounded border ${compareResult.winner === 'A' ? 'border-acid-green' : 'border-border'}`}>
                             <div className="text-xs font-mono text-text-muted mb-1">Response A</div>
                             <div className={`text-xl font-mono ${compareResult.winner === 'A' ? 'text-acid-green' : 'text-text-muted'}`}>

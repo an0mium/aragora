@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { KnowledgeEmptyState } from '@/components/ui/EmptyState';
 import {
   type KnowledgeNode,
   type KnowledgeRelationship,
@@ -606,7 +607,7 @@ export default function KnowledgeMoundPage() {
             {loading ? (
               <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
             ) : nodes.length === 0 ? (
-              <div className="text-center py-8 text-text-muted">No knowledge nodes found</div>
+              <KnowledgeEmptyState onRunDebate={() => window.location.href = '/'} />
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                 {nodes.map((node) => {

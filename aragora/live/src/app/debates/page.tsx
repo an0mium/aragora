@@ -8,6 +8,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
+import { DebatesEmptyState } from '@/components/ui/EmptyState';
 
 const PAGE_SIZE = 20;
 
@@ -173,10 +174,8 @@ export default function DebatesPage() {
           )}
 
           {!loading && debates.length === 0 && (
-            <div className="bg-surface border border-acid-green/30 p-6 text-center">
-              <div className="text-text-muted text-sm font-mono">
-                No debates archived yet. Run the nomic loop to generate debates.
-              </div>
+            <div className="bg-surface border border-acid-green/30">
+              <DebatesEmptyState onStart={() => window.location.href = '/'} />
             </div>
           )}
 
