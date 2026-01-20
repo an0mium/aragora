@@ -5,6 +5,53 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6] - 2026-01-20
+
+### Added
+
+- **Notification Delivery Metrics** - Prometheus metrics for notification tracking:
+  - `aragora_notification_sent_total` - Counts by channel/severity/priority/status
+  - `aragora_notification_latency_seconds` - Delivery latency histogram by channel
+  - `aragora_notification_errors_total` - Error counts by channel and error type
+  - `aragora_notification_queue_size` - Gauge for queue size by channel
+  - Integrated into Slack, Email, and Webhook providers
+
+- **Redis Cluster Support** - High-availability Redis for multi-instance deployments:
+  - `RedisClusterClient` with automatic cluster/standalone detection
+  - `get_redis_client()` utility for unified Redis access
+  - Connection pooling with health monitoring
+  - Graceful failover and automatic reconnection
+  - Read replica support for scaling reads
+  - Hash tag support for slot affinity
+
+- **Enhanced Consensus Ingestion Metrics** - Track dissent and evolution:
+  - `aragora_consensus_dissent_ingested_total` - Dissenting views captured
+  - `aragora_consensus_evolution_tracked_total` - Supersession relationships
+  - `aragora_consensus_evidence_linked_total` - Evidence linking counts
+  - `aragora_consensus_agreement_ratio` - Agreement ratio distribution
+
+- **Database Migration** - `v20260120000000_channel_governance_stores.py`:
+  - `integration_configs` - Chat platform configurations
+  - `gmail_tokens` - Gmail OAuth token storage
+  - `gmail_sync_jobs` - Gmail sync job state
+  - `finding_workflows` - Audit finding workflow state
+  - `federation_registry` - Multi-region federation config
+
+### Fixed
+
+- **ELO System Tests** - Fixed tests to properly persist ratings to database
+
+### Documentation
+
+- Updated `docs/ENVIRONMENT.md` with Redis cluster configuration variables
+- Added pluggable storage backend documentation
+
+### Testing
+
+- Added integration tests for notification metrics (14 tests)
+- Added integration tests for Redis clustering (16 tests)
+- Added consensus dissent tracking tests (400+ lines)
+
 ## [2.0.5] - 2026-01-20
 
 ### Changed
