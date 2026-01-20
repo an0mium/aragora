@@ -445,7 +445,12 @@ class CrossDebateMemory:
         # Score entries by relevance
         task_words = set(task.lower().split())
 
-        for entry in self._entries.values():
+        # Take a snapshot under lock to prevent race conditions with concurrent writes
+        async with self._lock:
+            snapshot = list(self._entries.values())
+
+        # Process snapshot without lock (safe read-only iteration)
+        for entry in snapshot:
             if entry.tier not in tiers:
                 continue
 
@@ -465,6 +470,7 @@ class CrossDebateMemory:
         # Build context within token budget
         parts = []
         tokens_used = 0
+        accessed_entries = []
 
         for _, entry in relevant_entries[:10]:
             # Get token budget based on tier
@@ -486,10 +492,17 @@ class CrossDebateMemory:
             if tokens_used + entry_tokens <= max_tokens:
                 parts.append(entry_text)
                 tokens_used += entry_tokens
+                accessed_entries.append(entry)
 
-                # Update access tracking
-                entry.access_count += 1
-                entry.last_accessed = datetime.now()
+        # Update access tracking under lock (safe mutation)
+        if accessed_entries:
+            async with self._lock:
+                now = datetime.now()
+                for entry in accessed_entries:
+                    # Verify entry still exists (may have been removed concurrently)
+                    if entry.debate_id in self._entries:
+                        entry.access_count += 1
+                        entry.last_accessed = now
 
         return "\n\n---\n\n".join(parts)
 

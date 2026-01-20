@@ -5,6 +5,7 @@ Extracted from Arena to improve code organization and testability.
 Handles construction of prompts for proposals, revisions, and judgments.
 """
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from aragora.memory.consensus import DissentRetriever
     from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.store import CritiqueStore
+    from aragora.pulse.types import TrendingTopic
     from aragora.ranking.elo import EloSystem
     from aragora.rlm.types import RLMContext
 
@@ -92,6 +94,9 @@ class PromptBuilder:
         self.calibration_tracker = calibration_tracker
         self.elo_system = elo_system
         self.domain = domain
+
+        # Trending topics for pulse injection (set externally via set_trending_topics)
+        self.trending_topics: list["TrendingTopic"] = []
 
         # Current state (set externally by Arena)
         self.current_role_assignments: dict[str, "RoleAssignment"] = {}
@@ -323,7 +328,10 @@ and building on others' ideas."""
 
             if use_llm:
                 # Use LLM-based classification (more accurate)
-                self._classification = self._question_classifier.classify(self.env.task)
+                # Offload to thread pool to avoid blocking the event loop
+                self._classification = await asyncio.to_thread(
+                    self._question_classifier.classify, self.env.task
+                )
                 logger.info(
                     f"LLM classification: category={self._classification.category}, "
                     f"confidence={self._classification.confidence:.2f}, "
@@ -331,7 +339,10 @@ and building on others' ideas."""
                 )
             else:
                 # Use fast keyword-based classification
-                self._classification = self._question_classifier.classify_simple(self.env.task)
+                # Offload to thread pool to avoid blocking the event loop
+                self._classification = await asyncio.to_thread(
+                    self._question_classifier.classify_simple, self.env.task
+                )
                 logger.debug(f"Keyword classification: category={self._classification.category}")
 
             return self._classification.category
@@ -944,6 +955,73 @@ The system will provide relevant details from the full history."""
         """Update the evidence pack (called by orchestrator between rounds)."""
         self.evidence_pack = evidence_pack
 
+    def set_trending_topics(self, topics: list["TrendingTopic"]) -> None:
+        """Update trending topics for context injection.
+
+        Args:
+            topics: List of TrendingTopic objects from Pulse system
+        """
+        self.trending_topics = topics or []
+
+    def format_trending_for_prompt(self, max_topics: Optional[int] = None) -> str:
+        """Format trending topics as context for agent prompts.
+
+        Returns a formatted string with current trending topics that may
+        be relevant to the debate task.
+
+        Args:
+            max_topics: Maximum number of trending topics to include.
+                       Defaults to protocol.trending_injection_max_topics.
+
+        Returns:
+            Formatted trending context, or empty string if disabled or no topics
+        """
+        # Check if trending injection is enabled in protocol
+        if not getattr(self.protocol, 'enable_trending_injection', False):
+            return ""
+
+        if not self.trending_topics:
+            return ""
+
+        # Use protocol config for max topics if not specified
+        if max_topics is None:
+            max_topics = getattr(self.protocol, 'trending_injection_max_topics', 3)
+
+        # Filter for relevance to task if possible
+        task_lower = self.env.task.lower() if self.env else ""
+        relevant_topics = []
+
+        for topic in self.trending_topics[:max_topics * 2]:  # Get more for filtering
+            # Simple relevance check - topic keywords in task or vice versa
+            topic_text = topic.topic.lower() if hasattr(topic, 'topic') else str(topic).lower()
+            if any(word in task_lower for word in topic_text.split() if len(word) > 3):
+                relevant_topics.append(topic)
+            elif len(relevant_topics) < max_topics:
+                relevant_topics.append(topic)
+
+            if len(relevant_topics) >= max_topics:
+                break
+
+        if not relevant_topics:
+            relevant_topics = self.trending_topics[:max_topics]
+
+        lines = ["## CURRENT TRENDING CONTEXT"]
+        lines.append("These topics are currently trending and may provide timely context:\n")
+
+        for topic in relevant_topics:
+            topic_name = getattr(topic, 'topic', str(topic))
+            platform = getattr(topic, 'platform', 'unknown')
+            volume = getattr(topic, 'volume', 0)
+            category = getattr(topic, 'category', 'general')
+
+            lines.append(f"- **{topic_name}** ({platform})")
+            if volume:
+                lines.append(f"  Engagement: {volume:,} | Category: {category}")
+
+        lines.append("")
+        lines.append("Consider how current events may relate to the debate topic.")
+        return "\n".join(lines)
+
     def build_proposal_prompt(
         self,
         agent: "Agent",
@@ -1064,12 +1142,18 @@ The system will provide relevant details from the full history."""
         if evidence_context:
             evidence_section = f"\n\n{evidence_context}"
 
+        # Include trending topics for timely context (Pulse integration)
+        trending_section = ""
+        trending_context = self.format_trending_for_prompt(max_topics=3)
+        if trending_context:
+            trending_section = f"\n\n{trending_context}"
+
         # Format audience section if provided
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
-{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
+{historical_section}{continuum_section}{belief_section}{dissent_section}{patterns_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
 Task: {self.env.task}{context_str}{research_status}
 
 IMPORTANT: If this task mentions a specific website, company, product, or current topic, you MUST:
@@ -1159,13 +1243,19 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if evidence_context:
             evidence_section = f"\n\n{evidence_context}"
 
+        # Include trending topics for timely context (Pulse integration)
+        trending_section = ""
+        trending_context = self.format_trending_for_prompt(max_topics=2)
+        if trending_context:
+            trending_section = f"\n\n{trending_context}"
+
         # Format audience section if provided
         if audience_section:
             audience_section = f"\n\n{audience_section}"
 
         return f"""You are revising your proposal based on critiques from other agents.{round_phase_section}{role_section}{persona_section}{flip_section}
 
-{intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{elo_section}{evidence_section}{audience_section}
+{intensity_guidance}{stance_section}{patterns_section}{belief_section}{calibration_section}{elo_section}{evidence_section}{trending_section}{audience_section}
 
 Original Task: {self.env.task}
 

@@ -140,19 +140,21 @@ QUESTION_CATEGORIES = {
     },
 }
 
-# Map personas to agent providers
+# Map personas to agent types (registered in AgentRegistry)
+# For OpenRouter models, use the registered agent type directly (model is in registry)
+# For other providers, use provider name (persona becomes role)
 PERSONA_TO_AGENT = {
-    # Technical personas
+    # Technical personas - use registered agent types
     "claude": "anthropic-api",
     "codex": "openai-api",
     "gemini": "gemini",
     "grok": "grok",
-    "qwen": "openrouter:qwen/qwen3-235b-a22b",
-    "qwen-max": "openrouter:qwen/qwen-max",
-    "yi": "openrouter:01-ai/yi-large",
-    "deepseek": "openrouter:deepseek/deepseek-chat-v3",
-    "deepseek-r1": "openrouter:deepseek/deepseek-r1",
-    "kimi": "openrouter:moonshotai/kimi-k2",
+    "qwen": "qwen",  # Registered in openrouter.py with default model
+    "qwen-max": "qwen-max",  # Registered in openrouter.py
+    "yi": "yi",  # Registered in openrouter.py
+    "deepseek": "deepseek",  # Registered in openrouter.py
+    "deepseek-r1": "deepseek-r1",  # Registered in openrouter.py
+    "kimi": "kimi",  # Registered in openrouter.py
     # Compliance personas
     "sox": "anthropic-api",
     "pci_dss": "anthropic-api",
@@ -359,28 +361,36 @@ Guidelines:
     def get_agent_string(self, classification: QuestionClassification) -> str:
         """Convert persona recommendations to agent string for debate config.
 
-        Returns comma-separated agent identifiers like:
-        "anthropic-api:claude,openai-api:codex,gemini:gemini"
+        Returns comma-separated agent identifiers in new pipe-delimited format:
+        "provider|model|persona|role" (e.g., "anthropic-api||claude|proposer,qwen||qwen|critic")
+
+        The provider must be a registered type in AgentRegistry.
+        Roles are assigned round-robin: first agent is proposer, second is critic, etc.
         """
-        agents: list[str] = []
+        from aragora.agents.spec import AgentSpec
+
+        specs: list[AgentSpec] = []
         seen_providers: set[str] = set()
 
-        for persona in classification.recommended_personas:
+        # Assign roles in round-robin fashion for debate diversity
+        role_rotation = ["proposer", "critic", "synthesizer", "judge"]
+
+        for i, persona in enumerate(classification.recommended_personas):
             provider = PERSONA_TO_AGENT.get(persona, "anthropic-api")
 
-            # Avoid duplicate providers for diversity
-            base_provider = provider.split(":")[0]
-            if base_provider in seen_providers and len(agents) >= 2:
+            # Avoid duplicate providers for diversity (but allow up to 4 agents)
+            if provider in seen_providers and len(specs) >= 2:
                 continue
-            seen_providers.add(base_provider)
+            seen_providers.add(provider)
 
-            # Format: "provider:persona" or just "provider" if persona matches
-            if ":" in provider:
-                agents.append(f"{provider}:{persona}")
-            else:
-                agents.append(f"{provider}:{persona}")
+            # Assign role based on position
+            role = role_rotation[i % len(role_rotation)]
 
-        return ",".join(agents)
+            # Create AgentSpec with provider, persona, and role
+            spec = AgentSpec(provider=provider, persona=persona, role=role)
+            specs.append(spec)
+
+        return ",".join(spec.to_string() for spec in specs)
 
 
 def classify_and_assign_agents(

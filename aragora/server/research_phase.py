@@ -12,6 +12,7 @@ Supports multiple search backends:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -156,7 +157,9 @@ class PreDebateResearcher:
         More accurate but requires API call.
         """
         try:
-            response = self.anthropic_client.messages.create(
+            # Offload to thread pool to avoid blocking the event loop
+            response = await asyncio.to_thread(
+                self.anthropic_client.messages.create,
                 model=RESEARCH_MODEL,
                 max_tokens=100,
                 messages=[

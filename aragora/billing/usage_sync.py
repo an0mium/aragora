@@ -8,10 +8,12 @@ Runs periodically to report token usage and debate counts.
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -22,6 +24,7 @@ from aragora.billing.stripe_client import (
     get_stripe_client,
 )
 from aragora.billing.usage import UsageTracker
+from aragora.persistence.db_config import DatabaseType, get_db_path, get_nomic_dir
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,7 @@ class UsageSyncService:
         usage_tracker: Optional[UsageTracker] = None,
         stripe_client: Optional[StripeClient] = None,
         sync_interval: int = DEFAULT_SYNC_INTERVAL,
+        nomic_dir: Optional[Path] = None,
     ):
         """
         Initialize usage sync service.
@@ -86,15 +90,20 @@ class UsageSyncService:
             usage_tracker: Usage tracker instance
             stripe_client: Stripe client instance
             sync_interval: Seconds between sync operations
+            nomic_dir: Base directory for databases (defaults to ARAGORA_DATA_DIR)
         """
         self.usage_tracker = usage_tracker or UsageTracker()
         self.stripe_client = stripe_client or get_stripe_client()
         self.sync_interval = sync_interval
 
+        # Database path for persisting sync watermarks
+        self._nomic_dir = nomic_dir or get_nomic_dir()
+        self._db_path = get_db_path(DatabaseType.BILLING, self._nomic_dir)
+
         # Track last sync time per org
         self._last_sync: dict[str, datetime] = {}
 
-        # Track synced usage to avoid double-reporting
+        # Track synced usage to avoid double-reporting (persisted to DB)
         self._synced_tokens_in: dict[str, int] = {}
         self._synced_tokens_out: dict[str, int] = {}
         self._synced_debates: dict[str, int] = {}
@@ -109,6 +118,83 @@ class UsageSyncService:
         # Sync history for debugging
         self._sync_history: list[UsageSyncRecord] = []
         self._max_history = 1000
+
+        # Initialize database and load persisted state
+        self._init_sync_db()
+        self._load_sync_state()
+
+    def _init_sync_db(self) -> None:
+        """Initialize the sync watermark table."""
+        # Ensure parent directory exists
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
+                    org_id TEXT NOT NULL,
+                    tokens_in INTEGER DEFAULT 0,
+                    tokens_out INTEGER DEFAULT 0,
+                    debates INTEGER DEFAULT 0,
+                    period_start TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (org_id, period_start)
+                )
+            """)
+            conn.commit()
+
+    def _load_sync_state(self) -> None:
+        """Load sync watermarks from database for the current billing period."""
+        period_start = self._get_billing_period_start().isoformat()
+
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT org_id, tokens_in, tokens_out, debates
+                    FROM usage_sync_watermarks
+                    WHERE period_start = ?
+                    """,
+                    (period_start,),
+                ).fetchall()
+
+                for org_id, tokens_in, tokens_out, debates in rows:
+                    self._synced_tokens_in[org_id] = tokens_in
+                    self._synced_tokens_out[org_id] = tokens_out
+                    self._synced_debates[org_id] = debates
+
+                if rows:
+                    logger.info(
+                        f"Loaded sync watermarks for {len(rows)} orgs "
+                        f"(period: {period_start})"
+                    )
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to load sync state from database: {e}")
+
+    def _save_sync_state(self, org_id: str) -> None:
+        """Persist sync watermarks for an organization after successful sync."""
+        period_start = self._get_billing_period_start().isoformat()
+        updated_at = datetime.utcnow().isoformat()
+
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO usage_sync_watermarks
+                    (org_id, tokens_in, tokens_out, debates, period_start, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        org_id,
+                        self._synced_tokens_in.get(org_id, 0),
+                        self._synced_tokens_out.get(org_id, 0),
+                        self._synced_debates.get(org_id, 0),
+                        period_start,
+                        updated_at,
+                    ),
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Failed to save sync state for org {org_id}: {e}")
 
     def register_org(self, config: OrgBillingConfig) -> None:
         """
@@ -284,6 +370,10 @@ class UsageSyncService:
 
         # Update last sync time
         self._last_sync[org_id] = datetime.utcnow()
+
+        # Persist sync watermarks to database (survives restarts)
+        if any(r.success for r in records):
+            self._save_sync_state(org_id)
 
         # Store records in history
         for record in records:

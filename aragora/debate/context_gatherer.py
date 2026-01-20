@@ -16,6 +16,7 @@ RLM Integration:
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -89,11 +90,14 @@ class ContextGatherer:
         # Cache for evidence pack (for grounding verdict with citations)
         self._research_evidence_pack: Optional[Any] = None
 
-        # Cache for research context
-        self._research_context_cache: Optional[str] = None
+        # Cache for research context (keyed by task hash to prevent leaks between debates)
+        self._research_context_cache: dict[str, str] = {}
 
         # Cache for continuum memory context
         self._continuum_context_cache: Optional[str] = None
+
+        # Cache for trending topics (TrendingTopic objects, not just formatted string)
+        self._trending_topics_cache: list[Any] = []
 
         # RLM configuration - use factory for consistent initialization
         self._enable_rlm = enable_rlm_compression and HAS_RLM
@@ -135,6 +139,10 @@ class ContextGatherer:
         """Set or update the prompt builder reference."""
         self._prompt_builder = prompt_builder
 
+    def _get_task_hash(self, task: str) -> str:
+        """Generate a cache key from task to prevent cache leaks between debates."""
+        return hashlib.sha256(task.encode()).hexdigest()[:16]
+
     async def gather_all(self, task: str, timeout: Optional[float] = None) -> str:
         """
         Perform multi-source research and return formatted context.
@@ -155,8 +163,10 @@ class ContextGatherer:
         Returns:
             Formatted context string, or "No research context available."
         """
-        if self._research_context_cache:
-            return self._research_context_cache
+        # Check cache WITH task identity to prevent leaks between debates
+        task_hash = self._get_task_hash(task)
+        if task_hash in self._research_context_cache:
+            return self._research_context_cache[task_hash]
 
         timeout = timeout or CONTEXT_GATHER_TIMEOUT
         context_parts = []
@@ -200,8 +210,9 @@ class ContextGatherer:
             logger.warning(f"Context gathering timed out after {timeout}s, using partial results")
 
         if context_parts:
-            self._research_context_cache = "\n\n".join(context_parts)
-            return self._research_context_cache
+            result = "\n\n".join(context_parts)
+            self._research_context_cache[task_hash] = result
+            return result
         else:
             return "No research context available."
 
@@ -443,6 +454,10 @@ class ContextGatherer:
         - Twitter
         - Hacker News
         - Reddit
+        - GitHub Trending
+        - Google Trends
+
+        Also caches TrendingTopic objects for prompt_builder injection.
 
         Returns:
             Formatted trending topics context, or None if unavailable.
@@ -466,6 +481,17 @@ class ContextGatherer:
             topics = await manager.get_trending_topics(limit_per_platform=3)
 
             if topics:
+                # Cache TrendingTopic objects for PromptBuilder injection
+                self._trending_topics_cache = list(topics)
+
+                # Pass to prompt builder if available
+                if self._prompt_builder:
+                    self._prompt_builder.set_trending_topics(self._trending_topics_cache)
+                    logger.debug(
+                        f"[pulse] Injected {len(self._trending_topics_cache)} trending topics "
+                        f"into PromptBuilder"
+                    )
+
                 trending_context = (
                     "## TRENDING CONTEXT\nCurrent trending topics that may be relevant:\n"
                 )
@@ -480,11 +506,29 @@ class ContextGatherer:
 
         return None
 
-    def clear_cache(self) -> None:
-        """Clear all cached context."""
-        self._research_context_cache = None
-        self._research_evidence_pack = None
-        self._continuum_context_cache = None
+    def get_trending_topics(self) -> list[Any]:
+        """Get cached trending topics.
+
+        Returns:
+            List of TrendingTopic objects from the last gather_trending_context call.
+        """
+        return self._trending_topics_cache
+
+    def clear_cache(self, task: Optional[str] = None) -> None:
+        """Clear cached context, optionally for a specific task.
+
+        Args:
+            task: If provided, only clear cache for this specific task.
+                  If None, clear all cached context.
+        """
+        if task is None:
+            self._research_context_cache.clear()
+            self._research_evidence_pack = None
+            self._continuum_context_cache = None
+            self._trending_topics_cache = []
+        else:
+            task_hash = self._get_task_hash(task)
+            self._research_context_cache.pop(task_hash, None)
 
     async def _compress_with_rlm(
         self,

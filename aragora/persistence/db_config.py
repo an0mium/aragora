@@ -78,6 +78,9 @@ class DatabaseType(Enum):
     # Evolution databases
     EVOLUTION = "evolution"  # Nomic rollbacks and cycle evolution history
 
+    # Billing databases
+    BILLING = "billing"  # Usage sync watermarks and billing state
+
 
 class DatabaseMode(Enum):
     """Database organization modes."""
@@ -116,6 +119,8 @@ LEGACY_DB_NAMES = {
     DatabaseType.GENOMES: "genesis.db",
     # Evolution
     DatabaseType.EVOLUTION: "evolution.db",
+    # Billing
+    DatabaseType.BILLING: "billing.db",
 }
 
 # Mapping from DatabaseType to consolidated database
@@ -148,6 +153,8 @@ CONSOLIDATED_DB_MAPPING = {
     DatabaseType.GENOMES: "agents.db",
     # Evolution
     DatabaseType.EVOLUTION: "core.db",
+    # Billing
+    DatabaseType.BILLING: "analytics.db",
 }
 
 

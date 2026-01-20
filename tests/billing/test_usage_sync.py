@@ -359,3 +359,231 @@ class TestEdgeCases:
         assert config.tokens_input_item_id is None
         assert config.tokens_output_item_id is None
         assert config.debates_item_id is None
+
+
+# ============================================================================
+# Persistence Tests - Watermark Survival Across Restarts
+# ============================================================================
+
+
+class TestUsageSyncPersistence:
+    """Tests for sync watermark persistence across service restarts."""
+
+    @pytest.fixture
+    def temp_db_dir(self, tmp_path):
+        """Create a temporary directory for database files."""
+        return tmp_path / ".nomic"
+
+    @pytest.fixture
+    def mock_usage_tracker(self):
+        """Create a mock UsageTracker."""
+        tracker = MagicMock()
+        return tracker
+
+    @pytest.fixture
+    def mock_stripe_client(self):
+        """Create a mock StripeClient that simulates successful reports."""
+        client = MagicMock()
+        # Return a mock usage record with an id
+        mock_record = MagicMock()
+        mock_record.id = "usage_record_123"
+        client.report_usage = MagicMock(return_value=mock_record)
+        return client
+
+    def test_watermarks_persist_to_database(self, temp_db_dir, mock_usage_tracker, mock_stripe_client):
+        """Test that sync watermarks are persisted to the database."""
+        # Create first service instance
+        service1 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Simulate syncing by setting watermarks directly
+        service1._synced_tokens_in["org-123"] = 10000
+        service1._synced_tokens_out["org-123"] = 5000
+        service1._synced_debates["org-123"] = 10
+
+        # Save the state
+        service1._save_sync_state("org-123")
+
+        # Create a new service instance (simulating restart)
+        service2 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Verify watermarks were loaded from database
+        assert service2._synced_tokens_in.get("org-123") == 10000
+        assert service2._synced_tokens_out.get("org-123") == 5000
+        assert service2._synced_debates.get("org-123") == 10
+
+    def test_watermarks_survive_restart_no_double_reporting(
+        self, temp_db_dir, mock_usage_tracker, mock_stripe_client
+    ):
+        """Test that watermarks prevent double-reporting after restart.
+
+        This is the main bug fix verification test.
+        """
+        # Setup mock usage tracker to return consistent usage
+        mock_summary = MagicMock()
+        mock_summary.total_tokens_in = 15000
+        mock_summary.total_tokens_out = 7000
+        mock_summary.total_debates = 5
+        mock_usage_tracker.get_summary = MagicMock(return_value=mock_summary)
+
+        # Create first service and sync
+        service1 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Register org with metered billing
+        config = OrgBillingConfig(
+            org_id="org-456",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            tier=SubscriptionTier.ENTERPRISE,
+            metered_enabled=True,
+            tokens_input_item_id="si_input",
+            tokens_output_item_id="si_output",
+        )
+        service1.register_org(config)
+
+        # Perform first sync - should report the full usage
+        records1 = service1.sync_org(config)
+
+        # Verify first sync reported usage (15000 tokens = 15 x 1K)
+        assert len(records1) >= 1  # At least tokens_input reported
+        report_calls_1 = mock_stripe_client.report_usage.call_count
+
+        # Reset mock for second service
+        mock_stripe_client.reset_mock()
+
+        # Simulate restart - create new service instance
+        service2 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+        service2.register_org(config)
+
+        # Verify watermarks were loaded
+        assert service2._synced_tokens_in.get("org-456") == 15000
+        assert service2._synced_tokens_out.get("org-456") == 7000
+
+        # Perform sync after "restart" - should NOT report again (delta = 0)
+        records2 = service2.sync_org(config)
+
+        # No new usage to report (delta is 0)
+        assert len(records2) == 0
+
+        # Stripe should NOT have been called (no double reporting)
+        assert mock_stripe_client.report_usage.call_count == 0
+
+    def test_database_table_created(self, temp_db_dir, mock_usage_tracker, mock_stripe_client):
+        """Test that the sync watermark table is created on init."""
+        import sqlite3
+
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Verify table exists
+        db_path = service._db_path
+        assert db_path.exists()
+
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='usage_sync_watermarks'"
+            )
+            result = cursor.fetchone()
+            assert result is not None
+            assert result[0] == "usage_sync_watermarks"
+
+    def test_multiple_orgs_persist_independently(
+        self, temp_db_dir, mock_usage_tracker, mock_stripe_client
+    ):
+        """Test that multiple org watermarks persist independently."""
+        service1 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Save watermarks for multiple orgs
+        service1._synced_tokens_in["org-a"] = 1000
+        service1._synced_tokens_in["org-b"] = 2000
+        service1._synced_tokens_in["org-c"] = 3000
+
+        service1._save_sync_state("org-a")
+        service1._save_sync_state("org-b")
+        service1._save_sync_state("org-c")
+
+        # Restart with new service
+        service2 = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Verify all orgs loaded correctly
+        assert service2._synced_tokens_in.get("org-a") == 1000
+        assert service2._synced_tokens_in.get("org-b") == 2000
+        assert service2._synced_tokens_in.get("org-c") == 3000
+
+    def test_new_billing_period_resets_watermarks(
+        self, temp_db_dir, mock_usage_tracker, mock_stripe_client
+    ):
+        """Test that watermarks from a previous billing period are not loaded."""
+        import sqlite3
+        from datetime import datetime
+
+        # Manually insert a watermark with a different period
+        temp_db_dir.mkdir(parents=True, exist_ok=True)
+        db_path = temp_db_dir / "billing.db"
+
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
+                    org_id TEXT NOT NULL,
+                    tokens_in INTEGER DEFAULT 0,
+                    tokens_out INTEGER DEFAULT 0,
+                    debates INTEGER DEFAULT 0,
+                    period_start TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (org_id, period_start)
+                )
+            """)
+            # Insert a watermark from last month (different period)
+            conn.execute(
+                """
+                INSERT INTO usage_sync_watermarks
+                (org_id, tokens_in, tokens_out, debates, period_start, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                ("org-old", 99999, 88888, 77, "2020-01-01T00:00:00", datetime.utcnow().isoformat()),
+            )
+            conn.commit()
+
+        # Create service - should NOT load the old period's watermarks
+        service = UsageSyncService(
+            usage_tracker=mock_usage_tracker,
+            stripe_client=mock_stripe_client,
+            sync_interval=60,
+            nomic_dir=temp_db_dir,
+        )
+
+        # Old period watermarks should not be loaded
+        assert service._synced_tokens_in.get("org-old") is None
