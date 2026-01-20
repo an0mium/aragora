@@ -102,6 +102,7 @@ class TestPositionBiasMitigation:
             choice: str
             confidence: float
             reasoning: str = ""
+            continue_debate: bool = False
 
         proposals = {"alice": "A", "bob": "B"}
 
