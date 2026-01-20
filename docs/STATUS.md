@@ -4,9 +4,9 @@
 
 ## Current Release
 
-### v2.0.4 - Stability Release (January 2026)
+### v2.0.6 - Stability Release (January 2026)
 
-**Production Ready** - Aragora 2.0.4 promotes Pulse to stable and completes Phase 3 feedback loops.
+**Production Ready** - Aragora 2.0.6 promotes Pulse to stable, fixes asyncio deprecations, and adds bidirectional adapters.
 
 #### Key Highlights
 - **38,100+ tests** collected and passing (+700 new tests)
@@ -18,7 +18,7 @@
 - **0 uncommitted files**
 - **97 fully integrated features** (+1 Pulse)
 
-#### What's New in 2.0.4
+#### What's New in 2.0.6
 
 **Pulse Promotion to Stable**
 - 358+ tests passing across quality, freshness, weighting, scheduling
