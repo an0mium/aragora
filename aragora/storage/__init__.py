@@ -49,6 +49,16 @@ from .gmail_token_store import (
     set_gmail_token_store,
     reset_gmail_token_store,
 )
+from .finding_workflow_store import (
+    WorkflowDataItem,
+    FindingWorkflowStoreBackend,
+    InMemoryFindingWorkflowStore,
+    SQLiteFindingWorkflowStore,
+    RedisFindingWorkflowStore,
+    get_finding_workflow_store,
+    set_finding_workflow_store,
+    reset_finding_workflow_store,
+)
 
 __all__ = [
     # Legacy base classes
@@ -93,4 +103,13 @@ __all__ = [
     "get_gmail_token_store",
     "set_gmail_token_store",
     "reset_gmail_token_store",
+    # Finding workflow storage
+    "WorkflowDataItem",
+    "FindingWorkflowStoreBackend",
+    "InMemoryFindingWorkflowStore",
+    "SQLiteFindingWorkflowStore",
+    "RedisFindingWorkflowStore",
+    "get_finding_workflow_store",
+    "set_finding_workflow_store",
+    "reset_finding_workflow_store",
 ]

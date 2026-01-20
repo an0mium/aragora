@@ -30,13 +30,9 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
+from aragora.storage.finding_workflow_store import get_finding_workflow_store
 
 logger = logging.getLogger(__name__)
-
-
-# In-memory storage for workflow data
-# In production, this would be persisted to database
-_workflow_data: dict[str, dict[str, Any]] = {}
 
 
 class FindingWorkflowHandler(BaseHandler):
@@ -123,10 +119,12 @@ class FindingWorkflowHandler(BaseHandler):
         user_name = request.headers.get("X-User-Name", "Anonymous User")
         return user_id, user_name
 
-    def _get_or_create_workflow(self, finding_id: str) -> dict[str, Any]:
+    async def _get_or_create_workflow(self, finding_id: str) -> dict[str, Any]:
         """Get or create workflow data for a finding."""
-        if finding_id not in _workflow_data:
-            _workflow_data[finding_id] = {
+        store = get_finding_workflow_store()
+        workflow_dict = await store.get(finding_id)
+        if workflow_dict is None:
+            workflow_dict = {
                 "finding_id": finding_id,
                 "current_state": "open",
                 "history": [],
@@ -140,7 +138,8 @@ class FindingWorkflowHandler(BaseHandler):
                 "created_at": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat(),
             }
-        return _workflow_data[finding_id]
+            await store.save(workflow_dict)
+        return workflow_dict
 
     async def _update_status(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
@@ -165,6 +164,7 @@ class FindingWorkflowHandler(BaseHandler):
         user_id, user_name = self._get_user_from_request(request)
 
         # Get workflow and validate transition
+        store = get_finding_workflow_store()
         try:
             from aragora.audit.findings.workflow import (
                 FindingWorkflow,
@@ -173,7 +173,7 @@ class FindingWorkflowHandler(BaseHandler):
                 InvalidTransitionError,
             )
 
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             data = FindingWorkflowData.from_dict(workflow_dict)
             workflow = FindingWorkflow(data)
 
@@ -201,7 +201,7 @@ class FindingWorkflowHandler(BaseHandler):
             )
 
             # Persist workflow data
-            _workflow_data[finding_id] = workflow.data.to_dict()
+            await store.save(workflow.data.to_dict())
 
             logger.info(f"Finding {finding_id} transitioned to {new_status} by {user_id}")
 
@@ -220,7 +220,7 @@ class FindingWorkflowHandler(BaseHandler):
             return self._error_response(400, str(e))
         except ImportError:
             # Fallback without full workflow module
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             old_status = workflow_dict["current_state"]
             workflow_dict["current_state"] = new_status
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
@@ -235,6 +235,8 @@ class FindingWorkflowHandler(BaseHandler):
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             )
+
+            await store.save(workflow_dict)
 
             return self._json_response(
                 200,
@@ -270,10 +272,11 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
+        store = get_finding_workflow_store()
         try:
             from aragora.audit.findings.workflow import FindingWorkflow, FindingWorkflowData
 
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             data = FindingWorkflowData.from_dict(workflow_dict)
             workflow = FindingWorkflow(data)
 
@@ -284,7 +287,7 @@ class FindingWorkflowHandler(BaseHandler):
                 comment=comment,
             )
 
-            _workflow_data[finding_id] = workflow.data.to_dict()
+            await store.save(workflow.data.to_dict())
 
             logger.info(f"Finding {finding_id} assigned to {assignee_id} by {user_id}")
 
@@ -300,7 +303,7 @@ class FindingWorkflowHandler(BaseHandler):
             )
 
         except ImportError:
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             workflow_dict["assigned_to"] = assignee_id
             workflow_dict["assigned_by"] = user_id
             workflow_dict["assigned_at"] = datetime.utcnow().isoformat()
@@ -315,6 +318,8 @@ class FindingWorkflowHandler(BaseHandler):
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             )
+
+            await store.save(workflow_dict)
 
             return self._json_response(
                 200,
@@ -337,10 +342,11 @@ class FindingWorkflowHandler(BaseHandler):
 
         user_id, user_name = self._get_user_from_request(request)
 
+        store = get_finding_workflow_store()
         try:
             from aragora.audit.findings.workflow import FindingWorkflow, FindingWorkflowData
 
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             data = FindingWorkflowData.from_dict(workflow_dict)
             workflow = FindingWorkflow(data)
 
@@ -350,7 +356,7 @@ class FindingWorkflowHandler(BaseHandler):
                 comment=comment,
             )
 
-            _workflow_data[finding_id] = workflow.data.to_dict()
+            await store.save(workflow.data.to_dict())
 
             return self._json_response(
                 200,
@@ -362,11 +368,13 @@ class FindingWorkflowHandler(BaseHandler):
             )
 
         except ImportError:
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             workflow_dict["assigned_to"] = None
             workflow_dict["assigned_by"] = None
             workflow_dict["assigned_at"] = None
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+
+            await store.save(workflow_dict)
 
             return self._json_response(
                 200,
@@ -396,10 +404,11 @@ class FindingWorkflowHandler(BaseHandler):
 
         user_id, user_name = self._get_user_from_request(request)
 
+        store = get_finding_workflow_store()
         try:
             from aragora.audit.findings.workflow import FindingWorkflow, FindingWorkflowData
 
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             data = FindingWorkflowData.from_dict(workflow_dict)
             workflow = FindingWorkflow(data)
 
@@ -409,7 +418,7 @@ class FindingWorkflowHandler(BaseHandler):
                 user_name=user_name,
             )
 
-            _workflow_data[finding_id] = workflow.data.to_dict()
+            await store.save(workflow.data.to_dict())
 
             return self._json_response(
                 201,
@@ -421,7 +430,7 @@ class FindingWorkflowHandler(BaseHandler):
             )
 
         except ImportError:
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             comment_event = {
                 "id": str(uuid4()),
                 "event_type": "comment",
@@ -432,6 +441,8 @@ class FindingWorkflowHandler(BaseHandler):
             }
             workflow_dict["history"].append(comment_event)
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+
+            await store.save(workflow_dict)
 
             return self._json_response(
                 201,
@@ -444,7 +455,7 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_comments(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get all comments for a finding."""
-        workflow_dict = self._get_or_create_workflow(finding_id)
+        workflow_dict = await self._get_or_create_workflow(finding_id)
         comments = [e for e in workflow_dict.get("history", []) if e.get("event_type") == "comment"]
 
         return self._json_response(
@@ -458,7 +469,7 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_history(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get full workflow history for a finding."""
-        workflow_dict = self._get_or_create_workflow(finding_id)
+        workflow_dict = await self._get_or_create_workflow(finding_id)
 
         return self._json_response(
             200,
@@ -501,10 +512,11 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
+        store = get_finding_workflow_store()
         try:
             from aragora.audit.findings.workflow import FindingWorkflow, FindingWorkflowData
 
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             data = FindingWorkflowData.from_dict(workflow_dict)
             workflow = FindingWorkflow(data)
 
@@ -515,7 +527,7 @@ class FindingWorkflowHandler(BaseHandler):
                 comment=comment,
             )
 
-            _workflow_data[finding_id] = workflow.data.to_dict()
+            await store.save(workflow.data.to_dict())
 
             return self._json_response(
                 200,
@@ -528,7 +540,7 @@ class FindingWorkflowHandler(BaseHandler):
             )
 
         except ImportError:
-            workflow_dict = self._get_or_create_workflow(finding_id)
+            workflow_dict = await self._get_or_create_workflow(finding_id)
             old_priority = workflow_dict.get("priority")
             workflow_dict["priority"] = priority
             workflow_dict["updated_at"] = datetime.utcnow().isoformat()
@@ -543,6 +555,8 @@ class FindingWorkflowHandler(BaseHandler):
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             )
+
+            await store.save(workflow_dict)
 
             return self._json_response(
                 200,
@@ -579,7 +593,8 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
-        workflow_dict = self._get_or_create_workflow(finding_id)
+        store = get_finding_workflow_store()
+        workflow_dict = await self._get_or_create_workflow(finding_id)
         old_due = workflow_dict.get("due_date")
         workflow_dict["due_date"] = due_date.isoformat() if due_date else None
         workflow_dict["updated_at"] = datetime.utcnow().isoformat()
@@ -594,6 +609,8 @@ class FindingWorkflowHandler(BaseHandler):
                 "timestamp": datetime.utcnow().isoformat(),
             }
         )
+
+        await store.save(workflow_dict)
 
         return self._json_response(
             200,
@@ -626,7 +643,8 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
-        workflow_dict = self._get_or_create_workflow(finding_id)
+        store = get_finding_workflow_store()
+        workflow_dict = await self._get_or_create_workflow(finding_id)
         linked = workflow_dict.setdefault("linked_findings", [])
         if linked_id not in linked:
             linked.append(linked_id)
@@ -642,6 +660,8 @@ class FindingWorkflowHandler(BaseHandler):
                 "timestamp": datetime.utcnow().isoformat(),
             }
         )
+
+        await store.save(workflow_dict)
 
         return self._json_response(
             200,
@@ -674,7 +694,9 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", f"Duplicate of {parent_id}")
         user_id, user_name = self._get_user_from_request(request)
 
-        workflow_dict = self._get_or_create_workflow(finding_id)
+        store = get_finding_workflow_store()
+        workflow_dict = await self._get_or_create_workflow(finding_id)
+        old_state = workflow_dict.get("current_state", "open")
         workflow_dict["parent_finding_id"] = parent_id
         workflow_dict["current_state"] = "duplicate"
         workflow_dict["updated_at"] = datetime.utcnow().isoformat()
@@ -687,13 +709,15 @@ class FindingWorkflowHandler(BaseHandler):
             {
                 "id": str(uuid4()),
                 "event_type": "state_change",
-                "from_state": workflow_dict.get("current_state", "open"),
+                "from_state": old_state,
                 "to_state": "duplicate",
                 "user_id": user_id,
                 "comment": comment,
                 "timestamp": datetime.utcnow().isoformat(),
             }
         )
+
+        await store.save(workflow_dict)
 
         return self._json_response(
             200,
@@ -738,11 +762,12 @@ class FindingWorkflowHandler(BaseHandler):
         comment = body.get("comment", "")
         user_id, user_name = self._get_user_from_request(request)
 
+        store = get_finding_workflow_store()
         results = {"success": [], "failed": []}
 
         for fid in finding_ids:
             try:
-                workflow_dict = self._get_or_create_workflow(fid)
+                workflow_dict = await self._get_or_create_workflow(fid)
 
                 if action == "assign":
                     assignee = params.get("user_id")
@@ -777,6 +802,8 @@ class FindingWorkflowHandler(BaseHandler):
                     }
                 )
 
+                await store.save(workflow_dict)
+
                 results["success"].append(fid)
 
             except (
@@ -799,7 +826,8 @@ class FindingWorkflowHandler(BaseHandler):
         """Get findings assigned to the current user."""
         user_id, _ = self._get_user_from_request(request)
 
-        assignments = [wf for wf in _workflow_data.values() if wf.get("assigned_to") == user_id]
+        store = get_finding_workflow_store()
+        assignments = await store.list_by_assignee(user_id)
 
         # Sort by priority (1=highest first), then by due date
         assignments.sort(
@@ -820,18 +848,8 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_overdue(self, request: Any) -> dict[str, Any]:
         """Get all overdue findings."""
-        now = datetime.utcnow().isoformat()
-
-        overdue = [
-            wf
-            for wf in _workflow_data.values()
-            if (
-                wf.get("due_date")
-                and wf.get("due_date") < now
-                and wf.get("current_state")
-                not in ("resolved", "false_positive", "duplicate", "accepted_risk")
-            )
-        ]
+        store = get_finding_workflow_store()
+        overdue = await store.list_overdue()
 
         # Sort by due date (oldest first)
         overdue.sort(key=lambda w: w.get("due_date", ""))
