@@ -14,6 +14,8 @@ The handlers are split into mixins for better maintainability:
 - SharingOperationsMixin: Cross-workspace knowledge sharing
 - GlobalKnowledgeOperationsMixin: Global/public verified facts
 - FederationOperationsMixin: Multi-region knowledge sync
+- DedupOperationsMixin: Duplicate detection and merging
+- PruningOperationsMixin: Knowledge pruning and archival
 """
 
 from .handler import KnowledgeMoundHandler

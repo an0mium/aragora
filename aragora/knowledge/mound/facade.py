@@ -59,6 +59,8 @@ from aragora.knowledge.mound.ops.sync import SyncOperationsMixin
 from aragora.knowledge.mound.ops.global_knowledge import GlobalKnowledgeMixin
 from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
 from aragora.knowledge.mound.ops.federation import KnowledgeFederationMixin
+from aragora.knowledge.mound.ops.dedup import DedupOperationsMixin
+from aragora.knowledge.mound.ops.pruning import PruningOperationsMixin
 from aragora.knowledge.mound.types import MoundConfig
 
 
@@ -72,6 +74,8 @@ class KnowledgeMound(
     GlobalKnowledgeMixin,
     KnowledgeSharingMixin,
     KnowledgeFederationMixin,
+    DedupOperationsMixin,
+    PruningOperationsMixin,
     KnowledgeMoundCore,
 ):
     """

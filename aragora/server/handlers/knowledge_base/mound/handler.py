@@ -54,6 +54,20 @@ Federation endpoints:
 - POST /api/knowledge/mound/federation/sync/pull - Pull from region
 - POST /api/knowledge/mound/federation/sync/all - Sync all regions
 - GET /api/knowledge/mound/federation/status - Get federation status
+
+Deduplication endpoints:
+- GET /api/knowledge/mound/dedup/clusters - Find duplicate clusters
+- GET /api/knowledge/mound/dedup/report - Generate dedup report
+- POST /api/knowledge/mound/dedup/merge - Merge a duplicate cluster
+- POST /api/knowledge/mound/dedup/auto-merge - Auto-merge exact duplicates
+
+Pruning endpoints:
+- GET /api/knowledge/mound/pruning/items - Get prunable items
+- POST /api/knowledge/mound/pruning/execute - Prune specified items
+- POST /api/knowledge/mound/pruning/auto - Run auto-prune with policy
+- GET /api/knowledge/mound/pruning/history - Get pruning history
+- POST /api/knowledge/mound/pruning/restore - Restore archived item
+- POST /api/knowledge/mound/pruning/decay - Apply confidence decay
 """
 
 from __future__ import annotations
@@ -71,11 +85,13 @@ from ...base import (
 from ...utils.rate_limit import RateLimiter, get_client_ip
 
 from .culture import CultureOperationsMixin
+from .dedup import DedupOperationsMixin
 from .export import ExportOperationsMixin
 from .federation import FederationOperationsMixin
 from .global_knowledge import GlobalKnowledgeOperationsMixin
 from .graph import GraphOperationsMixin
 from .nodes import NodeOperationsMixin
+from .pruning import PruningOperationsMixin
 from .relationships import RelationshipOperationsMixin
 from .sharing import SharingOperationsMixin
 from .staleness import StalenessOperationsMixin
@@ -103,6 +119,8 @@ class KnowledgeMoundHandler(
     SharingOperationsMixin,
     GlobalKnowledgeOperationsMixin,
     FederationOperationsMixin,
+    DedupOperationsMixin,
+    PruningOperationsMixin,
     BaseHandler,
 ):
     """Handler for Knowledge Mound API endpoints (unified knowledge storage).
@@ -119,6 +137,8 @@ class KnowledgeMoundHandler(
     - Cross-workspace sharing (SharingOperationsMixin)
     - Global/public knowledge (GlobalKnowledgeOperationsMixin)
     - Multi-region federation (FederationOperationsMixin)
+    - Deduplication (DedupOperationsMixin)
+    - Pruning and archival (PruningOperationsMixin)
     """
 
     ROUTES = [
@@ -136,6 +156,18 @@ class KnowledgeMoundHandler(
         "/api/knowledge/mound/graph/*/related",
         "/api/knowledge/mound/export/d3",
         "/api/knowledge/mound/export/graphml",
+        # Deduplication
+        "/api/knowledge/mound/dedup/clusters",
+        "/api/knowledge/mound/dedup/report",
+        "/api/knowledge/mound/dedup/merge",
+        "/api/knowledge/mound/dedup/auto-merge",
+        # Pruning
+        "/api/knowledge/mound/pruning/items",
+        "/api/knowledge/mound/pruning/execute",
+        "/api/knowledge/mound/pruning/auto",
+        "/api/knowledge/mound/pruning/history",
+        "/api/knowledge/mound/pruning/restore",
+        "/api/knowledge/mound/pruning/decay",
     ]
 
     def __init__(self, server_context: dict):
@@ -298,6 +330,38 @@ class KnowledgeMoundHandler(
         if path == "/api/knowledge/mound/federation/status":
             return self._handle_get_federation_status(query_params)
 
+        # Deduplication endpoints
+        if path == "/api/knowledge/mound/dedup/clusters":
+            return self._handle_get_duplicate_clusters(query_params)
+
+        if path == "/api/knowledge/mound/dedup/report":
+            return self._handle_get_dedup_report(query_params)
+
+        if path == "/api/knowledge/mound/dedup/merge":
+            return self._handle_merge_duplicate_cluster(handler)
+
+        if path == "/api/knowledge/mound/dedup/auto-merge":
+            return self._handle_auto_merge_exact_duplicates(handler)
+
+        # Pruning endpoints
+        if path == "/api/knowledge/mound/pruning/items":
+            return self._handle_get_prunable_items(query_params)
+
+        if path == "/api/knowledge/mound/pruning/execute":
+            return self._handle_execute_prune(handler)
+
+        if path == "/api/knowledge/mound/pruning/auto":
+            return self._handle_auto_prune(handler)
+
+        if path == "/api/knowledge/mound/pruning/history":
+            return self._handle_get_prune_history(query_params)
+
+        if path == "/api/knowledge/mound/pruning/restore":
+            return self._handle_restore_pruned_item(handler)
+
+        if path == "/api/knowledge/mound/pruning/decay":
+            return self._handle_apply_confidence_decay(handler)
+
         return None
 
     def _handle_node_routes(
@@ -330,3 +394,198 @@ class KnowledgeMoundHandler(
             # /api/knowledge/mound/nodes/:id - Get specific node
             return self._handle_get_node(node_id)
         return error_response("Invalid node path", 400)
+
+    # -------------------------------------------------------------------------
+    # Deduplication handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_get_duplicate_clusters(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/dedup/clusters."""
+        workspace_id = query_params.get("workspace_id", "default")
+        similarity_threshold = float(query_params.get("similarity_threshold", 0.9))
+        limit = int(query_params.get("limit", 100))
+        return _run_async(
+            self.get_duplicate_clusters(
+                workspace_id=workspace_id,
+                similarity_threshold=similarity_threshold,
+                limit=limit,
+            )
+        )
+
+    def _handle_get_dedup_report(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/dedup/report."""
+        workspace_id = query_params.get("workspace_id", "default")
+        similarity_threshold = float(query_params.get("similarity_threshold", 0.9))
+        return _run_async(
+            self.get_dedup_report(
+                workspace_id=workspace_id,
+                similarity_threshold=similarity_threshold,
+            )
+        )
+
+    def _handle_merge_duplicate_cluster(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/dedup/merge."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        cluster_id = body.get("cluster_id")
+        primary_node_id = body.get("primary_node_id")
+        archive = body.get("archive", True)
+
+        if not cluster_id:
+            return error_response("cluster_id is required", 400)
+
+        return _run_async(
+            self.merge_duplicate_cluster(
+                workspace_id=workspace_id,
+                cluster_id=cluster_id,
+                primary_node_id=primary_node_id,
+                archive=archive,
+            )
+        )
+
+    def _handle_auto_merge_exact_duplicates(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/dedup/auto-merge."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        dry_run = body.get("dry_run", True)
+
+        return _run_async(
+            self.auto_merge_exact_duplicates(
+                workspace_id=workspace_id,
+                dry_run=dry_run,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Pruning handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_get_prunable_items(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/pruning/items."""
+        workspace_id = query_params.get("workspace_id", "default")
+        staleness_threshold = float(query_params.get("staleness_threshold", 0.9))
+        min_age_days = int(query_params.get("min_age_days", 30))
+        limit = int(query_params.get("limit", 100))
+        return _run_async(
+            self.get_prunable_items(
+                workspace_id=workspace_id,
+                staleness_threshold=staleness_threshold,
+                min_age_days=min_age_days,
+                limit=limit,
+            )
+        )
+
+    def _handle_execute_prune(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/pruning/execute."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        item_ids = body.get("item_ids", [])
+        action = body.get("action", "archive")
+        reason = body.get("reason", "manual_prune")
+
+        if not item_ids:
+            return error_response("item_ids is required", 400)
+
+        return _run_async(
+            self.execute_prune(
+                workspace_id=workspace_id,
+                item_ids=item_ids,
+                action=action,
+                reason=reason,
+            )
+        )
+
+    def _handle_auto_prune(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/pruning/auto."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        policy_id = body.get("policy_id")
+        staleness_threshold = float(body.get("staleness_threshold", 0.9))
+        min_age_days = int(body.get("min_age_days", 30))
+        action = body.get("action", "archive")
+        dry_run = body.get("dry_run", True)
+
+        return _run_async(
+            self.auto_prune(
+                workspace_id=workspace_id,
+                policy_id=policy_id,
+                staleness_threshold=staleness_threshold,
+                min_age_days=min_age_days,
+                action=action,
+                dry_run=dry_run,
+            )
+        )
+
+    def _handle_get_prune_history(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/pruning/history."""
+        workspace_id = query_params.get("workspace_id", "default")
+        limit = int(query_params.get("limit", 50))
+        since = query_params.get("since")
+        return _run_async(
+            self.get_prune_history(
+                workspace_id=workspace_id,
+                limit=limit,
+                since=since,
+            )
+        )
+
+    def _handle_restore_pruned_item(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/pruning/restore."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        node_id = body.get("node_id")
+
+        if not node_id:
+            return error_response("node_id is required", 400)
+
+        return _run_async(
+            self.restore_pruned_item(
+                workspace_id=workspace_id,
+                node_id=node_id,
+            )
+        )
+
+    def _handle_apply_confidence_decay(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/pruning/decay."""
+        try:
+            import json
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except Exception:
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        decay_rate = float(body.get("decay_rate", 0.01))
+        min_confidence = float(body.get("min_confidence", 0.1))
+
+        return _run_async(
+            self.apply_confidence_decay(
+                workspace_id=workspace_id,
+                decay_rate=decay_rate,
+                min_confidence=min_confidence,
+            )
+        )
