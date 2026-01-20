@@ -1,0 +1,271 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Cross-Pollination Feature Integrations - ELO weighting, calibration, evidence quality, RLM caching, verification",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "content": "# Cross-Pollination Dashboard\nMonitoring feature integrations: ELO → Vote Weighting, Calibration → Proposals, Evidence → Consensus, RLM Caching, Verification → Confidence",
+        "mode": "markdown"
+      },
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "green", "value": 50 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 2 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_rlm_cache_hits_total[5m])) / (sum(rate(aragora_rlm_cache_hits_total[5m])) + sum(rate(aragora_rlm_cache_misses_total[5m])))",
+          "legendFormat": "Cache Hit Rate"
+        }
+      ],
+      "title": "RLM Cache Hit Rate",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.15 }
+            ]
+          },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 2 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["mean"], "fields": "", "values": false } },
+      "targets": [
+        {
+          "expr": "avg(aragora_calibration_ece)",
+          "legendFormat": "Avg ECE"
+        }
+      ],
+      "title": "Calibration Error (ECE)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 70 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 2 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_voting_accuracy_updates_total{result=\"correct\"}[5m])) / sum(rate(aragora_voting_accuracy_updates_total[5m]))",
+          "legendFormat": "Voting Accuracy"
+        }
+      ],
+      "title": "Voting Accuracy Rate",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 2 },
+      "id": 5,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_selection_feedback_adjustments_total[5m]))",
+          "legendFormat": "ELO Adjustments/s"
+        }
+      ],
+      "title": "ELO Weight Adjustments",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_calibration_adjustments_total[5m])) by (agent)",
+          "legendFormat": "{{agent}}"
+        }
+      ],
+      "title": "Calibration Adjustments by Agent",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_evidence_citation_bonuses_total[5m]))",
+          "legendFormat": "Evidence Bonuses"
+        },
+        {
+          "expr": "sum(rate(aragora_process_evaluation_bonuses_total[5m]))",
+          "legendFormat": "Process Bonuses"
+        }
+      ],
+      "title": "Evidence Quality Bonuses",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 12 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_rlm_cache_hits_total[5m]))",
+          "legendFormat": "Cache Hits"
+        },
+        {
+          "expr": "sum(rate(aragora_rlm_cache_misses_total[5m]))",
+          "legendFormat": "Cache Misses"
+        }
+      ],
+      "title": "RLM Cache Operations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 12 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_convergence_checks_total[5m]))",
+          "legendFormat": "Convergence Checks"
+        },
+        {
+          "expr": "sum(rate(aragora_learning_bonuses_total[5m]))",
+          "legendFormat": "Learning Bonuses"
+        }
+      ],
+      "title": "Verification & Learning",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 18 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum(rate(aragora_km_operations_total[5m])) by (operation)",
+          "legendFormat": "{{operation}}"
+        }
+      ],
+      "title": "Knowledge Mound Operations",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["aragora", "cross-pollination", "features"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Cross-Pollination Features",
+  "uid": "cross-pollination-v1",
+  "version": 1,
+  "weekStart": ""
+}

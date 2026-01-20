@@ -50,7 +50,7 @@ export function ExplainabilityPanel({ debateId }: ExplainabilityPanelProps) {
     setError(null);
 
     try {
-      const data = await apiFetch(`/api/debates/${debateId}/explainability`);
+      const data = await apiFetch<Explanation>(`/api/debates/${debateId}/explainability`);
       setExplanation(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch explanation');
