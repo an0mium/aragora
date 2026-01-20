@@ -22,8 +22,8 @@ class TestContextGathererInit:
         gatherer = ContextGatherer()
         assert gatherer._evidence_store_callback is None
         assert gatherer._prompt_builder is None
-        assert gatherer._research_evidence_pack is None
-        assert gatherer._research_context_cache is None
+        assert gatherer._research_evidence_pack == {}  # Now a dict keyed by task hash
+        assert gatherer._research_context_cache == {}  # Now a dict keyed by task hash
 
     def test_init_with_callback(self):
         """Should accept evidence store callback."""
@@ -44,13 +44,33 @@ class TestContextGathererInit:
         assert gatherer._project_root == custom_root
 
     def test_evidence_pack_property(self):
-        """evidence_pack property should return cached value."""
+        """evidence_pack property should return cached value from dict."""
         gatherer = ContextGatherer()
+        # Empty dict returns None
         assert gatherer.evidence_pack is None
 
+        # When populated, returns the most recent entry
         mock_pack = MagicMock()
-        gatherer._research_evidence_pack = mock_pack
+        task_hash = gatherer._get_task_hash("test task")
+        gatherer._research_evidence_pack[task_hash] = mock_pack
         assert gatherer.evidence_pack == mock_pack
+
+    def test_get_evidence_pack_for_task(self):
+        """get_evidence_pack(task) should return pack for specific task."""
+        gatherer = ContextGatherer()
+
+        mock_pack1 = MagicMock()
+        mock_pack2 = MagicMock()
+
+        task1_hash = gatherer._get_task_hash("task 1")
+        task2_hash = gatherer._get_task_hash("task 2")
+
+        gatherer._research_evidence_pack[task1_hash] = mock_pack1
+        gatherer._research_evidence_pack[task2_hash] = mock_pack2
+
+        assert gatherer.get_evidence_pack("task 1") == mock_pack1
+        assert gatherer.get_evidence_pack("task 2") == mock_pack2
+        assert gatherer.get_evidence_pack("unknown task") is None
 
     def test_set_prompt_builder(self):
         """set_prompt_builder should update the reference."""
@@ -59,16 +79,36 @@ class TestContextGathererInit:
         gatherer.set_prompt_builder(builder)
         assert gatherer._prompt_builder == builder
 
-    def test_clear_cache(self):
-        """clear_cache should reset all cached values."""
+    def test_clear_cache_all(self):
+        """clear_cache() should reset all cached values when called without task."""
         gatherer = ContextGatherer()
-        gatherer._research_context_cache = "cached"
-        gatherer._research_evidence_pack = MagicMock()
+        # Populate caches with task-keyed data
+        gatherer._research_context_cache["abc123"] = "cached"
+        gatherer._research_context_cache["def456"] = "other cached"
+        gatherer._research_evidence_pack["abc123"] = MagicMock()
 
         gatherer.clear_cache()
 
-        assert gatherer._research_context_cache is None
-        assert gatherer._research_evidence_pack is None
+        assert gatherer._research_context_cache == {}
+        assert gatherer._research_evidence_pack == {}
+
+    def test_clear_cache_specific_task(self):
+        """clear_cache(task) should only clear cache for that specific task."""
+        gatherer = ContextGatherer()
+
+        # Use the actual hash function to populate cache
+        task1_hash = gatherer._get_task_hash("Task 1")
+        task2_hash = gatherer._get_task_hash("Task 2")
+
+        gatherer._research_context_cache[task1_hash] = "cached 1"
+        gatherer._research_context_cache[task2_hash] = "cached 2"
+
+        gatherer.clear_cache("Task 1")
+
+        # Task 1's cache should be cleared
+        assert task1_hash not in gatherer._research_context_cache
+        # Task 2's cache should remain
+        assert gatherer._research_context_cache[task2_hash] == "cached 2"
 
 
 class TestGatherAragoraContext:
@@ -273,6 +313,64 @@ class TestGatherAll:
                     assert result1 == result2
 
     @pytest.mark.asyncio
+    async def test_different_tasks_isolated_in_cache(self):
+        """Different tasks should have separate cache entries (bug fix verification)."""
+        gatherer = ContextGatherer()
+
+        # Mock to return different results for different tasks
+        async def mock_gather_aragora(task=None, **kwargs):
+            if "task A" in str(task):
+                return "## CONTEXT\nContext for Task A"
+            else:
+                return "## CONTEXT\nContext for Task B"
+
+        with patch.object(
+            gatherer, "gather_aragora_context", AsyncMock(side_effect=mock_gather_aragora)
+        ):
+            with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+                with patch.object(
+                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                ):
+                    # Gather for two different tasks
+                    result_a = await gatherer.gather_all("task A")
+                    result_b = await gatherer.gather_all("task B")
+
+                    # Results should be different (not leaking between tasks)
+                    assert "Task A" in result_a
+                    assert "Task B" in result_b
+                    assert result_a != result_b
+
+                    # Verify both are cached separately
+                    task_a_hash = gatherer._get_task_hash("task A")
+                    task_b_hash = gatherer._get_task_hash("task B")
+                    assert task_a_hash in gatherer._research_context_cache
+                    assert task_b_hash in gatherer._research_context_cache
+                    assert gatherer._research_context_cache[task_a_hash] != gatherer._research_context_cache[task_b_hash]
+
+    @pytest.mark.asyncio
+    async def test_same_task_returns_cached_result(self):
+        """Same task should return cached result without re-fetching."""
+        gatherer = ContextGatherer()
+        call_count = 0
+
+        async def mock_gather(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return f"## CONTEXT\nResult #{call_count}"
+
+        with patch.object(gatherer, "gather_aragora_context", AsyncMock(side_effect=mock_gather)):
+            with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+                with patch.object(gatherer, "gather_trending_context", AsyncMock(return_value=None)):
+                    # Gather for same task twice
+                    result1 = await gatherer.gather_all("identical task")
+                    result2 = await gatherer.gather_all("identical task")
+
+                    # Should return same result
+                    assert result1 == result2
+                    # Should only have called gather once
+                    assert call_count == 1
+
+    @pytest.mark.asyncio
     async def test_partial_context_still_returned(self):
         """Should return partial context if only some sources available."""
         gatherer = ContextGatherer()
@@ -319,7 +417,11 @@ class TestIntegrationWithOrchestrator:
         mock_pack.snippets = [{"text": "test"}]
         mock_pack.to_context_string.return_value = "Evidence"
 
-        # Directly set to simulate successful collection
-        gatherer._research_evidence_pack = mock_pack
+        # Set in dict keyed by task hash to simulate successful collection
+        task_hash = gatherer._get_task_hash("test task")
+        gatherer._research_evidence_pack[task_hash] = mock_pack
 
+        # evidence_pack property returns the last entry
         assert gatherer.evidence_pack == mock_pack
+        # get_evidence_pack returns for specific task
+        assert gatherer.get_evidence_pack("test task") == mock_pack

@@ -503,5 +503,76 @@ class TestBuildJudgeVotePrompt:
         assert "A" * 301 not in result
 
 
+class TestClassifyQuestionAsync:
+    """Tests for async question classification."""
+
+    @pytest.mark.asyncio
+    async def test_classify_question_async_calls_async_classifier(self):
+        """classify_question_async should call async classify method."""
+        from unittest.mock import AsyncMock
+        from dataclasses import dataclass
+
+        @dataclass
+        class MockClassification:
+            category: str = "technical"
+            confidence: float = 0.9
+            recommended_personas: list = None
+
+            def __post_init__(self):
+                if self.recommended_personas is None:
+                    self.recommended_personas = ["scientist"]
+
+        builder = PromptBuilder(
+            protocol=DebateProtocol(),
+            env=Environment(task="What is quantum computing?"),
+        )
+
+        # Mock the classifier with async classify method
+        mock_classifier = MagicMock()
+        mock_classification = MockClassification()
+        mock_classifier.classify = AsyncMock(return_value=mock_classification)
+
+        builder._question_classifier = mock_classifier
+
+        result = await builder.classify_question_async(use_llm=True)
+
+        # Should have called the async classify method
+        mock_classifier.classify.assert_called_once_with(builder.env.task)
+        assert result == "technical"
+
+    @pytest.mark.asyncio
+    async def test_classify_question_async_returns_cached(self):
+        """classify_question_async should return cached classification."""
+        builder = PromptBuilder(
+            protocol=DebateProtocol(),
+            env=Environment(task="Test"),
+        )
+
+        # Set cached classification
+        mock_classification = MagicMock()
+        mock_classification.category = "general"
+        builder._classification = mock_classification
+
+        result = await builder.classify_question_async()
+
+        # Should return cached value without calling classifier
+        assert result == "general"
+
+    @pytest.mark.asyncio
+    async def test_classify_question_async_fallback_on_error(self):
+        """classify_question_async should fallback to keyword detection on error."""
+        builder = PromptBuilder(
+            protocol=DebateProtocol(),
+            env=Environment(task="How do I fix my Python code?"),
+        )
+
+        # Mock classifier to raise an error
+        with patch("asyncio.to_thread", side_effect=Exception("API error")):
+            result = await builder.classify_question_async(use_llm=True)
+
+            # Should fallback to keyword-based detection
+            assert result in ["general", "technical", "code"]  # Some category from fallback
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
