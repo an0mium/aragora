@@ -425,3 +425,196 @@ class TestIntegrationWithOrchestrator:
         assert gatherer.evidence_pack == mock_pack
         # get_evidence_pack returns for specific task
         assert gatherer.get_evidence_pack("test task") == mock_pack
+
+
+class TestKnowledgeMoundIntegration:
+    """Tests for Knowledge Mound auto-grounding integration."""
+
+    def test_init_with_knowledge_grounding_disabled(self):
+        """Should initialize with knowledge grounding disabled."""
+        gatherer = ContextGatherer(enable_knowledge_grounding=False)
+        assert gatherer._enable_knowledge_grounding is False
+
+    def test_init_with_knowledge_grounding_enabled_no_mound(self):
+        """Should handle missing Knowledge Mound gracefully."""
+        with patch("aragora.debate.context_gatherer.HAS_KNOWLEDGE_MOUND", False):
+            gatherer = ContextGatherer(enable_knowledge_grounding=True)
+            assert gatherer._enable_knowledge_grounding is False
+
+    def test_init_with_knowledge_mound_provided(self):
+        """Should accept pre-configured Knowledge Mound instance."""
+        mock_mound = MagicMock()
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        assert gatherer._knowledge_mound == mock_mound
+
+    def test_init_with_custom_workspace_id(self):
+        """Should accept custom workspace ID for knowledge queries."""
+        mock_mound = MagicMock()
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+            knowledge_workspace_id="custom_workspace",
+        )
+        assert gatherer._knowledge_workspace_id == "custom_workspace"
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_context_disabled(self):
+        """Should return None when knowledge grounding is disabled."""
+        gatherer = ContextGatherer(enable_knowledge_grounding=False)
+        result = await gatherer.gather_knowledge_mound_context("test task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_context_no_results(self):
+        """Should return None when no knowledge is found."""
+        mock_mound = MagicMock()
+        mock_result = MagicMock()
+        mock_result.items = []
+        mock_mound.query = AsyncMock(return_value=mock_result)
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer.gather_knowledge_mound_context("test task")
+        assert result is None
+        mock_mound.query.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_context_with_facts(self):
+        """Should format facts from knowledge mound."""
+        mock_mound = MagicMock()
+
+        # Create mock knowledge item with fact source
+        mock_item = MagicMock()
+        mock_item.content = "AI systems should be transparent"
+        mock_item.source = MagicMock()
+        mock_item.source.value = "fact"
+        mock_item.confidence = 0.85
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_result.execution_time_ms = 50.0
+        mock_mound.query = AsyncMock(return_value=mock_result)
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer.gather_knowledge_mound_context("AI safety discussion")
+
+        assert result is not None
+        assert "KNOWLEDGE MOUND CONTEXT" in result
+        assert "Verified Facts" in result
+        assert "[HIGH]" in result  # Confidence > 0.7
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_context_with_evidence(self):
+        """Should format evidence from knowledge mound."""
+        mock_mound = MagicMock()
+
+        mock_item = MagicMock()
+        mock_item.content = "Study shows 85% agreement on this point"
+        mock_item.source = MagicMock()
+        mock_item.source.value = "evidence"
+        mock_item.confidence = 0.6
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_result.execution_time_ms = 30.0
+        mock_mound.query = AsyncMock(return_value=mock_result)
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer.gather_knowledge_mound_context("test topic")
+
+        assert result is not None
+        assert "Supporting Evidence" in result
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_context_with_insights(self):
+        """Should format insights from other sources."""
+        mock_mound = MagicMock()
+
+        mock_item = MagicMock()
+        mock_item.content = "Historical debate pattern observed"
+        mock_item.source = MagicMock()
+        mock_item.source.value = "consensus"
+        mock_item.confidence = 0.7
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_result.execution_time_ms = 25.0
+        mock_mound.query = AsyncMock(return_value=mock_result)
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer.gather_knowledge_mound_context("debate topic")
+
+        assert result is not None
+        assert "Related Insights" in result
+        assert "(consensus)" in result
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_timeout_protection(self):
+        """Should handle timeout gracefully."""
+        mock_mound = MagicMock()
+        mock_mound.query = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer._gather_knowledge_mound_with_timeout("test task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_knowledge_mound_exception_handling(self):
+        """Should handle exceptions gracefully."""
+        mock_mound = MagicMock()
+        mock_mound.query = AsyncMock(side_effect=Exception("Connection failed"))
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+        )
+        result = await gatherer.gather_knowledge_mound_context("test task")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_gather_all_includes_knowledge_context(self):
+        """gather_all should include knowledge context when available."""
+        mock_mound = MagicMock()
+
+        mock_item = MagicMock()
+        mock_item.content = "Relevant knowledge"
+        mock_item.source = MagicMock()
+        mock_item.source.value = "fact"
+        mock_item.confidence = 0.9
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_result.execution_time_ms = 20.0
+        mock_mound.query = AsyncMock(return_value=mock_result)
+
+        gatherer = ContextGatherer(
+            enable_knowledge_grounding=True,
+            knowledge_mound=mock_mound,
+            project_root=Path("/nonexistent"),
+        )
+
+        # Mock other context sources to return None quickly
+        with patch.object(gatherer, "_gather_claude_web_search", AsyncMock(return_value=None)):
+            with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
+                with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+                    with patch.object(gatherer, "gather_trending_context", AsyncMock(return_value=None)):
+                        result = await gatherer.gather_all("test task", timeout=5.0)
+
+        assert "KNOWLEDGE MOUND CONTEXT" in result
