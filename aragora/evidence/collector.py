@@ -117,10 +117,15 @@ class EvidenceSnippet:
         freshness_indicator = (
             "🟢" if self.freshness_score > 0.8 else "🟡" if self.freshness_score > 0.5 else "🔴"
         )
+        source_line = (
+            f"Source: {self.source} ({self.reliability_score:.1f} reliability, "
+            f"{freshness_indicator} {self.freshness_score:.1f} fresh)"
+        )
+        snippet_text = self.snippet[:500] + ("..." if len(self.snippet) > 500 else "")
         return f"""EVID-{self.id}:
-Source: {self.source} ({self.reliability_score:.1f} reliability, {freshness_indicator} {self.freshness_score:.1f} fresh)
+{source_line}
 Title: {self.title}
-Snippet: {self.snippet[:500]}{"..." if len(self.snippet) > 500 else ""}
+Snippet: {snippet_text}
 URL: {self.url}
 ---"""
 
@@ -131,7 +136,8 @@ URL: {self.url}
         [1] Title. Source (reliability: 0.9). URL
         """
         url_part = f" {self.url}" if self.url else ""
-        return f"[{self.id}] {self.title}. {self.source.title()} (reliability: {self.reliability_score:.1f}).{url_part}"
+        source_info = f"{self.source.title()} (reliability: {self.reliability_score:.1f})"
+        return f"[{self.id}] {self.title}. {source_info}.{url_part}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -180,7 +186,10 @@ class EvidencePack:
         header = f"EVIDENCE PACK (collected {self.search_timestamp.isoformat()}):\n"
         header += f"Search terms: {', '.join(self.topic_keywords)}\n"
         header += f"Total sources searched: {self.total_searched}\n"
-        header += f"Quality: {self.average_reliability:.1%} reliability, {self.average_freshness:.1%} fresh\n\n"
+        header += (
+            f"Quality: {self.average_reliability:.1%} reliability, "
+            f"{self.average_freshness:.1%} fresh\n\n"
+        )
 
         evidence_blocks = [snippet.to_text_block() for snippet in self.snippets]
         return header + "\n".join(evidence_blocks) + "\n\nEND EVIDENCE PACK\n"
@@ -509,7 +518,7 @@ class EvidenceCollector:
 
             snippets = []
             for i, result in enumerate(results[: self.max_snippets_per_connector]):
-                # Handle both Evidence objects (from WebConnector) and dict results (from other connectors)
+                # Handle Evidence objects (WebConnector) or dict results (others)
                 if hasattr(result, "title"):  # Evidence object
                     snippet = EvidenceSnippet(
                         id=f"{connector_name}_{result.id}",
@@ -571,7 +580,11 @@ class EvidenceCollector:
                 urls.append(f"https://{full_match}")
 
         # Pattern 4: Common domain TLDs
-        domain_pattern = r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|io|ai|dev|app|co|edu|gov)(?:/[^\s)<>\[\]\"']*)?)\b"
+        domain_pattern = (
+            r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\."
+            r"(?:com|org|net|io|ai|dev|app|co|edu|gov)"
+            r"(?:/[^\s)<>\[\]\"']*)?)\b"
+        )
         for match in re.findall(domain_pattern, task, re.IGNORECASE):
             if match and match not in urls:
                 urls.append(match)

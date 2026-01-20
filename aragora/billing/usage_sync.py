@@ -333,7 +333,8 @@ class UsageSyncService:
             with sqlite3.connect(self._db_path) as conn:
                 pending = conn.execute(
                     """
-                    SELECT id, org_id, sync_type, quantity_reported, cumulative_total, idempotency_key
+                    SELECT id, org_id, sync_type, quantity_reported,
+                           cumulative_total, idempotency_key
                     FROM usage_sync_records
                     WHERE status = 'pending'
                     """
@@ -344,13 +345,15 @@ class UsageSyncService:
 
             logger.info(f"Reconciling {len(pending)} pending sync records from previous run")
 
-            for record_id, org_id, sync_type, quantity, cumulative_total, idempotency_key in pending:
+            for (record_id, org_id, sync_type, quantity,
+                 cumulative_total, idempotency_key) in pending:
                 try:
                     # Get org's billing config
                     config = self._get_billing_config(org_id)
                     if not config:
                         logger.warning(
-                            f"No billing config for org {org_id}, marking sync {record_id} as failed"
+                            f"No billing config for org {org_id}, "
+                            f"marking sync {record_id} as failed"
                         )
                         self._fail_sync(record_id, "No billing config found for organization")
                         continue
