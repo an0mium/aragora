@@ -35,6 +35,7 @@ from .base import (
     error_response,
     handle_errors,
     json_response,
+    safe_error_message,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -193,7 +194,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML routing failed: {e}")
-            return error_response(f"Routing failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "routing"), 500)
 
     def _handle_score(self, data: dict) -> HandlerResult:
         """Handle single response quality scoring.
@@ -242,7 +243,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML scoring failed: {e}")
-            return error_response(f"Scoring failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "scoring"), 500)
 
     def _handle_score_batch(self, data: dict) -> HandlerResult:
         """Handle batch response quality scoring.
@@ -294,7 +295,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML batch scoring failed: {e}")
-            return error_response(f"Batch scoring failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "batch scoring"), 500)
 
     def _handle_consensus(self, data: dict) -> HandlerResult:
         """Handle consensus prediction.
@@ -357,7 +358,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML consensus prediction failed: {e}")
-            return error_response(f"Prediction failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "prediction"), 500)
 
     def _handle_export_training(self, data: dict) -> HandlerResult:
         """Handle training data export.
@@ -416,7 +417,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML export failed: {e}")
-            return error_response(f"Export failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "export"), 500)
 
     def _handle_embed(self, data: dict) -> HandlerResult:
         """Handle text embedding.
@@ -460,7 +461,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML embedding failed: {e}")
-            return error_response(f"Embedding failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "embedding"), 500)
 
     def _handle_search(self, data: dict) -> HandlerResult:
         """Handle semantic search.
@@ -520,7 +521,7 @@ class MLHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"ML search failed: {e}")
-            return error_response(f"Search failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "search"), 500)
 
     def _handle_list_models(self) -> HandlerResult:
         """List available ML models and capabilities."""
