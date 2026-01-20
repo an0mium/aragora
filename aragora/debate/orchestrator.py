@@ -220,6 +220,9 @@ class Arena:
         rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
         rlm_summary_level: str = "SUMMARY",  # Abstraction level for older content
         rlm_compression_round_threshold: int = 3,  # Start auto-compression after this many rounds
+        # Adaptive rounds (Memory-based debate strategy)
+        enable_adaptive_rounds: bool = False,  # Use memory-based strategy to determine rounds
+        debate_strategy=None,  # Optional pre-configured DebateStrategy instance
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
@@ -319,6 +322,22 @@ class Arena:
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
         self.revalidation_scheduler = revalidation_scheduler
+
+        # Adaptive rounds (memory-based debate strategy)
+        self.enable_adaptive_rounds = enable_adaptive_rounds
+        self.debate_strategy = debate_strategy
+        if self.enable_adaptive_rounds and self.debate_strategy is None:
+            # Auto-create strategy using continuum_memory
+            try:
+                from aragora.debate.strategy import DebateStrategy
+
+                self.debate_strategy = DebateStrategy(
+                    continuum_memory=self.continuum_memory,
+                )
+                logger.info("debate_strategy auto-initialized for adaptive rounds")
+            except Exception as e:
+                logger.warning(f"Failed to initialize DebateStrategy: {e}")
+                self.debate_strategy = None
 
         # Initialize user participation and roles
         self._init_user_participation()

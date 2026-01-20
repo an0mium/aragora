@@ -541,6 +541,13 @@ class ConsensusPhase:
             ctx, vote_counts, proposals, choice_mapping
         )
 
+        # Adjust individual vote confidences based on verification results
+        # This cross-pollinates formal verification with vote confidence
+        if hasattr(result, "verification_results") and result.verification_results:
+            self._consensus_verifier.adjust_vote_confidence_from_verification(
+                votes, result.verification_results, proposals
+            )
+
         # Apply evidence citation bonuses if enabled
         vote_counts = self._apply_evidence_citation_bonuses(ctx, votes, vote_counts, choice_mapping)
 

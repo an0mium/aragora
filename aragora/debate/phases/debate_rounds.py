@@ -122,6 +122,7 @@ class DebateRoundsPhase:
         context_initializer: Any = None,  # ContextInitializer for background task awaiting
         compress_context: Optional[Callable] = None,  # Async callback to compress debate messages
         rlm_compression_round_threshold: int = 3,  # Start compression after this many rounds
+        debate_strategy: Any = None,  # DebateStrategy for adaptive round estimation
     ):
         """
         Initialize the debate rounds phase.
@@ -153,8 +154,10 @@ class DebateRoundsPhase:
             context_initializer: ContextInitializer for awaiting background research/evidence
             compress_context: Async callback to compress debate messages using RLM
             rlm_compression_round_threshold: Start compression after this many rounds (default 3)
+            debate_strategy: Optional DebateStrategy for memory-based round estimation
         """
         self.protocol = protocol
+        self.debate_strategy = debate_strategy
         self.circuit_breaker = circuit_breaker
         self.convergence_detector = convergence_detector
         self.recorder = recorder
@@ -270,7 +273,32 @@ class DebateRoundsPhase:
 
         result = ctx.result
         proposals = ctx.proposals
+
+        # Determine rounds: use strategy if available, otherwise protocol
         rounds = self.protocol.rounds if self.protocol else 1
+        if self.debate_strategy and ctx.env:
+            try:
+                # Use async version if available
+                strategy_rec = await self.debate_strategy.estimate_rounds_async(
+                    task=ctx.env.task,
+                    default_rounds=rounds,
+                )
+                if strategy_rec.estimated_rounds != rounds:
+                    logger.info(
+                        f"[strategy] Adaptive rounds: {rounds} -> {strategy_rec.estimated_rounds} "
+                        f"(confidence={strategy_rec.confidence:.2f}, reason={strategy_rec.reasoning[:50]})"
+                    )
+                    rounds = strategy_rec.estimated_rounds
+                    # Store strategy recommendation in result metadata
+                    if hasattr(result, "metadata") and result.metadata is not None:
+                        result.metadata["strategy_recommendation"] = {
+                            "estimated_rounds": strategy_rec.estimated_rounds,
+                            "confidence": strategy_rec.confidence,
+                            "reasoning": strategy_rec.reasoning,
+                            "relevant_memories": strategy_rec.relevant_memories[:3],
+                        }
+            except Exception as e:
+                logger.debug(f"[strategy] Round estimation failed, using protocol default: {e}")
 
         # Track novelty for initial proposals (round 0 baseline)
         if self.novelty_tracker and proposals:

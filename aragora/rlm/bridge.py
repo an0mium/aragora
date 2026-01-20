@@ -115,6 +115,9 @@ class AragoraRLM:
         backend_config: Optional[RLMBackendConfig] = None,
         aragora_config: Optional[RLMConfig] = None,
         agent_registry: Optional[Any] = None,
+        hierarchy_cache: Optional["RLMHierarchyCache"] = None,
+        knowledge_mound: Optional[Any] = None,  # For auto-creating cache
+        enable_caching: bool = True,  # Enable compression caching
     ):
         """
         Initialize Aragora RLM.
@@ -123,10 +126,14 @@ class AragoraRLM:
             backend_config: Configuration for RLM backend
             aragora_config: Aragora-specific RLM configuration
             agent_registry: Aragora agent registry for fallback
+            hierarchy_cache: Optional pre-configured RLMHierarchyCache
+            knowledge_mound: Optional KnowledgeMound for persistent caching
+            enable_caching: Whether to cache compression hierarchies
         """
         self.backend_config = backend_config or RLMBackendConfig()
         self.aragora_config = aragora_config or RLMConfig()
         self.agent_registry = agent_registry
+        self.enable_caching = enable_caching
 
         self._official_rlm: Optional[Any] = None
         # Compressor is ONLY used as fallback when official RLM unavailable
@@ -134,6 +141,12 @@ class AragoraRLM:
             config=self.aragora_config,
             agent_call=self._agent_call,
         )
+
+        # Initialize hierarchy cache for compression result reuse
+        self._hierarchy_cache: Optional["RLMHierarchyCache"] = hierarchy_cache
+        if self.enable_caching and self._hierarchy_cache is None:
+            # Auto-create cache if knowledge_mound provided
+            self._hierarchy_cache = RLMHierarchyCache(knowledge_mound=knowledge_mound)
 
         # Track which approach was used (for debugging/telemetry)
         self._last_query_used_true_rlm: bool = False
@@ -458,20 +471,40 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         query: str,
         content: str,
         source_type: str = "text",
+        use_cache: bool = True,
     ) -> RLMResult:
         """
         Convenience method: compress content and query in one step.
+
+        Uses hierarchy cache to avoid recompressing similar content.
 
         Args:
             query: The query to answer
             content: Raw content to compress
             source_type: Type of content (text, debate, code)
+            use_cache: Whether to use cached compression if available
 
         Returns:
             RLMResult with answer
         """
-        # Compress first
-        compression = await self._compressor.compress(content, source_type)
+        compression = None
+
+        # Try cache first if enabled
+        if use_cache and self._hierarchy_cache:
+            compression = await self._hierarchy_cache.get_cached(content, source_type)
+            if compression:
+                logger.debug(
+                    f"[AragoraRLM] Using cached compression "
+                    f"(cache_stats={self._hierarchy_cache.stats})"
+                )
+
+        # Compress if not cached
+        if compression is None:
+            compression = await self._compressor.compress(content, source_type)
+
+            # Store in cache for future use
+            if use_cache and self._hierarchy_cache:
+                await self._hierarchy_cache.store(content, source_type, compression)
 
         # Then query
         return await self.query(query, compression.context)
@@ -1623,6 +1656,8 @@ def create_aragora_rlm(
     backend: str = "openai",
     model: str = "gpt-4o",
     verbose: bool = False,
+    knowledge_mound: Optional[Any] = None,
+    enable_caching: bool = True,
 ) -> AragoraRLM:
     """
     Create an AragoraRLM instance with sensible defaults.
@@ -1631,6 +1666,8 @@ def create_aragora_rlm(
         backend: LLM backend (openai, anthropic, openrouter)
         model: Model name
         verbose: Enable verbose logging
+        knowledge_mound: Optional KnowledgeMound for persistent hierarchy caching
+        enable_caching: Whether to enable compression caching (default True)
 
     Returns:
         Configured AragoraRLM instance
@@ -1641,4 +1678,6 @@ def create_aragora_rlm(
             model_name=model,
             verbose=verbose,
         ),
+        knowledge_mound=knowledge_mound,
+        enable_caching=enable_caching,
     )

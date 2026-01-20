@@ -242,6 +242,9 @@ class FeedbackPhase:
         # 1. Record ELO match results
         self._record_elo_match(ctx)
 
+        # 1b. Record voting accuracy for agents (cross-pollination feedback)
+        self._record_voting_accuracy(ctx)
+
         # 2. Update PersonaManager
         self._update_persona_performance(ctx)
 
@@ -929,6 +932,59 @@ class FeedbackPhase:
                     )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"ELO event emission error: {e}")
+
+    def _record_voting_accuracy(self, ctx: "DebateContext") -> None:
+        """
+        Record voting accuracy for agents based on consensus outcome.
+
+        Cross-pollinates vote distribution with agent skill tracking.
+        Agents who consistently vote for the consensus winner get small ELO bonus.
+
+        Args:
+            ctx: DebateContext with result and votes
+        """
+        if not self.elo_system:
+            return
+
+        result = ctx.result
+        if not result or not result.votes or not result.winner:
+            return
+
+        try:
+            # Determine what the winning choice was
+            # The winner could be an agent name or a normalized choice
+            winning_choice = result.winner.lower()
+
+            for vote in result.votes:
+                if not hasattr(vote, "agent") or not hasattr(vote, "choice"):
+                    continue
+
+                agent_name = vote.agent
+                vote_choice = str(vote.choice).lower() if vote.choice else ""
+
+                # Check if this agent voted for the consensus winner
+                voted_for_consensus = (
+                    winning_choice in vote_choice
+                    or vote_choice in winning_choice
+                    or winning_choice == vote_choice
+                )
+
+                # Update voting accuracy tracking
+                self.elo_system.update_voting_accuracy(
+                    agent_name=agent_name,
+                    voted_for_consensus=voted_for_consensus,
+                    domain=ctx.domain or "general",
+                    debate_id=ctx.debate_id,
+                    apply_elo_bonus=True,
+                )
+
+            logger.debug(
+                f"[voting_accuracy] Recorded voting accuracy for {len(result.votes)} votes "
+                f"in debate {ctx.debate_id}"
+            )
+
+        except Exception as e:
+            logger.debug(f"[voting_accuracy] Recording failed: {e}")
 
     def _update_persona_performance(self, ctx: "DebateContext") -> None:
         """Update PersonaManager with performance feedback."""

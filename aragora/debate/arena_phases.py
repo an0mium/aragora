@@ -344,6 +344,8 @@ def init_phases(arena: "Arena") -> None:
         # RLM compression for long debates (auto-compresses context after threshold rounds)
         compress_context=arena.compress_debate_messages if arena.use_rlm_limiter else None,
         rlm_compression_round_threshold=getattr(arena, "rlm_compression_round_threshold", 3),
+        # Adaptive rounds based on memory-aware debate strategy
+        debate_strategy=getattr(arena, "debate_strategy", None),
     )
 
     # Phase 3: Consensus Resolution
@@ -427,6 +429,13 @@ def init_phases(arena: "Arena") -> None:
         post_debate_workflow=getattr(arena, "post_debate_workflow", None),
         enable_post_debate_workflow=getattr(arena, "enable_post_debate_workflow", False),
         post_debate_workflow_threshold=getattr(arena, "post_debate_workflow_threshold", 0.7),
+        # Memory Coordination (atomic cross-system writes)
+        memory_coordinator=getattr(arena, "memory_coordinator", None),
+        enable_coordinated_writes=getattr(arena, "enable_coordinated_writes", True),
+        coordinator_options=getattr(arena, "coordinator_options", None),
+        # Selection Feedback Loop (performance → selection)
+        selection_feedback_loop=getattr(arena, "selection_feedback_loop", None),
+        enable_performance_feedback=getattr(arena, "enable_performance_feedback", True),
     )
 
 
