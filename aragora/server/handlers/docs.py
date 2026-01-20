@@ -182,7 +182,7 @@ class DocsHandler(BaseHandler):
             )
         except Exception as e:
             logger.error(f"Error generating Postman collection: {e}")
-            return json_response({"error": str(e)}, status=500)
+            return error_response(safe_error_message(e, "Postman export"), 500)
 
     def _get_redoc(self) -> HandlerResult:
         """Serve ReDoc API documentation viewer.
