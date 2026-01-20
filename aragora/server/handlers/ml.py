@@ -37,6 +37,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
+from .utils.decorators import has_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -125,6 +126,18 @@ class MLHandler(BaseHandler):
         if not _ml_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for ML endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Check authentication and permissions for ML operations
+        user = self.get_current_user(handler)
+        if user:
+            # Determine required permission based on endpoint
+            if path == "/api/ml/export-training":
+                required_permission = "ml:train"
+            else:
+                required_permission = "ml:read"
+
+            if not has_permission(user.role if hasattr(user, "role") else None, required_permission):
+                return error_response(f"Permission denied: {required_permission} required", 403)
 
         if path == "/api/ml/route":
             return self._handle_route(data)

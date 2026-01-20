@@ -16,6 +16,10 @@ from aragora.debate.phases.ready_signal import (
     CollectiveReadiness,
     parse_ready_signal,
 )
+from aragora.observability.metrics import (
+    record_convergence_check,
+    record_rlm_ready_quorum,
+)
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -131,6 +135,9 @@ class DebateConvergenceTracker:
             f"similarity={convergence.avg_similarity:.0%}"
         )
 
+        # Record metrics
+        record_convergence_check(status=convergence.status, blocked=False)
+
         # Notify spectator
         if self._notify_spectator:
             self._notify_spectator(
@@ -210,6 +217,7 @@ class DebateConvergenceTracker:
                 # Block convergence if hollow
                 if intervention.priority > 0.5:
                     logger.info(f"hollow_consensus_blocked round={round_num}")
+                    record_convergence_check(status="blocked_hollow", blocked=True)
                     result.blocked_by_trickster = True
                     return result
 
@@ -344,6 +352,9 @@ class DebateConvergenceTracker:
                 f"ready={len(ready_agents)}/{self._collective_readiness.total_count} "
                 f"avg_confidence={self._collective_readiness.avg_confidence:.2f}"
             )
+
+            # Record metrics
+            record_rlm_ready_quorum()
 
             if self._notify_spectator:
                 self._notify_spectator(

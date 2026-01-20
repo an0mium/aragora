@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.utils.decorators import has_permission
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,19 @@ class ConnectorsHandler(BaseHandler):
         "/api/connectors/types",
     ]
 
+    def _check_permission(self, request: Any, permission: str) -> Optional[Dict[str, Any]]:
+        """Check if user has the required permission.
+
+        Returns error response if permission denied, None if allowed.
+        """
+        # Get user from request (if authenticated)
+        user = self.get_current_user(request)
+        if user:
+            user_role = user.role if hasattr(user, "role") else None
+            if not has_permission(user_role, permission):
+                return self._error_response(403, f"Permission denied: {permission} required")
+        return None
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method
@@ -166,28 +180,49 @@ class ConnectorsHandler(BaseHandler):
                 remaining = parts[1].split("/")
                 sync_id = remaining[0]
 
-        # Route to appropriate handler
+        # Route to appropriate handler with permission checks
         if path.endswith("/connectors") and method == "GET":
+            if err := self._check_permission(request, "connectors:read"):
+                return err
             return await self._list_connectors(request)
         elif path.endswith("/connectors") and method == "POST":
+            if err := self._check_permission(request, "connectors:create"):
+                return err
             return await self._create_connector(request)
         elif path.endswith("/types"):
+            # Connector types metadata is public
             return await self._list_types(request)
         elif path.endswith("/sync-history"):
+            if err := self._check_permission(request, "connectors:read"):
+                return err
             return await self._get_sync_history(request)
         elif path.endswith("/stats"):
+            if err := self._check_permission(request, "connectors:read"):
+                return err
             return await self._get_stats(request)
         elif path.endswith("/test") and method == "POST":
+            if err := self._check_permission(request, "connectors:configure"):
+                return err
             return await self._test_connection(request)
         elif sync_id and path.endswith("/cancel"):
+            if err := self._check_permission(request, "connectors:configure"):
+                return err
             return await self._cancel_sync(request, sync_id)
         elif connector_id and path.endswith("/sync") and method == "POST":
+            if err := self._check_permission(request, "connectors:configure"):
+                return err
             return await self._start_sync(request, connector_id)
         elif connector_id and method == "GET":
+            if err := self._check_permission(request, "connectors:read"):
+                return err
             return await self._get_connector(request, connector_id)
         elif connector_id and method == "PUT":
+            if err := self._check_permission(request, "connectors:configure"):
+                return err
             return await self._update_connector(request, connector_id)
         elif connector_id and method == "DELETE":
+            if err := self._check_permission(request, "connectors:delete"):
+                return err
             return await self._delete_connector(request, connector_id)
 
         return self._error_response(404, "Endpoint not found")

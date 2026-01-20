@@ -41,6 +41,15 @@ def mock_http_handler():
 
 
 @pytest.fixture
+def mock_admin_user():
+    """Create a mock admin user for permission checks."""
+    mock_user = MagicMock()
+    mock_user.user_id = "user-1"
+    mock_user.role = "admin"
+    return mock_user
+
+
+@pytest.fixture
 def mock_coordinator():
     """Create a mock control plane coordinator."""
     coordinator = MagicMock()
@@ -223,7 +232,7 @@ class TestAgentRegistration:
 
         assert get_status(result) == 401
 
-    def test_register_agent_success(self, handler, mock_http_handler, mock_coordinator):
+    def test_register_agent_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should register agent successfully with auth."""
         mock_http_handler.command = "POST"
         mock_http_handler.rfile.read.return_value = json.dumps(
@@ -235,11 +244,8 @@ class TestAgentRegistration:
             }
         ).encode()
 
-        mock_user = MagicMock()
-        mock_user.user_id = "user-1"
-
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
@@ -251,13 +257,12 @@ class TestAgentRegistration:
         body = get_body(result)
         assert body["id"] == "agent-1"
 
-    def test_register_agent_missing_id(self, handler, mock_http_handler, mock_coordinator):
+    def test_register_agent_missing_id(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should reject registration without agent_id."""
         mock_http_handler.command = "POST"
-        mock_user = MagicMock()
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
@@ -298,16 +303,15 @@ class TestTaskSubmission:
 
         assert get_status(result) == 401
 
-    def test_submit_task_success(self, handler, mock_http_handler, mock_coordinator):
+    def test_submit_task_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should submit task successfully with auth."""
         mock_http_handler.command = "POST"
-        mock_user = MagicMock()
 
         # Configure mock to return actual task_id
         mock_coordinator.submit_task = AsyncMock(return_value="task-123")
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
@@ -319,13 +323,12 @@ class TestTaskSubmission:
         body = get_body(result)
         assert "task_id" in body
 
-    def test_submit_task_missing_type(self, handler, mock_http_handler, mock_coordinator):
+    def test_submit_task_missing_type(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should reject task without task_type."""
         mock_http_handler.command = "POST"
-        mock_user = MagicMock()
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
@@ -362,12 +365,10 @@ class TestAgentUnregistration:
 
         assert get_status(result) == 401
 
-    def test_unregister_agent_success(self, handler, mock_http_handler, mock_coordinator):
+    def test_unregister_agent_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should unregister agent successfully with auth."""
-        mock_user = MagicMock()
-
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 result = handler.handle_delete(
                     "/api/control-plane/agents/agent-1", {}, mock_http_handler
                 )
@@ -376,13 +377,12 @@ class TestAgentUnregistration:
         body = get_body(result)
         assert body["unregistered"] is True
 
-    def test_unregister_nonexistent_agent(self, handler, mock_http_handler, mock_coordinator):
+    def test_unregister_nonexistent_agent(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
         """Should return 404 for nonexistent agent."""
-        mock_user = MagicMock()
         mock_coordinator.unregister_agent = AsyncMock(return_value=False)
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 result = handler.handle_delete(
                     "/api/control-plane/agents/nonexistent", {}, mock_http_handler
                 )
@@ -398,13 +398,12 @@ class TestAgentUnregistration:
 class TestCoordinatorNotInitialized:
     """Tests for when coordinator is not available."""
 
-    def test_register_returns_503_without_coordinator(self, handler, mock_http_handler):
+    def test_register_returns_503_without_coordinator(self, handler, mock_http_handler, mock_admin_user):
         """Should return 503 when coordinator not initialized."""
         mock_http_handler.command = "POST"
-        mock_user = MagicMock()
 
         with patch.object(handler, "_get_coordinator", return_value=None):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
@@ -415,13 +414,12 @@ class TestCoordinatorNotInitialized:
         assert get_status(result) == 503
         assert "not initialized" in get_body(result)["error"]
 
-    def test_submit_returns_503_without_coordinator(self, handler, mock_http_handler):
+    def test_submit_returns_503_without_coordinator(self, handler, mock_http_handler, mock_admin_user):
         """Should return 503 when coordinator not initialized."""
         mock_http_handler.command = "POST"
-        mock_user = MagicMock()
 
         with patch.object(handler, "_get_coordinator", return_value=None):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
                 with patch.object(
                     handler,
                     "read_json_body_validated",

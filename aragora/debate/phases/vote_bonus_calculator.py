@@ -9,6 +9,11 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.observability.metrics import (
+    record_evidence_citation_bonus,
+    record_process_evaluation_bonus,
+)
+
 if TYPE_CHECKING:
     from aragora.core import Vote
     from aragora.debate.context import DebateContext
@@ -123,6 +128,9 @@ class VoteBonusCalculator:
                     evidence_citations[vote.agent] = valid_citations
                     evidence_quality_totals[vote.agent] = total_quality
 
+                    # Record metrics
+                    record_evidence_citation_bonus(agent=vote.agent)
+
                     logger.debug(
                         f"evidence_citation_bonus agent={vote.agent} "
                         f"citations={valid_citations} quality={total_quality:.2f} bonus={bonus:.3f}"
@@ -208,6 +216,9 @@ class VoteBonusCalculator:
                     # Apply bonus proportional to process score (0-1)
                     bonus = process_bonus * result.weighted_total
                     vote_counts[canonical] = vote_counts.get(canonical, 0.0) + bonus
+
+                    # Record metrics
+                    record_process_evaluation_bonus(agent=agent_name)
 
                     logger.debug(
                         f"process_evaluation agent={agent_name} "

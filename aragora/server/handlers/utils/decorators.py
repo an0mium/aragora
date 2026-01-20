@@ -387,6 +387,25 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Laboratory (experimental features)
     "laboratory:read": ["member", "admin", "owner"],
     "laboratory:execute": ["admin", "owner"],
+    # Control Plane permissions
+    "controlplane:read": ["member", "admin", "owner"],
+    "controlplane:agents": ["admin", "owner"],
+    "controlplane:tasks": ["admin", "owner"],
+    "controlplane:manage": ["owner"],
+    # Training permissions
+    "training:read": ["member", "admin", "owner"],
+    "training:create": ["admin", "owner"],
+    "training:export": ["admin", "owner"],
+    # ML permissions
+    "ml:read": ["member", "admin", "owner"],
+    "ml:train": ["admin", "owner"],
+    "ml:deploy": ["admin", "owner"],
+    "ml:delete": ["admin", "owner"],
+    # Connector permissions
+    "connectors:read": ["member", "admin", "owner"],
+    "connectors:create": ["admin", "owner"],
+    "connectors:delete": ["admin", "owner"],
+    "connectors:configure": ["admin", "owner"],
     # Admin permissions
     "admin:*": ["owner"],
     "admin:audit": ["admin", "owner"],

@@ -26,6 +26,7 @@ from .base import (
     require_auth,
     safe_error_message,
 )
+from .utils.decorators import has_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,9 @@ class TrainingHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user:
             logger.info("training_export_sft user_id=%s", user.id)
+            # Check permission for training export
+            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
+                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_sft_exporter()
         if exporter is None:
@@ -299,6 +303,9 @@ class TrainingHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user:
             logger.info("training_export_dpo user_id=%s", user.id)
+            # Check permission for training export
+            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
+                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_dpo_exporter()
         if exporter is None:
@@ -385,6 +392,9 @@ class TrainingHandler(BaseHandler):
                 user.id,
                 query_params.get("persona", "all"),
             )
+            # Check permission for training export
+            if not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
+                return error_response("Permission denied: training:export required", 403)
 
         exporter = self._get_gauntlet_exporter()
         if exporter is None:
@@ -691,6 +701,7 @@ class TrainingHandler(BaseHandler):
             logger.exception(f"Failed to get job {job_id} (runtime error): {e}")
             return error_response(safe_error_message(e, "get training job"), 500)
 
+    @require_auth
     def _cancel_job(
         self,
         job_id: str,
@@ -698,6 +709,11 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult:
         """Cancel a training job."""
+        # Check permission for training creation (cancel is a destructive action)
+        user = self.get_current_user(handler)
+        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+            return error_response("Permission denied: training:create required", 403)
+
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -725,6 +741,11 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult:
         """Export training data for a specific job."""
+        # Check permission for training export
+        user = self.get_current_user(handler)
+        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
+            return error_response("Permission denied: training:export required", 403)
+
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -760,6 +781,11 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult:
         """Start training for a job."""
+        # Check permission for training creation
+        user = self.get_current_user(handler)
+        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+            return error_response("Permission denied: training:create required", 403)
+
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)
@@ -796,6 +822,11 @@ class TrainingHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult:
         """Mark a training job as complete (webhook endpoint)."""
+        # Check permission for training creation
+        user = self.get_current_user(handler)
+        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+            return error_response("Permission denied: training:create required", 403)
+
         pipeline = self._get_training_pipeline()
         if not pipeline:
             return error_response("Training pipeline not available", 503)

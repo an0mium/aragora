@@ -42,6 +42,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.utils.decorators import has_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -474,6 +475,10 @@ class ControlPlaneHandler(BaseHandler):
         if err:
             return err
 
+        # Check permission for agent management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+            return error_response("Permission denied: controlplane:agents required", 403)
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -519,6 +524,10 @@ class ControlPlaneHandler(BaseHandler):
         if err:
             return err
 
+        # Check permission for agent management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+            return error_response("Permission denied: controlplane:agents required", 403)
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -546,6 +555,10 @@ class ControlPlaneHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+
+        # Check permission for task management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -600,6 +613,10 @@ class ControlPlaneHandler(BaseHandler):
         if err:
             return err
 
+        # Check permission for task management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -644,6 +661,10 @@ class ControlPlaneHandler(BaseHandler):
         if err:
             return err
 
+        # Check permission for task management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -684,6 +705,10 @@ class ControlPlaneHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+
+        # Check permission for task management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -729,6 +754,10 @@ class ControlPlaneHandler(BaseHandler):
         if err:
             return err
 
+        # Check permission for task management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
         coordinator = self._get_coordinator()
         if not coordinator:
             return error_response("Control plane not initialized", 503)
@@ -765,6 +794,10 @@ class ControlPlaneHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+
+        # Check permission for agent management
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:agents"):
+            return error_response("Permission denied: controlplane:agents required", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
