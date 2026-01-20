@@ -796,7 +796,7 @@ All stabilization items addressed:
 
 ## Feature Integration Status
 
-### Fully Integrated (74)
+### Fully Integrated (81)
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
@@ -878,6 +878,13 @@ All stabilization items addressed:
 | Knowledge Graph Export | Active | `aragora/live/src/app/knowledge/page.tsx` (export & staleness) |
 | RLM Training Buffer | Active | `aragora/rlm/training/buffer.py` (experience replay) |
 | RLM Reward Computation | Active | `aragora/rlm/training/reward.py` (debate outcome rewards) |
+| ELO Skill Vote Weighting | Active | `aragora/debate/phases/weight_calculator.py` (domain-specific ELO → vote weight) |
+| Evidence Quality Scoring | Active | `aragora/debate/phases/consensus_phase.py` (quality scores → citation bonus) |
+| Memory-Based Debate Strategy | Active | `aragora/debate/strategy.py` (memory tiers → adaptive rounds) |
+| RLM Hierarchy Caching | Active | `aragora/rlm/bridge.py` (compression result reuse) |
+| Verification Confidence Adjust | Active | `aragora/debate/phases/consensus_verification.py` (verify → vote confidence) |
+| Voting Accuracy Tracking | Active | `aragora/debate/phases/feedback_phase.py` (vote patterns → ELO bonus) |
+| Knowledge Mound High-Confidence | Active | `aragora/debate/knowledge_mound_ops.py` (0.85 threshold for storage) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
