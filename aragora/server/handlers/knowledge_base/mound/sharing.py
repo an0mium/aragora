@@ -26,6 +26,7 @@ from ...base import (
     handle_errors,
     json_response,
 )
+from ...utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -43,6 +44,7 @@ class SharingHandlerProtocol(Protocol):
 class SharingOperationsMixin:
     """Mixin providing cross-workspace sharing operations for KnowledgeMoundHandler."""
 
+    @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("share item")
     def _handle_share_item(
         self: SharingHandlerProtocol, handler: Any
@@ -184,6 +186,7 @@ class SharingOperationsMixin:
             "offset": offset,
         })
 
+    @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("revoke share")
     def _handle_revoke_share(
         self: SharingHandlerProtocol, handler: Any

@@ -48,6 +48,7 @@ from aragora.exceptions import EarlyStopError
 from aragora.observability.logging import correlation_context
 from aragora.observability.logging import get_logger as get_structured_logger
 from aragora.observability.tracing import add_span_attributes, get_tracer
+from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.server.metrics import (
     ACTIVE_DEBATES,
     track_debate_outcome,
@@ -1412,7 +1413,12 @@ class Arena:
         # Initialize OpenTelemetry tracer for distributed tracing
         tracer = get_tracer()
 
-        with tracer.start_as_current_span("debate") as span:
+        # Initialize performance monitor for slow debate detection
+        perf_monitor = get_debate_monitor()
+        agent_names = [a.name for a in self.agents]
+
+        with tracer.start_as_current_span("debate") as span, \
+             perf_monitor.track_debate(debate_id, task=self.env.task, agent_names=agent_names):
             # Add debate attributes to span
             add_span_attributes(
                 span,

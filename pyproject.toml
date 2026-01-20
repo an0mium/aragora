@@ -507,13 +507,6 @@ module = [
     "aragora.exceptions",
     "aragora.serialization",
     # Added strict - Phase 23 clean modules (Jan 2026)
-    "aragora.utils.json_utils",
-    "aragora.ranking.calibration",
-    "aragora.auth.constants",
-    "aragora.auth.models",
-    "aragora.auth.rate_limiter",
-    "aragora.debate.metrics",
-    "aragora.persistence.connection",
     "aragora.knowledge.types",
     "aragora.agents.types",
     "aragora.rbac.models",

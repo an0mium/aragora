@@ -14,10 +14,12 @@ Arena._run_inner() method, handling:
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
+from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.debate.phases.ready_signal import (
     AgentReadinessSignal,
     CollectiveReadiness,
@@ -316,6 +318,9 @@ class DebateRoundsPhase:
         if self.novelty_tracker and proposals:
             self._track_novelty(ctx, round_num=0)
 
+        # Get performance monitor for round tracking
+        perf_monitor = get_debate_monitor()
+
         for round_num in range(1, rounds + 1):
             # Check for cancellation before each round
             if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
@@ -324,6 +329,9 @@ class DebateRoundsPhase:
                 raise DebateCancelled(ctx.cancellation_token.reason)
 
             logger.info(f"round_start round={round_num}")
+
+            # Track round start time for slow debate detection
+            _round_start_time = time.time()
 
             # Trigger PRE_ROUND hook if hook_manager is available
             if ctx.hook_manager:
@@ -431,6 +439,28 @@ class DebateRoundsPhase:
 
             # Convergence detection
             should_break = self._check_convergence(ctx, round_num)
+
+            # Record round duration for slow debate detection
+            _round_duration = time.time() - _round_start_time
+            _slow_threshold = perf_monitor.slow_round_threshold
+            if _round_duration > _slow_threshold:
+                logger.warning(
+                    f"slow_round_detected debate_id={ctx.debate_id} round={round_num} "
+                    f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
+                )
+                try:
+                    from aragora.observability.metrics import record_slow_round, record_round_latency
+                    record_slow_round(debate_outcome="in_progress")
+                    record_round_latency(_round_duration)
+                except ImportError:
+                    pass
+            else:
+                try:
+                    from aragora.observability.metrics import record_round_latency
+                    record_round_latency(_round_duration)
+                except ImportError:
+                    pass
+
             if should_break:
                 break
 

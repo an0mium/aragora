@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.metrics import track_federation_sync, track_federation_regions
 
 from ...base import (
     HandlerResult,
@@ -24,6 +25,7 @@ from ...base import (
     handle_errors,
     json_response,
 )
+from ...utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -42,6 +44,7 @@ class FederationHandlerProtocol(Protocol):
 class FederationOperationsMixin:
     """Mixin providing federation operations for KnowledgeMoundHandler."""
 
+    @rate_limit(rpm=10, limiter_name="federation_admin")
     @handle_errors("register federated region")
     def _handle_register_region(
         self: FederationHandlerProtocol, handler: Any
@@ -146,6 +149,7 @@ class FederationOperationsMixin:
             "region_id": region_id,
         })
 
+    @rate_limit(rpm=5, limiter_name="federation_sync")
     @handle_errors("sync to region")
     def _handle_sync_to_region(
         self: FederationHandlerProtocol, handler: Any
@@ -184,18 +188,22 @@ class FederationOperationsMixin:
         if not mound:
             return error_response("Knowledge Mound not available", 503)
 
-        try:
-            result = _run_async(
-                mound.sync_to_region(
-                    region_id=region_id,
-                    workspace_id=workspace_id,
-                    since=since,
-                    visibility_levels=visibility_levels,
+        with track_federation_sync(region_id, "push") as metrics_ctx:
+            try:
+                result = _run_async(
+                    mound.sync_to_region(
+                        region_id=region_id,
+                        workspace_id=workspace_id,
+                        since=since,
+                        visibility_levels=visibility_levels,
+                    )
                 )
-            )
-        except Exception as e:
-            logger.error(f"Failed to sync to region: {e}")
-            return error_response(f"Failed to sync to region: {e}", 500)
+                metrics_ctx["nodes_synced"] = result.nodes_synced
+                metrics_ctx["status"] = "success" if result.success else "failed"
+            except Exception as e:
+                metrics_ctx["status"] = "error"
+                logger.error(f"Failed to sync to region: {e}")
+                return error_response(f"Failed to sync to region: {e}", 500)
 
         return json_response({
             "success": result.success,
@@ -208,6 +216,7 @@ class FederationOperationsMixin:
             "error": result.error,
         })
 
+    @rate_limit(rpm=5, limiter_name="federation_sync")
     @handle_errors("pull from region")
     def _handle_pull_from_region(
         self: FederationHandlerProtocol, handler: Any
@@ -245,17 +254,21 @@ class FederationOperationsMixin:
         if not mound:
             return error_response("Knowledge Mound not available", 503)
 
-        try:
-            result = _run_async(
-                mound.pull_from_region(
-                    region_id=region_id,
-                    workspace_id=workspace_id,
-                    since=since,
+        with track_federation_sync(region_id, "pull") as metrics_ctx:
+            try:
+                result = _run_async(
+                    mound.pull_from_region(
+                        region_id=region_id,
+                        workspace_id=workspace_id,
+                        since=since,
+                    )
                 )
-            )
-        except Exception as e:
-            logger.error(f"Failed to pull from region: {e}")
-            return error_response(f"Failed to pull from region: {e}", 500)
+                metrics_ctx["nodes_synced"] = result.nodes_synced
+                metrics_ctx["status"] = "success" if result.success else "failed"
+            except Exception as e:
+                metrics_ctx["status"] = "error"
+                logger.error(f"Failed to pull from region: {e}")
+                return error_response(f"Failed to pull from region: {e}", 500)
 
         return json_response({
             "success": result.success,
@@ -343,10 +356,22 @@ class FederationOperationsMixin:
             logger.error(f"Failed to get federation status: {e}")
             return error_response(f"Failed to get federation status: {e}", 500)
 
+        # Track region counts
+        enabled_count = sum(1 for r in status.values() if r.get("enabled", False))
+        disabled_count = len(status) - enabled_count
+        healthy_count = sum(1 for r in status.values() if r.get("healthy", False))
+        unhealthy_count = len(status) - healthy_count
+        track_federation_regions(
+            enabled=enabled_count,
+            disabled=disabled_count,
+            healthy=healthy_count,
+            unhealthy=unhealthy_count,
+        )
+
         return json_response({
             "regions": status,
             "total_regions": len(status),
-            "enabled_regions": sum(1 for r in status.values() if r.get("enabled", False)),
+            "enabled_regions": enabled_count,
         })
 
     @handle_errors("list federated regions")

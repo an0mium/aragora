@@ -1031,6 +1031,10 @@ class HealthHandler(BaseHandler):
         (default 30 seconds per round). Useful for identifying performance
         bottlenecks and stuck debates.
 
+        Includes:
+        - current_slow: Currently active debates running slow
+        - recent_slow: Historical slow debates from performance monitor
+
         Returns:
             JSON response with slow debate information
         """
@@ -1038,6 +1042,11 @@ class HealthHandler(BaseHandler):
         import os
         slow_threshold = float(os.getenv("ARAGORA_SLOW_DEBATE_THRESHOLD", "30"))
 
+        current_slow = []
+        recent_slow = []
+        errors = []
+
+        # Get currently active slow debates
         try:
             from aragora.server.stream.state_manager import (
                 get_active_debates,
@@ -1045,14 +1054,13 @@ class HealthHandler(BaseHandler):
             )
 
             now = time.time()
-            slow_debates = []
 
             with get_active_debates_lock():
                 for debate_id, debate_info in get_active_debates().items():
                     start_time = debate_info.get("start_time", now)
                     duration = now - start_time
                     if duration > slow_threshold:
-                        slow_debates.append({
+                        current_slow.append({
                             "debate_id": debate_id,
                             "duration_seconds": round(duration, 2),
                             "task": debate_info.get("task", "")[:100],
@@ -1063,29 +1071,50 @@ class HealthHandler(BaseHandler):
                         })
 
             # Sort by duration descending
-            slow_debates.sort(key=lambda x: x["duration_seconds"], reverse=True)
-
-            return json_response({
-                "status": "healthy" if len(slow_debates) == 0 else "degraded",
-                "slow_threshold_seconds": slow_threshold,
-                "slow_debate_count": len(slow_debates),
-                "slow_debates": slow_debates[:20],  # Limit to top 20
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            })
+            current_slow.sort(key=lambda x: x["duration_seconds"], reverse=True)
 
         except ImportError:
-            return json_response({
-                "status": "unavailable",
-                "error": "state_manager not available",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            })
-        except Exception as e:
-            logger.warning(f"Slow debates check failed: {e}")
-            return json_response({
-                "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            })
+            errors.append("state_manager not available")
+        except (OSError, RuntimeError, ValueError) as e:
+            errors.append(f"state_manager error: {type(e).__name__}")
+
+        # Get historical slow debates from performance monitor
+        try:
+            from aragora.debate.performance_monitor import get_debate_monitor
+
+            monitor = get_debate_monitor()
+
+            # Get historical slow debates
+            recent_slow = monitor.get_slow_debates(limit=20)
+
+            # Also get currently monitored slow debates
+            monitored_current = monitor.get_current_slow_debates()
+            for debate in monitored_current:
+                # Avoid duplicates with state manager
+                if not any(d["debate_id"] == debate["debate_id"] for d in current_slow):
+                    current_slow.append(debate)
+
+        except ImportError:
+            errors.append("performance_monitor not available")
+        except (OSError, RuntimeError, ValueError) as e:
+            errors.append(f"performance_monitor error: {type(e).__name__}")
+
+        # Determine overall status
+        total_slow = len(current_slow) + len(recent_slow)
+        status = "healthy" if total_slow == 0 else "degraded"
+        if errors and total_slow == 0:
+            status = "partial"
+
+        return json_response({
+            "status": status,
+            "slow_threshold_seconds": slow_threshold,
+            "current_slow_count": len(current_slow),
+            "recent_slow_count": len(recent_slow),
+            "current_slow": current_slow[:20],
+            "recent_slow": recent_slow[:20],
+            "errors": errors if errors else None,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        })
 
     def _circuit_breakers_status(self) -> HandlerResult:
         """Get detailed circuit breaker status for all registered breakers.

@@ -15,6 +15,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.metrics import track_global_fact, track_global_query
 
 from ...base import (
     HandlerResult,
@@ -98,6 +99,7 @@ class GlobalKnowledgeOperationsMixin:
                     topics=topics,
                 )
             )
+            track_global_fact(action="store")
         except Exception as e:
             logger.error(f"Failed to store verified fact: {e}")
             return error_response(f"Failed to store verified fact: {e}", 500)
@@ -136,6 +138,7 @@ class GlobalKnowledgeOperationsMixin:
             else:
                 # If no query, get all system facts
                 items = _run_async(mound.get_system_facts(limit=limit, topics=topics))
+            track_global_query(has_results=len(items) > 0)
         except Exception as e:
             logger.error(f"Failed to query global knowledge: {e}")
             return error_response(f"Failed to query global knowledge: {e}", 500)
@@ -198,6 +201,7 @@ class GlobalKnowledgeOperationsMixin:
                     reason=reason,
                 )
             )
+            track_global_fact(action="promote")
         except ValueError as e:
             return error_response(str(e), 404)
         except Exception as e:

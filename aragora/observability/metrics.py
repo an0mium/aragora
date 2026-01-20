@@ -90,6 +90,11 @@ RLM_SELECTION_RECOMMENDATIONS: Any = None
 CALIBRATION_COST_CALCULATIONS: Any = None
 BUDGET_FILTERING_EVENTS: Any = None
 
+# Slow debate detection metrics
+SLOW_DEBATES_TOTAL: Any = None
+SLOW_ROUNDS_TOTAL: Any = None
+DEBATE_ROUND_LATENCY: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -382,6 +387,26 @@ def _init_metrics() -> bool:
             ["outcome"],  # included, excluded
         )
 
+        # Slow debate detection metrics
+        global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
+
+        SLOW_DEBATES_TOTAL = Counter(
+            "aragora_slow_debates_total",
+            "Number of debates flagged as slow (>30s per round)",
+        )
+
+        SLOW_ROUNDS_TOTAL = Counter(
+            "aragora_slow_rounds_total",
+            "Number of individual rounds flagged as slow",
+            ["debate_outcome"],  # consensus, no_consensus, error
+        )
+
+        DEBATE_ROUND_LATENCY = Histogram(
+            "aragora_debate_round_latency_seconds",
+            "Latency per debate round",
+            buckets=[1, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300],
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -478,6 +503,9 @@ def _init_noop_metrics() -> None:
     RLM_SELECTION_RECOMMENDATIONS = NoOpMetric()
     CALIBRATION_COST_CALCULATIONS = NoOpMetric()
     BUDGET_FILTERING_EVENTS = NoOpMetric()
+    SLOW_DEBATES_TOTAL = NoOpMetric()
+    SLOW_ROUNDS_TOTAL = NoOpMetric()
+    DEBATE_ROUND_LATENCY = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -1078,3 +1106,34 @@ def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
         latency = time.perf_counter() - start
         record_bridge_sync(bridge, success)
         record_bridge_sync_latency(bridge, latency)
+
+
+# =============================================================================
+# Slow Debate Detection Metrics
+# =============================================================================
+
+
+def record_slow_debate() -> None:
+    """Record a debate flagged as slow."""
+    _init_metrics()
+    SLOW_DEBATES_TOTAL.inc()
+
+
+def record_slow_round(debate_outcome: str = "in_progress") -> None:
+    """Record a round flagged as slow.
+
+    Args:
+        debate_outcome: Current debate outcome (consensus, no_consensus, error, in_progress)
+    """
+    _init_metrics()
+    SLOW_ROUNDS_TOTAL.labels(debate_outcome=debate_outcome).inc()
+
+
+def record_round_latency(latency_seconds: float) -> None:
+    """Record latency for a debate round.
+
+    Args:
+        latency_seconds: Round duration in seconds
+    """
+    _init_metrics()
+    DEBATE_ROUND_LATENCY.observe(latency_seconds)
