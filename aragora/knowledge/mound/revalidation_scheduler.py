@@ -381,13 +381,20 @@ async def _revalidate_via_debate(
     payload: dict[str, Any],
     knowledge_mound: Optional["KnowledgeMound"],
 ) -> dict[str, Any]:
-    """Revalidate knowledge by running a focused debate."""
+    """Revalidate knowledge by running a focused debate.
+
+    Creates a mini-debate with available agents to verify the claim is still valid.
+    Updates the knowledge mound with the revalidation result.
+    """
     content_preview = payload.get("content_preview", "")
+    workspace_id = payload.get("workspace_id", "default")
 
     try:
         # Import debate components
-        from aragora.core import Environment
+        from aragora.core_types import Environment
         from aragora.debate.protocol import DebateProtocol
+        from aragora.debate.orchestrator import Arena
+        from aragora.agents.factory import create_default_agents
 
         # Create a focused revalidation debate task
         task = f"Verify the following knowledge claim is still accurate and up-to-date: {content_preview}"
@@ -395,7 +402,9 @@ async def _revalidate_via_debate(
         env = Environment(
             task=task,
             context=f"This is a revalidation debate for knowledge node {node_id}. "
-            "Determine if this claim is still valid, needs updating, or should be deprecated.",
+            "Determine if this claim is still valid, needs updating, or should be deprecated. "
+            "Respond with one of: VALID (claim is still accurate), UPDATE (needs modification), "
+            "or DEPRECATED (claim is outdated or incorrect).",
         )
 
         protocol = DebateProtocol(
@@ -404,14 +413,65 @@ async def _revalidate_via_debate(
             enable_evidence_weighting=True,
         )
 
-        # Note: Actual debate execution would require agents
-        # For now, return a placeholder indicating debate should be run
+        # Create agents for the revalidation debate
+        try:
+            agents = create_default_agents(num_agents=3)
+        except Exception as e:
+            logger.warning(f"Could not create agents for revalidation: {e}")
+            # Fall back to placeholder response
+            return {
+                "success": True,
+                "method": "debate",
+                "status": "debate_scheduled",
+                "task": task,
+                "message": "Revalidation debate scheduled - agents unavailable",
+            }
+
+        # Create and run the arena
+        arena = Arena(
+            env=env,
+            agents=agents,
+            protocol=protocol,
+        )
+
+        # Run the debate
+        result = await arena.run()
+
+        # Analyze the debate result
+        conclusion = result.conclusion if result else ""
+        consensus_reached = result.consensus_reached if result else False
+
+        # Determine validation status from debate conclusion
+        validation_status = "valid"  # Default
+        conclusion_lower = conclusion.lower() if conclusion else ""
+
+        if "deprecated" in conclusion_lower or "outdated" in conclusion_lower:
+            validation_status = "deprecated"
+        elif "update" in conclusion_lower or "modify" in conclusion_lower:
+            validation_status = "needs_update"
+        elif "valid" in conclusion_lower or "accurate" in conclusion_lower:
+            validation_status = "valid"
+
+        # Update the knowledge mound with revalidation result
+        if knowledge_mound and validation_status == "valid":
+            try:
+                await knowledge_mound.mark_validated(
+                    node_id=node_id,
+                    validation_method="debate",
+                    confidence=result.confidence if result else 0.7,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update mound validation status: {e}")
+
         return {
             "success": True,
             "method": "debate",
-            "status": "debate_scheduled",
+            "status": "completed",
+            "validation_status": validation_status,
+            "consensus_reached": consensus_reached,
+            "conclusion": conclusion[:500] if conclusion else "",
+            "debate_id": result.debate_id if result else None,
             "task": task,
-            "message": "Revalidation debate scheduled - requires agent execution",
         }
 
     except ImportError as e:
@@ -419,6 +479,12 @@ async def _revalidate_via_debate(
         return {
             "success": False,
             "error": f"Debate components not available: {e}",
+        }
+    except Exception as e:
+        logger.exception(f"Revalidation debate failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
         }
 
 
