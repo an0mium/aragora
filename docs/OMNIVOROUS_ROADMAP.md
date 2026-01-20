@@ -118,31 +118,32 @@ Knowledge Mound, cross-debate memory, meta-learning, evidence bridges.
 - [x] KnowledgeMoundCheckpointStore implementation
 - [x] WorkflowEngine checkpoint wiring
 
-#### 4.4 Document Ingestion (Planned)
-- [ ] PDF/Word/Excel parsing
-- [ ] Code repository analysis
-- [ ] Web scraping connectors
-- [ ] RSS/Atom feed ingestion
+#### 4.4 Document Ingestion (Complete)
+- [x] PDF/Word/Excel/PowerPoint parsing (DocumentParser)
+- [x] DocumentConnector for evidence collection
+- [x] EvidenceCollector integration with auto-detection
+- [x] Format-specific reliability scoring
+- [x] Table extraction with structured evidence
 
-### Phase 5: Autonomous Operations (Planned)
+### Phase 5: Autonomous Operations (Complete)
 
 #### 5.1 Nomic Loop Enhancement
-- [ ] Self-improvement debate automation
-- [ ] Code generation verification
-- [ ] Rollback safety mechanisms
-- [ ] Human-in-the-loop approval flows
+- [x] Self-improvement debate automation (SelfImprovementManager)
+- [x] Code generation verification (CodeVerifier)
+- [x] Rollback safety mechanisms (RollbackManager)
+- [x] Human-in-the-loop approval flows (ApprovalFlow)
 
 #### 5.2 Continuous Learning
-- [ ] Real-time ELO updates
-- [ ] Agent calibration refinement
-- [ ] Cross-debate pattern extraction
-- [ ] Knowledge decay management
+- [x] Real-time ELO updates (EloUpdater)
+- [x] Agent calibration refinement (ContinuousLearner)
+- [x] Cross-debate pattern extraction (PatternExtractor)
+- [x] Knowledge decay management (KnowledgeDecayManager)
 
 #### 5.3 Proactive Intelligence
-- [ ] Scheduled debate triggers
-- [ ] Alert-based analysis
-- [ ] Trend monitoring
-- [ ] Anomaly detection
+- [x] Scheduled debate triggers (ScheduledTrigger)
+- [x] Alert-based analysis (AlertAnalyzer)
+- [x] Trend monitoring (TrendMonitor)
+- [x] Anomaly detection (AnomalyDetector)
 
 ### Phase 6: Federation (Future)
 
