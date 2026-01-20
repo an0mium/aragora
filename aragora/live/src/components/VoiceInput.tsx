@@ -222,6 +222,7 @@ export function VoiceInput({
         console.warn('Voice warning:', data.message);
         break;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onTranscript, autoSubmitSuggestion, sendSuggestion, onTTSStart]);
 
   // Handle binary TTS audio chunks

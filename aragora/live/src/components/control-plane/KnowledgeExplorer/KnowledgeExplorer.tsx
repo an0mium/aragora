@@ -376,10 +376,12 @@ export function KnowledgeExplorer({
         onAddRegion={() => {
           // Open add region dialog - handled by parent component
           // The admin page has RegionDialog for this
+          // eslint-disable-next-line no-console
           console.log('Add region clicked - use RegionDialog in admin page');
         }}
         onEditRegion={(regionId) => {
           // Open edit region dialog - handled by parent component
+          // eslint-disable-next-line no-console
           console.log('Edit region:', regionId);
         }}
       />

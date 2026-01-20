@@ -31,10 +31,10 @@ describe('HeroSection', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders the subheading with agent names', () => {
+    it('renders the subheading', () => {
       render(<HeroSection {...defaultProps} />);
 
-      expect(screen.getByText(/claude, gpt, gemini, grok/i)).toBeInTheDocument();
+      expect(screen.getByText(/Ingest from any source/i)).toBeInTheDocument();
     });
 
     it('renders the DebateInput component', () => {
@@ -103,7 +103,7 @@ describe('HeroSection', () => {
         />
       );
 
-      expect(screen.getByText('STRESS-TEST IN PROGRESS')).toBeInTheDocument();
+      expect(screen.getByText('DECISION IN PROGRESS')).toBeInTheDocument();
     });
 
     it('displays the active question', () => {
@@ -146,7 +146,7 @@ describe('HeroSection', () => {
       render(<HeroSection {...defaultProps} activeDebateId={null} />);
 
       expect(
-        screen.queryByText('STRESS-TEST IN PROGRESS')
+        screen.queryByText('DECISION IN PROGRESS')
       ).not.toBeInTheDocument();
     });
 

@@ -108,6 +108,7 @@ export default function DocumentsPage() {
     } finally {
       setUploading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendConfig.api, tokens?.access_token]);
 
   const fetchDocuments = useCallback(async () => {

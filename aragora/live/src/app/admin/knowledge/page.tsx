@@ -77,6 +77,7 @@ export default function KnowledgeAdminPage() {
     if (isAdmin) {
       federation.loadRegions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchStats, isAdmin]);
 
   const handleStoreFact = async () => {
