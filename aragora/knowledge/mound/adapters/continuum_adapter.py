@@ -21,11 +21,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
     from aragora.knowledge.mound.types import KnowledgeItem, IngestionRequest
+
+# Type alias for event callback
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +104,7 @@ class ContinuumAdapter:
         self,
         continuum: "ContinuumMemory",
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -108,9 +112,23 @@ class ContinuumAdapter:
         Args:
             continuum: The ContinuumMemory instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._continuum = continuum
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def continuum(self) -> "ContinuumMemory":
@@ -377,7 +395,7 @@ class ContinuumAdapter:
         entries = self.search_by_keyword(query, limit=limit)
 
         # Convert to dict format for consistency with other adapters
-        return [
+        results = [
             {
                 "id": e.id,
                 "content": e.content,
@@ -393,6 +411,16 @@ class ContinuumAdapter:
             }
             for e in entries
         ]
+
+        # Emit dashboard event for reverse flow query
+        self._emit_event("km_adapter_reverse_query", {
+            "source": "continuum",
+            "query_preview": query[:50] + "..." if len(query) > 50 else query,
+            "results_count": len(results),
+            "limit": limit,
+        })
+
+        return results
 
     def store_memory(self, entry: "ContinuumMemoryEntry") -> None:
         """
@@ -420,6 +448,15 @@ class ContinuumAdapter:
                 entry.id,
                 metadata=entry.metadata,
             )
+
+        # Emit dashboard event for forward sync
+        self._emit_event("km_adapter_forward_sync", {
+            "source": "continuum",
+            "memory_id": entry.id,
+            "tier": entry.tier.value,
+            "importance": entry.importance,
+            "content_preview": entry.content[:100] + "..." if len(entry.content) > 100 else entry.content,
+        })
 
     # =========================================================================
     # Reverse Flow Methods (KM → ContinuumMemory)

@@ -48,7 +48,11 @@ from aragora.memory import continuum_consolidation as _consolidation
 from aragora.memory import continuum_stats as _stats
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
+from aragora.utils.cache import TTLCache
 from aragora.utils.json_helpers import safe_json_loads
+
+# Cache for KM similarity queries (5 min TTL, 200 entries)
+_km_similarity_cache: TTLCache[list] = TTLCache(maxsize=200, ttl_seconds=300)
 
 # Schema version for ContinuumMemory
 CONTINUUM_SCHEMA_VERSION = 3
@@ -385,6 +389,8 @@ class ContinuumMemory(SQLiteStore):
     ) -> List[Dict[str, Any]]:
         """Query Knowledge Mound for similar memories (reverse flow).
 
+        Uses TTL caching to avoid redundant queries for same content.
+
         Args:
             content: Content to find similar memories for
             limit: Maximum results
@@ -396,12 +402,25 @@ class ContinuumMemory(SQLiteStore):
         if not self._km_adapter:
             return []
 
+        # Generate cache key from content hash + params
+        import hashlib
+        content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+        cache_key = f"{content_hash}:{limit}:{min_similarity}"
+
+        # Check cache first
+        cached = _km_similarity_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
-            return self._km_adapter.search_similar(
+            results = self._km_adapter.search_similar(
                 content=content,
                 limit=limit,
                 min_similarity=min_similarity,
             )
+            # Cache the results
+            _km_similarity_cache.set(cache_key, results)
+            return results
         except Exception as e:
             logger.warning(f"Failed to query KM for similar memories: {e}")
             return []

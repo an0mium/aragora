@@ -96,6 +96,11 @@ class StreamEventType(Enum):
     BELIEF_CONVERGED = "belief_converged"  # Belief network propagation converged
     CRUX_DETECTED = "crux_detected"  # Crux claim identified in debate
 
+    # KM Adapter sync events (bidirectional tracking)
+    KM_ADAPTER_FORWARD_SYNC = "km_adapter_forward_sync"  # Data synced to KM from source
+    KM_ADAPTER_REVERSE_QUERY = "km_adapter_reverse_query"  # Reverse flow query executed
+    KM_ADAPTER_VALIDATION = "km_adapter_validation"  # KM validation feedback received
+
     # RLM events (bidirectional KM integration)
     RLM_COMPRESSION_COMPLETE = "rlm_compression_complete"  # RLM finished compression
 

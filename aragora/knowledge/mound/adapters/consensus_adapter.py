@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     from aragora.memory.consensus import (
@@ -24,6 +24,9 @@ if TYPE_CHECKING:
         DissentRecord,
     )
     from aragora.knowledge.mound.types import KnowledgeItem
+
+# Type alias for event callback
+EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +71,7 @@ class ConsensusAdapter:
         self,
         consensus: "ConsensusMemory",
         enable_dual_write: bool = False,
+        event_callback: Optional[EventCallback] = None,
     ):
         """
         Initialize the adapter.
@@ -75,9 +79,23 @@ class ConsensusAdapter:
         Args:
             consensus: The ConsensusMemory instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
         """
         self._consensus = consensus
         self._enable_dual_write = enable_dual_write
+        self._event_callback = event_callback
+
+    def set_event_callback(self, callback: EventCallback) -> None:
+        """Set the event callback for WebSocket notifications."""
+        self._event_callback = callback
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit an event if callback is configured."""
+        if self._event_callback:
+            try:
+                self._event_callback(event_type, data)
+            except Exception as e:
+                logger.warning(f"Failed to emit event {event_type}: {e}")
 
     @property
     def consensus(self) -> "ConsensusMemory":
@@ -331,3 +349,85 @@ class ConsensusAdapter:
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the consensus memory."""
         return self._consensus.get_stats()
+
+    def search_similar(
+        self,
+        topic: str,
+        limit: int = 5,
+        min_confidence: float = 0.7,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find similar consensus records for deduplication (reverse flow).
+
+        Args:
+            topic: Topic to find similar consensus for
+            limit: Maximum results
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            List of similar consensus records as dicts
+        """
+        similar = self._consensus.find_similar_debates(
+            topic=topic,
+            min_confidence=min_confidence,
+            limit=limit,
+        )
+
+        # Convert to dict format for consistency
+        results = [
+            {
+                "id": d.consensus.id,
+                "topic": d.consensus.topic,
+                "conclusion": d.consensus.conclusion,
+                "strength": d.consensus.strength.value,
+                "confidence": d.consensus.confidence,
+                "domain": d.consensus.domain,
+                "similarity": d.similarity,
+                "timestamp": d.consensus.timestamp.isoformat()
+                if hasattr(d.consensus.timestamp, "isoformat")
+                else str(d.consensus.timestamp),
+            }
+            for d in similar
+        ]
+
+        # Emit dashboard event for reverse flow query
+        self._emit_event("km_adapter_reverse_query", {
+            "source": "consensus",
+            "topic_preview": topic[:50] + "..." if len(topic) > 50 else topic,
+            "results_count": len(results),
+            "limit": limit,
+        })
+
+        return results
+
+    def store_consensus(self, record: "ConsensusRecord") -> None:
+        """
+        Store a consensus record in the Knowledge Mound (forward flow).
+
+        This is called by ConsensusMemory when a high-confidence consensus
+        is stored and should be synced to KM for cross-session learning.
+
+        Args:
+            record: The ConsensusRecord to store in KM
+        """
+        from datetime import datetime
+
+        # This method is a hook for KM sync. The actual KM storage happens
+        # when sync_to_mound is called with a mound instance.
+        logger.debug(
+            f"Consensus marked for KM sync: {record.id} "
+            f"(topic={record.topic[:50]}..., confidence={record.confidence:.2f})"
+        )
+        # Mark the record as pending KM sync in metadata
+        if not record.metadata.get("km_sync_pending"):
+            record.metadata["km_sync_pending"] = True
+            record.metadata["km_sync_requested_at"] = datetime.now().isoformat()
+
+        # Emit dashboard event for forward sync
+        self._emit_event("km_adapter_forward_sync", {
+            "source": "consensus",
+            "consensus_id": record.id,
+            "topic_preview": record.topic[:50] + "..." if len(record.topic) > 50 else record.topic,
+            "confidence": record.confidence,
+            "strength": record.strength.value,
+        })

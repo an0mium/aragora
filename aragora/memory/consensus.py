@@ -23,13 +23,19 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.cache import TTLCache, invalidate_cache
 from aragora.utils.json_helpers import safe_json_loads
+
+# Cache for KM similarity queries (5 min TTL, 200 entries)
+_km_consensus_cache: TTLCache[list] = TTLCache(maxsize=200, ttl_seconds=300)
 
 logger = logging.getLogger(__name__)
 
@@ -301,10 +307,68 @@ class ConsensusMemory(SQLiteStore):
         ON verified_proofs(is_verified);
     """
 
-    def __init__(self, db_path: str | Path | None = None):
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        km_adapter: Optional["ConsensusAdapter"] = None,
+    ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.CONSENSUS_MEMORY)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
+
+        # Optional Knowledge Mound adapter for bidirectional integration
+        self._km_adapter: Optional["ConsensusAdapter"] = km_adapter
+
+    def set_km_adapter(self, adapter: "ConsensusAdapter") -> None:
+        """Set the Knowledge Mound adapter for bidirectional sync.
+
+        Args:
+            adapter: ConsensusAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
+
+    def query_km_for_similar_consensus(
+        self,
+        topic: str,
+        limit: int = 5,
+        min_confidence: float = 0.7,
+    ) -> list[dict[str, Any]]:
+        """Query Knowledge Mound for similar consensus records (reverse flow).
+
+        Uses TTL caching to avoid redundant queries for same topic.
+
+        Args:
+            topic: Topic to find similar consensus for
+            limit: Maximum results
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            List of similar consensus records from KM
+        """
+        if not self._km_adapter:
+            return []
+
+        # Generate cache key from topic hash + params
+        topic_hash = self._hash_topic(topic)
+        cache_key = f"{topic_hash}:{limit}:{min_confidence}"
+
+        # Check cache first
+        cached = _km_consensus_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            results = self._km_adapter.search_similar(
+                topic=topic,
+                limit=limit,
+                min_confidence=min_confidence,
+            )
+            # Cache the results
+            _km_consensus_cache.set(cache_key, results)
+            return results
+        except Exception as e:
+            logger.warning(f"Failed to query KM for similar consensus: {e}")
+            return []
 
     def _hash_topic(self, topic: str) -> str:
         """Create a hash for topic similarity matching."""
@@ -375,6 +439,13 @@ class ConsensusMemory(SQLiteStore):
         # Invalidate related caches so API returns fresh data
         invalidate_cache("consensus")
         _consensus_cache.clear()  # Clear LRU cache on write
+
+        # Sync to Knowledge Mound if adapter is configured and confidence is high
+        if self._km_adapter and confidence >= 0.7:
+            try:
+                self._km_adapter.store_consensus(record)
+            except Exception as e:
+                logger.debug(f"Failed to sync consensus to KM: {e}")
 
         return record
 
