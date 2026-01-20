@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
     from aragora.memory.consensus import ConsensusStrength
-    from aragora.typing import ConsensusMemoryProtocol
+    from aragora.type_protocols import ConsensusMemoryProtocol
 
 logger = logging.getLogger(__name__)
 

@@ -288,6 +288,40 @@ class DebateProtocol:
     enable_evidence_weighting: bool = True  # Enable evidence citation bonuses
     evidence_citation_bonus: float = 0.15  # Bonus per evidence citation (0.0-1.0)
 
+    # Pulse/Trending context injection: Inject current trending topics into prompts
+    # When enabled, trending topics from Pulse (HN, Reddit, Google Trends, GitHub)
+    # are formatted and injected into proposal/revision prompts for timely context.
+    enable_trending_injection: bool = False  # Enable trending topic injection
+    trending_injection_max_topics: int = 3  # Max trending topics to inject per prompt
+
+    # ===== Agent-as-a-Judge Bias Mitigation (arXiv:2508.02994) =====
+    # Position bias: Shuffle proposal order and average votes across permutations
+    # Research shows LLMs favor proposals in certain positions (first/last)
+    enable_position_shuffling: bool = False  # Enable multi-permutation voting
+    position_shuffling_permutations: int = 3  # Number of orderings to average
+
+    # Self-enhancement bias: Detect and penalize agents voting for own proposals
+    # LLMs exhibit self-preference, favoring outputs they generated
+    enable_self_vote_mitigation: bool = False  # Enable self-vote detection
+    self_vote_mode: str = "downweight"  # "exclude", "downweight", "log_only"
+    self_vote_downweight: float = 0.5  # Weight multiplier when mode="downweight"
+
+    # Verbosity bias: Penalize excessively long proposals
+    # LLMs tend to favor longer responses regardless of quality
+    enable_verbosity_normalization: bool = False  # Enable length penalty
+    verbosity_target_length: int = 1000  # Ideal proposal length in chars
+    verbosity_penalty_threshold: float = 3.0  # Penalize if > 3x target
+    verbosity_max_penalty: float = 0.3  # Maximum 30% weight reduction
+
+    # Judge deliberation: Judges debate before final verdict
+    # Multi-agent debate among judges improves reliability
+    enable_judge_deliberation: bool = False  # Enable judge debate
+    judge_deliberation_rounds: int = 2  # Rounds of judge discussion
+
+    # Process-based evaluation: Multi-criteria rubric scoring
+    # Evaluate reasoning quality, not just final answer
+    enable_process_evaluation: bool = False  # Enable rubric evaluation
+
     # Formal proof verification: Use Lean4/Z3 to verify consensus claims
     # When enabled, attempts machine-checkable proof of final consensus
     # Requires formal verification backends to be installed (z3-solver, etc.)

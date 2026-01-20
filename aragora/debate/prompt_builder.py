@@ -328,21 +328,16 @@ and building on others' ideas."""
 
             if use_llm:
                 # Use LLM-based classification (more accurate)
-                # Offload to thread pool to avoid blocking the event loop
-                self._classification = await asyncio.to_thread(
-                    self._question_classifier.classify, self.env.task
-                )
+                # classify() is now async with AsyncAnthropic client
+                self._classification = await self._question_classifier.classify(self.env.task)
                 logger.info(
                     f"LLM classification: category={self._classification.category}, "
                     f"confidence={self._classification.confidence:.2f}, "
                     f"personas={self._classification.recommended_personas}"
                 )
             else:
-                # Use fast keyword-based classification
-                # Offload to thread pool to avoid blocking the event loop
-                self._classification = await asyncio.to_thread(
-                    self._question_classifier.classify_simple, self.env.task
-                )
+                # Use fast keyword-based classification (sync, no API call)
+                self._classification = self._question_classifier.classify_simple(self.env.task)
                 logger.debug(f"Keyword classification: category={self._classification.category}")
 
             return self._classification.category

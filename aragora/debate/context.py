@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, DebateResult, Environment, Message
     from aragora.debate.cancellation import CancellationToken
-    from aragora.typing import EventEmitterProtocol
+    from aragora.type_protocols import EventEmitterProtocol
 
 
 def _default_environment() -> "Environment":

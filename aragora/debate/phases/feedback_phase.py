@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from aragora.agents.errors import _build_error_action
 from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.training_emitter import TrainingEmitter
-from aragora.typing import (
+from aragora.type_protocols import (
     BroadcastPipelineProtocol,
     CalibrationTrackerProtocol,
     ConsensusMemoryProtocol,

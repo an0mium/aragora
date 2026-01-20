@@ -253,6 +253,10 @@ class ConsensusPhase:
     def _vote_collector(self) -> VoteCollector:
         """Lazy-initialized VoteCollector instance."""
         if not hasattr(self, "_vote_collector_instance"):
+            # Get position shuffling config from protocol if available
+            enable_position_shuffling = getattr(self.protocol, 'enable_position_shuffling', False)
+            position_shuffling_permutations = getattr(self.protocol, 'position_shuffling_permutations', 3)
+
             config = VoteCollectorConfig(
                 vote_with_agent=self._vote_with_agent,
                 with_timeout=self._with_timeout,
@@ -263,6 +267,9 @@ class ConsensusPhase:
                 group_similar_votes=self._group_similar_votes,
                 vote_collection_timeout=self.VOTE_COLLECTION_TIMEOUT,
                 agent_timeout=AGENT_TIMEOUT_SECONDS,
+                # Agent-as-a-Judge position bias mitigation
+                enable_position_shuffling=enable_position_shuffling,
+                position_shuffling_permutations=position_shuffling_permutations,
             )
             self._vote_collector_instance = VoteCollector(config)
         return self._vote_collector_instance
@@ -516,8 +523,8 @@ class ConsensusPhase:
         # Group similar votes
         vote_groups, choice_mapping = self._compute_vote_groups(votes)
 
-        # Pre-compute vote weights
-        vote_weight_cache = self._compute_vote_weights(ctx)
+        # Pre-compute vote weights (pass votes for bias mitigation)
+        vote_weight_cache = self._compute_vote_weights(ctx, votes=votes)
 
         # Count weighted votes
         vote_counts, total_weighted = self._count_weighted_votes(
@@ -536,6 +543,9 @@ class ConsensusPhase:
 
         # Apply evidence citation bonuses if enabled
         vote_counts = self._apply_evidence_citation_bonuses(ctx, votes, vote_counts, choice_mapping)
+
+        # Apply process-based evaluation bonuses if enabled (Agent-as-a-Judge)
+        vote_counts = await self._apply_process_evaluation_bonuses(ctx, vote_counts, choice_mapping)
 
         ctx.vote_tally = dict(vote_counts)
 
@@ -619,6 +629,12 @@ class ConsensusPhase:
             logger.error("Judge consensus requires select_judge and generate_with_agent")
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
+            return
+
+        # Check for judge deliberation mode (Agent-as-a-Judge enhancement)
+        enable_deliberation = getattr(self.protocol, 'enable_judge_deliberation', False)
+        if enable_deliberation:
+            await self._handle_judge_deliberation(ctx)
             return
 
         judge_method = self.protocol.judge_selection if self.protocol else "random"
@@ -722,6 +738,159 @@ class ConsensusPhase:
             logger.warning(f"judge_fallback_majority_failed error={e}")
 
         await self._handle_fallback_consensus(ctx, reason="judge_and_majority_failed")
+
+    async def _handle_judge_deliberation(self, ctx: "DebateContext") -> None:
+        """Handle judge consensus with deliberation (Agent-as-a-Judge).
+
+        Multiple judges deliberate on proposals before rendering verdict.
+        This reduces individual biases by exposing judges to diverse perspectives.
+        """
+        from aragora.debate.judge_selector import (
+            JudgePanel,
+            JudgingStrategy,
+            JudgeVote,
+            create_judge_panel,
+        )
+
+        result = ctx.result
+        proposals = ctx.proposals
+        task = ctx.env.task if ctx.env else ""
+
+        deliberation_rounds = getattr(self.protocol, 'judge_deliberation_rounds', 2)
+
+        logger.info(
+            f"judge_deliberation_start proposals={len(proposals)} "
+            f"rounds={deliberation_rounds}"
+        )
+
+        # Get judge candidates (use 3 judges for deliberation)
+        judge_candidates = []
+        if hasattr(self._select_judge, "__self__") and hasattr(
+            self._select_judge.__self__, "get_judge_candidates"
+        ):
+            try:
+                judge_candidates = await self._select_judge.__self__.get_judge_candidates(
+                    proposals, ctx.context_messages, max_candidates=3
+                )
+            except Exception as e:
+                logger.debug(f"Failed to get judge candidates: {e}")
+
+        if not judge_candidates or len(judge_candidates) < 2:
+            # Not enough judges for deliberation, fall back to single judge
+            logger.warning("judge_deliberation_insufficient_judges falling_back_to_single")
+            # Continue with regular judge consensus (without deliberation)
+            judge = judge_candidates[0] if judge_candidates else None
+            if judge:
+                await self._run_single_judge_synthesis(ctx, judge)
+            else:
+                await self._handle_fallback_consensus(ctx, reason="no_judges_available")
+            return
+
+        # Create judge panel
+        panel = create_judge_panel(
+            candidates=judge_candidates,
+            participants=ctx.agents,
+            domain="debate_deliberation",
+            strategy=JudgingStrategy.MAJORITY,
+            count=min(3, len(judge_candidates)),
+            elo_system=self.elo_system,
+            exclude_participants=True,
+        )
+
+        if self._notify_spectator:
+            self._notify_spectator(
+                "judge_deliberation",
+                details=f"Starting deliberation with {len(panel.judges)} judges",
+                agent="system",
+            )
+
+        try:
+            # Run deliberation
+            deliberation_result = await panel.deliberate_and_vote(
+                proposals=proposals,
+                task=task,
+                context=ctx.context_messages,
+                generate_fn=self._generate_with_agent,
+                deliberation_rounds=deliberation_rounds,
+            )
+
+            logger.info(
+                f"judge_deliberation_result approved={deliberation_result.approved} "
+                f"confidence={deliberation_result.confidence:.2f} "
+                f"approval_ratio={deliberation_result.approval_ratio:.2f}"
+            )
+
+            # If judges approve, use the best proposal as synthesis
+            if deliberation_result.approved and proposals:
+                # Pick proposal with highest approval from judges
+                best_proposal_name = max(
+                    proposals.keys(),
+                    key=lambda k: sum(1 for v in deliberation_result.votes if v.vote == JudgeVote.APPROVE)
+                )
+                result.final_answer = proposals[best_proposal_name]
+                result.consensus_reached = True
+                result.confidence = deliberation_result.confidence
+                ctx.winner_agent = best_proposal_name
+                result.winner = best_proposal_name
+
+                if self._notify_spectator:
+                    self._notify_spectator(
+                        "consensus",
+                        agent="judge_panel",
+                        details=f"Deliberation approved: {best_proposal_name}",
+                        metric=deliberation_result.confidence,
+                    )
+            else:
+                # Judges rejected or need more debate
+                logger.info("judge_deliberation_rejected continuing to synthesis")
+                # Fall back to single judge synthesis
+                judge = panel.judges[0] if panel.judges else None
+                if judge:
+                    await self._run_single_judge_synthesis(ctx, judge)
+                else:
+                    await self._handle_fallback_consensus(ctx, reason="deliberation_rejected")
+
+        except Exception as e:
+            logger.error(f"judge_deliberation_error: {e}")
+            await self._handle_fallback_consensus(ctx, reason="deliberation_error")
+
+    async def _run_single_judge_synthesis(self, ctx: "DebateContext", judge) -> None:
+        """Run single judge synthesis (helper for deliberation fallback)."""
+        result = ctx.result
+        proposals = ctx.proposals
+        task = ctx.env.task if ctx.env else ""
+
+        judge_prompt = (
+            self._build_judge_prompt(proposals, task, result.critiques)
+            if self._build_judge_prompt
+            else f"Synthesize these proposals: {proposals}"
+        )
+
+        try:
+            task_id = f"{judge.name}:judge_synthesis"
+            with streaming_task_context(task_id):
+                synthesis = await asyncio.wait_for(
+                    self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
+                    timeout=self.JUDGE_TIMEOUT_PER_ATTEMPT,
+                )
+
+            result.final_answer = synthesis
+            result.consensus_reached = True
+            result.confidence = 0.8
+            ctx.winner_agent = judge.name
+            result.winner = judge.name
+
+            if self._notify_spectator:
+                self._notify_spectator(
+                    "consensus",
+                    agent=judge.name,
+                    details=f"Judge synthesis ({len(synthesis)} chars)",
+                    metric=0.8,
+                )
+
+        except Exception as e:
+            logger.error(f"single_judge_synthesis_error judge={judge.name}: {e}")
+            await self._handle_fallback_consensus(ctx, reason="synthesis_error")
 
     async def _handle_byzantine_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'byzantine' consensus mode - PBFT-style fault-tolerant consensus.
@@ -845,8 +1014,37 @@ class ConsensusPhase:
         """Group similar votes and create choice mapping."""
         return self._vote_collector.compute_vote_groups(votes)
 
-    def _compute_vote_weights(self, ctx: "DebateContext") -> dict[str, float]:
-        """Pre-compute vote weights for all agents."""
+    def _compute_vote_weights(
+        self,
+        ctx: "DebateContext",
+        votes: Optional[list["Vote"]] = None,
+    ) -> dict[str, float]:
+        """Pre-compute vote weights for all agents.
+
+        Args:
+            ctx: Debate context with agents and proposals
+            votes: Optional list of votes for bias mitigation
+
+        Returns:
+            Dict mapping agent names to their weights
+        """
+        from aragora.debate.phases.weight_calculator import WeightCalculatorConfig
+
+        # Get bias mitigation config from protocol
+        enable_self_vote = getattr(self.protocol, 'enable_self_vote_mitigation', False)
+        enable_verbosity = getattr(self.protocol, 'enable_verbosity_normalization', False)
+
+        config = WeightCalculatorConfig(
+            # Agent-as-a-Judge bias mitigation
+            enable_self_vote_mitigation=enable_self_vote,
+            self_vote_mode=getattr(self.protocol, 'self_vote_mode', 'downweight'),
+            self_vote_downweight=getattr(self.protocol, 'self_vote_downweight', 0.5),
+            enable_verbosity_normalization=enable_verbosity,
+            verbosity_target_length=getattr(self.protocol, 'verbosity_target_length', 1000),
+            verbosity_penalty_threshold=getattr(self.protocol, 'verbosity_penalty_threshold', 3.0),
+            verbosity_max_penalty=getattr(self.protocol, 'verbosity_max_penalty', 0.3),
+        )
+
         calculator = WeightCalculator(
             memory=self.memory,
             elo_system=self.elo_system,
@@ -854,7 +1052,15 @@ class ConsensusPhase:
             agent_weights=self.agent_weights,
             calibration_tracker=self.calibration_tracker,
             get_calibration_weight=self._get_calibration_weight,
+            config=config,
         )
+
+        # Use bias-aware computation if votes and proposals available
+        if votes and ctx.proposals and (enable_self_vote or enable_verbosity):
+            return calculator.compute_weights_with_context(
+                ctx.agents, votes, ctx.proposals
+            )
+
         return calculator.compute_weights(ctx.agents)
 
     def _apply_calibration_to_votes(
@@ -1014,6 +1220,75 @@ class ConsensusPhase:
             logger.info(
                 f"evidence_weighting applied: {len(evidence_citations)} agents cited evidence, "
                 f"total citations={sum(evidence_citations.values())}"
+            )
+
+        return vote_counts
+
+    async def _apply_process_evaluation_bonuses(
+        self,
+        ctx: "DebateContext",
+        vote_counts: dict[str, float],
+        choice_mapping: dict[str, str],
+    ) -> dict[str, float]:
+        """Apply process-based evaluation bonuses to vote counts.
+
+        Uses ProcessEvaluator to score each proposal on reasoning quality,
+        evidence usage, counterargument consideration, etc. Higher process
+        scores result in bonuses to that proposal's vote count.
+
+        This is an Agent-as-a-Judge bias mitigation technique that rewards
+        proposals with strong reasoning process, not just persuasive content.
+        """
+        if not self.protocol or not getattr(self.protocol, "enable_process_evaluation", False):
+            return vote_counts
+
+        proposals = ctx.proposals
+        if not proposals:
+            return vote_counts
+
+        from aragora.debate.bias_mitigation import ProcessEvaluator
+
+        task = ctx.env.task if ctx.env else ""
+        evidence_pack = getattr(ctx, "evidence_pack", None)
+
+        # Create evaluator
+        evaluator = ProcessEvaluator()
+
+        # Evaluate each proposal
+        process_scores: dict[str, float] = {}
+        process_bonus = 0.2  # Max bonus for perfect process score
+
+        for agent_name, proposal in proposals.items():
+            try:
+                result = await evaluator.evaluate_proposal(
+                    agent_name=agent_name,
+                    proposal=proposal,
+                    task=task,
+                    evidence_pack=evidence_pack,
+                )
+
+                process_scores[agent_name] = result.overall_score
+                canonical = choice_mapping.get(agent_name, agent_name)
+
+                if canonical in vote_counts:
+                    # Apply bonus proportional to process score (0-1)
+                    bonus = process_bonus * result.overall_score
+                    vote_counts[canonical] = vote_counts.get(canonical, 0.0) + bonus
+
+                    logger.debug(
+                        f"process_evaluation agent={agent_name} "
+                        f"overall={result.overall_score:.2f} bonus={bonus:.2f} "
+                        f"criteria={[c.name for c in result.criteria_scores]}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"process_evaluation_error agent={agent_name}: {e}")
+                # No bonus on error
+
+        if process_scores:
+            logger.info(
+                f"process_evaluation applied: {len(process_scores)} proposals scored, "
+                f"avg={sum(process_scores.values())/len(process_scores):.2f}"
             )
 
         return vote_counts

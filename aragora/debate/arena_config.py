@@ -266,11 +266,10 @@ class ArenaConfig:
             "knowledge_mound": self.knowledge_mound,
             "enable_knowledge_retrieval": self.enable_knowledge_retrieval,
             "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
-            # Auto-revalidation
+            # Auto-revalidation (enable_auto_revalidation is passed, detailed config is stored in ArenaConfig)
             "enable_auto_revalidation": self.enable_auto_revalidation,
-            "revalidation_staleness_threshold": self.revalidation_staleness_threshold,
-            "revalidation_check_interval_seconds": self.revalidation_check_interval_seconds,
-            "revalidation_scheduler": self.revalidation_scheduler,
+            # Note: revalidation_staleness_threshold, revalidation_check_interval_seconds,
+            # and revalidation_scheduler are stored in config but Arena reads them from config
             "enable_belief_guidance": self.enable_belief_guidance,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,

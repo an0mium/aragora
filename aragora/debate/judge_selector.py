@@ -997,6 +997,312 @@ class JudgePanel:
         """Clear recorded votes for reuse."""
         self.votes.clear()
 
+    async def deliberate_and_vote(
+        self,
+        proposals: dict[str, str],
+        task: str,
+        context: list["Message"],
+        generate_fn: Callable,
+        deliberation_rounds: int = 2,
+        build_assessment_prompt: Optional[Callable] = None,
+        build_deliberation_prompt: Optional[Callable] = None,
+    ) -> JudgingResult:
+        """
+        Judges deliberate before final verdict (Agent-as-a-Judge bias mitigation).
+
+        Instead of voting independently, judges:
+        1. Share initial assessments
+        2. Deliberate on each other's reasoning for N rounds
+        3. Cast final votes after deliberation
+
+        This process reduces individual biases by exposing judges to
+        diverse perspectives before they commit to a verdict.
+
+        Args:
+            proposals: Proposals being judged
+            task: The debate task/question
+            context: Debate context messages
+            generate_fn: Async function to generate agent responses
+            deliberation_rounds: Number of deliberation rounds (default: 2)
+            build_assessment_prompt: Optional custom prompt builder for assessments
+            build_deliberation_prompt: Optional custom prompt builder for deliberation
+
+        Returns:
+            JudgingResult with votes informed by deliberation
+        """
+        logger.info(
+            f"judge_deliberation_start judges={len(self.judges)} "
+            f"rounds={deliberation_rounds}"
+        )
+
+        # Step 1: Collect initial assessments
+        assessments = await self._collect_initial_assessments(
+            proposals, task, context, generate_fn, build_assessment_prompt
+        )
+
+        if not assessments:
+            return JudgingResult(
+                approved=False,
+                strategy=self.strategy,
+                votes=[],
+                approval_ratio=0.0,
+                weighted_approval=0.0,
+                confidence=0.0,
+                reasoning="No assessments collected during deliberation",
+            )
+
+        # Step 2: Run deliberation rounds
+        for round_num in range(deliberation_rounds):
+            assessments = await self._run_deliberation_round(
+                assessments, proposals, task, context, generate_fn,
+                round_num, build_deliberation_prompt
+            )
+
+        # Step 3: Collect final votes based on deliberation
+        await self._collect_final_votes(
+            assessments, proposals, task, context, generate_fn
+        )
+
+        # Return aggregated result
+        return self.get_result()
+
+    async def _collect_initial_assessments(
+        self,
+        proposals: dict[str, str],
+        task: str,
+        context: list["Message"],
+        generate_fn: Callable,
+        build_prompt: Optional[Callable] = None,
+    ) -> dict[str, dict]:
+        """Collect initial assessments from all judges.
+
+        Args:
+            proposals: Proposals to assess
+            task: The debate task
+            context: Debate context
+            generate_fn: Agent generation function
+            build_prompt: Optional custom prompt builder
+
+        Returns:
+            Dict mapping judge name to their assessment
+        """
+        assessments: dict[str, dict] = {}
+
+        # Build assessment prompt
+        if build_prompt:
+            prompt = build_prompt(proposals, task)
+        else:
+            prompt = self._default_assessment_prompt(proposals, task)
+
+        import asyncio
+
+        async def get_assessment(judge: "Agent"):
+            try:
+                response = await generate_fn(judge, prompt, context)
+                # Parse assessment (simple extraction)
+                recommendation = "approve" if "approve" in response.lower() else (
+                    "reject" if "reject" in response.lower() else "abstain"
+                )
+                return judge.name, {
+                    "judge": judge.name,
+                    "reasoning": response[:500],
+                    "recommendation": recommendation,
+                    "confidence": 0.7,  # Default confidence
+                }
+            except Exception as e:
+                logger.warning(f"assessment_error judge={judge.name}: {e}")
+                return judge.name, None
+
+        # Collect assessments in parallel
+        tasks = [get_assessment(judge) for judge in self.judges]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, tuple) and result[1] is not None:
+                name, assessment = result
+                assessments[name] = assessment
+                logger.debug(
+                    f"judge_initial_assessment judge={name} "
+                    f"recommendation={assessment['recommendation']}"
+                )
+
+        return assessments
+
+    async def _run_deliberation_round(
+        self,
+        assessments: dict[str, dict],
+        proposals: dict[str, str],
+        task: str,
+        context: list["Message"],
+        generate_fn: Callable,
+        round_num: int,
+        build_prompt: Optional[Callable] = None,
+    ) -> dict[str, dict]:
+        """Run a deliberation round where judges respond to each other.
+
+        Args:
+            assessments: Current assessments from all judges
+            proposals: Proposals being judged
+            task: The debate task
+            context: Debate context
+            generate_fn: Agent generation function
+            round_num: Current deliberation round (0-indexed)
+            build_prompt: Optional custom prompt builder
+
+        Returns:
+            Updated assessments after deliberation
+        """
+        logger.debug(f"judge_deliberation_round={round_num} judges={len(assessments)}")
+
+        import asyncio
+
+        async def deliberate(judge: "Agent"):
+            try:
+                # Build deliberation prompt with other judges' assessments
+                other_assessments = {
+                    k: v for k, v in assessments.items() if k != judge.name
+                }
+
+                if build_prompt:
+                    prompt = build_prompt(
+                        assessments=other_assessments,
+                        proposals=proposals,
+                        task=task,
+                        round_num=round_num,
+                    )
+                else:
+                    prompt = self._default_deliberation_prompt(
+                        other_assessments, proposals, task, round_num
+                    )
+
+                response = await generate_fn(judge, prompt, context)
+
+                # Update recommendation based on deliberation
+                recommendation = "approve" if "approve" in response.lower() else (
+                    "reject" if "reject" in response.lower() else "abstain"
+                )
+
+                # Check for confidence indicators
+                confidence = 0.7
+                if "strongly" in response.lower() or "confident" in response.lower():
+                    confidence = 0.9
+                elif "uncertain" in response.lower() or "unsure" in response.lower():
+                    confidence = 0.5
+
+                return judge.name, {
+                    "judge": judge.name,
+                    "reasoning": response[:500],
+                    "recommendation": recommendation,
+                    "confidence": confidence,
+                    "deliberation_round": round_num,
+                }
+            except Exception as e:
+                logger.warning(f"deliberation_error judge={judge.name} round={round_num}: {e}")
+                # Keep previous assessment
+                return judge.name, assessments.get(judge.name)
+
+        # Run deliberation in parallel
+        tasks = [deliberate(judge) for judge in self.judges if judge.name in assessments]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        updated: dict[str, dict] = {}
+        for result in results:
+            if isinstance(result, tuple) and result[1] is not None:
+                name, assessment = result
+                updated[name] = assessment
+
+        return updated
+
+    async def _collect_final_votes(
+        self,
+        assessments: dict[str, dict],
+        proposals: dict[str, str],
+        task: str,
+        context: list["Message"],
+        generate_fn: Callable,
+    ) -> None:
+        """Collect final votes from judges after deliberation.
+
+        Args:
+            assessments: Final assessments from all judges
+            proposals: Proposals being judged
+            task: The debate task
+            context: Debate context
+            generate_fn: Agent generation function
+        """
+        for judge_name, assessment in assessments.items():
+            recommendation = assessment.get("recommendation", "abstain")
+            confidence = assessment.get("confidence", 0.5)
+            reasoning = assessment.get("reasoning", "No reasoning provided")
+
+            # Convert recommendation to vote
+            vote_map = {
+                "approve": JudgeVote.APPROVE,
+                "reject": JudgeVote.REJECT,
+                "abstain": JudgeVote.ABSTAIN,
+            }
+            vote = vote_map.get(recommendation, JudgeVote.ABSTAIN)
+
+            self.record_vote(
+                judge_name=judge_name,
+                vote=vote,
+                confidence=confidence,
+                reasoning=f"[After deliberation] {reasoning}",
+                metadata={"deliberation": True},
+            )
+
+    def _default_assessment_prompt(self, proposals: dict[str, str], task: str) -> str:
+        """Build default assessment prompt."""
+        proposal_text = "\n\n".join(
+            f"**{name}**: {text[:300]}..."
+            for name, text in proposals.items()
+        )
+
+        return f"""You are a judge evaluating debate proposals.
+
+TASK: {task}
+
+PROPOSALS:
+{proposal_text}
+
+Provide your initial assessment:
+1. Analyze the quality of each proposal
+2. Consider reasoning clarity, evidence usage, and completeness
+3. State your recommendation: APPROVE (accept best proposal) or REJECT (need more debate)
+4. Explain your reasoning
+
+Assessment:"""
+
+    def _default_deliberation_prompt(
+        self,
+        other_assessments: dict[str, dict],
+        proposals: dict[str, str],
+        task: str,
+        round_num: int,
+    ) -> str:
+        """Build default deliberation prompt."""
+        other_views = "\n\n".join(
+            f"**{name}**: Recommends {a['recommendation'].upper()}\n{a['reasoning'][:200]}..."
+            for name, a in other_assessments.items()
+        )
+
+        return f"""You are a judge in deliberation round {round_num + 1}.
+
+TASK: {task}
+
+OTHER JUDGES' ASSESSMENTS:
+{other_views}
+
+Consider:
+1. Do the other judges raise valid points you missed?
+2. Are there flaws in their reasoning?
+3. Has your view changed after seeing other perspectives?
+
+After deliberation, state your updated recommendation: APPROVE or REJECT
+Explain any changes in your reasoning.
+
+Deliberation response:"""
+
 
 def create_judge_panel(
     candidates: list["Agent"],

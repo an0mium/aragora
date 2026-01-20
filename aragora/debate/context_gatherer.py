@@ -87,14 +87,14 @@ class ContextGatherer:
         self._prompt_builder = prompt_builder
         self._project_root = project_root or Path(__file__).parent.parent.parent
 
-        # Cache for evidence pack (for grounding verdict with citations)
-        self._research_evidence_pack: Optional[Any] = None
+        # Cache for evidence pack (keyed by task hash to prevent leaks between debates)
+        self._research_evidence_pack: dict[str, Any] = {}
 
         # Cache for research context (keyed by task hash to prevent leaks between debates)
         self._research_context_cache: dict[str, str] = {}
 
-        # Cache for continuum memory context
-        self._continuum_context_cache: Optional[str] = None
+        # Cache for continuum memory context (keyed by task hash to prevent leaks between debates)
+        self._continuum_context_cache: dict[str, str] = {}
 
         # Cache for trending topics (TrendingTopic objects, not just formatted string)
         self._trending_topics_cache: list[Any] = []
@@ -132,8 +132,23 @@ class ContextGatherer:
 
     @property
     def evidence_pack(self) -> Optional[Any]:
-        """Get the cached evidence pack from the last research call."""
-        return self._research_evidence_pack
+        """Get the most recent cached evidence pack.
+
+        For task-specific evidence, use get_evidence_pack(task) instead.
+        """
+        if not self._research_evidence_pack:
+            return None
+        # Return the most recently added pack for backward compatibility
+        # In practice, callers should use get_evidence_pack(task) for isolation
+        if self._research_evidence_pack:
+            # Return last added pack (dict preserves insertion order in Python 3.7+)
+            return list(self._research_evidence_pack.values())[-1]
+        return None
+
+    def get_evidence_pack(self, task: str) -> Optional[Any]:
+        """Get the cached evidence pack for a specific task."""
+        task_hash = self._get_task_hash(task)
+        return self._research_evidence_pack.get(task_hash)
 
     def set_prompt_builder(self, prompt_builder: Any) -> None:
         """Set or update the prompt builder reference."""
@@ -429,7 +444,8 @@ class ContextGatherer:
             )
 
             if evidence_pack.snippets:
-                self._research_evidence_pack = evidence_pack
+                task_hash = self._get_task_hash(task)
+                self._research_evidence_pack[task_hash] = evidence_pack
 
                 # Update prompt builder if available
                 if self._prompt_builder:

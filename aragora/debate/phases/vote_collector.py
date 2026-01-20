@@ -28,6 +28,11 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.debate.bias_mitigation import (
+    generate_permutations,
+    average_permutation_votes,
+)
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote
     from aragora.debate.context import DebateContext
@@ -86,6 +91,14 @@ class VoteCollectorConfig:
     rlm_early_termination_threshold: float = RLM_EARLY_TERMINATION_THRESHOLD
     # Minimum lead (as fraction of total agents) for early termination
     rlm_majority_lead_threshold: float = RLM_MAJORITY_LEAD_THRESHOLD
+
+    # Position Bias Mitigation (Agent-as-a-Judge)
+    # Shuffle proposal order and average votes across permutations
+    enable_position_shuffling: bool = False
+    # Number of proposal permutations to vote on
+    position_shuffling_permutations: int = 3
+    # Random seed for reproducibility (None = random)
+    position_shuffling_seed: Optional[int] = None
 
 
 class VoteCollector:
@@ -183,12 +196,143 @@ class VoteCollector:
 
         return False, None
 
+    async def _collect_single_permutation_votes(
+        self,
+        ctx: "DebateContext",
+        proposals: dict[str, str],
+        permutation_idx: int,
+    ) -> list["Vote"]:
+        """Collect votes for a single proposal permutation.
+
+        Args:
+            ctx: The debate context with agents
+            proposals: Shuffled proposals dict for this permutation
+            permutation_idx: Index of this permutation (for logging)
+
+        Returns:
+            List of Vote objects from agents
+        """
+        votes: list["Vote"] = []
+        task = ctx.env.task if ctx.env else ""
+
+        async def cast_vote(agent: "Agent"):
+            """Cast a vote for a single agent."""
+            logger.debug(f"agent_voting_permutation agent={agent.name} perm={permutation_idx}")
+            try:
+                timeout = get_complexity_governor().get_scaled_timeout(
+                    float(self.config.agent_timeout)
+                )
+                if self._with_timeout:
+                    vote_result = await self._with_timeout(
+                        self._vote_with_agent(agent, proposals, task),
+                        agent.name,
+                        timeout_seconds=timeout,
+                    )
+                else:
+                    vote_result = await self._vote_with_agent(agent, proposals, task)
+                return (agent, vote_result)
+            except Exception as e:
+                logger.warning(
+                    f"vote_exception_permutation agent={agent.name} "
+                    f"perm={permutation_idx} error={type(e).__name__}: {e}"
+                )
+                return (agent, e)
+
+        vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
+
+        for completed_task in asyncio.as_completed(vote_tasks):
+            try:
+                agent, vote_result = await completed_task
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error(f"task_exception phase=vote_permutation perm={permutation_idx} error={e}")
+                continue
+
+            if vote_result is None or isinstance(vote_result, Exception):
+                if isinstance(vote_result, Exception):
+                    logger.error(f"vote_error_permutation agent={agent.name} error={vote_result}")
+            else:
+                votes.append(vote_result)
+
+        return votes
+
+    async def _collect_votes_with_shuffling(self, ctx: "DebateContext") -> list["Vote"]:
+        """Collect votes using position shuffling to mitigate position bias.
+
+        Generates multiple permutations of the proposal order, collects votes
+        on each permutation, and averages the results to reduce the effect
+        of position bias in agent voting.
+
+        Args:
+            ctx: The debate context with agents and proposals
+
+        Returns:
+            List of averaged Vote objects
+        """
+        if not ctx.proposals:
+            return []
+
+        num_permutations = self.config.position_shuffling_permutations
+        seed = self.config.position_shuffling_seed
+
+        logger.info(
+            f"position_shuffling_start permutations={num_permutations} "
+            f"proposals={len(ctx.proposals)} seed={seed}"
+        )
+
+        # Generate permutations
+        permutations = generate_permutations(
+            ctx.proposals,
+            num_permutations=num_permutations,
+            base_seed=seed,
+        )
+
+        # Collect votes on each permutation
+        votes_by_agent: dict[str, list["Vote"]] = {}
+
+        for perm_idx, shuffled_proposals in enumerate(permutations):
+            perm_votes = await self._collect_single_permutation_votes(
+                ctx, shuffled_proposals, perm_idx
+            )
+
+            for vote in perm_votes:
+                agent_name = vote.agent if hasattr(vote, 'agent') else "unknown"
+                if agent_name not in votes_by_agent:
+                    votes_by_agent[agent_name] = []
+                votes_by_agent[agent_name].append(vote)
+
+            logger.debug(
+                f"position_shuffling_permutation_done perm={perm_idx} "
+                f"votes={len(perm_votes)}"
+            )
+
+        # Average votes across permutations
+        averaged_votes = average_permutation_votes(votes_by_agent, ctx.proposals)
+
+        logger.info(
+            f"position_shuffling_complete permutations={num_permutations} "
+            f"agents_voted={len(votes_by_agent)} averaged_votes={len(averaged_votes)}"
+        )
+
+        # Handle success callbacks for averaged votes
+        for vote in averaged_votes:
+            agent_name = vote.agent if hasattr(vote, 'agent') else None
+            agent = next((a for a in ctx.agents if a.name == agent_name), None)
+            if agent:
+                self._handle_vote_success(ctx, agent, vote)
+
+        return averaged_votes
+
     async def collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection.
 
         Uses VOTE_COLLECTION_TIMEOUT to prevent total vote collection time from
         exceeding reasonable bounds (N agents * per-agent timeout could be very long).
         If timeout is reached, returns partial votes collected so far.
+
+        When position shuffling is enabled, collects votes on multiple proposal
+        permutations and averages results to mitigate position bias.
 
         Args:
             ctx: The debate context with agents and proposals
@@ -199,6 +343,21 @@ class VoteCollector:
         if not self._vote_with_agent:
             logger.warning("No vote_with_agent callback, skipping votes")
             return []
+
+        # Use position shuffling if enabled (Agent-as-a-Judge bias mitigation)
+        if self.config.enable_position_shuffling:
+            logger.info("position_shuffling_enabled - using multi-permutation voting")
+            try:
+                return await asyncio.wait_for(
+                    self._collect_votes_with_shuffling(ctx),
+                    timeout=self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"position_shuffling_timeout "
+                    f"timeout={self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations}s"
+                )
+                return []
 
         votes: list["Vote"] = []
         task = ctx.env.task if ctx.env else ""
@@ -484,6 +643,9 @@ def create_vote_collector(
     enable_rlm_early_termination: bool = True,
     rlm_early_termination_threshold: float = RLM_EARLY_TERMINATION_THRESHOLD,
     rlm_majority_lead_threshold: float = RLM_MAJORITY_LEAD_THRESHOLD,
+    enable_position_shuffling: bool = False,
+    position_shuffling_permutations: int = 3,
+    position_shuffling_seed: Optional[int] = None,
 ) -> VoteCollector:
     """Create a VoteCollector with the given configuration.
 
@@ -500,6 +662,9 @@ def create_vote_collector(
         enable_rlm_early_termination: Enable RLM early termination when majority reached
         rlm_early_termination_threshold: Min fraction of votes before checking majority
         rlm_majority_lead_threshold: Min lead (fraction) to trigger early termination
+        enable_position_shuffling: Enable position bias mitigation via shuffling
+        position_shuffling_permutations: Number of permutations to vote on
+        position_shuffling_seed: Random seed for reproducibility
 
     Returns:
         Configured VoteCollector instance
@@ -517,6 +682,9 @@ def create_vote_collector(
         enable_rlm_early_termination=enable_rlm_early_termination,
         rlm_early_termination_threshold=rlm_early_termination_threshold,
         rlm_majority_lead_threshold=rlm_majority_lead_threshold,
+        enable_position_shuffling=enable_position_shuffling,
+        position_shuffling_permutations=position_shuffling_permutations,
+        position_shuffling_seed=position_shuffling_seed,
     )
     return VoteCollector(config)
 
