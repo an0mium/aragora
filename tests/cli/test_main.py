@@ -9,42 +9,59 @@ from aragora.cli.main import parse_agents, get_event_emitter_if_available
 class TestParseAgents:
     """Test agent string parsing.
 
-    Note: parse_agents uses AgentSpec which:
-    - Legacy colon format (provider:persona) - sets persona, role defaults to 'proposer'
-    - New pipe format (provider|model|persona|role) - explicitly sets role
+    Note: parse_agents returns AgentSpec objects with:
+    - Legacy colon format (provider:role) - if second part is a valid role, uses it
+    - Legacy colon format (provider:persona) - if second part is NOT a valid role, treats as persona
+    - New pipe format (provider|model|persona|role) - explicitly sets all fields
+    - When role is not specified, it's left as None (caller handles position-based assignment)
     """
 
     def test_parse_single_agent(self):
-        """Test parsing a single agent - defaults to 'proposer' role."""
+        """Test parsing a single agent - role is None (not position-based here)."""
         result = parse_agents("codex")
-        assert result == [("codex", "proposer")]
+        assert len(result) == 1
+        assert result[0].provider == "codex"
+        # AgentSpec.parse_list returns None for role when not specified
+        # The position-based assignment happens at the call site
+        assert result[0].role is None
 
     def test_parse_multiple_agents(self):
-        """Test parsing multiple agents - all get 'proposer' role."""
+        """Test parsing multiple agents - roles are None when not specified."""
         result = parse_agents("codex,claude,openai")
-        # All agents default to proposer (legacy format sets persona, not role)
-        assert result == [("codex", "proposer"), ("claude", "proposer"), ("openai", "proposer")]
+        assert len(result) == 3
+        assert result[0].provider == "codex"
+        assert result[0].role is None
+        assert result[1].provider == "claude"
+        assert result[1].role is None
+        assert result[2].provider == "openai"
+        assert result[2].role is None
 
     def test_parse_legacy_colon_format(self):
-        """Test legacy colon format sets persona, not role."""
-        # Legacy format: provider:persona - role is always 'proposer'
+        """Test legacy colon format - 'critic' IS a valid role so it's used as role."""
         result = parse_agents("claude:critic")
-        assert result == [("claude", "proposer")]  # 'critic' is the persona, not role
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        assert result[0].role == "critic"
 
     def test_parse_mixed_agents(self):
-        """Test parsing mix of agents - all get proposer role with legacy format."""
+        """Test parsing mix of agents with explicit roles and personas."""
         result = parse_agents("codex,claude:critic,openai:philosopher")
-        # Legacy colon format sets persona; role is always proposer
-        assert result == [
-            ("codex", "proposer"),
-            ("claude", "proposer"),
-            ("openai", "proposer"),
-        ]
+        assert len(result) == 3
+        assert result[0].provider == "codex"
+        assert result[0].role is None  # No explicit role
+        assert result[1].provider == "claude"
+        assert result[1].role == "critic"  # Explicit valid role
+        assert result[2].provider == "openai"
+        assert result[2].persona == "philosopher"  # Not a valid role
+        assert result[2].role is None  # Treated as persona
 
     def test_parse_with_whitespace(self):
         """Test parsing handles whitespace."""
         result = parse_agents("codex , claude , openai")
-        assert result == [("codex", "proposer"), ("claude", "proposer"), ("openai", "proposer")]
+        assert len(result) == 3
+        assert result[0].provider == "codex"
+        assert result[1].provider == "claude"
+        assert result[2].provider == "openai"
 
     def test_parse_empty_string(self):
         """Test parsing empty string returns empty list."""
@@ -52,37 +69,45 @@ class TestParseAgents:
         assert result == []
 
     def test_parse_legacy_with_hyphen_names(self):
-        """Test parsing API agent names with hyphens."""
+        """Test parsing API agent names - 'judge' IS a valid role."""
         result = parse_agents("anthropic-api:judge")
-        # 'judge' is persona, role is 'proposer'
-        assert result == [("anthropic-api", "proposer")]
+        assert len(result) == 1
+        assert result[0].provider == "anthropic-api"
+        assert result[0].role == "judge"
 
     def test_parse_complex_agent_names(self):
-        """Test parsing API agent names with hyphens."""
-        # Use valid provider names (gemini, not gemini-api)
+        """Test parsing API agent names - roles are None."""
         result = parse_agents("anthropic-api,openai-api,gemini")
-        assert result == [
-            ("anthropic-api", "proposer"),
-            ("openai-api", "proposer"),
-            ("gemini", "proposer"),
-        ]
+        assert len(result) == 3
+        assert result[0].provider == "anthropic-api"
+        assert result[1].provider == "openai-api"
+        assert result[2].provider == "gemini"
 
     def test_parse_multiple_colons_in_spec(self):
         """Test that only first colon is treated as separator."""
-        # Use valid provider name
         result = parse_agents("claude:role:extra")
-        # 'role:extra' is persona, role is 'proposer'
-        assert result == [("claude", "proposer")]
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        # 'role:extra' is not a valid role, treated as persona
+        assert result[0].persona == "role:extra"
+        assert result[0].role is None
 
     def test_parse_new_pipe_format_with_role(self):
         """Test new pipe format explicitly sets role."""
         result = parse_agents("claude||philosopher|critic")
-        assert result == [("claude", "critic")]  # Role is explicitly 'critic'
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        assert result[0].persona == "philosopher"
+        assert result[0].role == "critic"
 
     def test_parse_new_pipe_format_multiple(self):
         """Test new pipe format with multiple agents."""
         result = parse_agents("claude||philosopher|proposer,openai|||critic")
-        assert result == [("claude", "proposer"), ("openai", "critic")]
+        assert len(result) == 2
+        assert result[0].provider == "claude"
+        assert result[0].role == "proposer"
+        assert result[1].provider == "openai"
+        assert result[1].role == "critic"
 
 
 class TestGetEventEmitterIfAvailable:

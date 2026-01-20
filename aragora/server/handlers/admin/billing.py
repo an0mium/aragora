@@ -950,6 +950,9 @@ class BillingHandler(BaseHandler):
         elif event.type == "invoice.payment_failed":
             result = self._handle_invoice_failed(event, user_store)
 
+        elif event.type == "invoice.finalized":
+            result = self._handle_invoice_finalized(event, user_store)
+
         else:
             # Acknowledge unhandled events
             result = json_response({"received": True})
@@ -1204,6 +1207,46 @@ class BillingHandler(BaseHandler):
             {
                 "received": True,
                 "failure_tracked": failure is not None,
+            }
+        )
+
+    def _handle_invoice_finalized(self, event, user_store) -> HandlerResult:
+        """Handle invoice.finalized event.
+
+        Flushes any remainder usage that didn't meet the MIN_TOKENS_THRESHOLD
+        during regular sync cycles. This ensures all usage is billed before
+        the invoice is finalized.
+        """
+        from aragora.billing.usage_sync import get_usage_sync_service
+
+        invoice = event.object
+        customer_id = invoice.get("customer")
+        subscription_id = invoice.get("subscription")
+
+        logger.info(
+            f"Invoice finalized: customer={customer_id}, subscription={subscription_id}"
+        )
+
+        # Flush remainder usage for the org
+        flushed_records = []
+        if user_store and customer_id:
+            org = user_store.get_organization_by_stripe_customer(customer_id)
+            if org:
+                try:
+                    usage_sync = get_usage_sync_service()
+                    flushed_records = usage_sync.flush_period(org_id=org.id)
+                    if flushed_records:
+                        logger.info(
+                            f"Flushed {len(flushed_records)} usage records for org {org.id} "
+                            f"on invoice finalize"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to flush usage on invoice finalize: {e}")
+
+        return json_response(
+            {
+                "received": True,
+                "usage_flushed": len(flushed_records),
             }
         )
 

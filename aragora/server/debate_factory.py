@@ -188,14 +188,31 @@ class DebateFactory:
 
         result = AgentCreationResult()
 
-        for spec in specs:
-            role = spec.role or "proposer"
+        for i, spec in enumerate(specs):
+            # Assign role based on position if not explicitly specified
+            # This ensures diverse debate roles: proposer, critic(s), synthesizer
+            role = spec.role
+            if role is None:
+                if i == 0:
+                    role = "proposer"
+                elif i == len(specs) - 1 and len(specs) > 1:
+                    role = "synthesizer"
+                else:
+                    role = "critic"
             try:
                 agent = create_agent(
                     model_type=spec.provider,  # type: ignore[arg-type]
                     name=spec.name,
                     role=role,
+                    model=spec.model,  # Pass model from spec
                 )
+
+                # Apply persona as system prompt modifier if specified
+                if spec.persona:
+                    persona_prompt = self._get_persona_prompt(spec.persona)
+                    if persona_prompt and hasattr(agent, "system_prompt"):
+                        existing = getattr(agent, "system_prompt", "") or ""
+                        agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
 
                 # Validate API key for API-based agents
                 if hasattr(agent, "api_key") and not agent.api_key:
@@ -237,6 +254,48 @@ class DebateFactory:
             )
         except Exception as e:
             logger.warning(f"Failed to emit agent error event: {e}")
+
+    def _get_persona_prompt(self, persona: str) -> Optional[str]:
+        """Get system prompt modifier for a persona.
+
+        Args:
+            persona: Persona name (e.g., 'philosopher', 'security_engineer')
+
+        Returns:
+            Persona-specific system prompt, or None if not found
+        """
+        # First check DEFAULT_PERSONAS from aragora.agents.personas
+        try:
+            from aragora.agents.personas import DEFAULT_PERSONAS
+
+            if persona in DEFAULT_PERSONAS:
+                p = DEFAULT_PERSONAS[persona]
+                # Generate system prompt from persona attributes
+                traits_str = ", ".join(p.traits) if p.traits else "analytical"
+                prompt = f"You are a {traits_str} agent. {p.description}"
+                if p.top_expertise:
+                    top_domains = [d for d, _ in p.top_expertise]
+                    prompt += f" Your key areas of expertise: {', '.join(top_domains)}."
+                return prompt
+        except ImportError:
+            logger.debug("Personas module not available")
+
+        # Check PersonaManager if available
+        if self.persona_manager:
+            try:
+                stored_persona = self.persona_manager.get_persona(persona)
+                if stored_persona:
+                    traits_str = ", ".join(stored_persona.traits) if stored_persona.traits else "analytical"
+                    prompt = f"You are a {traits_str} agent. {stored_persona.description}"
+                    return prompt
+            except Exception as e:
+                logger.debug(f"Failed to get persona from manager: {e}")
+
+        # Fallback: use persona name as behavioral hint
+        if persona:
+            return f"You are a {persona} in this debate. Approach arguments from that perspective."
+
+        return None
 
     def create_arena(
         self,

@@ -25,46 +25,71 @@ from aragora.cli.main import (
 
 
 class TestParseAgents:
-    """Tests for parse_agents function."""
+    """Tests for parse_agents function.
+
+    Note: parse_agents returns AgentSpec objects with:
+    - Explicit role if second part is a valid role (claude:critic → role=critic)
+    - role=None when not explicitly specified (position-based assignment happens in run_debate)
+    """
 
     def test_single_agent(self):
-        """Should parse single agent."""
+        """Single agent has role=None (not yet position-assigned)."""
         result = parse_agents("codex")
-        assert result == [("codex", None)]
+        assert len(result) == 1
+        assert result[0].provider == "codex"
+        assert result[0].role is None  # Position-based assignment happens in run_debate
 
     def test_multiple_agents(self):
-        """Should parse multiple agents."""
+        """Multiple agents have role=None when not explicitly specified."""
         result = parse_agents("codex,claude,openai")
-        assert result == [("codex", None), ("claude", None), ("openai", None)]
+        assert len(result) == 3
+        assert result[0].provider == "codex"
+        assert result[0].role is None
+        assert result[1].provider == "claude"
+        assert result[1].role is None
+        assert result[2].provider == "openai"
+        assert result[2].role is None
 
     def test_agent_with_role(self):
-        """Should parse agent with role."""
+        """Explicit valid role (critic) is preserved."""
         result = parse_agents("claude:critic")
-        assert result == [("claude", "critic")]
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        assert result[0].role == "critic"
 
     def test_mixed_agents_and_roles(self):
-        """Should parse mix of agents with and without roles."""
+        """Mix of explicit roles and unspecified roles."""
         result = parse_agents("codex,claude:critic,openai:synthesizer")
-        assert result == [
-            ("codex", None),
-            ("claude", "critic"),
-            ("openai", "synthesizer"),
-        ]
+        assert len(result) == 3
+        assert result[0].provider == "codex"
+        assert result[0].role is None  # No explicit role
+        assert result[1].provider == "claude"
+        assert result[1].role == "critic"  # Explicit valid role
+        assert result[2].provider == "openai"
+        assert result[2].role == "synthesizer"  # Explicit valid role
 
     def test_strips_whitespace(self):
-        """Should strip whitespace from agent names."""
+        """Whitespace is stripped."""
         result = parse_agents(" codex , claude ")
-        assert result == [("codex", None), ("claude", None)]
+        assert len(result) == 2
+        assert result[0].provider == "codex"
+        assert result[0].role is None
+        assert result[1].provider == "claude"
+        assert result[1].role is None
 
     def test_empty_string(self):
-        """Should handle empty string."""
+        """Empty string returns empty list."""
         result = parse_agents("")
-        assert result == [("", None)]
+        assert result == []
 
     def test_agent_with_complex_role(self):
-        """Should handle complex role names."""
+        """Non-valid roles treated as persona, role=None."""
         result = parse_agents("claude:super_critic")
-        assert result == [("claude", "super_critic")]
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        # 'super_critic' is NOT a valid role, so treated as persona
+        assert result[0].persona == "super_critic"
+        assert result[0].role is None
 
 
 # =============================================================================
@@ -492,7 +517,7 @@ class TestRunDebate:
 
                 await run_debate(
                     task="Test",
-                    agents_str="a,b,c",
+                    agents_str="claude,gemini,openai",  # Use valid provider names
                     rounds=2,
                     learn=False,
                 )
@@ -534,14 +559,21 @@ class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
     def test_parse_agents_single_colon(self):
-        """Should handle agent with single colon."""
-        result = parse_agents("agent:")
-        assert result == [("agent", "")]
+        """Agent with single colon - empty second part treated as persona."""
+        result = parse_agents("claude:")
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        # Empty string is not a valid role, role is None
+        assert result[0].role is None
 
     def test_parse_agents_multiple_colons(self):
-        """Should handle agent with multiple colons."""
-        result = parse_agents("agent:role:extra")
-        assert result == [("agent", "role:extra")]
+        """Multiple colons - 'role:extra' not a valid role."""
+        result = parse_agents("claude:role:extra")
+        assert len(result) == 1
+        assert result[0].provider == "claude"
+        # 'role:extra' is not a valid role, treated as persona
+        assert result[0].persona == "role:extra"
+        assert result[0].role is None
 
     def test_cmd_templates_import(self):
         """Should import templates module."""

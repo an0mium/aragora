@@ -59,28 +59,22 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optiona
     return None
 
 
-def parse_agents(agents_str: str) -> list[tuple[str, str]]:
+def parse_agents(agents_str: str) -> list["AgentSpec"]:
     """Parse agent string using unified AgentSpec.
 
     Supports both formats:
-    - New pipe format: provider|model|persona|role (explicit role)
-    - Legacy colon format: provider:persona (role defaults to 'proposer')
-
-    Returns tuples of (provider, role). Note that the legacy colon format
-    sets the persona, NOT the role. Use pipe format for explicit roles:
-    - "claude:critic" -> ("claude", "proposer")  # 'critic' is persona
-    - "claude|||critic" -> ("claude", "critic")  # 'critic' is role
+    - New pipe format: provider|model|persona|role (explicit fields)
+    - Legacy colon format: provider:role or provider:persona
 
     Args:
         agents_str: Comma-separated agent specs
 
     Returns:
-        List of (provider, role) tuples
+        List of AgentSpec objects with all parsed fields
     """
     from aragora.agents.spec import AgentSpec
 
-    specs = AgentSpec.parse_list(agents_str)
-    return [(spec.provider, spec.role) for spec in specs]
+    return AgentSpec.parse_list(agents_str)
 
 
 async def run_debate(
@@ -112,23 +106,41 @@ async def run_debate(
     # Parse and create agents
     agent_specs = parse_agents(agents_str)
 
-    # Assign default roles
+    # Assign default roles based on position if not explicitly specified
     agents = []
-    for i, (agent_type, role) in enumerate(agent_specs):
+    for i, spec in enumerate(agent_specs):
+        role = spec.role
+        # If role is None (not explicitly specified), assign based on position
+        # This ensures diverse debate roles: proposer, critic(s), synthesizer
         if role is None:
             if i == 0:
                 role = "proposer"
-            elif i == len(agent_specs) - 1:
+            elif i == len(agent_specs) - 1 and len(agent_specs) > 1:
                 role = "synthesizer"
             else:
                 role = "critic"
 
         agent = create_agent(
-            model_type=agent_type,  # type: ignore[arg-type]
-            name=f"{agent_type}_{role}",
+            model_type=spec.provider,  # type: ignore[arg-type]
+            name=spec.name or f"{spec.provider}_{role}",
             role=role,
+            model=spec.model,  # Pass model from spec
         )
-        # Apply mode system prompt if specified
+
+        # Apply persona as system prompt if specified
+        if spec.persona:
+            try:
+                from aragora.agents.personas import PERSONAS
+
+                if spec.persona in PERSONAS:
+                    persona_prompt = PERSONAS[spec.persona].get("system_prompt", "")
+                    if persona_prompt:
+                        existing = getattr(agent, "system_prompt", "") or ""
+                        agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+            except ImportError:
+                pass  # Personas module not available
+
+        # Apply mode system prompt if specified (takes precedence)
         if mode_system_prompt:
             agent.system_prompt = mode_system_prompt
         agents.append(agent)
@@ -1006,8 +1018,10 @@ Examples:
         "-a",
         default="codex,claude",
         help=(
-            "Comma-separated agents (demo, anthropic-api,openai-api,gemini,grok or codex,claude). "
-            "Use agent:role for specific roles."
+            "Comma-separated agents. Formats: "
+            "'provider' (e.g., anthropic-api), "
+            "'provider:role' (e.g., claude:critic), "
+            "'provider|model|persona|role' (e.g., anthropic-api|claude-opus||proposer)"
         ),
     )
     ask_parser.add_argument(

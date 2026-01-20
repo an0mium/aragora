@@ -202,15 +202,38 @@ def execute_debate_thread(
         agent_specs = AgentSpec.parse_list(agents_str)
 
         # Create agents with streaming support
-        # All agents are proposers for full participation in all rounds
+        # Assign roles based on position for diverse debate dynamics
         agents: list[Agent] = []
-        for spec in agent_specs:
-            role = spec.role or "proposer"  # All agents propose and participate fully
+        for i, spec in enumerate(agent_specs):
+            # Assign role based on position if not explicitly specified
+            role = spec.role
+            if role is None:
+                if i == 0:
+                    role = "proposer"
+                elif i == len(agent_specs) - 1 and len(agent_specs) > 1:
+                    role = "synthesizer"
+                else:
+                    role = "critic"
             agent = create_agent(
                 model_type=cast("AgentType", spec.provider),
                 name=spec.name,
                 role=role,
+                model=spec.model,  # Pass model from spec
             )
+
+            # Apply persona as system prompt modifier if specified
+            if spec.persona:
+                try:
+                    from aragora.agents.personas import PERSONAS
+
+                    if spec.persona in PERSONAS:
+                        persona_prompt = PERSONAS[spec.persona].get("system_prompt", "")
+                        if persona_prompt and hasattr(agent, "system_prompt"):
+                            existing = getattr(agent, "system_prompt", "") or ""
+                            agent.system_prompt = f"{persona_prompt}\n\n{existing}".strip()
+                except ImportError:
+                    pass  # Personas module not available
+
             # Wrap agent for token streaming if supported
             agent = wrap_agent_for_streaming(agent, emitter, debate_id)
             agents.append(agent)

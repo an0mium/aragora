@@ -19,23 +19,37 @@ def parse_agents(agents_str: str) -> list[tuple[str, str]]:
 
     Supports both formats:
     - New pipe format: provider|model|persona|role (explicit role)
-    - Legacy colon format: provider:persona (role defaults to 'proposer')
+    - Legacy colon format: provider:persona (role assigned by position)
 
-    Returns tuples of (provider, role). Note that the legacy colon format
-    sets the persona, NOT the role. Use pipe format for explicit roles:
-    - "claude:critic" -> ("claude", "proposer")  # 'critic' is persona
-    - "claude|||critic" -> ("claude", "critic")  # 'critic' is role
+    When role is not explicitly specified, assigns based on position:
+    - First agent: proposer
+    - Last agent (if > 1): synthesizer
+    - Others: critic
 
     Args:
         agents_str: Comma-separated agent specs
 
     Returns:
-        List of (provider, role) tuples
+        List of (provider, role) tuples with valid debate roles
     """
     from aragora.agents.spec import AgentSpec
 
     specs = AgentSpec.parse_list(agents_str)
-    return [(spec.provider, spec.role) for spec in specs]
+
+    # Assign roles based on position when not explicitly specified
+    result = []
+    for i, spec in enumerate(specs):
+        role = spec.role
+        if role is None:
+            if i == 0:
+                role = "proposer"
+            elif i == len(specs) - 1 and len(specs) > 1:
+                role = "synthesizer"
+            else:
+                role = "critic"
+        result.append((spec.provider, role))
+
+    return result
 
 
 # API key environment variable mapping for error messages
@@ -131,8 +145,8 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
     agent_specs = parse_agents(args.agents)
     agents = []
     failed_agents = []
-    for i, (agent_type, role) in enumerate(agent_specs):
-        role = role or f"agent_{i}"
+    for agent_type, role in agent_specs:
+        # parse_agents guarantees valid roles (proposer, critic, synthesizer)
         try:
             agent = create_agent(
                 model_type=agent_type,  # type: ignore[arg-type]

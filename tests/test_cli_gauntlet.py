@@ -10,51 +10,63 @@ from aragora.cli.gauntlet import cmd_gauntlet, create_gauntlet_parser, parse_age
 
 
 class TestParseAgents:
-    """Tests for parse_agents function."""
+    """Tests for parse_agents function.
+
+    Note: parse_agents returns (provider, role) tuples with:
+    - Explicit role if specified and valid (claude:critic → role=critic)
+    - Position-based role if not specified (first=proposer, last=synthesizer, middle=critic)
+    """
 
     def test_parse_single_agent(self):
-        """Parse single agent."""
+        """Single agent defaults to proposer (position 0)."""
         result = parse_agents("codex")
-        assert result == [("codex", None)]
+        assert result == [("codex", "proposer")]
 
     def test_parse_multiple_agents(self):
-        """Parse comma-separated agents."""
+        """Multiple agents get position-based roles."""
         result = parse_agents("codex,claude,openai")
-        assert result == [("codex", None), ("claude", None), ("openai", None)]
+        # Position 0: proposer, Position 1: critic, Position 2 (last): synthesizer
+        assert result == [("codex", "proposer"), ("claude", "critic"), ("openai", "synthesizer")]
 
     def test_parse_agent_with_role(self):
-        """Parse agent with role."""
+        """Explicit valid role (critic) is preserved."""
         result = parse_agents("claude:critic")
         assert result == [("claude", "critic")]
 
     def test_parse_mixed_agents_and_roles(self):
-        """Parse mix of agents with and without roles."""
+        """Mix of explicit roles and position-based assignment."""
         result = parse_agents("codex,claude:critic,openai:synthesizer")
+        # codex: no explicit role → proposer (position 0)
+        # claude:critic → explicit role critic
+        # openai:synthesizer → explicit role synthesizer
         assert result == [
-            ("codex", None),
+            ("codex", "proposer"),
             ("claude", "critic"),
             ("openai", "synthesizer"),
         ]
 
     def test_parse_strips_whitespace(self):
-        """Whitespace around agents is stripped."""
+        """Whitespace is stripped and roles assigned by position."""
         result = parse_agents(" codex , claude ")
-        assert result == [("codex", None), ("claude", None)]
+        # Position 0: proposer, Position 1 (last): synthesizer
+        assert result == [("codex", "proposer"), ("claude", "synthesizer")]
 
     def test_parse_empty_string(self):
-        """Empty string returns single empty tuple."""
+        """Empty string returns empty list."""
         result = parse_agents("")
-        assert result == [("", None)]
+        assert result == []
 
     def test_parse_agent_with_multiple_colons(self):
-        """Multiple colons - first is separator, rest in role."""
+        """Multiple colons - 'critic:verbose' is NOT a valid role so position-based."""
         result = parse_agents("claude:critic:verbose")
-        assert result == [("claude", "critic:verbose")]
+        # 'critic:verbose' is not a valid role, treated as persona
+        assert result == [("claude", "proposer")]
 
     def test_parse_agent_role_with_special_chars(self):
-        """Role can contain special characters."""
+        """Non-valid role names treated as persona, position-based role assigned."""
         result = parse_agents("claude:my-role_v2")
-        assert result == [("claude", "my-role_v2")]
+        # 'my-role_v2' is not a valid role, treated as persona
+        assert result == [("claude", "proposer")]
 
 
 class TestCreateGauntletParser:
