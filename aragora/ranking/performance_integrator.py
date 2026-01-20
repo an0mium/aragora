@@ -320,8 +320,7 @@ class PerformanceEloIntegrator:
 
         # Top performers
         summary["top_performers"] = [
-            {"agent": name, "score": round(score.composite_score, 3)}
-            for name, score in scores[:3]
+            {"agent": name, "score": round(score.composite_score, 3)} for name, score in scores[:3]
         ]
 
         # Degraded agents

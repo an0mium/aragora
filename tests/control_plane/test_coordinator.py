@@ -67,7 +67,9 @@ class TestAgentOperations:
     """Tests for agent registration and management."""
 
     @pytest.mark.asyncio
-    async def test_register_agent(self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]):
+    async def test_register_agent(
+        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+    ):
         """Test registering an agent."""
         agent = await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -84,7 +86,9 @@ class TestAgentOperations:
         assert agent.status == AgentStatus.READY
 
     @pytest.mark.asyncio
-    async def test_register_agent_with_enum_capabilities(self, coordinator: ControlPlaneCoordinator):
+    async def test_register_agent_with_enum_capabilities(
+        self, coordinator: ControlPlaneCoordinator
+    ):
         """Test registering with AgentCapability enum values."""
         agent = await coordinator.register_agent(
             agent_id="enum-agent",
@@ -96,7 +100,9 @@ class TestAgentOperations:
         assert "code" in agent.capabilities
 
     @pytest.mark.asyncio
-    async def test_unregister_agent(self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]):
+    async def test_unregister_agent(
+        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+    ):
         """Test unregistering an agent."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -116,7 +122,9 @@ class TestAgentOperations:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_heartbeat(self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]):
+    async def test_heartbeat(
+        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+    ):
         """Test agent heartbeat."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -131,7 +139,9 @@ class TestAgentOperations:
         assert agent.last_heartbeat > 0
 
     @pytest.mark.asyncio
-    async def test_heartbeat_with_status_update(self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]):
+    async def test_heartbeat_with_status_update(
+        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+    ):
         """Test heartbeat with status update."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -164,7 +174,9 @@ class TestAgentOperations:
         assert len(agents) == 3
 
     @pytest.mark.asyncio
-    async def test_list_agents_by_capability(self, coordinator: ControlPlaneCoordinator, sample_agents):
+    async def test_list_agents_by_capability(
+        self, coordinator: ControlPlaneCoordinator, sample_agents
+    ):
         """Test listing agents filtered by capability."""
         for agent_data in sample_agents:
             await coordinator.register_agent(
@@ -199,7 +211,9 @@ class TestAgentOperations:
         assert "debate" in agent.capabilities
 
     @pytest.mark.asyncio
-    async def test_select_agent_with_exclusion(self, coordinator: ControlPlaneCoordinator, sample_agents):
+    async def test_select_agent_with_exclusion(
+        self, coordinator: ControlPlaneCoordinator, sample_agents
+    ):
         """Test selecting an agent with exclusions."""
         for agent_data in sample_agents:
             await coordinator.register_agent(
@@ -238,7 +252,9 @@ class TestTaskOperations:
     """Tests for task submission and execution."""
 
     @pytest.mark.asyncio
-    async def test_submit_task(self, coordinator: ControlPlaneCoordinator, sample_task: Dict[str, Any]):
+    async def test_submit_task(
+        self, coordinator: ControlPlaneCoordinator, sample_task: Dict[str, Any]
+    ):
         """Test submitting a task."""
         task_id = await coordinator.submit_task(
             task_type=sample_task["task_type"],
@@ -267,7 +283,9 @@ class TestTaskOperations:
         assert task.priority == TaskPriority.HIGH
 
     @pytest.mark.asyncio
-    async def test_claim_task(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_claim_task(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test claiming a task."""
         # Register agent
         await coordinator.register_agent(
@@ -295,7 +313,9 @@ class TestTaskOperations:
         assert claimed_task.assigned_agent == sample_agent["agent_id"]
 
     @pytest.mark.asyncio
-    async def test_complete_task(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_complete_task(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test completing a task."""
         # Register agent and submit task
         await coordinator.register_agent(
@@ -330,7 +350,9 @@ class TestTaskOperations:
         assert task.result == result
 
     @pytest.mark.asyncio
-    async def test_fail_task_with_retry(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_fail_task_with_retry(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test failing a task with retry."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -364,7 +386,9 @@ class TestTaskOperations:
         assert task.error == "Test error"
 
     @pytest.mark.asyncio
-    async def test_fail_task_permanent(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_fail_task_permanent(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test permanently failing a task."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -409,7 +433,9 @@ class TestTaskOperations:
         assert task.status == TaskStatus.CANCELLED
 
     @pytest.mark.asyncio
-    async def test_cancel_completed_task(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_cancel_completed_task(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test cancelling an already completed task."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -434,7 +460,9 @@ class TestTaskOperations:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_wait_for_result_already_completed(self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task):
+    async def test_wait_for_result_already_completed(
+        self, coordinator: ControlPlaneCoordinator, sample_agent, sample_task
+    ):
         """Test waiting for task result that's already completed."""
         await coordinator.register_agent(
             agent_id=sample_agent["agent_id"],
@@ -503,7 +531,9 @@ class TestHealthOperations:
         assert available is True
 
     @pytest.mark.asyncio
-    async def test_register_with_health_probe(self, coordinator: ControlPlaneCoordinator, sample_agent):
+    async def test_register_with_health_probe(
+        self, coordinator: ControlPlaneCoordinator, sample_agent
+    ):
         """Test registering agent with health probe."""
         probe_called = False
 
@@ -531,7 +561,9 @@ class TestStatistics:
     """Tests for control plane statistics."""
 
     @pytest.mark.asyncio
-    async def test_get_stats(self, coordinator: ControlPlaneCoordinator, sample_agents, sample_task):
+    async def test_get_stats(
+        self, coordinator: ControlPlaneCoordinator, sample_agents, sample_task
+    ):
         """Test getting comprehensive statistics."""
         # Register some agents
         for agent_data in sample_agents:

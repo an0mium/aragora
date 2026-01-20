@@ -221,8 +221,7 @@ def _parse_ready_signal(content: str) -> ReadySignal:
 
     # Try inline format
     inline_pattern = (
-        r'\[READY:\s*confidence=([0-9.]+),?\s*ready=(true|false)'
-        r'(?:,?\s*reasoning="([^"]*)")?\]'
+        r"\[READY:\s*confidence=([0-9.]+),?\s*ready=(true|false)" r'(?:,?\s*reasoning="([^"]*)")?\]'
     )
     inline_match = re.search(inline_pattern, content, re.IGNORECASE)
     if inline_match:
@@ -273,7 +272,6 @@ def validate_agent_response(
     Returns:
         ValidationResult with validated response or errors
     """
-    errors: List[str] = []
     warnings: List[str] = []
 
     # Handle dict input (structured response)
@@ -304,9 +302,7 @@ def validate_agent_response(
     # Check for excessive length - truncate before the suffix to stay within limit
     truncation_suffix = "... [truncated]"
     if len(raw_content) > MAX_CONTENT_LENGTH:
-        warnings.append(
-            f"Response truncated from {len(raw_content)} to {MAX_CONTENT_LENGTH} chars"
-        )
+        warnings.append(f"Response truncated from {len(raw_content)} to {MAX_CONTENT_LENGTH} chars")
         # Truncate to leave room for suffix
         max_before_suffix = MAX_CONTENT_LENGTH - len(truncation_suffix)
         raw_content = raw_content[:max_before_suffix] + truncation_suffix

@@ -202,6 +202,7 @@ class MongoDBConnector(EnterpriseConnector):
                         cursor_data = json.loads(state.cursor)
                         if cursor_data.get("collection") == collection_name:
                             from bson import ObjectId
+
                             query["_id"] = {"$gt": ObjectId(cursor_data["last_id"])}
                     except (json.JSONDecodeError, Exception) as e:
                         logger.debug(f"Failed to parse cursor, starting from beginning: {e}")
@@ -223,7 +224,11 @@ class MongoDBConnector(EnterpriseConnector):
                     if doc.get(self.timestamp_field):
                         ts_value = doc[self.timestamp_field]
                         if isinstance(ts_value, datetime):
-                            updated_at = ts_value.replace(tzinfo=timezone.utc) if ts_value.tzinfo is None else ts_value
+                            updated_at = (
+                                ts_value.replace(tzinfo=timezone.utc)
+                                if ts_value.tzinfo is None
+                                else ts_value
+                            )
 
                     # Create sync item
                     item_id = f"mongo:{self.database_name}:{collection_name}:{hashlib.sha256(doc_id.encode()).hexdigest()[:12]}"
@@ -247,10 +252,12 @@ class MongoDBConnector(EnterpriseConnector):
                     )
 
                     # Update cursor
-                    state.cursor = json.dumps({
-                        "collection": collection_name,
-                        "last_id": doc_id,
-                    })
+                    state.cursor = json.dumps(
+                        {
+                            "collection": collection_name,
+                            "last_id": doc_id,
+                        }
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to sync collection {collection_name}: {e}")
@@ -281,17 +288,22 @@ class MongoDBConnector(EnterpriseConnector):
 
                 # Try text search first
                 try:
-                    cursor = collection.find(
-                        {"$text": {"$search": query}},
-                        {"score": {"$meta": "textScore"}}
-                    ).sort([("score", {"$meta": "textScore"})]).limit(limit)
+                    cursor = (
+                        collection.find(
+                            {"$text": {"$search": query}}, {"score": {"$meta": "textScore"}}
+                        )
+                        .sort([("score", {"$meta": "textScore"})])
+                        .limit(limit)
+                    )
 
                     async for doc in cursor:
-                        results.append({
-                            "collection": collection_name,
-                            "data": {k: v for k, v in doc.items() if k != "score"},
-                            "score": doc.get("score", 0),
-                        })
+                        results.append(
+                            {
+                                "collection": collection_name,
+                                "data": {k: v for k, v in doc.items() if k != "score"},
+                                "score": doc.get("score", 0),
+                            }
+                        )
                     continue
                 except Exception as e:
                     logger.debug(f"Text search not available, falling back to regex: {e}")
@@ -302,22 +314,31 @@ class MongoDBConnector(EnterpriseConnector):
                 if not sample:
                     continue
 
-                string_fields = [k for k, v in sample.items() if isinstance(v, str) and not k.startswith("_")]
+                string_fields = [
+                    k for k, v in sample.items() if isinstance(v, str) and not k.startswith("_")
+                ]
 
                 if string_fields:
                     or_conditions = [
-                        {field: {"$regex": query, "$options": "i"}}
-                        for field in string_fields[:3]
+                        {field: {"$regex": query, "$options": "i"}} for field in string_fields[:3]
                     ]
 
                     cursor = collection.find({"$or": or_conditions}).limit(limit)
                     async for doc in cursor:
-                        results.append({
-                            "collection": collection_name,
-                            "data": {k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                                    for k, v in doc.items()},
-                            "score": 0.5,
-                        })
+                        results.append(
+                            {
+                                "collection": collection_name,
+                                "data": {
+                                    k: (
+                                        str(v)
+                                        if not isinstance(v, (str, int, float, bool, type(None)))
+                                        else v
+                                    )
+                                    for k, v in doc.items()
+                                },
+                                "score": 0.5,
+                            }
+                        )
 
             except Exception as e:
                 logger.debug(f"Search failed on {collection_name}: {e}")
@@ -352,9 +373,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         async def change_stream_loop():
             try:
-                pipeline = [
-                    {"$match": {"operationType": {"$in": ["insert", "update", "replace"]}}}
-                ]
+                pipeline = [{"$match": {"operationType": {"$in": ["insert", "update", "replace"]}}}]
 
                 async with self._db.watch(pipeline) as stream:
                     logger.info(f"[{self.name}] Change stream started")

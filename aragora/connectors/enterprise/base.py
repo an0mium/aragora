@@ -70,7 +70,9 @@ class SyncState:
             "cursor": self.cursor,
             "last_sync_at": self.last_sync_at.isoformat() if self.last_sync_at else None,
             "last_item_id": self.last_item_id,
-            "last_item_timestamp": self.last_item_timestamp.isoformat() if self.last_item_timestamp else None,
+            "last_item_timestamp": (
+                self.last_item_timestamp.isoformat() if self.last_item_timestamp else None
+            ),
             "items_synced": self.items_synced,
             "items_total": self.items_total,
             "errors": self.errors[-10:],  # Keep last 10 errors
@@ -86,15 +88,25 @@ class SyncState:
             connector_id=data["connector_id"],
             tenant_id=data.get("tenant_id", "default"),
             cursor=data.get("cursor"),
-            last_sync_at=datetime.fromisoformat(data["last_sync_at"]) if data.get("last_sync_at") else None,
+            last_sync_at=(
+                datetime.fromisoformat(data["last_sync_at"]) if data.get("last_sync_at") else None
+            ),
             last_item_id=data.get("last_item_id"),
-            last_item_timestamp=datetime.fromisoformat(data["last_item_timestamp"]) if data.get("last_item_timestamp") else None,
+            last_item_timestamp=(
+                datetime.fromisoformat(data["last_item_timestamp"])
+                if data.get("last_item_timestamp")
+                else None
+            ),
             items_synced=data.get("items_synced", 0),
             items_total=data.get("items_total", 0),
             errors=data.get("errors", []),
             status=SyncStatus(data.get("status", "idle")),
-            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
-            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            started_at=(
+                datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None
+            ),
+            completed_at=(
+                datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
+            ),
         )
 
     def save(self, path: Path) -> None:

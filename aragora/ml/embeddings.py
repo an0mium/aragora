@@ -257,11 +257,13 @@ class LocalEmbeddingService:
         for idx in top_indices:
             score = float(similarities[idx])
             if score >= threshold:
-                results.append(SearchResult(
-                    text=documents[idx],
-                    score=score,
-                    index=int(idx),
-                ))
+                results.append(
+                    SearchResult(
+                        text=documents[idx],
+                        score=score,
+                        index=int(idx),
+                    )
+                )
 
         return results
 
@@ -276,8 +278,7 @@ class LocalEmbeddingService:
         async with self._lock:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(
-                None,
-                lambda: self.search(query, documents, top_k, threshold)
+                None, lambda: self.search(query, documents, top_k, threshold)
             )
 
     def cluster(

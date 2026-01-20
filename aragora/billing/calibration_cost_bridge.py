@@ -102,14 +102,10 @@ class CalibrationCostBridge:
 
     calibration_tracker: Optional["CalibrationTracker"] = None
     cost_tracker: Optional["CostTracker"] = None
-    config: CalibrationCostBridgeConfig = field(
-        default_factory=CalibrationCostBridgeConfig
-    )
+    config: CalibrationCostBridgeConfig = field(default_factory=CalibrationCostBridgeConfig)
 
     # Cached efficiency data
-    _efficiency_cache: Dict[str, AgentCostEfficiency] = field(
-        default_factory=dict, repr=False
-    )
+    _efficiency_cache: Dict[str, AgentCostEfficiency] = field(default_factory=dict, repr=False)
     _cache_timestamp: Optional[datetime] = field(default=None, repr=False)
     _cache_ttl_seconds: int = 300  # 5 minutes
 
@@ -193,9 +189,7 @@ class CalibrationCostBridge:
 
         return result
 
-    def _get_calibration_summary(
-        self, agent_name: str
-    ) -> Optional["CalibrationSummary"]:
+    def _get_calibration_summary(self, agent_name: str) -> Optional["CalibrationSummary"]:
         """Get calibration summary from tracker."""
         if self.calibration_tracker is None:
             return None
@@ -363,14 +357,10 @@ class CalibrationCostBridge:
 
             # Estimate cost
             base_cost = efficiency.cost_per_call or Decimal("0.01")
-            estimated_cost = self.estimate_task_cost(
-                agent_name, base_cost, estimated_rounds
-            )
+            estimated_cost = self.estimate_task_cost(agent_name, base_cost, estimated_rounds)
 
             if estimated_cost <= budget_remaining:
-                candidates.append(
-                    (agent_name, efficiency.efficiency_score, estimated_cost)
-                )
+                candidates.append((agent_name, efficiency.efficiency_score, estimated_cost))
 
         # Sort by efficiency
         candidates.sort(key=lambda x: x[1], reverse=True)

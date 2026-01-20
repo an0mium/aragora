@@ -86,7 +86,9 @@ class TestVerticalRegistry:
     def test_get_for_task(self):
         """Test inferring vertical from task description."""
         # Software task
-        vertical = VerticalRegistry.get_for_task("Review this Python code for security vulnerabilities")
+        vertical = VerticalRegistry.get_for_task(
+            "Review this Python code for security vulnerabilities"
+        )
         assert vertical == "software"
 
         # Legal task
@@ -98,7 +100,9 @@ class TestVerticalRegistry:
         assert vertical == "healthcare"
 
         # Accounting task
-        vertical = VerticalRegistry.get_for_task("Audit the financial statements for SOX compliance")
+        vertical = VerticalRegistry.get_for_task(
+            "Audit the financial statements for SOX compliance"
+        )
         assert vertical == "accounting"
 
         # Research task

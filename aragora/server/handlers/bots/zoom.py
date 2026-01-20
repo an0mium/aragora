@@ -66,6 +66,7 @@ class ZoomHandler(BaseHandler):
 
         try:
             from aragora.bots.zoom_bot import create_zoom_bot
+
             self._bot = create_zoom_bot()
             logger.info("Zoom bot initialized")
         except ImportError as e:
@@ -106,13 +107,15 @@ class ZoomHandler(BaseHandler):
 
     def _get_status(self) -> HandlerResult:
         """Get Zoom bot status."""
-        return json_response({
-            "enabled": bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET),
-            "client_id_configured": bool(ZOOM_CLIENT_ID),
-            "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
-            "bot_jid_configured": bool(ZOOM_BOT_JID),
-            "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
-        })
+        return json_response(
+            {
+                "enabled": bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET),
+                "client_id_configured": bool(ZOOM_CLIENT_ID),
+                "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
+                "bot_jid_configured": bool(ZOOM_BOT_JID),
+                "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
+            }
+        )
 
     def _handle_events(self, handler: Any) -> HandlerResult:
         """Handle incoming Zoom webhook events.
@@ -160,24 +163,30 @@ class ZoomHandler(BaseHandler):
                 if ZOOM_SECRET_TOKEN:
                     import hashlib
                     import hmac
+
                     encrypted = hmac.new(
                         ZOOM_SECRET_TOKEN.encode(),
                         plain_token.encode(),
                         hashlib.sha256,
                     ).hexdigest()
-                    return json_response({
-                        "plainToken": plain_token,
-                        "encryptedToken": encrypted,
-                    })
+                    return json_response(
+                        {
+                            "plainToken": plain_token,
+                            "encryptedToken": encrypted,
+                        }
+                    )
                 else:
                     return json_response({"plainToken": plain_token})
 
             # For other events, require bot
             if not bot:
-                return json_response({
-                    "error": "Zoom bot not configured",
-                    "details": "Set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET environment variables",
-                }, status_code=503)
+                return json_response(
+                    {
+                        "error": "Zoom bot not configured",
+                        "details": "Set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET environment variables",
+                    },
+                    status_code=503,
+                )
 
             # Process event asynchronously
             loop = asyncio.new_event_loop()

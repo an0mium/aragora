@@ -291,13 +291,15 @@ class RedisCache:
                 for p in pattern_list
             ]
 
-        data = json.dumps({
-            "workspace_id": profile.workspace_id,
-            "patterns": patterns_dict,
-            "generated_at": profile.generated_at.isoformat(),
-            "total_observations": profile.total_observations,
-            "dominant_traits": profile.dominant_traits,
-        })
+        data = json.dumps(
+            {
+                "workspace_id": profile.workspace_id,
+                "patterns": patterns_dict,
+                "generated_at": profile.generated_at.isoformat(),
+                "total_observations": profile.total_observations,
+                "dominant_traits": profile.dominant_traits,
+            }
+        )
 
         await self._client.setex(key, ttl or self._culture_ttl, data)
 

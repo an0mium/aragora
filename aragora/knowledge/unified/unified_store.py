@@ -441,12 +441,14 @@ class KnowledgeMound:
                 if current_depth < depth:
                     links = await self.get_links(current_id, direction="outgoing")
                     for link in links:
-                        edges.append({
-                            "source": link.source_id,
-                            "target": link.target_id,
-                            "relationship": link.relationship.value,
-                            "confidence": link.confidence,
-                        })
+                        edges.append(
+                            {
+                                "source": link.source_id,
+                                "target": link.target_id,
+                                "relationship": link.relationship.value,
+                                "confidence": link.confidence,
+                            }
+                        )
                         if link.target_id not in visited:
                             queue.append((link.target_id, current_depth + 1))
 
@@ -508,17 +510,19 @@ class KnowledgeMound:
             entries = self._continuum.search_by_keyword(query, limit=limit)
             items = []
             for entry in entries:
-                items.append(KnowledgeItem(
-                    id=f"cm_{entry.id}",
-                    content=entry.content,
-                    source=KnowledgeSource.CONTINUUM,
-                    source_id=entry.id,
-                    confidence=self._tier_to_confidence(entry.tier.value),
-                    created_at=datetime.fromisoformat(entry.created_at),
-                    updated_at=datetime.fromisoformat(entry.last_updated),
-                    metadata={"tier": entry.tier.value, "tags": entry.tags},
-                    importance=entry.importance,
-                ))
+                items.append(
+                    KnowledgeItem(
+                        id=f"cm_{entry.id}",
+                        content=entry.content,
+                        source=KnowledgeSource.CONTINUUM,
+                        source_id=entry.id,
+                        confidence=self._tier_to_confidence(entry.tier.value),
+                        created_at=datetime.fromisoformat(entry.created_at),
+                        updated_at=datetime.fromisoformat(entry.last_updated),
+                        metadata={"tier": entry.tier.value, "tags": entry.tags},
+                        importance=entry.importance,
+                    )
+                )
             return items
         except Exception as e:
             logger.error(f"Continuum query failed: {e}")
@@ -539,20 +543,36 @@ class KnowledgeMound:
             entries = await self._consensus.search_by_topic(query, limit=limit)
             items = []
             for entry in entries:
-                items.append(KnowledgeItem(
-                    id=f"cs_{entry.id}",
-                    content=entry.final_claim or entry.topic,
-                    source=KnowledgeSource.CONSENSUS,
-                    source_id=entry.id,
-                    confidence=self._strength_to_confidence(entry.strength.value if hasattr(entry, 'strength') else 'moderate'),
-                    created_at=datetime.fromisoformat(entry.created_at) if hasattr(entry, 'created_at') else datetime.utcnow(),
-                    updated_at=datetime.fromisoformat(entry.updated_at) if hasattr(entry, 'updated_at') else datetime.utcnow(),
-                    metadata={
-                        "debate_id": entry.debate_id if hasattr(entry, 'debate_id') else None,
-                        "supporting_agents": entry.supporting_agents if hasattr(entry, 'supporting_agents') else [],
-                    },
-                    importance=entry.confidence if hasattr(entry, 'confidence') else 0.5,
-                ))
+                items.append(
+                    KnowledgeItem(
+                        id=f"cs_{entry.id}",
+                        content=entry.final_claim or entry.topic,
+                        source=KnowledgeSource.CONSENSUS,
+                        source_id=entry.id,
+                        confidence=self._strength_to_confidence(
+                            entry.strength.value if hasattr(entry, "strength") else "moderate"
+                        ),
+                        created_at=(
+                            datetime.fromisoformat(entry.created_at)
+                            if hasattr(entry, "created_at")
+                            else datetime.utcnow()
+                        ),
+                        updated_at=(
+                            datetime.fromisoformat(entry.updated_at)
+                            if hasattr(entry, "updated_at")
+                            else datetime.utcnow()
+                        ),
+                        metadata={
+                            "debate_id": entry.debate_id if hasattr(entry, "debate_id") else None,
+                            "supporting_agents": (
+                                entry.supporting_agents
+                                if hasattr(entry, "supporting_agents")
+                                else []
+                            ),
+                        },
+                        importance=entry.confidence if hasattr(entry, "confidence") else 0.5,
+                    )
+                )
             return items
         except Exception as e:
             logger.error(f"Consensus query failed: {e}")
@@ -576,21 +596,23 @@ class KnowledgeMound:
             )
             items = []
             for fact in facts:
-                items.append(KnowledgeItem(
-                    id=f"fc_{fact.id}",
-                    content=fact.statement,
-                    source=KnowledgeSource.FACT,
-                    source_id=fact.id,
-                    confidence=self._validation_to_confidence(fact.validation_status.value),
-                    created_at=fact.created_at,
-                    updated_at=fact.updated_at or fact.created_at,
-                    metadata={
-                        "evidence_ids": fact.evidence_ids,
-                        "source_documents": fact.source_documents,
-                        "tags": fact.tags,
-                    },
-                    importance=fact.confidence,
-                ))
+                items.append(
+                    KnowledgeItem(
+                        id=f"fc_{fact.id}",
+                        content=fact.statement,
+                        source=KnowledgeSource.FACT,
+                        source_id=fact.id,
+                        confidence=self._validation_to_confidence(fact.validation_status.value),
+                        created_at=fact.created_at,
+                        updated_at=fact.updated_at or fact.created_at,
+                        metadata={
+                            "evidence_ids": fact.evidence_ids,
+                            "source_documents": fact.source_documents,
+                            "tags": fact.tags,
+                        },
+                        importance=fact.confidence,
+                    )
+                )
             return items
         except Exception as e:
             logger.error(f"Facts query failed: {e}")
@@ -610,21 +632,27 @@ class KnowledgeMound:
             results = await self._vectors.search(
                 query=query,
                 limit=limit,
-                filters={"workspace_id": filters.workspace_id} if filters and filters.workspace_id else None,
+                filters=(
+                    {"workspace_id": filters.workspace_id}
+                    if filters and filters.workspace_id
+                    else None
+                ),
             )
             items = []
             for result in results:
-                items.append(KnowledgeItem(
-                    id=f"vc_{result.id}",
-                    content=result.content,
-                    source=KnowledgeSource.VECTOR,
-                    source_id=result.id,
-                    confidence=ConfidenceLevel.MEDIUM,
-                    created_at=datetime.utcnow(),  # Vector store may not have timestamps
-                    updated_at=datetime.utcnow(),
-                    metadata=result.metadata or {},
-                    importance=result.score if hasattr(result, 'score') else 0.5,
-                ))
+                items.append(
+                    KnowledgeItem(
+                        id=f"vc_{result.id}",
+                        content=result.content,
+                        source=KnowledgeSource.VECTOR,
+                        source_id=result.id,
+                        confidence=ConfidenceLevel.MEDIUM,
+                        created_at=datetime.utcnow(),  # Vector store may not have timestamps
+                        updated_at=datetime.utcnow(),
+                        metadata=result.metadata or {},
+                        importance=result.score if hasattr(result, "score") else 0.5,
+                    )
+                )
             return items
         except Exception as e:
             logger.error(f"Vector query failed: {e}")

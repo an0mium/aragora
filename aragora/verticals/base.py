@@ -101,9 +101,7 @@ class VerticalSpecialistAgent(APIAgent):
             "display_name": self._config.display_name,
             "expertise_areas": self._config.expertise_areas,
             "tools": [t.name for t in self._config.get_enabled_tools()],
-            "compliance_frameworks": [
-                c.framework for c in self._compliance_frameworks
-            ],
+            "compliance_frameworks": [c.framework for c in self._compliance_frameworks],
             **(context or {}),
         }
 
@@ -144,11 +142,13 @@ class VerticalSpecialistAgent(APIAgent):
             raise ValueError(f"Tool not enabled: {tool_name}")
 
         # Record for audit
-        self._tool_call_history.append({
-            "tool": tool_name,
-            "parameters": parameters,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+        self._tool_call_history.append(
+            {
+                "tool": tool_name,
+                "parameters": parameters,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
         # Invoke the actual tool implementation
         result = await self._execute_tool(tool, parameters)
@@ -312,9 +312,7 @@ class VerticalSpecialistAgent(APIAgent):
             "vertical_id": self.vertical_id,
             "expertise_areas": self.expertise_areas,
             "tools": [t.name for t in self.get_enabled_tools()],
-            "compliance_frameworks": [
-                c.framework for c in self._compliance_frameworks
-            ],
+            "compliance_frameworks": [c.framework for c in self._compliance_frameworks],
         }
 
     # Implement required Agent abstract methods
@@ -386,10 +384,7 @@ class VerticalSpecialistAgent(APIAgent):
         severity = 0.0
         if violations:
             severity_map = {"critical": 10.0, "high": 7.0, "medium": 4.0, "low": 2.0}
-            max_severity = max(
-                severity_map.get(v.get("severity", "low"), 2.0)
-                for v in violations
-            )
+            max_severity = max(severity_map.get(v.get("severity", "low"), 2.0) for v in violations)
             severity = max_severity
 
         # If no violations, provide a neutral critique

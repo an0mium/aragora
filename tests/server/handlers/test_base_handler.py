@@ -38,9 +38,7 @@ class TestHandlerResult:
         from aragora.server.handlers.base import HandlerResult
 
         result = HandlerResult(
-            status_code=200,
-            content_type="application/json",
-            body=b'{"test": true}'
+            status_code=200, content_type="application/json", body=b'{"test": true}'
         )
         assert result.body == b'{"test": true}'
         assert result.status_code == 200
@@ -51,9 +49,7 @@ class TestHandlerResult:
         from aragora.server.handlers.base import HandlerResult
 
         result = HandlerResult(
-            status_code=404,
-            content_type="application/json",
-            body=b'{"error": "Not found"}'
+            status_code=404, content_type="application/json", body=b'{"error": "Not found"}'
         )
         assert result.status_code == 404
 
@@ -398,9 +394,7 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
-        value, err = handler.extract_path_param(
-            "/api/debates/debate-123/messages", 2, "debate_id"
-        )
+        value, err = handler.extract_path_param("/api/debates/debate-123/messages", 2, "debate_id")
         assert value == "debate-123"
         assert err is None
 
@@ -1013,9 +1007,7 @@ class TestParameterExtraction:
         from aragora.server.handlers.base import get_bounded_string_param
 
         long_string = "a" * 1000
-        result = get_bounded_string_param(
-            {"text": long_string}, "text", "", max_length=100
-        )
+        result = get_bounded_string_param({"text": long_string}, "text", "", max_length=100)
         assert len(result) == 100
 
     def test_get_bounded_float_param_clamps(self):
@@ -1023,15 +1015,11 @@ class TestParameterExtraction:
         from aragora.server.handlers.base import get_bounded_float_param
 
         # Below min
-        result = get_bounded_float_param(
-            {"val": "-5.0"}, "val", 0.5, min_val=0.0, max_val=1.0
-        )
+        result = get_bounded_float_param({"val": "-5.0"}, "val", 0.5, min_val=0.0, max_val=1.0)
         assert result == 0.0
 
         # Above max
-        result = get_bounded_float_param(
-            {"val": "2.5"}, "val", 0.5, min_val=0.0, max_val=1.0
-        )
+        result = get_bounded_float_param({"val": "2.5"}, "val", 0.5, min_val=0.0, max_val=1.0)
         assert result == 1.0
 
 

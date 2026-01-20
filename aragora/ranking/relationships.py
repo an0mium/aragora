@@ -95,9 +95,7 @@ class AgentRelationship:
             return 0.0
         disagreement_rate = 1 - (self.agreement_count / self.debate_count)
         total_wins = self.a_wins_over_b + self.b_wins_over_a
-        competitiveness = (
-            1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
-        )
+        competitiveness = 1 - abs(self.a_wins_over_b - self.b_wins_over_a) / max(total_wins, 1)
         frequency_factor = min(1.0, self.debate_count / 20)
         return disagreement_rate * competitiveness * frequency_factor
 

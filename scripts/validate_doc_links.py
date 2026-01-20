@@ -21,6 +21,7 @@ from typing import NamedTuple
 
 class BrokenLink(NamedTuple):
     """Represents a broken link."""
+
     file: Path
     line: int
     link: str
@@ -35,9 +36,9 @@ def find_markdown_links(content: str) -> list[tuple[int, str]]:
     links = []
     in_code_block = False
 
-    for i, line in enumerate(content.split('\n'), 1):
+    for i, line in enumerate(content.split("\n"), 1):
         # Track code blocks
-        if line.strip().startswith('```'):
+        if line.strip().startswith("```"):
             in_code_block = not in_code_block
             continue
 
@@ -46,18 +47,18 @@ def find_markdown_links(content: str) -> list[tuple[int, str]]:
             continue
 
         # Skip inline code
-        if '`' in line:
+        if "`" in line:
             # Remove inline code before searching for links
-            line = re.sub(r'`[^`]+`', '', line)
+            line = re.sub(r"`[^`]+`", "", line)
 
         # Match [text](link) pattern
-        for match in re.finditer(r'\[([^\]]*)\]\(([^)]+)\)', line):
+        for match in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", line):
             link = match.group(2)
             # Skip external links
-            if link.startswith(('http://', 'https://', 'mailto:')):
+            if link.startswith(("http://", "https://", "mailto:")):
                 continue
             # Skip anchor-only links
-            if link.startswith('#'):
+            if link.startswith("#"):
                 continue
             # Skip placeholder links
             if link in ("'...'", "..."):
@@ -72,16 +73,16 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
     Returns error message if broken, None if valid.
     """
     # Parse link and anchor
-    if '#' in link:
-        file_part, anchor = link.split('#', 1)
+    if "#" in link:
+        file_part, anchor = link.split("#", 1)
     else:
         file_part = link
         anchor = None
 
     # Resolve relative path
-    if file_part.startswith('../'):
+    if file_part.startswith("../"):
         target = source_file.parent / file_part
-    elif file_part.startswith('./'):
+    elif file_part.startswith("./"):
         target = source_file.parent / file_part[2:]
     elif file_part:
         target = source_file.parent / file_part
@@ -109,9 +110,9 @@ def validate_docs(docs_dir: Path) -> list[BrokenLink]:
     """Validate all documentation links."""
     broken = []
 
-    for md_file in docs_dir.rglob('*.md'):
+    for md_file in docs_dir.rglob("*.md"):
         try:
-            content = md_file.read_text(encoding='utf-8')
+            content = md_file.read_text(encoding="utf-8")
         except Exception as e:
             print(f"Warning: Could not read {md_file}: {e}")
             continue
@@ -120,12 +121,14 @@ def validate_docs(docs_dir: Path) -> list[BrokenLink]:
         for line_num, link in links:
             error = validate_link(md_file, link, docs_dir)
             if error:
-                broken.append(BrokenLink(
-                    file=md_file.relative_to(docs_dir.parent),
-                    line=line_num,
-                    link=link,
-                    reason=error,
-                ))
+                broken.append(
+                    BrokenLink(
+                        file=md_file.relative_to(docs_dir.parent),
+                        line=line_num,
+                        link=link,
+                        reason=error,
+                    )
+                )
 
     return broken
 
@@ -135,7 +138,7 @@ def main():
     # Find docs directory
     script_dir = Path(__file__).parent
     repo_root = script_dir.parent
-    docs_dir = repo_root / 'docs'
+    docs_dir = repo_root / "docs"
 
     if not docs_dir.exists():
         print(f"Error: docs directory not found at {docs_dir}")
@@ -165,5 +168,5 @@ def main():
     sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

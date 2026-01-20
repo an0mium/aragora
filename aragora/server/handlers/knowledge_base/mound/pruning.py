@@ -16,7 +16,6 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
     HandlerResult,
@@ -78,31 +77,33 @@ class PruningOperationsMixin:
                 limit=limit,
             )
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "staleness_threshold": staleness_threshold,
-                "min_age_days": min_age_days,
-                "items_found": len(items),
-                "items": [
-                    {
-                        "node_id": item.node_id,
-                        "content_preview": item.content_preview,
-                        "staleness_score": item.staleness_score,
-                        "confidence": item.confidence,
-                        "retrieval_count": item.retrieval_count,
-                        "last_retrieved_at": (
-                            item.last_retrieved_at.isoformat()
-                            if item.last_retrieved_at
-                            else None
-                        ),
-                        "tier": item.tier,
-                        "created_at": item.created_at.isoformat(),
-                        "prune_reason": item.prune_reason,
-                        "recommended_action": item.recommended_action.value,
-                    }
-                    for item in items
-                ],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "staleness_threshold": staleness_threshold,
+                    "min_age_days": min_age_days,
+                    "items_found": len(items),
+                    "items": [
+                        {
+                            "node_id": item.node_id,
+                            "content_preview": item.content_preview,
+                            "staleness_score": item.staleness_score,
+                            "confidence": item.confidence,
+                            "retrieval_count": item.retrieval_count,
+                            "last_retrieved_at": (
+                                item.last_retrieved_at.isoformat()
+                                if item.last_retrieved_at
+                                else None
+                            ),
+                            "tier": item.tier,
+                            "created_at": item.created_at.isoformat(),
+                            "prune_reason": item.prune_reason,
+                            "recommended_action": item.recommended_action.value,
+                        }
+                        for item in items
+                    ],
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting prunable items: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -161,19 +162,21 @@ class PruningOperationsMixin:
                 reason=reason,
             )
 
-            return json_response({
-                "success": True,
-                "workspace_id": result.workspace_id,
-                "executed_at": result.executed_at.isoformat(),
-                "items_analyzed": result.items_analyzed,
-                "items_pruned": result.items_pruned,
-                "items_archived": result.items_archived,
-                "items_deleted": result.items_deleted,
-                "items_demoted": result.items_demoted,
-                "items_flagged": result.items_flagged,
-                "pruned_item_ids": result.pruned_item_ids,
-                "errors": result.errors if hasattr(result, "errors") else [],
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "workspace_id": result.workspace_id,
+                    "executed_at": result.executed_at.isoformat(),
+                    "items_analyzed": result.items_analyzed,
+                    "items_pruned": result.items_pruned,
+                    "items_archived": result.items_archived,
+                    "items_deleted": result.items_deleted,
+                    "items_demoted": result.items_demoted,
+                    "items_flagged": result.items_flagged,
+                    "pruned_item_ids": result.pruned_item_ids,
+                    "errors": result.errors if hasattr(result, "errors") else [],
+                }
+            )
         except Exception as e:
             logger.error(f"Error executing prune: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -246,20 +249,24 @@ class PruningOperationsMixin:
                 dry_run=dry_run,
             )
 
-            return json_response({
-                "success": True,
-                "workspace_id": result.workspace_id,
-                "policy_id": result.policy_id if hasattr(result, "policy_id") else policy.policy_id,
-                "dry_run": dry_run,
-                "executed_at": result.executed_at.isoformat(),
-                "items_analyzed": result.items_analyzed,
-                "items_pruned": result.items_pruned,
-                "items_archived": result.items_archived,
-                "items_deleted": result.items_deleted,
-                "items_demoted": result.items_demoted,
-                "items_flagged": result.items_flagged,
-                "errors": result.errors if hasattr(result, "errors") else [],
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "workspace_id": result.workspace_id,
+                    "policy_id": (
+                        result.policy_id if hasattr(result, "policy_id") else policy.policy_id
+                    ),
+                    "dry_run": dry_run,
+                    "executed_at": result.executed_at.isoformat(),
+                    "items_analyzed": result.items_analyzed,
+                    "items_pruned": result.items_pruned,
+                    "items_archived": result.items_archived,
+                    "items_deleted": result.items_deleted,
+                    "items_demoted": result.items_demoted,
+                    "items_flagged": result.items_flagged,
+                    "errors": result.errors if hasattr(result, "errors") else [],
+                }
+            )
         except Exception as e:
             logger.error(f"Error in auto-prune: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -303,22 +310,26 @@ class PruningOperationsMixin:
                 since=since_dt,
             )
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "entries": [
-                    {
-                        "history_id": h.history_id,
-                        "executed_at": h.executed_at.isoformat(),
-                        "policy_id": h.policy_id,
-                        "action": h.action.value if hasattr(h.action, "value") else str(h.action),
-                        "items_pruned": h.items_pruned,
-                        "pruned_item_ids": h.pruned_item_ids,
-                        "reason": h.reason,
-                        "executed_by": h.executed_by,
-                    }
-                    for h in history
-                ],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "entries": [
+                        {
+                            "history_id": h.history_id,
+                            "executed_at": h.executed_at.isoformat(),
+                            "policy_id": h.policy_id,
+                            "action": (
+                                h.action.value if hasattr(h.action, "value") else str(h.action)
+                            ),
+                            "items_pruned": h.items_pruned,
+                            "pruned_item_ids": h.pruned_item_ids,
+                            "reason": h.reason,
+                            "executed_by": h.executed_by,
+                        }
+                        for h in history
+                    ],
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting prune history: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -359,12 +370,14 @@ class PruningOperationsMixin:
             )
 
             if success:
-                return json_response({
-                    "success": True,
-                    "workspace_id": workspace_id,
-                    "node_id": node_id,
-                    "message": "Item restored successfully",
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "workspace_id": workspace_id,
+                        "node_id": node_id,
+                        "message": "Item restored successfully",
+                    }
+                )
             else:
                 return error_response(
                     f"Could not restore item {node_id}. It may not exist or was deleted.",
@@ -419,13 +432,15 @@ class PruningOperationsMixin:
                 min_confidence=min_confidence,
             )
 
-            return json_response({
-                "success": True,
-                "workspace_id": workspace_id,
-                "decay_rate": decay_rate,
-                "min_confidence": min_confidence,
-                "items_decayed": items_decayed,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "workspace_id": workspace_id,
+                    "decay_rate": decay_rate,
+                    "min_confidence": min_confidence,
+                    "items_decayed": items_decayed,
+                }
+            )
         except Exception as e:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)

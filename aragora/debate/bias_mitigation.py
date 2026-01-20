@@ -466,15 +466,12 @@ class ProcessEvaluator:
             criterion_scores[criterion.name] = score
 
             if score < 0.5 and criterion.required:
-                notes.append(
-                    f"REQUIRED criterion '{criterion.name}' scored low: {score:.2f}"
-                )
+                notes.append(f"REQUIRED criterion '{criterion.name}' scored low: {score:.2f}")
 
         # Calculate weighted total
         total_weight = sum(c.weight for c in self.config.criteria)
         weighted_total = (
-            sum(criterion_scores[c.name] * c.weight for c in self.config.criteria)
-            / total_weight
+            sum(criterion_scores[c.name] * c.weight for c in self.config.criteria) / total_weight
             if total_weight > 0
             else 0.0
         )

@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable
 
-from .defaults import SYSTEM_PERMISSIONS, SYSTEM_ROLES, get_role_permissions
+from .defaults import get_role_permissions
 from .models import (
     Action,
     AuthorizationContext,
@@ -208,7 +207,8 @@ class PermissionChecker:
         """Remove a role assignment."""
         if user_id in self._role_assignments:
             self._role_assignments[user_id] = [
-                a for a in self._role_assignments[user_id]
+                a
+                for a in self._role_assignments[user_id]
                 if not (a.role_id == role_id and a.org_id == org_id)
             ]
 

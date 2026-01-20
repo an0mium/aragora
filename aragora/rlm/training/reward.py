@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .buffer import Trajectory
@@ -218,10 +218,7 @@ class CompositeReward(RewardModel):
         if total_weight == 0:
             return 0.0
 
-        weighted_sum = sum(
-            model.compute(trajectory) * weight
-            for model, weight in self.models
-        )
+        weighted_sum = sum(model.compute(trajectory) * weight for model, weight in self.models)
         return weighted_sum / total_weight
 
     def compute_components(self, trajectory: "Trajectory") -> dict[str, float]:

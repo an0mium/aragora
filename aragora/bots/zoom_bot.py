@@ -23,7 +23,7 @@ import hmac
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.bots.base import (
     BotChannel,
@@ -31,7 +31,6 @@ from aragora.bots.base import (
     BotMessage,
     BotUser,
     CommandContext,
-    CommandResult,
     Platform,
 )
 from aragora.bots.commands import get_default_registry
@@ -90,6 +89,7 @@ class ZoomOAuthManager:
                         self._access_token = data.get("access_token")
                         expires_in = data.get("expires_in", 3600)
                         from datetime import timedelta
+
                         self._token_expires = datetime.utcnow() + timedelta(
                             seconds=expires_in - 60  # Buffer
                         )
@@ -152,11 +152,14 @@ class AragoraZoomBot:
 
         try:
             message = f"v0:{timestamp}:{payload.decode('utf-8')}"
-            expected = "v0=" + hmac.new(
-                self.secret_token.encode(),
-                message.encode(),
-                hashlib.sha256,
-            ).hexdigest()
+            expected = (
+                "v0="
+                + hmac.new(
+                    self.secret_token.encode(),
+                    message.encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+            )
 
             return hmac.compare_digest(expected, signature)
         except Exception as e:
@@ -204,10 +207,10 @@ class AragoraZoomBot:
 
     async def _handle_chat_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Handle incoming chat message."""
-        robot_jid = payload.get("robotJid", "")
-        user_jid = payload.get("userJid", "")
+        payload.get("robotJid", "")
+        payload.get("userJid", "")
         account_id = payload.get("accountId", "")
-        channel_name = payload.get("channelName", "")
+        payload.get("channelName", "")
         to_jid = payload.get("toJid", "")
 
         # Get message content
@@ -217,7 +220,7 @@ class AragoraZoomBot:
             return await self._send_chat_message(
                 to_jid,
                 account_id,
-                "Hi! I'm Aragora. Try `/aragora help` or `/aragora debate \"topic\"` to get started.",
+                'Hi! I\'m Aragora. Try `/aragora help` or `/aragora debate "topic"` to get started.',
             )
 
         # Parse command

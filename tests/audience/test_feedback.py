@@ -273,7 +273,9 @@ class TestSuggestionFeedbackTracker:
             for j in range(i):
                 cluster2 = MagicMock(representative=f"Idea {i}-{j}", count=1, user_ids=[user_id])
                 tracker.record_injection(f"debate-{i}-{j}", [cluster2])
-                tracker.record_outcome(f"debate-{i}-{j}", consensus_reached=True, consensus_confidence=0.8)
+                tracker.record_outcome(
+                    f"debate-{i}-{j}", consensus_reached=True, consensus_confidence=0.8
+                )
 
         # Record outcomes
         for i in range(5):

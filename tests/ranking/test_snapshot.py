@@ -202,10 +202,7 @@ class TestReadSnapshotLeaderboard:
         """Test reading with limit."""
         snapshot_path = temp_dir / "snapshot.json"
         data = {
-            "leaderboard": [
-                {"agent_name": f"agent{i}", "elo": 1200 - i * 10}
-                for i in range(10)
-            ],
+            "leaderboard": [{"agent_name": f"agent{i}", "elo": 1200 - i * 10} for i in range(10)],
             "recent_matches": [],
         }
 
@@ -294,9 +291,7 @@ class TestReadSnapshotMatches:
         snapshot_path = temp_dir / "snapshot.json"
         data = {
             "leaderboard": [],
-            "recent_matches": [
-                {"debate_id": f"d{i}"} for i in range(20)
-            ],
+            "recent_matches": [{"debate_id": f"d{i}"} for i in range(20)],
         }
 
         with open(snapshot_path, "w") as f:

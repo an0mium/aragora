@@ -164,9 +164,7 @@ class TestKnowledgeHandlerGetFact:
         )
 
         # Then retrieve it
-        result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact.id}", {}, mock_http_handler
-        )
+        result = knowledge_handler.handle(f"/api/knowledge/facts/{fact.id}", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -180,14 +178,17 @@ class TestKnowledgeHandlerCreateFact:
 
     def test_create_fact_requires_auth(self, knowledge_handler):
         """Test creating fact requires authentication."""
-        handler = create_request_body({
-            "statement": "New test fact",
-            "workspace_id": "default",
-        })
+        handler = create_request_body(
+            {
+                "statement": "New test fact",
+                "workspace_id": "default",
+            }
+        )
 
         # Patch require_auth_or_error to return auth error
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             from aragora.server.handlers.base import error_response
+
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
             result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
@@ -197,15 +198,17 @@ class TestKnowledgeHandlerCreateFact:
 
     def test_create_fact_success(self, knowledge_handler):
         """Test creating fact with valid data."""
-        handler = create_request_body({
-            "statement": "New test fact",
-            "workspace_id": "default",
-            "confidence": 0.9,
-            "topics": ["testing"],
-        })
+        handler = create_request_body(
+            {
+                "statement": "New test fact",
+                "workspace_id": "default",
+                "confidence": 0.9,
+                "topics": ["testing"],
+            }
+        )
 
         # Patch require_auth_or_error to return success
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
@@ -218,11 +221,13 @@ class TestKnowledgeHandlerCreateFact:
 
     def test_create_fact_missing_statement(self, knowledge_handler):
         """Test creating fact without statement returns error."""
-        handler = create_request_body({
-            "workspace_id": "default",
-        })
+        handler = create_request_body(
+            {
+                "workspace_id": "default",
+            }
+        )
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
@@ -238,17 +243,17 @@ class TestKnowledgeHandlerUpdateFact:
 
     def test_update_fact_not_found(self, knowledge_handler):
         """Test updating non-existent fact returns 404."""
-        handler = create_request_body({
-            "confidence": 0.95,
-        })
+        handler = create_request_body(
+            {
+                "confidence": 0.95,
+            }
+        )
         handler.command = "PUT"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/nonexistent-id", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/nonexistent-id", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -264,18 +269,18 @@ class TestKnowledgeHandlerUpdateFact:
         )
 
         # Then update it
-        handler = create_request_body({
-            "confidence": 0.95,
-            "topics": ["updated"],
-        })
+        handler = create_request_body(
+            {
+                "confidence": 0.95,
+                "topics": ["updated"],
+            }
+        )
         handler.command = "PUT"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle(
-                f"/api/knowledge/facts/{fact.id}", {}, handler
-            )
+            result = knowledge_handler.handle(f"/api/knowledge/facts/{fact.id}", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -290,7 +295,7 @@ class TestKnowledgeHandlerDeleteFact:
         """Test deleting non-existent fact returns 404."""
         mock_http_handler.command = "DELETE"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle(
@@ -311,7 +316,7 @@ class TestKnowledgeHandlerDeleteFact:
 
         mock_http_handler.command = "DELETE"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle(
@@ -488,10 +493,12 @@ class TestKnowledgeHandlerQuery:
 
     def test_query_with_question(self, knowledge_handler):
         """Test query with valid question."""
-        handler = create_request_body({
-            "question": "What are the security requirements?",
-            "workspace_id": "default",
-        })
+        handler = create_request_body(
+            {
+                "question": "What are the security requirements?",
+                "workspace_id": "default",
+            }
+        )
 
         result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
@@ -501,15 +508,17 @@ class TestKnowledgeHandlerQuery:
 
     def test_query_with_options(self, knowledge_handler):
         """Test query with custom options."""
-        handler = create_request_body({
-            "question": "What are the compliance rules?",
-            "workspace_id": "compliance",
-            "options": {
-                "max_chunks": 5,
-                "search_alpha": 0.7,
-                "use_agents": False,
-            },
-        })
+        handler = create_request_body(
+            {
+                "question": "What are the compliance rules?",
+                "workspace_id": "compliance",
+                "options": {
+                    "max_chunks": 5,
+                    "search_alpha": 0.7,
+                    "use_agents": False,
+                },
+            }
+        )
 
         result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
@@ -524,14 +533,16 @@ class TestKnowledgeHandlerIntegration:
     def test_full_fact_lifecycle(self, knowledge_handler):
         """Test full fact lifecycle: create -> read -> update -> delete."""
         # 1. Create a fact
-        create_handler = create_request_body({
-            "statement": "Integration test fact",
-            "workspace_id": "integration",
-            "confidence": 0.7,
-            "topics": ["testing", "integration"],
-        })
+        create_handler = create_request_body(
+            {
+                "statement": "Integration test fact",
+                "workspace_id": "integration",
+                "confidence": 0.7,
+                "topics": ["testing", "integration"],
+            }
+        )
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
             create_result = knowledge_handler.handle("/api/knowledge/facts", {}, create_handler)
 
@@ -550,14 +561,18 @@ class TestKnowledgeHandlerIntegration:
         assert read_result.status_code == 200
 
         # 3. Update the fact
-        update_handler = create_request_body({
-            "confidence": 0.95,
-        })
+        update_handler = create_request_body(
+            {
+                "confidence": 0.95,
+            }
+        )
         update_handler.command = "PUT"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
-            update_result = knowledge_handler.handle(f"/api/knowledge/facts/{fact_id}", {}, update_handler)
+            update_result = knowledge_handler.handle(
+                f"/api/knowledge/facts/{fact_id}", {}, update_handler
+            )
 
         assert update_result is not None
         assert update_result.status_code == 200
@@ -569,15 +584,19 @@ class TestKnowledgeHandlerIntegration:
         delete_handler.client_address = ("127.0.0.1", 12345)
         delete_handler.command = "DELETE"
 
-        with patch.object(knowledge_handler, 'require_auth_or_error') as mock_auth:
+        with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
-            delete_result = knowledge_handler.handle(f"/api/knowledge/facts/{fact_id}", {}, delete_handler)
+            delete_result = knowledge_handler.handle(
+                f"/api/knowledge/facts/{fact_id}", {}, delete_handler
+            )
 
         assert delete_result is not None
         assert delete_result.status_code == 200
 
         # 5. Verify fact is gone
-        verify_result = knowledge_handler.handle(f"/api/knowledge/facts/{fact_id}", {}, read_handler)
+        verify_result = knowledge_handler.handle(
+            f"/api/knowledge/facts/{fact_id}", {}, read_handler
+        )
         assert verify_result.status_code == 404
 
 
@@ -639,7 +658,7 @@ class TestKnowledgeMoundNodeRelationships:
     def test_get_node_relationships_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test getting relationships when mound not available returns 503."""
         # Don't initialize mound
-        with patch.object(mound_handler, '_get_mound', return_value=None):
+        with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
                 "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
             )
@@ -654,7 +673,7 @@ class TestKnowledgeMoundNodeRelationships:
         mock_mound = MagicMock()
         mock_mound.get_node = AsyncMock(return_value=None)
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/nodes/nonexistent/relationships", {}, mock_http_handler
             )
@@ -688,7 +707,7 @@ class TestKnowledgeMoundNodeRelationships:
         mock_mound.get_node = AsyncMock(return_value=mock_node)
         mock_mound.get_relationships = AsyncMock(return_value=[mock_rel])
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
             )
@@ -719,11 +738,9 @@ class TestKnowledgeMoundNodeRelationships:
             "relationship_type": "supports",
         }
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships",
-                query_params,
-                mock_http_handler
+                "/api/knowledge/mound/nodes/node-123/relationships", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -749,11 +766,9 @@ class TestKnowledgeMoundNodeRelationships:
 
         query_params = {"direction": "invalid"}
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships",
-                query_params,
-                mock_http_handler
+                "/api/knowledge/mound/nodes/node-123/relationships", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -776,10 +791,8 @@ class TestKnowledgeMoundExport:
 
     def test_export_d3_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test D3 export returns 503 when mound not available."""
-        with patch.object(mound_handler, '_get_mound', return_value=None):
-            result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", {}, mock_http_handler
-            )
+        with patch.object(mound_handler, "_get_mound", return_value=None):
+            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -803,10 +816,8 @@ class TestKnowledgeMoundExport:
         mock_mound = MagicMock()
         mock_mound.export_graph_d3 = AsyncMock(return_value=mock_d3_result)
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
-            result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", {}, mock_http_handler
-            )
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
+            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -844,7 +855,7 @@ class TestKnowledgeMoundExport:
             "limit": "50",
         }
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/d3", query_params, mock_http_handler
             )
@@ -866,10 +877,8 @@ class TestKnowledgeMoundExport:
         mock_mound = MagicMock()
         mock_mound.export_graph_d3 = AsyncMock(side_effect=Exception("Export failed"))
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
-            result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", {}, mock_http_handler
-            )
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
+            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -879,7 +888,7 @@ class TestKnowledgeMoundExport:
 
     def test_export_graphml_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test GraphML export returns 503 when mound not available."""
-        with patch.object(mound_handler, '_get_mound', return_value=None):
+        with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/graphml", {}, mock_http_handler
             )
@@ -891,19 +900,19 @@ class TestKnowledgeMoundExport:
         """Test GraphML export returns valid XML with correct content type."""
         from unittest.mock import AsyncMock
 
-        graphml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        graphml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <graphml xmlns="http://graphml.graphdrawing.org/xmlns">
   <graph id="knowledge-graph" edgedefault="directed">
     <node id="node-1">
       <data key="label">Test Node</data>
     </node>
   </graph>
-</graphml>'''
+</graphml>"""
 
         mock_mound = MagicMock()
         mock_mound.export_graph_graphml = AsyncMock(return_value=graphml_content)
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/graphml", {}, mock_http_handler
             )
@@ -912,7 +921,7 @@ class TestKnowledgeMoundExport:
         assert result.status_code == 200
         assert result.content_type == "application/xml"
         assert '<?xml version="1.0"' in result.body
-        assert '<graphml' in result.body
+        assert "<graphml" in result.body
         assert '<node id="node-1">' in result.body
 
     def test_export_graphml_with_params(self, mound_handler, mock_http_handler):
@@ -930,7 +939,7 @@ class TestKnowledgeMoundExport:
             "limit": "200",
         }
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/graphml", query_params, mock_http_handler
             )
@@ -952,7 +961,7 @@ class TestKnowledgeMoundExport:
         mock_mound = MagicMock()
         mock_mound.export_graph_graphml = AsyncMock(side_effect=Exception("GraphML failed"))
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/graphml", {}, mock_http_handler
             )
@@ -973,7 +982,7 @@ class TestKnowledgeMoundExport:
         # Test depth too high (should clamp to 10)
         query_params = {"depth": "999"}
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/d3", query_params, mock_http_handler
             )
@@ -993,7 +1002,7 @@ class TestKnowledgeMoundExport:
         # Test limit too high (should clamp to 500)
         query_params = {"limit": "10000"}
 
-        with patch.object(mound_handler, '_get_mound', return_value=mock_mound):
+        with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
                 "/api/knowledge/mound/export/d3", query_params, mock_http_handler
             )

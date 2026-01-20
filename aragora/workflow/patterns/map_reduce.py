@@ -150,10 +150,12 @@ class MapReducePattern(WorkflowPattern):
         split_step.next_steps = ["map"]
         map_step.next_steps = ["reduce"]
 
-        transitions.extend([
-            self._create_transition("split", "map"),
-            self._create_transition("map", "reduce"),
-        ])
+        transitions.extend(
+            [
+                self._create_transition("split", "map"),
+                self._create_transition("map", "reduce"),
+            ]
+        )
 
         return WorkflowDefinition(
             id=workflow_id,
@@ -196,7 +198,9 @@ def _register_map_reduce_handlers():
     try:
         from aragora.workflow.nodes.task import register_task_handler
 
-        async def map_reduce_split(context, strategy="chunks", chunk_size=4000, file_pattern="**/*"):
+        async def map_reduce_split(
+            context, strategy="chunks", chunk_size=4000, file_pattern="**/*"
+        ):
             """Split input into chunks for parallel processing."""
             input_data = context.inputs.get("input", context.inputs.get("data", ""))
 
@@ -204,7 +208,7 @@ def _register_map_reduce_handlers():
                 # Split text into chunks
                 if isinstance(input_data, str):
                     chunks = [
-                        input_data[i:i + chunk_size]
+                        input_data[i : i + chunk_size]
                         for i in range(0, len(input_data), chunk_size)
                     ]
                 else:

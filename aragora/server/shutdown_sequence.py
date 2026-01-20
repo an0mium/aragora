@@ -13,8 +13,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Coroutine, List
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class ShutdownSequence:
         for phase in self._phases:
             elapsed = time.time() - start_time
             if elapsed >= overall_timeout:
-                logger.warning(f"Overall shutdown timeout reached, skipping remaining phases")
+                logger.warning("Overall shutdown timeout reached, skipping remaining phases")
                 break
 
             remaining = overall_timeout - elapsed
@@ -158,11 +158,13 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
     async def set_shutting_down():
         server._shutting_down = True
 
-    sequence.add_phase(ShutdownPhase(
-        name="Set shutdown flag",
-        execute=set_shutting_down,
-        timeout=1.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Set shutdown flag",
+            execute=set_shutting_down,
+            timeout=1.0,
+        )
+    )
 
     # Phase 2: Wait for in-flight debates
     async def wait_for_debates():
@@ -173,8 +175,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             return
 
         in_progress = [
-            d_id for d_id, d in active_debates.items()
-            if d.get("status") == "in_progress"
+            d_id for d_id, d in active_debates.items() if d.get("status") == "in_progress"
         ]
         if not in_progress:
             return
@@ -183,7 +184,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         wait_start = time.time()
         while time.time() - wait_start < 25.0:  # Leave buffer for other phases
             still_running = sum(
-                1 for d_id in in_progress
+                1
+                for d_id in in_progress
                 if d_id in active_debates
                 and active_debates.get(d_id, {}).get("status") == "in_progress"
             )
@@ -194,25 +196,30 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
         logger.warning("Some debates still running after timeout")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Wait for in-flight debates",
-        execute=wait_for_debates,
-        timeout=26.0,
-        critical=True,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Wait for in-flight debates",
+            execute=wait_for_debates,
+            timeout=26.0,
+            critical=True,
+        )
+    )
 
     # Phase 3: Persist circuit breaker states
     async def persist_circuit_breakers():
         from aragora.resilience import persist_all_circuit_breakers
+
         count = persist_all_circuit_breakers()
         if count > 0:
             logger.info(f"Persisted {count} circuit breaker state(s)")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Persist circuit breakers",
-        execute=persist_circuit_breakers,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Persist circuit breakers",
+            execute=persist_circuit_breakers,
+            timeout=5.0,
+        )
+    )
 
     # Phase 4: Flush KM adapters and event batches
     async def flush_km_adapters():
@@ -261,62 +268,76 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         except Exception as e:
             logger.warning(f"KM adapter flush failed: {e}")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Flush KM adapters",
-        execute=flush_km_adapters,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Flush KM adapters",
+            execute=flush_km_adapters,
+            timeout=5.0,
+        )
+    )
 
     # Phase 5: Shutdown OpenTelemetry tracer
     async def shutdown_tracing():
         from aragora.observability.tracing import shutdown as shutdown_otel
+
         shutdown_otel()
         logger.info("OpenTelemetry tracer shutdown complete")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Shutdown OpenTelemetry",
-        execute=shutdown_tracing,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Shutdown OpenTelemetry",
+            execute=shutdown_tracing,
+            timeout=5.0,
+        )
+    )
 
     # Phase 5: Stop background tasks
     async def stop_background_tasks():
         from aragora.server.background import get_background_manager
+
         background_mgr = get_background_manager()
         background_mgr.stop()
         logger.info("Background tasks stopped")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Stop background tasks",
-        execute=stop_background_tasks,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop background tasks",
+            execute=stop_background_tasks,
+            timeout=5.0,
+        )
+    )
 
     # Phase 6: Stop pulse scheduler
     async def stop_pulse_scheduler():
         from aragora.server.handlers.pulse import get_pulse_scheduler
+
         scheduler = get_pulse_scheduler()
         if scheduler and scheduler.state.value != "stopped":
             await scheduler.stop(graceful=True)
             logger.info("Pulse scheduler stopped")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Stop pulse scheduler",
-        execute=stop_pulse_scheduler,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop pulse scheduler",
+            execute=stop_pulse_scheduler,
+            timeout=5.0,
+        )
+    )
 
     # Phase 7: Stop state cleanup task
     async def stop_state_cleanup():
         from aragora.server.stream.state_manager import stop_cleanup_task
+
         stop_cleanup_task()
         logger.debug("State cleanup task stopped")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Stop state cleanup",
-        execute=stop_state_cleanup,
-        timeout=2.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop state cleanup",
+            execute=stop_state_cleanup,
+            timeout=2.0,
+        )
+    )
 
     # Phase 8: Stop stuck debate watchdog
     async def stop_watchdog():
@@ -328,11 +349,13 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
                 pass
             logger.debug("Stuck debate watchdog stopped")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Stop watchdog",
-        execute=stop_watchdog,
-        timeout=3.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop watchdog",
+            execute=stop_watchdog,
+            timeout=3.0,
+        )
+    )
 
     # Phase 9: Shutdown Control Plane coordinator
     async def shutdown_control_plane():
@@ -340,11 +363,13 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await server._control_plane_coordinator.shutdown()
             logger.info("Control Plane coordinator shutdown complete")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Shutdown Control Plane",
-        execute=shutdown_control_plane,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Shutdown Control Plane",
+            execute=shutdown_control_plane,
+            timeout=5.0,
+        )
+    )
 
     # Phase 10: Close debate stream WebSocket connections
     async def close_debate_websockets():
@@ -352,12 +377,14 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await server.stream_server.graceful_shutdown()
             logger.info("Debate stream WebSocket connections closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close debate WebSockets",
-        execute=close_debate_websockets,
-        timeout=5.0,
-        critical=True,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close debate WebSockets",
+            execute=close_debate_websockets,
+            timeout=5.0,
+            critical=True,
+        )
+    )
 
     # Phase 11: Close control plane WebSocket connections
     async def close_control_plane_websockets():
@@ -365,11 +392,13 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await server.control_plane_stream.stop()
             logger.info("Control plane WebSocket connections closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close control plane WebSockets",
-        execute=close_control_plane_websockets,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close control plane WebSockets",
+            execute=close_control_plane_websockets,
+            timeout=5.0,
+        )
+    )
 
     # Phase 12: Close nomic loop WebSocket connections
     async def close_nomic_websockets():
@@ -377,60 +406,73 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await server.nomic_loop_stream.stop()
             logger.info("Nomic loop WebSocket connections closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close nomic loop WebSockets",
-        execute=close_nomic_websockets,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close nomic loop WebSockets",
+            execute=close_nomic_websockets,
+            timeout=5.0,
+        )
+    )
 
     # Phase 13: Close shared HTTP connector
     async def close_http_connector():
         from aragora.agents.api_agents.common import close_shared_connector
+
         await close_shared_connector()
         logger.info("Shared HTTP connector closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close HTTP connector",
-        execute=close_http_connector,
-        timeout=5.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close HTTP connector",
+            execute=close_http_connector,
+            timeout=5.0,
+        )
+    )
 
     # Phase 14: Close Redis connection pool
     async def close_redis():
         from aragora.server.redis_config import close_redis_pool
+
         close_redis_pool()
         logger.debug("Redis connection pool closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close Redis pool",
-        execute=close_redis,
-        timeout=2.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close Redis pool",
+            execute=close_redis,
+            timeout=2.0,
+        )
+    )
 
     # Phase 15: Stop auth cleanup thread
     async def stop_auth_cleanup():
         from aragora.server.auth import auth_config
+
         auth_config.stop_cleanup_thread()
         logger.debug("Auth cleanup thread stopped")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Stop auth cleanup",
-        execute=stop_auth_cleanup,
-        timeout=2.0,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop auth cleanup",
+            execute=stop_auth_cleanup,
+            timeout=2.0,
+        )
+    )
 
     # Phase 16: Close database connections
     async def close_databases():
-        import sqlite3
         from aragora.storage.schema import DatabaseManager
+
         DatabaseManager.clear_instances()
         logger.info("Database connections closed")
 
-    sequence.add_phase(ShutdownPhase(
-        name="Close databases",
-        execute=close_databases,
-        timeout=5.0,
-        critical=True,
-    ))
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close databases",
+            execute=close_databases,
+            timeout=5.0,
+            critical=True,
+        )
+    )
 
     return sequence

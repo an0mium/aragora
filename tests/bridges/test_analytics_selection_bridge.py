@@ -35,9 +35,7 @@ class MockAnalyticsDashboard:
     def __init__(self):
         self._metrics: List[MockAgentMetrics] = []
 
-    async def get_agent_metrics(
-        self, workspace_id: Optional[str] = None
-    ) -> List[MockAgentMetrics]:
+    async def get_agent_metrics(self, workspace_id: Optional[str] = None) -> List[MockAgentMetrics]:
         """Get agent metrics."""
         return self._metrics
 
@@ -144,9 +142,7 @@ class TestAnalyticsSelectionBridge:
         bridge = AnalyticsSelectionBridge(
             config=AnalyticsSelectionBridgeConfig(min_findings_for_boost=100)
         )
-        bridge._metrics_cache["claude"] = MockAgentMetrics(
-            agent_name="claude", total_findings=50
-        )
+        bridge._metrics_cache["claude"] = MockAgentMetrics(agent_name="claude", total_findings=50)
 
         boost = bridge.compute_selection_boost("claude")
         assert boost.total_boost == 0.0
@@ -222,12 +218,8 @@ class TestAnalyticsSelectionBridge:
         bridge = AnalyticsSelectionBridge(
             config=AnalyticsSelectionBridgeConfig(min_findings_for_boost=10)
         )
-        bridge._metrics_cache["claude"] = MockAgentMetrics(
-            agent_name="claude", total_findings=50
-        )
-        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(
-            agent_name="gpt-4", total_findings=30
-        )
+        bridge._metrics_cache["claude"] = MockAgentMetrics(agent_name="claude", total_findings=50)
+        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(agent_name="gpt-4", total_findings=30)
 
         boosts = bridge.get_all_selection_boosts()
         assert "claude" in boosts
@@ -253,15 +245,9 @@ class TestAnalyticsSelectionBridge:
     def test_get_precision_leaders(self):
         """Test getting precision leaders."""
         bridge = AnalyticsSelectionBridge()
-        bridge._metrics_cache["claude"] = MockAgentMetrics(
-            agent_name="claude", precision=0.95
-        )
-        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(
-            agent_name="gpt-4", precision=0.85
-        )
-        bridge._metrics_cache["gemini"] = MockAgentMetrics(
-            agent_name="gemini", precision=0.90
-        )
+        bridge._metrics_cache["claude"] = MockAgentMetrics(agent_name="claude", precision=0.95)
+        bridge._metrics_cache["gpt-4"] = MockAgentMetrics(agent_name="gpt-4", precision=0.85)
+        bridge._metrics_cache["gemini"] = MockAgentMetrics(agent_name="gemini", precision=0.90)
 
         leaders = bridge.get_precision_leaders(top_n=2)
         assert leaders[0] == "claude"

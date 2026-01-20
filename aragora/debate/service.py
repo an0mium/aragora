@@ -33,14 +33,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.protocol import DebateProtocol
 
 if TYPE_CHECKING:
-    from aragora.debate.orchestrator import Arena
     from aragora.memory.continuum import ContinuumMemory
 
 logger = logging.getLogger(__name__)
@@ -172,9 +171,7 @@ class DebateService:
         # Resolve agents
         resolved_agents = self._resolve_agents(agents)
         if not resolved_agents:
-            raise ValueError(
-                "No agents available. Provide agents or configure default_agents."
-            )
+            raise ValueError("No agents available. Provide agents or configure default_agents.")
 
         # Create environment
         env = Environment(task=task)
@@ -308,9 +305,7 @@ class DebateService:
         )
         return merged
 
-    def _resolve_agents(
-        self, agents: Optional[Union[list[Agent], list[str]]]
-    ) -> list[Agent]:
+    def _resolve_agents(self, agents: Optional[Union[list[Agent], list[str]]]) -> list[Agent]:
         """Resolve agent specifications to Agent objects."""
         if agents is None:
             return self._default_agents or []
@@ -333,9 +328,7 @@ class DebateService:
 
                     resolved.append(create_agent(agent))
                 except ImportError:
-                    logger.warning(
-                        f"Cannot resolve agent '{agent}' - no resolver configured"
-                    )
+                    logger.warning(f"Cannot resolve agent '{agent}' - no resolver configured")
 
         return resolved
 

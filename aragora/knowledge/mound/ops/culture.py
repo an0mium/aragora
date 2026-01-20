@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import CulturePattern, CultureProfile, MoundConfig
@@ -84,9 +84,7 @@ class CultureOperationsMixin:
         if not self._culture_accumulator:
             return []
 
-        return await self._culture_accumulator.observe_debate(
-            debate_result, self.workspace_id
-        )
+        return await self._culture_accumulator.observe_debate(debate_result, self.workspace_id)
 
     async def recommend_agents(
         self: CultureProtocol,

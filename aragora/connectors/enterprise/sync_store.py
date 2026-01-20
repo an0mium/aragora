@@ -89,8 +89,7 @@ class SyncStore:
             use_encryption: Whether to encrypt sensitive config fields
         """
         self._database_url = database_url or os.environ.get(
-            "ARAGORA_SYNC_DATABASE_URL",
-            "sqlite:///data/connectors.db"
+            "ARAGORA_SYNC_DATABASE_URL", "sqlite:///data/connectors.db"
         )
         self._use_encryption = use_encryption
         self._initialized = False
@@ -134,7 +133,8 @@ class SyncStore:
             raise RuntimeError("Database connection failed")
 
         # Create tables
-        await self._connection.executescript("""
+        await self._connection.executescript(
+            """
             CREATE TABLE IF NOT EXISTS connectors (
                 id TEXT PRIMARY KEY,
                 connector_type TEXT NOT NULL,
@@ -167,13 +167,12 @@ class SyncStore:
 
             CREATE INDEX IF NOT EXISTS idx_connectors_status
                 ON connectors(status);
-        """)
+        """
+        )
         await self._connection.commit()
 
         # Load connectors into cache
-        async with self._connection.execute(
-            "SELECT * FROM connectors"
-        ) as cursor:
+        async with self._connection.execute("SELECT * FROM connectors") as cursor:
             async for row in cursor:
                 config = ConnectorConfig(
                     id=row[0],
@@ -203,7 +202,8 @@ class SyncStore:
             raise RuntimeError("Database connection failed")
 
         # Create tables
-        await self._connection.execute("""
+        await self._connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS connectors (
                 id TEXT PRIMARY KEY,
                 connector_type TEXT NOT NULL,
@@ -235,7 +235,8 @@ class SyncStore:
 
             CREATE INDEX IF NOT EXISTS idx_connectors_status
                 ON connectors(status);
-        """)
+        """
+        )
 
     async def close(self) -> None:
         """Close database connection."""
@@ -292,24 +293,33 @@ class SyncStore:
             config_json = json.dumps(config)
 
             if self._database_url.startswith("sqlite"):
-                await self._connection.execute("""
+                await self._connection.execute(
+                    """
                     INSERT OR REPLACE INTO connectors
                     (id, connector_type, name, config_json, status,
                      created_at, updated_at, last_sync_at, last_sync_status,
                      items_indexed, error_message)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    connector.id, connector.connector_type, connector.name,
-                    config_json, connector.status,
-                    connector.created_at.isoformat(), connector.updated_at.isoformat(),
-                    connector.last_sync_at.isoformat() if connector.last_sync_at else None,
-                    connector.last_sync_status, connector.items_indexed,
-                    connector.error_message,
-                ))
+                """,
+                    (
+                        connector.id,
+                        connector.connector_type,
+                        connector.name,
+                        config_json,
+                        connector.status,
+                        connector.created_at.isoformat(),
+                        connector.updated_at.isoformat(),
+                        connector.last_sync_at.isoformat() if connector.last_sync_at else None,
+                        connector.last_sync_status,
+                        connector.items_indexed,
+                        connector.error_message,
+                    ),
+                )
                 await self._connection.commit()
             else:
                 # PostgreSQL
-                await self._connection.execute("""
+                await self._connection.execute(
+                    """
                     INSERT INTO connectors
                     (id, connector_type, name, config_json, status,
                      created_at, updated_at, last_sync_at, last_sync_status,
@@ -319,10 +329,19 @@ class SyncStore:
                         name = EXCLUDED.name,
                         config_json = EXCLUDED.config_json,
                         updated_at = EXCLUDED.updated_at
-                """, connector.id, connector.connector_type, connector.name,
-                    config, connector.status, connector.created_at, connector.updated_at,
-                    connector.last_sync_at, connector.last_sync_status,
-                    connector.items_indexed, connector.error_message)
+                """,
+                    connector.id,
+                    connector.connector_type,
+                    connector.name,
+                    config,
+                    connector.status,
+                    connector.created_at,
+                    connector.updated_at,
+                    connector.last_sync_at,
+                    connector.last_sync_status,
+                    connector.items_indexed,
+                    connector.error_message,
+                )
 
         return connector
 
@@ -359,9 +378,7 @@ class SyncStore:
                 )
                 await self._connection.commit()
             else:
-                await self._connection.execute(
-                    "DELETE FROM connectors WHERE id = $1", connector_id
-                )
+                await self._connection.execute("DELETE FROM connectors WHERE id = $1", connector_id)
 
         return True
 
@@ -382,11 +399,14 @@ class SyncStore:
 
         if self._connection:
             if self._database_url.startswith("sqlite"):
-                await self._connection.execute("""
+                await self._connection.execute(
+                    """
                     UPDATE connectors
                     SET status = ?, error_message = ?, updated_at = ?
                     WHERE id = ?
-                """, (status, error_message, connector.updated_at.isoformat(), connector_id))
+                """,
+                    (status, error_message, connector.updated_at.isoformat(), connector_id),
+                )
                 await self._connection.commit()
 
     # ==================== Sync Job Operations ====================
@@ -413,11 +433,14 @@ class SyncStore:
         # Persist
         if self._connection:
             if self._database_url.startswith("sqlite"):
-                await self._connection.execute("""
+                await self._connection.execute(
+                    """
                     INSERT INTO sync_jobs
                     (id, connector_id, status, started_at)
                     VALUES (?, ?, ?, ?)
-                """, (job.id, job.connector_id, job.status, job.started_at.isoformat()))
+                """,
+                    (job.id, job.connector_id, job.status, job.started_at.isoformat()),
+                )
                 await self._connection.commit()
 
         return job
@@ -470,15 +493,23 @@ class SyncStore:
         # Persist
         if self._connection:
             if self._database_url.startswith("sqlite"):
-                await self._connection.execute("""
+                await self._connection.execute(
+                    """
                     UPDATE sync_jobs
                     SET status = ?, completed_at = ?, items_synced = ?,
                         items_failed = ?, error_message = ?, duration_seconds = ?
                     WHERE id = ?
-                """, (
-                    job.status, job.completed_at.isoformat(), job.items_synced,
-                    job.items_failed, job.error_message, job.duration_seconds, job.id
-                ))
+                """,
+                    (
+                        job.status,
+                        job.completed_at.isoformat(),
+                        job.items_synced,
+                        job.items_failed,
+                        job.error_message,
+                        job.duration_seconds,
+                        job.id,
+                    ),
+                )
                 await self._connection.commit()
 
         return job
@@ -511,17 +542,19 @@ class SyncStore:
 
             async with self._connection.execute(query, params) as cursor:
                 async for row in cursor:
-                    jobs.append(SyncJob(
-                        id=row[0],
-                        connector_id=row[1],
-                        status=row[2],
-                        started_at=datetime.fromisoformat(row[3]),
-                        completed_at=datetime.fromisoformat(row[4]) if row[4] else None,
-                        items_synced=row[5] or 0,
-                        items_failed=row[6] or 0,
-                        error_message=row[7],
-                        duration_seconds=row[8],
-                    ))
+                    jobs.append(
+                        SyncJob(
+                            id=row[0],
+                            connector_id=row[1],
+                            status=row[2],
+                            started_at=datetime.fromisoformat(row[3]),
+                            completed_at=datetime.fromisoformat(row[4]) if row[4] else None,
+                            items_synced=row[5] or 0,
+                            items_failed=row[6] or 0,
+                            error_message=row[7],
+                            duration_seconds=row[8],
+                        )
+                    )
 
         # Include active jobs
         for job in self._active_jobs.values():

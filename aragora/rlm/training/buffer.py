@@ -88,6 +88,7 @@ class Trajectory:
     def __post_init__(self) -> None:
         if not self.trajectory_id:
             import uuid
+
             self.trajectory_id = str(uuid.uuid4())[:12]
         if not self.created_at:
             self.created_at = datetime.utcnow().isoformat()
@@ -171,14 +172,16 @@ class Trajectory:
         )
 
         for step_data in data.get("steps", []):
-            trajectory.add_step(Step(
-                action=step_data.get("action", ""),
-                action_type=step_data.get("action_type", "code"),
-                observation=step_data.get("observation", ""),
-                tokens_examined=step_data.get("tokens_examined", 0),
-                sub_calls=step_data.get("sub_calls", 0),
-                duration_seconds=step_data.get("duration_seconds", 0.0),
-            ))
+            trajectory.add_step(
+                Step(
+                    action=step_data.get("action", ""),
+                    action_type=step_data.get("action_type", "code"),
+                    observation=step_data.get("observation", ""),
+                    tokens_examined=step_data.get("tokens_examined", 0),
+                    sub_calls=step_data.get("sub_calls", 0),
+                    duration_seconds=step_data.get("duration_seconds", 0.0),
+                )
+            )
 
         trajectory.is_terminal = bool(data.get("outcome"))
         return trajectory
@@ -224,9 +227,7 @@ class ExperienceBuffer:
             priority: Initial priority (for prioritized sampling)
         """
         if not trajectory.is_terminal:
-            logger.warning(
-                f"Adding non-terminal trajectory {trajectory.trajectory_id}"
-            )
+            logger.warning(f"Adding non-terminal trajectory {trajectory.trajectory_id}")
 
         self._buffer.append(trajectory)
         self._priorities.append(priority)
@@ -251,7 +252,7 @@ class ExperienceBuffer:
             indices = random.sample(range(len(self._buffer)), batch_size)
         else:
             # Prioritized sampling
-            priorities = [p ** self.priority_alpha for p in self._priorities]
+            priorities = [p**self.priority_alpha for p in self._priorities]
             total_priority = sum(priorities)
             probs = [p / total_priority for p in priorities]
             indices = random.choices(
@@ -333,9 +334,7 @@ class ExperienceBuffer:
                 "strategies": {},
             }
 
-        success_count = sum(
-            1 for t in self._buffer if t.outcome.get("success", False)
-        )
+        success_count = sum(1 for t in self._buffer if t.outcome.get("success", False))
         avg_steps = sum(len(t.steps) for t in self._buffer) / len(self._buffer)
 
         strategy_counts: dict[str, int] = {}

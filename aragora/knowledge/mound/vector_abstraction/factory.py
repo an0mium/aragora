@@ -107,8 +107,7 @@ class VectorStoreFactory:
         if not store_class:
             available = [b.value for b in cls._registry.keys()]
             raise ValueError(
-                f"Unknown backend: {config.backend.value}. "
-                f"Available backends: {available}"
+                f"Unknown backend: {config.backend.value}. " f"Available backends: {available}"
             )
         return store_class(config)
 
@@ -204,9 +203,7 @@ class VectorStoreFactory:
 
             # Check if preferred backend is registered and available
             if cls.is_registered(preferred_backend):
-                logger.debug(
-                    f"Using namespace routing: {namespace} -> {preferred_backend.value}"
-                )
+                logger.debug(f"Using namespace routing: {namespace} -> {preferred_backend.value}")
                 config = VectorStoreConfig(
                     backend=preferred_backend,
                     namespace=namespace,

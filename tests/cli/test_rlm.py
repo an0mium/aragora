@@ -246,6 +246,7 @@ class TestCreateRlmParser:
     def test_parser_creation(self):
         """Test that parser is created correctly."""
         import argparse
+
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
 
@@ -258,18 +259,26 @@ class TestCreateRlmParser:
     def test_compress_parser_options(self):
         """Test compress subcommand options."""
         import argparse
+
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
 
         create_rlm_parser(subparsers)
 
-        args = parser.parse_args([
-            "rlm", "compress", "test.txt",
-            "--output", "output.json",
-            "--type", "code",
-            "--levels", "3",
-            "--no-cache",
-        ])
+        args = parser.parse_args(
+            [
+                "rlm",
+                "compress",
+                "test.txt",
+                "--output",
+                "output.json",
+                "--type",
+                "code",
+                "--levels",
+                "3",
+                "--no-cache",
+            ]
+        )
 
         assert args.input == "test.txt"
         assert args.output == "output.json"
@@ -280,19 +289,27 @@ class TestCreateRlmParser:
     def test_query_parser_options(self):
         """Test query subcommand options."""
         import argparse
+
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers()
 
         create_rlm_parser(subparsers)
 
-        args = parser.parse_args([
-            "rlm", "query", "What is X?",
-            "--context", "context.json",
-            "--strategy", "grep",
-            "--refine",
-            "--max-iterations", "5",
-            "--stream",
-        ])
+        args = parser.parse_args(
+            [
+                "rlm",
+                "query",
+                "What is X?",
+                "--context",
+                "context.json",
+                "--strategy",
+                "grep",
+                "--refine",
+                "--max-iterations",
+                "5",
+                "--stream",
+            ]
+        )
 
         assert args.query == "What is X?"
         assert args.context == "context.json"

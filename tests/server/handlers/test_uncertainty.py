@@ -27,29 +27,37 @@ def uncertainty_handler():
 def mock_estimator():
     """Create a mocked ConfidenceEstimator."""
     estimator = MagicMock()
-    estimator.estimate_uncertainty = AsyncMock(return_value={
-        "overall_confidence": 0.75,
-        "epistemic_uncertainty": 0.15,
-        "aleatoric_uncertainty": 0.10,
-        "disagreement_score": 0.2,
-        "calibration_adjustment": 0.0,
-    })
-    estimator.get_debate_metrics = AsyncMock(return_value={
-        "debate_id": "test-debate-123",
-        "confidence_trajectory": [0.5, 0.6, 0.7, 0.75],
-        "convergence_rate": 0.85,
-        "agent_agreement": 0.8,
-    })
-    estimator.get_agent_calibration = MagicMock(return_value={
-        "agent_id": "claude",
-        "calibration_score": 0.92,
-        "overconfidence_bias": -0.05,
-        "total_predictions": 150,
-    })
-    estimator.generate_followups = AsyncMock(return_value=[
-        {"question": "Can you elaborate on the security implications?", "relevance": 0.9},
-        {"question": "What about edge cases in distributed systems?", "relevance": 0.85},
-    ])
+    estimator.estimate_uncertainty = AsyncMock(
+        return_value={
+            "overall_confidence": 0.75,
+            "epistemic_uncertainty": 0.15,
+            "aleatoric_uncertainty": 0.10,
+            "disagreement_score": 0.2,
+            "calibration_adjustment": 0.0,
+        }
+    )
+    estimator.get_debate_metrics = AsyncMock(
+        return_value={
+            "debate_id": "test-debate-123",
+            "confidence_trajectory": [0.5, 0.6, 0.7, 0.75],
+            "convergence_rate": 0.85,
+            "agent_agreement": 0.8,
+        }
+    )
+    estimator.get_agent_calibration = MagicMock(
+        return_value={
+            "agent_id": "claude",
+            "calibration_score": 0.92,
+            "overconfidence_bias": -0.05,
+            "total_predictions": 150,
+        }
+    )
+    estimator.generate_followups = AsyncMock(
+        return_value=[
+            {"question": "Can you elaborate on the security implications?", "relevance": 0.9},
+            {"question": "What about edge cases in distributed systems?", "relevance": 0.85},
+        ]
+    )
     return estimator
 
 
@@ -84,15 +92,17 @@ class TestEstimateUncertainty:
     @pytest.mark.asyncio
     async def test_estimate_uncertainty_success(self, uncertainty_handler, mock_estimator):
         """Test successful uncertainty estimation."""
-        with patch.object(uncertainty_handler, '_get_estimator', return_value=mock_estimator):
+        with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             # Mock the handler request
             mock_handler = MagicMock()
             mock_handler.path = "/api/uncertainty/estimate"
             mock_handler.headers = {"Content-Length": "100"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "content": "This is a test response for uncertainty estimation.",
-                "context": "Testing the uncertainty system.",
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "content": "This is a test response for uncertainty estimation.",
+                    "context": "Testing the uncertainty system.",
+                }
+            ).encode()
 
             result = await uncertainty_handler.handle(
                 "/api/uncertainty/estimate", "POST", mock_handler
@@ -111,9 +121,7 @@ class TestEstimateUncertainty:
         mock_handler.headers = {"Content-Length": "2"}
         mock_handler.rfile.read.return_value = b"{}"
 
-        result = await uncertainty_handler.handle(
-            "/api/uncertainty/estimate", "POST", mock_handler
-        )
+        result = await uncertainty_handler.handle("/api/uncertainty/estimate", "POST", mock_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -127,7 +135,7 @@ class TestDebateUncertainty:
     @pytest.mark.asyncio
     async def test_get_debate_uncertainty_success(self, uncertainty_handler, mock_estimator):
         """Test successful debate uncertainty retrieval."""
-        with patch.object(uncertainty_handler, '_get_estimator', return_value=mock_estimator):
+        with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             result = await uncertainty_handler.handle(
                 "/api/uncertainty/debate/test-debate-123", "GET", None
             )
@@ -161,10 +169,8 @@ class TestAgentCalibration:
     @pytest.mark.asyncio
     async def test_get_agent_calibration_success(self, uncertainty_handler, mock_estimator):
         """Test successful agent calibration retrieval."""
-        with patch.object(uncertainty_handler, '_get_estimator', return_value=mock_estimator):
-            result = await uncertainty_handler.handle(
-                "/api/uncertainty/agent/claude", "GET", None
-            )
+        with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
+            result = await uncertainty_handler.handle("/api/uncertainty/agent/claude", "GET", None)
 
             assert result is not None
             body = json.loads(result.body)
@@ -192,14 +198,16 @@ class TestFollowups:
     @pytest.mark.asyncio
     async def test_generate_followups_success(self, uncertainty_handler, mock_estimator):
         """Test successful follow-up generation."""
-        with patch.object(uncertainty_handler, '_get_estimator', return_value=mock_estimator):
+        with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             mock_handler = MagicMock()
             mock_handler.path = "/api/uncertainty/followups"
             mock_handler.headers = {"Content-Length": "200"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "debate_id": "test-debate-123",
-                "cruxes": ["security", "scalability"],
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "debate_id": "test-debate-123",
+                    "cruxes": ["security", "scalability"],
+                }
+            ).encode()
 
             result = await uncertainty_handler.handle(
                 "/api/uncertainty/followups", "POST", mock_handler
@@ -217,13 +225,15 @@ class TestUncertaintyModuleUnavailable:
     @pytest.mark.asyncio
     async def test_estimate_without_module(self, uncertainty_handler):
         """Test estimate returns error when module unavailable."""
-        with patch.object(uncertainty_handler, '_get_estimator', return_value=None):
+        with patch.object(uncertainty_handler, "_get_estimator", return_value=None):
             mock_handler = MagicMock()
             mock_handler.path = "/api/uncertainty/estimate"
             mock_handler.headers = {"Content-Length": "50"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "content": "Test",
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "content": "Test",
+                }
+            ).encode()
 
             result = await uncertainty_handler.handle(
                 "/api/uncertainty/estimate", "POST", mock_handler

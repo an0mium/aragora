@@ -254,8 +254,10 @@ class ConsensusPhase:
         """Lazy-initialized VoteCollector instance."""
         if not hasattr(self, "_vote_collector_instance"):
             # Get position shuffling config from protocol if available
-            enable_position_shuffling = getattr(self.protocol, 'enable_position_shuffling', False)
-            position_shuffling_permutations = getattr(self.protocol, 'position_shuffling_permutations', 3)
+            enable_position_shuffling = getattr(self.protocol, "enable_position_shuffling", False)
+            position_shuffling_permutations = getattr(
+                self.protocol, "position_shuffling_permutations", 3
+            )
 
             config = VoteCollectorConfig(
                 vote_with_agent=self._vote_with_agent,
@@ -639,7 +641,7 @@ class ConsensusPhase:
             return
 
         # Check for judge deliberation mode (Agent-as-a-Judge enhancement)
-        enable_deliberation = getattr(self.protocol, 'enable_judge_deliberation', False)
+        enable_deliberation = getattr(self.protocol, "enable_judge_deliberation", False)
         if enable_deliberation:
             await self._handle_judge_deliberation(ctx)
             return
@@ -753,7 +755,6 @@ class ConsensusPhase:
         This reduces individual biases by exposing judges to diverse perspectives.
         """
         from aragora.debate.judge_selector import (
-            JudgePanel,
             JudgingStrategy,
             JudgeVote,
             create_judge_panel,
@@ -763,11 +764,10 @@ class ConsensusPhase:
         proposals = ctx.proposals
         task = ctx.env.task if ctx.env else ""
 
-        deliberation_rounds = getattr(self.protocol, 'judge_deliberation_rounds', 2)
+        deliberation_rounds = getattr(self.protocol, "judge_deliberation_rounds", 2)
 
         logger.info(
-            f"judge_deliberation_start proposals={len(proposals)} "
-            f"rounds={deliberation_rounds}"
+            f"judge_deliberation_start proposals={len(proposals)} " f"rounds={deliberation_rounds}"
         )
 
         # Get judge candidates (use 3 judges for deliberation)
@@ -832,7 +832,9 @@ class ConsensusPhase:
                 # Pick proposal with highest approval from judges
                 best_proposal_name = max(
                     proposals.keys(),
-                    key=lambda k: sum(1 for v in deliberation_result.votes if v.vote == JudgeVote.APPROVE)
+                    key=lambda k: sum(
+                        1 for v in deliberation_result.votes if v.vote == JudgeVote.APPROVE
+                    ),
                 )
                 result.final_answer = proposals[best_proposal_name]
                 result.consensus_reached = True
@@ -1038,18 +1040,18 @@ class ConsensusPhase:
         from aragora.debate.phases.weight_calculator import WeightCalculatorConfig
 
         # Get bias mitigation config from protocol
-        enable_self_vote = getattr(self.protocol, 'enable_self_vote_mitigation', False)
-        enable_verbosity = getattr(self.protocol, 'enable_verbosity_normalization', False)
+        enable_self_vote = getattr(self.protocol, "enable_self_vote_mitigation", False)
+        enable_verbosity = getattr(self.protocol, "enable_verbosity_normalization", False)
 
         config = WeightCalculatorConfig(
             # Agent-as-a-Judge bias mitigation
             enable_self_vote_mitigation=enable_self_vote,
-            self_vote_mode=getattr(self.protocol, 'self_vote_mode', 'downweight'),
-            self_vote_downweight=getattr(self.protocol, 'self_vote_downweight', 0.5),
+            self_vote_mode=getattr(self.protocol, "self_vote_mode", "downweight"),
+            self_vote_downweight=getattr(self.protocol, "self_vote_downweight", 0.5),
             enable_verbosity_normalization=enable_verbosity,
-            verbosity_target_length=getattr(self.protocol, 'verbosity_target_length', 1000),
-            verbosity_penalty_threshold=getattr(self.protocol, 'verbosity_penalty_threshold', 3.0),
-            verbosity_max_penalty=getattr(self.protocol, 'verbosity_max_penalty', 0.3),
+            verbosity_target_length=getattr(self.protocol, "verbosity_target_length", 1000),
+            verbosity_penalty_threshold=getattr(self.protocol, "verbosity_penalty_threshold", 3.0),
+            verbosity_max_penalty=getattr(self.protocol, "verbosity_max_penalty", 0.3),
         )
 
         calculator = WeightCalculator(
@@ -1064,9 +1066,7 @@ class ConsensusPhase:
 
         # Use bias-aware computation if votes and proposals available
         if votes and ctx.proposals and (enable_self_vote or enable_verbosity):
-            return calculator.compute_weights_with_context(
-                ctx.agents, votes, ctx.proposals
-            )
+            return calculator.compute_weights_with_context(ctx.agents, votes, ctx.proposals)
 
         return calculator.compute_weights(ctx.agents)
 
@@ -1232,10 +1232,10 @@ class ConsensusPhase:
                         if use_quality_scores and quality_scores:
                             # Weighted quality score
                             quality = (
-                                quality_scores.get("semantic_relevance", 0.5) * 0.4 +
-                                quality_scores.get("authority", 0.5) * 0.3 +
-                                quality_scores.get("freshness", 0.5) * 0.2 +
-                                quality_scores.get("completeness", 0.5) * 0.1
+                                quality_scores.get("semantic_relevance", 0.5) * 0.4
+                                + quality_scores.get("authority", 0.5) * 0.3
+                                + quality_scores.get("freshness", 0.5) * 0.2
+                                + quality_scores.get("completeness", 0.5) * 0.1
                             )
                         else:
                             quality = 0.5  # Default quality

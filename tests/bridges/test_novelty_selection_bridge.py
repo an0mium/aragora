@@ -267,9 +267,7 @@ class TestNoveltySelectionBridge:
 
     def test_apply_decay(self):
         """Test applying decay to stats."""
-        bridge = NoveltySelectionBridge(
-            config=NoveltySelectionBridgeConfig(decay_factor=0.5)
-        )
+        bridge = NoveltySelectionBridge(config=NoveltySelectionBridgeConfig(decay_factor=0.5))
         bridge._agent_stats["test"] = AgentNoveltyStats(
             agent_name="test",
             total_rounds=100,
@@ -297,9 +295,7 @@ class TestNoveltySelectionBridge:
     def test_get_stats(self):
         """Test getting bridge stats."""
         bridge = NoveltySelectionBridge()
-        bridge._agent_stats["test"] = AgentNoveltyStats(
-            agent_name="test", total_rounds=5
-        )
+        bridge._agent_stats["test"] = AgentNoveltyStats(agent_name="test", total_rounds=5)
 
         stats = bridge.get_stats()
         assert stats["agents_tracked"] == 1

@@ -85,6 +85,7 @@ def sample_debate_result() -> DebateResult:
 @pytest.fixture
 def mock_agent_call():
     """Create a mock agent call function for compression."""
+
     def agent_call(prompt: str, model: str) -> str:
         # Return appropriate summaries based on prompt content
         if "key details" in prompt.lower() or "detailed" in prompt.lower():
@@ -109,10 +110,12 @@ class TestRLMEndToEndPipeline:
         clear_compression_cache()
 
         # Step 1: Create RLM and adapter
-        rlm = AragoraRLM(aragora_config=RLMConfig(
-            cache_compressions=True,
-            parallel_sub_calls=False,  # Sequential for predictable testing
-        ))
+        rlm = AragoraRLM(
+            aragora_config=RLMConfig(
+                cache_compressions=True,
+                parallel_sub_calls=False,  # Sequential for predictable testing
+            )
+        )
 
         adapter = DebateContextAdapter(rlm)
 
@@ -188,6 +191,7 @@ class TestRLMEndToEndPipeline:
 
         # Mock _query_iteration to return not ready twice, then ready
         call_count = 0
+
         async def mock_query_iteration(query, context, strategy, iteration, feedback):
             nonlocal call_count
             call_count += 1
@@ -229,11 +233,13 @@ class TestRLMEndToEndPipeline:
         context = await adapter.compress_debate(sample_debate_result)
 
         # Mock query to always return not ready
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Still working on it",
-            ready=False,
-            confidence=0.5,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Still working on it",
+                ready=False,
+                confidence=0.5,
+            )
+        )
 
         result = await rlm.query_with_refinement(
             query="What was decided?",
@@ -355,6 +361,7 @@ class TestRLMRefinementHistory:
 
         # Mock multiple iterations using _query_iteration
         call_count = 0
+
         async def mock_query_iteration(query, context, strategy, iteration, feedback):
             nonlocal call_count
             call_count += 1

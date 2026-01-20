@@ -30,6 +30,7 @@ try:
         AbstractionLevel,
     )
     from aragora.rlm.types import RLMContext, AbstractionNode, CompressionResult
+
     HAS_RLM = True
 except ImportError as e:
     print(f"RLM import error: {e}")
@@ -39,6 +40,7 @@ except ImportError as e:
 @dataclass
 class DebateRound:
     """Simulated debate round for testing."""
+
     round_num: int
     proposals: List[str]
     critiques: List[str]
@@ -84,9 +86,10 @@ class TestRLMCompression:
     @pytest.fixture
     def mock_agent_call(self) -> AsyncMock:
         """Create mock agent call for testing without API calls."""
+
         async def mock_call(prompt: str, context: str = "") -> str:
             # Return a compressed version (50% reduction)
-            words = context.split()[:len(context.split()) // 2]
+            words = context.split()[: len(context.split()) // 2]
             return " ".join(words) if words else "Summary of content."
 
         return mock_call
@@ -147,6 +150,7 @@ class TestRLMLoadPerformance:
     @pytest.fixture
     def fast_compressor(self) -> HierarchicalCompressor:
         """Create compressor with fast mock for load testing."""
+
         async def fast_mock(prompt: str, context: str = "") -> str:
             # Simulate fast compression (just truncate)
             return context[:500] if len(context) > 500 else context
@@ -164,8 +168,7 @@ class TestRLMLoadPerformance:
 
         for i in range(num_operations):
             content = generate_debate_content(
-                num_rounds=3 + (i % 5),
-                tokens_per_round=content_sizes[i % len(content_sizes)] // 3
+                num_rounds=3 + (i % 5), tokens_per_round=content_sizes[i % len(content_sizes)] // 3
             )
 
             result = await fast_compressor.compress(content, source_type="debate")
@@ -216,11 +219,14 @@ class TestRLMLoadPerformance:
         memory_increase = final_memory - initial_memory
 
         # Memory increase should be bounded (< 150MB for test environment variability)
-        assert memory_increase < 150 * 1024 * 1024, f"Memory leak detected: {memory_increase / 1024 / 1024:.2f}MB"
+        assert (
+            memory_increase < 150 * 1024 * 1024
+        ), f"Memory leak detected: {memory_increase / 1024 / 1024:.2f}MB"
 
     def _get_memory_usage(self) -> int:
         """Get current memory usage in bytes."""
         import resource
+
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024  # macOS returns KB
 
 
@@ -231,6 +237,7 @@ class TestRLMCompressionRatios:
     @pytest.fixture
     def summarizing_compressor(self) -> HierarchicalCompressor:
         """Create compressor that actually summarizes."""
+
         async def summarize(prompt: str, context: str = "") -> str:
             # Simulate 50-70% compression
             words = context.split()
@@ -248,7 +255,7 @@ class TestRLMCompressionRatios:
         result = await summarizing_compressor.compress(content, source_type="debate")
 
         # Get compressed size at SUMMARY level
-        if result.context and hasattr(result.context, 'get_at_level'):
+        if result.context and hasattr(result.context, "get_at_level"):
             summary = result.context.get_at_level(AbstractionLevel.SUMMARY)
             if summary:
                 compressed_tokens = estimate_tokens(summary)
@@ -267,7 +274,7 @@ class TestRLMCompressionRatios:
 
         assert result is not None
         # Verify we can retrieve at different levels
-        if result.context and hasattr(result.context, 'get_at_level'):
+        if result.context and hasattr(result.context, "get_at_level"):
             abstract = result.context.get_at_level(AbstractionLevel.ABSTRACT)
             summary = result.context.get_at_level(AbstractionLevel.SUMMARY)
 
@@ -287,7 +294,7 @@ class TestRLMCompressionRatios:
         assert result.context is not None
 
         # Check that we have multiple levels
-        if hasattr(result.context, 'levels'):
+        if hasattr(result.context, "levels"):
             assert len(result.context.levels) >= 1
 
 
@@ -388,9 +395,7 @@ class TestRLMEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_content(self):
         """Test handling of very long content."""
-        compressor = HierarchicalCompressor(
-            agent_call=lambda p, c: c[:100] if len(c) > 100 else c
-        )
+        compressor = HierarchicalCompressor(agent_call=lambda p, c: c[:100] if len(c) > 100 else c)
 
         # Generate 100K+ tokens
         content = generate_debate_content(num_rounds=50, tokens_per_round=2000)
@@ -406,9 +411,7 @@ class TestRLMEdgeCases:
     @pytest.mark.asyncio
     async def test_unicode_content(self):
         """Test handling of unicode content."""
-        compressor = HierarchicalCompressor(
-            agent_call=lambda p, c: c[:100] if len(c) > 100 else c
-        )
+        compressor = HierarchicalCompressor(agent_call=lambda p, c: c[:100] if len(c) > 100 else c)
 
         # Content with unicode characters
         content = "Unicode test: 日本語 한국어 العربية émoji: 🎉🚀🔥 " * 500
@@ -420,12 +423,12 @@ class TestRLMEdgeCases:
     @pytest.mark.asyncio
     async def test_special_characters(self):
         """Test handling of special characters."""
-        compressor = HierarchicalCompressor(
-            agent_call=lambda p, c: c[:100] if len(c) > 100 else c
-        )
+        compressor = HierarchicalCompressor(agent_call=lambda p, c: c[:100] if len(c) > 100 else c)
 
         # Content with special characters
-        content = "Special chars: <script>alert('xss')</script> SELECT * FROM users; ${env.SECRET} " * 100
+        content = (
+            "Special chars: <script>alert('xss')</script> SELECT * FROM users; ${env.SECRET} " * 100
+        )
 
         result = await compressor.compress(content, source_type="text")
 
@@ -440,8 +443,9 @@ class TestRLMBenchmarks:
     @pytest.fixture
     def benchmark_compressor(self) -> HierarchicalCompressor:
         """Create fast compressor for benchmarking."""
+
         async def fast_compress(prompt: str, context: str = "") -> str:
-            return context[:len(context) // 3] if len(context) > 100 else context
+            return context[: len(context) // 3] if len(context) > 100 else context
 
         return HierarchicalCompressor(agent_call=fast_compress)
 

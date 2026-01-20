@@ -152,21 +152,15 @@ class TestCalibrationHandlerInit:
 class TestCalibrationCurve:
     """Tests for calibration curve endpoint."""
 
-    def test_returns_503_without_calibration_tracker(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
         """Returns 503 when CalibrationTracker not available."""
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
                 "/api/agent/claude/calibration-curve", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_calibration_curve_data(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_calibration_curve_data(self, calibration_handler, mock_http_handler):
         """Returns calibration curve data when available."""
         mock_buckets = [
             MockCalibrationBucket(
@@ -190,9 +184,7 @@ class TestCalibrationCurve:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = mock_buckets
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -211,9 +203,7 @@ class TestCalibrationCurve:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = []
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -232,9 +222,7 @@ class TestCalibrationCurve:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = []
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -264,21 +252,15 @@ class TestCalibrationCurve:
 class TestCalibrationSummary:
     """Tests for calibration summary endpoint."""
 
-    def test_returns_503_without_calibration_tracker(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
         """Returns 503 when CalibrationTracker not available."""
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
                 "/api/agent/claude/calibration-summary", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_calibration_summary_data(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_calibration_summary_data(self, calibration_handler, mock_http_handler):
         """Returns calibration summary data when available."""
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -294,9 +276,7 @@ class TestCalibrationSummary:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_summary.return_value = mock_summary
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -328,9 +308,7 @@ class TestCalibrationSummary:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_summary.return_value = mock_summary
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -353,9 +331,7 @@ class TestCalibrationSummary:
 class TestCalibrationLeaderboard:
     """Tests for calibration leaderboard endpoint."""
 
-    def test_returns_503_without_elo_system(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_503_without_elo_system(self, calibration_handler, mock_http_handler):
         """Returns 503 when EloSystem not available."""
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False):
             result = calibration_handler.handle(
@@ -503,28 +479,20 @@ class TestCalibrationLeaderboard:
 class TestCalibrationVisualization:
     """Tests for calibration visualization endpoint."""
 
-    def test_returns_503_without_calibration_tracker(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
         """Returns 503 when CalibrationTracker not available."""
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
                 "/api/calibration/visualization", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_empty_result_when_no_agents(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_empty_result_when_no_agents(self, calibration_handler, mock_http_handler):
         """Returns empty result when no agents have calibration data."""
         mock_tracker = MagicMock()
         mock_tracker.get_all_agents.return_value = []
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -568,9 +536,7 @@ class TestCalibrationVisualization:
         mock_tracker.get_calibration_curve.return_value = mock_buckets
         mock_tracker.get_domain_breakdown.return_value = {}
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -601,9 +567,7 @@ class TestCalibrationVisualization:
             is_underconfident=False,
         )
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -622,14 +586,10 @@ class TestCalibrationVisualization:
 class TestCalibrationRateLimiting:
     """Tests for rate limiting."""
 
-    def test_rate_limit_after_multiple_requests(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_rate_limit_after_multiple_requests(self, calibration_handler, mock_http_handler):
         """Returns 429 after exceeding rate limit."""
         # Use a fresh handler with tight rate limit for testing
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             # Make many requests until rate limited
             for i in range(35):  # 30 allowed per minute
                 mock_handler = MagicMock()
@@ -663,9 +623,7 @@ class TestCalibrationErrorHandling:
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.side_effect = RuntimeError("Database error")
 
-        with patch(
-            "aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
@@ -690,20 +648,12 @@ class TestCalibrationErrorHandling:
                 )
                 assert result.status_code == 500
 
-    def test_returns_none_for_unmatched_path(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_none_for_unmatched_path(self, calibration_handler, mock_http_handler):
         """Returns None for paths that don't match any endpoint."""
-        result = calibration_handler.handle(
-            "/api/agent/claude/unknown", {}, mock_http_handler
-        )
+        result = calibration_handler.handle("/api/agent/claude/unknown", {}, mock_http_handler)
         assert result is None
 
-    def test_returns_none_for_non_agent_path(
-        self, calibration_handler, mock_http_handler
-    ):
+    def test_returns_none_for_non_agent_path(self, calibration_handler, mock_http_handler):
         """Returns None for non-agent paths."""
-        result = calibration_handler.handle(
-            "/api/other/endpoint", {}, mock_http_handler
-        )
+        result = calibration_handler.handle("/api/other/endpoint", {}, mock_http_handler)
         assert result is None

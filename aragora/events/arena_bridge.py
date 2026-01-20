@@ -99,9 +99,7 @@ class ArenaEventBridge:
             self._event_bus.subscribe_sync(event_type_str, self._on_event)
 
         self._connected = True
-        logger.info(
-            f"ArenaEventBridge connected: {len(EVENT_TYPE_MAP)} event types bridged"
-        )
+        logger.info(f"ArenaEventBridge connected: {len(EVENT_TYPE_MAP)} event types bridged")
 
     def _on_event(self, event: "DebateEvent") -> None:
         """

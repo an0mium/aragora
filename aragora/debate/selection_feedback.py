@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -191,9 +191,7 @@ class SelectionFeedbackLoop:
             if agent_name in response_times:
                 rt = response_times[agent_name]
                 # Exponential moving average
-                state.avg_response_time_ms = (
-                    0.9 * state.avg_response_time_ms + 0.1 * rt
-                )
+                state.avg_response_time_ms = 0.9 * state.avg_response_time_ms + 0.1 * rt
 
             # Update confidence average
             if confidence > 0:
@@ -367,7 +365,7 @@ class SelectionFeedbackLoop:
         if days_since > self.config.recency_window_days:
             return 0.0
 
-        decay = self.config.feedback_decay_factor ** days_since
+        decay = self.config.feedback_decay_factor**days_since
         return adjustment * decay
 
     def get_agent_state(self, agent_name: str) -> Optional[AgentFeedbackState]:
@@ -390,9 +388,7 @@ class SelectionFeedbackLoop:
                 else 0.0
             ),
             "last_processed": (
-                self.metrics.last_processed.isoformat()
-                if self.metrics.last_processed
-                else None
+                self.metrics.last_processed.isoformat() if self.metrics.last_processed else None
             ),
         }
 

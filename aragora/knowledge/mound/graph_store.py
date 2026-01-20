@@ -215,11 +215,7 @@ class KnowledgeGraphStore(SQLiteStore):
             Link ID
         """
         tenant_id = tenant_id or self._default_tenant_id
-        rel_str = (
-            relationship.value
-            if isinstance(relationship, RelationshipType)
-            else relationship
-        )
+        rel_str = relationship.value if isinstance(relationship, RelationshipType) else relationship
 
         return await asyncio.to_thread(
             self._sync_add_link,
@@ -305,11 +301,7 @@ class KnowledgeGraphStore(SQLiteStore):
             List of graph links
         """
         tenant_id = tenant_id or self._default_tenant_id
-        type_strs = (
-            [r.value for r in relationship_types]
-            if relationship_types
-            else None
-        )
+        type_strs = [r.value for r in relationship_types] if relationship_types else None
 
         return await asyncio.to_thread(
             self._sync_get_links, node_id, type_strs, direction, tenant_id
@@ -382,13 +374,9 @@ class KnowledgeGraphStore(SQLiteStore):
         reason: str = "manual",
     ) -> bool:
         """Delete a relationship."""
-        return await asyncio.to_thread(
-            self._sync_delete_link, link_id, archive, reason
-        )
+        return await asyncio.to_thread(self._sync_delete_link, link_id, archive, reason)
 
-    def _sync_delete_link(
-        self, link_id: str, archive: bool, reason: str
-    ) -> bool:
+    def _sync_delete_link(self, link_id: str, archive: bool, reason: str) -> bool:
         """Synchronous link deletion with optional archiving."""
         with self.connection() as conn:
             if archive:
@@ -404,9 +392,7 @@ class KnowledgeGraphStore(SQLiteStore):
                     (datetime.now().isoformat(), reason, link_id),
                 )
 
-            cursor = conn.execute(
-                "DELETE FROM knowledge_links WHERE id = ?", (link_id,)
-            )
+            cursor = conn.execute("DELETE FROM knowledge_links WHERE id = ?", (link_id,))
             return cursor.rowcount > 0
 
     # =========================================================================
@@ -429,13 +415,9 @@ class KnowledgeGraphStore(SQLiteStore):
             List of contradicting item IDs
         """
         tenant_id = tenant_id or self._default_tenant_id
-        return await asyncio.to_thread(
-            self._sync_find_contradictions, node_id, tenant_id
-        )
+        return await asyncio.to_thread(self._sync_find_contradictions, node_id, tenant_id)
 
-    def _sync_find_contradictions(
-        self, node_id: str, tenant_id: str
-    ) -> List[str]:
+    def _sync_find_contradictions(self, node_id: str, tenant_id: str) -> List[str]:
         """Synchronous contradiction lookup."""
         rows = self.fetch_all(
             """
@@ -567,9 +549,7 @@ class KnowledgeGraphStore(SQLiteStore):
             List of lineage nodes in chronological order
         """
         tenant_id = tenant_id or self._default_tenant_id
-        return await asyncio.to_thread(
-            self._sync_get_lineage, item_id, direction, tenant_id
-        )
+        return await asyncio.to_thread(self._sync_get_lineage, item_id, direction, tenant_id)
 
     def _sync_get_lineage(
         self,
@@ -711,11 +691,7 @@ class KnowledgeGraphStore(SQLiteStore):
             Traversal result with nodes and edges
         """
         tenant_id = tenant_id or self._default_tenant_id
-        type_strs = (
-            [r.value for r in relationship_types]
-            if relationship_types
-            else None
-        )
+        type_strs = [r.value for r in relationship_types] if relationship_types else None
 
         return await asyncio.to_thread(
             self._sync_traverse,
@@ -749,9 +725,7 @@ class KnowledgeGraphStore(SQLiteStore):
             if depth >= max_depth:
                 continue
 
-            links = self._sync_get_links(
-                current_id, relationship_types, direction, tenant_id
-            )
+            links = self._sync_get_links(current_id, relationship_types, direction, tenant_id)
 
             for link in links:
                 if link.id not in visited_edges:
@@ -759,11 +733,7 @@ class KnowledgeGraphStore(SQLiteStore):
                     all_edges.append(link)
 
                 # Get the neighbor node
-                neighbor = (
-                    link.target_id
-                    if link.source_id == current_id
-                    else link.source_id
-                )
+                neighbor = link.target_id if link.source_id == current_id else link.source_id
 
                 if neighbor not in visited_nodes:
                     visited_nodes.add(neighbor)
@@ -784,9 +754,7 @@ class KnowledgeGraphStore(SQLiteStore):
 
     async def get_stats(self, tenant_id: Optional[str] = None) -> dict:
         """Get statistics about the knowledge graph."""
-        return await asyncio.to_thread(
-            self._sync_get_stats, tenant_id or self._default_tenant_id
-        )
+        return await asyncio.to_thread(self._sync_get_stats, tenant_id or self._default_tenant_id)
 
     def _sync_get_stats(self, tenant_id: str) -> dict:
         """Synchronous stats retrieval."""
@@ -828,9 +796,7 @@ class KnowledgeGraphStore(SQLiteStore):
             "total_links": total_links[0] if total_links else 0,
             "by_relationship": dict(by_relationship),
             "total_lineage_entries": total_lineage[0] if total_lineage else 0,
-            "hub_nodes": [
-                {"node_id": r[0], "connections": r[1]} for r in hub_nodes
-            ],
+            "hub_nodes": [{"node_id": r[0], "connections": r[1]} for r in hub_nodes],
             "tenant_id": tenant_id,
         }
 

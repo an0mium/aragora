@@ -57,7 +57,7 @@ export default function PortalPage() {
             <AsciiBannerCompact connected={true} />
           </div>
           <h1 className="text-4xl md:text-5xl font-mono font-bold text-acid-green mb-4">
-            AI Red Team for Critical Decisions
+            Multi Agent Decision Making
           </h1>
           <p className="text-text-muted font-mono max-w-2xl mx-auto mb-8">
             Multi-agent stress testing, compliance auditing, and decision validation.

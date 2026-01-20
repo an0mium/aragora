@@ -244,7 +244,9 @@ def timed_rlm_compression(source_type: str) -> Callable[[Callable], Callable]:
                 if hasattr(result, "compressed_tokens"):
                     compressed_tokens = result.compressed_tokens
                 if hasattr(result, "levels"):
-                    levels = len(result.levels) if hasattr(result.levels, "__len__") else result.levels
+                    levels = (
+                        len(result.levels) if hasattr(result.levels, "__len__") else result.levels
+                    )
                 return result
             except (ValueError, TypeError, KeyError, RuntimeError, MemoryError) as e:
                 logger.warning("RLM compression for %s failed: %s", source_type, e)

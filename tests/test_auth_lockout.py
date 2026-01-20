@@ -517,8 +517,12 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Mock authentication and MFA policy
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract, \
-             patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None):
+        with (
+            patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
+            patch(
+                "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+            ),
+        ):
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"
@@ -567,8 +571,12 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Mock authentication and MFA policy
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract, \
-             patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None):
+        with (
+            patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
+            patch(
+                "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+            ),
+        ):
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = "admin-001"

@@ -37,7 +37,7 @@ def software_vertical():
 @pytest.fixture
 def sample_vulnerable_code():
     """Sample code with various vulnerabilities."""
-    return '''
+    return """
 import os
 import subprocess
 
@@ -62,13 +62,13 @@ password = "mysecretpassword123"
 # Weak cryptography
 import hashlib
 hash = hashlib.md5(data)
-'''
+"""
 
 
 @pytest.fixture
 def sample_code_with_secrets():
     """Sample code with exposed secrets."""
-    return '''
+    return """
 # AWS credentials
 aws_access_key = "AKIAIOSFODNN7EXAMPLE"
 aws_secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
@@ -83,7 +83,7 @@ MIIEowIBAAKCAQEA...
 
 # JWT token
 jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-'''
+"""
 
 
 @pytest.fixture
@@ -277,7 +277,10 @@ class TestSoftwareKnowledge:
         """Test basic vertical properties."""
         assert software_vertical.vertical_id == "software"
         assert software_vertical.display_name == "Software Development"
-        assert "vulnerability" in software_vertical.description.lower() or "security" in software_vertical.description.lower()
+        assert (
+            "vulnerability" in software_vertical.description.lower()
+            or "security" in software_vertical.description.lower()
+        )
 
     def test_capabilities(self, software_vertical):
         """Test software vertical capabilities."""
@@ -340,7 +343,9 @@ class TestSoftwareKnowledge:
         """Test hardcoded credential detection."""
         facts = await software_vertical.extract_facts(sample_vulnerable_code)
 
-        cred_facts = [f for f in facts if "Hardcoded" in f.content or "credential" in f.content.lower()]
+        cred_facts = [
+            f for f in facts if "Hardcoded" in f.content or "credential" in f.content.lower()
+        ]
         assert len(cred_facts) >= 1
 
     @pytest.mark.asyncio
@@ -364,7 +369,9 @@ class TestSoftwareKnowledge:
         """Test weak cryptography detection."""
         facts = await software_vertical.extract_facts(sample_vulnerable_code)
 
-        crypto_facts = [f for f in facts if "cryptograph" in f.content.lower() or "MD5" in f.content]
+        crypto_facts = [
+            f for f in facts if "cryptograph" in f.content.lower() or "MD5" in f.content
+        ]
         assert len(crypto_facts) >= 1
 
     @pytest.mark.asyncio

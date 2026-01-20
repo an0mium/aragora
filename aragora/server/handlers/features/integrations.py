@@ -13,7 +13,6 @@ Supported integration types:
 - slack, discord, telegram, email, teams, whatsapp, matrix
 """
 
-import asyncio
 import logging
 import time
 from dataclasses import asdict, dataclass, field
@@ -33,12 +32,16 @@ logger = logging.getLogger(__name__)
 # Integration Types and Models
 # =============================================================================
 
-IntegrationType = Literal[
-    "slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"
-]
+IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
 
 VALID_INTEGRATION_TYPES: set[str] = {
-    "slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"
+    "slack",
+    "discord",
+    "telegram",
+    "email",
+    "teams",
+    "whatsapp",
+    "matrix",
 }
 
 
@@ -77,9 +80,16 @@ class IntegrationConfig:
             # Remove sensitive fields from settings
             settings = result.get("settings", {})
             sensitive_keys = [
-                "access_token", "api_key", "bot_token", "webhook_url",
-                "secret", "password", "auth_token", "sendgrid_api_key",
-                "ses_secret_access_key", "twilio_auth_token",
+                "access_token",
+                "api_key",
+                "bot_token",
+                "webhook_url",
+                "secret",
+                "password",
+                "auth_token",
+                "sendgrid_api_key",
+                "ses_secret_access_key",
+                "twilio_auth_token",
             ]
             for key in sensitive_keys:
                 if key in settings:
@@ -225,14 +235,37 @@ class IntegrationsHandler(BaseHandler):
 
         # Extract provider-specific settings
         provider_keys = [
-            "webhook_url", "bot_token", "channel", "chat_id", "access_token",
-            "phone_number_id", "recipient", "homeserver_url", "room_id",
-            "user_id", "provider", "from_email", "from_name", "smtp_host",
-            "smtp_port", "smtp_username", "smtp_password", "sendgrid_api_key",
-            "ses_region", "ses_access_key_id", "ses_secret_access_key",
-            "twilio_account_sid", "twilio_auth_token", "twilio_whatsapp_number",
-            "username", "avatar_url", "parse_mode", "use_html", "enable_commands",
-            "use_adaptive_cards", "reply_to",
+            "webhook_url",
+            "bot_token",
+            "channel",
+            "chat_id",
+            "access_token",
+            "phone_number_id",
+            "recipient",
+            "homeserver_url",
+            "room_id",
+            "user_id",
+            "provider",
+            "from_email",
+            "from_name",
+            "smtp_host",
+            "smtp_port",
+            "smtp_username",
+            "smtp_password",
+            "sendgrid_api_key",
+            "ses_region",
+            "ses_access_key_id",
+            "ses_secret_access_key",
+            "twilio_account_sid",
+            "twilio_auth_token",
+            "twilio_whatsapp_number",
+            "username",
+            "avatar_url",
+            "parse_mode",
+            "use_html",
+            "enable_commands",
+            "use_adaptive_cards",
+            "reply_to",
         ]
         settings = {k: data[k] for k in provider_keys if k in data}
 
@@ -287,7 +320,12 @@ class IntegrationsHandler(BaseHandler):
         if "enabled" in data:
             config.enabled = bool(data["enabled"])
 
-        for notify_key in ["notify_on_consensus", "notify_on_debate_end", "notify_on_error", "notify_on_leaderboard"]:
+        for notify_key in [
+            "notify_on_consensus",
+            "notify_on_debate_end",
+            "notify_on_error",
+            "notify_on_leaderboard",
+        ]:
             if notify_key in data:
                 setattr(config, notify_key, bool(data[notify_key]))
 
@@ -348,26 +386,32 @@ class IntegrationsHandler(BaseHandler):
 
             if success:
                 config.last_activity = time.time()
-                return json_response({
-                    "success": True,
-                    "message": f"{integration_type} connection successful",
-                })
+                return json_response(
+                    {
+                        "success": True,
+                        "message": f"{integration_type} connection successful",
+                    }
+                )
             else:
                 config.errors_24h += 1
                 config.last_error = "Connection test failed"
-                return json_response({
-                    "success": False,
-                    "error": "Connection test failed",
-                })
+                return json_response(
+                    {
+                        "success": False,
+                        "error": "Connection test failed",
+                    }
+                )
 
         except Exception as e:
             config.errors_24h += 1
             config.last_error = str(e)
             logger.error(f"Integration test failed for {integration_type}: {e}")
-            return json_response({
-                "success": False,
-                "error": str(e),
-            })
+            return json_response(
+                {
+                    "success": False,
+                    "error": str(e),
+                }
+            )
 
     async def _test_connection(self, integration_type: str, settings: Dict[str, Any]) -> bool:
         """Test connection to integration provider.
@@ -383,25 +427,34 @@ class IntegrationsHandler(BaseHandler):
         try:
             if integration_type == "slack":
                 from aragora.integrations.slack import SlackConfig, SlackIntegration
-                integration = SlackIntegration(SlackConfig(
-                    webhook_url=settings.get("webhook_url", ""),
-                    bot_token=settings.get("bot_token"),
-                ))
+
+                integration = SlackIntegration(
+                    SlackConfig(
+                        webhook_url=settings.get("webhook_url", ""),
+                        bot_token=settings.get("bot_token"),
+                    )
+                )
                 return await integration.verify_webhook()
 
             elif integration_type == "discord":
                 from aragora.integrations.discord import DiscordConfig, DiscordIntegration
-                integration = DiscordIntegration(DiscordConfig(
-                    webhook_url=settings.get("webhook_url", ""),
-                ))
+
+                integration = DiscordIntegration(
+                    DiscordConfig(
+                        webhook_url=settings.get("webhook_url", ""),
+                    )
+                )
                 return await integration.verify_webhook()
 
             elif integration_type == "telegram":
                 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
-                integration = TelegramIntegration(TelegramConfig(
-                    bot_token=settings.get("bot_token", ""),
-                    chat_id=settings.get("chat_id", ""),
-                ))
+
+                integration = TelegramIntegration(
+                    TelegramConfig(
+                        bot_token=settings.get("bot_token", ""),
+                        chat_id=settings.get("chat_id", ""),
+                    )
+                )
                 return await integration.verify_connection()
 
             elif integration_type == "email":
@@ -415,27 +468,36 @@ class IntegrationsHandler(BaseHandler):
 
             elif integration_type == "teams":
                 from aragora.integrations.teams import TeamsConfig, TeamsIntegration
-                integration = TeamsIntegration(TeamsConfig(
-                    webhook_url=settings.get("webhook_url", ""),
-                ))
+
+                integration = TeamsIntegration(
+                    TeamsConfig(
+                        webhook_url=settings.get("webhook_url", ""),
+                    )
+                )
                 return await integration.verify_webhook()
 
             elif integration_type == "whatsapp":
                 from aragora.integrations.whatsapp import WhatsAppConfig, WhatsAppIntegration
-                integration = WhatsAppIntegration(WhatsAppConfig(
-                    phone_number_id=settings.get("phone_number_id", ""),
-                    access_token=settings.get("access_token", ""),
-                    recipient=settings.get("recipient", ""),
-                ))
+
+                integration = WhatsAppIntegration(
+                    WhatsAppConfig(
+                        phone_number_id=settings.get("phone_number_id", ""),
+                        access_token=settings.get("access_token", ""),
+                        recipient=settings.get("recipient", ""),
+                    )
+                )
                 return integration.is_configured
 
             elif integration_type == "matrix":
                 from aragora.integrations.matrix import MatrixConfig, MatrixIntegration
-                integration = MatrixIntegration(MatrixConfig(
-                    homeserver_url=settings.get("homeserver_url", ""),
-                    access_token=settings.get("access_token", ""),
-                    room_id=settings.get("room_id", ""),
-                ))
+
+                integration = MatrixIntegration(
+                    MatrixConfig(
+                        homeserver_url=settings.get("homeserver_url", ""),
+                        access_token=settings.get("access_token", ""),
+                        room_id=settings.get("room_id", ""),
+                    )
+                )
                 return await integration.verify_connection()
 
             return False

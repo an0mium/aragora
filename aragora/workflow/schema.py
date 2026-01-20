@@ -40,6 +40,7 @@ import yaml
 # Try to use Pydantic v2, fall back to basic validation
 try:
     from pydantic import BaseModel, Field, field_validator, model_validator
+
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
@@ -48,6 +49,7 @@ except ImportError:
 
 class ValidationSeverity(Enum):
     """Severity levels for validation messages."""
+
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
@@ -56,6 +58,7 @@ class ValidationSeverity(Enum):
 @dataclass
 class ValidationMessage:
     """A validation message with severity and location."""
+
     severity: ValidationSeverity
     message: str
     path: str = ""  # JSON path to the error location
@@ -70,6 +73,7 @@ class ValidationMessage:
 @dataclass
 class ValidationResult:
     """Result of workflow validation."""
+
     valid: bool
     messages: List[ValidationMessage] = field(default_factory=list)
 
@@ -85,31 +89,37 @@ class ValidationResult:
 
     def add_error(self, message: str, path: str = "", code: str = "") -> None:
         """Add an error message."""
-        self.messages.append(ValidationMessage(
-            severity=ValidationSeverity.ERROR,
-            message=message,
-            path=path,
-            code=code,
-        ))
+        self.messages.append(
+            ValidationMessage(
+                severity=ValidationSeverity.ERROR,
+                message=message,
+                path=path,
+                code=code,
+            )
+        )
         self.valid = False
 
     def add_warning(self, message: str, path: str = "", code: str = "") -> None:
         """Add a warning message."""
-        self.messages.append(ValidationMessage(
-            severity=ValidationSeverity.WARNING,
-            message=message,
-            path=path,
-            code=code,
-        ))
+        self.messages.append(
+            ValidationMessage(
+                severity=ValidationSeverity.WARNING,
+                message=message,
+                path=path,
+                code=code,
+            )
+        )
 
     def add_info(self, message: str, path: str = "", code: str = "") -> None:
         """Add an info message."""
-        self.messages.append(ValidationMessage(
-            severity=ValidationSeverity.INFO,
-            message=message,
-            path=path,
-            code=code,
-        ))
+        self.messages.append(
+            ValidationMessage(
+                severity=ValidationSeverity.INFO,
+                message=message,
+                path=path,
+                code=code,
+            )
+        )
 
 
 # Valid step types
@@ -651,6 +661,7 @@ if PYDANTIC_AVAILABLE:
 
     class VisualNodeSchema(BaseModel):
         """Schema for visual node data."""
+
         position: Optional[Dict[str, float]] = None
         size: Optional[Dict[str, float]] = None
         category: Optional[str] = None
@@ -661,6 +672,7 @@ if PYDANTIC_AVAILABLE:
 
     class StepSchema(BaseModel):
         """Schema for workflow step."""
+
         id: str = Field(..., min_length=1)
         name: str = Field(default="")
         step_type: str = Field(default="task")
@@ -682,6 +694,7 @@ if PYDANTIC_AVAILABLE:
 
     class TransitionSchema(BaseModel):
         """Schema for transition rule."""
+
         id: str = Field(default="")
         from_step: str = Field(..., min_length=1)
         to_step: str = Field(..., min_length=1)
@@ -691,6 +704,7 @@ if PYDANTIC_AVAILABLE:
 
     class ResourceLimitsSchema(BaseModel):
         """Schema for resource limits."""
+
         max_tokens: int = Field(default=100000, gt=0)
         max_cost_usd: float = Field(default=10.0, gt=0)
         timeout_seconds: float = Field(default=600.0, gt=0)
@@ -699,6 +713,7 @@ if PYDANTIC_AVAILABLE:
 
     class WorkflowSchema(BaseModel):
         """Schema for complete workflow definition."""
+
         id: str = Field(..., min_length=1)
         name: str = Field(..., min_length=1)
         description: str = Field(default="")
@@ -750,9 +765,11 @@ __all__ = [
 ]
 
 if PYDANTIC_AVAILABLE:
-    __all__.extend([
-        "WorkflowSchema",
-        "StepSchema",
-        "TransitionSchema",
-        "ResourceLimitsSchema",
-    ])
+    __all__.extend(
+        [
+            "WorkflowSchema",
+            "StepSchema",
+            "TransitionSchema",
+            "ResourceLimitsSchema",
+        ]
+    )

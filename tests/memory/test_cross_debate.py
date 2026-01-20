@@ -438,7 +438,9 @@ class TestCrossDebateMemoryQuery:
         )
 
         # Should use fallback since RLM is disabled
-        assert "rate" in result.lower() or "limiting" in result.lower() or "debate" in result.lower()
+        assert (
+            "rate" in result.lower() or "limiting" in result.lower() or "debate" in result.lower()
+        )
 
 
 class TestCrossDebateMemoryPersistence:

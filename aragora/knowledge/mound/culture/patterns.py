@@ -144,14 +144,24 @@ class ReasoningPattern:
             confidence=data.get("confidence", 0.5),
             success_count=data.get("success_count", 0),
             failure_count=data.get("failure_count", 0),
-            last_applied=datetime.fromisoformat(data["last_applied"]) if data.get("last_applied") else None,
+            last_applied=(
+                datetime.fromisoformat(data["last_applied"]) if data.get("last_applied") else None
+            ),
             derived_from_debates=data.get("derived_from_debates", []),
             contributing_agents=data.get("contributing_agents", []),
             verticals=data.get("verticals", []),
             workspace_id=data.get("workspace_id"),
             topics=data.get("topics", []),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if data.get("updated_at")
+                else datetime.now()
+            ),
         )
 
 
@@ -203,5 +213,9 @@ class DecisionHeuristic:
             verticals=data.get("verticals", []),
             workspace_id=data.get("workspace_id"),
             usage_count=data.get("usage_count", 0),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
         )

@@ -32,7 +32,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -94,15 +94,11 @@ class SupabaseSyncService:
             interval_seconds: Seconds between sync cycles
             max_retries: Max retry attempts per item before dropping
         """
-        self.batch_size = int(
-            os.getenv("SUPABASE_SYNC_BATCH_SIZE", str(batch_size))
-        )
+        self.batch_size = int(os.getenv("SUPABASE_SYNC_BATCH_SIZE", str(batch_size)))
         self.interval_seconds = float(
             os.getenv("SUPABASE_SYNC_INTERVAL_SECONDS", str(interval_seconds))
         )
-        self.max_retries = int(
-            os.getenv("SUPABASE_SYNC_MAX_RETRIES", str(max_retries))
-        )
+        self.max_retries = int(os.getenv("SUPABASE_SYNC_MAX_RETRIES", str(max_retries)))
 
         # Check if sync is enabled
         self.enabled = os.getenv("SUPABASE_SYNC_ENABLED", "false").lower() == "true"

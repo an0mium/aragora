@@ -265,6 +265,7 @@ class TestGitDiff:
     def test_returns_empty_on_failure(self, executor):
         """Test returns empty string when git fails."""
         import subprocess
+
         with patch("aragora.implement.executor.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.SubprocessError("git not found")
             diff = executor._get_git_diff()

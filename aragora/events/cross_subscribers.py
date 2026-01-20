@@ -30,6 +30,17 @@ from typing import Callable, Optional
 from aragora.events.types import StreamEvent, StreamEventType
 from aragora.resilience import CircuitBreaker
 
+# Import settings for feature flags
+try:
+    from aragora.config.settings import get_settings
+
+    SETTINGS_AVAILABLE = True
+except ImportError:
+    SETTINGS_AVAILABLE = False
+
+    def get_settings():
+        return None
+
 # Import metrics (optional - graceful fallback if not available)
 try:
     from aragora.server.prometheus_cross_pollination import (
@@ -44,6 +55,7 @@ try:
         record_km_staleness_check,
         update_km_nodes_by_source,
     )
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -55,7 +67,9 @@ except ImportError:
     def record_km_outbound_event(target: str, event_type: str) -> None:
         pass
 
-    def record_km_adapter_sync(adapter: str, direction: str, status: str, duration: float = None) -> None:
+    def record_km_adapter_sync(
+        adapter: str, direction: str, status: str, duration: float = None
+    ) -> None:
         pass
 
     def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0) -> None:
@@ -63,6 +77,7 @@ except ImportError:
 
     def update_km_nodes_by_source(source: str, count: int) -> None:
         pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +98,7 @@ class RetryConfig:
         """
         import random
 
-        delay = self.base_delay_ms * (self.exponential_base ** attempt)
+        delay = self.base_delay_ms * (self.exponential_base**attempt)
         # Add jitter (±20%)
         jitter = delay * 0.2 * (random.random() * 2 - 1)
         delay += jitter
@@ -123,7 +138,7 @@ class SubscriberStats:
         self.latency_samples.append(latency_ms)
         # Maintain bounded sample size
         if len(self.latency_samples) > self.max_samples:
-            self.latency_samples = self.latency_samples[-self.max_samples:]
+            self.latency_samples = self.latency_samples[-self.max_samples :]
 
     def get_percentile(self, p: float) -> Optional[float]:
         """Get latency at given percentile (0-100)."""
@@ -155,12 +170,14 @@ class AsyncDispatchConfig:
     """Configuration for async/batched event dispatch."""
 
     # Event types that should always use async dispatch
-    async_event_types: set = field(default_factory=lambda: {
-        StreamEventType.MEMORY_STORED,
-        StreamEventType.MEMORY_RETRIEVED,
-        StreamEventType.KNOWLEDGE_QUERIED,
-        StreamEventType.RLM_COMPRESSION_COMPLETE,
-    })
+    async_event_types: set = field(
+        default_factory=lambda: {
+            StreamEventType.MEMORY_STORED,
+            StreamEventType.MEMORY_RETRIEVED,
+            StreamEventType.KNOWLEDGE_QUERIED,
+            StreamEventType.RLM_COMPRESSION_COMPLETE,
+        }
+    )
 
     # Batch size before auto-flush (0 = no batching)
     batch_size: int = 10
@@ -207,7 +224,9 @@ class CrossSubscriberManager:
             default_retry_config: Default retry configuration for handlers (default: 3 retries)
             async_config: Configuration for async/batched event dispatch
         """
-        self._subscribers: dict[StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]] = {}
+        self._subscribers: dict[
+            StreamEventType, list[tuple[str, Callable[[StreamEvent], None]]]
+        ] = {}
         self._stats: dict[str, SubscriberStats] = {}
         self._filters: dict[str, Callable[[StreamEvent], bool]] = {}
         self._connected = False
@@ -228,8 +247,28 @@ class CrossSubscriberManager:
             cooldown_seconds=cooldown_seconds,
         )
 
+        # Cache settings reference for feature flags
+        self._settings = get_settings() if SETTINGS_AVAILABLE else None
+
         # Register built-in cross-subsystem handlers
         self._register_builtin_subscribers()
+
+    def _is_km_handler_enabled(self, handler_name: str) -> bool:
+        """Check if a KM handler is enabled via feature flags.
+
+        Args:
+            handler_name: The handler name (e.g., 'memory_to_mound')
+
+        Returns:
+            True if enabled (default) or settings not available
+        """
+        if self._settings is None:
+            return True  # Default to enabled if settings unavailable
+        try:
+            integration = self._settings.integration
+            return integration.is_km_handler_enabled(handler_name)
+        except (AttributeError, TypeError):
+            return True  # Default to enabled on error
 
     def _register_builtin_subscribers(self) -> None:
         """Register built-in cross-subsystem event handlers."""
@@ -439,9 +478,11 @@ class CrossSubscriberManager:
             def on_memory_stored(event):
                 pass
         """
+
         def decorator(func: Callable[[StreamEvent], None]) -> Callable[[StreamEvent], None]:
             self.register(func.__name__, event_type, func)
             return func
+
         return decorator
 
     def connect(self, event_emitter) -> None:
@@ -507,7 +548,8 @@ class CrossSubscriberManager:
 
             # Get retry config for this handler
             retry_config = (
-                self._stats[name].retry_config if name in self._stats and self._stats[name].retry_config
+                self._stats[name].retry_config
+                if name in self._stats and self._stats[name].retry_config
                 else self._default_retry_config
             )
 
@@ -556,7 +598,9 @@ class CrossSubscriberManager:
                 except Exception as e:
                     last_error = e
                     if attempt < retry_config.max_retries:
-                        logger.debug(f"Handler {name} failed (attempt {attempt + 1}), will retry: {e}")
+                        logger.debug(
+                            f"Handler {name} failed (attempt {attempt + 1}), will retry: {e}"
+                        )
                     continue  # Try again
 
             # If all retries exhausted and still failing
@@ -564,7 +608,9 @@ class CrossSubscriberManager:
                 # Record failure with circuit breaker
                 self._circuit_breaker.record_failure(name)
 
-                logger.error(f"Cross-subscriber error in {name} after {retry_config.max_retries + 1} attempts: {last_error}")
+                logger.error(
+                    f"Cross-subscriber error in {name} after {retry_config.max_retries + 1} attempts: {last_error}"
+                )
                 if name in self._stats:
                     self._stats[name].events_failed += 1
 
@@ -574,7 +620,9 @@ class CrossSubscriberManager:
 
                 # Check if circuit just opened
                 if not self._circuit_breaker.is_available(name):
-                    logger.warning(f"Circuit breaker opened for handler {name} after repeated failures")
+                    logger.warning(
+                        f"Circuit breaker opened for handler {name} after repeated failures"
+                    )
                     if METRICS_AVAILABLE:
                         set_circuit_breaker_state(name, is_open=True)
 
@@ -650,7 +698,6 @@ class CrossSubscriberManager:
         Args:
             event: The event to dispatch
         """
-        import time
 
         # Check if this event type should use async dispatch
         if event.type in self._async_config.async_event_types:
@@ -954,9 +1001,7 @@ class CrossSubscriberManager:
                 try:
                     result = dispatch_webhook_with_retry(webhook, payload)
                     if not result.success:
-                        logger.warning(
-                            f"Webhook delivery failed for {webhook.id}: {result.error}"
-                        )
+                        logger.warning(f"Webhook delivery failed for {webhook.id}: {result.error}")
                 except Exception as e:
                     logger.error(f"Webhook dispatch error for {webhook.id}: {e}")
 
@@ -983,17 +1028,14 @@ class CrossSubscriberManager:
             patterns_count = data.get("patterns_count", 0)
             debate_id = data.get("debate_id", "")
             logger.info(
-                f"Culture patterns updated: {patterns_count} patterns "
-                f"from debate {debate_id}"
+                f"Culture patterns updated: {patterns_count} patterns " f"from debate {debate_id}"
             )
 
         # Handle node deletions
         elif update_type == "node_deleted":
             node_id = data.get("node_id", "")
             archived = data.get("archived", False)
-            logger.debug(
-                f"Knowledge node removed: {node_id} (archived={archived})"
-            )
+            logger.debug(f"Knowledge node removed: {node_id} (archived={archived})")
 
             # Clear any cached references to this node
             try:
@@ -1016,6 +1058,9 @@ class CrossSubscriberManager:
         Sync high-importance memories to Knowledge Mound for cross-debate access.
         Only syncs memories with importance ≥ 0.7 to avoid noise.
         """
+        if not self._is_km_handler_enabled("memory_to_mound"):
+            return
+
         data = event.data
         importance = data.get("importance", 0.0)
         content = data.get("content", "")
@@ -1025,7 +1070,9 @@ class CrossSubscriberManager:
         if importance < 0.7:
             return
 
-        logger.debug(f"Syncing high-importance memory to KM: importance={importance:.2f}, tier={tier}")
+        logger.debug(
+            f"Syncing high-importance memory to KM: importance={importance:.2f}, tier={tier}"
+        )
 
         # Record KM inbound metric
         record_km_inbound_event("memory", event.type.value)
@@ -1060,6 +1107,9 @@ class CrossSubscriberManager:
 
         When KM is queried, check for related memories and pre-warm the cache.
         """
+        if not self._is_km_handler_enabled("mound_to_memory"):
+            return
+
         data = event.data
         query = data.get("query", "")
         results_count = data.get("results_count", 0)
@@ -1090,6 +1140,9 @@ class CrossSubscriberManager:
 
         Store high-confidence beliefs and cruxes in KM for cross-debate learning.
         """
+        if not self._is_km_handler_enabled("belief_to_mound"):
+            return
+
         data = event.data
         debate_id = data.get("debate_id", "")
         beliefs_count = data.get("beliefs_count", 0)
@@ -1134,6 +1187,9 @@ class CrossSubscriberManager:
 
         Retrieve historical cruxes and beliefs to initialize priors for new debate.
         """
+        if not self._is_km_handler_enabled("mound_to_belief"):
+            return
+
         data = event.data
         debate_id = data.get("debate_id", "")
         question = data.get("question", "")
@@ -1176,6 +1232,9 @@ class CrossSubscriberManager:
 
         Store compression patterns that worked well for future retrieval optimization.
         """
+        if not self._is_km_handler_enabled("rlm_to_mound"):
+            return
+
         data = event.data
         compression_ratio = data.get("compression_ratio", 0.0)
         value_score = data.get("value_score", 0.0)
@@ -1185,7 +1244,9 @@ class CrossSubscriberManager:
         if value_score < 0.7:
             return
 
-        logger.debug(f"Storing RLM compression pattern: ratio={compression_ratio:.2f}, value={value_score:.2f}")
+        logger.debug(
+            f"Storing RLM compression pattern: ratio={compression_ratio:.2f}, value={value_score:.2f}"
+        )
 
         # Record KM inbound metric
         record_km_inbound_event("rlm", event.type.value)
@@ -1212,6 +1273,9 @@ class CrossSubscriberManager:
 
         Inform RLM about access patterns to optimize compression priorities.
         """
+        if not self._is_km_handler_enabled("mound_to_rlm"):
+            return
+
         data = event.data
         query = data.get("query", "")
         results_count = data.get("results_count", 0)
@@ -1246,6 +1310,9 @@ class CrossSubscriberManager:
         Store agent expertise profiles for cross-debate team selection.
         Only stores significant ELO changes (|delta| > 25).
         """
+        if not self._is_km_handler_enabled("elo_to_mound"):
+            return
+
         data = event.data
         agent_name = data.get("agent", "")
         new_elo = data.get("elo", 1500)
@@ -1257,7 +1324,9 @@ class CrossSubscriberManager:
         if abs(delta) < 25:
             return
 
-        logger.debug(f"Storing agent expertise: {agent_name} -> {new_elo} (Δ{delta:+.0f}) in {domain}")
+        logger.debug(
+            f"Storing agent expertise: {agent_name} -> {new_elo} (Δ{delta:+.0f}) in {domain}"
+        )
 
         # Record KM inbound metric
         record_km_inbound_event("ranking", event.type.value)
@@ -1285,6 +1354,9 @@ class CrossSubscriberManager:
 
         Retrieve agent expertise profiles to inform team selection.
         """
+        if not self._is_km_handler_enabled("mound_to_team"):
+            return
+
         data = event.data
         debate_id = data.get("debate_id", "")
         question = data.get("question", "")
@@ -1319,10 +1391,13 @@ class CrossSubscriberManager:
 
         Store high-confidence insights (≥0.7) for organizational learning.
         """
+        if not self._is_km_handler_enabled("insight_to_mound"):
+            return
+
         data = event.data
         confidence = data.get("confidence", 0.0)
         insight_type = data.get("type", "")
-        debate_id = data.get("debate_id", "")
+        data.get("debate_id", "")
 
         # Only store high-confidence insights
         if confidence < 0.7:
@@ -1380,7 +1455,7 @@ class CrossSubscriberManager:
         Retrieve agent flip history for consistency prediction.
         """
         data = event.data
-        debate_id = data.get("debate_id", "")
+        data.get("debate_id", "")
         agents = data.get("agents", [])
 
         if not agents:
@@ -1425,7 +1500,9 @@ class CrossSubscriberManager:
         patterns_count = data.get("patterns_count", 0)
         workspace_id = data.get("workspace_id", "")
 
-        logger.debug(f"Culture patterns available: {patterns_count} patterns in workspace {workspace_id}")
+        logger.debug(
+            f"Culture patterns available: {patterns_count} patterns in workspace {workspace_id}"
+        )
 
         # Culture patterns are used passively during debate initialization
         # by querying the CultureAccumulator
@@ -1439,7 +1516,7 @@ class CrossSubscriberManager:
         data = event.data
         node_id = data.get("node_id", "")
         staleness_reason = data.get("reason", "")
-        last_verified = data.get("last_verified", "")
+        data.get("last_verified", "")
 
         logger.debug(f"Knowledge stale: {node_id} - {staleness_reason}")
 
@@ -1455,9 +1532,7 @@ class CrossSubscriberManager:
             for debate_id, debate_state in active_debates.items():
                 cited_nodes = debate_state.get("cited_knowledge", [])
                 if node_id in cited_nodes:
-                    logger.warning(
-                        f"Active debate {debate_id} cites stale knowledge: {node_id}"
-                    )
+                    logger.warning(f"Active debate {debate_id} cites stale knowledge: {node_id}")
                     # Could emit a warning event to the debate here
 
         except ImportError:
@@ -1552,7 +1627,11 @@ class CrossSubscriberManager:
         result = {}
         for name, stats in self._stats.items():
             # Get circuit breaker status for this handler
-            cb_state = self._circuit_breaker.get_state(name) if hasattr(self._circuit_breaker, 'get_state') else "unknown"
+            cb_state = (
+                self._circuit_breaker.get_state(name)
+                if hasattr(self._circuit_breaker, "get_state")
+                else "unknown"
+            )
             cb_available = self._circuit_breaker.is_available(name)
 
             # Get retry config
@@ -1569,12 +1648,22 @@ class CrossSubscriberManager:
                 "has_filter": name in self._filters,
                 "latency_ms": {
                     "avg": round(stats.avg_latency_ms, 3),
-                    "min": round(stats.min_latency_ms, 3) if stats.min_latency_ms != float("inf") else None,
+                    "min": (
+                        round(stats.min_latency_ms, 3)
+                        if stats.min_latency_ms != float("inf")
+                        else None
+                    ),
                     "max": round(stats.max_latency_ms, 3),
                     "total": round(stats.total_latency_ms, 3),
-                    "p50": round(stats.p50_latency_ms, 3) if stats.p50_latency_ms is not None else None,
-                    "p90": round(stats.p90_latency_ms, 3) if stats.p90_latency_ms is not None else None,
-                    "p99": round(stats.p99_latency_ms, 3) if stats.p99_latency_ms is not None else None,
+                    "p50": (
+                        round(stats.p50_latency_ms, 3) if stats.p50_latency_ms is not None else None
+                    ),
+                    "p90": (
+                        round(stats.p90_latency_ms, 3) if stats.p90_latency_ms is not None else None
+                    ),
+                    "p99": (
+                        round(stats.p99_latency_ms, 3) if stats.p99_latency_ms is not None else None
+                    ),
                     "sample_count": len(stats.latency_samples),
                 },
                 "retry": {
@@ -1782,8 +1871,7 @@ class CrossSubscriberManager:
 
         # Circuit breaker summary
         circuits_open = sum(
-            1 for s in stats.values()
-            if not s.get("circuit_breaker", {}).get("available", True)
+            1 for s in stats.values() if not s.get("circuit_breaker", {}).get("available", True)
         )
 
         return {
@@ -1793,14 +1881,17 @@ class CrossSubscriberManager:
                 "total_events_failed": total_failed,
                 "total_events_skipped": total_skipped,
                 "total_events_retried": total_retried,
-                "overall_error_rate": round(total_failed / max(total_processed + total_failed, 1), 4),
+                "overall_error_rate": round(
+                    total_failed / max(total_processed + total_failed, 1), 4
+                ),
                 "circuits_open": circuits_open,
             },
             "slowest_handlers": [
                 {"name": name, "p90_latency_ms": lat} for name, lat in handlers_by_p90[:5]
             ],
             "highest_error_handlers": [
-                {"name": name, "error_rate": round(rate, 4)} for name, rate in handlers_by_error_rate[:5]
+                {"name": name, "error_rate": round(rate, 4)}
+                for name, rate in handlers_by_error_rate[:5]
                 if rate > 0
             ],
             "per_handler": stats,

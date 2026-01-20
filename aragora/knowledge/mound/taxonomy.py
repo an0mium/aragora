@@ -219,55 +219,136 @@ DEFAULT_TAXONOMY: Dict[str, Dict[str, Any]] = {
 # Keywords for auto-classification
 DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     "legal/contracts": [
-        "contract", "agreement", "clause", "term", "party", "parties",
-        "obligation", "breach", "termination", "notice period", "indemnity",
+        "contract",
+        "agreement",
+        "clause",
+        "term",
+        "party",
+        "parties",
+        "obligation",
+        "breach",
+        "termination",
+        "notice period",
+        "indemnity",
     ],
     "legal/compliance": [
-        "compliance", "regulation", "regulatory", "requirement", "audit",
-        "violation", "penalty", "enforcement",
+        "compliance",
+        "regulation",
+        "regulatory",
+        "requirement",
+        "audit",
+        "violation",
+        "penalty",
+        "enforcement",
     ],
     "legal/compliance/gdpr": [
-        "gdpr", "data protection", "privacy", "personal data", "consent",
-        "data subject", "controller", "processor",
+        "gdpr",
+        "data protection",
+        "privacy",
+        "personal data",
+        "consent",
+        "data subject",
+        "controller",
+        "processor",
     ],
     "legal/compliance/hipaa": [
-        "hipaa", "phi", "protected health", "covered entity", "baa",
+        "hipaa",
+        "phi",
+        "protected health",
+        "covered entity",
+        "baa",
     ],
     "financial/accounting": [
-        "accounting", "gaap", "ifrs", "financial statement", "balance sheet",
-        "income statement", "revenue", "expense", "accrual",
+        "accounting",
+        "gaap",
+        "ifrs",
+        "financial statement",
+        "balance sheet",
+        "income statement",
+        "revenue",
+        "expense",
+        "accrual",
     ],
     "financial/audit": [
-        "audit", "auditor", "internal control", "material weakness",
-        "opinion", "assurance", "attestation",
+        "audit",
+        "auditor",
+        "internal control",
+        "material weakness",
+        "opinion",
+        "assurance",
+        "attestation",
     ],
     "financial/tax": [
-        "tax", "taxation", "deduction", "credit", "liability", "irs",
-        "transfer pricing", "withholding",
+        "tax",
+        "taxation",
+        "deduction",
+        "credit",
+        "liability",
+        "irs",
+        "transfer pricing",
+        "withholding",
     ],
     "technical/architecture": [
-        "architecture", "design pattern", "microservice", "api", "service",
-        "scalability", "reliability", "system design",
+        "architecture",
+        "design pattern",
+        "microservice",
+        "api",
+        "service",
+        "scalability",
+        "reliability",
+        "system design",
     ],
     "technical/security": [
-        "security", "vulnerability", "authentication", "authorization",
-        "encryption", "attack", "threat", "exploit", "cve",
+        "security",
+        "vulnerability",
+        "authentication",
+        "authorization",
+        "encryption",
+        "attack",
+        "threat",
+        "exploit",
+        "cve",
     ],
     "technical/infrastructure": [
-        "infrastructure", "cloud", "kubernetes", "docker", "aws", "gcp",
-        "azure", "terraform", "deployment", "ci/cd",
+        "infrastructure",
+        "cloud",
+        "kubernetes",
+        "docker",
+        "aws",
+        "gcp",
+        "azure",
+        "terraform",
+        "deployment",
+        "ci/cd",
     ],
     "technical/data": [
-        "data pipeline", "etl", "data warehouse", "analytics", "ml",
-        "machine learning", "model", "dataset",
+        "data pipeline",
+        "etl",
+        "data warehouse",
+        "analytics",
+        "ml",
+        "machine learning",
+        "model",
+        "dataset",
     ],
     "healthcare/clinical": [
-        "patient", "diagnosis", "treatment", "clinical", "medical",
-        "symptom", "condition", "medication",
+        "patient",
+        "diagnosis",
+        "treatment",
+        "clinical",
+        "medical",
+        "symptom",
+        "condition",
+        "medication",
     ],
     "healthcare/research": [
-        "clinical trial", "study", "research", "hypothesis", "cohort",
-        "randomized", "placebo",
+        "clinical trial",
+        "study",
+        "research",
+        "hypothesis",
+        "cohort",
+        "randomized",
+        "placebo",
     ],
 }
 
@@ -304,9 +385,7 @@ class DomainTaxonomy:
         if custom_taxonomy:
             self._merge_taxonomy(self._taxonomy, custom_taxonomy)
 
-    def _merge_taxonomy(
-        self, base: Dict[str, Any], custom: Dict[str, Any]
-    ) -> None:
+    def _merge_taxonomy(self, base: Dict[str, Any], custom: Dict[str, Any]) -> None:
         """Recursively merge custom taxonomy into base."""
         for key, value in custom.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
@@ -350,15 +429,11 @@ class DomainTaxonomy:
             if existing:
                 node_id = existing.id
             else:
-                node_id = await self._create_node(
-                    name, parent_id, description, current_path
-                )
+                node_id = await self._create_node(name, parent_id, description, current_path)
 
             # Recurse into children
             if children:
-                await self._create_taxonomy_recursive(
-                    children, node_id, current_path
-                )
+                await self._create_taxonomy_recursive(children, node_id, current_path)
 
     async def _create_node(
         self,
@@ -521,19 +596,14 @@ class DomainTaxonomy:
         best_score = 0
 
         for domain, keywords in DOMAIN_KEYWORDS.items():
-            score = sum(
-                1 for kw in keywords
-                if kw.lower() in content_lower
-            )
+            score = sum(1 for kw in keywords if kw.lower() in content_lower)
             if score > best_score:
                 best_score = score
                 best_match = domain
 
         return best_match
 
-    async def ensure_path(
-        self, path_parts: List[str], description: str = ""
-    ) -> str:
+    async def ensure_path(self, path_parts: List[str], description: str = "") -> str:
         """
         Ensure a domain path exists, creating nodes as needed.
 
@@ -566,9 +636,7 @@ class DomainTaxonomy:
             else:
                 # Create this node
                 node_desc = description if i == len(path_parts) - 1 else ""
-                parent_id = await self._create_node(
-                    part, parent_id, node_desc, current_path
-                )
+                parent_id = await self._create_node(part, parent_id, node_desc, current_path)
 
         # Refresh cache
         await self._load_cache()
@@ -587,9 +655,7 @@ class DomainTaxonomy:
         """
         return domain.split("/")
 
-    async def get_children(
-        self, domain: str = ""
-    ) -> List[TaxonomyNode]:
+    async def get_children(self, domain: str = "") -> List[TaxonomyNode]:
         """
         Get child domains of a given domain.
 
@@ -651,9 +717,7 @@ class DomainTaxonomy:
 
         return {
             "total_domains": len(self._cache),
-            "root_domains": len([
-                d for d in self._cache.values() if d.parent_id is None
-            ]),
+            "root_domains": len([d for d in self._cache.values() if d.parent_id is None]),
             "max_depth": max(
                 (d.full_path.count("/") + 1 for d in self._cache.values()),
                 default=0,

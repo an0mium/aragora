@@ -132,9 +132,7 @@ class RBACEnforcer:
         if not self.config.enabled:
             return True
 
-        result = await self._check_permission(
-            actor, resource, action, context, resource_context
-        )
+        result = await self._check_permission(actor, resource, action, context, resource_context)
 
         # Log the check
         if self.config.log_all_checks:
@@ -163,9 +161,7 @@ class RBACEnforcer:
         Raises:
             PermissionDeniedException: If permission is denied
         """
-        result = await self._check_permission(
-            actor, resource, action, context, resource_context
-        )
+        result = await self._check_permission(actor, resource, action, context, resource_context)
 
         # Log the check
         if self.config.log_all_checks or (not result.granted and self.config.log_denials):
@@ -275,9 +271,7 @@ class RBACEnforcer:
 
         # Trim cache if too large
         if len(self._permission_cache) > self.config.max_cache_size:
-            oldest_key = min(
-                self._cache_timestamps, key=lambda k: self._cache_timestamps[k]
-            )
+            oldest_key = min(self._cache_timestamps, key=lambda k: self._cache_timestamps[k])
             del self._permission_cache[oldest_key]
             del self._cache_timestamps[oldest_key]
 

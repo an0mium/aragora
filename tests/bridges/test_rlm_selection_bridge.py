@@ -187,9 +187,7 @@ class TestRLMSelectionBridge:
 
     def test_get_compression_boost(self):
         """Test getting compression boost."""
-        bridge = RLMSelectionBridge(
-            config=RLMSelectionBridgeConfig(min_operations_for_boost=3)
-        )
+        bridge = RLMSelectionBridge(config=RLMSelectionBridgeConfig(min_operations_for_boost=3))
 
         # Record multiple high-quality compressions
         for _ in range(5):
@@ -222,9 +220,7 @@ class TestRLMSelectionBridge:
 
     def test_get_rlm_efficient_agents(self):
         """Test getting RLM efficient agents."""
-        bridge = RLMSelectionBridge(
-            config=RLMSelectionBridgeConfig(min_operations_for_boost=5)
-        )
+        bridge = RLMSelectionBridge(config=RLMSelectionBridgeConfig(min_operations_for_boost=5))
 
         # Add efficient agent
         bridge._agent_stats["efficient"] = AgentRLMStats(
@@ -254,9 +250,7 @@ class TestRLMSelectionBridge:
 
     def test_get_best_agents_for_long_debates(self):
         """Test getting best agents for long debates."""
-        bridge = RLMSelectionBridge(
-            config=RLMSelectionBridgeConfig(min_operations_for_boost=5)
-        )
+        bridge = RLMSelectionBridge(config=RLMSelectionBridgeConfig(min_operations_for_boost=5))
 
         # Add agents with different efficiency
         bridge._agent_stats["best"] = AgentRLMStats(

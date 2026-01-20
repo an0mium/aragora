@@ -630,7 +630,13 @@ class CacheManager:
 
     # Domain groupings for bulk invalidation
     DOMAIN_PRESETS: dict[str, list[str]] = {
-        "agent": ["agent_profile", "agent_h2h", "agent_flips", "agent_reputation", "all_reputations"],
+        "agent": [
+            "agent_profile",
+            "agent_h2h",
+            "agent_flips",
+            "agent_reputation",
+            "all_reputations",
+        ],
         "leaderboard": [
             "leaderboard",
             "lb_rankings",
@@ -644,7 +650,13 @@ class CacheManager:
             "flips_recent",
             "flips_summary",
         ],
-        "analytics": ["analytics", "analytics_ranking", "analytics_debates", "analytics_memory", "archive_stats"],
+        "analytics": [
+            "analytics",
+            "analytics_ranking",
+            "analytics_debates",
+            "analytics_memory",
+            "archive_stats",
+        ],
         "consensus": [
             "consensus",
             "consensus_similar",
@@ -654,7 +666,13 @@ class CacheManager:
             "contrarian_views",
             "risk_warnings",
         ],
-        "memory": ["replays_list", "learning_evolution", "meta_learning", "critique_patterns", "critique_stats"],
+        "memory": [
+            "replays_list",
+            "learning_evolution",
+            "meta_learning",
+            "critique_patterns",
+            "critique_stats",
+        ],
         "dashboard": ["dashboard_debates"],
         "embeddings": ["embeddings"],
     }

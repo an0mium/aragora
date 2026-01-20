@@ -156,16 +156,20 @@ class TestKnowledgeMoundFacade:
     async def test_query_basic(self, mound):
         """Test basic query functionality."""
         # Store some test data
-        await mound.store(IngestionRequest(
-            content="Security best practices for API development",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        await mound.store(IngestionRequest(
-            content="Database optimization techniques",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Security best practices for API development",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        await mound.store(
+            IngestionRequest(
+                content="Database optimization techniques",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         result = await mound.query(
             query="security",
@@ -180,16 +184,20 @@ class TestKnowledgeMoundFacade:
     @pytest.mark.asyncio
     async def test_query_with_source_filter(self, mound):
         """Test query with source filtering."""
-        await mound.store(IngestionRequest(
-            content="Document content about security",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        await mound.store(IngestionRequest(
-            content="Consensus outcome about testing",
-            source_type=KnowledgeSource.CONSENSUS,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Document content about security",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        await mound.store(
+            IngestionRequest(
+                content="Consensus outcome about testing",
+                source_type=KnowledgeSource.CONSENSUS,
+                workspace_id="test_workspace",
+            )
+        )
 
         result = await mound.query(
             query="security",
@@ -205,11 +213,13 @@ class TestKnowledgeMoundFacade:
     async def test_get_stale_knowledge(self, mound):
         """Test staleness detection integration."""
         # Store an item
-        await mound.store(IngestionRequest(
-            content="Potentially stale knowledge",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Potentially stale knowledge",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # The staleness detector is available
         assert mound._staleness_detector is not None
@@ -227,16 +237,20 @@ class TestKnowledgeMoundFacade:
     async def test_get_stats(self, mound):
         """Test getting mound statistics."""
         # Store some items
-        await mound.store(IngestionRequest(
-            content="Item 1",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        await mound.store(IngestionRequest(
-            content="Item 2",
-            source_type=KnowledgeSource.FACT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Item 1",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        await mound.store(
+            IngestionRequest(
+                content="Item 2",
+                source_type=KnowledgeSource.FACT,
+                workspace_id="test_workspace",
+            )
+        )
 
         stats = await mound.get_stats()
 
@@ -575,10 +589,7 @@ class TestKnowledgeMoundAdvanced:
 
         # Update the node - may fail due to internal implementation details
         try:
-            updated_node = await mound.update(
-                store_result.node_id,
-                {"confidence": 0.9}
-            )
+            updated_node = await mound.update(store_result.node_id, {"confidence": 0.9})
             assert updated_node is not None
         except AttributeError:
             # Known issue with date serialization in update path
@@ -618,11 +629,13 @@ class TestKnowledgeMoundAdvanced:
     async def test_query_semantic(self, mound):
         """Test semantic search."""
         # Store some test data
-        await mound.store(IngestionRequest(
-            content="Machine learning models for classification",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Machine learning models for classification",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Query semantically
         results = await mound.query_semantic(
@@ -682,16 +695,20 @@ class TestKnowledgeMoundAdvanced:
     async def test_schedule_revalidation(self, mound):
         """Test scheduling nodes for revalidation."""
         # Store some nodes
-        result1 = await mound.store(IngestionRequest(
-            content="Node 1 to revalidate",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        result2 = await mound.store(IngestionRequest(
-            content="Node 2 to revalidate",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        result1 = await mound.store(
+            IngestionRequest(
+                content="Node 1 to revalidate",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        result2 = await mound.store(
+            IngestionRequest(
+                content="Node 2 to revalidate",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Schedule revalidation - may fail due to internal update implementation
         try:
@@ -737,11 +754,13 @@ class TestKnowledgeMoundAdvanced:
         await mound.initialize()
 
         # Store something
-        await mound.store(IngestionRequest(
-            content="Test content",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Test content",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test",
+            )
+        )
 
         # Close
         await mound.close()
@@ -760,11 +779,13 @@ class TestKnowledgeMoundAdvanced:
 
         async with mound.session() as m:
             assert m._initialized is True
-            await m.store(IngestionRequest(
-                content="Content in session",
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test",
-            ))
+            await m.store(
+                IngestionRequest(
+                    content="Content in session",
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test",
+                )
+            )
 
         assert mound._initialized is False
 
@@ -873,18 +894,22 @@ class TestMoundStats:
         """Test statistics with multiple items."""
         # Store various items
         for i in range(5):
-            await mound.store(IngestionRequest(
-                content=f"Document content {i}",
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test_workspace",
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content=f"Document content {i}",
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test_workspace",
+                )
+            )
 
         for i in range(3):
-            await mound.store(IngestionRequest(
-                content=f"Fact content {i}",
-                source_type=KnowledgeSource.FACT,
-                workspace_id="test_workspace",
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content=f"Fact content {i}",
+                    source_type=KnowledgeSource.FACT,
+                    workspace_id="test_workspace",
+                )
+            )
 
         stats = await mound.get_stats()
 
@@ -925,11 +950,13 @@ class TestMoundEdgeCases:
     async def test_store_with_relationships(self, mound):
         """Test storing a node with relationships."""
         # Store a parent node first
-        parent_result = await mound.store(IngestionRequest(
-            content="Parent node content",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        parent_result = await mound.store(
+            IngestionRequest(
+                content="Parent node content",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Store a child node that derives from parent
         request = IngestionRequest(
@@ -947,16 +974,20 @@ class TestMoundEdgeCases:
     async def test_store_with_all_relationship_types(self, mound):
         """Test storing with supports and contradicts relationships."""
         # Store target nodes
-        target1 = await mound.store(IngestionRequest(
-            content="Target node 1",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        target2 = await mound.store(IngestionRequest(
-            content="Target node 2",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        target1 = await mound.store(
+            IngestionRequest(
+                content="Target node 1",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        target2 = await mound.store(
+            IngestionRequest(
+                content="Target node 2",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Store a node with relationships
         request = IngestionRequest(
@@ -1020,10 +1051,12 @@ class TestMoundEdgeCases:
         mound = KnowledgeMound(config=config, workspace_id="test")
 
         with pytest.raises(RuntimeError, match="not initialized"):
-            await mound.store(IngestionRequest(
-                content="Test content",
-                workspace_id="test",
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content="Test content",
+                    workspace_id="test",
+                )
+            )
 
 
 class TestGraphQueryResult:
@@ -1162,11 +1195,13 @@ class TestRecentNodesAndGraphExport:
         """Test get_recent_nodes returns nodes in order."""
         # Store multiple nodes
         for i in range(5):
-            await mound.store(IngestionRequest(
-                content=f"Recent node content {i}",
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test_workspace",
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content=f"Recent node content {i}",
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test_workspace",
+                )
+            )
 
         nodes = await mound.get_recent_nodes(limit=3)
 
@@ -1179,11 +1214,13 @@ class TestRecentNodesAndGraphExport:
         """Test that get_recent_nodes respects the limit parameter."""
         # Store 10 nodes
         for i in range(10):
-            await mound.store(IngestionRequest(
-                content=f"Node {i}",
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test_workspace",
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content=f"Node {i}",
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test_workspace",
+                )
+            )
 
         nodes = await mound.get_recent_nodes(limit=5)
 
@@ -1204,17 +1241,21 @@ class TestRecentNodesAndGraphExport:
     async def test_export_graph_d3_with_data(self, mound):
         """Test D3 graph export with nodes."""
         # Store nodes
-        node1 = await mound.store(IngestionRequest(
-            content="Node 1 for D3 export",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
-        node2 = await mound.store(IngestionRequest(
-            content="Node 2 for D3 export",
-            source_type=KnowledgeSource.FACT,
-            workspace_id="test_workspace",
-            derived_from=[node1.node_id],
-        ))
+        node1 = await mound.store(
+            IngestionRequest(
+                content="Node 1 for D3 export",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
+        node2 = await mound.store(
+            IngestionRequest(
+                content="Node 2 for D3 export",
+                source_type=KnowledgeSource.FACT,
+                workspace_id="test_workspace",
+                derived_from=[node1.node_id],
+            )
+        )
 
         result = await mound.export_graph_d3(limit=10)
 
@@ -1232,20 +1273,24 @@ class TestRecentNodesAndGraphExport:
     async def test_export_graph_d3_from_start_node(self, mound):
         """Test D3 graph export starting from a specific node."""
         # Store a root node
-        root = await mound.store(IngestionRequest(
-            content="Root node for graph",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        root = await mound.store(
+            IngestionRequest(
+                content="Root node for graph",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Store child nodes
         for i in range(3):
-            await mound.store(IngestionRequest(
-                content=f"Child node {i}",
-                source_type=KnowledgeSource.FACT,
-                workspace_id="test_workspace",
-                derived_from=[root.node_id],
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content=f"Child node {i}",
+                    source_type=KnowledgeSource.FACT,
+                    workspace_id="test_workspace",
+                    derived_from=[root.node_id],
+                )
+            )
 
         result = await mound.export_graph_d3(
             start_node_id=root.node_id,
@@ -1272,11 +1317,13 @@ class TestRecentNodesAndGraphExport:
     async def test_export_graph_graphml_with_data(self, mound):
         """Test GraphML export with nodes."""
         # Store nodes
-        await mound.store(IngestionRequest(
-            content="Node for GraphML export",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Node for GraphML export",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         result = await mound.export_graph_graphml(limit=10)
 
@@ -1288,11 +1335,13 @@ class TestRecentNodesAndGraphExport:
     async def test_export_graph_graphml_escapes_special_chars(self, mound):
         """Test that GraphML export properly escapes XML special characters."""
         # Store a node with special characters
-        await mound.store(IngestionRequest(
-            content='Content with <special> & "characters"',
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content='Content with <special> & "characters"',
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         result = await mound.export_graph_graphml(limit=10)
 
@@ -1347,11 +1396,13 @@ class TestRLMIntegration:
     async def test_query_with_rlm_graceful_fallback(self, mound):
         """Test RLM query gracefully handles unavailable RLM."""
         # Store some test data
-        await mound.store(IngestionRequest(
-            content="Machine learning models for classification",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Machine learning models for classification",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+            )
+        )
 
         # Query with RLM - should handle gracefully if RLM not available
         result = await mound.query_with_rlm(
@@ -1360,7 +1411,7 @@ class TestRLMIntegration:
         )
 
         # Result is either None (RLM unavailable or no matches) or RLMContext
-        assert result is None or hasattr(result, 'get_at_level')
+        assert result is None or hasattr(result, "get_at_level")
 
 
 class TestOrganizationCulture:
@@ -1395,8 +1446,8 @@ class TestOrganizationCulture:
 
             assert manager is not None
             # Manager should have expected methods
-            assert hasattr(manager, 'get_organization_culture')
-            assert hasattr(manager, 'add_document')
+            assert hasattr(manager, "get_organization_culture")
+            assert hasattr(manager, "add_document")
         except ImportError:
             pytest.skip("OrganizationCultureManager not available")
 
@@ -1421,7 +1472,7 @@ class TestOrganizationCulture:
             )
 
             assert culture is not None
-            assert hasattr(culture, 'organization_id') or hasattr(culture, 'org_id')
+            assert hasattr(culture, "organization_id") or hasattr(culture, "org_id")
         except ImportError:
             pytest.skip("OrganizationCultureManager not available")
 
@@ -1438,7 +1489,7 @@ class TestOrganizationCulture:
             )
 
             assert doc is not None
-            assert hasattr(doc, 'title') or hasattr(doc, 'content')
+            assert hasattr(doc, "title") or hasattr(doc, "content")
         except (ValueError, KeyError, ImportError):
             # Category enum may not accept arbitrary values, or feature not available
             pytest.skip("Culture document functionality not available")
@@ -1466,7 +1517,7 @@ class TestOrganizationCulture:
 
             # Verify registration was recorded
             manager = mound.get_org_culture_manager()
-            assert hasattr(manager, '_workspace_orgs') or True  # Implementation detail
+            assert hasattr(manager, "_workspace_orgs") or True  # Implementation detail
         except ImportError:
             pytest.skip("OrganizationCultureManager not available")
 
@@ -1494,11 +1545,13 @@ class TestMoundWithMockedDependencies:
         mock_semantic.index_item = AsyncMock()
         mound._semantic_store = mock_semantic
 
-        result = await mound.store(IngestionRequest(
-            content="Test content for semantic indexing",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test",
-        ))
+        result = await mound.store(
+            IngestionRequest(
+                content="Test content for semantic indexing",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test",
+            )
+        )
 
         assert result.success is True
         # Semantic store should have been called
@@ -1513,11 +1566,13 @@ class TestMoundWithMockedDependencies:
         await mound.initialize()
 
         # Store a node first
-        result = await mound.store(IngestionRequest(
-            content="Content for cache test",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test",
-        ))
+        result = await mound.store(
+            IngestionRequest(
+                content="Content for cache test",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test",
+            )
+        )
 
         # Mock the cache with all async methods
         mock_cache = MagicMock()
@@ -1570,11 +1625,13 @@ class TestMoundWithMockedDependencies:
         await mound.initialize()
 
         # Store a node
-        result = await mound.store(IngestionRequest(
-            content="Content to be archived and deleted",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test",
-        ))
+        result = await mound.store(
+            IngestionRequest(
+                content="Content to be archived and deleted",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test",
+            )
+        )
 
         # Delete with archive
         deleted = await mound.delete(result.node_id, archive=True)
@@ -1608,18 +1665,22 @@ class TestMoundWorkspaceIsolation:
         await mound.initialize()
 
         # Store in workspace A
-        result_a = await mound.store(IngestionRequest(
-            content="Content for workspace A",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_a",
-        ))
+        result_a = await mound.store(
+            IngestionRequest(
+                content="Content for workspace A",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_a",
+            )
+        )
 
         # Store in workspace B
-        result_b = await mound.store(IngestionRequest(
-            content="Content for workspace B",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_b",
-        ))
+        result_b = await mound.store(
+            IngestionRequest(
+                content="Content for workspace B",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_b",
+            )
+        )
 
         assert result_a.success is True
         assert result_b.success is True
@@ -1634,16 +1695,20 @@ class TestMoundWorkspaceIsolation:
         await mound.initialize()
 
         # Store unique content in each workspace
-        await mound.store(IngestionRequest(
-            content="Unique content for workspace A only",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_a",
-        ))
-        await mound.store(IngestionRequest(
-            content="Different content for workspace B only",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_b",
-        ))
+        await mound.store(
+            IngestionRequest(
+                content="Unique content for workspace A only",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_a",
+            )
+        )
+        await mound.store(
+            IngestionRequest(
+                content="Different content for workspace B only",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_b",
+            )
+        )
 
         # Query workspace A
         result_a = await mound.query("unique content", workspace_id="workspace_a", limit=10)
@@ -1665,25 +1730,31 @@ class TestMoundWorkspaceIsolation:
         same_content = "Identical content"
 
         # Store in workspace A
-        result_a1 = await mound.store(IngestionRequest(
-            content=same_content,
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_a",
-        ))
+        result_a1 = await mound.store(
+            IngestionRequest(
+                content=same_content,
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_a",
+            )
+        )
 
         # Store same content in workspace A again - should deduplicate
-        result_a2 = await mound.store(IngestionRequest(
-            content=same_content,
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_a",
-        ))
+        result_a2 = await mound.store(
+            IngestionRequest(
+                content=same_content,
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_a",
+            )
+        )
 
         # Store same content in workspace B - should create new node
-        result_b = await mound.store(IngestionRequest(
-            content=same_content,
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="workspace_b",
-        ))
+        result_b = await mound.store(
+            IngestionRequest(
+                content=same_content,
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="workspace_b",
+            )
+        )
 
         # A1 and A2 should be deduplicated
         assert result_a1.node_id == result_a2.node_id
@@ -1758,17 +1829,21 @@ class TestMoundConfigFeatureFlags:
 
             same_content = "Duplicate content"
 
-            result1 = await mound.store(IngestionRequest(
-                content=same_content,
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test",
-            ))
+            result1 = await mound.store(
+                IngestionRequest(
+                    content=same_content,
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test",
+                )
+            )
 
-            result2 = await mound.store(IngestionRequest(
-                content=same_content,
-                source_type=KnowledgeSource.DOCUMENT,
-                workspace_id="test",
-            ))
+            result2 = await mound.store(
+                IngestionRequest(
+                    content=same_content,
+                    source_type=KnowledgeSource.DOCUMENT,
+                    workspace_id="test",
+                )
+            )
 
             # With deduplication disabled, should create separate nodes
             assert result1.node_id != result2.node_id
@@ -1794,11 +1869,13 @@ class TestMoundQueryLimits:
 
             # Store 10 items
             for i in range(10):
-                await mound.store(IngestionRequest(
-                    content=f"Content {i}",
-                    source_type=KnowledgeSource.DOCUMENT,
-                    workspace_id="test",
-                ))
+                await mound.store(
+                    IngestionRequest(
+                        content=f"Content {i}",
+                        source_type=KnowledgeSource.DOCUMENT,
+                        workspace_id="test",
+                    )
+                )
 
             # Request more than max limit
             result = await mound.query("content", limit=100)
@@ -1992,20 +2069,22 @@ class TestMoundAddNode:
     async def test_get_node_returns_proxy(self, mound):
         """Test get_node returns a NodeProxy with expected attributes."""
         # Store a node first
-        result = await mound.store(IngestionRequest(
-            content="Content for proxy test",
-            source_type=KnowledgeSource.DOCUMENT,
-            workspace_id="test_workspace",
-            confidence=0.75,
-        ))
+        result = await mound.store(
+            IngestionRequest(
+                content="Content for proxy test",
+                source_type=KnowledgeSource.DOCUMENT,
+                workspace_id="test_workspace",
+                confidence=0.75,
+            )
+        )
 
         proxy = await mound.get_node(result.node_id)
 
         assert proxy is not None
-        assert hasattr(proxy, 'id')
-        assert hasattr(proxy, 'content')
-        assert hasattr(proxy, 'confidence')
-        assert hasattr(proxy, 'node_type')
+        assert hasattr(proxy, "id")
+        assert hasattr(proxy, "content")
+        assert hasattr(proxy, "confidence")
+        assert hasattr(proxy, "node_type")
         assert proxy.content == "Content for proxy test"
 
     @pytest.mark.asyncio

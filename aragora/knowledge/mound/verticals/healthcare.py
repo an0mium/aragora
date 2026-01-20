@@ -66,70 +66,70 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
     CLINICAL_PATTERNS = [
         ClinicalPattern(
             name="Diagnosis",
-            pattern=r'(?:diagnos(?:is|ed|tic)|Dx|assessed\s+as|impression)',
+            pattern=r"(?:diagnos(?:is|ed|tic)|Dx|assessed\s+as|impression)",
             category="diagnosis",
             sensitivity="high",
             description="Clinical diagnosis or assessment",
         ),
         ClinicalPattern(
             name="Chief Complaint",
-            pattern=r'(?:chief\s+complaint|presents?\s+with|c/o)',
+            pattern=r"(?:chief\s+complaint|presents?\s+with|c/o)",
             category="symptom",
             sensitivity="high",
             description="Patient's primary complaint",
         ),
         ClinicalPattern(
             name="Vital Signs",
-            pattern=r'(?:vital\s+signs?|BP|blood\s+pressure|HR|heart\s+rate|RR|respiratory\s+rate|temp(?:erature)?)',
+            pattern=r"(?:vital\s+signs?|BP|blood\s+pressure|HR|heart\s+rate|RR|respiratory\s+rate|temp(?:erature)?)",
             category="vital",
             sensitivity="medium",
             description="Patient vital signs",
         ),
         ClinicalPattern(
             name="Physical Exam",
-            pattern=r'(?:physical\s+exam(?:ination)?|PE|on\s+exam|noted\s+(?:to\s+be)?)',
+            pattern=r"(?:physical\s+exam(?:ination)?|PE|on\s+exam|noted\s+(?:to\s+be)?)",
             category="exam",
             sensitivity="medium",
             description="Physical examination findings",
         ),
         ClinicalPattern(
             name="Lab Results",
-            pattern=r'(?:lab(?:oratory)?\s+(?:results?|values?)|CBC|BMP|CMP|HbA1c|lipid\s+panel)',
+            pattern=r"(?:lab(?:oratory)?\s+(?:results?|values?)|CBC|BMP|CMP|HbA1c|lipid\s+panel)",
             category="laboratory",
             sensitivity="high",
             description="Laboratory test results",
         ),
         ClinicalPattern(
             name="Imaging",
-            pattern=r'(?:imaging|X-?ray|CT\s+scan|MRI|ultrasound|radiograph)',
+            pattern=r"(?:imaging|X-?ray|CT\s+scan|MRI|ultrasound|radiograph)",
             category="imaging",
             sensitivity="high",
             description="Imaging studies and results",
         ),
         ClinicalPattern(
             name="Treatment Plan",
-            pattern=r'(?:treatment\s+plan|plan(?:ned)?|recommend(?:ation)?s?|Rx)',
+            pattern=r"(?:treatment\s+plan|plan(?:ned)?|recommend(?:ation)?s?|Rx)",
             category="treatment",
             sensitivity="medium",
             description="Treatment recommendations",
         ),
         ClinicalPattern(
             name="Allergy",
-            pattern=r'(?:allerg(?:y|ies|ic)|NKDA|no\s+known\s+(?:drug\s+)?allergies)',
+            pattern=r"(?:allerg(?:y|ies|ic)|NKDA|no\s+known\s+(?:drug\s+)?allergies)",
             category="allergy",
             sensitivity="high",
             description="Allergy information",
         ),
         ClinicalPattern(
             name="Medical History",
-            pattern=r'(?:medical\s+history|PMH|past\s+(?:medical\s+)?history|h/o)',
+            pattern=r"(?:medical\s+history|PMH|past\s+(?:medical\s+)?history|h/o)",
             category="history",
             sensitivity="high",
             description="Patient medical history",
         ),
         ClinicalPattern(
             name="Procedure",
-            pattern=r'(?:procedure|surgery|operation|biopsy|resection)',
+            pattern=r"(?:procedure|surgery|operation|biopsy|resection)",
             category="procedure",
             sensitivity="high",
             description="Medical procedures",
@@ -140,31 +140,31 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
     DRUG_PATTERNS = [
         DrugPattern(
             name="Medication",
-            pattern=r'(?:medication|prescription|Rx|prescribed|taking)',
+            pattern=r"(?:medication|prescription|Rx|prescribed|taking)",
             category="medication",
             description="Medication reference",
         ),
         DrugPattern(
             name="Dosage",
-            pattern=r'(?:\d+\s*(?:mg|mcg|g|ml|units?|tabs?|caps?)|(?:q\.?d\.?|b\.?i\.?d\.?|t\.?i\.?d\.?|q\.?i\.?d\.?|PRN))',
+            pattern=r"(?:\d+\s*(?:mg|mcg|g|ml|units?|tabs?|caps?)|(?:q\.?d\.?|b\.?i\.?d\.?|t\.?i\.?d\.?|q\.?i\.?d\.?|PRN))",
             category="dosage",
             description="Drug dosage information",
         ),
         DrugPattern(
             name="Drug Interaction",
-            pattern=r'(?:interaction|contraindicated\s+with|do\s+not\s+(?:use|take)\s+with)',
+            pattern=r"(?:interaction|contraindicated\s+with|do\s+not\s+(?:use|take)\s+with)",
             category="interaction",
             description="Drug interaction warning",
         ),
         DrugPattern(
             name="Side Effect",
-            pattern=r'(?:side\s+effect|adverse\s+(?:event|reaction)|AE)',
+            pattern=r"(?:side\s+effect|adverse\s+(?:event|reaction)|AE)",
             category="adverse",
             description="Adverse effects",
         ),
         DrugPattern(
             name="Contraindication",
-            pattern=r'(?:contraindicated?|should\s+not\s+(?:be\s+)?(?:used|given)|avoid)',
+            pattern=r"(?:contraindicated?|should\s+not\s+(?:be\s+)?(?:used|given)|avoid)",
             category="contraindication",
             description="Drug contraindication",
         ),
@@ -172,24 +172,24 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
 
     # HIPAA-specific patterns
     HIPAA_PATTERNS = [
-        (r'(?:patient\s+name|full\s+name)', "PHI - Patient Name"),
-        (r'(?:date\s+of\s+birth|DOB|birthdate)', "PHI - Date of Birth"),
-        (r'(?:social\s+security|SSN)', "PHI - Social Security Number"),
-        (r'(?:medical\s+record\s+number|MRN)', "PHI - Medical Record Number"),
-        (r'(?:address|street|city,?\s+state)', "PHI - Address"),
-        (r'(?:phone|telephone|fax)', "PHI - Phone/Fax"),
-        (r'(?:email\s+address)', "PHI - Email"),
-        (r'(?:health\s+plan|insurance\s+(?:id|number))', "PHI - Health Plan ID"),
+        (r"(?:patient\s+name|full\s+name)", "PHI - Patient Name"),
+        (r"(?:date\s+of\s+birth|DOB|birthdate)", "PHI - Date of Birth"),
+        (r"(?:social\s+security|SSN)", "PHI - Social Security Number"),
+        (r"(?:medical\s+record\s+number|MRN)", "PHI - Medical Record Number"),
+        (r"(?:address|street|city,?\s+state)", "PHI - Address"),
+        (r"(?:phone|telephone|fax)", "PHI - Phone/Fax"),
+        (r"(?:email\s+address)", "PHI - Email"),
+        (r"(?:health\s+plan|insurance\s+(?:id|number))", "PHI - Health Plan ID"),
     ]
 
     # Medical coding patterns
     CODING_PATTERNS = [
-        (r'(?:ICD-?10|ICD-?9)', "ICD Diagnosis Code"),
-        (r'(?:CPT|procedure\s+code)', "CPT Procedure Code"),
-        (r'(?:HCPCS)', "HCPCS Code"),
-        (r'(?:NDC|drug\s+code)', "NDC Drug Code"),
-        (r'(?:LOINC)', "LOINC Code"),
-        (r'(?:SNOMED)', "SNOMED CT"),
+        (r"(?:ICD-?10|ICD-?9)", "ICD Diagnosis Code"),
+        (r"(?:CPT|procedure\s+code)", "CPT Procedure Code"),
+        (r"(?:HCPCS)", "HCPCS Code"),
+        (r"(?:NDC|drug\s+code)", "NDC Drug Code"),
+        (r"(?:LOINC)", "LOINC Code"),
+        (r"(?:SNOMED)", "SNOMED CT"),
     ]
 
     @property
@@ -221,7 +221,13 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
                 "coding",
             ],
             compliance_frameworks=["HIPAA", "HITECH", "FDA", "CMS"],
-            document_types=["clinical_note", "lab_report", "prescription", "discharge_summary", "protocol"],
+            document_types=[
+                "clinical_note",
+                "lab_report",
+                "prescription",
+                "discharge_summary",
+                "protocol",
+            ],
         )
 
     @property
@@ -455,9 +461,7 @@ class HealthcareKnowledge(BaseVerticalKnowledge):
                     framework="HIPAA",
                     passed=False,  # Document contains PHI, needs protection review
                     severity="high",
-                    findings=[
-                        f"Found {len(phi_facts)} PHI elements requiring protection"
-                    ],
+                    findings=[f"Found {len(phi_facts)} PHI elements requiring protection"],
                     evidence=[f.id for f in phi_facts],
                     recommendations=[
                         "Ensure minimum necessary standard is applied",

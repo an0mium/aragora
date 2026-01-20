@@ -66,7 +66,7 @@ def diamond_dag_workflow() -> WorkflowDefinition:
         start
        /     \
      left   right
-       \     /
+       \\     /
         end
     """
     return WorkflowDefinition(
@@ -216,9 +216,7 @@ class TestDAGExecution:
         assert len(result.steps) >= 1
 
     @pytest.mark.asyncio
-    async def test_workflow_with_transitions(
-        self, basic_engine: WorkflowEngine
-    ) -> None:
+    async def test_workflow_with_transitions(self, basic_engine: WorkflowEngine) -> None:
         """Test workflow definition with transitions."""
         workflow = WorkflowDefinition(
             id="transition-test",
@@ -666,9 +664,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_workflow_executes_multiple_steps(self) -> None:
         """Test that workflow can execute multiple steps sequentially."""
-        engine = WorkflowEngine(
-            config=WorkflowConfig(stop_on_failure=True)
-        )
+        engine = WorkflowEngine(config=WorkflowConfig(stop_on_failure=True))
 
         workflow = WorkflowDefinition(
             id="multi-step-test",
@@ -699,9 +695,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_workflow_handles_empty_config(self) -> None:
         """Test workflow handles steps with empty config."""
-        engine = WorkflowEngine(
-            config=WorkflowConfig(stop_on_failure=False)
-        )
+        engine = WorkflowEngine(config=WorkflowConfig(stop_on_failure=False))
 
         workflow = WorkflowDefinition(
             id="empty-config-test",

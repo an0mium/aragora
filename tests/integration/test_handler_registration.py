@@ -365,7 +365,9 @@ class TestHandlerRoutes:
             if hasattr(handler_class, "ROUTES"):
                 routes = handler_class.ROUTES
                 # ROUTES can be a list, tuple, or dict (mapping paths to method names)
-                assert isinstance(routes, (list, tuple, dict)), f"{attr_name} ROUTES is {type(routes)}"
+                assert isinstance(
+                    routes, (list, tuple, dict)
+                ), f"{attr_name} ROUTES is {type(routes)}"
                 handlers_with_routes += 1
 
         # Most handlers should have ROUTES defined

@@ -44,7 +44,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
-    Any,
     Awaitable,
     Callable,
     Generic,
@@ -152,9 +151,7 @@ class BatchResult(Generic[T, R]):
     @property
     def all_succeeded(self) -> bool:
         """Check if all items succeeded."""
-        return all(
-            item.status == BatchItemStatus.COMPLETED for item in self.items
-        )
+        return all(item.status == BatchItemStatus.COMPLETED for item in self.items)
 
     @property
     def success_count(self) -> int:
@@ -169,11 +166,7 @@ class BatchResult(Generic[T, R]):
     @property
     def errors(self) -> list[tuple[int, Exception]]:
         """Get all errors with their indices."""
-        return [
-            (item.index, item.error)
-            for item in self.items
-            if item.error is not None
-        ]
+        return [(item.index, item.error) for item in self.items if item.error is not None]
 
 
 async def llm_batch(
@@ -262,8 +255,7 @@ async def llm_batch_detailed(
 
     # Initialize item results
     item_results: dict[int, BatchItemResult[T, R]] = {
-        i: BatchItemResult(index=i, item=item)
-        for i, item in enumerate(items)
+        i: BatchItemResult(index=i, item=item) for i, item in enumerate(items)
     }
 
     # Semaphore for concurrency control
@@ -348,10 +340,7 @@ async def llm_batch_detailed(
                 return
 
     # Create all tasks
-    tasks = [
-        asyncio.create_task(process_item(i, item))
-        for i, item in enumerate(items)
-    ]
+    tasks = [asyncio.create_task(process_item(i, item)) for i, item in enumerate(items)]
 
     # Wait for all tasks to complete (or be cancelled)
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -441,6 +430,7 @@ async def batch_filter(
     """
     Filter items in parallel based on async predicate.
     """
+
     async def check_item(item: T) -> tuple[T, bool]:
         result = await predicate(item)
         return (item, result)

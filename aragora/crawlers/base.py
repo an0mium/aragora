@@ -90,14 +90,16 @@ class CrawlerConfig:
 
     # Paths to include/exclude
     include_patterns: List[str] = field(default_factory=lambda: ["**/*"])
-    exclude_patterns: List[str] = field(default_factory=lambda: [
-        "**/.git/**",
-        "**/node_modules/**",
-        "**/__pycache__/**",
-        "**/*.pyc",
-        "**/venv/**",
-        "**/.venv/**",
-    ])
+    exclude_patterns: List[str] = field(
+        default_factory=lambda: [
+            "**/.git/**",
+            "**/node_modules/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+            "**/venv/**",
+            "**/.venv/**",
+        ]
+    )
 
     # Content limits
     max_file_size_bytes: int = 1_000_000  # 1MB

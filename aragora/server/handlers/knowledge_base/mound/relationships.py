@@ -60,14 +60,10 @@ class RelationshipOperationsMixin:
         relationship_type = get_bounded_string_param(
             query_params, "relationship_type", None, max_length=50
         )
-        direction = get_bounded_string_param(
-            query_params, "direction", "both", max_length=20
-        )
+        direction = get_bounded_string_param(query_params, "direction", "both", max_length=20)
 
         if direction not in ("outgoing", "incoming", "both"):
-            return error_response(
-                "direction must be 'outgoing', 'incoming', or 'both'", 400
-            )
+            return error_response("direction must be 'outgoing', 'incoming', or 'both'", 400)
 
         try:
             relationships = _run_async(
@@ -81,27 +77,31 @@ class RelationshipOperationsMixin:
             logger.error(f"Failed to get relationships: {e}")
             return error_response(f"Failed to get relationships: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "relationships": [
-                {
-                    "id": rel.id,
-                    "from_node_id": rel.from_node_id,
-                    "to_node_id": rel.to_node_id,
-                    "relationship_type": rel.relationship_type,
-                    "strength": rel.strength,
-                    "created_at": rel.created_at.isoformat() if rel.created_at else None,
-                    "created_by": rel.created_by,
-                    "metadata": rel.metadata,
-                }
-                for rel in relationships
-            ],
-            "count": len(relationships),
-            "direction": direction,
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "relationships": [
+                    {
+                        "id": rel.id,
+                        "from_node_id": rel.from_node_id,
+                        "to_node_id": rel.to_node_id,
+                        "relationship_type": rel.relationship_type,
+                        "strength": rel.strength,
+                        "created_at": rel.created_at.isoformat() if rel.created_at else None,
+                        "created_by": rel.created_by,
+                        "metadata": rel.metadata,
+                    }
+                    for rel in relationships
+                ],
+                "count": len(relationships),
+                "direction": direction,
+            }
+        )
 
     @handle_errors("create relationship")
-    def _handle_create_relationship(self: RelationshipHandlerProtocol, handler: Any) -> HandlerResult:
+    def _handle_create_relationship(
+        self: RelationshipHandlerProtocol, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/mound/relationships - Add relationship."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -151,9 +151,12 @@ class RelationshipOperationsMixin:
             logger.error(f"Failed to create relationship: {e}")
             return error_response(f"Failed to create relationship: {e}", 500)
 
-        return json_response({
-            "id": rel_id,
-            "from_node_id": from_node_id,
-            "to_node_id": to_node_id,
-            "relationship_type": relationship_type,
-        }, status=201)
+        return json_response(
+            {
+                "id": rel_id,
+                "from_node_id": from_node_id,
+                "to_node_id": to_node_id,
+                "relationship_type": relationship_type,
+            },
+            status=201,
+        )

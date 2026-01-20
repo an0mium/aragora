@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generator, Optional
@@ -72,20 +71,14 @@ class RoundMetric:
     @property
     def total_phase_time(self) -> float:
         """Sum of all phase durations."""
-        return sum(
-            p.duration_seconds or 0
-            for p in self.phases.values()
-        )
+        return sum(p.duration_seconds or 0 for p in self.phases.values())
 
     @property
     def slowest_phase(self) -> Optional[tuple[str, float]]:
         """Return (phase_name, duration) of slowest phase."""
         if not self.phases:
             return None
-        slowest = max(
-            self.phases.items(),
-            key=lambda x: x[1].duration_seconds or 0
-        )
+        slowest = max(self.phases.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
 
 
@@ -120,10 +113,7 @@ class DebateMetric:
         """Return (round_num, duration) of slowest round."""
         if not self.rounds:
             return None
-        slowest = max(
-            self.rounds.items(),
-            key=lambda x: x[1].duration_seconds or 0
-        )
+        slowest = max(self.rounds.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
 
 
@@ -251,9 +241,7 @@ class DebatePerformanceMonitor:
             metric.duration_seconds = metric.end_time - metric.start_time
 
             # Count slow rounds
-            metric.slow_round_count = sum(
-                1 for r in metric.rounds.values() if r.is_slow
-            )
+            metric.slow_round_count = sum(1 for r in metric.rounds.values() if r.is_slow)
 
             # Log completion
             self._log_debate_completion(metric)
@@ -288,9 +276,7 @@ class DebatePerformanceMonitor:
         """
         debate = self._active_debates.get(debate_id)
         if not debate:
-            logger.warning(
-                "track_round called for unknown debate: %s", debate_id
-            )
+            logger.warning("track_round called for unknown debate: %s", debate_id)
             # Create a dummy metric to avoid breaking the caller
             dummy = RoundMetric(round_num=round_num, start_time=time.time())
             yield dummy
@@ -383,6 +369,7 @@ class DebatePerformanceMonitor:
             if self.emit_prometheus:
                 try:
                     from aragora.observability.metrics import record_phase_duration
+
                     record_phase_duration(phase_name, metric.duration_seconds)
                 except ImportError:
                     pass
@@ -460,8 +447,7 @@ class DebatePerformanceMonitor:
         # Filter by threshold if provided
         if threshold_seconds is not None:
             records = [
-                r for r in records
-                if r.total_duration / max(r.round_count, 1) > threshold_seconds
+                r for r in records if r.total_duration / max(r.round_count, 1) > threshold_seconds
             ]
 
         return [r.to_dict() for r in reversed(records)]
@@ -476,13 +462,15 @@ class DebatePerformanceMonitor:
         slow = []
         for debate in self._active_debates.values():
             if debate.slow_round_count > 0:
-                slow.append({
-                    "debate_id": debate.debate_id,
-                    "task": debate.task[:100] if debate.task else "",
-                    "elapsed_seconds": round(time.time() - debate.start_time, 2),
-                    "rounds_completed": len(debate.rounds),
-                    "slow_rounds": debate.slow_round_count,
-                })
+                slow.append(
+                    {
+                        "debate_id": debate.debate_id,
+                        "task": debate.task[:100] if debate.task else "",
+                        "elapsed_seconds": round(time.time() - debate.start_time, 2),
+                        "rounds_completed": len(debate.rounds),
+                        "slow_rounds": debate.slow_round_count,
+                    }
+                )
         return slow
 
     def clear_history(self) -> None:
@@ -558,8 +546,10 @@ class DebatePerformanceMonitor:
             )
 
             # Record overall debate completion
-            outcome = "consensus" if "completed" in metric.outcome else (
-                "error" if "error" in metric.outcome else "no_consensus"
+            outcome = (
+                "consensus"
+                if "completed" in metric.outcome
+                else ("error" if "error" in metric.outcome else "no_consensus")
             )
             record_debate_completion(
                 duration_seconds=metric.duration_seconds or 0,

@@ -97,7 +97,18 @@ class RankingAdapter:
     # Domain keywords for detection (order matters - first match wins)
     # Security terms are checked first to catch security-related SQL questions
     DOMAIN_KEYWORDS = {
-        "security": ["security", "vulnerability", "exploit", "attack", "defense", "crypto", "auth", "injection", "xss", "csrf"],
+        "security": [
+            "security",
+            "vulnerability",
+            "exploit",
+            "attack",
+            "defense",
+            "crypto",
+            "auth",
+            "injection",
+            "xss",
+            "csrf",
+        ],
         "coding": ["code", "programming", "implementation", "algorithm", "function", "class"],
         "architecture": ["architecture", "design", "pattern", "system", "scalable", "microservice"],
         "testing": ["test", "qa", "quality", "bug", "regression", "coverage"],
@@ -208,15 +219,19 @@ class RankingAdapter:
         # Store in history
         if agent_name not in self._agent_history:
             self._agent_history[agent_name] = []
-        self._agent_history[agent_name].append({
-            "domain": domain,
-            "elo": elo,
-            "delta": delta,
-            "debate_id": debate_id,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        self._agent_history[agent_name].append(
+            {
+                "domain": domain,
+                "elo": elo,
+                "delta": delta,
+                "debate_id": debate_id,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
-        logger.info(f"Stored expertise: {agent_name} in {domain} -> {elo} (confidence={confidence:.2f})")
+        logger.info(
+            f"Stored expertise: {agent_name} in {domain} -> {elo} (confidence={confidence:.2f})"
+        )
         return expertise_id
 
     def get_agent_expertise(
@@ -272,14 +287,16 @@ class RankingAdapter:
             expertise = self._expertise.get(expertise_key)
 
             if expertise and expertise.get("confidence", 0) >= min_confidence:
-                results.append(AgentExpertise(
-                    agent_name=agent_name,
-                    domain=domain,
-                    elo=expertise.get("elo", 1500),
-                    confidence=expertise.get("confidence", 0.0),
-                    last_updated=expertise.get("updated_at", ""),
-                    debate_count=expertise.get("debate_count", 0),
-                ))
+                results.append(
+                    AgentExpertise(
+                        agent_name=agent_name,
+                        domain=domain,
+                        elo=expertise.get("elo", 1500),
+                        confidence=expertise.get("confidence", 0.0),
+                        last_updated=expertise.get("updated_at", ""),
+                        debate_count=expertise.get("debate_count", 0),
+                    )
+                )
 
         # Sort by ELO descending
         results.sort(key=lambda x: x.elo, reverse=True)
@@ -345,8 +362,7 @@ class RankingAdapter:
             "total_agents": len(self._agent_domains),
             "total_domains": len(self._domain_agents),
             "agents_per_domain": {
-                domain: len(agents)
-                for domain, agents in self._domain_agents.items()
+                domain: len(agents) for domain, agents in self._domain_agents.items()
             },
             "total_history_records": sum(len(h) for h in self._agent_history.values()),
         }
@@ -465,10 +481,22 @@ class RankingAdapter:
                     "agent_name": agent_name,
                     "domain": domain,
                     "elo": metadata.get("elo", 1500),
-                    "confidence": metadata.get("confidence", node.confidence) if hasattr(node, "confidence") else 0.5,
+                    "confidence": (
+                        metadata.get("confidence", node.confidence)
+                        if hasattr(node, "confidence")
+                        else 0.5
+                    ),
                     "debate_count": metadata.get("debate_count", 0),
-                    "created_at": node.created_at.isoformat() if node.created_at else datetime.utcnow().isoformat(),
-                    "updated_at": node.updated_at.isoformat() if node.updated_at else datetime.utcnow().isoformat(),
+                    "created_at": (
+                        node.created_at.isoformat()
+                        if node.created_at
+                        else datetime.utcnow().isoformat()
+                    ),
+                    "updated_at": (
+                        node.updated_at.isoformat()
+                        if node.updated_at
+                        else datetime.utcnow().isoformat()
+                    ),
                 }
 
                 # Update indices

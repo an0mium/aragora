@@ -342,9 +342,7 @@ class TestExperienceBufferOperations:
             t.finalize("answer", {"success": True})
             buffer.add(t, priority=float(i + 1))
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             filepath = f.name
 
         try:
@@ -394,13 +392,15 @@ class TestCompositeReward:
         """Test composite computes weighted average."""
         composite = CompositeReward()
 
-        model1 = DebateOutcomeReward(config=RewardConfig(
-            consensus_weight=1.0,
-            efficiency_weight=0.0,
-            confidence_weight=0.0,
-            iteration_penalty_weight=0.0,
-            quality_weight=0.0,
-        ))
+        model1 = DebateOutcomeReward(
+            config=RewardConfig(
+                consensus_weight=1.0,
+                efficiency_weight=0.0,
+                confidence_weight=0.0,
+                iteration_penalty_weight=0.0,
+                quality_weight=0.0,
+            )
+        )
         model2 = SparseReward(success_reward=2.0, failure_penalty=-2.0)
 
         composite.add_model(model1, weight=1.0)
@@ -502,10 +502,13 @@ class TestSparseReward:
         )
 
         trajectory = Trajectory(query="test")
-        trajectory.finalize("answer", {
-            "success": False,
-            "partial_success": True,
-        })
+        trajectory.finalize(
+            "answer",
+            {
+                "success": False,
+                "partial_success": True,
+            },
+        )
 
         reward = reward_model.compute(trajectory)
         assert reward == 0.3
@@ -628,11 +631,11 @@ class TestDebateOutcomeRewardEdgeCases:
         config = RewardConfig()
 
         total = (
-            config.consensus_weight +
-            config.efficiency_weight +
-            config.confidence_weight +
-            config.iteration_penalty_weight +
-            config.quality_weight
+            config.consensus_weight
+            + config.efficiency_weight
+            + config.confidence_weight
+            + config.iteration_penalty_weight
+            + config.quality_weight
         )
 
         assert total == pytest.approx(1.0, rel=0.01)

@@ -29,7 +29,13 @@ from aragora.reasoning.provenance import SourceType
 logger = logging.getLogger(__name__)
 
 # Default columns to use for change tracking
-DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "_updated_at", "metadata$action"]
+DEFAULT_TIMESTAMP_COLUMNS = [
+    "updated_at",
+    "modified_at",
+    "last_modified",
+    "_updated_at",
+    "metadata$action",
+]
 
 
 class SnowflakeConnector(EnterpriseConnector):
@@ -151,7 +157,8 @@ class SnowflakeConnector(EnterpriseConnector):
 
                 p_key = serialization.load_pem_private_key(
                     key_file.read(),
-                    password=os.environ.get("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "").encode() or None,
+                    password=os.environ.get("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "").encode()
+                    or None,
                     backend=default_backend(),
                 )
                 params["private_key"] = p_key
@@ -178,7 +185,9 @@ class SnowflakeConnector(EnterpriseConnector):
             return self._connection
 
         except ImportError:
-            logger.error("snowflake-connector-python not installed. Run: pip install snowflake-connector-python")
+            logger.error(
+                "snowflake-connector-python not installed. Run: pip install snowflake-connector-python"
+            )
             raise
 
     def _execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
@@ -200,7 +209,9 @@ class SnowflakeConnector(EnterpriseConnector):
         finally:
             cursor.close()
 
-    async def _async_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+    async def _async_query(
+        self, query: str, params: Optional[tuple] = None
+    ) -> List[Dict[str, Any]]:
         """Execute a query asynchronously via thread pool."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -286,7 +297,9 @@ class SnowflakeConnector(EnterpriseConnector):
 
         if any(t in table_lower for t in ["user", "account", "profile", "customer"]):
             return "operational/users"
-        elif any(t in table_lower for t in ["order", "invoice", "payment", "transaction", "billing"]):
+        elif any(
+            t in table_lower for t in ["order", "invoice", "payment", "transaction", "billing"]
+        ):
             return "financial/transactions"
         elif any(t in table_lower for t in ["product", "inventory", "catalog", "item"]):
             return "operational/products"
@@ -374,7 +387,11 @@ class SnowflakeConnector(EnterpriseConnector):
                     if ts_column and row.get(ts_column):
                         ts_value = row[ts_column]
                         if isinstance(ts_value, datetime):
-                            updated_at = ts_value.replace(tzinfo=timezone.utc) if ts_value.tzinfo is None else ts_value
+                            updated_at = (
+                                ts_value.replace(tzinfo=timezone.utc)
+                                if ts_value.tzinfo is None
+                                else ts_value
+                            )
 
                     # Create sync item
                     item_id = f"sf:{self.account}:{self.database}:{table}:{hashlib.sha256(str(pk_value).encode()).hexdigest()[:12]}"
@@ -456,11 +473,13 @@ class SnowflakeConnector(EnterpriseConnector):
                 rows = await self._async_query(search_query, params)
 
                 for row in rows:
-                    results.append({
-                        "table": tbl,
-                        "data": row,
-                        "rank": 0.5,
-                    })
+                    results.append(
+                        {
+                            "table": tbl,
+                            "data": row,
+                            "rank": 0.5,
+                        }
+                    )
 
             except Exception as e:
                 logger.debug(f"Search failed on {tbl}: {e}")
@@ -477,7 +496,7 @@ class SnowflakeConnector(EnterpriseConnector):
         if len(parts) < 5:
             return None
 
-        account, database, table, _pk_hash = parts[1], parts[2], parts[3], parts[4]
+        account, database, _table, _pk_hash = parts[1], parts[2], parts[3], parts[4]
 
         if account != self.account or database != self.database:
             return None
@@ -486,7 +505,9 @@ class SnowflakeConnector(EnterpriseConnector):
         logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
         return None
 
-    async def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+    async def execute_query(
+        self, query: str, params: Optional[tuple] = None
+    ) -> List[Dict[str, Any]]:
         """
         Execute a custom query.
 

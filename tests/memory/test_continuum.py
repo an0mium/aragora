@@ -6,6 +6,7 @@ Tests the multi-tier memory system including:
 - Memory retrieval and storage
 - Tier promotion and demotion
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,6 +25,7 @@ from aragora.memory import MemoryTier
 @dataclass
 class MemoryEntry:
     """A single memory entry."""
+
     id: str
     content: str
     tier: MemoryTier
@@ -61,9 +63,7 @@ class MockContinuumMemory:
         self.max_entries_per_tier = max_entries_per_tier
 
         self._entries: Dict[str, MemoryEntry] = {}
-        self._tier_indices: Dict[MemoryTier, set] = {
-            tier: set() for tier in MemoryTier
-        }
+        self._tier_indices: Dict[MemoryTier, set] = {tier: set() for tier in MemoryTier}
 
     @property
     def total_entries(self) -> int:
@@ -244,20 +244,15 @@ class MockContinuumMemory:
         """Get memory statistics."""
         return {
             "total_entries": self.total_entries,
-            "tiers": {
-                tier.value: self.get_tier_count(tier)
-                for tier in MemoryTier
-            },
-            "ttls": {
-                tier.value: ttl.total_seconds()
-                for tier, ttl in self.ttls.items()
-            },
+            "tiers": {tier.value: self.get_tier_count(tier) for tier in MemoryTier},
+            "ttls": {tier.value: ttl.total_seconds() for tier, ttl in self.ttls.items()},
         }
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def memory():
@@ -282,6 +277,7 @@ def populated_memory(memory):
 # =============================================================================
 # Test Classes
 # =============================================================================
+
 
 class TestMemoryInit:
     """Test memory system initialization."""
@@ -389,6 +385,7 @@ class TestRetrieve:
 
         # Small delay
         import asyncio
+
         await asyncio.sleep(0.01)
 
         entry2 = await memory.retrieve("id")
@@ -553,6 +550,7 @@ class TestExpiration:
 
         # Wait for expiration
         import asyncio
+
         await asyncio.sleep(0.01)
 
         entry = await memory.retrieve("id")
@@ -568,6 +566,7 @@ class TestExpiration:
         await memory.store("id2", "content2", tier=MemoryTier.GLACIAL)
 
         import asyncio
+
         await asyncio.sleep(0.01)
 
         removed = await memory.cleanup_expired()
@@ -597,6 +596,7 @@ class TestEviction:
 
         await memory.store("old", "old content")
         import asyncio
+
         await asyncio.sleep(0.01)
         await memory.store("new1", "new content 1")
         await memory.store("new2", "new content 2")  # Should evict "old"

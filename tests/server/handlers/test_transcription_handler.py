@@ -228,9 +228,7 @@ class TestAudioTranscription:
             mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
             mock_get.return_value = mock_backend
 
-            result = handler.handle_post(
-                "/api/transcription/audio", {}, mock_http
-            )
+            result = handler.handle_post("/api/transcription/audio", {}, mock_http)
 
             # Should return result or error
             assert result is not None
@@ -326,9 +324,7 @@ class TestYouTubeTranscription:
     @pytest.mark.asyncio
     async def test_youtube_transcription_success(self, handler):
         """Test successful YouTube transcription."""
-        body = json.dumps(
-            {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
-        ).encode()
+        body = json.dumps({"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).encode()
 
         mock_http = MockHandler(
             headers={
@@ -344,16 +340,14 @@ class TestYouTubeTranscription:
             mock_fetcher.fetch_audio = AsyncMock(return_value="/tmp/audio.mp3")
             mock_fetcher_class.return_value = mock_fetcher
 
-            with patch("aragora.transcription.whisper_backend.get_transcription_backend") as mock_get:
+            with patch(
+                "aragora.transcription.whisper_backend.get_transcription_backend"
+            ) as mock_get:
                 mock_backend = MagicMock()
-                mock_backend.transcribe = AsyncMock(
-                    return_value=MockTranscriptionResult()
-                )
+                mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
                 mock_get.return_value = mock_backend
 
-                result = handler.handle_post(
-                    "/api/transcription/youtube", {}, mock_http
-                )
+                result = handler.handle_post("/api/transcription/youtube", {}, mock_http)
 
                 # Should return result
                 assert result is not None
@@ -378,9 +372,7 @@ class TestYouTubeInfoEndpoint:
             method="POST",
         )
 
-        result = handler.handle_post(
-            "/api/transcription/youtube/info", {}, mock_http
-        )
+        result = handler.handle_post("/api/transcription/youtube/info", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -388,9 +380,7 @@ class TestYouTubeInfoEndpoint:
     @pytest.mark.asyncio
     async def test_youtube_info_success(self, handler):
         """Test successful YouTube info fetch."""
-        body_data = json.dumps(
-            {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
-        ).encode()
+        body_data = json.dumps({"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).encode()
 
         mock_http = MockHandler(
             headers={
@@ -414,9 +404,7 @@ class TestYouTubeInfoEndpoint:
             mock_fetcher.get_video_info = AsyncMock(return_value=mock_info)
             mock_fetcher_class.return_value = mock_fetcher
 
-            result = handler.handle_post(
-                "/api/transcription/youtube/info", {}, mock_http
-            )
+            result = handler.handle_post("/api/transcription/youtube/info", {}, mock_http)
 
             assert result is not None
             if result.status_code == 200:

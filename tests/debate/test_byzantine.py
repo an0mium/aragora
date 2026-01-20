@@ -131,6 +131,7 @@ class ByzantineAgent(MockAgent):
         elif self.byzantine_behavior == "random":
             # Randomly agree or disagree
             import random
+
             choice = random.choice(["YES", "NO"])
             self.vote_history.append(choice)
             return f"PREPARE: {choice}\nREASONING: Random decision"
@@ -355,7 +356,7 @@ class TestByzantineConsensusResult:
         )
 
         ratio = result.agreement_ratio
-        assert ratio == pytest.approx(5/7, rel=0.01)
+        assert ratio == pytest.approx(5 / 7, rel=0.01)
 
     def test_agreement_ratio_full(self):
         """Test agreement ratio with full agreement."""
@@ -404,8 +405,8 @@ class TestByzantineConsensusProperties:
     def test_f_property_various_sizes(self):
         """Test f calculation for various agent counts."""
         test_cases = [
-            (4, 1),   # n=4 -> f=1
-            (7, 2),   # n=7 -> f=2
+            (4, 1),  # n=4 -> f=1
+            (7, 2),  # n=7 -> f=2
             (10, 3),  # n=10 -> f=3
             (13, 4),  # n=13 -> f=4
         ]
@@ -573,16 +574,13 @@ class TestSingleByzantineNode:
         result = await protocol.propose("Test proposal")
 
         # 6 out of 7 agents committed
-        assert result.confidence == pytest.approx(6/7, rel=0.01)
+        assert result.confidence == pytest.approx(6 / 7, rel=0.01)
 
     @pytest.mark.asyncio
     async def test_single_silent_byzantine_node(self):
         """Test handling a Byzantine node that goes silent (times out)."""
         config = ByzantineConsensusConfig(phase_timeout_seconds=0.1)
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(6)]
         byzantine = [ByzantineAgent(name="silent", byzantine_behavior="silent")]
         agents = honest + byzantine
 
@@ -605,13 +603,9 @@ class TestMultipleByzantineNodes:
     @pytest.mark.asyncio
     async def test_consensus_with_two_byzantine_nodes(self):
         """Test consensus with 2 Byzantine nodes (within f threshold for n=7)."""
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(5)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(5)]
         byzantine = [
-            ByzantineAgent(name=f"byzantine{i}", byzantine_behavior="disagree")
-            for i in range(2)
+            ByzantineAgent(name=f"byzantine{i}", byzantine_behavior="disagree") for i in range(2)
         ]
         agents = honest + byzantine
 
@@ -626,13 +620,9 @@ class TestMultipleByzantineNodes:
     @pytest.mark.asyncio
     async def test_consensus_fails_with_three_byzantine_nodes(self):
         """Test that consensus fails with 3 Byzantine nodes (exceeds f for n=7)."""
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(4)]
         byzantine = [
-            ByzantineAgent(name=f"byzantine{i}", byzantine_behavior="disagree")
-            for i in range(3)
+            ByzantineAgent(name=f"byzantine{i}", byzantine_behavior="disagree") for i in range(3)
         ]
         agents = honest + byzantine
 
@@ -650,10 +640,7 @@ class TestMultipleByzantineNodes:
     async def test_mixed_byzantine_behaviors(self):
         """Test consensus with different Byzantine behaviors."""
         config = ByzantineConsensusConfig(phase_timeout_seconds=0.1)
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(8)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(8)]
         byzantine = [
             ByzantineAgent(name="disagree", byzantine_behavior="disagree"),
             ByzantineAgent(name="silent", byzantine_behavior="silent"),
@@ -681,10 +668,7 @@ class TestByzantineRecovery:
         """Test that view change occurs when leader fails."""
         # Make the first agent (leader in view 0) Byzantine
         byzantine_leader = ByzantineAgent(name="leader", byzantine_behavior="silent")
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(6)]
         agents = [byzantine_leader] + honest
 
         config = ByzantineConsensusConfig(
@@ -707,10 +691,7 @@ class TestByzantineRecovery:
             response="PREPARE: YES",
             fail_on_call=1,
         )
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(6)]
         agents = [transient_agent] + honest
 
         protocol = ByzantineConsensus(agents=agents)
@@ -725,13 +706,9 @@ class TestByzantineRecovery:
         """Test system behavior with multiple view changes."""
         # Multiple leaders fail
         failing_leaders = [
-            ByzantineAgent(name=f"leader{i}", byzantine_behavior="silent")
-            for i in range(2)
+            ByzantineAgent(name=f"leader{i}", byzantine_behavior="silent") for i in range(2)
         ]
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(5)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(5)]
         agents = failing_leaders + honest
 
         config = ByzantineConsensusConfig(
@@ -758,14 +735,8 @@ class TestPartialFailures:
     async def test_prepare_phase_partial_failure(self):
         """Test handling partial failures in prepare phase."""
         # Some agents fail during prepare
-        failing = [
-            MockAgent(name=f"fail{i}", should_fail=True)
-            for i in range(2)
-        ]
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        failing = [MockAgent(name=f"fail{i}", should_fail=True) for i in range(2)]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(6)]
         agents = failing + honest
 
         protocol = ByzantineConsensus(agents=agents)
@@ -778,6 +749,7 @@ class TestPartialFailures:
     @pytest.mark.asyncio
     async def test_commit_phase_partial_failure(self):
         """Test handling partial failures in commit phase."""
+
         # Agent agrees in prepare but fails in commit
         class PrepareOnlyAgent(MockAgent):
             def __init__(self, name: str):
@@ -792,8 +764,7 @@ class TestPartialFailures:
 
         prepare_only = [PrepareOnlyAgent(name=f"preponly{i}") for i in range(2)]
         fully_honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES\nCOMMIT: YES")
-            for i in range(6)
+            MockAgent(name=f"honest{i}", response="PREPARE: YES\nCOMMIT: YES") for i in range(6)
         ]
         agents = prepare_only + fully_honest
 
@@ -813,10 +784,7 @@ class TestPartialFailures:
             MockAgent(name=f"slow{i}", response="PREPARE: YES", delay_seconds=10.0)
             for i in range(2)
         ]
-        fast = [
-            MockAgent(name=f"fast{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        fast = [MockAgent(name=f"fast{i}", response="PREPARE: YES") for i in range(6)]
         agents = slow + fast
 
         protocol = ByzantineConsensus(agents=agents, config=config)
@@ -839,12 +807,9 @@ class TestConflictingVotes:
     async def test_conflicting_byzantine_agent(self):
         """Test handling agent that sends conflicting votes."""
         honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES\nCOMMIT: YES")
-            for i in range(6)
+            MockAgent(name=f"honest{i}", response="PREPARE: YES\nCOMMIT: YES") for i in range(6)
         ]
-        conflicting = [
-            ByzantineAgent(name="conflicting", byzantine_behavior="conflicting")
-        ]
+        conflicting = [ByzantineAgent(name="conflicting", byzantine_behavior="conflicting")]
         agents = honest + conflicting
 
         protocol = ByzantineConsensus(agents=agents)
@@ -859,6 +824,7 @@ class TestConflictingVotes:
     @pytest.mark.asyncio
     async def test_agents_with_varying_responses(self):
         """Test handling agents with varying response patterns."""
+
         # Some agents initially disagree, then agree
         class EvolvingAgent(MockAgent):
             async def generate(self, prompt: str, context: list = None) -> str:
@@ -868,10 +834,7 @@ class TestConflictingVotes:
                 return "PREPARE: YES\nREASONING: Now I agree"
 
         evolving = [EvolvingAgent(name=f"evolve{i}") for i in range(3)]
-        stable = [
-            MockAgent(name=f"stable{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        stable = [MockAgent(name=f"stable{i}", response="PREPARE: YES") for i in range(4)]
         agents = evolving + stable
 
         protocol = ByzantineConsensus(agents=agents)
@@ -895,8 +858,7 @@ class TestViewChanges:
         """Test that view changes increment the view number."""
         # All Byzantine to force view changes
         byzantine = [
-            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
-            for i in range(7)
+            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree") for i in range(7)
         ]
 
         config = ByzantineConsensusConfig(max_view_changes=2)
@@ -911,8 +873,7 @@ class TestViewChanges:
     async def test_max_view_changes_respected(self):
         """Test that max_view_changes limit is respected."""
         byzantine = [
-            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
-            for i in range(7)
+            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree") for i in range(7)
         ]
 
         config = ByzantineConsensusConfig(max_view_changes=3)
@@ -955,8 +916,7 @@ class TestEdgeCases:
     async def test_all_nodes_byzantine(self):
         """Test behavior when all nodes are Byzantine."""
         byzantine = [
-            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
-            for i in range(7)
+            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree") for i in range(7)
         ]
 
         config = ByzantineConsensusConfig(max_view_changes=1)
@@ -970,13 +930,9 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_no_honest_majority(self):
         """Test behavior without honest majority (f+1 > n/2)."""
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(3)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(3)]
         byzantine = [
-            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
-            for i in range(4)
+            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree") for i in range(4)
         ]
         agents = honest + byzantine
 
@@ -991,10 +947,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_minimum_agents(self):
         """Test with minimum required agents (4)."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents)
 
@@ -1018,10 +971,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_proposal(self):
         """Test with empty proposal string."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents)
 
@@ -1033,10 +983,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_proposal(self):
         """Test with very long proposal string."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents)
         long_proposal = "x" * 10000
@@ -1049,10 +996,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_unicode_proposal(self):
         """Test with unicode characters in proposal."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents)
         unicode_proposal = "Test proposal with unicode: "
@@ -1101,7 +1045,10 @@ class TestAgreementParsing:
     def test_parse_mixed_response(self, protocol):
         """Test parsing response with mixed signals."""
         # More agreement words than disagreement
-        assert protocol._parse_agreement("I agree and accept, even though I have minor concerns") is True
+        assert (
+            protocol._parse_agreement("I agree and accept, even though I have minor concerns")
+            is True
+        )
 
     def test_parse_case_insensitive(self, protocol):
         """Test that parsing is case-insensitive."""
@@ -1120,10 +1067,7 @@ class TestVerifyWithByzantineConsensus:
     @pytest.mark.asyncio
     async def test_basic_verification(self):
         """Test basic verification with convenience function."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         result = await verify_with_byzantine_consensus(
             proposal="Test proposal",
@@ -1136,10 +1080,7 @@ class TestVerifyWithByzantineConsensus:
     @pytest.mark.asyncio
     async def test_custom_fault_tolerance(self):
         """Test with custom fault tolerance setting."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         result = await verify_with_byzantine_consensus(
             proposal="Test proposal",
@@ -1174,24 +1115,24 @@ class TestParametrizedByzantineScenarios:
     """Parametrized tests for various Byzantine scenarios."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("n_agents,n_byzantine,expected_success", [
-        (4, 0, True),   # All honest
-        (4, 1, True),   # 1 Byzantine (f=1)
-        (7, 1, True),   # 1 Byzantine (f=2)
-        (7, 2, True),   # 2 Byzantine (at limit)
-        (10, 2, True),  # 2 Byzantine (f=3, under limit)
-        (10, 3, True),  # 3 Byzantine (at limit)
-        (7, 3, False),  # 3 Byzantine (exceeds f=2)
-        (10, 4, False), # 4 Byzantine (exceeds f=3)
-    ])
+    @pytest.mark.parametrize(
+        "n_agents,n_byzantine,expected_success",
+        [
+            (4, 0, True),  # All honest
+            (4, 1, True),  # 1 Byzantine (f=1)
+            (7, 1, True),  # 1 Byzantine (f=2)
+            (7, 2, True),  # 2 Byzantine (at limit)
+            (10, 2, True),  # 2 Byzantine (f=3, under limit)
+            (10, 3, True),  # 3 Byzantine (at limit)
+            (7, 3, False),  # 3 Byzantine (exceeds f=2)
+            (10, 4, False),  # 4 Byzantine (exceeds f=3)
+        ],
+    )
     async def test_byzantine_threshold(self, n_agents, n_byzantine, expected_success):
         """Test consensus success/failure based on Byzantine count."""
         n_honest = n_agents - n_byzantine
 
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(n_honest)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(n_honest)]
         byzantine = [
             ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
             for i in range(n_byzantine)
@@ -1209,11 +1150,14 @@ class TestParametrizedByzantineScenarios:
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("behavior", [
-        "disagree",
-        "silent",
-        "conflicting",
-    ])
+    @pytest.mark.parametrize(
+        "behavior",
+        [
+            "disagree",
+            "silent",
+            "conflicting",
+        ],
+    )
     async def test_different_byzantine_behaviors(self, behavior):
         """Test different Byzantine behaviors are handled."""
         config = ByzantineConsensusConfig(
@@ -1221,10 +1165,7 @@ class TestParametrizedByzantineScenarios:
             max_view_changes=2,
         )
 
-        honest = [
-            MockAgent(name=f"honest{i}", response="PREPARE: YES")
-            for i in range(6)
-        ]
+        honest = [MockAgent(name=f"honest{i}", response="PREPARE: YES") for i in range(6)]
         byzantine = [ByzantineAgent(name="byz", byzantine_behavior=behavior)]
         agents = honest + byzantine
 
@@ -1244,10 +1185,7 @@ class TestParametrizedByzantineScenarios:
             max_view_changes=2,
         )
 
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents, config=config)
 
@@ -1318,8 +1256,7 @@ class TestConsensusFailureException:
         """Test that ConsensusFailure is raised when quorum not met."""
         # This is internal behavior, but we can verify through result
         byzantine = [
-            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree")
-            for i in range(7)
+            ByzantineAgent(name=f"byz{i}", byzantine_behavior="disagree") for i in range(7)
         ]
 
         config = ByzantineConsensusConfig(max_view_changes=0)
@@ -1342,10 +1279,7 @@ class TestDurationTracking:
     @pytest.mark.asyncio
     async def test_duration_recorded(self):
         """Test that duration is recorded in result."""
-        agents = [
-            MockAgent(name=f"a{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        agents = [MockAgent(name=f"a{i}", response="PREPARE: YES") for i in range(4)]
 
         protocol = ByzantineConsensus(agents=agents)
 
@@ -1359,17 +1293,13 @@ class TestDurationTracking:
         config = ByzantineConsensusConfig(phase_timeout_seconds=5.0)
 
         # Fast agents
-        fast_agents = [
-            MockAgent(name=f"fast{i}", response="PREPARE: YES")
-            for i in range(4)
-        ]
+        fast_agents = [MockAgent(name=f"fast{i}", response="PREPARE: YES") for i in range(4)]
         protocol_fast = ByzantineConsensus(agents=fast_agents, config=config)
         result_fast = await protocol_fast.propose("Test")
 
         # Slow agents
         slow_agents = [
-            MockAgent(name=f"slow{i}", response="PREPARE: YES", delay_seconds=0.1)
-            for i in range(4)
+            MockAgent(name=f"slow{i}", response="PREPARE: YES", delay_seconds=0.1) for i in range(4)
         ]
         protocol_slow = ByzantineConsensus(agents=slow_agents, config=config)
         result_slow = await protocol_slow.propose("Test")

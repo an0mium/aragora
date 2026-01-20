@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class BackupStatus(str, Enum):
     """Backup status."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -40,6 +41,7 @@ class BackupStatus(str, Enum):
 
 class BackupType(str, Enum):
     """Type of backup."""
+
     FULL = "full"
     INCREMENTAL = "incremental"
     DIFFERENTIAL = "differential"
@@ -48,6 +50,7 @@ class BackupType(str, Enum):
 @dataclass
 class BackupMetadata:
     """Metadata for a backup."""
+
     id: str
     created_at: datetime
     backup_type: BackupType
@@ -109,7 +112,9 @@ class BackupMetadata:
             tables=data.get("tables", []),
             duration_seconds=data.get("duration_seconds", 0.0),
             verified=data.get("verified", False),
-            verified_at=datetime.fromisoformat(data["verified_at"]) if data.get("verified_at") else None,
+            verified_at=(
+                datetime.fromisoformat(data["verified_at"]) if data.get("verified_at") else None
+            ),
             restore_tested=data.get("restore_tested", False),
             error=data.get("error"),
             storage_backend=data.get("storage_backend", "local"),
@@ -121,6 +126,7 @@ class BackupMetadata:
 @dataclass
 class RetentionPolicy:
     """Backup retention policy."""
+
     keep_daily: int = 7  # Keep last N daily backups
     keep_weekly: int = 4  # Keep last N weekly backups
     keep_monthly: int = 3  # Keep last N monthly backups
@@ -131,6 +137,7 @@ class RetentionPolicy:
 @dataclass
 class VerificationResult:
     """Result of backup verification."""
+
     backup_id: str
     verified: bool
     checksum_valid: bool
@@ -446,7 +453,9 @@ class BackupManager:
 
         # Create backup of target if it exists
         if target.exists():
-            target_backup = target.with_suffix(f".backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}")
+            target_backup = target.with_suffix(
+                f".backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            )
             shutil.copy(target, target_backup)
             logger.info("Created backup of target: %s", target_backup)
 
@@ -494,11 +503,6 @@ class BackupManager:
         """
         deleted: list[str] = []
         now = datetime.utcnow()
-
-        # Get backups by age category
-        daily_cutoff = now - timedelta(days=self.retention_policy.keep_daily)
-        weekly_cutoff = now - timedelta(weeks=self.retention_policy.keep_weekly)
-        monthly_cutoff = now - timedelta(days=30 * self.retention_policy.keep_monthly)
 
         # Sort by date
         backups = sorted(self._backups.values(), key=lambda b: b.created_at, reverse=True)
@@ -619,8 +623,7 @@ class BackupManager:
                 with open(self._manifest_path) as f:
                     data = json.load(f)
                     self._backups = {
-                        k: BackupMetadata.from_dict(v)
-                        for k, v in data.get("backups", {}).items()
+                        k: BackupMetadata.from_dict(v) for k, v in data.get("backups", {}).items()
                     }
             except Exception as e:
                 logger.error("Failed to load manifest: %s", e)
@@ -669,9 +672,7 @@ class BackupManager:
             )
 
             BACKUP_VERIFICATION_DURATION.observe(result.duration_seconds)
-            BACKUP_VERIFICATION_SUCCESS.labels(
-                verified=str(result.verified).lower()
-            ).inc()
+            BACKUP_VERIFICATION_SUCCESS.labels(verified=str(result.verified).lower()).inc()
 
         except ImportError:
             pass

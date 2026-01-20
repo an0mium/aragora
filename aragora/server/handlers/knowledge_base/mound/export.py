@@ -62,13 +62,15 @@ class ExportOperationsMixin:
             logger.error(f"D3 graph export failed: {e}")
             return error_response(f"D3 graph export failed: {e}", 500)
 
-        return json_response({
-            "format": "d3",
-            "nodes": result["nodes"],
-            "links": result["links"],
-            "total_nodes": len(result["nodes"]),
-            "total_links": len(result["links"]),
-        })
+        return json_response(
+            {
+                "format": "d3",
+                "nodes": result["nodes"],
+                "links": result["links"],
+                "total_nodes": len(result["nodes"]),
+                "total_links": len(result["links"]),
+            }
+        )
 
     @handle_errors("GraphML export")
     def _handle_export_graphml(self: ExportHandlerProtocol, query_params: dict) -> HandlerResult:
@@ -134,15 +136,18 @@ class ExportOperationsMixin:
 
             config = CrawlConfig(
                 include_patterns=data.get("include_patterns", ["*", "**/*"]),
-                exclude_patterns=data.get("exclude_patterns", [
-                    "**/node_modules/**",
-                    "**/.git/**",
-                    "**/venv/**",
-                    "**/__pycache__/**",
-                    "**/.venv/**",
-                    "**/dist/**",
-                    "**/build/**",
-                ]),
+                exclude_patterns=data.get(
+                    "exclude_patterns",
+                    [
+                        "**/node_modules/**",
+                        "**/.git/**",
+                        "**/venv/**",
+                        "**/__pycache__/**",
+                        "**/.venv/**",
+                        "**/dist/**",
+                        "**/build/**",
+                    ],
+                ),
                 max_file_size_bytes=data.get("max_file_size_bytes", 1_000_000),
                 max_files=data.get("max_files", 10_000),
                 extract_symbols=data.get("extract_symbols", True),
@@ -151,25 +156,29 @@ class ExportOperationsMixin:
             )
 
             crawler = RepositoryCrawler(config=config, workspace_id=workspace_id)
-            crawl_result = _run_async(crawler.crawl(repo_path, incremental=data.get("incremental", True)))
+            crawl_result = _run_async(
+                crawler.crawl(repo_path, incremental=data.get("incremental", True))
+            )
             nodes_created = _run_async(crawler.index_to_mound(crawl_result, mound))
 
-            return json_response({
-                "status": "completed",
-                "repository": crawl_result.repository_name,
-                "repository_path": crawl_result.repository_path,
-                "workspace_id": workspace_id,
-                "total_files": crawl_result.total_files,
-                "total_lines": crawl_result.total_lines,
-                "total_bytes": crawl_result.total_bytes,
-                "nodes_created": nodes_created,
-                "file_type_counts": crawl_result.file_type_counts,
-                "symbol_counts": crawl_result.symbol_counts,
-                "crawl_duration_ms": crawl_result.crawl_duration_ms,
-                "errors": crawl_result.errors[:10] if crawl_result.errors else [],
-                "warnings": crawl_result.warnings[:10] if crawl_result.warnings else [],
-                "git_info": crawl_result.git_info,
-            })
+            return json_response(
+                {
+                    "status": "completed",
+                    "repository": crawl_result.repository_name,
+                    "repository_path": crawl_result.repository_path,
+                    "workspace_id": workspace_id,
+                    "total_files": crawl_result.total_files,
+                    "total_lines": crawl_result.total_lines,
+                    "total_bytes": crawl_result.total_bytes,
+                    "nodes_created": nodes_created,
+                    "file_type_counts": crawl_result.file_type_counts,
+                    "symbol_counts": crawl_result.symbol_counts,
+                    "crawl_duration_ms": crawl_result.crawl_duration_ms,
+                    "errors": crawl_result.errors[:10] if crawl_result.errors else [],
+                    "warnings": crawl_result.warnings[:10] if crawl_result.warnings else [],
+                    "git_info": crawl_result.git_info,
+                }
+            )
 
         except FileNotFoundError as e:
             return error_response(f"Repository not found: {e}", 404)

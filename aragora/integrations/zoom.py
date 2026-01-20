@@ -30,10 +30,9 @@ import hashlib
 import hmac
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional
-from urllib.parse import urlencode
 
 import aiohttp
 
@@ -117,9 +116,7 @@ class ZoomMeetingInfo:
         start_time = None
         if data.get("start_time"):
             try:
-                start_time = datetime.fromisoformat(
-                    data["start_time"].replace("Z", "+00:00")
-                )
+                start_time = datetime.fromisoformat(data["start_time"].replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 pass
 
@@ -235,11 +232,7 @@ class ZoomIntegration:
     async def _get_access_token(self) -> str:
         """Get OAuth access token using Server-to-Server OAuth."""
         # Check if we have a valid cached token
-        if (
-            self._access_token
-            and self._token_expires
-            and datetime.now() < self._token_expires
-        ):
+        if self._access_token and self._token_expires and datetime.now() < self._token_expires:
             return self._access_token
 
         if not self.config.is_configured:
@@ -449,9 +442,7 @@ class ZoomIntegration:
         if to_date:
             params["to"] = to_date.strftime("%Y-%m-%d")
 
-        result = await self._api_request(
-            "GET", f"/users/{user_id}/recordings", params=params
-        )
+        result = await self._api_request("GET", f"/users/{user_id}/recordings", params=params)
         return result.get("meetings", [])
 
     async def get_recording_transcript(
@@ -467,9 +458,7 @@ class ZoomIntegration:
             Transcript text if available
         """
         try:
-            result = await self._api_request(
-                "GET", f"/meetings/{meeting_id}/recordings"
-            )
+            result = await self._api_request("GET", f"/meetings/{meeting_id}/recordings")
 
             # Find VTT transcript file
             for file in result.get("recording_files", []):

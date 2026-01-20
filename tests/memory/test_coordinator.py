@@ -86,9 +86,7 @@ class TestMemoryTransaction:
             id="tx-1",
             debate_id="debate-1",
             operations=[
-                WriteOperation(
-                    id="op-1", target="continuum", status=WriteStatus.SUCCESS
-                ),
+                WriteOperation(id="op-1", target="continuum", status=WriteStatus.SUCCESS),
                 WriteOperation(
                     id="op-2", target="consensus", status=WriteStatus.FAILED, error="timeout"
                 ),

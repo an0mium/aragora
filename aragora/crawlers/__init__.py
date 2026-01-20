@@ -67,6 +67,7 @@ class RepositoryCrawler(_DeprecatedRepositoryCrawler):
         )
         super().__init__(*args, **kwargs)
 
+
 __all__ = [
     # Base
     "BaseCrawler",

@@ -407,13 +407,17 @@ class WorkflowEngine:
                 last_error = f"Timed out after {step_def.timeout_seconds}s"
                 retry_count += 1
                 if retry_count <= step_def.retries:
-                    logger.warning(f"Step '{step_def.name}' timed out, retrying ({retry_count}/{step_def.retries})")
+                    logger.warning(
+                        f"Step '{step_def.name}' timed out, retrying ({retry_count}/{step_def.retries})"
+                    )
 
             except Exception as e:
                 last_error = str(e)
                 retry_count += 1
                 if retry_count <= step_def.retries:
-                    logger.warning(f"Step '{step_def.name}' failed, retrying ({retry_count}/{step_def.retries})")
+                    logger.warning(
+                        f"Step '{step_def.name}' failed, retrying ({retry_count}/{step_def.retries})"
+                    )
 
         # All retries exhausted
         duration_ms = (time.time() - start_time) * 1000
@@ -554,10 +558,7 @@ class WorkflowEngine:
 
     def list_checkpoints(self, workflow_id: str) -> List[WorkflowCheckpoint]:
         """List all checkpoints for a workflow."""
-        return [
-            cp for cp in self._checkpoints.values()
-            if cp.workflow_id == workflow_id
-        ]
+        return [cp for cp in self._checkpoints.values() if cp.workflow_id == workflow_id]
 
     # =========================================================================
     # Termination Control

@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -45,10 +44,8 @@ from .models import (
     FileAttachment,
     InteractionType,
     MessageButton,
-    MessageType,
     SendMessageResponse,
     UserInteraction,
-    VoiceMessage,
     WebhookEvent,
 )
 
@@ -428,7 +425,10 @@ class GoogleChatConnector(ChatPlatformConnector):
 
         # Actions as buttons
         if actions:
-            buttons = [self.format_button(btn.text, btn.action_id, btn.value, btn.style, btn.url) for btn in actions]
+            buttons = [
+                self.format_button(btn.text, btn.action_id, btn.value, btn.style, btn.url)
+                for btn in actions
+            ]
             sections.append(
                 {
                     "widgets": [

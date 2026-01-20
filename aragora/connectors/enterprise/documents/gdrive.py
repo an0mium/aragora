@@ -185,6 +185,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         self._access_token = data["access_token"]
         expires_in = data.get("expires_in", 3600)
         from datetime import timedelta
+
         self._token_expiry = now.replace(microsecond=0) + timedelta(seconds=expires_in - 60)
 
         return self._access_token
@@ -383,12 +384,16 @@ class GoogleDriveConnector(EnterpriseConnector):
                 modified = None
                 if file_data.get("createdTime"):
                     try:
-                        created = datetime.fromisoformat(file_data["createdTime"].replace("Z", "+00:00"))
+                        created = datetime.fromisoformat(
+                            file_data["createdTime"].replace("Z", "+00:00")
+                        )
                     except ValueError:
                         pass
                 if file_data.get("modifiedTime"):
                     try:
-                        modified = datetime.fromisoformat(file_data["modifiedTime"].replace("Z", "+00:00"))
+                        modified = datetime.fromisoformat(
+                            file_data["modifiedTime"].replace("Z", "+00:00")
+                        )
                     except ValueError:
                         pass
 
@@ -491,7 +496,9 @@ class GoogleDriveConnector(EnterpriseConnector):
         # Check for incremental sync
         if state.cursor:
             # Use Changes API for incremental sync
-            logger.info(f"[{self.name}] Starting incremental sync from token {state.cursor[:20]}...")
+            logger.info(
+                f"[{self.name}] Starting incremental sync from token {state.cursor[:20]}..."
+            )
             files, new_token = await self._get_changes(state.cursor)
             state.cursor = new_token
 

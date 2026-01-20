@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Aragora PR Review - AI Red Team Code Review
+Aragora PR Review - Multi Agent Code Review
 
 Run multi-agent code review debates on diffs/PRs:
     git diff main | aragora review
@@ -167,7 +167,7 @@ def get_demo_findings() -> dict:
         ],
         "low_issues": [],
         "all_critiques": [],
-        "final_summary": """## AI Red Team Summary
+        "final_summary": """## Multi Agent Review Summary
 
 This code review identified **2 critical security issues** that all AI models agree on.
 
@@ -352,7 +352,7 @@ def format_github_comment(result: Optional[DebateResult], findings: dict[str, An
     )
 
     lines = [
-        "## AI Red Team Code Review",
+        "## Multi Agent Code Review",
         "",
         f"**{len(agents_used)} agents reviewed this PR** ({agent_names})",
         "",
@@ -435,7 +435,7 @@ def format_github_comment(result: Optional[DebateResult], findings: dict[str, An
     lines.extend(
         [
             "---",
-            f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
+            f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - Multi Agent Decision Making*",
         ]
     )
 

@@ -57,14 +57,20 @@ class CitationPattern:
 CITATION_PATTERNS = [
     CitationPattern(
         style=CitationStyle.APA,
-        in_text_pattern=re.compile(r"\(([A-Z][a-z]+(?:\s*(?:&|and)\s*[A-Z][a-z]+)*),?\s*(\d{4})[a-z]?\)"),
-        reference_pattern=re.compile(r"^([A-Z][a-z]+,?\s*[A-Z]\.(?:\s*[A-Z]\.)*)(?:,?\s*(?:&|and)\s*[A-Z][a-z]+,?\s*[A-Z]\.)*\s*\((\d{4})\)"),
+        in_text_pattern=re.compile(
+            r"\(([A-Z][a-z]+(?:\s*(?:&|and)\s*[A-Z][a-z]+)*),?\s*(\d{4})[a-z]?\)"
+        ),
+        reference_pattern=re.compile(
+            r"^([A-Z][a-z]+,?\s*[A-Z]\.(?:\s*[A-Z]\.)*)(?:,?\s*(?:&|and)\s*[A-Z][a-z]+,?\s*[A-Z]\.)*\s*\((\d{4})\)"
+        ),
         description="APA 7th Edition format",
     ),
     CitationPattern(
         style=CitationStyle.MLA,
         in_text_pattern=re.compile(r"\(([A-Z][a-z]+(?:\s+and\s+[A-Z][a-z]+)*)\s+(\d+)\)"),
-        reference_pattern=re.compile(r"^([A-Z][a-z]+,\s*[A-Z][a-z]+)(?:,?\s*and\s*[A-Z][a-z]+,\s*[A-Z][a-z]+)*\."),
+        reference_pattern=re.compile(
+            r"^([A-Z][a-z]+,\s*[A-Z][a-z]+)(?:,?\s*and\s*[A-Z][a-z]+,\s*[A-Z][a-z]+)*\."
+        ),
         description="MLA 9th Edition format",
     ),
     CitationPattern(
@@ -408,6 +414,7 @@ If no issues, respond with: []"""
 
             # Parse response
             import json
+
             json_match = re.search(r"\[[\s\S]*\]", response)
             if json_match:
                 try:
@@ -536,14 +543,16 @@ class CitationExtractor:
 
         for pattern_def in patterns:
             for match in pattern_def.in_text_pattern.finditer(text):
-                results.append({
-                    "type": "in_text",
-                    "style": pattern_def.style.value,
-                    "text": match.group(0),
-                    "author": match.group(1) if match.lastindex >= 1 else None,
-                    "year": match.group(2) if match.lastindex >= 2 else None,
-                    "position": match.start(),
-                })
+                results.append(
+                    {
+                        "type": "in_text",
+                        "style": pattern_def.style.value,
+                        "text": match.group(0),
+                        "author": match.group(1) if match.lastindex >= 1 else None,
+                        "year": match.group(2) if match.lastindex >= 2 else None,
+                        "position": match.start(),
+                    }
+                )
 
         return results
 
@@ -565,16 +574,18 @@ class CitationExtractor:
         match = ref_section_pattern.search(text)
         if match:
             # Extract text after references header
-            ref_text = text[match.end():]
+            ref_text = text[match.end() :]
 
             # Split into individual references
             for line in ref_text.split("\n"):
                 line = line.strip()
                 if line and len(line) > 20:
-                    results.append({
-                        "text": line[:500],
-                        "type": "reference",
-                    })
+                    results.append(
+                        {
+                            "text": line[:500],
+                            "type": "reference",
+                        }
+                    )
 
         return results
 

@@ -91,12 +91,14 @@ def list_templates(category: str = None) -> list:
     for template_id, template in WORKFLOW_TEMPLATES.items():
         if category and not template_id.startswith(category):
             continue
-        templates.append({
-            "id": template_id,
-            "name": template.get("name", template_id),
-            "description": template.get("description", ""),
-            "category": template_id.split("/")[0],
-        })
+        templates.append(
+            {
+                "id": template_id,
+                "name": template.get("name", template_id),
+                "description": template.get("description", ""),
+                "category": template_id.split("/")[0],
+            }
+        )
     return templates
 
 

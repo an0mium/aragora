@@ -422,7 +422,14 @@ class TestTournamentModels:
             "format": "round_robin",
             "participants": ["claude", "gpt4", "gemini", "llama"],
             "standings": [
-                {"agent_id": "claude", "rank": 1, "wins": 3, "losses": 0, "draws": 0, "points": 9.0},
+                {
+                    "agent_id": "claude",
+                    "rank": 1,
+                    "wins": 3,
+                    "losses": 0,
+                    "draws": 0,
+                    "points": 9.0,
+                },
                 {"agent_id": "gpt4", "rank": 2, "wins": 2, "losses": 1, "draws": 0, "points": 6.0},
             ],
             "rounds_completed": 3,

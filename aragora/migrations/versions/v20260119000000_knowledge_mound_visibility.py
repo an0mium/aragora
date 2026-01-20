@@ -74,9 +74,7 @@ def up_fn(backend: DatabaseBackend) -> None:
 
         if not _column_exists(backend, "knowledge_nodes", "visibility_set_by"):
             logger.info("Adding visibility_set_by column to knowledge_nodes")
-            backend.execute_write(
-                "ALTER TABLE knowledge_nodes ADD COLUMN visibility_set_by TEXT"
-            )
+            backend.execute_write("ALTER TABLE knowledge_nodes ADD COLUMN visibility_set_by TEXT")
 
         if not _column_exists(backend, "knowledge_nodes", "is_discoverable"):
             logger.info("Adding is_discoverable column to knowledge_nodes")
@@ -91,7 +89,8 @@ def up_fn(backend: DatabaseBackend) -> None:
 
     # Create access_grants table
     if is_postgres:
-        backend.execute_write("""
+        backend.execute_write(
+            """
             CREATE TABLE IF NOT EXISTS access_grants (
                 id TEXT PRIMARY KEY,
                 item_id TEXT NOT NULL,
@@ -104,9 +103,11 @@ def up_fn(backend: DatabaseBackend) -> None:
                 workspace_id TEXT,
                 UNIQUE(item_id, grantee_type, grantee_id)
             )
-        """)
+        """
+        )
     else:
-        backend.execute_write("""
+        backend.execute_write(
+            """
             CREATE TABLE IF NOT EXISTS access_grants (
                 id TEXT PRIMARY KEY,
                 item_id TEXT NOT NULL,
@@ -119,17 +120,25 @@ def up_fn(backend: DatabaseBackend) -> None:
                 workspace_id TEXT,
                 UNIQUE(item_id, grantee_type, grantee_id)
             )
-        """)
+        """
+        )
 
     # Create indexes for access_grants
     backend.execute_write("CREATE INDEX IF NOT EXISTS idx_grants_item_id ON access_grants(item_id)")
-    backend.execute_write("CREATE INDEX IF NOT EXISTS idx_grants_grantee ON access_grants(grantee_type, grantee_id)")
-    backend.execute_write("CREATE INDEX IF NOT EXISTS idx_grants_workspace ON access_grants(workspace_id)")
-    backend.execute_write("CREATE INDEX IF NOT EXISTS idx_grants_expires ON access_grants(expires_at)")
+    backend.execute_write(
+        "CREATE INDEX IF NOT EXISTS idx_grants_grantee ON access_grants(grantee_type, grantee_id)"
+    )
+    backend.execute_write(
+        "CREATE INDEX IF NOT EXISTS idx_grants_workspace ON access_grants(workspace_id)"
+    )
+    backend.execute_write(
+        "CREATE INDEX IF NOT EXISTS idx_grants_expires ON access_grants(expires_at)"
+    )
 
     # Create federated_regions table
     if is_postgres:
-        backend.execute_write("""
+        backend.execute_write(
+            """
             CREATE TABLE IF NOT EXISTS federated_regions (
                 region_id TEXT PRIMARY KEY,
                 endpoint_url TEXT NOT NULL,
@@ -143,9 +152,11 @@ def up_fn(backend: DatabaseBackend) -> None:
                 created_at TIMESTAMP DEFAULT NOW(),
                 updated_at TIMESTAMP DEFAULT NOW()
             )
-        """)
+        """
+        )
     else:
-        backend.execute_write("""
+        backend.execute_write(
+            """
             CREATE TABLE IF NOT EXISTS federated_regions (
                 region_id TEXT PRIMARY KEY,
                 endpoint_url TEXT NOT NULL,
@@ -159,14 +170,19 @@ def up_fn(backend: DatabaseBackend) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
     # Create index for federation status queries
-    backend.execute_write("CREATE INDEX IF NOT EXISTS idx_federation_enabled ON federated_regions(enabled)")
+    backend.execute_write(
+        "CREATE INDEX IF NOT EXISTS idx_federation_enabled ON federated_regions(enabled)"
+    )
 
     # Create visibility indexes on knowledge_nodes if table exists
     if _table_exists(backend, "knowledge_nodes"):
-        backend.execute_write("CREATE INDEX IF NOT EXISTS idx_nodes_visibility ON knowledge_nodes(visibility)")
+        backend.execute_write(
+            "CREATE INDEX IF NOT EXISTS idx_nodes_visibility ON knowledge_nodes(visibility)"
+        )
         if is_postgres:
             # PostgreSQL supports partial indexes
             try:

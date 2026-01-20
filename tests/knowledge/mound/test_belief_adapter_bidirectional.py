@@ -209,30 +209,36 @@ class TestBeliefAdapterThresholdUpdates:
 
         # 0.7-0.8 bucket: 70% success rate
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.75,
-                    "outcome_success": i < 7,  # 7/10 = 70%
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.75,
+                        "outcome_success": i < 7,  # 7/10 = 70%
+                    }
                 }
-            })
+            )
 
         # 0.8-0.9 bucket: 90% success rate
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.85,
-                    "outcome_success": i < 9,  # 9/10 = 90%
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.85,
+                        "outcome_success": i < 9,  # 9/10 = 90%
+                    }
                 }
-            })
+            )
 
         # Need 100 items for high confidence
         for _ in range(80):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.95,
-                    "outcome_success": True,
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.95,
+                        "outcome_success": True,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_belief_thresholds_from_km(km_items, min_confidence=0.7)
 
@@ -246,30 +252,36 @@ class TestBeliefAdapterThresholdUpdates:
 
         # 0.6-0.7 bucket: 80% success rate (should enable lowering threshold)
         for i in range(5):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.65,
-                    "outcome_success": i < 4,  # 4/5 = 80%
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.65,
+                        "outcome_success": i < 4,  # 4/5 = 80%
+                    }
                 }
-            })
+            )
 
         # 0.7-0.8 bucket: 70% success rate
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.75,
-                    "outcome_success": i < 7,
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.75,
+                        "outcome_success": i < 7,
+                    }
                 }
-            })
+            )
 
         # Add more items to reach confidence threshold
         for _ in range(85):
-            km_items.append({
-                "metadata": {
-                    "confidence": 0.9,
-                    "outcome_success": True,
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": 0.9,
+                        "outcome_success": True,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_belief_thresholds_from_km(km_items, min_confidence=0.7)
 
@@ -295,17 +307,45 @@ class TestBeliefAdapterKMValidatedPriors:
     async def test_get_priors_with_matching_items(self, adapter):
         """Test prior computation with matching items."""
         km_items = [
-            {"metadata": {"claim_type": "factual", "outcome_success": True, "confidence": 0.8, "debate_id": "d1"}},
-            {"metadata": {"claim_type": "factual", "outcome_success": True, "confidence": 0.7, "debate_id": "d2"}},
-            {"metadata": {"claim_type": "factual", "outcome_success": False, "confidence": 0.6, "debate_id": "d3"}},
-            {"metadata": {"claim_type": "opinion", "outcome_success": True, "confidence": 0.9, "debate_id": "d4"}},  # Different type
+            {
+                "metadata": {
+                    "claim_type": "factual",
+                    "outcome_success": True,
+                    "confidence": 0.8,
+                    "debate_id": "d1",
+                }
+            },
+            {
+                "metadata": {
+                    "claim_type": "factual",
+                    "outcome_success": True,
+                    "confidence": 0.7,
+                    "debate_id": "d2",
+                }
+            },
+            {
+                "metadata": {
+                    "claim_type": "factual",
+                    "outcome_success": False,
+                    "confidence": 0.6,
+                    "debate_id": "d3",
+                }
+            },
+            {
+                "metadata": {
+                    "claim_type": "opinion",
+                    "outcome_success": True,
+                    "confidence": 0.9,
+                    "debate_id": "d4",
+                }
+            },  # Different type
         ]
 
         rec = await adapter.get_km_validated_priors("factual", km_items)
 
         assert rec.claim_type == "factual"
         assert rec.sample_count == 3  # Only factual claims
-        assert rec.recommended_prior == 2/3  # 2 successes out of 3
+        assert rec.recommended_prior == 2 / 3  # 2 successes out of 3
         assert len(rec.supporting_debates) == 3
 
     @pytest.mark.asyncio
@@ -592,9 +632,9 @@ class TestBeliefAdapterStats:
         await adapter_with_beliefs.validate_belief_from_km("bl_node_1", [])
 
         # Get priors
-        await adapter_with_beliefs.get_km_validated_priors("factual", [
-            {"metadata": {"claim_type": "factual", "outcome_success": True}}
-        ])
+        await adapter_with_beliefs.get_km_validated_priors(
+            "factual", [{"metadata": {"claim_type": "factual", "outcome_success": True}}]
+        )
 
         stats = adapter_with_beliefs.get_reverse_flow_stats()
 
@@ -684,14 +724,16 @@ class TestBeliefAdapterIntegration:
         km_items = []
         for i in range(120):  # Need enough for high confidence
             conf = 0.65 + (i % 4) * 0.1  # 0.65, 0.75, 0.85, 0.95
-            km_items.append({
-                "metadata": {
-                    "confidence": conf,
-                    "outcome_success": conf >= 0.65,  # All succeed
-                    "is_crux": i % 5 == 0,
-                    "crux_score": 0.35 if i % 5 == 0 else 0,
+            km_items.append(
+                {
+                    "metadata": {
+                        "confidence": conf,
+                        "outcome_success": conf >= 0.65,  # All succeed
+                        "is_crux": i % 5 == 0,
+                        "crux_score": 0.35 if i % 5 == 0 else 0,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_belief_thresholds_from_km(km_items, min_confidence=0.5)
 

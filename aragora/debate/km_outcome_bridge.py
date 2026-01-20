@@ -174,10 +174,7 @@ class KMOutcomeBridge:
         # Deduplicate
         self._debate_km_usage[debate_id] = list(set(self._debate_km_usage[debate_id]))
 
-        logger.debug(
-            f"Recorded KM usage for debate {debate_id}: "
-            f"{len(km_item_ids)} items"
-        )
+        logger.debug(f"Recorded KM usage for debate {debate_id}: " f"{len(km_item_ids)} items")
 
     def get_km_usage(self, debate_id: str) -> List[str]:
         """Get KM items used in a debate."""
@@ -278,9 +275,7 @@ class KMOutcomeBridge:
                 "low": 0.4,
                 "unverified": 0.2,
             }
-            original_confidence = confidence_map.get(
-                original_confidence.lower(), 0.5
-            )
+            original_confidence = confidence_map.get(original_confidence.lower(), 0.5)
 
         # Calculate adjustment based on outcome
         if was_successful:
@@ -351,7 +346,7 @@ class KMOutcomeBridge:
         for related_id, relationship_depth in related_items:
             try:
                 # Calculate decayed adjustment
-                decay = self._config.propagation_decay ** relationship_depth
+                decay = self._config.propagation_decay**relationship_depth
                 decayed_adjustment = validation.confidence_adjustment * decay
 
                 if abs(decayed_adjustment) < 0.005:
@@ -367,8 +362,11 @@ class KMOutcomeBridge:
                 original_conf = item.get("confidence", 0.5)
                 if isinstance(original_conf, str):
                     confidence_map = {
-                        "verified": 0.95, "high": 0.8, "medium": 0.6,
-                        "low": 0.4, "unverified": 0.2,
+                        "verified": 0.95,
+                        "high": 0.8,
+                        "medium": 0.6,
+                        "low": 0.4,
+                        "unverified": 0.2,
                     }
                     original_conf = confidence_map.get(original_conf.lower(), 0.5)
 
@@ -508,9 +506,13 @@ class KMOutcomeBridge:
         avg_failure_penalty = 0.0
 
         if success_validations:
-            avg_success_boost = sum(v.confidence_adjustment for v in success_validations) / len(success_validations)
+            avg_success_boost = sum(v.confidence_adjustment for v in success_validations) / len(
+                success_validations
+            )
         if failure_validations:
-            avg_failure_penalty = sum(v.confidence_adjustment for v in failure_validations) / len(failure_validations)
+            avg_failure_penalty = sum(v.confidence_adjustment for v in failure_validations) / len(
+                failure_validations
+            )
 
         return {
             "total_validations": self._total_validations,

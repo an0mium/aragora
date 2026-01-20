@@ -124,8 +124,16 @@ class StigmergicSignal:
             emitter_agent_id=data.get("emitter_agent_id", ""),
             reinforcing_agents=data.get("reinforcing_agents", []),
             workspace_id=data.get("workspace_id", ""),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            last_reinforced=datetime.fromisoformat(data["last_reinforced"]) if data.get("last_reinforced") else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
+            last_reinforced=(
+                datetime.fromisoformat(data["last_reinforced"])
+                if data.get("last_reinforced")
+                else datetime.now()
+            ),
         )
 
 
@@ -193,9 +201,7 @@ class StigmergyManager:
             Signal ID
         """
         # Check for existing signal on same target
-        existing = await self._find_similar_signal(
-            signal_type, target_id, workspace_id
-        )
+        existing = await self._find_similar_signal(signal_type, target_id, workspace_id)
 
         if existing:
             # Reinforce existing signal
@@ -315,9 +321,7 @@ class StigmergyManager:
     async def cleanup_expired(self) -> int:
         """Remove expired signals."""
         expired_ids = [
-            signal_id
-            for signal_id, signal in self._signals.items()
-            if signal.is_expired
+            signal_id for signal_id, signal in self._signals.items() if signal.is_expired
         ]
 
         for signal_id in expired_ids:

@@ -305,9 +305,7 @@ class RepositoryOrchestrator:
         Returns:
             IndexResult with update statistics
         """
-        return await self.index_repository(
-            repo_path, workspace_id, incremental=True
-        )
+        return await self.index_repository(repo_path, workspace_id, incremental=True)
 
     async def index_multiple(
         self,

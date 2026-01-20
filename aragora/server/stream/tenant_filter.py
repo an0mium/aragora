@@ -8,7 +8,7 @@ Provides tenant isolation for real-time event streams by:
 """
 
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ class TenantFilter:
         # Map tenant_id -> set of resource_ids
         self._tenant_resources: Dict[str, Set[str]] = {}
 
-    def register_client(
-        self, client_id: int, tenant_id: Optional[str]
-    ) -> None:
+    def register_client(self, client_id: int, tenant_id: Optional[str]) -> None:
         """Register a client connection with their tenant.
 
         Args:
@@ -96,9 +94,7 @@ class TenantFilter:
         """
         return self._resource_tenants.get(resource_id)
 
-    def can_access_resource(
-        self, client_id: int, resource_id: str
-    ) -> bool:
+    def can_access_resource(self, client_id: int, resource_id: str) -> bool:
         """Check if a client can access a resource.
 
         Access is allowed if:
@@ -192,9 +188,7 @@ class TenantFilter:
             if self.should_receive_event(cid, event_tenant_id, event_resource_id)
         }
 
-    def validate_subscription(
-        self, client_id: int, resource_id: str
-    ) -> tuple[bool, str]:
+    def validate_subscription(self, client_id: int, resource_id: str) -> tuple[bool, str]:
         """Validate that a client can subscribe to a resource.
 
         Args:

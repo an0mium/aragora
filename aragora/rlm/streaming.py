@@ -205,10 +205,7 @@ class StreamingRLMQuery:
         query_lower = query.lower()
         paragraphs = content.split("\n\n")
 
-        relevant = [
-            p for p in paragraphs
-            if any(word in p.lower() for word in query_lower.split())
-        ]
+        relevant = [p for p in paragraphs if any(word in p.lower() for word in query_lower.split())]
 
         return "\n\n".join(relevant) if relevant else content
 

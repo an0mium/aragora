@@ -80,30 +80,36 @@ class DecisionStep(BaseStep):
 
             try:
                 result = self._evaluate_condition(expression, context)
-                evaluation_results.append({
-                    "name": name,
-                    "expression": expression,
-                    "result": result,
-                    "next_step": next_step,
-                })
+                evaluation_results.append(
+                    {
+                        "name": name,
+                        "expression": expression,
+                        "result": result,
+                        "next_step": next_step,
+                    }
+                )
 
                 if result:
-                    matched_branches.append({
-                        "name": name,
-                        "next_step": next_step,
-                    })
+                    matched_branches.append(
+                        {
+                            "name": name,
+                            "next_step": next_step,
+                        }
+                    )
 
                     if evaluation_mode == "first_match":
                         break
 
             except Exception as e:
                 logger.warning(f"Condition evaluation failed for '{name}': {e}")
-                evaluation_results.append({
-                    "name": name,
-                    "expression": expression,
-                    "result": False,
-                    "error": str(e),
-                })
+                evaluation_results.append(
+                    {
+                        "name": name,
+                        "expression": expression,
+                        "result": False,
+                        "error": str(e),
+                    }
+                )
 
         # Determine final decision
         if matched_branches:
@@ -115,11 +121,13 @@ class DecisionStep(BaseStep):
             ai_decision = await self._ai_decision(config, context)
             decision = ai_decision.get("next_step", default_branch)
             decision_name = ai_decision.get("name", "ai_decision")
-            evaluation_results.append({
-                "name": "ai_fallback",
-                "result": True,
-                "ai_reasoning": ai_decision.get("reasoning", ""),
-            })
+            evaluation_results.append(
+                {
+                    "name": "ai_fallback",
+                    "result": True,
+                    "ai_reasoning": ai_decision.get("reasoning", ""),
+                }
+            )
         else:
             decision = default_branch
             decision_name = "default"
@@ -169,7 +177,9 @@ class DecisionStep(BaseStep):
             logger.debug(f"Expression evaluation failed: {expression} -> {e}")
             raise
 
-    async def _ai_decision(self, config: Dict[str, Any], context: WorkflowContext) -> Dict[str, Any]:
+    async def _ai_decision(
+        self, config: Dict[str, Any], context: WorkflowContext
+    ) -> Dict[str, Any]:
         """Use AI to make a decision when no conditions match."""
         ai_prompt = config.get("ai_prompt", "")
         conditions = config.get("conditions", [])

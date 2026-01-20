@@ -23,21 +23,17 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import logging
 import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Dict, Optional, Set
 
 from aragora.connectors.whisper import (
     WhisperConnector,
-    TranscriptionResult,
     TranscriptionSegment,
-    MAX_FILE_SIZE_BYTES,
-    is_supported_media,
 )
 from aragora.connectors.exceptions import ConnectorConfigError, ConnectorRateLimitError
 from aragora.server.stream.events import StreamEvent, StreamEventType
@@ -49,14 +45,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Voice stream configuration
-VOICE_CHUNK_SIZE_BYTES = int(os.getenv("ARAGORA_VOICE_CHUNK_SIZE", str(16000 * 2 * 3)))  # 3 seconds at 16kHz 16-bit
+VOICE_CHUNK_SIZE_BYTES = int(
+    os.getenv("ARAGORA_VOICE_CHUNK_SIZE", str(16000 * 2 * 3))
+)  # 3 seconds at 16kHz 16-bit
 VOICE_MAX_SESSION_SECONDS = int(os.getenv("ARAGORA_VOICE_MAX_SESSION", "300"))  # 5 minutes max
-VOICE_MAX_BUFFER_BYTES = int(os.getenv("ARAGORA_VOICE_MAX_BUFFER", str(25 * 1024 * 1024)))  # 25MB (Whisper limit)
+VOICE_MAX_BUFFER_BYTES = int(
+    os.getenv("ARAGORA_VOICE_MAX_BUFFER", str(25 * 1024 * 1024))
+)  # 25MB (Whisper limit)
 VOICE_TRANSCRIBE_INTERVAL_MS = int(os.getenv("ARAGORA_VOICE_INTERVAL", "3000"))  # 3 seconds
 
 # Rate limiting
 VOICE_MAX_SESSIONS_PER_IP = int(os.getenv("ARAGORA_VOICE_MAX_SESSIONS_IP", "3"))
-VOICE_MAX_BYTES_PER_MINUTE = int(os.getenv("ARAGORA_VOICE_RATE_BYTES", str(5 * 1024 * 1024)))  # 5MB/min
+VOICE_MAX_BYTES_PER_MINUTE = int(
+    os.getenv("ARAGORA_VOICE_RATE_BYTES", str(5 * 1024 * 1024))
+)  # 5MB/min
 
 
 @dataclass
@@ -172,15 +174,17 @@ class VoiceStreamHandler:
         """
         # Extract client IP
         client_ip = self._get_client_ip(request)
-        ws_id = id(ws)
+        id(ws)
 
         # Check availability
         if not self.is_available:
-            await ws.send_json({
-                "type": "error",
-                "code": "voice_unavailable",
-                "message": "Voice transcription is not available. Check OPENAI_API_KEY.",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "voice_unavailable",
+                    "message": "Voice transcription is not available. Check OPENAI_API_KEY.",
+                }
+            )
             await ws.close()
             return
 
@@ -188,11 +192,13 @@ class VoiceStreamHandler:
         async with self._sessions_lock:
             ip_sessions = self._ip_sessions.get(client_ip, set())
             if len(ip_sessions) >= VOICE_MAX_SESSIONS_PER_IP:
-                await ws.send_json({
-                    "type": "error",
-                    "code": "rate_limited",
-                    "message": f"Maximum {VOICE_MAX_SESSIONS_PER_IP} voice sessions per IP.",
-                })
+                await ws.send_json(
+                    {
+                        "type": "error",
+                        "code": "rate_limited",
+                        "message": f"Maximum {VOICE_MAX_SESSIONS_PER_IP} voice sessions per IP.",
+                    }
+                )
                 await ws.close()
                 return
 
@@ -213,27 +219,31 @@ class VoiceStreamHandler:
         logger.info(f"[Voice] Session {session_id} started for debate {debate_id} from {client_ip}")
 
         # Send ready message
-        await ws.send_json({
-            "type": "ready",
-            "session_id": session_id,
-            "debate_id": debate_id,
-            "config": {
-                "max_buffer_bytes": VOICE_MAX_BUFFER_BYTES,
-                "transcribe_interval_ms": VOICE_TRANSCRIBE_INTERVAL_MS,
-                "max_session_seconds": VOICE_MAX_SESSION_SECONDS,
-            },
-        })
+        await ws.send_json(
+            {
+                "type": "ready",
+                "session_id": session_id,
+                "debate_id": debate_id,
+                "config": {
+                    "max_buffer_bytes": VOICE_MAX_BUFFER_BYTES,
+                    "transcribe_interval_ms": VOICE_TRANSCRIBE_INTERVAL_MS,
+                    "max_session_seconds": VOICE_MAX_SESSION_SECONDS,
+                },
+            }
+        )
 
         # Emit voice start event
-        self._emit_event(StreamEventType.VOICE_START, {
-            "session_id": session_id,
-            "debate_id": debate_id,
-        }, debate_id)
+        self._emit_event(
+            StreamEventType.VOICE_START,
+            {
+                "session_id": session_id,
+                "debate_id": debate_id,
+            },
+            debate_id,
+        )
 
         # Background task for periodic transcription
-        transcribe_task = asyncio.create_task(
-            self._periodic_transcribe(session, ws)
-        )
+        transcribe_task = asyncio.create_task(self._periodic_transcribe(session, ws))
 
         try:
             async for msg in ws:
@@ -247,11 +257,13 @@ class VoiceStreamHandler:
 
                 # Check session limits
                 if session.elapsed_seconds() > VOICE_MAX_SESSION_SECONDS:
-                    await ws.send_json({
-                        "type": "error",
-                        "code": "session_timeout",
-                        "message": f"Maximum session duration ({VOICE_MAX_SESSION_SECONDS}s) exceeded.",
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "code": "session_timeout",
+                            "message": f"Maximum session duration ({VOICE_MAX_SESSION_SECONDS}s) exceeded.",
+                        }
+                    )
                     break
 
         except Exception as e:
@@ -278,14 +290,18 @@ class VoiceStreamHandler:
                         del self._ip_sessions[client_ip]
 
             # Emit voice end event
-            self._emit_event(StreamEventType.VOICE_END, {
-                "session_id": session_id,
-                "debate_id": debate_id,
-                "total_bytes": session.total_bytes_received,
-                "transcription_count": session.transcription_count,
-                "total_text": session.accumulated_text,
-                "duration_seconds": session.elapsed_seconds(),
-            }, debate_id)
+            self._emit_event(
+                StreamEventType.VOICE_END,
+                {
+                    "session_id": session_id,
+                    "debate_id": debate_id,
+                    "total_bytes": session.total_bytes_received,
+                    "transcription_count": session.transcription_count,
+                    "total_text": session.accumulated_text,
+                    "duration_seconds": session.elapsed_seconds(),
+                },
+                debate_id,
+            )
 
             logger.info(
                 f"[Voice] Session {session_id} ended: "
@@ -330,28 +346,36 @@ class VoiceStreamHandler:
         """Handle binary audio chunk from client."""
         # Check rate limit
         if not self._check_rate_limit(session.client_ip, len(chunk)):
-            await ws.send_json({
-                "type": "error",
-                "code": "rate_limited",
-                "message": "Audio upload rate limit exceeded.",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "rate_limited",
+                    "message": "Audio upload rate limit exceeded.",
+                }
+            )
             return
 
         # Add to buffer
         if not session.add_chunk(chunk):
-            await ws.send_json({
-                "type": "error",
-                "code": "buffer_overflow",
-                "message": "Audio buffer full. End session or wait for transcription.",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "buffer_overflow",
+                    "message": "Audio buffer full. End session or wait for transcription.",
+                }
+            )
             return
 
         # Emit chunk event (for progress tracking)
-        self._emit_event(StreamEventType.VOICE_CHUNK, {
-            "session_id": session.session_id,
-            "chunk_size": len(chunk),
-            "buffer_size": len(session.audio_buffer),
-        }, session.debate_id)
+        self._emit_event(
+            StreamEventType.VOICE_CHUNK,
+            {
+                "session_id": session.session_id,
+                "chunk_size": len(chunk),
+                "buffer_size": len(session.audio_buffer),
+            },
+            session.debate_id,
+        )
 
     async def _periodic_transcribe(
         self,
@@ -400,52 +424,64 @@ class VoiceStreamHandler:
                 session.language = result.language
 
             # Send transcript to client
-            await ws.send_json({
-                "type": "transcript",
-                "session_id": session.session_id,
-                "text": result.text,
-                "language": result.language,
-                "duration_seconds": result.duration_seconds,
-                "word_count": result.word_count,
-                "is_final": final,
-                "segments": [s.to_dict() for s in result.segments],
-            })
+            await ws.send_json(
+                {
+                    "type": "transcript",
+                    "session_id": session.session_id,
+                    "text": result.text,
+                    "language": result.language,
+                    "duration_seconds": result.duration_seconds,
+                    "word_count": result.word_count,
+                    "is_final": final,
+                    "segments": [s.to_dict() for s in result.segments],
+                }
+            )
 
             # Emit transcript event
-            self._emit_event(StreamEventType.VOICE_TRANSCRIPT, {
-                "session_id": session.session_id,
-                "debate_id": session.debate_id,
-                "text": result.text,
-                "language": result.language,
-                "is_final": final,
-                "accumulated_text": session.accumulated_text.strip(),
-            }, session.debate_id)
+            self._emit_event(
+                StreamEventType.VOICE_TRANSCRIPT,
+                {
+                    "session_id": session.session_id,
+                    "debate_id": session.debate_id,
+                    "text": result.text,
+                    "language": result.language,
+                    "is_final": final,
+                    "accumulated_text": session.accumulated_text.strip(),
+                },
+                session.debate_id,
+            )
 
         except ConnectorRateLimitError as e:
             logger.warning(f"[Voice] Whisper rate limit: {e}")
             # Re-add buffer to try again later
             session.audio_buffer = buffer + session.audio_buffer
-            await ws.send_json({
-                "type": "warning",
-                "code": "rate_limited",
-                "message": "Transcription API rate limited. Buffering audio.",
-            })
+            await ws.send_json(
+                {
+                    "type": "warning",
+                    "code": "rate_limited",
+                    "message": "Transcription API rate limited. Buffering audio.",
+                }
+            )
 
         except ConnectorConfigError as e:
             logger.error(f"[Voice] Configuration error: {e}")
-            await ws.send_json({
-                "type": "error",
-                "code": "config_error",
-                "message": str(e),
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "config_error",
+                    "message": str(e),
+                }
+            )
 
         except Exception as e:
             logger.error(f"[Voice] Transcription error: {e}")
-            await ws.send_json({
-                "type": "error",
-                "code": "transcription_failed",
-                "message": f"Transcription failed: {e}",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "code": "transcription_failed",
+                    "message": f"Transcription failed: {e}",
+                }
+            )
 
     def _create_wav_header(
         self,
@@ -489,8 +525,7 @@ class VoiceStreamHandler:
 
         # Clean old entries
         self._ip_bytes_minute[client_ip] = [
-            (ts, size) for ts, size in self._ip_bytes_minute[client_ip]
-            if ts > minute_ago
+            (ts, size) for ts, size in self._ip_bytes_minute[client_ip] if ts > minute_ago
         ]
 
         # Calculate bytes in last minute

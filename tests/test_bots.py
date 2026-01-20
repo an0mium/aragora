@@ -518,6 +518,7 @@ class TestDiscordBot:
 
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             os.environ.pop("DISCORD_BOT_TOKEN", None)
 
             with pytest.raises(ValueError) as exc_info:
@@ -554,6 +555,7 @@ class TestTeamsBot:
 
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             os.environ.pop("TEAMS_APP_ID", None)
             os.environ.pop("TEAMS_APP_PASSWORD", None)
 
@@ -585,6 +587,7 @@ class TestZoomBot:
 
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             os.environ.pop("ZOOM_CLIENT_ID", None)
             os.environ.pop("ZOOM_CLIENT_SECRET", None)
 
@@ -625,11 +628,14 @@ class TestZoomBot:
 
         # Generate valid signature
         message = f"v0:{timestamp}:{payload.decode('utf-8')}"
-        expected_sig = "v0=" + hmac.new(
-            b"secret123",
-            message.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        expected_sig = (
+            "v0="
+            + hmac.new(
+                b"secret123",
+                message.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         # Test valid signature
         assert bot.verify_webhook(payload, timestamp, expected_sig) is True
@@ -698,8 +704,6 @@ class TestBotModuleExports:
             CommandContext,
             CommandResult,
             BotConfig,
-            BaseBotClient,
-            BotEventHandler,
         )
 
         assert Platform is not None

@@ -68,17 +68,31 @@ class TestNomicLoopPhaseTransitions:
 
         phases_executed = []
 
-        with patch.object(loop, 'run_context_phase', new_callable=AsyncMock) as mock_context:
-            with patch.object(loop, 'run_debate_phase', new_callable=AsyncMock) as mock_debate:
-                with patch.object(loop, 'run_design_phase', new_callable=AsyncMock) as mock_design:
-                    with patch.object(loop, 'run_implement_phase', new_callable=AsyncMock) as mock_impl:
-                        with patch.object(loop, 'run_verify_phase', new_callable=AsyncMock) as mock_verify:
+        with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
+            with patch.object(loop, "run_debate_phase", new_callable=AsyncMock) as mock_debate:
+                with patch.object(loop, "run_design_phase", new_callable=AsyncMock) as mock_design:
+                    with patch.object(
+                        loop, "run_implement_phase", new_callable=AsyncMock
+                    ) as mock_impl:
+                        with patch.object(
+                            loop, "run_verify_phase", new_callable=AsyncMock
+                        ) as mock_verify:
                             # Track phase execution
-                            mock_context.side_effect = lambda: phases_executed.append("context") or {"success": True}
-                            mock_debate.side_effect = lambda *a, **kw: phases_executed.append("debate") or {"consensus": True}
-                            mock_design.side_effect = lambda *a, **kw: phases_executed.append("design") or {"approved": True}
-                            mock_impl.side_effect = lambda *a, **kw: phases_executed.append("implement") or {"success": True}
-                            mock_verify.side_effect = lambda *a, **kw: phases_executed.append("verify") or {"passed": True}
+                            mock_context.side_effect = lambda: phases_executed.append(
+                                "context"
+                            ) or {"success": True}
+                            mock_debate.side_effect = lambda *a, **kw: phases_executed.append(
+                                "debate"
+                            ) or {"consensus": True}
+                            mock_design.side_effect = lambda *a, **kw: phases_executed.append(
+                                "design"
+                            ) or {"approved": True}
+                            mock_impl.side_effect = lambda *a, **kw: phases_executed.append(
+                                "implement"
+                            ) or {"success": True}
+                            mock_verify.side_effect = lambda *a, **kw: phases_executed.append(
+                                "verify"
+                            ) or {"passed": True}
 
                             await loop.run_cycle()
 
@@ -94,9 +108,9 @@ class TestNomicLoopPhaseTransitions:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(loop, 'run_context_phase', new_callable=AsyncMock) as mock_context:
-            with patch.object(loop, 'run_debate_phase', new_callable=AsyncMock) as mock_debate:
-                with patch.object(loop, 'run_design_phase', new_callable=AsyncMock) as mock_design:
+        with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
+            with patch.object(loop, "run_debate_phase", new_callable=AsyncMock) as mock_debate:
+                with patch.object(loop, "run_design_phase", new_callable=AsyncMock) as mock_design:
                     mock_context.return_value = {"success": True}
                     mock_debate.return_value = {"consensus": False}  # No consensus
                     mock_design.return_value = {"approved": True}
@@ -161,7 +175,7 @@ class TestNomicLoopSafety:
             require_human_approval=True,
         )
 
-        with patch.object(loop, 'request_human_approval', new_callable=AsyncMock) as mock_approval:
+        with patch.object(loop, "request_human_approval", new_callable=AsyncMock) as mock_approval:
             mock_approval.return_value = True
 
             result = await loop.get_approval_for_changes({"files": ["test.py"]})
@@ -182,7 +196,7 @@ class TestNomicLoopErrorHandling:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(loop, 'run_context_phase', new_callable=AsyncMock) as mock_context:
+        with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
             mock_context.side_effect = Exception("Phase failed")
 
             result = await loop.run_cycle()
@@ -202,9 +216,9 @@ class TestNomicLoopErrorHandling:
             checkpoint_dir=tmp_path,
         )
 
-        with patch.object(loop, 'run_context_phase', new_callable=AsyncMock) as mock_context:
-            with patch.object(loop, 'run_debate_phase', new_callable=AsyncMock) as mock_debate:
-                with patch.object(loop, 'create_checkpoint') as mock_checkpoint:
+        with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
+            with patch.object(loop, "run_debate_phase", new_callable=AsyncMock) as mock_debate:
+                with patch.object(loop, "create_checkpoint") as mock_checkpoint:
                     mock_context.return_value = {"success": True}
                     mock_debate.side_effect = Exception("Debate failed")
 
@@ -219,8 +233,13 @@ class TestNomicLoopIntegration:
 
     @pytest.mark.asyncio
     async def test_complete_successful_cycle(
-        self, mock_aragora_path, mock_log_fn,
-        mock_debate_result, mock_design_result, mock_implementation_result, mock_verification_result
+        self,
+        mock_aragora_path,
+        mock_log_fn,
+        mock_debate_result,
+        mock_design_result,
+        mock_implementation_result,
+        mock_verification_result,
     ):
         """Should complete a full successful cycle."""
         from aragora.nomic.loop import NomicLoop
@@ -230,11 +249,15 @@ class TestNomicLoopIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(loop, 'run_context_phase', new_callable=AsyncMock) as mock_context:
-            with patch.object(loop, 'run_debate_phase', new_callable=AsyncMock) as mock_debate:
-                with patch.object(loop, 'run_design_phase', new_callable=AsyncMock) as mock_design:
-                    with patch.object(loop, 'run_implement_phase', new_callable=AsyncMock) as mock_impl:
-                        with patch.object(loop, 'run_verify_phase', new_callable=AsyncMock) as mock_verify:
+        with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
+            with patch.object(loop, "run_debate_phase", new_callable=AsyncMock) as mock_debate:
+                with patch.object(loop, "run_design_phase", new_callable=AsyncMock) as mock_design:
+                    with patch.object(
+                        loop, "run_implement_phase", new_callable=AsyncMock
+                    ) as mock_impl:
+                        with patch.object(
+                            loop, "run_verify_phase", new_callable=AsyncMock
+                        ) as mock_verify:
                             mock_context.return_value = {"success": True, "context": "gathered"}
                             mock_debate.return_value = mock_debate_result
                             mock_design.return_value = mock_design_result
@@ -259,7 +282,7 @@ class TestNomicLoopIntegration:
 
         cycles_run = []
 
-        with patch.object(loop, 'run_cycle', new_callable=AsyncMock) as mock_cycle:
+        with patch.object(loop, "run_cycle", new_callable=AsyncMock) as mock_cycle:
             mock_cycle.side_effect = lambda: cycles_run.append(1) or {"success": True}
 
             await loop.run(max_cycles=3)
@@ -279,7 +302,8 @@ class TestNomicLoopIntegration:
 
         failure_count = [0]
 
-        with patch.object(loop, 'run_cycle', new_callable=AsyncMock) as mock_cycle:
+        with patch.object(loop, "run_cycle", new_callable=AsyncMock) as mock_cycle:
+
             def fail_cycle():
                 failure_count[0] += 1
                 return {"success": False}

@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Dataclass Tests
 # ============================================================================
 
+
 class TestJiraDataclasses:
     """Tests for Jira dataclasses."""
 
@@ -125,6 +126,7 @@ class TestJiraDataclasses:
 # Connector Initialization Tests
 # ============================================================================
 
+
 class TestJiraConnectorInit:
     """Tests for JiraConnector initialization."""
 
@@ -197,6 +199,7 @@ class TestJiraConnectorInit:
 # Authentication Tests
 # ============================================================================
 
+
 class TestJiraAuthentication:
     """Tests for Jira authentication."""
 
@@ -209,10 +212,12 @@ class TestJiraAuthentication:
 
         # Mock credentials
         connector.credentials = AsyncMock()
-        connector.credentials.get_credential = AsyncMock(side_effect=lambda key: {
-            "JIRA_EMAIL": "user@example.com",
-            "JIRA_API_TOKEN": "token123",
-        }.get(key))
+        connector.credentials.get_credential = AsyncMock(
+            side_effect=lambda key: {
+                "JIRA_EMAIL": "user@example.com",
+                "JIRA_API_TOKEN": "token123",
+            }.get(key)
+        )
 
         header = await connector._get_auth_header()
 
@@ -228,9 +233,11 @@ class TestJiraAuthentication:
 
         # Mock credentials
         connector.credentials = AsyncMock()
-        connector.credentials.get_credential = AsyncMock(side_effect=lambda key: {
-            "JIRA_PAT": "pat_token_123",
-        }.get(key))
+        connector.credentials.get_credential = AsyncMock(
+            side_effect=lambda key: {
+                "JIRA_PAT": "pat_token_123",
+            }.get(key)
+        )
 
         header = await connector._get_auth_header()
 
@@ -270,6 +277,7 @@ class TestJiraAuthentication:
 # ADF Parsing Tests
 # ============================================================================
 
+
 class TestADFParsing:
     """Tests for Atlassian Document Format parsing."""
 
@@ -287,9 +295,9 @@ class TestADFParsing:
                     "content": [
                         {"type": "text", "text": "Hello "},
                         {"type": "text", "text": "world"},
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
         result = connector._adf_to_text(adf)
@@ -305,10 +313,7 @@ class TestADFParsing:
         adf = {
             "type": "doc",
             "content": [
-                {
-                    "type": "heading",
-                    "content": [{"type": "text", "text": "Title"}]
-                },
+                {"type": "heading", "content": [{"type": "text", "text": "Title"}]},
                 {
                     "type": "bulletList",
                     "content": [
@@ -317,13 +322,13 @@ class TestADFParsing:
                             "content": [
                                 {
                                     "type": "paragraph",
-                                    "content": [{"type": "text", "text": "Item 1"}]
+                                    "content": [{"type": "text", "text": "Item 1"}],
                                 }
-                            ]
+                            ],
                         }
-                    ]
-                }
-            ]
+                    ],
+                },
+            ],
         }
 
         result = connector._adf_to_text(adf)
@@ -357,6 +362,7 @@ class TestADFParsing:
 # API Request Tests (Mocked)
 # ============================================================================
 
+
 class TestJiraAPIRequests:
     """Tests for Jira API requests."""
 
@@ -388,6 +394,7 @@ class TestJiraAPIRequests:
 # ============================================================================
 # Webhook Tests
 # ============================================================================
+
 
 class TestJiraWebhooks:
     """Tests for Jira webhook handling."""
@@ -466,6 +473,7 @@ class TestJiraWebhooks:
 # Search Tests (Mocked)
 # ============================================================================
 
+
 class TestJiraSearch:
     """Tests for Jira search functionality."""
 
@@ -514,6 +522,7 @@ class TestJiraSearch:
 # Fetch Tests (Mocked)
 # ============================================================================
 
+
 class TestJiraFetch:
     """Tests for Jira fetch functionality."""
 
@@ -555,6 +564,7 @@ class TestJiraFetch:
 # ============================================================================
 # Module Export Tests
 # ============================================================================
+
 
 class TestJiraExports:
     """Tests for module exports."""

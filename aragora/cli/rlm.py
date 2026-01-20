@@ -17,7 +17,6 @@ Commands:
 import argparse
 import asyncio
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -253,7 +252,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
         print(f"Memory usage: {mb:.2f} MB")
 
     if stats.get("entries"):
-        print(f"\nCached entries:")
+        print("\nCached entries:")
         for entry in stats["entries"][:10]:  # Show first 10
             key = entry.get("key", "?")[:30]
             tokens = entry.get("original_tokens", 0)
@@ -332,16 +331,19 @@ Examples:
         help="Input file to compress",
     )
     compress_parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output JSON file for compressed context",
     )
     compress_parser.add_argument(
-        "--type", "-t",
+        "--type",
+        "-t",
         choices=["text", "code", "debate", "document"],
         help="Content type (auto-detected if not specified)",
     )
     compress_parser.add_argument(
-        "--levels", "-l",
+        "--levels",
+        "-l",
         type=int,
         default=4,
         help="Number of abstraction levels (default: 4)",
@@ -363,23 +365,27 @@ Examples:
         help="Query to answer",
     )
     query_parser.add_argument(
-        "--context", "-c",
+        "--context",
+        "-c",
         required=True,
         help="Path to compressed context JSON file",
     )
     query_parser.add_argument(
-        "--strategy", "-s",
+        "--strategy",
+        "-s",
         choices=["auto", "peek", "grep", "partition_map", "hierarchical"],
         default="auto",
         help="Decomposition strategy (default: auto)",
     )
     query_parser.add_argument(
-        "--refine", "-r",
+        "--refine",
+        "-r",
         action="store_true",
         help="Enable iterative refinement",
     )
     query_parser.add_argument(
-        "--max-iterations", "-m",
+        "--max-iterations",
+        "-m",
         type=int,
         default=3,
         help="Maximum refinement iterations (default: 3)",
@@ -391,14 +397,14 @@ Examples:
     )
 
     # Stats command
-    stats_parser = rlm_subparsers.add_parser(
+    rlm_subparsers.add_parser(
         "stats",
         help="Show RLM cache statistics",
         description="Display statistics about the RLM compression cache.",
     )
 
     # Clear cache command
-    clear_parser = rlm_subparsers.add_parser(
+    rlm_subparsers.add_parser(
         "clear-cache",
         help="Clear the compression cache",
         description="Clear all cached compressions from memory.",

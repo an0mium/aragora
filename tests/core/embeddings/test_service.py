@@ -90,6 +90,7 @@ class TestEmbeddingCache:
         cache.set("test", [0.1])
 
         import time
+
         time.sleep(0.01)
 
         assert cache.get("test") is None
@@ -319,6 +320,7 @@ class TestUtilityFunctions:
     def test_pack_unpack_roundtrip(self):
         """Test pack/unpack preserves values."""
         import math
+
         original = [0.1, 0.2, 0.3, -0.5, 1.0]
         packed = pack_embedding(original)
         unpacked = unpack_embedding(packed)
@@ -372,6 +374,7 @@ class TestBackwardsCompatibility:
             pack_embedding,
             unpack_embedding,
         )
+
         # Just verify they're callable
         assert callable(cosine_similarity)
         assert callable(pack_embedding)
@@ -386,6 +389,7 @@ class TestBackwardsCompatibility:
             Agent,
             Vote,
         )
+
         # Verify they're classes
         assert Critique is not None
         assert DebateResult is not None

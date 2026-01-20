@@ -113,7 +113,7 @@ class RelationshipTracker(BaseRelationshipTracker):
         with self._db.connection() as conn:
             # Update relationships for each pair
             for i, agent_a in enumerate(participants):
-                for agent_b in participants[i + 1:]:
+                for agent_b in participants[i + 1 :]:
                     canonical_a, canonical_b = self._canonical_pair(agent_a, agent_b)
                     is_swapped = canonical_a != agent_a
 

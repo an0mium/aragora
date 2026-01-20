@@ -59,9 +59,7 @@ def mock_meta_store():
 
     async def get_grants_for_grantee_async(grantee_id, grantee_type):
         return [
-            g
-            for g in store._grantee_grants.get(grantee_id, [])
-            if g.grantee_type == grantee_type
+            g for g in store._grantee_grants.get(grantee_id, []) if g.grantee_type == grantee_type
         ]
 
     async def delete_access_grant_async(item_id, grantee_id):
@@ -74,9 +72,7 @@ def mock_meta_store():
                 # Also remove from grantee index
                 if grantee_id in store._grantee_grants:
                     store._grantee_grants[grantee_id] = [
-                        g
-                        for g in store._grantee_grants[grantee_id]
-                        if g.item_id != item_id
+                        g for g in store._grantee_grants[grantee_id] if g.item_id != item_id
                     ]
                 return True
         return False
@@ -301,7 +297,9 @@ class TestSharingAPI:
         assert "read" in grant.permissions
 
     @pytest.mark.asyncio
-    async def test_share_with_same_workspace_fails(self, mock_knowledge_mound, sample_knowledge_item):
+    async def test_share_with_same_workspace_fails(
+        self, mock_knowledge_mound, sample_knowledge_item
+    ):
         """Test that sharing with the same workspace is rejected."""
         from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
 

@@ -7,6 +7,7 @@ Tests the S3 bucket integration including:
 - Last-modified based incremental sync
 - S3 event notification handling
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,9 +21,11 @@ from aragora.connectors.enterprise.base import SyncState, SyncStatus
 # Mock S3 Connector (mirrors actual implementation)
 # =============================================================================
 
+
 @dataclass
 class S3Object:
     """Represents an S3 object."""
+
     key: str
     bucket: str
     size: int
@@ -242,12 +245,14 @@ class MockS3Connector:
         objects, _ = await self._list_objects(prefix=query)
 
         for obj in objects[:limit]:
-            results.append(MagicMock(
-                id=f"s3-{self.bucket_name}-{obj.key}",
-                title=obj.key.split("/")[-1],
-                url=f"s3://{self.bucket_name}/{obj.key}",
-                score=1.0,
-            ))
+            results.append(
+                MagicMock(
+                    id=f"s3-{self.bucket_name}-{obj.key}",
+                    title=obj.key.split("/")[-1],
+                    url=f"s3://{self.bucket_name}/{obj.key}",
+                    score=1.0,
+                )
+            )
 
         return results
 
@@ -267,6 +272,7 @@ class MockS3Connector:
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def s3_connector():
@@ -311,6 +317,7 @@ def sample_objects():
 # =============================================================================
 # Test Classes
 # =============================================================================
+
 
 class TestS3Init:
     """Test S3 connector initialization."""

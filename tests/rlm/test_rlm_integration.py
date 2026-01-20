@@ -107,12 +107,14 @@ def create_mock_debate_result(num_rounds: int = 3) -> MockDebateResult:
             {"critic": "gpt", "target": "claude", "content": f"Critique of Claude in round {i+1}"},
             {"critic": "claude", "target": "gpt", "content": f"Critique of GPT in round {i+1}"},
         ]
-        rounds.append(MockDebateRound(
-            round_number=i + 1,
-            proposals=proposals,
-            critiques=critiques,
-            votes={"claude": 2, "gpt": 1} if i == num_rounds - 1 else None,
-        ))
+        rounds.append(
+            MockDebateRound(
+                round_number=i + 1,
+                proposals=proposals,
+                critiques=critiques,
+                votes={"claude": 2, "gpt": 1} if i == num_rounds - 1 else None,
+            )
+        )
 
     return MockDebateResult(
         rounds=rounds,
@@ -275,7 +277,8 @@ class TestHierarchicalCompressorIntegration:
         compressor = get_compressor()
 
         # Debate-formatted content
-        content = """
+        content = (
+            """
         ## Round 1
         ### Claude's Proposal
         I propose we implement feature X using pattern Y.
@@ -286,7 +289,9 @@ class TestHierarchicalCompressorIntegration:
         ## Round 2
         ### Claude's Revised Proposal
         Updated proposal addressing concern Z.
-        """ * 10
+        """
+            * 10
+        )
 
         result = await compressor.compress(content, source_type="debate")
 
@@ -411,7 +416,8 @@ class TestAragoraRLMIntegration:
 
         rlm = get_rlm()
 
-        debate_content = """
+        debate_content = (
+            """
         ## Round 1
         Agent A proposed solution X.
         Agent B critiqued: "Solution X has performance issues."
@@ -419,7 +425,9 @@ class TestAragoraRLMIntegration:
         ## Round 2
         Agent A revised: "Updated solution addresses performance."
         Consensus reached: Use solution X with modifications.
-        """ * 20
+        """
+            * 20
+        )
 
         result = await rlm.compress_and_query(
             query="What consensus was reached?",
@@ -749,7 +757,8 @@ class TestRLMEndToEnd:
         rlm = get_rlm()
 
         # Create substantial debate-like content
-        content = """
+        content = (
+            """
         ## Technical Architecture Discussion
 
         ### Round 1
@@ -764,7 +773,9 @@ class TestRLMEndToEnd:
 
         ### Consensus
         Team agreed on modular monolith approach with clear service boundaries.
-        """ * 20
+        """
+            * 20
+        )
 
         # Query the content
         result = await rlm.compress_and_query(

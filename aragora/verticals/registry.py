@@ -111,9 +111,7 @@ class VerticalRegistry:
         """
         if vertical_id not in cls._registry:
             valid_types = ", ".join(sorted(cls._registry.keys()))
-            raise ValueError(
-                f"Unknown vertical: {vertical_id}. Valid verticals: {valid_types}"
-            )
+            raise ValueError(f"Unknown vertical: {vertical_id}. Valid verticals: {valid_types}")
 
         spec = cls._registry[vertical_id]
         config = spec.config
@@ -160,9 +158,7 @@ class VerticalRegistry:
                 "description": spec.description,
                 "expertise_areas": spec.config.expertise_areas,
                 "tools": [t.name for t in spec.config.get_enabled_tools()],
-                "compliance_frameworks": [
-                    c.framework for c in spec.config.compliance_frameworks
-                ],
+                "compliance_frameworks": [c.framework for c in spec.config.compliance_frameworks],
                 "default_model": spec.config.model_config.primary_model,
             }
             for vid, spec in cls._registry.items()

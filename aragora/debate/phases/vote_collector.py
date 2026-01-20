@@ -167,7 +167,7 @@ class VoteCollector:
         # Count votes by choice
         vote_counts: dict[str, int] = {}
         for vote in votes:
-            if hasattr(vote, 'choice') and vote.choice:
+            if hasattr(vote, "choice") and vote.choice:
                 vote_counts[vote.choice] = vote_counts.get(vote.choice, 0) + 1
 
         if not vote_counts:
@@ -246,7 +246,9 @@ class VoteCollector:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error(f"task_exception phase=vote_permutation perm={permutation_idx} error={e}")
+                logger.error(
+                    f"task_exception phase=vote_permutation perm={permutation_idx} error={e}"
+                )
                 continue
 
             if vote_result is None or isinstance(vote_result, Exception):
@@ -297,14 +299,13 @@ class VoteCollector:
             )
 
             for vote in perm_votes:
-                agent_name = vote.agent if hasattr(vote, 'agent') else "unknown"
+                agent_name = vote.agent if hasattr(vote, "agent") else "unknown"
                 if agent_name not in votes_by_agent:
                     votes_by_agent[agent_name] = []
                 votes_by_agent[agent_name].append(vote)
 
             logger.debug(
-                f"position_shuffling_permutation_done perm={perm_idx} "
-                f"votes={len(perm_votes)}"
+                f"position_shuffling_permutation_done perm={perm_idx} " f"votes={len(perm_votes)}"
             )
 
         # Average votes across permutations
@@ -317,7 +318,7 @@ class VoteCollector:
 
         # Handle success callbacks for averaged votes
         for vote in averaged_votes:
-            agent_name = vote.agent if hasattr(vote, 'agent') else None
+            agent_name = vote.agent if hasattr(vote, "agent") else None
             agent = next((a for a in ctx.agents if a.name == agent_name), None)
             if agent:
                 self._handle_vote_success(ctx, agent, vote)
@@ -350,7 +351,8 @@ class VoteCollector:
             try:
                 return await asyncio.wait_for(
                     self._collect_votes_with_shuffling(ctx),
-                    timeout=self.VOTE_COLLECTION_TIMEOUT * self.config.position_shuffling_permutations,
+                    timeout=self.VOTE_COLLECTION_TIMEOUT
+                    * self.config.position_shuffling_permutations,
                 )
             except asyncio.TimeoutError:
                 logger.warning(

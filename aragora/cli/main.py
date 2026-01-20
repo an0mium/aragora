@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Aragora CLI - AI Red Team for Decision Stress-Testing
+Aragora CLI - Omnivorous Multi Agent Decision Making Engine
 
 Usage:
     aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aragora.agents.base import create_agent
+from aragora.agents.spec import AgentSpec
 from aragora.core import Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
@@ -62,7 +63,7 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optiona
     return None
 
 
-def parse_agents(agents_str: str) -> list["AgentSpec"]:
+def parse_agents(agents_str: str) -> list[AgentSpec]:
     """Parse agent string using unified AgentSpec.
 
     Supports both formats:
@@ -319,7 +320,7 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
     try:
         from aragora.ranking.calibration import CalibrationTracker
 
-        tracker = CalibrationTracker()
+        CalibrationTracker()
         # Get summary for any available agents
         print("\nCalibration: enabled")
     except ImportError:
@@ -1032,7 +1033,7 @@ def get_version() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Aragora - AI Red Team for Decision Stress-Testing",
+        description="Aragora - Omnivorous Multi Agent Decision Making Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -1406,7 +1407,8 @@ Production deployment:
         help="Action: stats (default), subscribers, reset",
     )
     xpoll_parser.add_argument(
-        "--json", "-j",
+        "--json",
+        "-j",
         action="store_true",
         help="Output in JSON format",
     )

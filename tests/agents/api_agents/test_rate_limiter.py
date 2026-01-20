@@ -536,10 +536,7 @@ class TestProviderRateLimiterRegistry:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=create_limiter, args=("anthropic",))
-            for _ in range(10)
-        ]
+        threads = [threading.Thread(target=create_limiter, args=("anthropic",)) for _ in range(10)]
 
         for t in threads:
             t.start()
@@ -682,10 +679,12 @@ class TestRateLimiterIntegration:
         limiter = ProviderRateLimiter("anthropic")
 
         # Simulate API reporting low remaining
-        limiter.update_from_headers({
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(time.time() + 0.5),  # Reset in 0.5s
-        })
+        limiter.update_from_headers(
+            {
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(time.time() + 0.5),  # Reset in 0.5s
+            }
+        )
 
         # Acquire should still work (tokens available locally)
         result = await limiter.acquire(timeout=1.0)

@@ -52,6 +52,7 @@ class MockRequest:
 def clear_global_state():
     """Clear global state before each test."""
     import aragora.server.handlers.features.connectors as conn_module
+
     _connectors.clear()
     _sync_jobs.clear()
     _sync_history.clear()
@@ -68,9 +69,11 @@ def clear_global_state():
 def disable_persistent_store(monkeypatch):
     """Disable persistent store to use in-memory fallback."""
     import aragora.server.handlers.features.connectors as conn_module
+
     # Mock _get_store to always return None (use in-memory)
     async def mock_get_store():
         return None
+
     monkeypatch.setattr(conn_module, "_get_store", mock_get_store)
 
 
@@ -602,13 +605,15 @@ class TestSyncHistory:
     @pytest.mark.asyncio
     async def test_get_sync_history(self, connectors_handler):
         """Test getting sync history."""
-        _sync_history.append({
-            "id": "sync-1",
-            "connector_id": "test-1",
-            "status": "completed",
-            "started_at": "2024-01-01T00:00:00Z",
-            "items_processed": 100,
-        })
+        _sync_history.append(
+            {
+                "id": "sync-1",
+                "connector_id": "test-1",
+                "status": "completed",
+                "started_at": "2024-01-01T00:00:00Z",
+                "items_processed": 100,
+            }
+        )
 
         request = MockRequest(method="GET", path="/api/connectors/sync-history")
         result = await connectors_handler.handle_request(request)
@@ -619,18 +624,22 @@ class TestSyncHistory:
     @pytest.mark.asyncio
     async def test_get_sync_history_filtered(self, connectors_handler):
         """Test filtering sync history by connector."""
-        _sync_history.append({
-            "id": "sync-1",
-            "connector_id": "test-1",
-            "status": "completed",
-            "started_at": "2024-01-01T00:00:00Z",
-        })
-        _sync_history.append({
-            "id": "sync-2",
-            "connector_id": "test-2",
-            "status": "completed",
-            "started_at": "2024-01-02T00:00:00Z",
-        })
+        _sync_history.append(
+            {
+                "id": "sync-1",
+                "connector_id": "test-1",
+                "status": "completed",
+                "started_at": "2024-01-01T00:00:00Z",
+            }
+        )
+        _sync_history.append(
+            {
+                "id": "sync-2",
+                "connector_id": "test-2",
+                "status": "completed",
+                "started_at": "2024-01-02T00:00:00Z",
+            }
+        )
 
         request = MockRequest(
             method="GET",

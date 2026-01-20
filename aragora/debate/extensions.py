@@ -236,6 +236,7 @@ class ArenaExtensions:
         if self.cost_tracker is None:
             try:
                 from aragora.billing.cost_tracker import get_cost_tracker
+
                 self.cost_tracker = get_cost_tracker()
             except Exception as e:
                 logger.debug("cost_tracker_init_skipped: %s", e)
@@ -327,7 +328,6 @@ class ArenaExtensions:
             result: The final debate result
         """
         try:
-            import asyncio
 
             workspace_id = self.workspace_id or "default"
 
@@ -415,7 +415,11 @@ class ArenaExtensions:
                 # Fall back to last message
                 messages = getattr(result, "messages", [])
                 if messages:
-                    final_answer = messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+                    final_answer = (
+                        messages[-1].content
+                        if hasattr(messages[-1], "content")
+                        else str(messages[-1])
+                    )
 
         if not final_answer:
             logger.debug("evaluation_skipped: no final answer found")

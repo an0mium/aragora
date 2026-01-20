@@ -824,7 +824,9 @@ class TestRoundExecutionFlow:
         )
 
     @pytest.mark.asyncio
-    async def test_proposal_phase_generates_proposals(self, environment, agents, multi_round_protocol):
+    async def test_proposal_phase_generates_proposals(
+        self, environment, agents, multi_round_protocol
+    ):
         """Proposal phase generates initial proposals from agents."""
         arena = Arena(environment, agents, multi_round_protocol)
 
@@ -834,7 +836,9 @@ class TestRoundExecutionFlow:
         assert len(result.proposals) >= 1
 
     @pytest.mark.asyncio
-    async def test_critique_phase_produces_critiques(self, environment, agents, multi_round_protocol):
+    async def test_critique_phase_produces_critiques(
+        self, environment, agents, multi_round_protocol
+    ):
         """Critique phase produces critiques for proposals."""
         arena = Arena(environment, agents, multi_round_protocol)
 
@@ -982,7 +986,9 @@ class TestEarlyTerminationOnConvergence:
             min_rounds_before_early_stop=1,
         )
 
-    def test_convergence_detector_initialized(self, environment, converging_agents, convergence_protocol):
+    def test_convergence_detector_initialized(
+        self, environment, converging_agents, convergence_protocol
+    ):
         """Convergence detector is initialized when enabled."""
         arena = Arena(environment, converging_agents, convergence_protocol)
 
@@ -990,7 +996,9 @@ class TestEarlyTerminationOnConvergence:
         assert arena.convergence_detector.convergence_threshold == 0.9
 
     @pytest.mark.asyncio
-    async def test_convergence_may_terminate_early(self, environment, converging_agents, convergence_protocol):
+    async def test_convergence_may_terminate_early(
+        self, environment, converging_agents, convergence_protocol
+    ):
         """With converging agents and convergence detection, debate may terminate early."""
         arena = Arena(environment, converging_agents, convergence_protocol)
 
@@ -1080,9 +1088,7 @@ class TestConsensusDetection:
     @pytest.mark.asyncio
     async def test_convergence_detector_initialization(self, environment):
         """Convergence detector is initialized when enabled."""
-        protocol = DebateProtocol(
-            rounds=2, convergence_detection=True, convergence_threshold=0.95
-        )
+        protocol = DebateProtocol(rounds=2, convergence_detection=True, convergence_threshold=0.95)
         agents = [MockAgent(name="a1"), MockAgent(name="a2")]
         arena = Arena(environment, agents, protocol)
 
@@ -1290,13 +1296,17 @@ class TestCheckpointCreation:
     def protocol_with_rounds(self):
         return DebateProtocol(rounds=3, consensus="majority")
 
-    def test_checkpoint_manager_created_when_enabled(self, environment, agents, protocol_with_rounds):
+    def test_checkpoint_manager_created_when_enabled(
+        self, environment, agents, protocol_with_rounds
+    ):
         """CheckpointManager is created when checkpointing is enabled."""
         arena = Arena(environment, agents, protocol_with_rounds, enable_checkpointing=True)
 
         assert arena.checkpoint_manager is not None
 
-    def test_checkpoint_manager_not_created_when_disabled(self, environment, agents, protocol_with_rounds):
+    def test_checkpoint_manager_not_created_when_disabled(
+        self, environment, agents, protocol_with_rounds
+    ):
         """CheckpointManager is not created when checkpointing is disabled."""
         arena = Arena(environment, agents, protocol_with_rounds, enable_checkpointing=False)
 
@@ -1319,13 +1329,17 @@ class TestCheckpointCreation:
         assert callable(arena._create_checkpoint)
 
     @pytest.mark.asyncio
-    async def test_checkpoint_creation_with_manager(self, environment, agents, protocol_with_rounds):
+    async def test_checkpoint_creation_with_manager(
+        self, environment, agents, protocol_with_rounds
+    ):
         """Checkpoint is created when manager is configured."""
         mock_checkpoint_mgr = MagicMock()
         mock_checkpoint_mgr.should_checkpoint = MagicMock(return_value=True)
         mock_checkpoint_mgr.create_checkpoint = AsyncMock()
 
-        arena = Arena(environment, agents, protocol_with_rounds, checkpoint_manager=mock_checkpoint_mgr)
+        arena = Arena(
+            environment, agents, protocol_with_rounds, checkpoint_manager=mock_checkpoint_mgr
+        )
 
         # Simulate context for checkpoint
         mock_ctx = MagicMock()
@@ -1432,9 +1446,7 @@ class TestKnowledgeMoundIntegration:
         self, environment, agents, mock_knowledge_mound
     ):
         """_fetch_knowledge_context queries the knowledge mound."""
-        mock_knowledge_mound.query_semantic = AsyncMock(
-            return_value=MagicMock(items=[])
-        )
+        mock_knowledge_mound.query_semantic = AsyncMock(return_value=MagicMock(items=[]))
         arena = Arena(
             environment,
             agents,
@@ -1456,9 +1468,7 @@ class TestKnowledgeMoundIntegration:
         mock_item.confidence = 0.85
         mock_item.content = "Previous debate conclusion about caching"
 
-        mock_knowledge_mound.query_semantic = AsyncMock(
-            return_value=MagicMock(items=[mock_item])
-        )
+        mock_knowledge_mound.query_semantic = AsyncMock(return_value=MagicMock(items=[mock_item]))
         arena = Arena(
             environment,
             agents,
@@ -1628,9 +1638,7 @@ class TestRLMCompression:
         """compress_debate_messages is a no-op when RLM is disabled."""
         arena = Arena(environment, agents, use_rlm_limiter=False)
 
-        messages = [
-            Message(role="proposer", agent="a1", content="Test message", round=1)
-        ]
+        messages = [Message(role="proposer", agent="a1", content="Test message", round=1)]
 
         compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, None)
 
@@ -1653,9 +1661,7 @@ class TestRLMCompression:
 
         arena = Arena(environment, agents, use_rlm_limiter=True, rlm_limiter=mock_limiter)
 
-        messages = [
-            Message(role="proposer", agent="a1", content="Test message " * 100, round=1)
-        ]
+        messages = [Message(role="proposer", agent="a1", content="Test message " * 100, round=1)]
 
         compressed_msgs, _ = await arena.compress_debate_messages(messages, None)
 
@@ -1665,13 +1671,13 @@ class TestRLMCompression:
     async def test_compress_debate_messages_handles_error(self, environment, agents):
         """compress_debate_messages handles compression errors gracefully."""
         mock_limiter = MagicMock()
-        mock_limiter.compress_context_async = AsyncMock(side_effect=RuntimeError("Compression failed"))
+        mock_limiter.compress_context_async = AsyncMock(
+            side_effect=RuntimeError("Compression failed")
+        )
 
         arena = Arena(environment, agents, use_rlm_limiter=True, rlm_limiter=mock_limiter)
 
-        messages = [
-            Message(role="proposer", agent="a1", content="Test message", round=1)
-        ]
+        messages = [Message(role="proposer", agent="a1", content="Test message", round=1)]
 
         # Should return original messages on error
         compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, None)
@@ -1906,9 +1912,7 @@ class TestFullDebateFlow:
 
     @pytest.fixture
     def environment(self):
-        return Environment(
-            task="What is the best programming language for web development?"
-        )
+        return Environment(task="What is the best programming language for web development?")
 
     @pytest.fixture
     def agents(self):

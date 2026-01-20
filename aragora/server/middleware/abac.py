@@ -603,7 +603,7 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Extract user and resource_id from kwargs
             user = kwargs.get("user")
-            resource_id = kwargs.get(f"{resource_type}_id") or kwargs.get("resource_id")
+            kwargs.get(f"{resource_type}_id") or kwargs.get("resource_id")
 
             if not user:
                 from aragora.server.errors import AuthenticationError, format_error_response

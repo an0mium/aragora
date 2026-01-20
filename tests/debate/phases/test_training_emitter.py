@@ -430,11 +430,10 @@ class TestEmitTrainingData:
         )
 
         # Patch at the source module where StreamEvent is defined
-        with patch(
-            "aragora.server.stream.StreamEvent"
-        ) as mock_event, patch(
-            "aragora.server.stream.StreamEventType"
-        ) as mock_type:
+        with (
+            patch("aragora.server.stream.StreamEvent") as mock_event,
+            patch("aragora.server.stream.StreamEventType") as mock_type,
+        ):
             mock_type.TRAINING_DATA_EXPORTED = "TRAINING_DATA_EXPORTED"
             await emitter.emit_training_data(ctx)
 

@@ -86,16 +86,11 @@ Production deployment with multiple workers:
         )
     else:
         # Multi-worker mode - spawn worker processes
-        print(f"Starting {workers} worker processes...")
-        print(f"HTTP ports: {args.http_port}-{args.http_port + workers - 1}")
-        print(f"WS ports: {args.port}-{args.port + workers - 1}")
-        print("\nTip: Use a load balancer to distribute traffic across workers.\n")
 
         processes = []
 
         def shutdown_workers(signum, frame):
             """Gracefully shutdown all workers."""
-            print("\nShutting down workers...")
             for p in processes:
                 if p.is_alive():
                     p.terminate()
@@ -114,7 +109,6 @@ Production deployment with multiple workers:
             )
             p.start()
             processes.append(p)
-            print(f"  Worker {i}: HTTP={http_port}, WS={ws_port} (PID {p.pid})")
 
         # Wait for all workers
         try:

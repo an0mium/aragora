@@ -160,8 +160,12 @@ class FederationPolicy:
             "sharing_scope": self.sharing_scope.value,
             "allowed_operations": [op.value for op in self.allowed_operations],
             "blocked_operations": [op.value for op in self.blocked_operations],
-            "allowed_source_workspaces": list(self.allowed_source_workspaces) if self.allowed_source_workspaces else None,
-            "allowed_target_workspaces": list(self.allowed_target_workspaces) if self.allowed_target_workspaces else None,
+            "allowed_source_workspaces": (
+                list(self.allowed_source_workspaces) if self.allowed_source_workspaces else None
+            ),
+            "allowed_target_workspaces": (
+                list(self.allowed_target_workspaces) if self.allowed_target_workspaces else None
+            ),
             "blocked_workspaces": list(self.blocked_workspaces),
             "max_requests_per_hour": self.max_requests_per_hour,
             "max_data_transfer_mb": self.max_data_transfer_mb,
@@ -391,7 +395,9 @@ class CrossWorkspaceCoordinator:
             mode=FederationMode.ISOLATED,
         )
         self._workspace_policies: Dict[str, FederationPolicy] = {}  # workspace_id -> policy
-        self._pair_policies: Dict[Tuple[str, str], FederationPolicy] = {}  # (source, target) -> policy
+        self._pair_policies: Dict[Tuple[str, str], FederationPolicy] = (
+            {}
+        )  # (source, target) -> policy
 
         # Consents
         self._consents: Dict[str, DataSharingConsent] = {}  # consent_id -> consent
@@ -730,9 +736,7 @@ class CrossWorkspaceCoordinator:
         try:
             # Execute with timeout
             result = await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    None, handler, request
-                ),
+                asyncio.get_event_loop().run_in_executor(None, handler, request),
                 timeout=request.timeout_seconds,
             )
             return result
@@ -836,11 +840,7 @@ class CrossWorkspaceCoordinator:
         """List consents, optionally filtered by workspace."""
         if workspace_id:
             consent_ids = self._workspace_consents.get(workspace_id, set())
-            return [
-                self._consents[cid]
-                for cid in consent_ids
-                if cid in self._consents
-            ]
+            return [self._consents[cid] for cid in consent_ids if cid in self._consents]
         return list(self._consents.values())
 
     def list_pending_requests(
@@ -850,21 +850,20 @@ class CrossWorkspaceCoordinator:
         """List pending approval requests."""
         requests = list(self._pending_requests.values())
         if workspace_id:
-            requests = [
-                r for r in requests
-                if r.target_workspace_id == workspace_id
-            ]
+            requests = [r for r in requests if r.target_workspace_id == workspace_id]
         return requests
 
     def _audit(self, event_type: str, **kwargs: Any) -> None:
         """Record audit event."""
         if self._audit_callback:
             try:
-                self._audit_callback({
-                    "event_type": event_type,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    **kwargs,
-                })
+                self._audit_callback(
+                    {
+                        "event_type": event_type,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        **kwargs,
+                    }
+                )
             except Exception as e:
                 logger.error(f"Audit callback failed: {e}")
 

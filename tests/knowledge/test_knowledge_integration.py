@@ -212,21 +212,25 @@ class TestKnowledgeMoundIntegration:
             content = "Unique content for deduplication test"
 
             # Store first time
-            result1 = await mound.store(IngestionRequest(
-                content=content,
-                workspace_id="test_ws",
-                source_type=KnowledgeSource.DOCUMENT,
-            ))
+            result1 = await mound.store(
+                IngestionRequest(
+                    content=content,
+                    workspace_id="test_ws",
+                    source_type=KnowledgeSource.DOCUMENT,
+                )
+            )
 
             assert result1.success
             assert not result1.deduplicated
 
             # Store same content again
-            result2 = await mound.store(IngestionRequest(
-                content=content,
-                workspace_id="test_ws",
-                source_type=KnowledgeSource.DOCUMENT,
-            ))
+            result2 = await mound.store(
+                IngestionRequest(
+                    content=content,
+                    workspace_id="test_ws",
+                    source_type=KnowledgeSource.DOCUMENT,
+                )
+            )
 
             assert result2.success
             assert result2.deduplicated
@@ -791,7 +795,9 @@ class TestCrossSystemIntegration:
     """Tests for integration between knowledge system components."""
 
     @pytest.mark.asyncio
-    async def test_fact_registry_with_mound(self, mound_config, vector_store, mock_embedding_service):
+    async def test_fact_registry_with_mound(
+        self, mound_config, vector_store, mock_embedding_service
+    ):
         """Test FactRegistry integration with KnowledgeMound."""
         from aragora.knowledge.mound import KnowledgeMound
 
@@ -867,11 +873,13 @@ class TestErrorHandling:
         mound = KnowledgeMound(config=mound_config)
 
         with pytest.raises(RuntimeError, match="not initialized"):
-            await mound.store(IngestionRequest(
-                content="Test",
-                workspace_id="test",
-                source_type=KnowledgeSource.DOCUMENT,
-            ))
+            await mound.store(
+                IngestionRequest(
+                    content="Test",
+                    workspace_id="test",
+                    source_type=KnowledgeSource.DOCUMENT,
+                )
+            )
 
     @pytest.mark.asyncio
     async def test_pipeline_error_recovery(self, pipeline_config):

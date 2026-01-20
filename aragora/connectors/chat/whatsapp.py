@@ -38,7 +38,6 @@ from .models import (
     ChatUser,
     FileAttachment,
     InteractionType,
-    MessageButton,
     MessageType,
     SendMessageResponse,
     UserInteraction,
@@ -203,7 +202,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         logger.warning("WhatsApp doesn't support message deletion via API")
         return False
 
-    async def upload_file(
+    async def upload_file(  # type: ignore[override]
         self,
         channel_id: str,
         file_path: str,
@@ -219,18 +218,19 @@ class WhatsAppConnector(ChatPlatformConnector):
         media_id = await self._upload_media(file_path, "document")
 
         # Then send message with media
-        payload = {
+        doc_payload: dict[str, Any] = {
+            "id": media_id,
+            "filename": filename or file_path.split("/")[-1],
+        }
+        if comment:
+            doc_payload["caption"] = comment
+
+        payload: dict[str, Any] = {
             "messaging_product": "whatsapp",
             "to": channel_id,
             "type": "document",
-            "document": {
-                "id": media_id,
-                "filename": filename or file_path.split("/")[-1],
-            },
+            "document": doc_payload,
         }
-
-        if comment:
-            payload["document"]["caption"] = comment
 
         headers = {
             "Authorization": f"Bearer {self.bot_token}",
@@ -249,8 +249,10 @@ class WhatsAppConnector(ChatPlatformConnector):
                 raise RuntimeError(data["error"].get("message", "Upload failed"))
 
             return FileAttachment(
-                file_id=media_id,
+                id=media_id,
                 filename=filename or file_path.split("/")[-1],
+                content_type="application/octet-stream",
+                size=0,  # Size unknown after upload
             )
 
     async def _upload_media(self, file_path: str, media_type: str) -> str:
@@ -281,7 +283,7 @@ class WhatsAppConnector(ChatPlatformConnector):
 
                 return result.get("id", "")
 
-    async def download_file(
+    async def download_file(  # type: ignore[override]
         self,
         file_id: str,
         **kwargs: Any,
@@ -338,15 +340,17 @@ class WhatsAppConnector(ChatPlatformConnector):
         messages = value.get("messages", [])
         if messages:
             msg = messages[0]
-            contact = value.get("contacts", [{}])[0]
+            value.get("contacts", [{}])[0]
             return WebhookEvent(
                 event_type="message",
                 platform="whatsapp",
-                channel_id=msg.get("from"),
-                user_id=msg.get("from"),
-                message_id=msg.get("id"),
                 timestamp=datetime.fromtimestamp(int(msg.get("timestamp", 0))),
                 raw_payload=payload,
+                metadata={
+                    "channel_id": msg.get("from"),
+                    "user_id": msg.get("from"),
+                    "message_id": msg.get("id"),
+                },
             )
 
         # Handle status updates
@@ -356,9 +360,9 @@ class WhatsAppConnector(ChatPlatformConnector):
             return WebhookEvent(
                 event_type=f"status_{status.get('status')}",
                 platform="whatsapp",
-                message_id=status.get("id"),
                 timestamp=datetime.fromtimestamp(int(status.get("timestamp", 0))),
                 raw_payload=payload,
+                metadata={"message_id": status.get("id")},
             )
 
         return WebhookEvent(
@@ -552,7 +556,10 @@ class WhatsAppConnector(ChatPlatformConnector):
             response = await client.post(
                 f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
                 json=payload,
-                headers={"Authorization": f"Bearer {self.bot_token}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {self.bot_token}",
+                    "Content-Type": "application/json",
+                },
             )
             data = response.json()
 
@@ -636,19 +643,23 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         for block in blocks:
             if block.get("type") == "button":
-                buttons.append({
-                    "type": "reply",
-                    "reply": {
-                        "id": block.get("action_id", block.get("value", "")),
-                        "title": block.get("text", "")[:20],  # Max 20 chars
-                    },
-                })
+                buttons.append(
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": block.get("action_id", block.get("value", "")),
+                            "title": block.get("text", "")[:20],  # Max 20 chars
+                        },
+                    }
+                )
             elif block.get("type") == "list_item":
-                list_items.append({
-                    "id": block.get("action_id", block.get("value", "")),
-                    "title": block.get("text", "")[:24],  # Max 24 chars
-                    "description": block.get("description", "")[:72],  # Max 72 chars
-                })
+                list_items.append(
+                    {
+                        "id": block.get("action_id", block.get("value", "")),
+                        "title": block.get("text", "")[:24],  # Max 24 chars
+                        "description": block.get("description", "")[:72],  # Max 72 chars
+                    }
+                )
 
         if list_items:
             return {
@@ -685,18 +696,19 @@ class WhatsAppConnector(ChatPlatformConnector):
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
 
-        payload = {
+        template_data: dict[str, Any] = {
+            "name": template_name,
+            "language": {"code": language_code},
+        }
+        if components:
+            template_data["components"] = components
+
+        payload: dict[str, Any] = {
             "messaging_product": "whatsapp",
             "to": channel_id,
             "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {"code": language_code},
-            },
+            "template": template_data,
         }
-
-        if components:
-            payload["template"]["components"] = components
 
         headers = {
             "Authorization": f"Bearer {self.bot_token}",
@@ -725,7 +737,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                 timestamp=datetime.now().isoformat(),
             )
 
-    async def verify_webhook(
+    async def verify_webhook(  # type: ignore[override]
         self,
         mode: str,
         token: str,

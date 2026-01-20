@@ -387,8 +387,7 @@ class TestByzantineRecoveryUnderStress:
                 return "PREPARE: YES\nCOMMIT: YES\nREASONING: Recovered"
 
         agents = [
-            CascadeAgent(name=f"cascade_{i}", fail_until=1)  # Fail first call
-            for i in range(7)
+            CascadeAgent(name=f"cascade_{i}", fail_until=1) for i in range(7)  # Fail first call
         ]
 
         config = ByzantineConsensusConfig(
@@ -591,10 +590,7 @@ class TestByzantineTiming:
     async def test_consensus_respects_timeout(self, create_stress_agents):
         """Test that consensus respects phase timeouts."""
         # All agents are slow
-        agents = [
-            StressTestAgent(name=f"slow_{i}", byzantine_mode="slow")
-            for i in range(4)
-        ]
+        agents = [StressTestAgent(name=f"slow_{i}", byzantine_mode="slow") for i in range(4)]
 
         config = ByzantineConsensusConfig(
             phase_timeout_seconds=0.1,  # Very short timeout
@@ -737,8 +733,8 @@ class TestByzantineIntegrationSmoke:
     async def test_quorum_calculation_correctness(self, create_stress_agents):
         """Verify quorum calculations are correct for various agent counts."""
         test_cases = [
-            (4, 1, 3),   # n=4, f=1, quorum=3
-            (7, 2, 5),   # n=7, f=2, quorum=5
+            (4, 1, 3),  # n=4, f=1, quorum=3
+            (7, 2, 5),  # n=7, f=2, quorum=5
             (10, 3, 7),  # n=10, f=3, quorum=7
             (13, 4, 9),  # n=13, f=4, quorum=9
         ]
@@ -749,6 +745,6 @@ class TestByzantineIntegrationSmoke:
 
             assert protocol.n == n
             assert protocol.f == expected_f, f"n={n}: expected f={expected_f}, got {protocol.f}"
-            assert protocol.quorum_size == expected_quorum, (
-                f"n={n}: expected quorum={expected_quorum}, got {protocol.quorum_size}"
-            )
+            assert (
+                protocol.quorum_size == expected_quorum
+            ), f"n={n}: expected quorum={expected_quorum}, got {protocol.quorum_size}"

@@ -67,70 +67,70 @@ class AccountingKnowledge(BaseVerticalKnowledge):
     FINANCIAL_PATTERNS = [
         FinancialPattern(
             name="Revenue Recognition",
-            pattern=r'(?:revenue\s+recogni(?:tion|zed?)|sales\s+revenue|earned\s+revenue)',
+            pattern=r"(?:revenue\s+recogni(?:tion|zed?)|sales\s+revenue|earned\s+revenue)",
             category="revenue",
             risk_level="high",
             description="Revenue recognition assessment",
         ),
         FinancialPattern(
             name="Accounts Receivable",
-            pattern=r'(?:accounts?\s+receivable|A/R|trade\s+receivables|allowance\s+for\s+doubtful)',
+            pattern=r"(?:accounts?\s+receivable|A/R|trade\s+receivables|allowance\s+for\s+doubtful)",
             category="asset",
             risk_level="medium",
             description="Accounts receivable",
         ),
         FinancialPattern(
             name="Inventory",
-            pattern=r'(?:inventory|FIFO|LIFO|weighted\s+average|inventory\s+reserve)',
+            pattern=r"(?:inventory|FIFO|LIFO|weighted\s+average|inventory\s+reserve)",
             category="asset",
             risk_level="medium",
             description="Inventory valuation",
         ),
         FinancialPattern(
             name="Fixed Assets",
-            pattern=r'(?:fixed\s+asset|PP&E|property\s+plant\s+equipment|depreciation|amortization)',
+            pattern=r"(?:fixed\s+asset|PP&E|property\s+plant\s+equipment|depreciation|amortization)",
             category="asset",
             risk_level="medium",
             description="Fixed asset accounting",
         ),
         FinancialPattern(
             name="Accounts Payable",
-            pattern=r'(?:accounts?\s+payable|A/P|trade\s+payables)',
+            pattern=r"(?:accounts?\s+payable|A/P|trade\s+payables)",
             category="liability",
             risk_level="low",
             description="Accounts payable",
         ),
         FinancialPattern(
             name="Debt",
-            pattern=r'(?:long-?term\s+debt|notes?\s+payable|bond|debenture|credit\s+facility)',
+            pattern=r"(?:long-?term\s+debt|notes?\s+payable|bond|debenture|credit\s+facility)",
             category="liability",
             risk_level="high",
             description="Debt instruments",
         ),
         FinancialPattern(
             name="Lease",
-            pattern=r'(?:lease|right-?of-?use|ROU|ASC\s+842|IFRS\s+16)',
+            pattern=r"(?:lease|right-?of-?use|ROU|ASC\s+842|IFRS\s+16)",
             category="liability",
             risk_level="high",
             description="Lease accounting",
         ),
         FinancialPattern(
             name="Goodwill",
-            pattern=r'(?:goodwill|impairment\s+(?:test|loss)|intangible\s+asset)',
+            pattern=r"(?:goodwill|impairment\s+(?:test|loss)|intangible\s+asset)",
             category="asset",
             risk_level="high",
             description="Goodwill and intangibles",
         ),
         FinancialPattern(
             name="Equity",
-            pattern=r'(?:stockholder(?:s)?\'?\s+equity|share\s+capital|retained\s+earnings|treasury\s+stock)',
+            pattern=r"(?:stockholder(?:s)?\'?\s+equity|share\s+capital|retained\s+earnings|treasury\s+stock)",
             category="equity",
             risk_level="medium",
             description="Equity accounts",
         ),
         FinancialPattern(
             name="Contingency",
-            pattern=r'(?:contingent\s+liability|contingency|lawsuit|litigation|warranty)',
+            pattern=r"(?:contingent\s+liability|contingency|lawsuit|litigation|warranty)",
             category="liability",
             risk_level="high",
             description="Contingent liabilities",
@@ -141,42 +141,42 @@ class AccountingKnowledge(BaseVerticalKnowledge):
     AUDIT_PATTERNS = [
         AuditPattern(
             name="Material Weakness",
-            pattern=r'(?:material\s+weakness|MW|significant\s+deficiency|SD)',
+            pattern=r"(?:material\s+weakness|MW|significant\s+deficiency|SD)",
             category="finding",
             severity="high",
             description="Internal control weakness",
         ),
         AuditPattern(
             name="Audit Opinion",
-            pattern=r'(?:unqualified\s+opinion|qualified\s+opinion|adverse\s+opinion|disclaimer)',
+            pattern=r"(?:unqualified\s+opinion|qualified\s+opinion|adverse\s+opinion|disclaimer)",
             category="opinion",
             severity="high",
             description="Auditor opinion",
         ),
         AuditPattern(
             name="Substantive Test",
-            pattern=r'(?:substantive\s+(?:test|procedure)|analytical\s+review|confirmation)',
+            pattern=r"(?:substantive\s+(?:test|procedure)|analytical\s+review|confirmation)",
             category="test",
             severity="medium",
             description="Substantive audit procedures",
         ),
         AuditPattern(
             name="Control Test",
-            pattern=r'(?:test\s+of\s+control|control\s+(?:test|procedure)|walkthrough)',
+            pattern=r"(?:test\s+of\s+control|control\s+(?:test|procedure)|walkthrough)",
             category="test",
             severity="medium",
             description="Control testing",
         ),
         AuditPattern(
             name="Misstatement",
-            pattern=r'(?:misstatement|error|irregularity|adjustment)',
+            pattern=r"(?:misstatement|error|irregularity|adjustment)",
             category="finding",
             severity="high",
             description="Audit adjustment or misstatement",
         ),
         AuditPattern(
             name="Related Party",
-            pattern=r'(?:related\s+party|affiliate|intercompany)',
+            pattern=r"(?:related\s+party|affiliate|intercompany)",
             category="risk",
             severity="high",
             description="Related party transactions",
@@ -185,22 +185,26 @@ class AccountingKnowledge(BaseVerticalKnowledge):
 
     # Compliance patterns
     COMPLIANCE_PATTERNS = [
-        (r'(?:SOX|Sarbanes-?Oxley|section\s+404)', "SOX", "Sarbanes-Oxley compliance"),
-        (r'(?:GAAP|US\s+GAAP|generally\s+accepted)', "GAAP", "US GAAP standards"),
-        (r'(?:IFRS|international\s+financial)', "IFRS", "International Financial Reporting Standards"),
-        (r'(?:PCAOB)', "PCAOB", "PCAOB standards"),
-        (r'(?:SEC|securities\s+(?:and\s+)?exchange)', "SEC", "SEC regulations"),
-        (r'(?:FASB|ASC\s+\d+)', "FASB", "FASB Accounting Standards"),
+        (r"(?:SOX|Sarbanes-?Oxley|section\s+404)", "SOX", "Sarbanes-Oxley compliance"),
+        (r"(?:GAAP|US\s+GAAP|generally\s+accepted)", "GAAP", "US GAAP standards"),
+        (
+            r"(?:IFRS|international\s+financial)",
+            "IFRS",
+            "International Financial Reporting Standards",
+        ),
+        (r"(?:PCAOB)", "PCAOB", "PCAOB standards"),
+        (r"(?:SEC|securities\s+(?:and\s+)?exchange)", "SEC", "SEC regulations"),
+        (r"(?:FASB|ASC\s+\d+)", "FASB", "FASB Accounting Standards"),
     ]
 
     # Risk indicators
     RISK_PATTERNS = [
-        (r'(?:going\s+concern)', "high", "Going concern uncertainty"),
-        (r'(?:restatement|restated)', "high", "Financial restatement"),
-        (r'(?:fraud|fraudulent)', "critical", "Fraud indicator"),
-        (r'(?:management\s+override)', "high", "Management override of controls"),
-        (r'(?:off-?balance\s+sheet)', "high", "Off-balance sheet arrangements"),
-        (r'(?:non-?compliance)', "medium", "Non-compliance with regulations"),
+        (r"(?:going\s+concern)", "high", "Going concern uncertainty"),
+        (r"(?:restatement|restated)", "high", "Financial restatement"),
+        (r"(?:fraud|fraudulent)", "critical", "Fraud indicator"),
+        (r"(?:management\s+override)", "high", "Management override of controls"),
+        (r"(?:off-?balance\s+sheet)", "high", "Off-balance sheet arrangements"),
+        (r"(?:non-?compliance)", "medium", "Non-compliance with regulations"),
     ]
 
     @property
@@ -385,9 +389,7 @@ class AccountingKnowledge(BaseVerticalKnowledge):
 
         # Pattern: Multiple high-risk areas
         financial_facts = by_category.get("financial", [])
-        high_risk_items = [
-            f for f in financial_facts if f.metadata.get("risk_level") == "high"
-        ]
+        high_risk_items = [f for f in financial_facts if f.metadata.get("risk_level") == "high"]
         if len(high_risk_items) >= 3:
             patterns.append(
                 PatternMatch(
@@ -403,9 +405,7 @@ class AccountingKnowledge(BaseVerticalKnowledge):
 
         # Pattern: Audit findings present
         audit_facts = by_category.get("audit", [])
-        high_severity = [
-            f for f in audit_facts if f.metadata.get("severity") == "high"
-        ]
+        high_severity = [f for f in audit_facts if f.metadata.get("severity") == "high"]
         if high_severity:
             patterns.append(
                 PatternMatch(
@@ -484,7 +484,8 @@ class AccountingKnowledge(BaseVerticalKnowledge):
         # Check for material weaknesses
         audit_facts = [f for f in facts if f.category == "audit"]
         mw_facts = [
-            f for f in audit_facts
+            f
+            for f in audit_facts
             if "weakness" in f.content.lower() or "deficiency" in f.content.lower()
         ]
 
@@ -509,7 +510,8 @@ class AccountingKnowledge(BaseVerticalKnowledge):
 
         # Check for related party transactions
         related_party = [
-            f for f in facts
+            f
+            for f in facts
             if "related party" in f.content.lower() or "intercompany" in f.content.lower()
         ]
         if related_party:
@@ -541,9 +543,7 @@ class AccountingKnowledge(BaseVerticalKnowledge):
         results = []
 
         # Check for revenue recognition
-        revenue_facts = [
-            f for f in facts if "revenue" in f.content.lower()
-        ]
+        revenue_facts = [f for f in facts if "revenue" in f.content.lower()]
         if revenue_facts:
             results.append(
                 ComplianceCheckResult(
@@ -636,10 +636,9 @@ class AccountingKnowledge(BaseVerticalKnowledge):
                     continue
 
                 # Same account type
-                if (
-                    other.category == "financial" and
-                    fact.metadata.get("account_type") == other.metadata.get("account_type")
-                ):
+                if other.category == "financial" and fact.metadata.get(
+                    "account_type"
+                ) == other.metadata.get("account_type"):
                     references.append((other.id, "same_category", 0.7))
 
                 # Audit findings for financial items

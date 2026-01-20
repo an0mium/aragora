@@ -78,7 +78,9 @@ PHI_PATTERNS = [
     ),
     PHIPattern(
         name="Date of Birth",
-        pattern=re.compile(r"(?i)(dob|date of birth|birth\s*date)\s*[:#]?\s*\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}"),
+        pattern=re.compile(
+            r"(?i)(dob|date of birth|birth\s*date)\s*[:#]?\s*\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}"
+        ),
         phi_type="dob",
         severity=FindingSeverity.HIGH,
         description="Date of Birth detected",
@@ -102,7 +104,9 @@ PHI_PATTERNS = [
     ),
     PHIPattern(
         name="IP Address",
-        pattern=re.compile(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"),
+        pattern=re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+        ),
         phi_type="ip_address",
         severity=FindingSeverity.MEDIUM,
         description="IP address detected",
@@ -350,6 +354,7 @@ If no issues, respond with: []"""
 
             # Parse response
             import json
+
             json_match = re.search(r"\[[\s\S]*\]", response)
             if json_match:
                 try:
@@ -464,14 +469,16 @@ class PHIDetector:
         results = []
         for pattern in self._patterns:
             for match in pattern.pattern.finditer(text):
-                results.append({
-                    "type": pattern.phi_type,
-                    "name": pattern.name,
-                    "start": match.start(),
-                    "end": match.end(),
-                    "severity": pattern.severity.value,
-                    "hipaa_reference": pattern.hipaa_reference,
-                })
+                results.append(
+                    {
+                        "type": pattern.phi_type,
+                        "name": pattern.name,
+                        "start": match.start(),
+                        "end": match.end(),
+                        "severity": pattern.severity.value,
+                        "hipaa_reference": pattern.hipaa_reference,
+                    }
+                )
         return results
 
     def redact(self, text: str) -> str:

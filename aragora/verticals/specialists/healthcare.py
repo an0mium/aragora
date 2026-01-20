@@ -31,9 +31,24 @@ HEALTHCARE_CONFIG = VerticalConfig(
     display_name="Healthcare Specialist",
     description="Expert in clinical analysis, medical research, and health informatics.",
     domain_keywords=[
-        "health", "medical", "clinical", "patient", "diagnosis", "treatment",
-        "hospital", "physician", "nurse", "pharmacy", "drug", "disease",
-        "symptom", "therapy", "EHR", "EMR", "HIPAA", "PHI",
+        "health",
+        "medical",
+        "clinical",
+        "patient",
+        "diagnosis",
+        "treatment",
+        "hospital",
+        "physician",
+        "nurse",
+        "pharmacy",
+        "drug",
+        "disease",
+        "symptom",
+        "therapy",
+        "EHR",
+        "EMR",
+        "HIPAA",
+        "PHI",
     ],
     expertise_areas=[
         "Clinical Documentation",
@@ -160,9 +175,22 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
 
     # Clinical terms for context detection
     CLINICAL_TERMS = [
-        "diagnosis", "treatment", "medication", "procedure", "symptom",
-        "patient", "physician", "nurse", "hospital", "clinic", "emergency",
-        "chronic", "acute", "prescription", "dosage", "contraindication",
+        "diagnosis",
+        "treatment",
+        "medication",
+        "procedure",
+        "symptom",
+        "patient",
+        "physician",
+        "nurse",
+        "hospital",
+        "clinic",
+        "emergency",
+        "chronic",
+        "acute",
+        "prescription",
+        "dosage",
+        "contraindication",
     ]
 
     async def _execute_tool(
@@ -244,23 +272,27 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         if phi_found:
             # Privacy Rule check
             if "privacy_rule" in framework.rules or not framework.rules:
-                violations.append({
-                    "framework": "HIPAA",
-                    "rule": "Privacy Rule - 45 CFR 164.502",
-                    "severity": "critical",
-                    "message": f"Unprotected PHI detected: {', '.join(phi_found.keys())}",
-                    "phi_types": list(phi_found.keys()),
-                })
+                violations.append(
+                    {
+                        "framework": "HIPAA",
+                        "rule": "Privacy Rule - 45 CFR 164.502",
+                        "severity": "critical",
+                        "message": f"Unprotected PHI detected: {', '.join(phi_found.keys())}",
+                        "phi_types": list(phi_found.keys()),
+                    }
+                )
 
             # Minimum Necessary check
             if "minimum_necessary" in framework.rules or not framework.rules:
                 if len(phi_found) > 2:
-                    violations.append({
-                        "framework": "HIPAA",
-                        "rule": "Minimum Necessary - 45 CFR 164.502(b)",
-                        "severity": "high",
-                        "message": "Multiple PHI types present - review minimum necessary requirement",
-                    })
+                    violations.append(
+                        {
+                            "framework": "HIPAA",
+                            "rule": "Minimum Necessary - 45 CFR 164.502(b)",
+                            "severity": "high",
+                            "message": "Multiple PHI types present - review minimum necessary requirement",
+                        }
+                    )
 
         return violations
 
@@ -276,12 +308,14 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         if "breach_notification" in framework.rules or not framework.rules:
             phi_found = self._detect_phi(content)
             if phi_found and not re.search(r"encrypt", content, re.IGNORECASE):
-                violations.append({
-                    "framework": "HITECH",
-                    "rule": "Breach Notification",
-                    "severity": "high",
-                    "message": "PHI present without encryption - potential breach notification requirement",
-                })
+                violations.append(
+                    {
+                        "framework": "HITECH",
+                        "rule": "Breach Notification",
+                        "severity": "high",
+                        "message": "PHI present without encryption - potential breach notification requirement",
+                    }
+                )
 
         return violations
 
@@ -297,12 +331,14 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         if "electronic_records" in framework.rules or not framework.rules:
             if re.search(r"electronic\s+(?:record|signature|document)", content, re.IGNORECASE):
                 if not re.search(r"audit\s+trail|validation|verification", content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "FDA_21CFR11",
-                        "rule": "Subpart B - Electronic Records",
-                        "severity": "medium",
-                        "message": "Electronic records without required controls",
-                    })
+                    violations.append(
+                        {
+                            "framework": "FDA_21CFR11",
+                            "rule": "Subpart B - Electronic Records",
+                            "severity": "medium",
+                            "message": "Electronic records without required controls",
+                        }
+                    )
 
         return violations
 
@@ -344,9 +380,9 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
         return Message(
             role="assistant",
             content=f"[Healthcare Specialist Response for: {task}]\n\n"
-                    f"DISCLAIMER: This information is for educational purposes only "
-                    f"and does not constitute medical advice.\n\n"
-                    f"This would contain expert healthcare analysis.",
+            f"DISCLAIMER: This information is for educational purposes only "
+            f"and does not constitute medical advice.\n\n"
+            f"This would contain expert healthcare analysis.",
             agent=self.name,
         )
 
@@ -408,5 +444,7 @@ class HealthcareSpecialist(VerticalSpecialistAgent):
             "is_deidentified": is_deidentified,
             "phi_found": list(phi_found.keys()) if phi_found else [],
             "safe_harbor_compliant": is_deidentified,
-            "recommendation": "Remove identified PHI elements" if phi_found else "Content appears de-identified",
+            "recommendation": (
+                "Remove identified PHI elements" if phi_found else "Content appears de-identified"
+            ),
         }

@@ -28,12 +28,10 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
-    Any,
     Awaitable,
     Callable,
     Generic,
@@ -290,7 +288,7 @@ class DebateDelegator:
 
         start_time = time.time()
 
-        target_agents = agents or self._agents[:self._config.max_concurrent]
+        target_agents = agents or self._agents[: self._config.max_concurrent]
         if not target_agents:
             return DelegationResult(results=[], agent_names=[])
 
@@ -324,7 +322,7 @@ Please provide your response to the task."""
 
         return DelegationResult(
             results=results,
-            agent_names=[a.name for a in target_agents[:len(results)]],
+            agent_names=[a.name for a in target_agents[: len(results)]],
             duration_seconds=time.time() - start_time,
         )
 
@@ -356,8 +354,7 @@ Please provide your response to the task."""
 
         # Build synthesis prompt from summaries only (RLM principle)
         summaries = "\n\n".join(
-            f"**{a.agent}** (confidence: {a.confidence:.1%}):\n{a.summary}"
-            for a in analyses
+            f"**{a.agent}** (confidence: {a.confidence:.1%}):\n{a.summary}" for a in analyses
         )
 
         key_points_combined = []

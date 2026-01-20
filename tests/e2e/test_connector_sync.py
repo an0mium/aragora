@@ -179,16 +179,22 @@ class TestNotionConnectorE2E:
         # Mock Notion API
         with patch("aragora.connectors.enterprise.collaboration.notion.NotionClient") as mock:
             instance = MagicMock()
-            instance.list_databases = AsyncMock(return_value=[
-                {"id": "db-1", "title": [{"plain_text": "Tasks"}]},
-            ])
-            instance.query_database = AsyncMock(return_value={
-                "results": [{"id": "page-1", "properties": {}}],
-                "has_more": False,
-            })
-            instance.get_page_content = AsyncMock(return_value=[
-                {"type": "paragraph", "paragraph": {"text": [{"plain_text": "Content"}]}},
-            ])
+            instance.list_databases = AsyncMock(
+                return_value=[
+                    {"id": "db-1", "title": [{"plain_text": "Tasks"}]},
+                ]
+            )
+            instance.query_database = AsyncMock(
+                return_value={
+                    "results": [{"id": "page-1", "properties": {}}],
+                    "has_more": False,
+                }
+            )
+            instance.get_page_content = AsyncMock(
+                return_value=[
+                    {"type": "paragraph", "paragraph": {"text": [{"plain_text": "Content"}]}},
+                ]
+            )
             mock.return_value = instance
 
             config = NotionConfig(
@@ -213,9 +219,11 @@ class TestNotionConnectorE2E:
             instance = MagicMock()
             instance.list_databases = AsyncMock(return_value=[])
             instance.get_page = AsyncMock(return_value={"id": "page-1"})
-            instance.get_page_content = AsyncMock(return_value=[
-                {"type": "child_page", "child_page": {"title": "Subpage"}},
-            ])
+            instance.get_page_content = AsyncMock(
+                return_value=[
+                    {"type": "child_page", "child_page": {"title": "Subpage"}},
+                ]
+            )
             mock.return_value = instance
 
             config = NotionConfig(

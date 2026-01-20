@@ -271,7 +271,8 @@ class UsageMeter:
         self.config.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS billing_events (
                     id TEXT PRIMARY KEY,
                     tenant_id TEXT NOT NULL,
@@ -292,16 +293,21 @@ class UsageMeter:
                     billing_period TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             # Create indexes for common queries
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_billing_tenant_period
                 ON billing_events(tenant_id, billing_period)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_billing_timestamp
                 ON billing_events(timestamp)
-            """)
+            """
+            )
             conn.commit()
 
         self._db_initialized = True
@@ -316,7 +322,8 @@ class UsageMeter:
 
         with sqlite3.connect(str(self.config.db_path), timeout=30.0) as conn:
             for event in events:
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR REPLACE INTO billing_events
                     (id, tenant_id, user_id, event_type, resource,
                      quantity, tokens_in, tokens_out, bytes_used,
@@ -324,25 +331,27 @@ class UsageMeter:
                      debate_id, connector_id, metadata,
                      timestamp, billing_period)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    event.id,
-                    event.tenant_id,
-                    event.user_id,
-                    event.event_type.value,
-                    event.resource,
-                    event.quantity,
-                    event.tokens_in,
-                    event.tokens_out,
-                    event.bytes_used,
-                    str(event.unit_cost),
-                    str(event.total_cost),
-                    event.currency,
-                    event.debate_id,
-                    event.connector_id,
-                    json.dumps(event.metadata) if event.metadata else None,
-                    event.timestamp.isoformat(),
-                    event.billing_period,
-                ))
+                """,
+                    (
+                        event.id,
+                        event.tenant_id,
+                        event.user_id,
+                        event.event_type.value,
+                        event.resource,
+                        event.quantity,
+                        event.tokens_in,
+                        event.tokens_out,
+                        event.bytes_used,
+                        str(event.unit_cost),
+                        str(event.total_cost),
+                        event.currency,
+                        event.debate_id,
+                        event.connector_id,
+                        json.dumps(event.metadata) if event.metadata else None,
+                        event.timestamp.isoformat(),
+                        event.billing_period,
+                    ),
+                )
             conn.commit()
 
         logger.debug(f"Persisted {len(events)} billing events to database")
@@ -474,6 +483,7 @@ class UsageMeter:
         """Get current tenant ID from context."""
         try:
             from aragora.tenancy.context import get_current_tenant_id
+
             return get_current_tenant_id()
         except ImportError:
             return None
@@ -573,9 +583,7 @@ class UsageMeter:
     ) -> BillingEvent:
         """Record token usage."""
         total_tokens = tokens_in + tokens_out
-        token_cost = (
-            Decimal(total_tokens) / Decimal(1000)
-        ) * self.config.token_price_per_1k
+        token_cost = (Decimal(total_tokens) / Decimal(1000)) * self.config.token_price_per_1k
 
         event = BillingEvent(
             event_type=BillingEventType.TOKENS,
@@ -680,7 +688,8 @@ class UsageMeter:
         # Also include any buffered events that match
         async with self._lock:
             buffered_events = [
-                e for e in self._events
+                e
+                for e in self._events
                 if e.tenant_id == tid
                 and start_date <= e.timestamp <= end_date
                 and (event_type is None or e.event_type == event_type)

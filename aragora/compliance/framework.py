@@ -132,34 +132,38 @@ class ComplianceRule:
         if pattern:
             for match in pattern.finditer(content):
                 # Find line number
-                line_num = content[:match.start()].count('\n') + 1
-                issues.append(ComplianceIssue(
-                    framework=self.framework,
-                    rule_id=self.id,
-                    severity=self.severity,
-                    description=self.description,
-                    recommendation=self.recommendation,
-                    matched_text=match.group(0),
-                    line_number=line_num,
-                    metadata={"category": self.category},
-                ))
+                line_num = content[: match.start()].count("\n") + 1
+                issues.append(
+                    ComplianceIssue(
+                        framework=self.framework,
+                        rule_id=self.id,
+                        severity=self.severity,
+                        description=self.description,
+                        recommendation=self.recommendation,
+                        matched_text=match.group(0),
+                        line_number=line_num,
+                        metadata={"category": self.category},
+                    )
+                )
 
         # Check keywords
         for keyword in self.keywords:
             if keyword.lower() in content_lower:
                 # Find first occurrence
                 idx = content_lower.find(keyword.lower())
-                line_num = content[:idx].count('\n') + 1 if idx >= 0 else None
-                issues.append(ComplianceIssue(
-                    framework=self.framework,
-                    rule_id=self.id,
-                    severity=self.severity,
-                    description=f"{self.description} (keyword: {keyword})",
-                    recommendation=self.recommendation,
-                    matched_text=keyword,
-                    line_number=line_num,
-                    metadata={"category": self.category, "keyword": keyword},
-                ))
+                line_num = content[:idx].count("\n") + 1 if idx >= 0 else None
+                issues.append(
+                    ComplianceIssue(
+                        framework=self.framework,
+                        rule_id=self.id,
+                        severity=self.severity,
+                        description=f"{self.description} (keyword: {keyword})",
+                        recommendation=self.recommendation,
+                        matched_text=keyword,
+                        line_number=line_num,
+                        metadata={"category": self.category, "keyword": keyword},
+                    )
+                )
                 break  # Only report once per keyword set
 
         return issues
@@ -215,7 +219,14 @@ HIPAA_FRAMEWORK = ComplianceFramework(
             name="PHI Exposure Risk",
             description="Potential exposure of Protected Health Information (PHI)",
             severity=ComplianceSeverity.CRITICAL,
-            keywords=["patient name", "medical record", "diagnosis", "treatment plan", "ssn", "social security"],
+            keywords=[
+                "patient name",
+                "medical record",
+                "diagnosis",
+                "treatment plan",
+                "ssn",
+                "social security",
+            ],
             recommendation="Ensure PHI is encrypted at rest and in transit. Apply minimum necessary standard.",
             category="privacy",
         ),
@@ -235,7 +246,12 @@ HIPAA_FRAMEWORK = ComplianceFramework(
             name="Access Control Gap",
             description="Insufficient access controls for PHI",
             severity=ComplianceSeverity.HIGH,
-            keywords=["public access", "no authentication", "anonymous access", "shared credentials"],
+            keywords=[
+                "public access",
+                "no authentication",
+                "anonymous access",
+                "shared credentials",
+            ],
             recommendation="Implement role-based access control (RBAC) with unique user IDs.",
             category="access",
         ),
@@ -369,7 +385,12 @@ SOX_FRAMEWORK = ComplianceFramework(
             name="Data Integrity Risk",
             description="Financial data integrity may be compromised",
             severity=ComplianceSeverity.CRITICAL,
-            keywords=["manual override", "bypass validation", "direct database edit", "no reconciliation"],
+            keywords=[
+                "manual override",
+                "bypass validation",
+                "direct database edit",
+                "no reconciliation",
+            ],
             recommendation="Implement data validation, checksums, and regular reconciliation.",
             category="integrity",
         ),
@@ -613,7 +634,8 @@ class ComplianceFrameworkManager:
     def get_frameworks_for_vertical(self, vertical: str) -> List[ComplianceFramework]:
         """Get applicable frameworks for a vertical."""
         return [
-            f for f in self._frameworks.values()
+            f
+            for f in self._frameworks.values()
             if vertical.lower() in [v.lower() for v in f.applicable_verticals]
         ]
 
@@ -637,10 +659,7 @@ class ComplianceFrameworkManager:
         if frameworks is None:
             frameworks_to_check = list(self._frameworks.values())
         else:
-            frameworks_to_check = [
-                self._frameworks[f] for f in frameworks
-                if f in self._frameworks
-            ]
+            frameworks_to_check = [self._frameworks[f] for f in frameworks if f in self._frameworks]
 
         if not frameworks_to_check:
             return ComplianceCheckResult(
@@ -669,9 +688,16 @@ class ComplianceFrameworkManager:
         score = self._calculate_score(all_issues)
 
         # Determine overall compliance
-        compliant = len([i for i in all_issues if i.severity in (
-            ComplianceSeverity.CRITICAL, ComplianceSeverity.HIGH
-        )]) == 0
+        compliant = (
+            len(
+                [
+                    i
+                    for i in all_issues
+                    if i.severity in (ComplianceSeverity.CRITICAL, ComplianceSeverity.HIGH)
+                ]
+            )
+            == 0
+        )
 
         return ComplianceCheckResult(
             compliant=compliant,

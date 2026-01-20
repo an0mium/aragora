@@ -202,7 +202,9 @@ class TestMain:
 
     @patch("aragora.cli.export.create_demo_artifact")
     @patch("aragora.cli.export.export_to_html")
-    def test_demo_mode(self, mock_export_html, mock_create_demo, mock_args, mock_artifact, tmp_path, capsys):
+    def test_demo_mode(
+        self, mock_export_html, mock_create_demo, mock_args, mock_artifact, tmp_path, capsys
+    ):
         """Use demo mode."""
         mock_args.demo = True
         mock_args.output = str(tmp_path)
@@ -218,7 +220,9 @@ class TestMain:
 
     @patch("aragora.cli.export.load_artifact_from_debate")
     @patch("aragora.cli.export.export_to_json")
-    def test_loads_debate(self, mock_export_json, mock_load, mock_args, mock_artifact, tmp_path, capsys):
+    def test_loads_debate(
+        self, mock_export_json, mock_load, mock_args, mock_artifact, tmp_path, capsys
+    ):
         """Load artifact from debate ID."""
         mock_args.debate_id = "debate-123"
         mock_args.output = str(tmp_path)
@@ -235,7 +239,9 @@ class TestMain:
 
     @patch("aragora.cli.export.load_artifact_from_debate")
     @patch("aragora.cli.export.export_to_markdown")
-    def test_markdown_format(self, mock_export_md, mock_load, mock_args, mock_artifact, tmp_path, capsys):
+    def test_markdown_format(
+        self, mock_export_md, mock_load, mock_args, mock_artifact, tmp_path, capsys
+    ):
         """Export to Markdown format."""
         mock_args.debate_id = "debate-123"
         mock_args.output = str(tmp_path)
@@ -288,7 +294,9 @@ class TestMain:
 
     @patch("aragora.cli.export.create_demo_artifact")
     @patch("aragora.cli.export.export_to_html")
-    def test_prints_artifact_info(self, mock_export, mock_create, mock_args, mock_artifact, tmp_path, capsys):
+    def test_prints_artifact_info(
+        self, mock_export, mock_create, mock_args, mock_artifact, tmp_path, capsys
+    ):
         """Print artifact info after export."""
         mock_args.demo = True
         mock_args.output = str(tmp_path)
@@ -304,7 +312,9 @@ class TestMain:
 
     @patch("aragora.cli.export.create_demo_artifact")
     @patch("aragora.cli.export.export_to_html")
-    def test_creates_output_directory(self, mock_export, mock_create, mock_args, mock_artifact, tmp_path, capsys):
+    def test_creates_output_directory(
+        self, mock_export, mock_create, mock_args, mock_artifact, tmp_path, capsys
+    ):
         """Create output directory if it doesn't exist."""
         output_dir = tmp_path / "nested" / "output"
         mock_args.demo = True

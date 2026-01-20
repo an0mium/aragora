@@ -17,11 +17,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Check for AragoraRLM (routes to TRUE RLM when available)
 try:
     from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
+
     HAS_ARAGORA_RLM = True
 except ImportError:
     HAS_ARAGORA_RLM = False
@@ -187,6 +188,7 @@ class EmailPriorityAnalyzer:
     def _extract_sender(self, content: str) -> Optional[str]:
         """Extract sender email from memory content."""
         import re
+
         match = re.search(r"[\w.-]+@[\w.-]+\.\w+", content)
         return match.group(0) if match else None
 
@@ -194,11 +196,52 @@ class EmailPriorityAnalyzer:
         """Extract important keywords from content."""
         # Simple keyword extraction - could use NLP in production
         words = content.lower().split()
-        stopwords = {"the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-                     "have", "has", "had", "do", "does", "did", "will", "would", "could",
-                     "should", "may", "might", "must", "shall", "can", "to", "of", "in",
-                     "for", "on", "with", "at", "by", "from", "about", "as", "into",
-                     "through", "during", "before", "after", "above", "below", "between"}
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "about",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+        }
         return [w for w in words if len(w) > 3 and w not in stopwords][:5]
 
     async def score_email(
@@ -258,11 +301,11 @@ class EmailPriorityAnalyzer:
 
         # Compute weighted total
         total_score = (
-            sender_score * 0.30 +
-            gmail_score * 0.20 +
-            urgency_score * 0.20 +
-            content_score * 0.20 +
-            thread_score * 0.10
+            sender_score * 0.30
+            + gmail_score * 0.20
+            + urgency_score * 0.20
+            + content_score * 0.20
+            + thread_score * 0.10
         )
 
         # Clamp to 0.0-1.0
@@ -320,7 +363,10 @@ class EmailPriorityAnalyzer:
             score = 0.7
 
         # Promotions/Social/Forums
-        elif any(l in labels for l in ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]):
+        elif any(
+            label in labels
+            for label in ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS"]
+        ):
             score = 0.3
 
         # Updates
@@ -335,19 +381,47 @@ class EmailPriorityAnalyzer:
         score = 0.5
 
         # High urgency keywords
-        high_urgency = ["urgent", "asap", "immediate", "deadline", "today", "eod",
-                        "emergency", "critical", "time sensitive", "action required"]
+        high_urgency = [
+            "urgent",
+            "asap",
+            "immediate",
+            "deadline",
+            "today",
+            "eod",
+            "emergency",
+            "critical",
+            "time sensitive",
+            "action required",
+        ]
         if any(kw in text for kw in high_urgency):
             score = 1.0
 
         # Medium urgency
-        elif any(kw in text for kw in ["tomorrow", "soon", "important", "please review",
-                                        "waiting for", "follow up", "reminder"]):
+        elif any(
+            kw in text
+            for kw in [
+                "tomorrow",
+                "soon",
+                "important",
+                "please review",
+                "waiting for",
+                "follow up",
+                "reminder",
+            ]
+        ):
             score = 0.7
 
         # Low urgency (newsletter-like)
-        elif any(kw in text for kw in ["unsubscribe", "newsletter", "weekly digest",
-                                        "monthly update", "no reply needed"]):
+        elif any(
+            kw in text
+            for kw in [
+                "unsubscribe",
+                "newsletter",
+                "weekly digest",
+                "monthly update",
+                "no reply needed",
+            ]
+        ):
             score = 0.2
 
         return score
@@ -364,18 +438,12 @@ class EmailPriorityAnalyzer:
         text = f"{subject} {snippet}".lower()
 
         # Check for important keywords from preferences
-        keyword_matches = sum(
-            1 for kw in prefs.important_keywords
-            if kw.lower() in text
-        )
+        keyword_matches = sum(1 for kw in prefs.important_keywords if kw.lower() in text)
         if keyword_matches > 0:
             score = min(1.0, 0.5 + keyword_matches * 0.2)
 
         # Check for low priority keywords
-        low_priority_matches = sum(
-            1 for kw in prefs.low_priority_keywords
-            if kw.lower() in text
-        )
+        low_priority_matches = sum(1 for kw in prefs.low_priority_keywords if kw.lower() in text)
         if low_priority_matches > 0:
             score = max(0.1, score - low_priority_matches * 0.2)
 
@@ -400,14 +468,17 @@ class EmailPriorityAnalyzer:
                     if analysis_result.used_true_rlm:
                         logger.debug("[EmailPriority] Used TRUE RLM for content analysis")
                     elif analysis_result.used_compression_fallback:
-                        logger.debug("[EmailPriority] Used compression fallback for content analysis")
+                        logger.debug(
+                            "[EmailPriority] Used compression fallback for content analysis"
+                        )
 
                     try:
                         # Extract numeric score from response
                         answer = analysis_result.answer.strip()
                         # Try to find a number in the response
                         import re
-                        match = re.search(r'\b(\d+(?:\.\d+)?)\b', answer)
+
+                        match = re.search(r"\b(\d+(?:\.\d+)?)\b", answer)
                         if match:
                             rlm_score = float(match.group(1)) / 10.0
                             rlm_score = max(0.0, min(1.0, rlm_score))  # Clamp

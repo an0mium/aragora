@@ -36,7 +36,9 @@ class QueryOperationsMixin:
     """Mixin providing query operations for KnowledgeHandler."""
 
     @handle_errors("knowledge query")
-    def _handle_query(self: QueryHandlerProtocol, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_query(
+        self: QueryHandlerProtocol, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/query - Natural language query."""
 
         try:

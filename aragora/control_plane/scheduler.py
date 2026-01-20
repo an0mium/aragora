@@ -295,9 +295,7 @@ class TaskScheduler:
         # Record metrics
         record_control_plane_task_submitted(task_type, priority.name.lower())
 
-        logger.info(
-            f"Task submitted: {task.id} (type={task_type}, priority={priority.name})"
-        )
+        logger.info(f"Task submitted: {task.id} (type={task_type}, priority={priority.name})")
 
         return task.id
 
@@ -757,7 +755,9 @@ class TaskScheduler:
                             continue
 
                         # Check capabilities
-                        if task.required_capabilities and not task.required_capabilities.issubset(cap_set):
+                        if task.required_capabilities and not task.required_capabilities.issubset(
+                            cap_set
+                        ):
                             # Worker doesn't have required capabilities
                             # XACK to remove from this worker's pending list
                             await self._redis.xack(stream_key, self._consumer_group, msg_id)

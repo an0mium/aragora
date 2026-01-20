@@ -63,11 +63,14 @@ class MockPersonaManager:
         return self._personas.get(agent)
 
     def get_performance_summary(self, agent: str) -> dict:
-        return self._performance.get(agent, {
-            "debates_participated": 0,
-            "win_rate": 0.0,
-            "avg_confidence": 0.0,
-        })
+        return self._performance.get(
+            agent,
+            {
+                "debates_participated": 0,
+                "win_rate": 0.0,
+                "avg_confidence": 0.0,
+            },
+        )
 
 
 class MockEloSystem:
@@ -101,23 +104,30 @@ def mock_handler():
 def mock_persona_manager():
     """Create mock persona manager with sample data."""
     manager = MockPersonaManager()
-    manager.add_persona(MockPersona(
-        agent_name="claude",
-        description="Anthropic's Claude assistant",
-        traits=["analytical", "careful", "thorough"],
-        expertise=["reasoning", "coding", "writing"],
-    ))
-    manager.add_persona(MockPersona(
-        agent_name="gpt-4",
-        description="OpenAI's GPT-4 assistant",
-        traits=["creative", "versatile"],
-        expertise=["general knowledge", "coding"],
-    ))
-    manager.add_performance("claude", {
-        "debates_participated": 50,
-        "win_rate": 0.65,
-        "avg_confidence": 0.82,
-    })
+    manager.add_persona(
+        MockPersona(
+            agent_name="claude",
+            description="Anthropic's Claude assistant",
+            traits=["analytical", "careful", "thorough"],
+            expertise=["reasoning", "coding", "writing"],
+        )
+    )
+    manager.add_persona(
+        MockPersona(
+            agent_name="gpt-4",
+            description="OpenAI's GPT-4 assistant",
+            traits=["creative", "versatile"],
+            expertise=["general knowledge", "coding"],
+        )
+    )
+    manager.add_performance(
+        "claude",
+        {
+            "debates_participated": 50,
+            "win_rate": 0.65,
+            "avg_confidence": 0.82,
+        },
+    )
     return manager
 
 
@@ -125,11 +135,14 @@ def mock_persona_manager():
 def mock_elo_system():
     """Create mock ELO system with sample data."""
     elo = MockEloSystem()
-    elo.add_domains("claude", [
-        ("security", 0.92),
-        ("architecture", 0.88),
-        ("testing", 0.85),
-    ])
+    elo.add_domains(
+        "claude",
+        [
+            ("security", 0.92),
+            ("architecture", 0.88),
+            ("testing", 0.85),
+        ],
+    )
     return elo
 
 
@@ -418,7 +431,9 @@ class TestPersonaHandlerIdentityPrompt:
         mock_limiter.is_allowed.return_value = True
 
         mock_synthesizer = MagicMock()
-        mock_synthesizer.synthesize_identity_prompt.return_value = "You are Claude, an AI assistant..."
+        mock_synthesizer.synthesize_identity_prompt.return_value = (
+            "You are Claude, an AI assistant..."
+        )
         mock_synthesizer_cls.return_value = mock_synthesizer
 
         result = persona_handler.handle("/api/agent/claude/identity-prompt", {}, mock_handler)

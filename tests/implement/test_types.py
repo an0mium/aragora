@@ -321,7 +321,9 @@ class TestImplementProgress:
         data = {
             "plan": {
                 "design_hash": "restored_hash",
-                "tasks": [{"id": "t1", "description": "Restored", "files": [], "complexity": "simple"}],
+                "tasks": [
+                    {"id": "t1", "description": "Restored", "files": [], "complexity": "simple"}
+                ],
                 "created_at": "2024-01-15T12:00:00",
             },
             "completed_tasks": ["t1"],

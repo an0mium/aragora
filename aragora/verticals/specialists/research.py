@@ -31,10 +31,25 @@ RESEARCH_CONFIG = VerticalConfig(
     display_name="Research Specialist",
     description="Expert in research methodology, literature analysis, and scientific writing.",
     domain_keywords=[
-        "research", "study", "experiment", "hypothesis", "methodology",
-        "statistical", "data", "analysis", "sample", "results",
-        "peer review", "publication", "citation", "literature",
-        "IRB", "ethics", "protocol", "findings", "conclusion",
+        "research",
+        "study",
+        "experiment",
+        "hypothesis",
+        "methodology",
+        "statistical",
+        "data",
+        "analysis",
+        "sample",
+        "results",
+        "peer review",
+        "publication",
+        "citation",
+        "literature",
+        "IRB",
+        "ethics",
+        "protocol",
+        "findings",
+        "conclusion",
     ],
     expertise_areas=[
         "Literature Review",
@@ -266,42 +281,62 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         content_lower = content.lower()
 
         # Check for human subjects research indicators
-        has_human_subjects = any(term in content_lower for term in [
-            "participant", "subject", "volunteer", "patient", "interview",
-            "survey", "questionnaire", "blood sample", "tissue sample",
-        ])
+        has_human_subjects = any(
+            term in content_lower
+            for term in [
+                "participant",
+                "subject",
+                "volunteer",
+                "patient",
+                "interview",
+                "survey",
+                "questionnaire",
+                "blood sample",
+                "tissue sample",
+            ]
+        )
 
         if has_human_subjects:
             # Informed consent check
             if "informed_consent" in framework.rules or not framework.rules:
                 if not re.search(r"informed\s+consent|consent\s+form|consented", content_lower):
-                    violations.append({
-                        "framework": "IRB",
-                        "rule": "Informed Consent",
-                        "severity": "critical",
-                        "message": "Human subjects research without informed consent documentation",
-                    })
+                    violations.append(
+                        {
+                            "framework": "IRB",
+                            "rule": "Informed Consent",
+                            "severity": "critical",
+                            "message": "Human subjects research without informed consent documentation",
+                        }
+                    )
 
             # IRB approval check
-            if not re.search(r"IRB|ethics\s+(?:committee|board)|institutional\s+review", content_lower):
-                violations.append({
-                    "framework": "IRB",
-                    "rule": "Ethics Approval",
-                    "severity": "critical",
-                    "message": "Human subjects research without IRB/ethics approval reference",
-                })
+            if not re.search(
+                r"IRB|ethics\s+(?:committee|board)|institutional\s+review", content_lower
+            ):
+                violations.append(
+                    {
+                        "framework": "IRB",
+                        "rule": "Ethics Approval",
+                        "severity": "critical",
+                        "message": "Human subjects research without IRB/ethics approval reference",
+                    }
+                )
 
             # Vulnerable populations check
             if "vulnerable_populations" in framework.rules or not framework.rules:
                 vulnerable_terms = ["children", "minor", "pregnant", "prisoner", "cognitive impair"]
                 if any(term in content_lower for term in vulnerable_terms):
-                    if not re.search(r"additional\s+protect|special\s+consider|guardian\s+consent", content_lower):
-                        violations.append({
-                            "framework": "IRB",
-                            "rule": "Vulnerable Populations",
-                            "severity": "high",
-                            "message": "Vulnerable population without additional protections noted",
-                        })
+                    if not re.search(
+                        r"additional\s+protect|special\s+consider|guardian\s+consent", content_lower
+                    ):
+                        violations.append(
+                            {
+                                "framework": "IRB",
+                                "rule": "Vulnerable Populations",
+                                "severity": "high",
+                                "message": "Vulnerable population without additional protections noted",
+                            }
+                        )
 
         return violations
 
@@ -321,32 +356,42 @@ class ResearchSpecialist(VerticalSpecialistAgent):
             # Randomization
             if "randomization" in framework.rules or not framework.rules:
                 if not re.search(r"random(?:ization|ly|ised|ized)|allocation", content_lower):
-                    violations.append({
-                        "framework": "CONSORT",
-                        "rule": "Randomization",
-                        "severity": "high",
-                        "message": "Clinical trial without randomization method described",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CONSORT",
+                            "rule": "Randomization",
+                            "severity": "high",
+                            "message": "Clinical trial without randomization method described",
+                        }
+                    )
 
             # Sample size
             if "sample_size" in framework.rules or not framework.rules:
-                if not re.search(r"sample\s+size|power\s+(?:calculation|analysis)|n\s*=\s*\d+", content_lower):
-                    violations.append({
-                        "framework": "CONSORT",
-                        "rule": "Sample Size",
-                        "severity": "medium",
-                        "message": "Sample size justification not found",
-                    })
+                if not re.search(
+                    r"sample\s+size|power\s+(?:calculation|analysis)|n\s*=\s*\d+", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "CONSORT",
+                            "rule": "Sample Size",
+                            "severity": "medium",
+                            "message": "Sample size justification not found",
+                        }
+                    )
 
             # Blinding
             if "blinding" in framework.rules or not framework.rules:
-                if not re.search(r"blind(?:ed|ing)|mask(?:ed|ing)|placebo|double.blind", content_lower):
-                    violations.append({
-                        "framework": "CONSORT",
-                        "rule": "Blinding",
-                        "severity": "medium",
-                        "message": "Blinding/masking not described",
-                    })
+                if not re.search(
+                    r"blind(?:ed|ing)|mask(?:ed|ing)|placebo|double.blind", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "CONSORT",
+                            "rule": "Blinding",
+                            "severity": "medium",
+                            "message": "Blinding/masking not described",
+                        }
+                    )
 
         return violations
 
@@ -365,33 +410,45 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         if is_review:
             # Search strategy
             if "search_strategy" in framework.rules or not framework.rules:
-                if not re.search(r"search\s+strateg|database|PubMed|Medline|Cochrane", content_lower):
-                    violations.append({
-                        "framework": "PRISMA",
-                        "rule": "Search Strategy",
-                        "severity": "high",
-                        "message": "Systematic review without search strategy described",
-                    })
+                if not re.search(
+                    r"search\s+strateg|database|PubMed|Medline|Cochrane", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "PRISMA",
+                            "rule": "Search Strategy",
+                            "severity": "high",
+                            "message": "Systematic review without search strategy described",
+                        }
+                    )
 
             # Selection criteria
             if "selection" in framework.rules or not framework.rules:
-                if not re.search(r"inclusion\s+criteria|exclusion\s+criteria|eligib", content_lower):
-                    violations.append({
-                        "framework": "PRISMA",
-                        "rule": "Selection Criteria",
-                        "severity": "high",
-                        "message": "Selection/eligibility criteria not specified",
-                    })
+                if not re.search(
+                    r"inclusion\s+criteria|exclusion\s+criteria|eligib", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "PRISMA",
+                            "rule": "Selection Criteria",
+                            "severity": "high",
+                            "message": "Selection/eligibility criteria not specified",
+                        }
+                    )
 
             # Bias assessment
             if "bias_assessment" in framework.rules or not framework.rules:
-                if not re.search(r"risk\s+of\s+bias|quality\s+assessment|bias\s+assessment", content_lower):
-                    violations.append({
-                        "framework": "PRISMA",
-                        "rule": "Risk of Bias",
-                        "severity": "medium",
-                        "message": "Risk of bias assessment not described",
-                    })
+                if not re.search(
+                    r"risk\s+of\s+bias|quality\s+assessment|bias\s+assessment", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "PRISMA",
+                            "rule": "Risk of Bias",
+                            "severity": "medium",
+                            "message": "Risk of bias assessment not described",
+                        }
+                    )
 
         return violations
 
@@ -406,7 +463,7 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         return Message(
             role="assistant",
             content=f"[Research Specialist Response for: {task}]\n\n"
-                    f"This would contain expert research methodology guidance.",
+            f"This would contain expert research methodology guidance.",
             agent=self.name,
         )
 
@@ -523,7 +580,9 @@ class ResearchSpecialist(VerticalSpecialistAgent):
         total_citations = max(citation_counts.values()) if citation_counts else 0
 
         return {
-            "citation_style_detected": max(citation_counts, key=citation_counts.get) if citation_counts else None,
+            "citation_style_detected": (
+                max(citation_counts, key=citation_counts.get) if citation_counts else None
+            ),
             "estimated_citation_count": total_citations,
             "dois_found": len(dois),
             "citation_density": total_citations / max(len(paper_text.split()) / 1000, 1),

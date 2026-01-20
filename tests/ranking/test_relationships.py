@@ -118,7 +118,8 @@ class TestAgentRelationship:
     def test_rivalry_score_few_debates(self):
         """Test rivalry score with few debates returns 0."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=2,  # Less than 3
             agreement_count=0,
             a_wins_over_b=1,
@@ -129,7 +130,8 @@ class TestAgentRelationship:
     def test_rivalry_score_high(self):
         """Test high rivalry score with many debates, low agreement, competitive wins."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=20,
             agreement_count=2,  # 10% agreement (90% disagreement)
             a_wins_over_b=10,
@@ -142,7 +144,8 @@ class TestAgentRelationship:
     def test_rivalry_score_low(self):
         """Test low rivalry score with high agreement."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=20,
             agreement_count=18,  # 90% agreement
             a_wins_over_b=15,
@@ -155,7 +158,8 @@ class TestAgentRelationship:
     def test_alliance_score_few_debates(self):
         """Test alliance score with few debates returns 0."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=2,
             agreement_count=2,
         )
@@ -164,7 +168,8 @@ class TestAgentRelationship:
     def test_alliance_score_high(self):
         """Test high alliance score with high agreement and critique acceptance."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=20,
             agreement_count=18,  # 90% agreement
             critique_count_a_to_b=10,
@@ -179,7 +184,8 @@ class TestAgentRelationship:
     def test_alliance_score_low(self):
         """Test low alliance score with low agreement."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=20,
             agreement_count=2,  # 10% agreement
             critique_count_a_to_b=10,
@@ -194,7 +200,8 @@ class TestAgentRelationship:
     def test_influence_a_on_b(self):
         """Test influence calculation from A to B."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=10,
             position_changes_b_after_a=5,
         )
@@ -204,7 +211,8 @@ class TestAgentRelationship:
     def test_influence_b_on_a(self):
         """Test influence calculation from B to A."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=10,
             position_changes_a_after_b=3,
         )
@@ -214,7 +222,8 @@ class TestAgentRelationship:
     def test_influence_zero_debates(self):
         """Test influence with zero debates."""
         rel = AgentRelationship(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=0,
         )
 
@@ -224,7 +233,8 @@ class TestAgentRelationship:
     def test_get_influence(self):
         """Test get_influence method."""
         rel = AgentRelationship(
-            agent_a="claude", agent_b="gpt",
+            agent_a="claude",
+            agent_b="gpt",
             debate_count=10,
             position_changes_a_after_b=3,
             position_changes_b_after_a=5,
@@ -327,10 +337,12 @@ class TestRelationshipTracker:
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
             tracker = RelationshipTracker("/path/to/db")
-            tracker.update_batch([
-                {"agent_a": "claude", "agent_b": "gpt", "debate_increment": 1},
-                {"agent_a": "claude", "agent_b": "gemini", "debate_increment": 1, "a_win": 1},
-            ])
+            tracker.update_batch(
+                [
+                    {"agent_a": "claude", "agent_b": "gpt", "debate_increment": 1},
+                    {"agent_a": "claude", "agent_b": "gemini", "debate_increment": 1, "a_win": 1},
+                ]
+            )
 
             # Should execute twice (once per update)
             assert mock_cursor.execute.call_count == 2
@@ -341,11 +353,13 @@ class TestRelationshipTracker:
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
             tracker = RelationshipTracker("/path/to/db")
-            tracker.update_batch([
-                {"agent_a": "claude", "agent_b": "gpt", "debate_increment": 1},
-                {"agent_a": "", "agent_b": "gemini"},  # Invalid - empty agent_a
-                {"agent_a": "claude"},  # Invalid - missing agent_b
-            ])
+            tracker.update_batch(
+                [
+                    {"agent_a": "claude", "agent_b": "gpt", "debate_increment": 1},
+                    {"agent_a": "", "agent_b": "gemini"},  # Invalid - empty agent_a
+                    {"agent_a": "claude"},  # Invalid - missing agent_b
+                ]
+            )
 
             # Should only execute once (for valid entry)
             assert mock_cursor.execute.call_count == 1
@@ -353,9 +367,7 @@ class TestRelationshipTracker:
     def test_get_raw_found(self, mock_db):
         """Test getting raw relationship data."""
         mock, mock_cursor = mock_db
-        mock_cursor.fetchone.return_value = (
-            10, 7, 5, 4, 3, 2, 2, 1, 4, 3
-        )
+        mock_cursor.fetchone.return_value = (10, 7, 5, 4, 3, 2, 2, 1, 4, 3)
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
             tracker = RelationshipTracker("/path/to/db")
@@ -443,13 +455,13 @@ class TestRelationshipTracker:
         # High debates, low agreement, competitive wins = rival
         mock_cursor.fetchone.return_value = (
             25,  # debate_count
-            3,   # agreement_count (12% = low)
+            3,  # agreement_count (12% = low)
             10,  # critique_count_a_to_b
             10,  # critique_count_b_to_a
-            2,   # critique_accepted_a_to_b
-            2,   # critique_accepted_b_to_a
-            1,   # position_changes_a_after_b
-            1,   # position_changes_b_after_a
+            2,  # critique_accepted_a_to_b
+            2,  # critique_accepted_b_to_a
+            1,  # position_changes_a_after_b
+            1,  # position_changes_b_after_a
             12,  # a_wins_over_b
             11,  # b_wins_over_a (competitive)
         )
@@ -470,12 +482,12 @@ class TestRelationshipTracker:
             22,  # agreement_count (88% = high)
             10,  # critique_count_a_to_b
             10,  # critique_count_b_to_a
-            9,   # critique_accepted_a_to_b
-            9,   # critique_accepted_b_to_a
-            5,   # position_changes_a_after_b
-            5,   # position_changes_b_after_a
+            9,  # critique_accepted_a_to_b
+            9,  # critique_accepted_b_to_a
+            5,  # position_changes_a_after_b
+            5,  # position_changes_b_after_a
             15,  # a_wins_over_b
-            3,   # b_wins_over_a (not competitive)
+            3,  # b_wins_over_a (not competitive)
         )
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
@@ -488,10 +500,7 @@ class TestRelationshipTracker:
     def test_compute_metrics_acquaintance(self, mock_db):
         """Test computing metrics for acquaintances (few debates)."""
         mock, mock_cursor = mock_db
-        mock_cursor.fetchone.return_value = (
-            2,  # debate_count (< 3)
-            1, 1, 1, 0, 0, 0, 0, 1, 1
-        )
+        mock_cursor.fetchone.return_value = (2, 1, 1, 1, 0, 0, 0, 0, 1, 1)  # debate_count (< 3)
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
             tracker = RelationshipTracker("/path/to/db")
@@ -502,9 +511,7 @@ class TestRelationshipTracker:
     def test_compute_metrics_head_to_head(self, mock_db):
         """Test head-to-head in metrics."""
         mock, mock_cursor = mock_db
-        mock_cursor.fetchone.return_value = (
-            10, 5, 3, 3, 2, 2, 1, 1, 7, 3
-        )
+        mock_cursor.fetchone.return_value = (10, 5, 3, 3, 2, 2, 1, 1, 7, 3)
 
         with patch("aragora.ranking.relationships.EloDatabase", return_value=mock):
             tracker = RelationshipTracker("/path/to/db")
@@ -582,7 +589,8 @@ class TestRelationshipTrackerMetricComputation:
     def test_compute_metrics_zero_debates(self, tracker):
         """Test metrics with zero debates."""
         stats = RelationshipStats(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=0,
             agreement_count=0,
             critique_count_a_to_b=0,
@@ -603,7 +611,8 @@ class TestRelationshipTrackerMetricComputation:
     def test_compute_metrics_zero_wins(self, tracker):
         """Test metrics with debates but no wins."""
         stats = RelationshipStats(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=10,
             agreement_count=5,
             critique_count_a_to_b=5,
@@ -625,7 +634,8 @@ class TestRelationshipTrackerMetricComputation:
     def test_compute_metrics_zero_critiques(self, tracker):
         """Test metrics with no critiques."""
         stats = RelationshipStats(
-            agent_a="a", agent_b="b",
+            agent_a="a",
+            agent_b="b",
             debate_count=10,
             agreement_count=5,
             critique_count_a_to_b=0,

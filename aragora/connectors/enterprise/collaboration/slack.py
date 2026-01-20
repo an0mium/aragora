@@ -155,9 +155,7 @@ class SlackConnector(EnterpriseConnector):
         token = await self.credentials.get_credential("SLACK_BOT_TOKEN")
 
         if not token:
-            raise ValueError(
-                "Slack credentials not configured. Set SLACK_BOT_TOKEN"
-            )
+            raise ValueError("Slack credentials not configured. Set SLACK_BOT_TOKEN")
 
         return {"Authorization": f"Bearer {token}"}
 
@@ -180,7 +178,9 @@ class SlackConnector(EnterpriseConnector):
             if method == "GET":
                 response = await client.get(url, headers=headers, params=params, timeout=60)
             else:
-                response = await client.post(url, headers=headers, json=json_data or params, timeout=60)
+                response = await client.post(
+                    url, headers=headers, json=json_data or params, timeout=60
+                )
 
             response.raise_for_status()
             data = response.json()
@@ -227,11 +227,11 @@ class SlackConnector(EnterpriseConnector):
                     topic=item.get("topic", {}).get("value", ""),
                     purpose=item.get("purpose", {}).get("value", ""),
                     member_count=item.get("num_members", 0),
-                    created=datetime.fromtimestamp(
-                        item.get("created", 0), tz=timezone.utc
-                    )
-                    if item.get("created")
-                    else None,
+                    created=(
+                        datetime.fromtimestamp(item.get("created", 0), tz=timezone.utc)
+                        if item.get("created")
+                        else None
+                    ),
                 )
                 channels.append(channel)
                 self._channels_cache[channel.id] = channel
@@ -335,7 +335,9 @@ class SlackConnector(EnterpriseConnector):
 
             replies = []
             for item in data.get("messages", [])[1:]:  # Skip first (parent)
-                if self.exclude_bots and (item.get("bot_id") or item.get("subtype") == "bot_message"):
+                if self.exclude_bots and (
+                    item.get("bot_id") or item.get("subtype") == "bot_message"
+                ):
                     continue
 
                 ts = item.get("ts", "")

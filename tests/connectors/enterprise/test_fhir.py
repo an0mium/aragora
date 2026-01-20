@@ -7,6 +7,7 @@ Tests the healthcare data integration including:
 - Incremental sync via _lastUpdated
 - FHIR search parameters
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,9 +21,11 @@ from aragora.connectors.enterprise.base import SyncState, SyncStatus
 # Mock FHIR Connector (mirrors actual implementation)
 # =============================================================================
 
+
 @dataclass
 class FHIRResource:
     """Represents a FHIR resource."""
+
     id: str
     resource_type: str
     data: Dict[str, Any]
@@ -41,8 +44,13 @@ class MockFHIRConnector:
 
     # PHI fields that should be redacted
     PHI_FIELDS = [
-        "name", "address", "telecom", "birthDate",
-        "identifier", "photo", "contact",
+        "name",
+        "address",
+        "telecom",
+        "birthDate",
+        "identifier",
+        "photo",
+        "contact",
     ]
 
     def __init__(
@@ -163,9 +171,7 @@ class MockFHIRConnector:
                 id=resource_data.get("id", ""),
                 resource_type=resource_data.get("resourceType", resource_type),
                 data=resource_data,
-                last_updated=self._parse_datetime(
-                    resource_data.get("meta", {}).get("lastUpdated")
-                ),
+                last_updated=self._parse_datetime(resource_data.get("meta", {}).get("lastUpdated")),
                 version_id=resource_data.get("meta", {}).get("versionId"),
             )
             resources.append(resource)
@@ -271,9 +277,7 @@ class MockFHIRConnector:
             id=response.get("id", resource_id),
             resource_type=response.get("resourceType", resource_type),
             data=response,
-            last_updated=self._parse_datetime(
-                response.get("meta", {}).get("lastUpdated")
-            ),
+            last_updated=self._parse_datetime(response.get("meta", {}).get("lastUpdated")),
         )
 
         redacted_data = self._redact_phi(resource.data)
@@ -298,12 +302,14 @@ class MockFHIRConnector:
             resources, _ = await self._search_resources(resource_type, params)
 
             for resource in resources:
-                results.append(MagicMock(
-                    id=f"fhir-{resource.reference}",
-                    title=f"{resource.resource_type} {resource.id}",
-                    url=f"{self.fhir_base_url}/{resource.reference}",
-                    score=1.0,
-                ))
+                results.append(
+                    MagicMock(
+                        id=f"fhir-{resource.reference}",
+                        title=f"{resource.resource_type} {resource.id}",
+                        url=f"{self.fhir_base_url}/{resource.reference}",
+                        score=1.0,
+                    )
+                )
 
             if len(results) >= limit:
                 break
@@ -314,6 +320,7 @@ class MockFHIRConnector:
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def fhir_connector():
@@ -391,6 +398,7 @@ def sample_condition():
 # =============================================================================
 # Test Classes
 # =============================================================================
+
 
 class TestFHIRInit:
     """Test FHIR connector initialization."""
@@ -516,6 +524,7 @@ class TestResourceSearch:
     @pytest.mark.asyncio
     async def test_search_resources(self, fhir_connector, sample_patient):
         """Test searching resources."""
+
         async def mock_request(endpoint, params=None):
             return {
                 "entry": [{"resource": sample_patient}],
@@ -533,12 +542,11 @@ class TestResourceSearch:
     @pytest.mark.asyncio
     async def test_search_resources_pagination(self, fhir_connector, sample_patient):
         """Test pagination with next link."""
+
         async def mock_request(endpoint, params=None):
             return {
                 "entry": [{"resource": sample_patient}],
-                "link": [
-                    {"relation": "next", "url": "https://fhir.example.com/r4/Patient?page=2"}
-                ],
+                "link": [{"relation": "next", "url": "https://fhir.example.com/r4/Patient?page=2"}],
             }
 
         fhir_connector._fhir_request = mock_request
@@ -551,6 +559,7 @@ class TestResourceSearch:
     @pytest.mark.asyncio
     async def test_search_resources_empty(self, fhir_connector):
         """Test empty search results."""
+
         async def mock_request(endpoint, params=None):
             return {"entry": [], "link": []}
 
@@ -636,10 +645,7 @@ class TestSyncItems:
         state = SyncState(connector_id="fhir", status=SyncStatus.IDLE)
 
         # Return many resources
-        many_patients = [
-            {**sample_patient, "id": f"patient-{i}"}
-            for i in range(10)
-        ]
+        many_patients = [{**sample_patient, "id": f"patient-{i}"} for i in range(10)]
 
         async def mock_request(endpoint, params=None):
             return {
@@ -662,6 +668,7 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_fetch_resource(self, fhir_connector, sample_patient):
         """Test fetching a resource."""
+
         async def mock_request(endpoint, params=None):
             return sample_patient
 
@@ -675,6 +682,7 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_fetch_with_fhir_prefix(self, fhir_connector, sample_observation):
         """Test fetching with fhir- prefix."""
+
         async def mock_request(endpoint, params=None):
             return sample_observation
 
@@ -687,6 +695,7 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_fetch_with_redaction(self, fhir_connector, sample_patient):
         """Test fetch applies PHI redaction."""
+
         async def mock_request(endpoint, params=None):
             return sample_patient
 
@@ -706,6 +715,7 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_fetch_not_found(self, fhir_connector):
         """Test fetching non-existent resource."""
+
         async def mock_request(endpoint, params=None):
             raise Exception("Resource not found")
 
@@ -720,10 +730,9 @@ class TestSearch:
     """Test search functionality."""
 
     @pytest.mark.asyncio
-    async def test_search_across_types(
-        self, fhir_connector, sample_patient, sample_observation
-    ):
+    async def test_search_across_types(self, fhir_connector, sample_patient, sample_observation):
         """Test searching across resource types."""
+
         async def mock_request(endpoint, params=None):
             if "Patient" in endpoint:
                 return {"entry": [{"resource": sample_patient}], "link": []}
@@ -740,6 +749,7 @@ class TestSearch:
     @pytest.mark.asyncio
     async def test_search_with_limit(self, fhir_connector, sample_patient):
         """Test search with limit."""
+
         async def mock_request(endpoint, params=None):
             return {
                 "entry": [{"resource": sample_patient}] * 10,

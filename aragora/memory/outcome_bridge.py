@@ -27,11 +27,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker
-    from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
+    from aragora.memory.continuum import ContinuumMemory
     from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
@@ -103,9 +103,7 @@ class OutcomeMemoryBridge:
     min_confidence_for_update: float = 0.5  # Minimum confidence to update memory
 
     # Track usage during debates
-    _usage_records: Dict[str, List[MemoryUsageRecord]] = field(
-        default_factory=dict, repr=False
-    )
+    _usage_records: Dict[str, List[MemoryUsageRecord]] = field(default_factory=dict, repr=False)
     _memory_success_counts: Dict[str, int] = field(default_factory=dict, repr=False)
     _memory_failure_counts: Dict[str, int] = field(default_factory=dict, repr=False)
 
@@ -127,9 +125,7 @@ class OutcomeMemoryBridge:
         existing_ids = {r.memory_id for r in self._usage_records[debate_id]}
         if memory_id not in existing_ids:
             self._usage_records[debate_id].append(record)
-            logger.debug(
-                "memory_usage_recorded memory_id=%s debate_id=%s", memory_id, debate_id
-            )
+            logger.debug("memory_usage_recorded memory_id=%s debate_id=%s", memory_id, debate_id)
 
     def get_memories_for_debate(self, debate_id: str) -> List[str]:
         """Get list of memory IDs used in a debate.
@@ -350,8 +346,12 @@ class OutcomeMemoryBridge:
                     return PromotionResult(
                         memory_id=memory_id,
                         promoted=True,
-                        from_tier=current_tier.value if hasattr(current_tier, 'value') else str(current_tier),
-                        to_tier=new_tier.value if hasattr(new_tier, 'value') else str(new_tier),
+                        from_tier=(
+                            current_tier.value
+                            if hasattr(current_tier, "value")
+                            else str(current_tier)
+                        ),
+                        to_tier=new_tier.value if hasattr(new_tier, "value") else str(new_tier),
                         reason=f"Promoted after {success_count} successful uses",
                     )
 
@@ -369,8 +369,12 @@ class OutcomeMemoryBridge:
                         return PromotionResult(
                             memory_id=memory_id,
                             promoted=True,  # Still a tier change
-                            from_tier=current_tier.value if hasattr(current_tier, 'value') else str(current_tier),
-                            to_tier=new_tier.value if hasattr(new_tier, 'value') else str(new_tier),
+                            from_tier=(
+                                current_tier.value
+                                if hasattr(current_tier, "value")
+                                else str(current_tier)
+                            ),
+                            to_tier=new_tier.value if hasattr(new_tier, "value") else str(new_tier),
                             reason=f"Demoted after {failure_count} failures",
                         )
 
@@ -451,9 +455,7 @@ class OutcomeMemoryBridge:
         Returns:
             List of memory stats sorted by success rate
         """
-        all_ids = set(self._memory_success_counts.keys()) | set(
-            self._memory_failure_counts.keys()
-        )
+        all_ids = set(self._memory_success_counts.keys()) | set(self._memory_failure_counts.keys())
 
         stats = [self.get_memory_stats(mid) for mid in all_ids]
         stats.sort(key=lambda x: (x["success_rate"], x["success_count"]), reverse=True)

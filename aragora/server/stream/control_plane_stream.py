@@ -261,9 +261,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_agent_status_changed(
-        self, agent_id: str, old_status: str, new_status: str
-    ):
+    async def emit_agent_status_changed(self, agent_id: str, old_status: str, new_status: str):
         """Emit agent status change event."""
         await self.broadcast(
             ControlPlaneEvent(
@@ -305,9 +303,7 @@ class ControlPlaneStreamServer:
             )
         )
 
-    async def emit_task_completed(
-        self, task_id: str, agent_id: str, result: Dict[str, Any] = None
-    ):
+    async def emit_task_completed(self, task_id: str, agent_id: str, result: Dict[str, Any] = None):
         """Emit task completed event."""
         await self.broadcast(
             ControlPlaneEvent(

@@ -198,7 +198,9 @@ class TestContinuumAdapterReverseFlow:
         assert entry.tier == MemoryTier.MEDIUM
 
     @pytest.mark.asyncio
-    async def test_update_continuum_from_km_no_promotion_at_glacial(self, adapter, continuum_memory):
+    async def test_update_continuum_from_km_no_promotion_at_glacial(
+        self, adapter, continuum_memory
+    ):
         """Test that glacial tier entries cannot be promoted further."""
         continuum_memory.add(
             id="mem_glacial",
@@ -287,7 +289,10 @@ class TestContinuumAdapterReverseFlow:
 
         entry = continuum_memory.get("mem_supported")
         assert entry.metadata.get("km_supported") is True
-        assert entry.metadata.get("km_contradicted") is None or entry.metadata.get("km_contradicted") is False
+        assert (
+            entry.metadata.get("km_contradicted") is None
+            or entry.metadata.get("km_contradicted") is False
+        )
 
     @pytest.mark.asyncio
     async def test_update_continuum_from_km_contradicted_flag(self, adapter, continuum_memory):

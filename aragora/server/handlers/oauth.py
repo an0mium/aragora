@@ -49,6 +49,7 @@ def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
     try:
         from aragora.config.secrets import get_secret
+
         return get_secret(name, default) or default
     except ImportError:
         return os.environ.get(name, default)
@@ -117,9 +118,7 @@ def _get_allowed_redirect_hosts() -> frozenset:
         if _is_production():
             return frozenset()
         val = "localhost,127.0.0.1"
-    return frozenset(
-        host.strip().lower() for host in val.split(",") if host.strip()
-    )
+    return frozenset(host.strip().lower() for host in val.split(",") if host.strip())
 
 
 # Legacy module-level variables (for backward compatibility, now call functions)

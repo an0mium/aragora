@@ -728,14 +728,18 @@ class TestClassifyCLIError:
 
     def test_classify_command_not_found(self):
         """Test CLI command not found error classification."""
-        error = classify_cli_error(returncode=127, stderr="bash: claude: command not found", stdout="")
+        error = classify_cli_error(
+            returncode=127, stderr="bash: claude: command not found", stdout=""
+        )
 
         assert isinstance(error, CLINotFoundError)
         assert "not found" in error.message.lower()
 
     def test_classify_permission_denied(self):
         """Test CLI permission denied error classification."""
-        error = classify_cli_error(returncode=126, stderr="Permission denied", stdout="", agent_name="claude")
+        error = classify_cli_error(
+            returncode=126, stderr="Permission denied", stdout="", agent_name="claude"
+        )
 
         assert isinstance(error, CLISubprocessError)
         assert error.returncode == 126

@@ -237,9 +237,7 @@ class TestOpenRouterRateLimiting:
             "aragora.agents.api_agents.openrouter.get_openrouter_limiter",
             return_value=mock_openrouter_limiter,
         ):
-            with patch(
-                "aragora.agents.api_agents.openrouter.create_client_session"
-            ) as mock_create:
+            with patch("aragora.agents.api_agents.openrouter.create_client_session") as mock_create:
 
                 class DynamicSession:
                     def post(self, *args, **kwargs):
@@ -329,9 +327,7 @@ class TestOpenRouterGenerateStream:
             "aragora.agents.api_agents.openrouter.get_openrouter_limiter",
             return_value=mock_openrouter_limiter,
         ):
-            with patch(
-                "aragora.agents.api_agents.openrouter.create_client_session"
-            ) as mock_create:
+            with patch("aragora.agents.api_agents.openrouter.create_client_session") as mock_create:
                 mock_session = MagicMock()
                 mock_session.post = MagicMock(return_value=mock_response)
                 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -690,9 +686,7 @@ class TestOpenRouterHeaders:
             "aragora.agents.api_agents.openrouter.get_openrouter_limiter",
             return_value=mock_openrouter_limiter,
         ):
-            with patch(
-                "aragora.agents.api_agents.openrouter.create_client_session"
-            ) as mock_create:
+            with patch("aragora.agents.api_agents.openrouter.create_client_session") as mock_create:
 
                 class MockSession:
                     def post(self, *args, **kwargs):

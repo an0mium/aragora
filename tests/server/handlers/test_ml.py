@@ -405,7 +405,9 @@ class TestMLHandlerIntegration:
             "current_round": 2,
             "total_rounds": 3,
         }
-        consensus_result = ml_handler.handle_post("/api/ml/consensus", consensus_data, mock_http_handler)
+        consensus_result = ml_handler.handle_post(
+            "/api/ml/consensus", consensus_data, mock_http_handler
+        )
         assert consensus_result is not None
         consensus_body = json.loads(consensus_result.body)
         assert "probability" in consensus_body

@@ -58,9 +58,7 @@ class ChromaVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig):
         """Initialize Chroma store."""
         if not CHROMA_AVAILABLE:
-            raise ImportError(
-                "ChromaDB not installed. Install with: pip install chromadb"
-            )
+            raise ImportError("ChromaDB not installed. Install with: pip install chromadb")
 
         config.backend = VectorBackend.CHROMA
         super().__init__(config)
@@ -85,7 +83,11 @@ class ChromaVectorStore(BaseVectorStore):
                 # HTTP client for remote server
                 self._client = chromadb.HttpClient(
                     host=persist_path.replace("http://", "").replace("https://", "").split(":")[0],
-                    port=int(persist_path.split(":")[-1]) if ":" in persist_path.split("/")[-1] else 8000,
+                    port=(
+                        int(persist_path.split(":")[-1])
+                        if ":" in persist_path.split("/")[-1]
+                        else 8000
+                    ),
                 )
             else:
                 # Persistent client with local storage
@@ -302,7 +304,9 @@ class ChromaVectorStore(BaseVectorStore):
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
-        embeddings = results.get("embeddings", [[]])[0] if results.get("embeddings") else [None] * len(ids)
+        embeddings = (
+            results.get("embeddings", [[]])[0] if results.get("embeddings") else [None] * len(ids)
+        )
 
         for i, id in enumerate(ids):
             # Convert distance to similarity (Chroma returns distance, not similarity)
@@ -317,9 +321,7 @@ class ChromaVectorStore(BaseVectorStore):
                         id=id,
                         content=documents[i] if documents else "",
                         score=score,
-                        metadata={
-                            k: v for k, v in meta.items() if k != "namespace"
-                        },
+                        metadata={k: v for k, v in meta.items() if k != "namespace"},
                         embedding=embeddings[i] if embeddings and embeddings[i] else None,
                     )
                 )

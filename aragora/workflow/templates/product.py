@@ -380,7 +380,12 @@ LAUNCH_READINESS_TEMPLATE: Dict[str, Any] = {
             "description": "Collect status from all workstreams",
             "config": {
                 "task_type": "aggregate",
-                "sources": ["engineering_status", "qa_status", "marketing_status", "support_status"],
+                "sources": [
+                    "engineering_status",
+                    "qa_status",
+                    "marketing_status",
+                    "support_status",
+                ],
             },
         },
         {

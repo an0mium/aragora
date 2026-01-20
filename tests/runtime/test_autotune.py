@@ -87,8 +87,13 @@ class TestAutotuneConfig:
 
         # Verify ordering (free < cheap < standard < expensive)
         assert config.cost_per_1k_tokens[CostTier.FREE] == 0.0
-        assert config.cost_per_1k_tokens[CostTier.CHEAP] < config.cost_per_1k_tokens[CostTier.STANDARD]
-        assert config.cost_per_1k_tokens[CostTier.STANDARD] < config.cost_per_1k_tokens[CostTier.EXPENSIVE]
+        assert (
+            config.cost_per_1k_tokens[CostTier.CHEAP] < config.cost_per_1k_tokens[CostTier.STANDARD]
+        )
+        assert (
+            config.cost_per_1k_tokens[CostTier.STANDARD]
+            < config.cost_per_1k_tokens[CostTier.EXPENSIVE]
+        )
 
     def test_default_tier(self):
         """Default tier is STANDARD."""
@@ -501,9 +506,9 @@ class TestAutotuner:
         tuner = Autotuner()
 
         assert tuner._recommend_tier(0.1) == CostTier.EXPENSIVE  # < 30%
-        assert tuner._recommend_tier(0.4) == CostTier.STANDARD   # 30-60%
-        assert tuner._recommend_tier(0.7) == CostTier.CHEAP      # 60-85%
-        assert tuner._recommend_tier(0.9) == CostTier.FREE       # > 85%
+        assert tuner._recommend_tier(0.4) == CostTier.STANDARD  # 30-60%
+        assert tuner._recommend_tier(0.7) == CostTier.CHEAP  # 60-85%
+        assert tuner._recommend_tier(0.9) == CostTier.FREE  # > 85%
 
     def test_get_budget_remaining(self):
         """get_budget_remaining returns correct values."""
@@ -752,6 +757,7 @@ class TestAutotunerIntegration:
 
         # Verify serializable
         import json
+
         serialized = json.dumps(metrics_dict)
         assert isinstance(serialized, str)
 

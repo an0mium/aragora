@@ -138,7 +138,9 @@ class FactsOperationsMixin:
         return json_response(fact.to_dict(), status=201)
 
     @handle_errors("update fact")
-    def _handle_update_fact(self: FactsHandlerProtocol, fact_id: str, handler: Any) -> HandlerResult:
+    def _handle_update_fact(
+        self: FactsHandlerProtocol, fact_id: str, handler: Any
+    ) -> HandlerResult:
         """Handle PUT /api/knowledge/facts/:id - Update fact."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -178,7 +180,9 @@ class FactsOperationsMixin:
         return json_response(updated.to_dict())
 
     @handle_errors("delete fact")
-    def _handle_delete_fact(self: FactsHandlerProtocol, fact_id: str, handler: Any) -> HandlerResult:
+    def _handle_delete_fact(
+        self: FactsHandlerProtocol, fact_id: str, handler: Any
+    ) -> HandlerResult:
         """Handle DELETE /api/knowledge/facts/:id - Delete fact."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -193,7 +197,9 @@ class FactsOperationsMixin:
         return json_response({"deleted": True, "fact_id": fact_id})
 
     @handle_errors("verify fact")
-    def _handle_verify_fact(self: FactsHandlerProtocol, fact_id: str, handler: Any) -> HandlerResult:
+    def _handle_verify_fact(
+        self: FactsHandlerProtocol, fact_id: str, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/facts/:id/verify - Verify fact."""
         from aragora.knowledge import DatasetQueryEngine
         from aragora.server.http_utils import run_async as _run_async
@@ -215,12 +221,14 @@ class FactsOperationsMixin:
                     "_verification_queued_at": __import__("time").time(),
                 },
             )
-            return json_response({
-                "fact_id": fact_id,
-                "verified": None,
-                "status": "queued",
-                "message": "Agent verification not currently available. Fact queued for verification when capability becomes available.",
-            })
+            return json_response(
+                {
+                    "fact_id": fact_id,
+                    "verified": None,
+                    "status": "queued",
+                    "message": "Agent verification not currently available. Fact queued for verification when capability becomes available.",
+                }
+            )
 
         try:
             verified = _run_async(engine.verify_fact(fact_id))
@@ -250,7 +258,9 @@ class FactsOperationsMixin:
         )
 
     @handle_errors("get relations")
-    def _handle_get_relations(self: FactsHandlerProtocol, fact_id: str, query_params: dict) -> HandlerResult:
+    def _handle_get_relations(
+        self: FactsHandlerProtocol, fact_id: str, query_params: dict
+    ) -> HandlerResult:
         """Handle GET /api/knowledge/facts/:id/relations."""
         store = self._get_fact_store()
 
@@ -280,7 +290,9 @@ class FactsOperationsMixin:
         )
 
     @handle_errors("add relation")
-    def _handle_add_relation(self: FactsHandlerProtocol, fact_id: str, handler: Any) -> HandlerResult:
+    def _handle_add_relation(
+        self: FactsHandlerProtocol, fact_id: str, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/facts/:id/relations - Add relation from fact."""
         try:
             content_length = int(handler.headers.get("Content-Length", 0))

@@ -397,8 +397,20 @@ class TestPollBatchStatus:
     def test_polls_until_complete(self, mock_sleep, mock_urlopen, capsys):
         """Poll until batch completes."""
         responses = [
-            {"status": "processing", "progress_percent": 50, "completed": 1, "failed": 0, "total_items": 2},
-            {"status": "completed", "progress_percent": 100, "completed": 2, "failed": 0, "total_items": 2},
+            {
+                "status": "processing",
+                "progress_percent": 50,
+                "completed": 1,
+                "failed": 0,
+                "total_items": 2,
+            },
+            {
+                "status": "completed",
+                "progress_percent": 100,
+                "completed": 2,
+                "failed": 0,
+                "total_items": 2,
+            },
         ]
 
         mock_response = MagicMock()
@@ -426,7 +438,13 @@ class TestPollBatchStatus:
         """Handle partial batch completion."""
         mock_response = MagicMock()
         mock_response.read.return_value = json.dumps(
-            {"status": "partial", "progress_percent": 100, "completed": 2, "failed": 1, "total_items": 3}
+            {
+                "status": "partial",
+                "progress_percent": 100,
+                "completed": 2,
+                "failed": 1,
+                "total_items": 3,
+            }
         ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
@@ -443,7 +461,13 @@ class TestPollBatchStatus:
         """Handle batch failure."""
         mock_response = MagicMock()
         mock_response.read.return_value = json.dumps(
-            {"status": "failed", "progress_percent": 50, "completed": 1, "failed": 2, "total_items": 3}
+            {
+                "status": "failed",
+                "progress_percent": 50,
+                "completed": 1,
+                "failed": 2,
+                "total_items": 3,
+            }
         ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)

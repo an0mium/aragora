@@ -219,7 +219,9 @@ class DependencyScheduler:
 
         # Task tracking
         self._tasks: Dict[str, WorkflowTask] = {}
-        self._completed_tasks: Dict[str, Set[str]] = defaultdict(set)  # workflow_id -> completed task_ids
+        self._completed_tasks: Dict[str, Set[str]] = defaultdict(
+            set
+        )  # workflow_id -> completed task_ids
 
         # Control
         self._started = False
@@ -457,10 +459,7 @@ class DependencyScheduler:
                 elapsed = (now - workflow.started_at).total_seconds()
 
                 # Check for starvation
-                if (
-                    elapsed > self._config.starvation_threshold_seconds
-                    and workflow.progress < 0.1
-                ):
+                if elapsed > self._config.starvation_threshold_seconds and workflow.progress < 0.1:
                     logger.warning(f"Workflow {workflow_id} may be starving")
                     # Could boost priority of pending tasks here
 

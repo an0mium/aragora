@@ -1,5 +1,5 @@
 """
-Integration tests for AI Red Team PR Review feature.
+Integration tests for Multi Agent PR Review feature.
 """
 
 import os
@@ -8,9 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 
 # Check if we have API keys for integration tests
-HAS_API_KEYS = bool(
-    os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY")
-)
+HAS_API_KEYS = bool(os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_API_KEY"))
 
 from aragora.cli.review import (
     build_review_prompt,
@@ -152,7 +150,7 @@ class TestFormatGitHubComment:
     """Tests for GitHub comment formatting."""
 
     def test_format_comment_includes_header(self):
-        """Comment should include AI Red Team header."""
+        """Comment should include Multi Agent header."""
         mock_result = Mock()
         findings = {
             "agents_used": ["agent1", "agent2"],
@@ -165,7 +163,7 @@ class TestFormatGitHubComment:
             "final_summary": "",
         }
         comment = format_github_comment(mock_result, findings)
-        assert "AI Red Team" in comment
+        assert "Multi Agent" in comment
 
     def test_format_comment_includes_unanimous_issues(self):
         """Comment should show unanimous issues prominently."""
@@ -236,7 +234,7 @@ class TestPRCommentFormatter:
             "final_summary": "Summary text",
         }
         comment = format_pr_comment(findings)
-        assert "AI Red Team" in comment
+        assert "Multi Agent" in comment
         assert "Issue 1" in comment
 
     def test_format_pr_comment_with_config(self):

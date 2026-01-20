@@ -161,8 +161,7 @@ class ConfluenceConnector(EnterpriseConnector):
 
             if not token:
                 raise ValueError(
-                    "Confluence Data Center credentials not configured. "
-                    "Set CONFLUENCE_PAT"
+                    "Confluence Data Center credentials not configured. " "Set CONFLUENCE_PAT"
                 )
 
             return {"Authorization": f"Bearer {token}"}
@@ -311,7 +310,9 @@ class ConfluenceConnector(EnterpriseConnector):
                     created_at=created_at,
                     updated_by=history.get("lastUpdated", {}).get("by", {}).get("displayName", ""),
                     updated_at=updated_at,
-                    parent_id=item.get("ancestors", [{}])[-1].get("id") if item.get("ancestors") else None,
+                    parent_id=(
+                        item.get("ancestors", [{}])[-1].get("id") if item.get("ancestors") else None
+                    ),
                     labels=labels,
                 )
 
@@ -342,12 +343,16 @@ class ConfluenceConnector(EnterpriseConnector):
                 for item in data.get("results", []):
                     body_storage = item.get("body", {}).get("storage", {}).get("value", "")
 
-                    comments.append({
-                        "id": item.get("id", ""),
-                        "body": self._html_to_text(body_storage),
-                        "author": item.get("history", {}).get("createdBy", {}).get("displayName", ""),
-                        "created_at": item.get("history", {}).get("createdDate"),
-                    })
+                    comments.append(
+                        {
+                            "id": item.get("id", ""),
+                            "body": self._html_to_text(body_storage),
+                            "author": item.get("history", {})
+                            .get("createdBy", {})
+                            .get("displayName", ""),
+                            "created_at": item.get("history", {}).get("createdDate"),
+                        }
+                    )
 
                 if len(data.get("results", [])) < limit:
                     break
@@ -521,7 +526,10 @@ class ConfluenceConnector(EnterpriseConnector):
                 content=self._html_to_text(body_storage),
                 title=data.get("title", ""),
                 url=f"{self.base_url}{data.get('_links', {}).get('webui', '')}",
-                author=data.get("history", {}).get("lastUpdated", {}).get("by", {}).get("displayName", ""),
+                author=data.get("history", {})
+                .get("lastUpdated", {})
+                .get("by", {})
+                .get("displayName", ""),
                 created_at=data.get("history", {}).get("createdDate"),
                 confidence=0.85,
                 metadata={

@@ -128,7 +128,7 @@ class DebateStep(BaseStep):
                         else:
                             interpolated_config[key] = value
 
-                    arena_config = ArenaConfig(**interpolated_config)
+                    arena_config = ArenaConfig(**interpolated_config)  # type: ignore[arg-type]
                 except Exception as e:
                     logger.warning(f"Failed to build ArenaConfig: {e}")
 
@@ -269,7 +269,9 @@ class QuickDebateStep(BaseStep):
                     response = await agent.generate(question)
                     return {
                         "agent": agent_type,
-                        "response": response[:max_length] if len(response) > max_length else response,
+                        "response": (
+                            response[:max_length] if len(response) > max_length else response
+                        ),
                         "success": True,
                     }
                 except Exception as e:

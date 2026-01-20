@@ -146,14 +146,11 @@ class SpecialistModel:
             attention_mask = inputs["attention_mask"]
             token_embeddings = outputs.last_hidden_state
             input_mask_expanded = (
-                attention_mask.unsqueeze(-1)
-                .expand(token_embeddings.size())
-                .float()
+                attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
             )
-            return (
-                (token_embeddings * input_mask_expanded).sum(1)
-                / input_mask_expanded.sum(1).clamp(min=1e-9)
-            )
+            return (token_embeddings * input_mask_expanded).sum(1) / input_mask_expanded.sum(
+                1
+            ).clamp(min=1e-9)
 
     def unload(self) -> None:
         """Unload model from memory."""

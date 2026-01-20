@@ -55,10 +55,12 @@ class MockKnowledgeMound:
         class MockResults:
             items: list
 
-        return MockResults(items=[
-            MockItem(content="Test fact 1", source="previous_debate", confidence=0.9),
-            MockItem(content="Test fact 2", source="user_input", confidence=0.85),
-        ])
+        return MockResults(
+            items=[
+                MockItem(content="Test fact 1", source="previous_debate", confidence=0.9),
+                MockItem(content="Test fact 2", source="user_input", confidence=0.85),
+            ]
+        )
 
     async def store(self, request):
         """Mock store."""
@@ -108,7 +110,9 @@ class TestKnowledgeMoundDebateIntegration:
         return DebateResult(
             task="What is the capital of France?",
             messages=[
-                Message(agent="agent-1", content="Paris is the capital of France.", role="proposer"),
+                Message(
+                    agent="agent-1", content="Paris is the capital of France.", role="proposer"
+                ),
                 Message(agent="agent-2", content="I agree, Paris is the capital.", role="proposer"),
             ],
             critiques=[],
@@ -150,7 +154,9 @@ class TestKnowledgeMoundDebateIntegration:
         # Should still contain context even with limit=1
 
     @pytest.mark.asyncio
-    async def test_ingest_debate_outcome_stores_consensus(self, knowledge_ops, debate_context, debate_result):
+    async def test_ingest_debate_outcome_stores_consensus(
+        self, knowledge_ops, debate_context, debate_result
+    ):
         """Test that debate outcomes are ingested into knowledge mound."""
         await knowledge_ops.ingest_debate_outcome(
             result=debate_result,
@@ -161,7 +167,9 @@ class TestKnowledgeMoundDebateIntegration:
         assert len(knowledge_ops.knowledge_mound._stored_items) == 1
 
     @pytest.mark.asyncio
-    async def test_ingest_skipped_for_low_confidence(self, knowledge_ops, debate_context, debate_result):
+    async def test_ingest_skipped_for_low_confidence(
+        self, knowledge_ops, debate_context, debate_result
+    ):
         """Test that low-confidence results are not ingested."""
         debate_result.confidence = 0.3  # Below 0.85 threshold
         debate_result.consensus_reached = False
@@ -267,7 +275,9 @@ class TestKnowledgePersistenceAcrossDebates:
         env1 = Environment(task="What is Python?")
         result1 = DebateResult(
             task="What is Python?",
-            messages=[Message(agent="a1", content="Python is a programming language.", role="proposer")],
+            messages=[
+                Message(agent="a1", content="Python is a programming language.", role="proposer")
+            ],
             critiques=[],
             votes=[],
             rounds_used=1,
@@ -304,9 +314,11 @@ class TestKnowledgeContextInitializerIntegration:
         initializer = ContextInitializer()
 
         # Verify the knowledge fetch method exists
-        assert hasattr(initializer, "_fetch_knowledge_context") or \
-               hasattr(initializer, "fetch_knowledge") or \
-               hasattr(initializer, "_knowledge_mound_ops")
+        assert (
+            hasattr(initializer, "_fetch_knowledge_context")
+            or hasattr(initializer, "fetch_knowledge")
+            or hasattr(initializer, "_knowledge_mound_ops")
+        )
 
 
 class TestKnowledgeFeedbackPhaseIntegration:

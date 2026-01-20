@@ -1,9 +1,9 @@
 """
-aragora (Agent Agora): AI Red Team for Decision Stress-Testing
+aragora (Agent Agora): Omnivorous Multi Agent Decision Making Engine
 
-A society of heterogeneous AI agents that adversarially stress-test
-high-stakes specs, architectures, policies, and code. Debate is the
-engine; the product is a defensible decision record.
+An omnivorous multi-agent decision making engine where diverse AI models
+collaborate through structured debate to reach well-reasoned conclusions.
+Debate is the engine; the product is a defensible decision record.
 
 === CORE FEATURES (v2.0.2) ===
 

@@ -25,19 +25,18 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .buffer import ExperienceBuffer, Step, Trajectory
-from .policy import Policy, PolicyState, RefinementPolicy, StrategyPolicy
+from .policy import PolicyState, RefinementPolicy, StrategyPolicy
 from .reward import DebateOutcomeReward, RewardModel
 
 if TYPE_CHECKING:
     from aragora.rlm.bridge import AragoraRLM
-    from aragora.rlm.types import RLMContext, RLMResult
+    from aragora.rlm.types import RLMContext
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +150,7 @@ class Trainer:
         self.config = config or TrainerConfig()
 
         # Policies
-        self.strategy_policy = strategy_policy or StrategyPolicy(
-            exploration_rate=0.1
-        )
+        self.strategy_policy = strategy_policy or StrategyPolicy(exploration_rate=0.1)
         self.refinement_policy = refinement_policy or RefinementPolicy(
             max_iterations=self.config.max_refinement_iterations
         )
@@ -213,11 +210,13 @@ class Trainer:
         trajectory.strategy = strategy
 
         # Record strategy selection step
-        trajectory.add_step(Step(
-            action=f"strategy = '{strategy}'",
-            action_type="strategy",
-            state={"query": query, "context_tokens": context.original_tokens},
-        ))
+        trajectory.add_step(
+            Step(
+                action=f"strategy = '{strategy}'",
+                action_type="strategy",
+                state={"query": query, "context_tokens": context.original_tokens},
+            )
+        )
 
         # Execute query with refinement
         start_time = time.time()
@@ -231,13 +230,15 @@ class Trainer:
 
             # Record refinement steps
             for i, history in enumerate(result.refinement_history or []):
-                trajectory.add_step(Step(
-                    action=f"iteration_{i+1}",
-                    action_type="refinement",
-                    observation=history[:500] if history else "",
-                    tokens_examined=result.tokens_processed // max(1, result.iteration),
-                    sub_calls=result.sub_calls_made // max(1, result.iteration),
-                ))
+                trajectory.add_step(
+                    Step(
+                        action=f"iteration_{i+1}",
+                        action_type="refinement",
+                        observation=history[:500] if history else "",
+                        tokens_examined=result.tokens_processed // max(1, result.iteration),
+                        sub_calls=result.sub_calls_made // max(1, result.iteration),
+                    )
+                )
 
             # Finalize trajectory
             duration = time.time() - start_time
@@ -414,12 +415,12 @@ class Trainer:
         metrics.success_rate = sum(
             1 for t in trajectories if t.outcome.get("success", False)
         ) / len(trajectories)
-        metrics.avg_confidence = sum(
-            t.stats.get("confidence", 0) for t in trajectories
-        ) / len(trajectories)
-        metrics.avg_iterations = sum(
-            t.stats.get("iterations", 1) for t in trajectories
-        ) / len(trajectories)
+        metrics.avg_confidence = sum(t.stats.get("confidence", 0) for t in trajectories) / len(
+            trajectories
+        )
+        metrics.avg_iterations = sum(t.stats.get("iterations", 1) for t in trajectories) / len(
+            trajectories
+        )
 
         # Component rewards
         all_components: dict[str, list[float]] = {}
@@ -447,9 +448,7 @@ class Trainer:
         for t in trajectories:
             strategy_counts[t.strategy] = strategy_counts.get(t.strategy, 0) + 1
         total = len(trajectories)
-        metrics.strategy_distribution = {
-            s: c / total for s, c in strategy_counts.items()
-        }
+        metrics.strategy_distribution = {s: c / total for s, c in strategy_counts.items()}
 
         metrics.exploration_rate = self.strategy_policy.exploration_rate
 

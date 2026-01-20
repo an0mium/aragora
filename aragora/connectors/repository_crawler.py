@@ -387,8 +387,7 @@ class RepositoryCrawler:
 
         if len(files_to_process) > self._config.max_files:
             warnings.append(
-                f"Truncated to {self._config.max_files} files "
-                f"(found {len(files_to_process)})"
+                f"Truncated to {self._config.max_files} files " f"(found {len(files_to_process)})"
             )
 
         # Build dependency graph
@@ -549,9 +548,7 @@ class RepositoryCrawler:
 
         try:
             # Get current commit
-            head_result = await self._run_git_command(
-                repo_path, ["rev-parse", "HEAD"]
-            )
+            head_result = await self._run_git_command(repo_path, ["rev-parse", "HEAD"])
 
             # Get branch
             branch_result = await self._run_git_command(
@@ -564,9 +561,7 @@ class RepositoryCrawler:
             )
 
             # Get commit count
-            count_result = await self._run_git_command(
-                repo_path, ["rev-list", "--count", "HEAD"]
-            )
+            count_result = await self._run_git_command(repo_path, ["rev-list", "--count", "HEAD"])
 
             return {
                 "head_commit": head_result.strip() if head_result else None,

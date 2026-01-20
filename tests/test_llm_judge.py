@@ -39,8 +39,14 @@ class TestEvaluationDimension:
     def test_all_dimensions_exist(self):
         """Test that all 8 dimensions are defined."""
         expected = {
-            "relevance", "accuracy", "completeness", "clarity",
-            "reasoning", "evidence", "creativity", "safety"
+            "relevance",
+            "accuracy",
+            "completeness",
+            "clarity",
+            "reasoning",
+            "evidence",
+            "creativity",
+            "safety",
         }
         actual = {d.value for d in EvaluationDimension}
         assert actual == expected
@@ -79,8 +85,11 @@ class TestWeightConfiguration:
     def test_weight_profiles_exist(self):
         """Test that weight profiles are defined."""
         expected_profiles = {
-            "factual_qa", "creative_writing", "code_generation",
-            "debate", "safety_critical"
+            "factual_qa",
+            "creative_writing",
+            "code_generation",
+            "debate",
+            "safety_critical",
         }
         assert set(WEIGHT_PROFILES.keys()) == expected_profiles
 
@@ -455,9 +464,7 @@ class TestLLMJudge:
             score_4="Good",
             score_5="Very good",
         )
-        config = JudgeConfig(
-            custom_rubrics={EvaluationDimension.CLARITY: custom_rubric}
-        )
+        config = JudgeConfig(custom_rubrics={EvaluationDimension.CLARITY: custom_rubric})
         judge = LLMJudge(config)
 
         assert judge._rubrics[EvaluationDimension.CLARITY].description == "Custom clarity"
@@ -665,7 +672,7 @@ class TestParseEvaluation:
     def test_parse_json_in_code_block(self):
         """Test parsing JSON wrapped in markdown code block."""
         judge = LLMJudge()
-        text = '''Here is the evaluation:
+        text = """Here is the evaluation:
 ```json
 {
     "dimension_scores": {
@@ -674,7 +681,7 @@ class TestParseEvaluation:
     }
 }
 ```
-'''
+"""
         scores = judge._parse_evaluation(text)
 
         assert EvaluationDimension.RELEVANCE in scores
@@ -684,7 +691,7 @@ class TestParseEvaluation:
     def test_parse_raw_json(self):
         """Test parsing raw JSON without code block."""
         judge = LLMJudge()
-        text = '''{"dimension_scores": {"relevance": {"score": 3, "confidence": 0.7, "feedback": "Ok"}}}'''
+        text = """{"dimension_scores": {"relevance": {"score": 3, "confidence": 0.7, "feedback": "Ok"}}}"""
 
         scores = judge._parse_evaluation(text)
 
@@ -694,9 +701,9 @@ class TestParseEvaluation:
     def test_parse_malformed_json_returns_defaults(self):
         """Test that malformed JSON returns default scores."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {"dimension_scores": {"relevance": {invalid json here
-```'''
+```"""
 
         scores = judge._parse_evaluation(text)
 
@@ -709,9 +716,9 @@ class TestParseEvaluation:
     def test_parse_missing_dimension_uses_default(self):
         """Test that missing dimensions get default scores."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {"dimension_scores": {"relevance": {"score": 5, "confidence": 1.0, "feedback": "Perfect"}}}
-```'''
+```"""
 
         scores = judge._parse_evaluation(text)
 
@@ -725,11 +732,11 @@ class TestParseEvaluation:
     def test_parse_no_json_uses_text_extraction(self):
         """Test fallback to text extraction when no JSON found."""
         judge = LLMJudge()
-        text = '''
+        text = """
         relevance: 4
         accuracy: 5
         completeness: 3
-        '''
+        """
 
         scores = judge._parse_evaluation(text)
 
@@ -790,14 +797,14 @@ class TestExtractFeedback:
     def test_extract_all_feedback_fields(self):
         """Test extracting all feedback fields from JSON."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {
     "summary": "Good response overall",
     "strengths": ["Clear", "Concise"],
     "weaknesses": ["Lacks detail"],
     "suggestions": ["Add examples"]
 }
-```'''
+```"""
 
         feedback = judge._extract_feedback(text)
 
@@ -809,9 +816,9 @@ class TestExtractFeedback:
     def test_extract_partial_feedback(self):
         """Test extracting partial feedback fields."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {"summary": "Brief summary"}
-```'''
+```"""
 
         feedback = judge._extract_feedback(text)
 
@@ -836,14 +843,14 @@ class TestParseComparison:
     def test_parse_winner_a(self):
         """Test parsing comparison with winner A."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {
     "winner": "A",
     "confidence": 0.85,
     "dimension_preferences": {"relevance": "A", "accuracy": "B"},
     "explanation": "A was more relevant"
 }
-```'''
+```"""
 
         result = judge._parse_comparison(text)
 
@@ -854,9 +861,9 @@ class TestParseComparison:
     def test_parse_tie(self):
         """Test parsing comparison with tie."""
         judge = LLMJudge()
-        text = '''```json
+        text = """```json
 {"winner": "tie", "confidence": 0.5, "explanation": "Both equally good"}
-```'''
+```"""
 
         result = judge._parse_comparison(text)
 
@@ -1013,9 +1020,7 @@ class TestMultiJudge:
             mock_result = EvaluationResult(dimension_scores=secondary_scores)
             mock_eval.return_value = mock_result
 
-            await judge._add_secondary_evaluation(
-                result, "query", "response", None, None
-            )
+            await judge._add_secondary_evaluation(result, "query", "response", None, None)
 
         # Check averaging: (4.0 * 0.8 + 5.0 * 0.9) / (0.8 + 0.9) ≈ 4.53
         assert result.dimension_scores[EvaluationDimension.RELEVANCE].score > 4.0
@@ -1041,9 +1046,7 @@ class TestMultiJudge:
         with patch.object(LLMJudge, "evaluate", new_callable=AsyncMock) as mock_eval:
             mock_eval.side_effect = Exception("Secondary failed")
 
-            await judge._add_secondary_evaluation(
-                result, "query", "response", None, None
-            )
+            await judge._add_secondary_evaluation(result, "query", "response", None, None)
 
         # Original scores should be unchanged
         assert result.dimension_scores[EvaluationDimension.RELEVANCE].score == original_score
@@ -1176,7 +1179,7 @@ class TestEdgeCases:
         judge = LLMJudge()
         prompt = judge._build_evaluation_prompt(
             query='What is "Python"?',
-            response='It\'s a <language> with {curly} braces',
+            response="It's a <language> with {curly} braces",
         )
 
         assert '"Python"' in prompt
@@ -1184,9 +1187,7 @@ class TestEdgeCases:
 
     def test_subset_of_dimensions(self):
         """Test evaluation with subset of dimensions."""
-        config = JudgeConfig(
-            dimensions=[EvaluationDimension.SAFETY, EvaluationDimension.ACCURACY]
-        )
+        config = JudgeConfig(dimensions=[EvaluationDimension.SAFETY, EvaluationDimension.ACCURACY])
         judge = LLMJudge(config)
 
         assert len(judge._dimensions) == 2

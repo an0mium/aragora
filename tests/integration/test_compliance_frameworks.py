@@ -239,9 +239,9 @@ class TestComplianceFrameworkManager:
         result = manager.check(text)
 
         assert result is not None
-        assert hasattr(result, 'compliant')
-        assert hasattr(result, 'issues')
-        assert hasattr(result, 'score')
+        assert hasattr(result, "compliant")
+        assert hasattr(result, "issues")
+        assert hasattr(result, "score")
 
     def test_check_specific_frameworks(self):
         """Test checking against specific frameworks."""
@@ -316,8 +316,7 @@ class TestMultiFrameworkCompliance:
 
         # Get healthcare-specific frameworks
         healthcare_frameworks = [
-            fw for fw in manager._frameworks.values()
-            if "healthcare" in fw.applicable_verticals
+            fw for fw in manager._frameworks.values() if "healthcare" in fw.applicable_verticals
         ]
 
         assert len(healthcare_frameworks) > 0

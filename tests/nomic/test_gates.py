@@ -100,10 +100,10 @@ class TestDangerousPatternGate:
         """Should detect eval() usage in changes."""
         from aragora.nomic.gates import check_dangerous_patterns
 
-        code = '''
+        code = """
 def process(data):
     return eval(data)
-'''
+"""
         result = check_dangerous_patterns(code)
 
         assert result["safe"] is False
@@ -113,10 +113,10 @@ def process(data):
         """Should detect exec() usage in changes."""
         from aragora.nomic.gates import check_dangerous_patterns
 
-        code = '''
+        code = """
 def run_code(code_str):
     exec(code_str)
-'''
+"""
         result = check_dangerous_patterns(code)
 
         assert result["safe"] is False
@@ -126,11 +126,11 @@ def run_code(code_str):
         """Should detect os.system() usage in changes."""
         from aragora.nomic.gates import check_dangerous_patterns
 
-        code = '''
+        code = """
 import os
 def run_command(cmd):
     os.system(cmd)
-'''
+"""
         result = check_dangerous_patterns(code)
 
         assert result["safe"] is False
@@ -139,10 +139,10 @@ def run_command(cmd):
         """Should allow safe code patterns."""
         from aragora.nomic.gates import check_dangerous_patterns
 
-        code = '''
+        code = """
 def safe_function(data):
     return data.upper()
-'''
+"""
         result = check_dangerous_patterns(code)
 
         assert result["safe"] is True
@@ -225,7 +225,7 @@ class TestGateConfiguration:
             protected_files=["custom_protected.py", "secret.key"],
         )
 
-        with patch('aragora.nomic.gates._gate_config', config):
+        with patch("aragora.nomic.gates._gate_config", config):
             assert is_protected_file("custom_protected.py") is True
             assert is_protected_file("secret.key") is True
 
@@ -239,6 +239,6 @@ class TestGateConfiguration:
 
         code = "result = dangerous_func(data)"
 
-        with patch('aragora.nomic.gates._gate_config', config):
+        with patch("aragora.nomic.gates._gate_config", config):
             result = check_dangerous_patterns(code)
             assert result["safe"] is False

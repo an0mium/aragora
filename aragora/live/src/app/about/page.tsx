@@ -73,10 +73,10 @@ export default function AboutPage() {
             <AsciiBanner subtitle="documentation" showStatus={false} />
 
             <div className="text-center mt-8">
-              <p className="text-xl text-acid-cyan font-mono mb-4">Self-Improving AI Red Team</p>
+              <p className="text-xl text-acid-cyan font-mono mb-4">Omnivorous Multi Agent Decision Making Engine</p>
               <p className="text-text-muted font-mono mb-6 max-w-2xl mx-auto">
-                Multi-agent debate with autonomous self-modification.
-                Watch AI agents reason, critique, and stress-test decisions in real-time.
+                Multi-agent debate with autonomous self-improvement.
+                Watch diverse AI models collaborate and reason through complex decisions in real-time.
               </p>
 
               {/* Etymology */}
@@ -221,11 +221,11 @@ export default function AboutPage() {
                 </ul>
               </div>
               <div className="border border-acid-green/30 p-6 bg-acid-green/5">
-                <h3 className="text-acid-green font-mono mb-4">Aragora (AI Red Team)</h3>
+                <h3 className="text-acid-green font-mono mb-4">Aragora (Multi Agent)</h3>
                 <ul className="space-y-2 text-text-muted text-sm font-mono">
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Heterogeneous viewpoints</li>
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Adversarial critique baked in</li>
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Audit-ready stress-test transcript</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Structured critique and debate</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Audit-ready decision transcript</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Decision receipts with dissent</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Minority views preserved</li>
                 </ul>

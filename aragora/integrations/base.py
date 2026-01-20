@@ -10,7 +10,6 @@ Provides common functionality for debate notifications including:
 All platform-specific integrations should extend BaseIntegration.
 """
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -309,10 +308,16 @@ class BaseIntegration(ABC):
             question=result.question,
             question_truncated=self.truncate_text(result.question, question_limit),
             answer=result.answer,
-            answer_truncated=self.truncate_text(result.answer, answer_limit) if result.answer else None,
+            answer_truncated=(
+                self.truncate_text(result.answer, answer_limit) if result.answer else None
+            ),
             total_rounds=result.total_rounds,
             confidence=result.consensus_confidence,
-            confidence_percent=self.format_confidence(result.consensus_confidence) if result.consensus_confidence else None,
+            confidence_percent=(
+                self.format_confidence(result.consensus_confidence)
+                if result.consensus_confidence
+                else None
+            ),
             agents=result.participating_agents or [],
             agents_display=self.format_agents_list(result.participating_agents or [], agents_limit),
             agent_count=len(result.participating_agents) if result.participating_agents else 0,

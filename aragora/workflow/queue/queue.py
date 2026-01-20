@@ -84,7 +84,9 @@ class TaskQueue:
         self._ready_queue: List[str] = []
 
         # Dependency tracking
-        self._dependents: Dict[str, Set[str]] = defaultdict(set)  # task_id -> tasks that depend on it
+        self._dependents: Dict[str, Set[str]] = defaultdict(
+            set
+        )  # task_id -> tasks that depend on it
         self._pending_deps: Dict[str, Set[str]] = {}  # task_id -> unresolved dependencies
 
         # Execution state
@@ -315,11 +317,7 @@ class TaskQueue:
         """Check if all tasks in a workflow are complete."""
         task_ids = self._workflows.get(workflow_id, set())
 
-        all_complete = all(
-            self._tasks[tid].is_terminal
-            for tid in task_ids
-            if tid in self._tasks
-        )
+        all_complete = all(self._tasks[tid].is_terminal for tid in task_ids if tid in self._tasks)
 
         if all_complete:
             event = self._workflow_completed.get(workflow_id)
@@ -427,11 +425,13 @@ class TaskQueue:
         completed_tasks = [t for t in tasks if t.status == TaskStatus.COMPLETED]
         avg_wait = (
             sum(t.wait_time_ms for t in completed_tasks) / len(completed_tasks)
-            if completed_tasks else 0
+            if completed_tasks
+            else 0
         )
         avg_exec = (
             sum(t.execution_time_ms for t in completed_tasks) / len(completed_tasks)
-            if completed_tasks else 0
+            if completed_tasks
+            else 0
         )
 
         return QueueStats(

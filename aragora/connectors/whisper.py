@@ -22,7 +22,6 @@ from typing import AsyncIterator, Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.connectors.exceptions import (
-    ConnectorAPIError,
     ConnectorConfigError,
     ConnectorRateLimitError,
 )

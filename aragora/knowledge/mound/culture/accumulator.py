@@ -167,8 +167,8 @@ class CultureAccumulator:
         self._min_observations = min_observations_for_pattern
 
         # In-memory pattern cache (synced to storage)
-        self._patterns: Dict[str, Dict[CulturePatternType, Dict[str, CulturePattern]]] = defaultdict(
-            lambda: defaultdict(dict)
+        self._patterns: Dict[str, Dict[CulturePatternType, Dict[str, CulturePattern]]] = (
+            defaultdict(lambda: defaultdict(dict))
         )
 
     async def observe_debate(
@@ -195,18 +195,10 @@ class CultureAccumulator:
                 return []
 
             # Update patterns based on observation
-            patterns_updated.extend(
-                await self._update_agent_preferences(observation, workspace_id)
-            )
-            patterns_updated.extend(
-                await self._update_decision_style(observation, workspace_id)
-            )
-            patterns_updated.extend(
-                await self._update_debate_dynamics(observation, workspace_id)
-            )
-            patterns_updated.extend(
-                await self._update_domain_expertise(observation, workspace_id)
-            )
+            patterns_updated.extend(await self._update_agent_preferences(observation, workspace_id))
+            patterns_updated.extend(await self._update_decision_style(observation, workspace_id))
+            patterns_updated.extend(await self._update_debate_dynamics(observation, workspace_id))
+            patterns_updated.extend(await self._update_domain_expertise(observation, workspace_id))
 
             logger.debug(
                 f"Extracted {len(patterns_updated)} patterns from debate {observation.debate_id}"
@@ -395,9 +387,7 @@ class CultureAccumulator:
         # Track consensus patterns
         style_key = "consensus_pattern"
 
-        existing = self._patterns[workspace_id][CulturePatternType.DECISION_STYLE].get(
-            style_key
-        )
+        existing = self._patterns[workspace_id][CulturePatternType.DECISION_STYLE].get(style_key)
 
         if existing:
             # Update running averages
@@ -417,7 +407,9 @@ class CultureAccumulator:
                 + 1
             )
             existing.observation_count += 1
-            existing.confidence = min(1.0, existing.observation_count / (self._min_observations * 3))
+            existing.confidence = min(
+                1.0, existing.observation_count / (self._min_observations * 3)
+            )
             existing.last_observed_at = datetime.now()
             patterns.append(existing)
         else:
@@ -437,9 +429,7 @@ class CultureAccumulator:
                 last_observed_at=datetime.now(),
                 contributing_debates=[observation.debate_id],
             )
-            self._patterns[workspace_id][CulturePatternType.DECISION_STYLE][
-                style_key
-            ] = pattern
+            self._patterns[workspace_id][CulturePatternType.DECISION_STYLE][style_key] = pattern
             patterns.append(pattern)
 
         return patterns
@@ -531,9 +521,7 @@ class CultureAccumulator:
                 last_observed_at=datetime.now(),
                 contributing_debates=[observation.debate_id],
             )
-            self._patterns[workspace_id][CulturePatternType.DOMAIN_EXPERTISE][
-                pattern_key
-            ] = pattern
+            self._patterns[workspace_id][CulturePatternType.DOMAIN_EXPERTISE][pattern_key] = pattern
             patterns.append(pattern)
 
         return patterns
@@ -660,7 +648,9 @@ class CultureAccumulator:
             type_patterns = list(workspace_patterns.get(pattern_type, {}).values())
             # Filter to confident patterns
             confident_patterns = [
-                p for p in type_patterns if p.confidence >= 0.3 or p.observation_count >= self._min_observations
+                p
+                for p in type_patterns
+                if p.confidence >= 0.3 or p.observation_count >= self._min_observations
             ]
             patterns_by_type[pattern_type] = confident_patterns
             total_observations += sum(p.observation_count for p in confident_patterns)
@@ -683,17 +673,15 @@ class CultureAccumulator:
             dominant_traits["avg_consensus_rounds"] = main_pattern.pattern_value.get(
                 "avg_rounds", 0
             )
-            dominant_traits["consensus_rate"] = main_pattern.pattern_value.get(
-                "consensus_rate", 0
-            )
+            dominant_traits["consensus_rate"] = main_pattern.pattern_value.get("consensus_rate", 0)
 
         # Domain expertise
         domain_patterns = patterns_by_type.get(CulturePatternType.DOMAIN_EXPERTISE, [])
         if domain_patterns:
-            sorted_domains = sorted(domain_patterns, key=lambda p: p.observation_count, reverse=True)
-            dominant_traits["expertise_areas"] = [
-                p.pattern_key for p in sorted_domains[:5]
-            ]
+            sorted_domains = sorted(
+                domain_patterns, key=lambda p: p.observation_count, reverse=True
+            )
+            dominant_traits["expertise_areas"] = [p.pattern_key for p in sorted_domains[:5]]
 
         return CultureProfile(
             workspace_id=workspace_id,
@@ -938,9 +926,7 @@ class OrganizationCultureManager:
                 scored = []
                 for doc in docs:
                     if doc.embeddings:
-                        similarity = self._cosine_similarity(
-                            query_embedding, doc.embeddings
-                        )
+                        similarity = self._cosine_similarity(query_embedding, doc.embeddings)
                         scored.append((doc, similarity))
 
                 scored.sort(key=lambda x: x[1], reverse=True)
@@ -1040,9 +1026,7 @@ class OrganizationCultureManager:
         doc.source_workspace_id = workspace_id
         doc.source_pattern_id = pattern_id
 
-        logger.info(
-            f"Promoted pattern {pattern_id} to culture document {doc.id}"
-        )
+        logger.info(f"Promoted pattern {pattern_id} to culture document {doc.id}")
 
         return doc
 
@@ -1094,9 +1078,7 @@ class OrganizationCultureManager:
 
         # Find all workspaces for this org
         if workspace_ids is None:
-            workspace_ids = [
-                ws for ws, org in self._workspace_orgs.items() if org == org_id
-            ]
+            workspace_ids = [ws for ws, org in self._workspace_orgs.items() if org == org_id]
 
         total_observations = 0
 
@@ -1142,9 +1124,7 @@ class OrganizationCultureManager:
                 if agent:
                     agent_scores[agent] += p.confidence * p.observation_count
 
-            sorted_agents = sorted(
-                agent_scores.items(), key=lambda x: x[1], reverse=True
-            )
+            sorted_agents = sorted(agent_scores.items(), key=lambda x: x[1], reverse=True)
             traits["top_agents"] = [a for a, _ in sorted_agents[:5]]
 
         # Domain expertise across org
@@ -1154,9 +1134,7 @@ class OrganizationCultureManager:
             for p in domain_patterns:
                 domain_scores[p.pattern_key] += p.observation_count
 
-            sorted_domains = sorted(
-                domain_scores.items(), key=lambda x: x[1], reverse=True
-            )
+            sorted_domains = sorted(domain_scores.items(), key=lambda x: x[1], reverse=True)
             traits["expertise_areas"] = [d for d, _ in sorted_domains[:5]]
 
         # Decision patterns

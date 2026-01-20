@@ -190,10 +190,12 @@ class ControlPlaneHandler(BaseHandler):
                 )
             )
 
-            return json_response({
-                "agents": [a.to_dict() for a in agents],
-                "total": len(agents),
-            })
+            return json_response(
+                {
+                    "agents": [a.to_dict() for a in agents],
+                    "total": len(agents),
+                }
+            )
         except Exception as e:
             logger.error(f"Error listing agents: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -205,9 +207,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response("Control plane not initialized", 503)
 
         try:
-            agent = _run_async(
-                coordinator.get_agent(agent_id)
-            )
+            agent = _run_async(coordinator.get_agent(agent_id))
 
             if not agent:
                 return error_response(f"Agent not found: {agent_id}", 404)
@@ -224,9 +224,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response("Control plane not initialized", 503)
 
         try:
-            task = _run_async(
-                coordinator.get_task(task_id)
-            )
+            task = _run_async(coordinator.get_task(task_id))
 
             if not task:
                 return error_response(f"Task not found: {task_id}", 404)
@@ -246,13 +244,12 @@ class ControlPlaneHandler(BaseHandler):
             health_status = coordinator.get_system_health()
             all_health = coordinator._health_monitor.get_all_health()
 
-            return json_response({
-                "status": health_status.value,
-                "agents": {
-                    agent_id: hc.to_dict()
-                    for agent_id, hc in all_health.items()
-                },
-            })
+            return json_response(
+                {
+                    "status": health_status.value,
+                    "agents": {agent_id: hc.to_dict() for agent_id, hc in all_health.items()},
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting system health: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -281,9 +278,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response("Control plane not initialized", 503)
 
         try:
-            stats = _run_async(
-                coordinator.get_stats()
-            )
+            stats = _run_async(coordinator.get_stats())
 
             return json_response(stats)
         except Exception as e:
@@ -300,9 +295,11 @@ class ControlPlaneHandler(BaseHandler):
             from aragora.control_plane.scheduler import TaskStatus
             from datetime import datetime
 
-            limit = int(query_params.get("limit", ["50"])[0]) if isinstance(
-                query_params.get("limit"), list
-            ) else int(query_params.get("limit", 50))
+            limit = (
+                int(query_params.get("limit", ["50"])[0])
+                if isinstance(query_params.get("limit"), list)
+                else int(query_params.get("limit", 50))
+            )
 
             # Get pending and running tasks
             pending = _run_async(
@@ -328,8 +325,16 @@ class ControlPlaneHandler(BaseHandler):
                     "name": task.metadata.get("name", f"{task.task_type} task"),
                     "status": task.status.value,
                     "progress": progress,
-                    "started_at": datetime.fromtimestamp(task.started_at).isoformat() if task.started_at else None,
-                    "created_at": datetime.fromtimestamp(task.created_at).isoformat() if task.created_at else None,
+                    "started_at": (
+                        datetime.fromtimestamp(task.started_at).isoformat()
+                        if task.started_at
+                        else None
+                    ),
+                    "created_at": (
+                        datetime.fromtimestamp(task.created_at).isoformat()
+                        if task.created_at
+                        else None
+                    ),
                     "document_count": task.payload.get("document_count", 0),
                     "agents_assigned": [task.assigned_agent] if task.assigned_agent else [],
                     "priority": task.priority.name.lower(),
@@ -337,10 +342,12 @@ class ControlPlaneHandler(BaseHandler):
 
             jobs = [task_to_job(t) for t in running] + [task_to_job(t) for t in pending]
 
-            return json_response({
-                "jobs": jobs,
-                "total": len(jobs),
-            })
+            return json_response(
+                {
+                    "jobs": jobs,
+                    "total": len(jobs),
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting queue: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -370,18 +377,22 @@ class ControlPlaneHandler(BaseHandler):
             agents_busy = agent_by_status.get("busy", 0)
             total_agents = registry_stats.get("total_agents", 0)
 
-            return json_response({
-                "active_jobs": active_jobs,
-                "queued_jobs": queued_jobs,
-                "completed_jobs": completed_jobs,
-                "agents_available": agents_available,
-                "agents_busy": agents_busy,
-                "total_agents": total_agents,
-                # These could come from a metrics store if available
-                "documents_processed_today": scheduler_stats.get("by_type", {}).get("document_processing", 0),
-                "audits_completed_today": scheduler_stats.get("by_type", {}).get("audit", 0),
-                "tokens_used_today": 0,  # Would need token tracking integration
-            })
+            return json_response(
+                {
+                    "active_jobs": active_jobs,
+                    "queued_jobs": queued_jobs,
+                    "completed_jobs": completed_jobs,
+                    "agents_available": agents_available,
+                    "agents_busy": agents_busy,
+                    "total_agents": total_agents,
+                    # These could come from a metrics store if available
+                    "documents_processed_today": scheduler_stats.get("by_type", {}).get(
+                        "document_processing", 0
+                    ),
+                    "audits_completed_today": scheduler_stats.get("by_type", {}).get("audit", 0),
+                    "tokens_used_today": 0,  # Would need token tracking integration
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting metrics: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
@@ -501,9 +512,7 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error registering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
-    def _handle_heartbeat(
-        self, agent_id: str, body: Dict[str, Any], handler: Any
-    ) -> HandlerResult:
+    def _handle_heartbeat(self, agent_id: str, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Handle agent heartbeat."""
         # Require authentication for heartbeats
         user, err = self.require_auth_or_error(handler)
@@ -521,9 +530,7 @@ class ControlPlaneHandler(BaseHandler):
 
             agent_status = AgentStatus(status) if status else None
 
-            success = _run_async(
-                coordinator.heartbeat(agent_id, agent_status)
-            )
+            success = _run_async(coordinator.heartbeat(agent_id, agent_status))
 
             if not success:
                 return error_response(f"Agent not found: {agent_id}", 404)
@@ -727,9 +734,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response("Control plane not initialized", 503)
 
         try:
-            success = _run_async(
-                coordinator.cancel_task(task_id)
-            )
+            success = _run_async(coordinator.cancel_task(task_id))
 
             if not success:
                 return error_response(f"Task not found or already completed: {task_id}", 404)
@@ -766,9 +771,7 @@ class ControlPlaneHandler(BaseHandler):
             return error_response("Control plane not initialized", 503)
 
         try:
-            success = _run_async(
-                coordinator.unregister_agent(agent_id)
-            )
+            success = _run_async(coordinator.unregister_agent(agent_id))
 
             if not success:
                 return error_response(f"Agent not found: {agent_id}", 404)

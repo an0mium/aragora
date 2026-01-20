@@ -165,31 +165,19 @@ class TestValidatePlan:
 
     def test_task_missing_id(self):
         """Test error for task missing id."""
-        plan = {
-            "tasks": [
-                {"description": "No id", "files": [], "complexity": "simple"}
-            ]
-        }
+        plan = {"tasks": [{"description": "No id", "files": [], "complexity": "simple"}]}
         errors = validate_plan(plan)
         assert "Task 0 missing 'id'" in errors
 
     def test_task_missing_description(self):
         """Test error for task missing description."""
-        plan = {
-            "tasks": [
-                {"id": "t1", "files": [], "complexity": "simple"}
-            ]
-        }
+        plan = {"tasks": [{"id": "t1", "files": [], "complexity": "simple"}]}
         errors = validate_plan(plan)
         assert "Task 0 missing 'description'" in errors
 
     def test_task_missing_files(self):
         """Test error for task missing files."""
-        plan = {
-            "tasks": [
-                {"id": "t1", "description": "Test", "complexity": "simple"}
-            ]
-        }
+        plan = {"tasks": [{"id": "t1", "description": "Test", "complexity": "simple"}]}
         errors = validate_plan(plan)
         assert "Task 0 missing or invalid 'files'" in errors
 
@@ -206,9 +194,7 @@ class TestValidatePlan:
     def test_task_invalid_complexity(self):
         """Test error for invalid complexity value."""
         plan = {
-            "tasks": [
-                {"id": "t1", "description": "Test", "files": [], "complexity": "invalid"}
-            ]
+            "tasks": [{"id": "t1", "description": "Test", "files": [], "complexity": "invalid"}]
         }
         errors = validate_plan(plan)
         assert "Task 0 has invalid complexity: invalid" in errors
@@ -240,7 +226,11 @@ class TestValidatePlan:
         plan = {
             "tasks": [
                 {"id": "t1"},  # Missing description, files, complexity
-                {"description": "No id", "files": [], "complexity": "bad"},  # Missing id, bad complexity
+                {
+                    "description": "No id",
+                    "files": [],
+                    "complexity": "bad",
+                },  # Missing id, bad complexity
             ]
         }
         errors = validate_plan(plan)

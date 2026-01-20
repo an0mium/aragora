@@ -352,9 +352,7 @@ class TestWorkflowUseCases:
         """Should check step outputs like in workflows."""
         ns = {"outputs": {"analysis": {"score": 0.8, "status": "complete"}}}
         assert safe_eval_bool("outputs['analysis']['score'] > 0.5", ns) is True
-        assert (
-            safe_eval_bool("outputs['analysis']['status'] == 'complete'", ns) is True
-        )
+        assert safe_eval_bool("outputs['analysis']['status'] == 'complete'", ns) is True
 
     def test_input_validation(self):
         """Should validate workflow inputs."""

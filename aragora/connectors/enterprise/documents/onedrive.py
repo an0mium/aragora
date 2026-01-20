@@ -13,10 +13,9 @@ Requires Azure AD OAuth2 credentials.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
 from urllib.parse import quote
@@ -48,9 +47,27 @@ OFFICE_MIMES: Dict[str, str] = {
 
 # Supported file types for indexing
 SUPPORTED_EXTENSIONS: Set[str] = {
-    ".txt", ".md", ".json", ".xml", ".csv",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".py", ".js", ".ts", ".java", ".go", ".rs", ".c", ".cpp", ".h",
+    ".txt",
+    ".md",
+    ".json",
+    ".xml",
+    ".csv",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".py",
+    ".js",
+    ".ts",
+    ".java",
+    ".go",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
 }
 
 
@@ -230,9 +247,9 @@ class OneDriveConnector(EnterpriseConnector):
                 self._access_token = result["access_token"]
                 self._refresh_token = result.get("refresh_token")
                 expires_in = result.get("expires_in", 3600)
-                self._token_expires = datetime.now(timezone.utc).replace(
-                    tzinfo=None
-                ) + timedelta(seconds=expires_in)
+                self._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+                    seconds=expires_in
+                )
                 return True
             else:
                 error = await resp.text()
@@ -260,9 +277,9 @@ class OneDriveConnector(EnterpriseConnector):
                 self._access_token = result["access_token"]
                 self._refresh_token = result.get("refresh_token", self._refresh_token)
                 expires_in = result.get("expires_in", 3600)
-                self._token_expires = datetime.now(timezone.utc).replace(
-                    tzinfo=None
-                ) + timedelta(seconds=expires_in)
+                self._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+                    seconds=expires_in
+                )
                 return True
             else:
                 error = await resp.text()
@@ -274,7 +291,10 @@ class OneDriveConnector(EnterpriseConnector):
         if not self._access_token:
             raise ValueError("Not authenticated")
 
-        if self._token_expires and datetime.now(timezone.utc).replace(tzinfo=None) >= self._token_expires:
+        if (
+            self._token_expires
+            and datetime.now(timezone.utc).replace(tzinfo=None) >= self._token_expires
+        ):
             await self._refresh_access_token()
 
     async def _api_request(
@@ -309,12 +329,12 @@ class OneDriveConnector(EnterpriseConnector):
                     )
                 elif resp.status == 429:
                     raise ConnectorRateLimitError(
-                        f"OneDrive rate limit exceeded",
+                        "OneDrive rate limit exceeded",
                         connector_name="onedrive",
                     )
                 elif resp.status == 404:
                     raise ConnectorNotFoundError(
-                        f"OneDrive resource not found",
+                        "OneDrive resource not found",
                         connector_name="onedrive",
                     )
                 else:
@@ -473,7 +493,7 @@ class OneDriveConnector(EnterpriseConnector):
                     )
                 elif resp.status == 429:
                     raise ConnectorRateLimitError(
-                        f"OneDrive download rate limited",
+                        "OneDrive download rate limited",
                         connector_name="onedrive",
                     )
                 elif resp.status == 404:

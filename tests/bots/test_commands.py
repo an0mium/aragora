@@ -81,6 +81,7 @@ class TestBotCommand:
 
     def test_create_command(self):
         """Test creating a bot command."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True, message="Done")
 
@@ -96,6 +97,7 @@ class TestBotCommand:
 
     def test_command_with_usage(self):
         """Test command with usage string."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -110,6 +112,7 @@ class TestBotCommand:
 
     def test_command_with_platforms(self):
         """Test command with platform restrictions."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -126,6 +129,7 @@ class TestBotCommand:
 
     def test_command_with_cooldown(self):
         """Test command with cooldown setting."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -149,6 +153,7 @@ class TestCommandRegistry:
 
     def test_register_command(self, registry):
         """Test registering a command."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -165,6 +170,7 @@ class TestCommandRegistry:
 
     def test_register_duplicate_command(self, registry):
         """Test registering duplicate command overwrites."""
+
         async def handler1(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True, message="v1")
 
@@ -181,6 +187,7 @@ class TestCommandRegistry:
 
     def test_get_command(self, registry):
         """Test getting a registered command."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -196,6 +203,7 @@ class TestCommandRegistry:
 
     def test_list_commands(self, registry):
         """Test listing all commands."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -210,6 +218,7 @@ class TestCommandRegistry:
 
     def test_list_commands_for_platform(self, registry):
         """Test listing commands for specific platform."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -244,6 +253,7 @@ class TestCommandRegistry:
     @pytest.mark.asyncio
     async def test_execute_command(self, registry, sample_context):
         """Test executing a registered command."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True, message=f"Executed with {ctx.raw_args}")
 
@@ -267,12 +277,11 @@ class TestCommandRegistry:
     @pytest.mark.asyncio
     async def test_execute_with_exception(self, registry, sample_context):
         """Test handler exception is caught."""
+
         async def failing_handler(ctx: CommandContext) -> CommandResult:
             raise ValueError("Something went wrong")
 
-        registry.register(
-            BotCommand(name="test", description="Failing", handler=failing_handler)
-        )
+        registry.register(BotCommand(name="test", description="Failing", handler=failing_handler))
 
         result = await registry.execute(sample_context)
 
@@ -321,6 +330,7 @@ class TestCooldowns:
     @pytest.mark.asyncio
     async def test_cooldown_per_user(self, registry):
         """Test cooldowns are per-user."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
 
@@ -337,23 +347,37 @@ class TestCooldowns:
         user1 = BotUser(id="user-1", username="user1", platform=Platform.DISCORD)
         channel = BotChannel(id="c1", platform=Platform.DISCORD)
         msg1 = BotMessage(
-            id="m1", text="test", user=user1, channel=channel,
-            timestamp=datetime.utcnow(), platform=Platform.DISCORD,
+            id="m1",
+            text="test",
+            user=user1,
+            channel=channel,
+            timestamp=datetime.utcnow(),
+            platform=Platform.DISCORD,
         )
         ctx1 = CommandContext(
-            message=msg1, user=user1, channel=channel,
-            platform=Platform.DISCORD, args=["test"],
+            message=msg1,
+            user=user1,
+            channel=channel,
+            platform=Platform.DISCORD,
+            args=["test"],
         )
 
         # User 2
         user2 = BotUser(id="user-2", username="user2", platform=Platform.DISCORD)
         msg2 = BotMessage(
-            id="m2", text="test", user=user2, channel=channel,
-            timestamp=datetime.utcnow(), platform=Platform.DISCORD,
+            id="m2",
+            text="test",
+            user=user2,
+            channel=channel,
+            timestamp=datetime.utcnow(),
+            platform=Platform.DISCORD,
         )
         ctx2 = CommandContext(
-            message=msg2, user=user2, channel=channel,
-            platform=Platform.DISCORD, args=["test"],
+            message=msg2,
+            user=user2,
+            channel=channel,
+            platform=Platform.DISCORD,
+            args=["test"],
         )
 
         # Both should succeed (different users)
@@ -374,6 +398,7 @@ class TestCommandDecorator:
 
     def test_decorator_registration(self, registry):
         """Test decorator registers command."""
+
         @registry.command(name="decorated", description="Decorated command")
         async def decorated_handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
@@ -382,6 +407,7 @@ class TestCommandDecorator:
 
     def test_decorator_preserves_function(self, registry):
         """Test decorator preserves function reference."""
+
         @registry.command(name="test", description="Test")
         async def my_handler(ctx: CommandContext) -> CommandResult:
             return CommandResult(success=True)
@@ -391,6 +417,7 @@ class TestCommandDecorator:
 
     def test_decorator_with_options(self, registry):
         """Test decorator with all options."""
+
         @registry.command(
             name="advanced",
             description="Advanced command",
@@ -460,12 +487,19 @@ class TestBuiltInCommands:
         user = BotUser(id="u1", username="test", platform=Platform.DISCORD)
         channel = BotChannel(id="c1", platform=Platform.DISCORD)
         message = BotMessage(
-            id="m1", text="help", user=user, channel=channel,
-            timestamp=datetime.utcnow(), platform=Platform.DISCORD,
+            id="m1",
+            text="help",
+            user=user,
+            channel=channel,
+            timestamp=datetime.utcnow(),
+            platform=Platform.DISCORD,
         )
         return CommandContext(
-            message=message, user=user, channel=channel,
-            platform=Platform.DISCORD, args=["help"],
+            message=message,
+            user=user,
+            channel=channel,
+            platform=Platform.DISCORD,
+            args=["help"],
             metadata={"api_base": "http://localhost:8080"},
         )
 

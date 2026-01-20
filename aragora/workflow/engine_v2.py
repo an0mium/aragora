@@ -88,11 +88,13 @@ MODEL_PRICING = {
 
 class ResourceExhaustedError(Exception):
     """Raised when resource limits are exceeded."""
+
     pass
 
 
 class ResourceType(Enum):
     """Types of resources tracked."""
+
     TOKENS = "tokens"
     COST = "cost"
     TIME = "time"
@@ -142,7 +144,9 @@ class ResourceUsage:
     agent_tokens: Dict[str, int] = field(default_factory=dict)
     agent_costs: Dict[str, float] = field(default_factory=dict)
 
-    def add_tokens(self, step_id: str, agent_type: str, input_tokens: int, output_tokens: int) -> float:
+    def add_tokens(
+        self, step_id: str, agent_type: str, input_tokens: int, output_tokens: int
+    ) -> float:
         """Add token usage and calculate cost."""
         total_tokens = input_tokens + output_tokens
         self.tokens_used += total_tokens

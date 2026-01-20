@@ -98,12 +98,14 @@ class ProvenanceChain:
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         """Record a transformation to this knowledge."""
-        self.transformations.append({
-            "type": transform_type,
-            "agent_id": agent_id,
-            "details": details or {},
-            "timestamp": datetime.now().isoformat(),
-        })
+        self.transformations.append(
+            {
+                "type": transform_type,
+                "agent_id": agent_id,
+                "details": details or {},
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -248,18 +250,14 @@ class KnowledgeNode:
             content=data["content"],
             confidence=data.get("confidence", 0.5),
             provenance=(
-                ProvenanceChain.from_dict(data["provenance"])
-                if data.get("provenance")
-                else None
+                ProvenanceChain.from_dict(data["provenance"]) if data.get("provenance") else None
             ),
             tier=MemoryTier(data.get("tier", "slow")),
             workspace_id=data.get("workspace_id", ""),
             surprise_score=data.get("surprise_score", 0.0),
             update_count=data.get("update_count", 1),
             consolidation_score=data.get("consolidation_score", 0.0),
-            validation_status=ValidationStatus(
-                data.get("validation_status", "unverified")
-            ),
+            validation_status=ValidationStatus(data.get("validation_status", "unverified")),
             consensus_proof_id=data.get("consensus_proof_id"),
             created_at=(
                 datetime.fromisoformat(data["created_at"])
@@ -512,9 +510,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
     def get_node(self, node_id: str) -> Optional[KnowledgeNode]:
         """Get a knowledge node by ID."""
         with self.connection() as conn:
-            row = conn.execute(
-                "SELECT * FROM knowledge_nodes WHERE id = ?", (node_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM knowledge_nodes WHERE id = ?", (node_id,)).fetchone()
             if not row:
                 return None
 
@@ -746,9 +742,12 @@ class KnowledgeMoundMetaStore(SQLiteStore):
             ).fetchall():
                 by_validation[row["validation_status"]] = row["count"]
 
-            avg_confidence = conn.execute(
-                f"SELECT AVG(confidence) as avg FROM knowledge_nodes {where}", params
-            ).fetchone()["avg"] or 0.0
+            avg_confidence = (
+                conn.execute(
+                    f"SELECT AVG(confidence) as avg FROM knowledge_nodes {where}", params
+                ).fetchone()["avg"]
+                or 0.0
+            )
 
             relationship_count = conn.execute(
                 "SELECT COUNT(*) as count FROM relationships"
@@ -864,17 +863,13 @@ class KnowledgeMound:
 
         # Check for duplicates
         if deduplicate:
-            existing = self._meta_store.find_by_content_hash(
-                node.content_hash, node.workspace_id
-            )
+            existing = self._meta_store.find_by_content_hash(node.content_hash, node.workspace_id)
             if existing:
                 # Update existing node
                 existing.update_count += 1
                 existing.updated_at = datetime.now()
                 # Merge confidence (weighted average)
-                existing.confidence = (
-                    existing.confidence * 0.7 + node.confidence * 0.3
-                )
+                existing.confidence = existing.confidence * 0.7 + node.confidence * 0.3
                 node = existing
 
         # Save to SQLite
@@ -969,6 +964,7 @@ class KnowledgeMound:
         assert self._meta_store is not None
 
         import time
+
         start = time.time()
 
         ws_id = workspace_id or self.workspace_id
@@ -1260,45 +1256,59 @@ class KnowledgeMound:
 
         if start_node_id:
             # Traverse from starting node
-            traversed = await self.query_graph(
-                start_node_id, depth=depth, direction="both"
-            )
+            traversed = await self.query_graph(start_node_id, depth=depth, direction="both")
             for node in traversed[:limit]:
                 if node.id not in node_ids:
                     node_ids.add(node.id)
-                    nodes.append({
-                        "id": node.id,
-                        "label": node.content[:100] if node.content else "",
-                        "type": node.node_type,
-                        "confidence": node.confidence,
-                        "tier": node.tier.value if node.tier else "medium",
-                        "validation": node.validation_status.value if node.validation_status else "pending",
-                    })
+                    nodes.append(
+                        {
+                            "id": node.id,
+                            "label": node.content[:100] if node.content else "",
+                            "type": node.node_type,
+                            "confidence": node.confidence,
+                            "tier": node.tier.value if node.tier else "medium",
+                            "validation": (
+                                node.validation_status.value
+                                if node.validation_status
+                                else "pending"
+                            ),
+                        }
+                    )
         else:
             # Get all nodes up to limit
             all_nodes = await self.query_nodes(limit=limit)
             for node in all_nodes:
                 node_ids.add(node.id)
-                nodes.append({
-                    "id": node.id,
-                    "label": node.content[:100] if node.content else "",
-                    "type": node.node_type,
-                    "confidence": node.confidence,
-                    "tier": node.tier.value if node.tier else "medium",
-                    "validation": node.validation_status.value if node.validation_status else "pending",
-                })
+                nodes.append(
+                    {
+                        "id": node.id,
+                        "label": node.content[:100] if node.content else "",
+                        "type": node.node_type,
+                        "confidence": node.confidence,
+                        "tier": node.tier.value if node.tier else "medium",
+                        "validation": (
+                            node.validation_status.value if node.validation_status else "pending"
+                        ),
+                    }
+                )
 
         # Get relationships between collected nodes
         for node_id in node_ids:
             rels = self._meta_store.get_relationships(node_id, direction="outgoing")
             for rel in rels:
                 if rel.to_node_id in node_ids:
-                    links.append({
-                        "source": rel.from_node_id,
-                        "target": rel.to_node_id,
-                        "type": rel.relationship_type.value if hasattr(rel.relationship_type, 'value') else str(rel.relationship_type),
-                        "strength": rel.strength,
-                    })
+                    links.append(
+                        {
+                            "source": rel.from_node_id,
+                            "target": rel.to_node_id,
+                            "type": (
+                                rel.relationship_type.value
+                                if hasattr(rel.relationship_type, "value")
+                                else str(rel.relationship_type)
+                            ),
+                            "strength": rel.strength,
+                        }
+                    )
 
         return {"nodes": nodes, "links": links}
 
@@ -1336,24 +1346,32 @@ class KnowledgeMound:
         # Add nodes
         for node in d3_data["nodes"]:
             # Escape XML special characters in label
-            label = (node.get("label", "") or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+            label = (
+                (node.get("label", "") or "")
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
             lines.append(f'    <node id="{node["id"]}">')
             lines.append(f'      <data key="label">{label}</data>')
             lines.append(f'      <data key="type">{node.get("type", "unknown")}</data>')
             lines.append(f'      <data key="confidence">{node.get("confidence", 0.0)}</data>')
-            lines.append('    </node>')
+            lines.append("    </node>")
 
         # Add edges
         for i, link in enumerate(d3_data["links"]):
-            lines.append(f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">')
+            lines.append(
+                f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">'
+            )
             lines.append(f'      <data key="rel_type">{link.get("type", "related")}</data>')
             lines.append(f'      <data key="strength">{link.get("strength", 0.5)}</data>')
-            lines.append('    </edge>')
+            lines.append("    </edge>")
 
-        lines.append('  </graph>')
-        lines.append('</graphml>')
+        lines.append("  </graph>")
+        lines.append("</graphml>")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     async def close(self) -> None:
         """Close connections."""

@@ -22,6 +22,7 @@ from aragora.debate.km_outcome_bridge import (
 @dataclass
 class MockConsensusOutcome:
     """Mock ConsensusOutcome for testing."""
+
     debate_id: str
     consensus_text: str
     consensus_confidence: float
@@ -293,10 +294,12 @@ class TestKMOutcomeBridgePropagation:
         mock_mound = MagicMock()
         mock_mound.get = AsyncMock(return_value={"id": "km_456", "confidence": 0.7})
         mock_mound.update_confidence = AsyncMock(return_value=True)
-        mock_mound.get_relationships = AsyncMock(return_value=[
-            {"target_id": "km_456"},
-            {"target_id": "km_789"},
-        ])
+        mock_mound.get_relationships = AsyncMock(
+            return_value=[
+                {"target_id": "km_456"},
+                {"target_id": "km_789"},
+            ]
+        )
 
         bridge = KMOutcomeBridge(knowledge_mound=mock_mound)
 
@@ -323,9 +326,11 @@ class TestKMOutcomeBridgePropagation:
         mock_mound = MagicMock()
         mock_mound.get = AsyncMock(return_value={"id": "test", "confidence": 0.5})
         mock_mound.update_confidence = AsyncMock(return_value=True)
-        mock_mound.get_relationships = AsyncMock(return_value=[
-            {"target_id": "km_related"},
-        ])
+        mock_mound.get_relationships = AsyncMock(
+            return_value=[
+                {"target_id": "km_related"},
+            ]
+        )
 
         config = KMOutcomeBridgeConfig(propagation_decay=0.5)
         bridge = KMOutcomeBridge(knowledge_mound=mock_mound, config=config)

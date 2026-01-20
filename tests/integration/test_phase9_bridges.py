@@ -125,9 +125,7 @@ class MockRelationshipTracker:
     def __init__(self):
         self._relationships: Dict[tuple, MockRelationshipMetrics] = {}
 
-    def compute_metrics(
-        self, agent_a: str, agent_b: str
-    ) -> Optional[MockRelationshipMetrics]:
+    def compute_metrics(self, agent_a: str, agent_b: str) -> Optional[MockRelationshipMetrics]:
         """Compute relationship metrics between agents."""
         key = tuple(sorted([agent_a, agent_b]))
         return self._relationships.get(key)
@@ -176,9 +174,7 @@ class MockCalibrationTracker:
     def __init__(self):
         self._summaries: Dict[str, MockCalibrationSummary] = {}
 
-    def get_calibration_summary(
-        self, agent_name: str
-    ) -> Optional[MockCalibrationSummary]:
+    def get_calibration_summary(self, agent_name: str) -> Optional[MockCalibrationSummary]:
         """Get calibration summary for an agent."""
         return self._summaries.get(agent_name)
 
@@ -388,9 +384,7 @@ class TestBridgeDataFlow:
         assert coordinator.relationship_bias_bridge is not None
 
         # Test echo chamber risk detection
-        risk = coordinator.relationship_bias_bridge.compute_team_echo_risk(
-            ["claude", "gpt"]
-        )
+        risk = coordinator.relationship_bias_bridge.compute_team_echo_risk(["claude", "gpt"])
         assert risk.overall_risk > 0.5
         assert risk.recommendation in ["caution", "high_risk"]
 
@@ -423,9 +417,7 @@ class TestBridgeDataFlow:
         assert coordinator.calibration_cost_bridge is not None
 
         # Claude should have higher efficiency
-        claude_eff = coordinator.calibration_cost_bridge.compute_cost_efficiency(
-            "claude"
-        )
+        claude_eff = coordinator.calibration_cost_bridge.compute_cost_efficiency("claude")
         gpt_eff = coordinator.calibration_cost_bridge.compute_cost_efficiency("gpt")
 
         assert claude_eff.efficiency_score > gpt_eff.efficiency_score

@@ -305,9 +305,7 @@ class StalenessDetector:
                     "content_preview": (
                         node.content[:200] if node and hasattr(node, "content") else None
                     ),
-                    "workspace_id": (
-                        node.metadata.get("workspace_id") if node else None
-                    ),
+                    "workspace_id": (node.metadata.get("workspace_id") if node else None),
                 },
             )
 

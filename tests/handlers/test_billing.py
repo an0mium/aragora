@@ -70,6 +70,7 @@ class MockTierLimits:
 
 class MockSubscriptionTier:
     """Mock subscription tier enum."""
+
     FREE = "free"
     STARTER = "starter"
     PROFESSIONAL = "professional"
@@ -184,7 +185,9 @@ class MockStripeSubscription:
         self.cancel_at_period_end = cancel_at_period_end
         self.trial_start = trial_start
         self.trial_end = trial_end
-        self.is_trialing = trial_start is not None and (trial_end is None or trial_end > datetime.utcnow())
+        self.is_trialing = trial_start is not None and (
+            trial_end is None or trial_end > datetime.utcnow()
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -241,7 +244,9 @@ class MockStripeClient:
     def create_portal_session(self, **kwargs) -> MockPortalSession:
         return self._portal_session
 
-    def cancel_subscription(self, subscription_id: str, at_period_end: bool = True) -> MockStripeSubscription:
+    def cancel_subscription(
+        self, subscription_id: str, at_period_end: bool = True
+    ) -> MockStripeSubscription:
         if self._subscription:
             self._subscription.cancel_at_period_end = True
         return self._subscription
@@ -321,7 +326,7 @@ class MockUserStore:
             entries = [e for e in entries if e.get("action") == action]
         if resource_type:
             entries = [e for e in entries if e.get("resource_type") == resource_type]
-        return entries[offset:offset + limit]
+        return entries[offset : offset + limit]
 
     def get_audit_log_count(
         self,
@@ -790,7 +795,9 @@ class TestGetSubscription:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(enterprise_owner)
                     mock_get_stripe.return_value = stripe_client
@@ -811,7 +818,9 @@ class TestGetSubscription:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     from aragora.billing.stripe_client import StripeError
 
                     mock_limiter.is_allowed.return_value = True
@@ -855,8 +864,12 @@ class TestCreateCheckout:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
-                    with patch("aragora.server.handlers.admin.billing.validate_against_schema") as mock_validate:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
+                    with patch(
+                        "aragora.server.handlers.admin.billing.validate_against_schema"
+                    ) as mock_validate:
                         mock_limiter.is_allowed.return_value = True
                         mock_extract.return_value = self.make_auth_context(owner)
                         mock_get_stripe.return_value = stripe_client
@@ -887,7 +900,9 @@ class TestCreateCheckout:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.validate_against_schema") as mock_validate:
+                with patch(
+                    "aragora.server.handlers.admin.billing.validate_against_schema"
+                ) as mock_validate:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_validate.return_value = MagicMock(is_valid=True)
@@ -914,7 +929,9 @@ class TestCreateCheckout:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.validate_against_schema") as mock_validate:
+                with patch(
+                    "aragora.server.handlers.admin.billing.validate_against_schema"
+                ) as mock_validate:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_validate.return_value = MagicMock(is_valid=True)
@@ -958,8 +975,12 @@ class TestCreateCheckout:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
-                    with patch("aragora.server.handlers.admin.billing.validate_against_schema") as mock_validate:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
+                    with patch(
+                        "aragora.server.handlers.admin.billing.validate_against_schema"
+                    ) as mock_validate:
                         from aragora.billing.stripe_client import StripeConfigError
 
                         mock_limiter.is_allowed.return_value = True
@@ -1002,7 +1023,9 @@ class TestCreatePortal:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_get_stripe.return_value = stripe_client
@@ -1081,7 +1104,9 @@ class TestCancelSubscription:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_get_stripe.return_value = stripe_client
@@ -1125,7 +1150,9 @@ class TestCancelSubscription:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_get_stripe.return_value = stripe_client
@@ -1163,7 +1190,9 @@ class TestResumeSubscription:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_extract.return_value = self.make_auth_context(owner)
                     mock_get_stripe.return_value = stripe_client
@@ -1282,7 +1311,9 @@ class TestUsageExport:
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             # Patch at the billing module level since it imports directly
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
@@ -1301,7 +1332,9 @@ class TestUsageExport:
         mock_handler = MockHandler(user_store=user_store)
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext("", is_authenticated=False)
                 mock_extract.return_value = mock_ctx
@@ -1320,7 +1353,9 @@ class TestUsageForecast:
         owner = user_store.get_user_by_id("owner_1")
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
@@ -1348,7 +1383,9 @@ class TestUsageForecast:
         org.billing_cycle_start = datetime.utcnow() - timedelta(days=5)  # High rate
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
@@ -1372,8 +1409,12 @@ class TestInvoices:
         enterprise_owner = user_store.get_user_by_id("ent_owner_1")
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
-                with patch("aragora.server.handlers.admin.billing.get_stripe_client") as mock_get_stripe:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
+                with patch(
+                    "aragora.server.handlers.admin.billing.get_stripe_client"
+                ) as mock_get_stripe:
                     mock_limiter.is_allowed.return_value = True
                     mock_ctx = MockAuthContext(
                         user_id=enterprise_owner.id,
@@ -1400,7 +1441,9 @@ class TestInvoices:
         org.stripe_customer_id = None
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.server.handlers.admin.billing.extract_user_from_request") as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.billing.extract_user_from_request"
+            ) as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
@@ -1423,9 +1466,7 @@ class TestStripeWebhook:
         mock_handler.headers["Content-Length"] = "100"
         # No Stripe-Signature header
 
-        result = billing_handler.handle(
-            "/api/webhooks/stripe", {}, mock_handler, method="POST"
-        )
+        result = billing_handler.handle("/api/webhooks/stripe", {}, mock_handler, method="POST")
 
         assert result.status_code == 400
         assert "signature" in parse_body(result)["error"].lower()
@@ -1439,9 +1480,7 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             mock_parse.return_value = None  # Invalid signature
 
-            result = billing_handler.handle(
-                "/api/webhooks/stripe", {}, mock_handler, method="POST"
-            )
+            result = billing_handler.handle("/api/webhooks/stripe", {}, mock_handler, method="POST")
 
             assert result.status_code == 400
             assert "signature" in parse_body(result)["error"].lower()
@@ -1566,7 +1605,9 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             with patch("aragora.server.handlers.admin.billing._is_duplicate_webhook") as mock_dup:
                 with patch("aragora.server.handlers.admin.billing._mark_webhook_processed"):
-                    with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery:
+                    with patch(
+                        "aragora.billing.payment_recovery.get_recovery_store"
+                    ) as mock_recovery:
                         mock_parse.return_value = event
                         mock_dup.return_value = False
                         mock_recovery_store = MagicMock()
@@ -1609,8 +1650,12 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             with patch("aragora.server.handlers.admin.billing._is_duplicate_webhook") as mock_dup:
                 with patch("aragora.server.handlers.admin.billing._mark_webhook_processed"):
-                    with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery:
-                        with patch("aragora.billing.notifications.get_billing_notifier") as mock_notifier:
+                    with patch(
+                        "aragora.billing.payment_recovery.get_recovery_store"
+                    ) as mock_recovery:
+                        with patch(
+                            "aragora.billing.notifications.get_billing_notifier"
+                        ) as mock_notifier:
                             mock_parse.return_value = event
                             mock_dup.return_value = False
 
@@ -1628,7 +1673,9 @@ class TestStripeWebhook:
                             mock_notify_result.method = "email"
                             mock_notify_result.success = True
                             mock_notifier_instance = MagicMock()
-                            mock_notifier_instance.notify_payment_failed.return_value = mock_notify_result
+                            mock_notifier_instance.notify_payment_failed.return_value = (
+                                mock_notify_result
+                            )
                             mock_notifier.return_value = mock_notifier_instance
 
                             result = billing_handler.handle(
@@ -1674,8 +1721,6 @@ class TestMethodNotAllowed:
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = billing_handler.handle(
-                "/api/billing/plans", {}, mock_handler, method="DELETE"
-            )
+            result = billing_handler.handle("/api/billing/plans", {}, mock_handler, method="DELETE")
 
             assert result.status_code == 405

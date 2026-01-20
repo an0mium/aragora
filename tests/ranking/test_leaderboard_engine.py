@@ -72,7 +72,9 @@ class TestLeaderboardEngineInit:
     def test_init_with_rating_factory(self):
         """Test initialization with rating factory."""
         mock_db = MagicMock()
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
 
         engine = LeaderboardEngine(mock_db, rating_factory=factory)
         assert engine._rating_factory is factory
@@ -105,7 +107,9 @@ class TestGetLeaderboard:
             ("gpt", 1150.0, "{}", 8, 6, 1, 15, 7, 9, "2025-01-01"),
         ]
 
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
+
         engine = LeaderboardEngine(mock_db, rating_factory=factory)
 
         result = engine.get_leaderboard(limit=10)
@@ -131,7 +135,9 @@ class TestGetLeaderboard:
             ("claude", 1200.0, '{"security": 1300}', 10, 5, 2, 17, 8, 10, "2025-01-01"),
         ]
 
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
+
         engine = LeaderboardEngine(mock_db, rating_factory=factory)
 
         result = engine.get_leaderboard(limit=10, domain="security")
@@ -154,7 +160,9 @@ class TestGetLeaderboard:
 
         mock_cursor.fetchall.return_value = []
 
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
+
         engine = LeaderboardEngine(mock_db, rating_factory=factory)
 
         result = engine.get_leaderboard()
@@ -175,7 +183,9 @@ class TestGetCachedLeaderboard:
         mock_db.connection.return_value = mock_conn
         mock_cursor.fetchall.return_value = []
 
-        factory = lambda row: {"name": row[0]}
+        def factory(row):
+            return {"name": row[0]}
+
         engine = LeaderboardEngine(mock_db, rating_factory=factory)
 
         result = engine.get_cached_leaderboard()
@@ -190,7 +200,9 @@ class TestGetCachedLeaderboard:
         cached_data = [{"name": "cached_agent", "elo": 1500}]
         mock_cache.get.return_value = cached_data
 
-        factory = lambda row: {"name": row[0]}
+        def factory(row):
+            return {"name": row[0]}
+
         engine = LeaderboardEngine(
             mock_db,
             rating_factory=factory,
@@ -220,7 +232,9 @@ class TestGetCachedLeaderboard:
         mock_cache = MagicMock()
         mock_cache.get.return_value = None  # Cache miss
 
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
+
         engine = LeaderboardEngine(
             mock_db,
             rating_factory=factory,
@@ -239,7 +253,9 @@ class TestGetCachedLeaderboard:
         mock_cache = MagicMock()
         mock_cache.get.return_value = []
 
-        factory = lambda row: {"name": row[0]}
+        def factory(row):
+            return {"name": row[0]}
+
         engine = LeaderboardEngine(
             mock_db,
             rating_factory=factory,
@@ -324,7 +340,9 @@ class TestGetTopAgentsForDomain:
         mock_cache = MagicMock()
         mock_cache.get.return_value = [{"name": "top_agent"}]
 
-        factory = lambda row: {"name": row[0]}
+        def factory(row):
+            return {"name": row[0]}
+
         engine = LeaderboardEngine(
             mock_db,
             rating_factory=factory,
@@ -395,7 +413,14 @@ class TestGetRecentMatches:
         mock_db.connection.return_value = mock_conn
 
         mock_cursor.fetchall.return_value = [
-            ("d1", "claude", '["claude", "gpt"]', "general", '{"claude": 15, "gpt": -15}', "2025-01-01"),
+            (
+                "d1",
+                "claude",
+                '["claude", "gpt"]',
+                "general",
+                '{"claude": 15, "gpt": -15}',
+                "2025-01-01",
+            ),
         ]
 
         engine = LeaderboardEngine(mock_db)
@@ -658,7 +683,9 @@ class TestLeaderboardEngineIntegration:
         mock_stats_cache = MagicMock()
         mock_stats_cache.get.return_value = None
 
-        factory = lambda row: {"name": row[0], "elo": row[1]}
+        def factory(row):
+            return {"name": row[0], "elo": row[1]}
+
         engine = LeaderboardEngine(
             mock_db,
             rating_factory=factory,

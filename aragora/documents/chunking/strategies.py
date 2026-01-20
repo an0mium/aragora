@@ -733,6 +733,7 @@ class FixedSizeChunking(ChunkingStrategy):
 # RLM availability check (use factory for consistent initialization)
 try:
     from aragora.rlm import get_compressor, RLMConfig, AbstractionLevel
+
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
@@ -779,7 +780,7 @@ class RLMChunking(ChunkingStrategy):
                 config_obj = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
                 self._compressor = get_compressor(config=config_obj)
                 # Set agent_call if the compressor supports it
-                if agent_call and hasattr(self._compressor, 'agent_call'):
+                if agent_call and hasattr(self._compressor, "agent_call"):
                     self._compressor.agent_call = agent_call
             except Exception as e:
                 logger.warning(f"Failed to initialize RLM compressor: {e}")
@@ -832,8 +833,12 @@ class RLMChunking(ChunkingStrategy):
         sequence = 0
 
         # Process each level of the hierarchy
-        for level in [AbstractionLevel.FULL, AbstractionLevel.DETAILED,
-                      AbstractionLevel.SUMMARY, AbstractionLevel.ABSTRACT]:
+        for level in [
+            AbstractionLevel.FULL,
+            AbstractionLevel.DETAILED,
+            AbstractionLevel.SUMMARY,
+            AbstractionLevel.ABSTRACT,
+        ]:
             if level not in context.levels:
                 continue
 
@@ -1094,7 +1099,9 @@ class HierarchicalChunkNavigator:
         context_parts = []
 
         for chunk, score in results:
-            context_parts.append(f"## [{chunk.metadata.get('hierarchy_level', 'unknown').upper()}] (relevance: {score:.0%})")
+            context_parts.append(
+                f"## [{chunk.metadata.get('hierarchy_level', 'unknown').upper()}] (relevance: {score:.0%})"
+            )
             context_parts.append(chunk.content)
 
             # Include children if requested and score is high
@@ -1102,7 +1109,9 @@ class HierarchicalChunkNavigator:
                 children = self.drill_down(chunk.id)[:2]  # Limit children
                 for child in children:
                     context_parts.append("\n### Details:")
-                    context_parts.append(child.content[:500] + "..." if len(child.content) > 500 else child.content)
+                    context_parts.append(
+                        child.content[:500] + "..." if len(child.content) > 500 else child.content
+                    )
 
             context_parts.append("")
 

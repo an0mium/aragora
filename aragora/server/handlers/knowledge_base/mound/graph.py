@@ -39,7 +39,9 @@ class GraphOperationsMixin:
     """Mixin providing graph operations for KnowledgeMoundHandler."""
 
     @handle_errors("graph traversal")
-    def _handle_graph_traversal(self: GraphHandlerProtocol, path: str, query_params: dict) -> HandlerResult:
+    def _handle_graph_traversal(
+        self: GraphHandlerProtocol, path: str, query_params: dict
+    ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id - Graph traversal."""
 
         parts = path.strip("/").split("/")
@@ -47,7 +49,9 @@ class GraphOperationsMixin:
             return error_response("Node ID required", 400)
 
         node_id = parts[4]
-        relationship_type = get_bounded_string_param(query_params, "relationship_type", None, max_length=50)
+        relationship_type = get_bounded_string_param(
+            query_params, "relationship_type", None, max_length=50
+        )
         depth = get_clamped_int_param(query_params, "depth", 2, min_val=1, max_val=5)
         direction = get_bounded_string_param(query_params, "direction", "outgoing", max_length=20)
 
@@ -71,17 +75,21 @@ class GraphOperationsMixin:
             logger.error(f"Graph traversal failed: {e}")
             return error_response(f"Graph traversal failed: {e}", 500)
 
-        return json_response({
-            "start_node_id": node_id,
-            "depth": depth,
-            "direction": direction,
-            "relationship_type": relationship_type,
-            "nodes": [n.to_dict() for n in nodes],
-            "count": len(nodes),
-        })
+        return json_response(
+            {
+                "start_node_id": node_id,
+                "depth": depth,
+                "direction": direction,
+                "relationship_type": relationship_type,
+                "nodes": [n.to_dict() for n in nodes],
+                "count": len(nodes),
+            }
+        )
 
     @handle_errors("graph lineage")
-    def _handle_graph_lineage(self: GraphHandlerProtocol, path: str, query_params: dict) -> HandlerResult:
+    def _handle_graph_lineage(
+        self: GraphHandlerProtocol, path: str, query_params: dict
+    ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/lineage - Get node lineage."""
 
         parts = path.strip("/").split("/")
@@ -107,19 +115,23 @@ class GraphOperationsMixin:
             logger.error(f"Graph lineage failed: {e}")
             return error_response(f"Graph lineage failed: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "lineage": {
-                "nodes": [n.to_dict() for n in result.nodes],
-                "edges": [e.to_dict() if hasattr(e, 'to_dict') else e for e in result.edges],
-                "total_nodes": result.total_nodes,
-                "total_edges": result.total_edges,
-            },
-            "depth": depth,
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "lineage": {
+                    "nodes": [n.to_dict() for n in result.nodes],
+                    "edges": [e.to_dict() if hasattr(e, "to_dict") else e for e in result.edges],
+                    "total_nodes": result.total_nodes,
+                    "total_edges": result.total_edges,
+                },
+                "depth": depth,
+            }
+        )
 
     @handle_errors("graph related")
-    def _handle_graph_related(self: GraphHandlerProtocol, path: str, query_params: dict) -> HandlerResult:
+    def _handle_graph_related(
+        self: GraphHandlerProtocol, path: str, query_params: dict
+    ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/related - Get related nodes."""
 
         parts = path.strip("/").split("/")
@@ -127,7 +139,9 @@ class GraphOperationsMixin:
             return error_response("Node ID required", 400)
 
         node_id = parts[4]
-        relationship_type = get_bounded_string_param(query_params, "relationship_type", None, max_length=50)
+        relationship_type = get_bounded_string_param(
+            query_params, "relationship_type", None, max_length=50
+        )
         limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
 
         mound = self._get_mound()
@@ -148,9 +162,11 @@ class GraphOperationsMixin:
             logger.error(f"Get related nodes failed: {e}")
             return error_response(f"Get related nodes failed: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "related": [n.to_dict() for n in result.nodes if n.id != node_id],
-            "relationship_type": relationship_type,
-            "total": len(result.nodes) - 1,
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "related": [n.to_dict() for n in result.nodes if n.id != node_id],
+                "relationship_type": relationship_type,
+                "total": len(result.nodes) - 1,
+            }
+        )

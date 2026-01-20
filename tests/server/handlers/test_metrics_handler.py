@@ -302,6 +302,7 @@ class TestMetricsHandlerResponseFormat:
         assert result is not None
         # Body should contain status
         import json
+
         body = json.loads(result.body)
         assert "status" in body or "healthy" in body
 
@@ -322,6 +323,7 @@ class TestMetricsHandlerSystemInfo:
 
         assert result is not None
         import json
+
         body = json.loads(result.body)
         assert "python_version" in body
 
@@ -334,5 +336,6 @@ class TestMetricsHandlerSystemInfo:
 
         assert result is not None
         import json
+
         body = json.loads(result.body)
         assert "platform" in body or "system" in body

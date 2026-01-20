@@ -41,6 +41,7 @@ if TYPE_CHECKING:
         role: str | None  # None = assign automatically
         name: str | None
 
+
 # Import ALLOWED_AGENT_TYPES for validation
 from aragora.config.legacy import ALLOWED_AGENT_TYPES
 
@@ -49,7 +50,9 @@ AgentRole = Literal["proposer", "critic", "synthesizer", "judge"]
 VALID_ROLES: frozenset[str] = frozenset({"proposer", "critic", "synthesizer", "judge"})
 
 
-def _find_similar(value: str, options: frozenset[str] | set[str], threshold: float = 0.6) -> Optional[str]:
+def _find_similar(
+    value: str, options: frozenset[str] | set[str], threshold: float = 0.6
+) -> Optional[str]:
     """Find the most similar option to a value using simple character matching.
 
     Args:
@@ -75,7 +78,11 @@ def _find_similar(value: str, options: frozenset[str] | set[str], threshold: flo
             return option
 
         # Simple similarity: count matching characters
-        shorter, longer = (value_lower, option_lower) if len(value_lower) <= len(option_lower) else (option_lower, value_lower)
+        shorter, longer = (
+            (value_lower, option_lower)
+            if len(value_lower) <= len(option_lower)
+            else (option_lower, value_lower)
+        )
         matches = sum(1 for c in shorter if c in longer)
         score = matches / len(longer) if longer else 0.0
 
@@ -203,13 +210,15 @@ class AgentSpec:
                 elif role is None:
                     role = "proposer"
 
-                result.append(cls(
-                    provider=provider,
-                    model=spec.get("model"),
-                    persona=spec.get("persona"),
-                    role=role,
-                    name=spec.get("name"),
-                ))
+                result.append(
+                    cls(
+                        provider=provider,
+                        model=spec.get("model"),
+                        persona=spec.get("persona"),
+                        role=role,
+                        name=spec.get("name"),
+                    )
+                )
 
         return result
 

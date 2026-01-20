@@ -21,10 +21,7 @@ from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.debate.phases.ready_signal import (
-    AgentReadinessSignal,
     CollectiveReadiness,
-    RLM_READY_CONFIDENCE_THRESHOLD,
-    RLM_READY_QUORUM,
     parse_ready_signal,
 )
 from aragora.server.stream.arena_hooks import streaming_task_context
@@ -381,10 +378,7 @@ class DebateRoundsPhase:
 
             # Compress context messages using RLM after threshold rounds
             # This keeps context manageable for long debates
-            if (
-                self._compress_context
-                and round_num >= self._rlm_compression_round_threshold
-            ):
+            if self._compress_context and round_num >= self._rlm_compression_round_threshold:
                 await self._compress_debate_context(ctx, round_num)
 
             # Round 7 special handling: Final Synthesis
@@ -449,7 +443,11 @@ class DebateRoundsPhase:
                     f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
                 )
                 try:
-                    from aragora.observability.metrics import record_slow_round, record_round_latency
+                    from aragora.observability.metrics import (
+                        record_slow_round,
+                        record_round_latency,
+                    )
+
                     record_slow_round(debate_outcome="in_progress")
                     record_round_latency(_round_duration)
                 except ImportError:
@@ -457,6 +455,7 @@ class DebateRoundsPhase:
             else:
                 try:
                     from aragora.observability.metrics import record_round_latency
+
                     record_round_latency(_round_duration)
                 except ImportError:
                     pass
@@ -1107,8 +1106,7 @@ class DebateRoundsPhase:
         # Check if quorum reached
         if self._collective_readiness.has_quorum():
             ready_agents = [
-                s.agent for s in self._collective_readiness.signals.values()
-                if s.should_terminate()
+                s.agent for s in self._collective_readiness.signals.values() if s.should_terminate()
             ]
             logger.info(
                 f"rlm_ready_quorum_reached round={round_num} "

@@ -212,9 +212,7 @@ def record_sync(
     ).inc()
 
     if duration_seconds > 0:
-        CONNECTOR_SYNC_DURATION.labels(connector_type=connector_type).observe(
-            duration_seconds
-        )
+        CONNECTOR_SYNC_DURATION.labels(connector_type=connector_type).observe(duration_seconds)
 
     if status == "success":
         import time

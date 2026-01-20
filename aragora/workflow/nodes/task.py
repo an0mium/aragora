@@ -152,6 +152,7 @@ class TaskStep(BaseStep):
                     # Try to parse as JSON
                     try:
                         import json
+
                         response_data = json.loads(response_text)
                     except (json.JSONDecodeError, ValueError):
                         response_data = response_text
@@ -215,6 +216,7 @@ class TaskStep(BaseStep):
                 result = list(result) if hasattr(result, "__iter__") else [result]
             elif output_format == "json":
                 import json
+
                 result = json.dumps(result, default=str)
             elif output_format == "text":
                 result = str(result)
@@ -258,7 +260,14 @@ class TaskStep(BaseStep):
             # Type check
             expected_type = rule.get("type")
             if expected_type:
-                type_map = {"string": str, "int": int, "float": float, "bool": bool, "list": list, "dict": dict}
+                type_map = {
+                    "string": str,
+                    "int": int,
+                    "float": float,
+                    "bool": bool,
+                    "list": list,
+                    "dict": dict,
+                }
                 if expected_type in type_map and not isinstance(value, type_map[expected_type]):
                     errors.append(f"Field '{field}' must be {expected_type}")
 
@@ -279,6 +288,7 @@ class TaskStep(BaseStep):
             # Pattern match
             if "pattern" in rule and isinstance(value, str):
                 import re
+
                 if not re.match(rule["pattern"], value):
                     errors.append(f"Field '{field}' does not match pattern")
 
@@ -347,7 +357,7 @@ class TaskStep(BaseStep):
 
     def _interpolate_dict(self, data: Dict[str, Any], context: WorkflowContext) -> Dict[str, Any]:
         """Interpolate dictionary values with context."""
-        result = {}
+        result: Dict[str, Any] = {}
         for key, value in data.items():
             if isinstance(value, str):
                 result[key] = self._interpolate_text(value, context)
@@ -355,8 +365,7 @@ class TaskStep(BaseStep):
                 result[key] = self._interpolate_dict(value, context)
             elif isinstance(value, list):
                 result[key] = [
-                    self._interpolate_text(v, context) if isinstance(v, str) else v
-                    for v in value
+                    self._interpolate_text(v, context) if isinstance(v, str) else v for v in value
                 ]
             else:
                 result[key] = value
@@ -366,14 +375,18 @@ class TaskStep(BaseStep):
 # Built-in task handlers
 
 
-def _handler_log(context: WorkflowContext, message: str = "", level: str = "info") -> Dict[str, Any]:
+def _handler_log(
+    context: WorkflowContext, message: str = "", level: str = "info"
+) -> Dict[str, Any]:
     """Log a message."""
     log_func = getattr(logger, level, logger.info)
     log_func(f"[{context.workflow_id}] {message}")
     return {"logged": True, "message": message, "level": level}
 
 
-def _handler_set_state(context: WorkflowContext, key: str = "", value: Any = None) -> Dict[str, Any]:
+def _handler_set_state(
+    context: WorkflowContext, key: str = "", value: Any = None
+) -> Dict[str, Any]:
     """Set a state value."""
     context.set_state(key, value)
     return {"key": key, "value": value}

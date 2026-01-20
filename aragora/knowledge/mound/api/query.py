@@ -19,17 +19,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
-        AccessGrant,
         GraphQueryResult,
         KnowledgeItem,
         KnowledgeLink,
-        KnowledgeSource,
         MoundConfig,
         QueryFilters,
         QueryResult,
         RelationshipType,
         SourceFilter,
-        VisibilityLevel,
     )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +73,7 @@ class QueryProtocol(Protocol):
     ) -> List["KnowledgeLink"]: ...
     def _node_to_item(self, node: Any) -> "KnowledgeItem": ...
     def _vector_result_to_item(self, result: Any) -> "KnowledgeItem": ...
+
     # Self-referential methods used by other methods in mixin
     async def query(
         self,
@@ -210,7 +208,9 @@ class QueryOperationsMixin:
             # Sort by updated_at if available, else created_at
             sorted_nodes = sorted(
                 nodes,
-                key=lambda n: getattr(n, 'updated_at', None) or getattr(n, 'created_at', None) or '',
+                key=lambda n: getattr(n, "updated_at", None)
+                or getattr(n, "created_at", None)
+                or "",
                 reverse=True,
             )
             return [self._node_to_item(n) for n in sorted_nodes[:limit]]
@@ -270,7 +270,7 @@ class QueryOperationsMixin:
         max_nodes: int = 50,
     ) -> "GraphQueryResult":
         """Traverse knowledge graph from a starting node."""
-        from aragora.knowledge.mound.types import GraphQueryResult, KnowledgeItem, KnowledgeLink
+        from aragora.knowledge.mound.types import GraphQueryResult
 
         self._ensure_initialized()
 
@@ -335,42 +335,64 @@ class QueryOperationsMixin:
             for node in result.nodes:
                 if node.id not in node_ids:
                     node_ids.add(node.id)
-                    source = getattr(node, 'source', None) or getattr(node, 'source_type', None)
-                    source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
-                    confidence = getattr(node, 'confidence', 0.0)
-                    if hasattr(confidence, 'value'):
+                    source = getattr(node, "source", None) or getattr(node, "source_type", None)
+                    source_str = (
+                        source.value
+                        if hasattr(source, "value")
+                        else str(source) if source else "unknown"
+                    )
+                    confidence = getattr(node, "confidence", 0.0)
+                    if hasattr(confidence, "value"):
                         confidence = confidence.value
-                    nodes.append({
-                        "id": node.id,
-                        "label": (node.content[:100] if node.content else "")[:100],
-                        "type": source_str,
-                        "confidence": confidence,
-                    })
+                    nodes.append(
+                        {
+                            "id": node.id,
+                            "label": (node.content[:100] if node.content else "")[:100],
+                            "type": source_str,
+                            "confidence": confidence,
+                        }
+                    )
             for edge in result.edges:
-                rel_type = getattr(edge, 'relationship', None) or getattr(edge, 'relationship_type', None)
-                rel_type_str = rel_type.value if hasattr(rel_type, 'value') else str(rel_type) if rel_type else 'related'
-                links.append({
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "type": rel_type_str,
-                    "strength": getattr(edge, 'strength', 0.5) or getattr(edge, 'confidence', 0.5) or 0.5,
-                })
+                rel_type = getattr(edge, "relationship", None) or getattr(
+                    edge, "relationship_type", None
+                )
+                rel_type_str = (
+                    rel_type.value
+                    if hasattr(rel_type, "value")
+                    else str(rel_type) if rel_type else "related"
+                )
+                links.append(
+                    {
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "type": rel_type_str,
+                        "strength": getattr(edge, "strength", 0.5)
+                        or getattr(edge, "confidence", 0.5)
+                        or 0.5,
+                    }
+                )
         else:
             # Get all nodes up to limit using local query
             all_items = await self._query_local("", None, limit, self.workspace_id)
             for item in all_items[:limit]:
                 node_ids.add(item.id)
-                source = getattr(item, 'source', None) or getattr(item, 'source_type', None)
-                source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
-                confidence = getattr(item, 'confidence', 0.0)
-                if hasattr(confidence, 'value'):
+                source = getattr(item, "source", None) or getattr(item, "source_type", None)
+                source_str = (
+                    source.value
+                    if hasattr(source, "value")
+                    else str(source) if source else "unknown"
+                )
+                confidence = getattr(item, "confidence", 0.0)
+                if hasattr(confidence, "value"):
                     confidence = confidence.value
-                nodes.append({
-                    "id": item.id,
-                    "label": (item.content[:100] if item.content else "")[:100],
-                    "type": source_str,
-                    "confidence": confidence,
-                })
+                nodes.append(
+                    {
+                        "id": item.id,
+                        "label": (item.content[:100] if item.content else "")[:100],
+                        "type": source_str,
+                        "confidence": confidence,
+                    }
+                )
 
             # Get relationships between collected nodes
             for node_id in list(node_ids)[:50]:
@@ -378,14 +400,24 @@ class QueryOperationsMixin:
                 for rel in rels:
                     target = rel.target_id if rel.source_id == node_id else rel.source_id
                     if target in node_ids:
-                        rel_type = getattr(rel, 'relationship', None) or getattr(rel, 'relationship_type', None)
-                        rel_type_str = rel_type.value if hasattr(rel_type, 'value') else str(rel_type) if rel_type else 'related'
-                        links.append({
-                            "source": rel.source_id,
-                            "target": rel.target_id,
-                            "type": rel_type_str,
-                            "strength": getattr(rel, 'strength', 0.5) or getattr(rel, 'confidence', 0.5) or 0.5,
-                        })
+                        rel_type = getattr(rel, "relationship", None) or getattr(
+                            rel, "relationship_type", None
+                        )
+                        rel_type_str = (
+                            rel_type.value
+                            if hasattr(rel_type, "value")
+                            else str(rel_type) if rel_type else "related"
+                        )
+                        links.append(
+                            {
+                                "source": rel.source_id,
+                                "target": rel.target_id,
+                                "type": rel_type_str,
+                                "strength": getattr(rel, "strength", 0.5)
+                                or getattr(rel, "confidence", 0.5)
+                                or 0.5,
+                            }
+                        )
 
         return {"nodes": nodes, "links": links}
 
@@ -422,24 +454,32 @@ class QueryOperationsMixin:
 
         # Add nodes
         for node in d3_data["nodes"]:
-            label = (node.get("label", "") or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+            label = (
+                (node.get("label", "") or "")
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
             lines.append(f'    <node id="{node["id"]}">')
             lines.append(f'      <data key="label">{label}</data>')
             lines.append(f'      <data key="type">{node.get("type", "unknown")}</data>')
             lines.append(f'      <data key="confidence">{node.get("confidence", 0.0)}</data>')
-            lines.append('    </node>')
+            lines.append("    </node>")
 
         # Add edges
         for i, link in enumerate(d3_data["links"]):
-            lines.append(f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">')
+            lines.append(
+                f'    <edge id="e{i}" source="{link["source"]}" target="{link["target"]}">'
+            )
             lines.append(f'      <data key="rel_type">{link.get("type", "related")}</data>')
             lines.append(f'      <data key="strength">{link.get("strength", 0.5)}</data>')
-            lines.append('    </edge>')
+            lines.append("    </edge>")
 
-        lines.append('  </graph>')
-        lines.append('</graphml>')
+        lines.append("  </graph>")
+        lines.append("</graphml>")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     # =========================================================================
     # Visibility-Aware Query Operations (Phase 2)
@@ -478,7 +518,7 @@ class QueryOperationsMixin:
         Returns:
             QueryResult with visibility-filtered items
         """
-        from aragora.knowledge.mound.types import KnowledgeSource, QueryResult, VisibilityLevel
+        from aragora.knowledge.mound.types import QueryResult
 
         self._ensure_initialized()
 
@@ -487,7 +527,9 @@ class QueryOperationsMixin:
         limit = min(limit, self.config.max_query_limit)
 
         # First, get regular query results
-        result = await self.query(query, sources, filters, limit * 2, ws_id)  # Get extra for filtering
+        result = await self.query(
+            query, sources, filters, limit * 2, ws_id
+        )  # Get extra for filtering
 
         # Filter by visibility
         filtered_items = await self._filter_by_visibility(

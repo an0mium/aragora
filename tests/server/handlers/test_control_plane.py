@@ -36,7 +36,7 @@ def mock_http_handler():
     mock.headers = {"Content-Type": "application/json", "Content-Length": "100"}
     mock.command = "GET"
     mock.rfile = MagicMock()
-    mock.rfile.read.return_value = b'{}'
+    mock.rfile.read.return_value = b"{}"
     return mock
 
 
@@ -44,28 +44,30 @@ def mock_http_handler():
 def mock_coordinator():
     """Create a mock control plane coordinator."""
     coordinator = MagicMock()
-    coordinator.register_agent = AsyncMock(return_value=MagicMock(
-        id="agent-1",
-        status="idle",
-        capabilities=["debate", "analysis"],
-        to_dict=lambda: {"id": "agent-1", "status": "idle"}
-    ))
+    coordinator.register_agent = AsyncMock(
+        return_value=MagicMock(
+            id="agent-1",
+            status="idle",
+            capabilities=["debate", "analysis"],
+            to_dict=lambda: {"id": "agent-1", "status": "idle"},
+        )
+    )
     coordinator.unregister_agent = AsyncMock(return_value=True)
-    coordinator.get_agent_status = AsyncMock(return_value=MagicMock(
-        to_dict=lambda: {"id": "agent-1", "status": "idle"}
-    ))
+    coordinator.get_agent_status = AsyncMock(
+        return_value=MagicMock(to_dict=lambda: {"id": "agent-1", "status": "idle"})
+    )
     coordinator.get_all_agents = AsyncMock(return_value=[])
-    coordinator.submit_task = AsyncMock(return_value=MagicMock(
-        id="task-1",
-        status="pending",
-        to_dict=lambda: {"id": "task-1", "status": "pending"}
-    ))
-    coordinator.get_task = AsyncMock(return_value=MagicMock(
-        to_dict=lambda: {"id": "task-1", "status": "pending"}
-    ))
-    coordinator.claim_task = AsyncMock(return_value=MagicMock(
-        to_dict=lambda: {"id": "task-1", "status": "running"}
-    ))
+    coordinator.submit_task = AsyncMock(
+        return_value=MagicMock(
+            id="task-1", status="pending", to_dict=lambda: {"id": "task-1", "status": "pending"}
+        )
+    )
+    coordinator.get_task = AsyncMock(
+        return_value=MagicMock(to_dict=lambda: {"id": "task-1", "status": "pending"})
+    )
+    coordinator.claim_task = AsyncMock(
+        return_value=MagicMock(to_dict=lambda: {"id": "task-1", "status": "running"})
+    )
     coordinator.complete_task = AsyncMock(return_value=True)
     coordinator.fail_task = AsyncMock(return_value=True)
     coordinator.cancel_task = AsyncMock(return_value=True)
@@ -204,13 +206,19 @@ class TestAgentRegistration:
         """Should require authentication for agent registration."""
         mock_http_handler.command = "POST"
         mock_http_handler.rfile = MagicMock()
-        mock_http_handler.rfile.read.return_value = json.dumps({
-            "agent_id": "agent-1",
-            "capabilities": ["debate"]
-        }).encode()
+        mock_http_handler.rfile.read.return_value = json.dumps(
+            {"agent_id": "agent-1", "capabilities": ["debate"]}
+        ).encode()
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(None, HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}))):
+            with patch.object(
+                handler,
+                "require_auth_or_error",
+                return_value=(
+                    None,
+                    HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
+                ),
+            ):
                 result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert get_status(result) == 401
@@ -218,21 +226,25 @@ class TestAgentRegistration:
     def test_register_agent_success(self, handler, mock_http_handler, mock_coordinator):
         """Should register agent successfully with auth."""
         mock_http_handler.command = "POST"
-        mock_http_handler.rfile.read.return_value = json.dumps({
-            "agent_id": "agent-1",
-            "capabilities": ["debate", "analysis"],
-            "model": "gpt-4",
-            "provider": "openai"
-        }).encode()
+        mock_http_handler.rfile.read.return_value = json.dumps(
+            {
+                "agent_id": "agent-1",
+                "capabilities": ["debate", "analysis"],
+                "model": "gpt-4",
+                "provider": "openai",
+            }
+        ).encode()
 
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"agent_id": "agent-1", "capabilities": ["debate"]}, None
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
+                ):
                     result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert get_status(result) == 201  # Created
@@ -246,9 +258,11 @@ class TestAgentRegistration:
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"capabilities": ["debate"]}, None  # Missing agent_id
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"capabilities": ["debate"]}, None),  # Missing agent_id
+                ):
                     result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert get_status(result) == 400
@@ -266,15 +280,20 @@ class TestTaskSubmission:
     def test_submit_requires_auth(self, handler, mock_http_handler, mock_coordinator):
         """Should require authentication for task submission."""
         mock_http_handler.command = "POST"
-        mock_http_handler.rfile.read.return_value = json.dumps({
-            "task_type": "debate"
-        }).encode()
+        mock_http_handler.rfile.read.return_value = json.dumps({"task_type": "debate"}).encode()
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "read_json_body_validated", return_value=(
-                {"task_type": "debate"}, None
-            )):
-                with patch.object(handler, "require_auth_or_error", return_value=(None, HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}))):
+            with patch.object(
+                handler, "read_json_body_validated", return_value=({"task_type": "debate"}, None)
+            ):
+                with patch.object(
+                    handler,
+                    "require_auth_or_error",
+                    return_value=(
+                        None,
+                        HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
+                    ),
+                ):
                     result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert get_status(result) == 401
@@ -289,9 +308,11 @@ class TestTaskSubmission:
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"task_type": "debate", "payload": {"topic": "AI"}}, None
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"task_type": "debate", "payload": {"topic": "AI"}}, None),
+                ):
                     result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert get_status(result) == 201  # Created
@@ -305,9 +326,11 @@ class TestTaskSubmission:
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"payload": {}}, None  # Missing task_type
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"payload": {}}, None),  # Missing task_type
+                ):
                     result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert get_status(result) == 400
@@ -325,8 +348,17 @@ class TestAgentUnregistration:
     def test_unregister_requires_auth(self, handler, mock_http_handler, mock_coordinator):
         """Should require authentication for agent unregistration."""
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(None, HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}))):
-                result = handler.handle_delete("/api/control-plane/agents/agent-1", {}, mock_http_handler)
+            with patch.object(
+                handler,
+                "require_auth_or_error",
+                return_value=(
+                    None,
+                    HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
+                ),
+            ):
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                )
 
         assert get_status(result) == 401
 
@@ -336,7 +368,9 @@ class TestAgentUnregistration:
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_delete("/api/control-plane/agents/agent-1", {}, mock_http_handler)
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                )
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -349,7 +383,9 @@ class TestAgentUnregistration:
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_delete("/api/control-plane/agents/nonexistent", {}, mock_http_handler)
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+                )
 
         assert get_status(result) == 404
 
@@ -369,9 +405,11 @@ class TestCoordinatorNotInitialized:
 
         with patch.object(handler, "_get_coordinator", return_value=None):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"agent_id": "agent-1"}, None
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"agent_id": "agent-1"}, None),
+                ):
                     result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert get_status(result) == 503
@@ -384,9 +422,11 @@ class TestCoordinatorNotInitialized:
 
         with patch.object(handler, "_get_coordinator", return_value=None):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                with patch.object(handler, "read_json_body_validated", return_value=(
-                    {"task_type": "debate"}, None
-                )):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"task_type": "debate"}, None),
+                ):
                     result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert get_status(result) == 503
@@ -433,7 +473,9 @@ class TestQueueEndpoint:
 
         mock_coordinator._scheduler = MagicMock()
         mock_coordinator._scheduler.list_by_status = AsyncMock(
-            side_effect=lambda status, limit: [mock_task_pending] if status.value == "pending" else [mock_task_running]
+            side_effect=lambda status, limit: (
+                [mock_task_pending] if status.value == "pending" else [mock_task_running]
+            )
         )
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
@@ -464,17 +506,19 @@ class TestMetricsEndpoint:
 
     def test_metrics_returns_dashboard_data(self, handler, mock_http_handler, mock_coordinator):
         """Should return metrics for dashboard."""
-        mock_coordinator.get_stats = AsyncMock(return_value={
-            "scheduler": {
-                "by_status": {"running": 2, "pending": 5, "completed": 10},
-                "by_type": {"audit": 3, "document_processing": 4}
-            },
-            "registry": {
-                "total_agents": 4,
-                "available_agents": 3,
-                "by_status": {"ready": 3, "busy": 1}
+        mock_coordinator.get_stats = AsyncMock(
+            return_value={
+                "scheduler": {
+                    "by_status": {"running": 2, "pending": 5, "completed": 10},
+                    "by_type": {"audit": 3, "document_processing": 4},
+                },
+                "registry": {
+                    "total_agents": 4,
+                    "available_agents": 3,
+                    "by_status": {"ready": 3, "busy": 1},
+                },
             }
-        })
+        )
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
             result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)

@@ -51,16 +51,18 @@ class CrossPollinationStatsHandler(BaseHandler):
             total_failed = sum(s["events_failed"] for s in stats.values())
             enabled_count = sum(1 for s in stats.values() if s.get("enabled", True))
 
-            return json_response({
-                "status": "ok",
-                "summary": {
-                    "total_subscribers": len(stats),
-                    "enabled_subscribers": enabled_count,
-                    "total_events_processed": total_processed,
-                    "total_events_failed": total_failed,
-                },
-                "subscribers": stats,
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "summary": {
+                        "total_subscribers": len(stats),
+                        "enabled_subscribers": enabled_count,
+                        "total_events_processed": total_processed,
+                        "total_events_failed": total_failed,
+                    },
+                    "subscribers": stats,
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -91,17 +93,23 @@ class CrossPollinationSubscribersHandler(BaseHandler):
             subscribers = []
             for event_type, handlers in manager._subscribers.items():
                 for name, handler in handlers:
-                    subscribers.append({
-                        "name": name,
-                        "event_type": event_type.value,
-                        "handler": handler.__name__ if hasattr(handler, "__name__") else str(handler),
-                    })
+                    subscribers.append(
+                        {
+                            "name": name,
+                            "event_type": event_type.value,
+                            "handler": (
+                                handler.__name__ if hasattr(handler, "__name__") else str(handler)
+                            ),
+                        }
+                    )
 
-            return json_response({
-                "status": "ok",
-                "count": len(subscribers),
-                "subscribers": subscribers,
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "count": len(subscribers),
+                    "subscribers": subscribers,
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -129,15 +137,16 @@ class CrossPollinationBridgeHandler(BaseHandler):
 
             # Get event type mappings
             mappings = {
-                event_str: stream_type.value
-                for event_str, stream_type in EVENT_TYPE_MAP.items()
+                event_str: stream_type.value for event_str, stream_type in EVENT_TYPE_MAP.items()
             }
 
-            return json_response({
-                "status": "ok",
-                "event_mappings": mappings,
-                "mapped_event_count": len(mappings),
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "event_mappings": mappings,
+                    "mapped_event_count": len(mappings),
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -203,10 +212,12 @@ class CrossPollinationResetHandler(BaseHandler):
             manager = get_cross_subscriber_manager()
             manager.reset_stats()
 
-            return json_response({
-                "status": "ok",
-                "message": "Cross-subscriber statistics reset",
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "message": "Cross-subscriber statistics reset",
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -270,36 +281,36 @@ class CrossPollinationKMHandler(BaseHandler):
             outbound_handlers = [h for h in km_handlers if h.startswith("mound_to")]
 
             inbound_processed = sum(
-                km_stats.get(h, {}).get("events_processed", 0)
-                for h in inbound_handlers
+                km_stats.get(h, {}).get("events_processed", 0) for h in inbound_handlers
             )
             outbound_processed = sum(
-                km_stats.get(h, {}).get("events_processed", 0)
-                for h in outbound_handlers
+                km_stats.get(h, {}).get("events_processed", 0) for h in outbound_handlers
             )
 
-            return json_response({
-                "status": "ok",
-                "summary": {
-                    "total_km_handlers": len(km_handlers),
-                    "inbound_handlers": len(inbound_handlers),
-                    "outbound_handlers": len(outbound_handlers),
-                    "inbound_events_processed": inbound_processed,
-                    "outbound_events_processed": outbound_processed,
-                },
-                "handlers": km_stats,
-                "batch_queue": batch_stats,
-                "adapters": {
-                    "ranking": "RankingAdapter - Agent expertise storage",
-                    "rlm": "RlmAdapter - Compression pattern storage",
-                    "continuum": "ContinuumAdapter - Memory tier mapping",
-                    "belief": "BeliefAdapter - Beliefs and cruxes",
-                    "insights": "InsightsAdapter - Insights and flips",
-                    "evidence": "EvidenceAdapter - Evidence reliability",
-                    "consensus": "ConsensusAdapter - Debate outcomes",
-                    "critique": "CritiqueAdapter - Pattern success rates",
-                },
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "summary": {
+                        "total_km_handlers": len(km_handlers),
+                        "inbound_handlers": len(inbound_handlers),
+                        "outbound_handlers": len(outbound_handlers),
+                        "inbound_events_processed": inbound_processed,
+                        "outbound_events_processed": outbound_processed,
+                    },
+                    "handlers": km_stats,
+                    "batch_queue": batch_stats,
+                    "adapters": {
+                        "ranking": "RankingAdapter - Agent expertise storage",
+                        "rlm": "RlmAdapter - Compression pattern storage",
+                        "continuum": "ContinuumAdapter - Memory tier mapping",
+                        "belief": "BeliefAdapter - Beliefs and cruxes",
+                        "insights": "InsightsAdapter - Insights and flips",
+                        "evidence": "EvidenceAdapter - Evidence reliability",
+                        "consensus": "ConsensusAdapter - Debate outcomes",
+                        "critique": "CritiqueAdapter - Pattern success rates",
+                    },
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -402,13 +413,15 @@ class CrossPollinationKMSyncHandler(BaseHandler):
             except ImportError:
                 pass
 
-            return json_response({
-                "status": "ok",
-                "message": "KM adapters synced",
-                "results": results,
-                "batches_flushed": batch_flushed,
-                "duration_ms": round(duration_ms, 2),
-            })
+            return json_response(
+                {
+                    "status": "ok",
+                    "message": "KM adapters synced",
+                    "results": results,
+                    "batches_flushed": batch_flushed,
+                    "duration_ms": round(duration_ms, 2),
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -443,12 +456,14 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
 
                 mound = get_knowledge_mound()
                 if mound is None:
-                    return json_response({
-                        "status": "ok",
-                        "message": "Knowledge Mound not available",
-                        "stale_nodes": 0,
-                        "workspace_id": workspace_id,
-                    })
+                    return json_response(
+                        {
+                            "status": "ok",
+                            "message": "Knowledge Mound not available",
+                            "stale_nodes": 0,
+                            "workspace_id": workspace_id,
+                        }
+                    )
 
                 # Create detector
                 detector = StalenessDetector(
@@ -470,26 +485,33 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
 
                 # Record metrics
                 try:
-                    from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                    from aragora.server.prometheus_cross_pollination import (
+                        record_km_staleness_check,
+                    )
+
                     record_km_staleness_check(workspace_id, "completed", stale_count)
                 except ImportError:
                     pass
 
-                return json_response({
-                    "status": "ok",
-                    "message": f"Found {stale_count} stale nodes",
-                    "stale_nodes": stale_count,
-                    "workspace_id": workspace_id,
-                    "threshold": 0.7,
-                    "duration_ms": round(duration_ms, 2),
-                })
+                return json_response(
+                    {
+                        "status": "ok",
+                        "message": f"Found {stale_count} stale nodes",
+                        "stale_nodes": stale_count,
+                        "workspace_id": workspace_id,
+                        "threshold": 0.7,
+                        "duration_ms": round(duration_ms, 2),
+                    }
+                )
 
             except ImportError as e:
-                return json_response({
-                    "status": "ok",
-                    "message": f"Staleness check module not available: {e}",
-                    "stale_nodes": 0,
-                })
+                return json_response(
+                    {
+                        "status": "ok",
+                        "message": f"Staleness check module not available: {e}",
+                        "stale_nodes": 0,
+                    }
+                )
 
         except Exception as e:
             logger.exception(f"Failed to run staleness check: {e}")
@@ -508,45 +530,57 @@ class CrossPollinationKMCultureHandler(BaseHandler):
     async def get(self) -> HandlerResult:
         """Get culture patterns."""
         try:
-            workspace_id = self.request.query.get("workspace_id", "default") if hasattr(self, "request") else "default"
+            workspace_id = (
+                self.request.query.get("workspace_id", "default")
+                if hasattr(self, "request")
+                else "default"
+            )
 
             try:
                 from aragora.knowledge.mound.facade import get_knowledge_mound
 
                 mound = get_knowledge_mound()
                 if mound is None or not hasattr(mound, "_culture_accumulator"):
-                    return json_response({
-                        "status": "ok",
-                        "message": "Culture accumulator not available",
-                        "workspace_id": workspace_id,
-                        "patterns": [],
-                    })
+                    return json_response(
+                        {
+                            "status": "ok",
+                            "message": "Culture accumulator not available",
+                            "workspace_id": workspace_id,
+                            "patterns": [],
+                        }
+                    )
 
                 accumulator = mound._culture_accumulator
                 if accumulator is None:
-                    return json_response({
-                        "status": "ok",
-                        "message": "Culture accumulator not initialized",
-                        "workspace_id": workspace_id,
-                        "patterns": [],
-                    })
+                    return json_response(
+                        {
+                            "status": "ok",
+                            "message": "Culture accumulator not initialized",
+                            "workspace_id": workspace_id,
+                            "patterns": [],
+                        }
+                    )
 
                 # Get patterns summary
                 summary = accumulator.get_patterns_summary(workspace_id)
 
-                return json_response({
-                    "status": "ok",
-                    "workspace_id": workspace_id,
-                    **summary,
-                })
+                return json_response(
+                    {
+                        "status": "ok",
+                        "workspace_id": workspace_id,
+                        **summary,
+                    }
+                )
 
             except ImportError as e:
-                return json_response({
-                    "status": "ok",
-                    "message": f"Culture module not available: {e}",
-                    "workspace_id": workspace_id,
-                    "patterns": [],
-                })
+                return json_response(
+                    {
+                        "status": "ok",
+                        "message": f"Culture module not available: {e}",
+                        "workspace_id": workspace_id,
+                        "patterns": [],
+                    }
+                )
 
         except Exception as e:
             logger.exception(f"Failed to get culture patterns: {e}")

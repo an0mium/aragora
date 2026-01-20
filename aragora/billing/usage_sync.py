@@ -157,7 +157,8 @@ class UsageSyncService:
 
         with sqlite3.connect(self._db_path) as conn:
             # Watermarks table (existing)
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
                     org_id TEXT NOT NULL,
                     tokens_in INTEGER DEFAULT 0,
@@ -167,10 +168,12 @@ class UsageSyncService:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (org_id, period_start)
                 )
-            """)
+            """
+            )
 
             # Sync records table for two-phase commit (prevents double-billing on restart)
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS usage_sync_records (
                     id TEXT PRIMARY KEY,
                     org_id TEXT NOT NULL,
@@ -185,24 +188,31 @@ class UsageSyncService:
                     completed_at TEXT,
                     error TEXT
                 )
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_sync_records_status
                 ON usage_sync_records (status)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_sync_records_org_period
                 ON usage_sync_records (org_id, period_start)
-            """)
+            """
+            )
 
             # Billing period state table (for detecting transitions across restarts)
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS usage_sync_state (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def _load_last_billing_period(self) -> Optional[datetime]:
@@ -256,8 +266,7 @@ class UsageSyncService:
 
                 if rows:
                     logger.info(
-                        f"Loaded sync watermarks for {len(rows)} orgs "
-                        f"(period: {period_start})"
+                        f"Loaded sync watermarks for {len(rows)} orgs " f"(period: {period_start})"
                     )
 
             # Reconcile any pending syncs from previous process (crash recovery)
@@ -266,9 +275,7 @@ class UsageSyncService:
         except sqlite3.Error as e:
             logger.warning(f"Failed to load sync state from database: {e}")
 
-    def _get_idempotency_key(
-        self, org_id: str, sync_type: str, cumulative_total: int
-    ) -> str:
+    def _get_idempotency_key(self, org_id: str, sync_type: str, cumulative_total: int) -> str:
         """Generate content-based idempotency key for Stripe.
 
         Unlike timestamp-based keys, this key is stable for the same usage amount
@@ -411,8 +418,14 @@ class UsageSyncService:
 
             logger.info(f"Reconciling {len(pending)} pending sync records from previous run")
 
-            for (record_id, org_id, sync_type, quantity,
-                 cumulative_total, idempotency_key) in pending:
+            for (
+                record_id,
+                org_id,
+                sync_type,
+                quantity,
+                cumulative_total,
+                idempotency_key,
+            ) in pending:
                 try:
                     # Get org's billing config
                     config = self._get_billing_config(org_id)
@@ -461,15 +474,11 @@ class UsageSyncService:
                     )
 
                 except StripeAPIError as e:
-                    logger.error(
-                        f"Failed to reconcile sync {record_id} for org {org_id}: {e}"
-                    )
+                    logger.error(f"Failed to reconcile sync {record_id} for org {org_id}: {e}")
                     self._fail_sync(record_id, f"Stripe verification failed: {e}")
 
                 except Exception as e:
-                    logger.error(
-                        f"Unexpected error reconciling sync {record_id}: {e}"
-                    )
+                    logger.error(f"Unexpected error reconciling sync {record_id}: {e}")
                     self._fail_sync(record_id, f"Reconciliation error: {e}")
 
         except sqlite3.Error as e:
@@ -489,9 +498,7 @@ class UsageSyncService:
             return config
         return None
 
-    def _get_subscription_item_id(
-        self, config: OrgBillingConfig, sync_type: str
-    ) -> Optional[str]:
+    def _get_subscription_item_id(self, config: OrgBillingConfig, sync_type: str) -> Optional[str]:
         """Get the subscription item ID for a sync type."""
         if sync_type == "tokens_input":
             return config.tokens_input_item_id
@@ -767,9 +774,7 @@ class UsageSyncService:
         )
 
         # Phase 1: Generate content-based idempotency key and record pending sync
-        idempotency_key = self._get_idempotency_key(
-            config.org_id, sync_type, cumulative_total
-        )
+        idempotency_key = self._get_idempotency_key(config.org_id, sync_type, cumulative_total)
 
         try:
             # Record pending sync BEFORE calling Stripe

@@ -18,9 +18,7 @@ import importlib.util
 import os
 
 _batch_utils_path = os.path.join(
-    os.path.dirname(__file__),
-    "..", "..", "..",
-    "aragora", "debate", "phases", "batch_utils.py"
+    os.path.dirname(__file__), "..", "..", "..", "aragora", "debate", "phases", "batch_utils.py"
 )
 _spec = importlib.util.spec_from_file_location("batch_utils", os.path.abspath(_batch_utils_path))
 _batch_utils = importlib.util.module_from_spec(_spec)
@@ -133,7 +131,7 @@ class TestDebateBatchResult:
             failed_agents=["agent_c"],
         )
 
-        assert result.success_rate == pytest.approx(2/3)
+        assert result.success_rate == pytest.approx(2 / 3)
         assert len(result.successful_agents) == 2
         assert len(result.failed_agents) == 1
 
@@ -232,6 +230,7 @@ class TestBatchWithAgents:
     @pytest.mark.asyncio
     async def test_empty_agents(self):
         """Test with empty agent list."""
+
         async def process(agent):
             return "result"
 

@@ -249,9 +249,7 @@ class TestOpenAIEmbedding:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"data": [{"embedding": mock_embedding}]}
-        )
+        mock_response.json = AsyncMock(return_value={"data": [{"embedding": mock_embedding}]})
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -264,6 +262,7 @@ class TestOpenAIEmbedding:
             provider = OpenAIEmbedding(api_key="test-key")
             # Clear cache to ensure API call
             from aragora.memory.embeddings import _get_embedding_cache
+
             _get_embedding_cache()._cache.clear()
 
             result = await provider.embed("test text")
@@ -277,9 +276,7 @@ class TestOpenAIEmbedding:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"data": [{"embedding": mock_embedding}]}
-        )
+        mock_response.json = AsyncMock(return_value={"data": [{"embedding": mock_embedding}]})
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -291,6 +288,7 @@ class TestOpenAIEmbedding:
         with patch("aiohttp.ClientSession", return_value=mock_session):
             provider = OpenAIEmbedding(api_key="test-key")
             from aragora.memory.embeddings import _get_embedding_cache
+
             _get_embedding_cache()._cache.clear()
 
             # First call - should hit API
@@ -361,9 +359,7 @@ class TestGeminiEmbedding:
 
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"embedding": {"values": mock_embedding}}
-        )
+        mock_response.json = AsyncMock(return_value={"embedding": {"values": mock_embedding}})
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -375,6 +371,7 @@ class TestGeminiEmbedding:
         with patch("aiohttp.ClientSession", return_value=mock_session):
             provider = GeminiEmbedding(api_key="test-key")
             from aragora.memory.embeddings import _get_embedding_cache
+
             _get_embedding_cache()._cache.clear()
 
             result = await provider.embed("test text gemini unique")
@@ -453,9 +450,7 @@ class TestSemanticRetriever:
 
     def test_auto_detect_provider_gemini(self, temp_db):
         """Test auto-detection uses Gemini when OpenAI not available."""
-        with patch.dict(
-            "os.environ", {"GEMINI_API_KEY": "test-key"}, clear=True
-        ):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}, clear=True):
             retriever = SemanticRetriever(temp_db)
             assert isinstance(retriever.provider, GeminiEmbedding)
 
@@ -549,9 +544,7 @@ class TestSemanticRetriever:
         await retriever.embed_and_store("id1", "completely unrelated topic")
 
         # With very high threshold, should get no results
-        results = await retriever.find_similar(
-            "different subject", limit=10, min_similarity=0.99
-        )
+        results = await retriever.find_similar("different subject", limit=10, min_similarity=0.99)
         # May or may not have results depending on hash-based similarity
         for _, _, similarity in results:
             assert similarity >= 0.99
@@ -656,9 +649,7 @@ class TestEmbeddingIntegration:
             await retriever.embed_and_store(doc_id, text)
 
         # Search
-        results = await retriever.find_similar(
-            "Python programming", limit=2, min_similarity=0.0
-        )
+        results = await retriever.find_similar("Python programming", limit=2, min_similarity=0.0)
 
         assert len(results) <= 2
         # All results should have required fields
@@ -690,10 +681,7 @@ class TestEmbeddingIntegration:
         retriever = SemanticRetriever(temp_db)
 
         # Create multiple embedding tasks
-        tasks = [
-            retriever.embed_and_store(f"id{i}", f"text {i}")
-            for i in range(10)
-        ]
+        tasks = [retriever.embed_and_store(f"id{i}", f"text {i}") for i in range(10)]
 
         # Run concurrently
         results = await asyncio.gather(*tasks)

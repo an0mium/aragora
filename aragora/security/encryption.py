@@ -549,7 +549,9 @@ class EncryptionService:
         plaintext = self.decrypt(encrypted, associated_data)
         return self.encrypt(plaintext, associated_data, new_key_id)
 
-    def _get_key(self, key_id: Optional[str] = None, version: Optional[int] = None) -> EncryptionKey:
+    def _get_key(
+        self, key_id: Optional[str] = None, version: Optional[int] = None
+    ) -> EncryptionKey:
         """Get a key by ID or the active key."""
         if key_id is None:
             key_id = self._active_key_id

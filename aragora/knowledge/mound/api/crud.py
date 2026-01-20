@@ -24,7 +24,6 @@ if TYPE_CHECKING:
         IngestionRequest,
         IngestionResult,
         KnowledgeItem,
-        KnowledgeSource,
         MoundConfig,
     )
 
@@ -48,7 +47,9 @@ class CRUDProtocol(Protocol):
     async def _delete_node(self, node_id: str) -> bool: ...
     async def _archive_node(self, node_id: str) -> None: ...
     async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None: ...
-    async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> Optional[str]: ...
+    async def _find_by_content_hash(
+        self, content_hash: str, workspace_id: str
+    ) -> Optional[str]: ...
     async def _increment_update_count(self, node_id: str) -> None: ...
 
 
@@ -323,7 +324,6 @@ class CRUDOperationsMixin:
         Returns:
             A dict-like object with node_type, content, etc., or None
         """
-        from aragora.knowledge.mound.types import KnowledgeItem
 
         item = await self.get(node_id)
         if item is None:
@@ -339,7 +339,13 @@ class CRUDOperationsMixin:
                 if hasattr(item.confidence, "value"):
                     conf_val = item.confidence.value
                     # Map string confidence levels to numeric values
-                    conf_map = {"verified": 0.95, "high": 0.85, "medium": 0.7, "low": 0.4, "unverified": 0.2}
+                    conf_map = {
+                        "verified": 0.95,
+                        "high": 0.85,
+                        "medium": 0.7,
+                        "low": 0.4,
+                        "unverified": 0.2,
+                    }
                     self.confidence = conf_map.get(conf_val, 0.5)
                 elif isinstance(item.confidence, (int, float)):
                     self.confidence = float(item.confidence)

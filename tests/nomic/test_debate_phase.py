@@ -61,9 +61,7 @@ class TestDebatePhaseProposals:
         mock_claude_agent.generate = AsyncMock(
             return_value="Proposal: Add comprehensive error handling"
         )
-        mock_codex_agent.generate = AsyncMock(
-            return_value="Proposal: Optimize database queries"
-        )
+        mock_codex_agent.generate = AsyncMock(return_value="Proposal: Optimize database queries")
 
         phase = DebatePhase(
             aragora_path=mock_aragora_path,
@@ -72,10 +70,18 @@ class TestDebatePhaseProposals:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_generate_proposals', new_callable=AsyncMock) as mock_gen:
+        with patch.object(phase, "_generate_proposals", new_callable=AsyncMock) as mock_gen:
             mock_gen.return_value = [
-                {"agent": "claude", "proposal": "Add error handling", "reasoning": "Improves reliability"},
-                {"agent": "codex", "proposal": "Optimize queries", "reasoning": "Improves performance"},
+                {
+                    "agent": "claude",
+                    "proposal": "Add error handling",
+                    "reasoning": "Improves reliability",
+                },
+                {
+                    "agent": "codex",
+                    "proposal": "Optimize queries",
+                    "reasoning": "Improves performance",
+                },
             ]
 
             proposals = await phase.generate_proposals(context="Current codebase state")
@@ -97,7 +103,7 @@ class TestDebatePhaseProposals:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_generate_proposals', new_callable=AsyncMock) as mock_gen:
+        with patch.object(phase, "_generate_proposals", new_callable=AsyncMock) as mock_gen:
             mock_gen.side_effect = Exception("Agent timeout")
 
             # Should not raise, should return empty or partial results
@@ -132,7 +138,7 @@ class TestDebatePhaseVoting:
             {"id": "p2", "proposal": "Optimize queries"},
         ]
 
-        with patch.object(phase, '_collect_votes', new_callable=AsyncMock) as mock_votes:
+        with patch.object(phase, "_collect_votes", new_callable=AsyncMock) as mock_votes:
             mock_votes.return_value = {
                 "claude": "p1",
                 "codex": "p1",
@@ -254,8 +260,8 @@ class TestDebatePhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_proposals', new_callable=AsyncMock) as mock_proposals:
-            with patch.object(phase, 'collect_votes', new_callable=AsyncMock) as mock_votes:
+        with patch.object(phase, "generate_proposals", new_callable=AsyncMock) as mock_proposals:
+            with patch.object(phase, "collect_votes", new_callable=AsyncMock) as mock_votes:
                 mock_proposals.return_value = [
                     {"id": "p1", "proposal": "Add error handling"},
                 ]
@@ -281,7 +287,7 @@ class TestDebatePhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_proposals', new_callable=AsyncMock) as mock_proposals:
+        with patch.object(phase, "generate_proposals", new_callable=AsyncMock) as mock_proposals:
             mock_proposals.return_value = []
 
             result = await phase.run(context="Test context")

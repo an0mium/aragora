@@ -249,10 +249,16 @@ class TestPKCE:
 
         # Verifier should be URL-safe base64
         assert len(verifier) >= 43  # Minimum length per spec
-        assert all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for c in verifier)
+        assert all(
+            c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+            for c in verifier
+        )
 
         # Challenge should also be URL-safe base64
-        assert all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for c in challenge)
+        assert all(
+            c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+            for c in challenge
+        )
 
     def test_pkce_challenge_derivation(self):
         """Test that challenge is correctly derived from verifier."""

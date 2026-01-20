@@ -24,6 +24,7 @@ import pytest
 # Check if openai is available
 try:
     import openai
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -31,18 +32,15 @@ except ImportError:
 # Check if faster-whisper is available
 try:
     from faster_whisper import WhisperModel as _FasterWhisperModel
+
     FASTER_WHISPER_AVAILABLE = True
 except ImportError:
     FASTER_WHISPER_AVAILABLE = False
 
-requires_openai = pytest.mark.skipif(
-    not OPENAI_AVAILABLE,
-    reason="openai not installed"
-)
+requires_openai = pytest.mark.skipif(not OPENAI_AVAILABLE, reason="openai not installed")
 
 requires_faster_whisper = pytest.mark.skipif(
-    not FASTER_WHISPER_AVAILABLE,
-    reason="faster-whisper not installed"
+    not FASTER_WHISPER_AVAILABLE, reason="faster-whisper not installed"
 )
 
 from aragora.transcription.whisper_backend import (
@@ -274,9 +272,7 @@ class TestOpenAIWhisperBackend:
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
             backend = OpenAIWhisperBackend()
             backend._client = MagicMock()
-            backend._client.audio.transcriptions.create.side_effect = Exception(
-                "API Error"
-            )
+            backend._client.audio.transcriptions.create.side_effect = Exception("API Error")
 
             with pytest.raises(Exception, match="API Error"):
                 await backend.transcribe(sample_audio_file)
@@ -324,6 +320,7 @@ class TestWhisperCppBackend:
     def test_initialization_with_binary(self):
         """Test backend initialization when binary is available."""
         import shutil
+
         whisper_path = shutil.which("whisper")
         if whisper_path:
             backend = WhisperCppBackend()
@@ -335,6 +332,7 @@ class TestWhisperCppBackend:
         """Test is_available when whisper.cpp not in PATH."""
         import shutil
         import os
+
         # Check for whisper-cpp binary (the actual name used)
         if shutil.which("whisper-cpp") is not None or os.getenv("WHISPER_CPP_PATH"):
             pytest.skip("whisper-cpp is installed")
@@ -366,6 +364,7 @@ class TestBackendSelection:
     def test_get_whisper_cpp_backend(self):
         """Test selecting whisper.cpp backend."""
         import shutil
+
         if shutil.which("whisper") is not None:
             backend = get_transcription_backend("whisper-cpp")
             assert isinstance(backend, WhisperCppBackend)

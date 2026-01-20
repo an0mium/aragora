@@ -59,9 +59,7 @@ class TestQueryWithRefinement:
             original_tokens=100,
         )
 
-        result = await rlm.query_with_refinement(
-            "test query", context, max_iterations=5
-        )
+        result = await rlm.query_with_refinement("test query", context, max_iterations=5)
 
         assert result.ready is True
         assert result.iteration == 2  # 0-indexed, so 3 iterations
@@ -83,9 +81,7 @@ class TestQueryWithRefinement:
             original_tokens=100,
         )
 
-        result = await rlm.query_with_refinement(
-            "test query", context, max_iterations=3
-        )
+        result = await rlm.query_with_refinement("test query", context, max_iterations=3)
 
         assert rlm.query.call_count == 3
 

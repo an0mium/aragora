@@ -213,7 +213,9 @@ class TestCritiqueAdapterPatternValidation:
         """Test validation with low success rate."""
         # Record mostly failures
         for i in range(6):
-            adapter.record_pattern_usage("bad_pattern", f"debate_{i}", i < 1)  # 1 success, 5 failures
+            adapter.record_pattern_usage(
+                "bad_pattern", f"debate_{i}", i < 1
+            )  # 1 success, 5 failures
 
         validation = await adapter.validate_pattern_from_km("bad_pattern", [])
 
@@ -508,12 +510,14 @@ class TestCritiqueAdapterIntegration:
         # 1. Create KM items showing agent success
         km_items = []
         for i in range(8):
-            km_items.append({
-                "metadata": {
-                    "agent_name": "claude",
-                    "outcome_success": i < 7,  # 87.5% success
+            km_items.append(
+                {
+                    "metadata": {
+                        "agent_name": "claude",
+                        "outcome_success": i < 7,  # 87.5% success
+                    }
                 }
-            })
+            )
 
         # 2. Compute adjustment
         adjustment = await adapter.compute_reputation_adjustment("claude", km_items)

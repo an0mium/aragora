@@ -93,9 +93,7 @@ class RelationshipBiasBridge:
     """
 
     relationship_tracker: Optional["RelationshipTracker"] = None
-    config: RelationshipBiasBridgeConfig = field(
-        default_factory=RelationshipBiasBridgeConfig
-    )
+    config: RelationshipBiasBridgeConfig = field(default_factory=RelationshipBiasBridgeConfig)
 
     # Cache for relationship metrics
     _metrics_cache: Dict[Tuple[str, str], "RelationshipMetrics"] = field(

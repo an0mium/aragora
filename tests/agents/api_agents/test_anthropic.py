@@ -279,7 +279,9 @@ class TestAnthropicQuotaFallback:
                 assert result == "Fallback response" or mock_fallback.called
 
     @pytest.mark.asyncio
-    async def test_no_fallback_when_disabled(self, mock_env_with_api_keys, mock_quota_error_response):
+    async def test_no_fallback_when_disabled(
+        self, mock_env_with_api_keys, mock_quota_error_response
+    ):
         """Should raise error when fallback is disabled."""
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
@@ -302,9 +304,7 @@ class TestAnthropicCritique:
     """Tests for critique method."""
 
     @pytest.mark.asyncio
-    async def test_critique_returns_structured_feedback(
-        self, mock_env_with_api_keys
-    ):
+    async def test_critique_returns_structured_feedback(self, mock_env_with_api_keys):
         """Should return structured critique."""
         from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 

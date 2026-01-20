@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # RLM Ready Signal Configuration
 RLM_HIGH_CONFIDENCE_THRESHOLD = 0.8  # Confidence needed for early termination
-RLM_MIN_CONFIDENCE_FOR_STOP = 0.6    # Minimum confidence to consider stopping
+RLM_MIN_CONFIDENCE_FOR_STOP = 0.6  # Minimum confidence to consider stopping
 
 
 @dataclass
@@ -276,7 +276,7 @@ Where confidence indicates how certain you are in your assessment:
             reason = ""
 
             # Extract JSON from response (may be surrounded by markdown)
-            json_match = re.search(r'\{[^{}]*\}', response_str)
+            json_match = re.search(r"\{[^{}]*\}", response_str)
             if json_match:
                 try:
                     data = json.loads(json_match.group())

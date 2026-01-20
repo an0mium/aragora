@@ -133,9 +133,7 @@ class NotionConnector(EnterpriseConnector):
         token = await self.credentials.get_credential("NOTION_API_TOKEN")
 
         if not token:
-            raise ValueError(
-                "Notion credentials not configured. Set NOTION_API_TOKEN"
-            )
+            raise ValueError("Notion credentials not configured. Set NOTION_API_TOKEN")
 
         return {
             "Authorization": f"Bearer {token}",
@@ -382,9 +380,7 @@ class NotionConnector(EnterpriseConnector):
 
         if data.get("created_time"):
             try:
-                created_at = datetime.fromisoformat(
-                    data["created_time"].replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(data["created_time"].replace("Z", "+00:00"))
             except ValueError as e:
                 logger.debug(f"Invalid created_time format: {e}")
 
@@ -426,9 +422,7 @@ class NotionConnector(EnterpriseConnector):
 
         if data.get("created_time"):
             try:
-                created_at = datetime.fromisoformat(
-                    data["created_time"].replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(data["created_time"].replace("Z", "+00:00"))
             except ValueError as e:
                 logger.debug(f"Invalid created_time format: {e}")
 
@@ -826,14 +820,14 @@ class NotionConnector(EnterpriseConnector):
                                 continue
 
                             # Extract properties content
-                            props_content = self._extract_database_entry_content(
-                                entry, database
-                            )
+                            props_content = self._extract_database_entry_content(entry, database)
 
                             # Get page content
                             page_content = await self._get_page_content(entry_page.id)
 
-                            full_content = f"# {entry_page.title}\n\n{props_content}\n\n{page_content}"
+                            full_content = (
+                                f"# {entry_page.title}\n\n{props_content}\n\n{page_content}"
+                            )
 
                             yield SyncItem(
                                 id=f"notion-db-{database.id}-{entry_page.id}",

@@ -53,6 +53,7 @@ class UncertaintyHandler(BaseHandler):
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             parse_qs(query_str)
 
         # POST /api/uncertainty/estimate
@@ -89,6 +90,7 @@ class UncertaintyHandler(BaseHandler):
         """Get the ConfidenceEstimator instance."""
         try:
             from aragora.uncertainty.estimator import ConfidenceEstimator
+
             # Use a shared instance from context if available
             if hasattr(self, "_ctx") and self._ctx and "confidence_estimator" in self._ctx:
                 return self._ctx["confidence_estimator"]
@@ -102,6 +104,7 @@ class UncertaintyHandler(BaseHandler):
         """Get the DisagreementAnalyzer instance."""
         try:
             from aragora.uncertainty.estimator import DisagreementAnalyzer
+
             return DisagreementAnalyzer()
         except ImportError:
             logger.warning("Uncertainty module not available")
@@ -132,33 +135,39 @@ class UncertaintyHandler(BaseHandler):
             messages = []
             for msg_data in data.get("messages", []):
                 if isinstance(msg_data, dict):
-                    messages.append(Message(
-                        content=msg_data.get("content", ""),
-                        agent=msg_data.get("agent", "unknown"),
-                        role=msg_data.get("role", "agent"),
-                        round=msg_data.get("round", 0),
-                    ))
+                    messages.append(
+                        Message(
+                            content=msg_data.get("content", ""),
+                            agent=msg_data.get("agent", "unknown"),
+                            role=msg_data.get("role", "agent"),
+                            round=msg_data.get("round", 0),
+                        )
+                    )
 
             # Parse votes
             votes = []
             for vote_data in data.get("votes", []):
                 if isinstance(vote_data, dict):
-                    votes.append(Vote(
-                        agent=vote_data.get("agent", "unknown"),
-                        choice=vote_data.get("choice", ""),
-                        reasoning=vote_data.get("reasoning", ""),
-                        confidence=vote_data.get("confidence", 0.5),
-                    ))
+                    votes.append(
+                        Vote(
+                            agent=vote_data.get("agent", "unknown"),
+                            choice=vote_data.get("choice", ""),
+                            reasoning=vote_data.get("reasoning", ""),
+                            confidence=vote_data.get("confidence", 0.5),
+                        )
+                    )
 
             proposals = data.get("proposals", {})
 
             # Analyze uncertainty
             metrics = estimator.analyze_disagreement(messages, votes, proposals)
 
-            return json_response({
-                "metrics": metrics.to_dict(),
-                "message": "Uncertainty estimated successfully",
-            })
+            return json_response(
+                {
+                    "metrics": metrics.to_dict(),
+                    "message": "Uncertainty estimated successfully",
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid data for uncertainty estimation: {e}")
@@ -192,13 +201,15 @@ class UncertaintyHandler(BaseHandler):
             cruxes = []
             for crux_data in data.get("cruxes", []):
                 if isinstance(crux_data, dict):
-                    cruxes.append(DisagreementCrux(
-                        description=crux_data.get("description", ""),
-                        divergent_agents=crux_data.get("divergent_agents", []),
-                        evidence_needed=crux_data.get("evidence_needed", ""),
-                        severity=crux_data.get("severity", 0.5),
-                        crux_id=crux_data.get("id", ""),
-                    ))
+                    cruxes.append(
+                        DisagreementCrux(
+                            description=crux_data.get("description", ""),
+                            divergent_agents=crux_data.get("divergent_agents", []),
+                            evidence_needed=crux_data.get("evidence_needed", ""),
+                            severity=crux_data.get("severity", 0.5),
+                            crux_id=crux_data.get("id", ""),
+                        )
+                    )
 
             if not cruxes:
                 return error_response("No cruxes provided", 400)
@@ -213,10 +224,12 @@ class UncertaintyHandler(BaseHandler):
                 available_agents=available_agents,
             )
 
-            return json_response({
-                "followups": [s.to_dict() for s in suggestions],
-                "total": len(suggestions),
-            })
+            return json_response(
+                {
+                    "followups": [s.to_dict() for s in suggestions],
+                    "total": len(suggestions),
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid data for follow-up generation: {e}")
@@ -255,10 +268,12 @@ class UncertaintyHandler(BaseHandler):
 
             metrics = estimator.analyze_disagreement(messages, votes, proposals)
 
-            return json_response({
-                "debate_id": debate_id,
-                "metrics": metrics.to_dict(),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "metrics": metrics.to_dict(),
+                }
+            )
 
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error getting debate uncertainty: {e}")
@@ -287,18 +302,22 @@ class UncertaintyHandler(BaseHandler):
             calibration_history: List[Dict[str, Any]] = []
             if agent_id in estimator.calibration_history:
                 for confidence, was_correct in estimator.calibration_history[agent_id][-10:]:
-                    calibration_history.append({
-                        "confidence": confidence,
-                        "was_correct": was_correct,
-                    })
+                    calibration_history.append(
+                        {
+                            "confidence": confidence,
+                            "was_correct": was_correct,
+                        }
+                    )
 
-            return json_response({
-                "agent_id": agent_id,
-                "calibration_quality": calibration_quality,
-                "confidence_history": confidence_history,
-                "calibration_history": calibration_history,
-                "brier_score": estimator.brier_scores.get(agent_id),
-            })
+            return json_response(
+                {
+                    "agent_id": agent_id,
+                    "calibration_quality": calibration_quality,
+                    "confidence_history": confidence_history,
+                    "calibration_history": calibration_history,
+                    "brier_score": estimator.brier_scores.get(agent_id),
+                }
+            )
 
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error getting agent calibration: {e}")

@@ -138,9 +138,7 @@ class VerticalRegistry:
         instance = cls.get(vertical_id)
         if instance is None:
             available = list(cls._registry.keys())
-            raise KeyError(
-                f"Unknown vertical: '{vertical_id}'. Available: {available}"
-            )
+            raise KeyError(f"Unknown vertical: '{vertical_id}'. Available: {available}")
         return instance
 
     @classmethod

@@ -127,15 +127,19 @@ class HiveMindPattern(WorkflowPattern):
 
         # Create transitions
         for agent_id in agent_step_ids:
-            transitions.append(self._create_transition(
-                from_step=agent_id,
-                to_step="consensus_merge",
-            ))
+            transitions.append(
+                self._create_transition(
+                    from_step=agent_id,
+                    to_step="consensus_merge",
+                )
+            )
 
-        transitions.append(self._create_transition(
-            from_step="consensus_merge",
-            to_step="synthesis",
-        ))
+        transitions.append(
+            self._create_transition(
+                from_step="consensus_merge",
+                to_step="synthesis",
+            )
+        )
 
         # Set next_steps for sequential fallback
         for i, step in enumerate(steps[:-1]):

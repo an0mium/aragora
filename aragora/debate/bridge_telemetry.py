@@ -37,10 +37,9 @@ import functools
 import logging
 import threading
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, Generator, List, Optional, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -108,18 +107,14 @@ class BridgeMetrics:
         self.last_operation_time = datetime.now()
 
         # Track by operation type
-        self.operations_by_type[op.operation] = (
-            self.operations_by_type.get(op.operation, 0) + 1
-        )
+        self.operations_by_type[op.operation] = self.operations_by_type.get(op.operation, 0) + 1
 
         if op.success:
             self.successful_operations += 1
         else:
             self.failed_operations += 1
             if op.error_type:
-                self.errors_by_type[op.error_type] = (
-                    self.errors_by_type.get(op.error_type, 0) + 1
-                )
+                self.errors_by_type[op.error_type] = self.errors_by_type.get(op.error_type, 0) + 1
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -131,9 +126,7 @@ class BridgeMetrics:
             "success_rate": self.success_rate,
             "avg_duration_ms": self.avg_duration_ms,
             "last_operation_time": (
-                self.last_operation_time.isoformat()
-                if self.last_operation_time
-                else None
+                self.last_operation_time.isoformat() if self.last_operation_time else None
             ),
             "operations_by_type": self.operations_by_type,
             "errors_by_type": self.errors_by_type,
@@ -371,9 +364,7 @@ def get_bridge_telemetry_stats() -> Dict[str, Any]:
             success_rate = successful_ops / total_ops
 
         return {
-            "bridges": {
-                name: metrics.to_dict() for name, metrics in _bridge_metrics.items()
-            },
+            "bridges": {name: metrics.to_dict() for name, metrics in _bridge_metrics.items()},
             "recent_operations_count": len(_recent_operations),
             "total_operations": total_ops,
             "overall_success_rate": success_rate,

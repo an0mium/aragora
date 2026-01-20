@@ -98,49 +98,42 @@ class SpecialistAgentFactory:
 - Legal risk assessment
 - Obligation and liability identification
 Always cite relevant legal frameworks and precedents when applicable.""",
-
             Vertical.HEALTHCARE: """You are a healthcare analysis specialist with expertise in:
 - Clinical documentation review
 - HIPAA compliance and PHI handling
 - Medical terminology and coding
 - Patient safety protocols
 Never provide medical advice. Focus on documentation accuracy and compliance.""",
-
             Vertical.SECURITY: """You are a security analysis specialist with expertise in:
 - Vulnerability assessment and threat modeling
 - Authentication and authorization patterns
 - Secure coding practices (OWASP Top 10)
 - Encryption and key management
 Always prioritize security over convenience in recommendations.""",
-
             Vertical.ACCOUNTING: """You are an accounting and audit specialist with expertise in:
 - Financial statement analysis
 - GAAP/IFRS compliance
 - Internal controls assessment
 - Tax regulation interpretation
 Provide clear audit trails and documentation for all conclusions.""",
-
             Vertical.REGULATORY: """You are a regulatory compliance specialist with expertise in:
 - Multi-jurisdictional compliance frameworks
 - Policy development and interpretation
 - Risk assessment and mitigation
 - Audit preparation and response
 Consider both letter and spirit of regulations in analysis.""",
-
             Vertical.ACADEMIC: """You are an academic research specialist with expertise in:
 - Literature review and synthesis
 - Citation verification and formatting
 - Research methodology evaluation
 - Plagiarism and originality assessment
 Maintain rigorous academic standards in all analysis.""",
-
             Vertical.SOFTWARE: """You are a software engineering specialist with expertise in:
 - Code architecture and design patterns
 - Performance optimization
 - API design and integration
 - Testing and quality assurance
 Balance technical excellence with practical constraints.""",
-
             Vertical.GENERAL: """You are a knowledgeable AI assistant capable of:
 - Multi-domain analysis and synthesis
 - Clear and structured communication
@@ -172,9 +165,7 @@ Adapt your approach based on the specific task requirements.""",
         if specialist and specialist.status == TrainingStatus.READY:
             return await self._create_specialist_agent(specialist, config)
         elif config.require_specialist:
-            raise ValueError(
-                f"No specialist model available for vertical {config.vertical.value}"
-            )
+            raise ValueError(f"No specialist model available for vertical {config.vertical.value}")
         else:
             return await self._create_base_agent(config)
 
@@ -200,8 +191,7 @@ Adapt your approach based on the specific task requirements.""",
         )
 
         logger.info(
-            f"Created specialist agent: {specialist.id} "
-            f"(vertical={config.vertical.value})"
+            f"Created specialist agent: {specialist.id} " f"(vertical={config.vertical.value})"
         )
 
         return SpecialistAgentInfo(
@@ -234,9 +224,7 @@ Adapt your approach based on the specific task requirements.""",
                 base_model = base_model.replace("70b", "8b").replace("72b", "7b")
 
         # Get OpenRouter model ID
-        openrouter_model = self._base_models.get(
-            base_model, "meta-llama/llama-3.3-70b-instruct"
-        )
+        openrouter_model = self._base_models.get(base_model, "meta-llama/llama-3.3-70b-instruct")
 
         # Get the vertical-specific prompt
         system_prompt = self._get_system_prompt(config)

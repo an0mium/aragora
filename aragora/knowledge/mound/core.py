@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional
 
-from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.config import DB_KNOWLEDGE_PATH
 from aragora.knowledge.mound.types import (
     KnowledgeItem,
     KnowledgeLink,
@@ -228,7 +228,11 @@ class KnowledgeMoundCore:
         try:
             from aragora.knowledge.mound.semantic_store import SemanticStore
 
-            db_path = str(self.config.sqlite_path) if self.config.sqlite_path else str(DB_KNOWLEDGE_PATH / "mound.db")
+            db_path = (
+                str(self.config.sqlite_path)
+                if self.config.sqlite_path
+                else str(DB_KNOWLEDGE_PATH / "mound.db")
+            )
             # Use a separate database for semantic index
             semantic_db_path = db_path.replace(".db", "_semantic.db")
             self._semantic_store = SemanticStore(
@@ -339,9 +343,7 @@ class KnowledgeMoundCore:
             )
             if node_data.get("source_type"):
                 source_type_str = node_data["source_type"]
-                provenance_type = source_to_provenance.get(
-                    source_type_str, ProvenanceType.DOCUMENT
-                )
+                provenance_type = source_to_provenance.get(source_type_str, ProvenanceType.DOCUMENT)
                 node.provenance = ProvenanceChain(
                     source_type=provenance_type,
                     source_id=node_data.get("debate_id") or node_data.get("document_id") or "",
@@ -382,9 +384,7 @@ class KnowledgeMoundCore:
         else:
             # SQLite doesn't have delete, use raw SQL
             with self._meta_store.connection() as conn:
-                cursor = conn.execute(
-                    "DELETE FROM knowledge_nodes WHERE id = ?", (node_id,)
-                )
+                cursor = conn.execute("DELETE FROM knowledge_nodes WHERE id = ?", (node_id,))
                 return cursor.rowcount > 0
 
     async def _archive_node(self, node_id: str) -> None:
@@ -405,9 +405,11 @@ class KnowledgeMoundCore:
             "id": f"arch_{node_id}_{uuid.uuid4().hex[:8]}",
             "original_id": node_id,
             "content": node.content,
-            "source": node.source.value if hasattr(node.source, 'value') else str(node.source),
+            "source": node.source.value if hasattr(node.source, "value") else str(node.source),
             "source_id": node.source_id,
-            "confidence": node.confidence.value if hasattr(node.confidence, 'value') else str(node.confidence),
+            "confidence": (
+                node.confidence.value if hasattr(node.confidence, "value") else str(node.confidence)
+            ),
             "importance": node.importance,
             "metadata": node.metadata,
             "created_at": node.created_at.isoformat() if node.created_at else None,
@@ -426,7 +428,8 @@ class KnowledgeMoundCore:
             try:
                 with self._meta_store.connection() as conn:
                     # Create archive table if it doesn't exist
-                    conn.execute("""
+                    conn.execute(
+                        """
                         CREATE TABLE IF NOT EXISTS knowledge_archive (
                             id TEXT PRIMARY KEY,
                             original_id TEXT NOT NULL,
@@ -441,26 +444,34 @@ class KnowledgeMoundCore:
                             archived_at TEXT NOT NULL,
                             workspace_id TEXT
                         )
-                    """)
-                    conn.execute("""
+                    """
+                    )
+                    conn.execute(
+                        """
                         INSERT INTO knowledge_archive
                         (id, original_id, content, source, source_id, confidence,
                          importance, metadata, created_at, updated_at, archived_at, workspace_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        archive_record["id"],
-                        archive_record["original_id"],
-                        archive_record["content"],
-                        archive_record["source"],
-                        archive_record["source_id"],
-                        archive_record["confidence"],
-                        archive_record["importance"],
-                        json.dumps(archive_record["metadata"]) if archive_record["metadata"] else "{}",
-                        archive_record["created_at"],
-                        archive_record["updated_at"],
-                        archive_record["archived_at"],
-                        archive_record["workspace_id"],
-                    ))
+                    """,
+                        (
+                            archive_record["id"],
+                            archive_record["original_id"],
+                            archive_record["content"],
+                            archive_record["source"],
+                            archive_record["source_id"],
+                            archive_record["confidence"],
+                            archive_record["importance"],
+                            (
+                                json.dumps(archive_record["metadata"])
+                                if archive_record["metadata"]
+                                else "{}"
+                            ),
+                            archive_record["created_at"],
+                            archive_record["updated_at"],
+                            archive_record["archived_at"],
+                            archive_record["workspace_id"],
+                        ),
+                    )
                     conn.commit()
                 logger.debug(f"Archived node {node_id} to knowledge_archive table")
             except (RuntimeError, OSError, sqlite3.Error) as e:
@@ -470,9 +481,7 @@ class KnowledgeMoundCore:
                 logger.exception(f"Unexpected archive error for node {node_id}: {e}")
                 # Don't block deletion on archive failure
 
-    async def _save_relationship(
-        self, from_id: str, to_id: str, rel_type: str
-    ) -> None:
+    async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None:
         """Save relationship to storage."""
         if hasattr(self._meta_store, "save_relationship_async"):
             await self._meta_store.save_relationship_async(from_id, to_id, rel_type)
@@ -496,14 +505,10 @@ class KnowledgeMoundCore:
             rels = self._meta_store.get_relationships(node_id)
             return [self._rel_to_link(r) for r in rels]
 
-    async def _find_by_content_hash(
-        self, content_hash: str, workspace_id: str
-    ) -> Optional[str]:
+    async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> Optional[str]:
         """Find node by content hash."""
         if hasattr(self._meta_store, "find_by_content_hash_async"):
-            return await self._meta_store.find_by_content_hash_async(
-                content_hash, workspace_id
-            )
+            return await self._meta_store.find_by_content_hash_async(content_hash, workspace_id)
         else:
             node = self._meta_store.find_by_content_hash(content_hash, workspace_id)
             return node.id if node else None

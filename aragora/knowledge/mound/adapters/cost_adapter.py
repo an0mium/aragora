@@ -25,16 +25,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.billing.cost_tracker import (
         BudgetAlert,
-        BudgetAlertLevel,
-        CostReport,
         CostTracker,
-        TokenUsage,
     )
 
 logger = logging.getLogger(__name__)
@@ -176,7 +173,7 @@ class CostAdapter:
         Returns:
             The alert ID if stored, None if below threshold
         """
-        level = alert.level.value if hasattr(alert.level, 'value') else str(alert.level)
+        level = alert.level.value if hasattr(alert.level, "value") else str(alert.level)
 
         if not self._alert_level_meets_threshold(level):
             logger.debug(f"Alert {alert.id} below level threshold: {level}")
@@ -195,7 +192,9 @@ class CostAdapter:
             "current_spend": str(alert.current_spend),
             "limit": str(alert.limit),
             "percentage": alert.percentage,
-            "created_at": alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
+            "created_at": (
+                alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat()
+            ),
             "acknowledged": alert.acknowledged,
             "stored_at": datetime.utcnow().isoformat(),
         }
@@ -227,7 +226,9 @@ class CostAdapter:
             The anomaly ID if stored, None if below threshold
         """
         if anomaly.variance_ratio < self.MIN_ANOMALY_VARIANCE:
-            logger.debug(f"Anomaly {anomaly.id} below variance threshold: {anomaly.variance_ratio:.2f}")
+            logger.debug(
+                f"Anomaly {anomaly.id} below variance threshold: {anomaly.variance_ratio:.2f}"
+            )
             return None
 
         anomaly_id = f"{self.ID_PREFIX}anomaly_{anomaly.id}"
@@ -449,6 +450,7 @@ class CostAdapter:
         # Calculate variance
         if len(costs) > 1:
             import statistics
+
             cost_stddev = statistics.stdev(costs)
         else:
             cost_stddev = 0.0
@@ -512,6 +514,7 @@ class CostAdapter:
             List of detected anomalies
         """
         import uuid
+
         patterns = self.get_cost_patterns(workspace_id)
 
         if patterns["sample_size"] < 5:
@@ -523,35 +526,39 @@ class CostAdapter:
         if patterns["avg_cost"] > 0:
             cost_ratio = current_cost / patterns["avg_cost"]
             if cost_ratio > self.MIN_ANOMALY_VARIANCE:
-                anomalies.append(CostAnomaly(
-                    id=str(uuid.uuid4())[:12],
-                    workspace_id=workspace_id,
-                    agent_id=None,
-                    anomaly_type="cost_spike",
-                    severity=min(1.0, cost_ratio / 5),  # Scale severity
-                    description=f"Cost spike detected: {cost_ratio:.1f}x normal",
-                    expected_value=patterns["avg_cost"],
-                    actual_value=current_cost,
-                    variance_ratio=cost_ratio,
-                    detected_at=datetime.utcnow(),
-                ))
+                anomalies.append(
+                    CostAnomaly(
+                        id=str(uuid.uuid4())[:12],
+                        workspace_id=workspace_id,
+                        agent_id=None,
+                        anomaly_type="cost_spike",
+                        severity=min(1.0, cost_ratio / 5),  # Scale severity
+                        description=f"Cost spike detected: {cost_ratio:.1f}x normal",
+                        expected_value=patterns["avg_cost"],
+                        actual_value=current_cost,
+                        variance_ratio=cost_ratio,
+                        detected_at=datetime.utcnow(),
+                    )
+                )
 
         # Check API call spike
         if patterns["avg_calls"] > 0:
             call_ratio = current_calls / patterns["avg_calls"]
             if call_ratio > self.MIN_ANOMALY_VARIANCE:
-                anomalies.append(CostAnomaly(
-                    id=str(uuid.uuid4())[:12],
-                    workspace_id=workspace_id,
-                    agent_id=None,
-                    anomaly_type="call_spike",
-                    severity=min(1.0, call_ratio / 5),
-                    description=f"API call spike detected: {call_ratio:.1f}x normal",
-                    expected_value=patterns["avg_calls"],
-                    actual_value=current_calls,
-                    variance_ratio=call_ratio,
-                    detected_at=datetime.utcnow(),
-                ))
+                anomalies.append(
+                    CostAnomaly(
+                        id=str(uuid.uuid4())[:12],
+                        workspace_id=workspace_id,
+                        agent_id=None,
+                        anomaly_type="call_spike",
+                        severity=min(1.0, call_ratio / 5),
+                        description=f"API call spike detected: {call_ratio:.1f}x normal",
+                        expected_value=patterns["avg_calls"],
+                        actual_value=current_calls,
+                        variance_ratio=call_ratio,
+                        detected_at=datetime.utcnow(),
+                    )
+                )
 
         return anomalies
 

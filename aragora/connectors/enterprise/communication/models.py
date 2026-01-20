@@ -147,7 +147,9 @@ class EmailThread:
             "messages": [m.to_dict() for m in self.messages],
             "participants": self.participants,
             "labels": self.labels,
-            "last_message_date": self.last_message_date.isoformat() if self.last_message_date else None,
+            "last_message_date": (
+                self.last_message_date.isoformat() if self.last_message_date else None
+            ),
             "snippet": self.snippet,
             "message_count": self.message_count,
         }

@@ -212,9 +212,7 @@ class TestTrainSft:
 
         mock_run.return_value = None
 
-        result = runner.invoke(
-            app, ["train-sft", "--model", "test-model", "--no-wait"]
-        )
+        result = runner.invoke(app, ["train-sft", "--model", "test-model", "--no-wait"])
 
         # Should have attempted to schedule
         assert "train" in result.output.lower() or result.exit_code in [0, 1]

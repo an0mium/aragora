@@ -22,6 +22,7 @@ class TestRankingAdapterPersistence:
         mound = AsyncMock()
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.sync_to_mound(mound, workspace_id="test")
         )
@@ -48,6 +49,7 @@ class TestRankingAdapterPersistence:
         mound.ingest = AsyncMock(return_value="km_node_123")
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.sync_to_mound(mound, workspace_id="test")
         )
@@ -65,6 +67,7 @@ class TestRankingAdapterPersistence:
         mound.query_nodes = AsyncMock(return_value=[])
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.load_from_mound(mound, workspace_id="test")
         )
@@ -95,6 +98,7 @@ class TestRankingAdapterPersistence:
         mound.query_nodes = AsyncMock(return_value=[mock_node])
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.load_from_mound(mound, workspace_id="test")
         )
@@ -119,6 +123,7 @@ class TestRlmAdapterPersistence:
         mound = AsyncMock()
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.sync_to_mound(mound, workspace_id="test")
         )
@@ -150,6 +155,7 @@ class TestRlmAdapterPersistence:
         mound.ingest = AsyncMock(return_value="km_node_123")
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.sync_to_mound(mound, workspace_id="test")
         )
@@ -166,6 +172,7 @@ class TestRlmAdapterPersistence:
         mound.query_nodes = AsyncMock(return_value=[])
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.load_from_mound(mound, workspace_id="test")
         )
@@ -198,6 +205,7 @@ class TestRlmAdapterPersistence:
         mound.query_nodes = AsyncMock(return_value=[mock_node])
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.load_from_mound(mound, workspace_id="test")
         )
@@ -227,6 +235,7 @@ class TestContinuumAdapterSyncToMound:
         mound = AsyncMock()
 
         import asyncio
+
         result = asyncio.get_event_loop().run_until_complete(
             adapter.sync_memory_to_mound(
                 mound=mound,

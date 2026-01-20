@@ -779,7 +779,9 @@ class FindingWorkflowHandler(BaseHandler):
 
                 results["success"].append(fid)
 
-            except Exception as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
+            except (
+                Exception
+            ) as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
                 results["failed"].append({"finding_id": fid, "error": str(e)})
 
         return self._json_response(

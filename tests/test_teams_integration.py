@@ -142,6 +142,7 @@ class TestTeamsConfig:
         with patch.dict("os.environ", {}, clear=True):
             # Clear the env var
             import os
+
             if "TEAMS_WEBHOOK_URL" in os.environ:
                 del os.environ["TEAMS_WEBHOOK_URL"]
             config = TeamsConfig(webhook_url="")
@@ -442,14 +443,18 @@ class TestTeamsDebateSummary:
     """Tests for post_debate_summary method."""
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_success(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_success(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test successful debate summary posting."""
         result = await teams_integration.post_debate_summary(sample_debate_result)
         assert result is True
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_disabled(self, teams_config, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_disabled(
+        self, teams_config, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary not sent when disabled."""
         teams_config.notify_on_debate_end = False
         integration = TeamsIntegration(teams_config)
@@ -460,7 +465,9 @@ class TestTeamsDebateSummary:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_question(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_question(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that debate summary includes the question."""
         await teams_integration.post_debate_summary(sample_debate_result)
 
@@ -472,7 +479,9 @@ class TestTeamsDebateSummary:
         assert any("What is the best programming language" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_answer(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_answer(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that debate summary includes the answer."""
         await teams_integration.post_debate_summary(sample_debate_result)
 
@@ -484,7 +493,9 @@ class TestTeamsDebateSummary:
         assert any("Python" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_stats(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_stats(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that debate summary includes statistics."""
         await teams_integration.post_debate_summary(sample_debate_result)
 
@@ -498,7 +509,9 @@ class TestTeamsDebateSummary:
         assert "Rounds: 3" in stats_text
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_agents(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_agents(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that debate summary includes participating agents."""
         await teams_integration.post_debate_summary(sample_debate_result)
 
@@ -510,7 +523,9 @@ class TestTeamsDebateSummary:
         assert any("claude" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_truncates_many_agents(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_truncates_many_agents(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that more than 5 agents shows '+X more'."""
         sample_debate_result.participating_agents = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"]
         await teams_integration.post_debate_summary(sample_debate_result)
@@ -523,7 +538,9 @@ class TestTeamsDebateSummary:
         assert any("+2 more" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_action(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_action(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that debate summary includes View Details action."""
         await teams_integration.post_debate_summary(sample_debate_result)
 
@@ -572,7 +589,9 @@ class TestTeamsConsensusAlert:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_below_threshold(self, teams_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_below_threshold(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test consensus alert not sent when confidence below threshold."""
         result = await teams_integration.send_consensus_alert(
             debate_id="test-123",
@@ -594,7 +613,9 @@ class TestTeamsConsensusAlert:
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_truncates_long_answer(self, teams_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_truncates_long_answer(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that long answers are truncated."""
         long_answer = "A" * 600
         await teams_integration.send_consensus_alert(
@@ -614,7 +635,9 @@ class TestTeamsConsensusAlert:
         assert "..." in consensus_text or len(long_answer) <= 500  # Truncated if > 500
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_high_confidence_color(self, teams_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_high_confidence_color(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that high confidence uses 'Good' color."""
         await teams_integration.send_consensus_alert(
             debate_id="test-123",
@@ -635,7 +658,9 @@ class TestTeamsConsensusAlert:
                             assert col_item.get("color") == "Good"
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_medium_confidence_color(self, teams_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_medium_confidence_color(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that medium confidence uses 'Warning' color."""
         await teams_integration.send_consensus_alert(
             debate_id="test-123",
@@ -673,7 +698,9 @@ class TestTeamsConsensusAlert:
         assert any("claude" in text and "gpt-4" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_without_agents(self, teams_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_without_agents(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test consensus alert works without agent list."""
         result = await teams_integration.send_consensus_alert(
             debate_id="test-123",
@@ -717,7 +744,9 @@ class TestTeamsErrorAlert:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_includes_error_message(self, teams_integration, mock_aiohttp_session):
+    async def test_send_error_alert_includes_error_message(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that error alert includes error message."""
         await teams_integration.send_error_alert(
             debate_id="test-123",
@@ -758,7 +787,9 @@ class TestTeamsErrorAlert:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_includes_debate_id(self, teams_integration, mock_aiohttp_session):
+    async def test_send_error_alert_includes_debate_id(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that error alert includes debate ID."""
         await teams_integration.send_error_alert(
             debate_id="test-error-456",
@@ -773,7 +804,9 @@ class TestTeamsErrorAlert:
         assert any("test-error-456" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_uses_attention_color(self, teams_integration, mock_aiohttp_session):
+    async def test_send_error_alert_uses_attention_color(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that error alert uses attention color."""
         await teams_integration.send_error_alert(
             debate_id="test-123",
@@ -808,14 +841,18 @@ class TestTeamsLeaderboardUpdate:
         ]
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_success(self, teams_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_success(
+        self, teams_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test successful leaderboard update."""
         result = await teams_integration.send_leaderboard_update(sample_rankings)
         assert result is True
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_disabled(self, teams_config, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_disabled(
+        self, teams_config, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard update not sent when disabled."""
         teams_config.notify_on_leaderboard = False
         integration = TeamsIntegration(teams_config)
@@ -826,7 +863,9 @@ class TestTeamsLeaderboardUpdate:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_includes_rankings(self, teams_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_includes_rankings(
+        self, teams_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test that leaderboard includes ranking information."""
         await teams_integration.send_leaderboard_update(sample_rankings)
 
@@ -839,7 +878,9 @@ class TestTeamsLeaderboardUpdate:
         assert any("gpt-4" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_with_domain(self, teams_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_with_domain(
+        self, teams_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard update with domain filter."""
         await teams_integration.send_leaderboard_update(sample_rankings, domain="math")
 
@@ -852,9 +893,13 @@ class TestTeamsLeaderboardUpdate:
         assert "math" in title
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_limits_to_10(self, teams_integration, mock_aiohttp_session):
+    async def test_send_leaderboard_update_limits_to_10(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that leaderboard is limited to top 10."""
-        many_rankings = [{"name": f"agent{i}", "elo": 1500-i, "wins": 0, "losses": 0} for i in range(15)]
+        many_rankings = [
+            {"name": f"agent{i}", "elo": 1500 - i, "wins": 0, "losses": 0} for i in range(15)
+        ]
         await teams_integration.send_leaderboard_update(many_rankings)
 
         call_args = mock_aiohttp_session.post.call_args
@@ -866,7 +911,9 @@ class TestTeamsLeaderboardUpdate:
         assert len(ranking_entries) == 10
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_includes_win_loss(self, teams_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_includes_win_loss(
+        self, teams_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test that leaderboard includes win/loss record."""
         await teams_integration.send_leaderboard_update(sample_rankings)
 
@@ -878,7 +925,9 @@ class TestTeamsLeaderboardUpdate:
         assert any("15W/5L" in text for text in body_texts)
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_includes_action(self, teams_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_includes_action(
+        self, teams_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test that leaderboard includes link to full leaderboard."""
         await teams_integration.send_leaderboard_update(sample_rankings)
 
@@ -989,7 +1038,9 @@ class TestTeamsIntegrationE2E:
     """End-to-end style tests for Teams integration."""
 
     @pytest.mark.asyncio
-    async def test_full_debate_workflow(self, teams_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_full_debate_workflow(
+        self, teams_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test a full debate notification workflow."""
         # 1. Post debate summary
         result = await teams_integration.post_debate_summary(sample_debate_result)
@@ -1027,7 +1078,9 @@ class TestTeamsIntegrationE2E:
         assert content["body"][0]["text"] == "Debate Error"
 
     @pytest.mark.asyncio
-    async def test_multiple_notifications_respect_rate_limit(self, teams_integration, mock_aiohttp_session):
+    async def test_multiple_notifications_respect_rate_limit(
+        self, teams_integration, mock_aiohttp_session
+    ):
         """Test that multiple notifications respect rate limiting."""
         # Set a low rate limit
         teams_integration.config.max_messages_per_minute = 3

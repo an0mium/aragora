@@ -283,9 +283,7 @@ class TestSelectionFeedbackLoop:
 
     def test_disabled_loop_returns_zero(self):
         """Test disabled loop returns zero adjustments."""
-        feedback_loop = SelectionFeedbackLoop(
-            config=FeedbackLoopConfig(enabled=False)
-        )
+        feedback_loop = SelectionFeedbackLoop(config=FeedbackLoopConfig(enabled=False))
 
         feedback_loop.process_debate_outcome(
             debate_id="debate-1",

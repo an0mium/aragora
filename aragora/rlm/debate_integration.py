@@ -259,9 +259,7 @@ class DebateTrajectoryCollector:
             "total_debates": self._debate_count,
             "successful_debates": self._successful_debates,
             "success_rate": (
-                self._successful_debates / self._debate_count
-                if self._debate_count > 0
-                else 0.0
+                self._successful_debates / self._debate_count if self._debate_count > 0 else 0.0
             ),
             "buffer_size": len(self.buffer),
             "buffer_capacity": self.buffer.max_size,

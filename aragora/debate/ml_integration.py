@@ -114,6 +114,7 @@ class MLDelegationStrategy(DelegationStrategy):
         if self._router is None:
             try:
                 from aragora.ml import get_agent_router
+
                 self._router = get_agent_router()
             except ImportError:
                 logger.warning("ML module not available, using fallback scoring")
@@ -283,6 +284,7 @@ class QualityGate:
         if self._scorer is None:
             try:
                 from aragora.ml import get_quality_scorer
+
                 self._scorer = get_quality_scorer()
             except ImportError:
                 logger.warning("ML quality scorer not available")
@@ -389,8 +391,7 @@ class QualityGate:
 
             if confidence >= self.min_confidence and quality < self.threshold:
                 logger.info(
-                    f"quality_gate_filtered agent={message.agent} "
-                    f"quality={quality:.2f}"
+                    f"quality_gate_filtered agent={message.agent} " f"quality={quality:.2f}"
                 )
                 continue
 
@@ -433,6 +434,7 @@ class ConsensusEstimator:
         if self._predictor is None:
             try:
                 from aragora.ml import get_consensus_predictor
+
                 self._predictor = get_consensus_predictor()
             except ImportError:
                 logger.warning("ML consensus predictor not available")
@@ -701,6 +703,7 @@ class DebateTrainingExporter:
         if self._training_data is None:
             try:
                 from aragora.ml import TrainingData, TrainingExample
+
                 self._training_data = (TrainingData, TrainingExample)
             except ImportError:
                 logger.warning("ML training module not available")
@@ -731,12 +734,14 @@ class DebateTrainingExporter:
         TrainingData, TrainingExample = classes
 
         data = TrainingData()
-        data.add(TrainingExample.from_debate(
-            task=task,
-            winning_response=consensus_response,
-            losing_response=rejected_responses[0] if rejected_responses else "",
-            context=context,
-        ))
+        data.add(
+            TrainingExample.from_debate(
+                task=task,
+                winning_response=consensus_response,
+                losing_response=rejected_responses[0] if rejected_responses else "",
+                context=context,
+            )
+        )
 
         return data
 
@@ -766,12 +771,14 @@ class DebateTrainingExporter:
             context = debate.get("context", "")
 
             if task and consensus:
-                data.add(TrainingExample.from_debate(
-                    task=task,
-                    winning_response=consensus,
-                    losing_response=rejected[0] if rejected else "",
-                    context=context,
-                ))
+                data.add(
+                    TrainingExample.from_debate(
+                        task=task,
+                        winning_response=consensus,
+                        losing_response=rejected[0] if rejected else "",
+                        context=context,
+                    )
+                )
 
         return data
 

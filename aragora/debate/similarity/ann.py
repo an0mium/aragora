@@ -284,9 +284,7 @@ class FAISSIndex:
             else:
                 self._fallback_data = np.vstack([self._fallback_data, normalized])
 
-    def search(
-        self, query: np.ndarray, k: int = 5
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, query: np.ndarray, k: int = 5) -> Tuple[np.ndarray, np.ndarray]:
         """Search for k nearest neighbors.
 
         Args:

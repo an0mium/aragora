@@ -40,20 +40,24 @@ def sample_database(temp_dir: Path) -> Path:
     cursor = conn.cursor()
 
     # Create tables with data
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE
         )
-    """)
-    cursor.execute("""
+    """
+    )
+    cursor.execute(
+        """
         CREATE TABLE debates (
             id INTEGER PRIMARY KEY,
             topic TEXT NOT NULL,
             created_at TEXT
         )
-    """)
+    """
+    )
 
     # Insert test data
     for i in range(10):

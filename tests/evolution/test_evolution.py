@@ -69,7 +69,9 @@ def mock_debate_result():
     result.consensus_reached = True
     result.confidence = 0.85
     result.critiques = [critique]
-    result.final_answer = "Here is the solution:\n```python\nprint('hello')\n```\nStep 1: First, do this."
+    result.final_answer = (
+        "Here is the solution:\n```python\nprint('hello')\n```\nStep 1: First, do this."
+    )
     return result
 
 
@@ -285,7 +287,9 @@ class TestPromptEvolverPatternExtraction:
 
         # Check for structured response pattern (Step 1 in final_answer)
         pattern_texts = [p.get("text", "") for p in patterns]
-        structured_found = any("structured" in t.lower() or "step" in t.lower() for t in pattern_texts)
+        structured_found = any(
+            "structured" in t.lower() or "step" in t.lower() for t in pattern_texts
+        )
         # May or may not find depending on exact matching
         assert isinstance(structured_found, bool)
 
@@ -318,10 +322,12 @@ class TestPromptEvolverStorage:
 
     def test_get_top_patterns_with_type(self, evolver):
         """Test getting patterns filtered by type."""
-        evolver.store_patterns([
-            {"type": "type_a", "text": "Pattern A"},
-            {"type": "type_b", "text": "Pattern B"},
-        ])
+        evolver.store_patterns(
+            [
+                {"type": "type_a", "text": "Pattern A"},
+                {"type": "type_b", "text": "Pattern B"},
+            ]
+        )
 
         type_a = evolver.get_top_patterns(pattern_type="type_a")
         assert len(type_a) == 1
@@ -390,7 +396,9 @@ class TestPromptEvolverEvolution:
     def test_evolve_replace_strategy(self, evolver, mock_agent):
         """Test replace evolution strategy."""
         # First add learned patterns
-        mock_agent.system_prompt = "Base prompt.\n\nLearned patterns from successful debates:\n- Old pattern"
+        mock_agent.system_prompt = (
+            "Base prompt.\n\nLearned patterns from successful debates:\n- Old pattern"
+        )
 
         patterns = [{"type": "issue_identification", "text": "New pattern"}]
 
@@ -568,7 +576,7 @@ class TestEvolutionTrackerOutcomes:
         assert stats["wins"] == 2
         assert stats["losses"] == 1
         assert stats["total"] == 3
-        assert abs(stats["win_rate"] - 2/3) < 0.01
+        assert abs(stats["win_rate"] - 2 / 3) < 0.01
 
 
 class TestOutcomeRecord:

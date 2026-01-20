@@ -175,12 +175,8 @@ class TestMemoryCoordinatorBenchmarks:
             id="tx-bench-001",
             debate_id="debate-001",
             operations=[
-                WriteOperation(
-                    id="op-1", target="continuum", status=WriteStatus.SUCCESS
-                ),
-                WriteOperation(
-                    id="op-2", target="consensus", status=WriteStatus.SUCCESS
-                ),
+                WriteOperation(id="op-1", target="continuum", status=WriteStatus.SUCCESS),
+                WriteOperation(id="op-2", target="consensus", status=WriteStatus.SUCCESS),
                 WriteOperation(id="op-3", target="mound", status=WriteStatus.SUCCESS),
             ],
         )
@@ -278,16 +274,13 @@ class TestMemoryCoordinatorLoadTests:
     """Load tests for MemoryCoordinator under stress."""
 
     @pytest.mark.benchmark(group="load-test")
-    def test_concurrent_transactions_benchmark(
-        self, benchmark, coordinator, debate_context
-    ):
+    def test_concurrent_transactions_benchmark(self, benchmark, coordinator, debate_context):
         """Benchmark multiple concurrent transactions."""
         NUM_CONCURRENT = 10
 
         async def run_concurrent():
             tasks = [
-                coordinator.commit_debate_outcome(debate_context)
-                for _ in range(NUM_CONCURRENT)
+                coordinator.commit_debate_outcome(debate_context) for _ in range(NUM_CONCURRENT)
             ]
             return await asyncio.gather(*tasks)
 
@@ -300,9 +293,7 @@ class TestMemoryCoordinatorLoadTests:
             assert tx is not None
 
     @pytest.mark.benchmark(group="load-test")
-    def test_high_volume_operations_benchmark(
-        self, benchmark, coordinator, debate_context
-    ):
+    def test_high_volume_operations_benchmark(self, benchmark, coordinator, debate_context):
         """Benchmark high volume of sequential operations."""
         NUM_OPERATIONS = 50
 

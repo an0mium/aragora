@@ -38,6 +38,7 @@ from aragora.debate.cognitive_limiter import (
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
     from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
+
     HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
@@ -178,6 +179,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             try:
                 # Use factory with custom config for this limiter's backend/model preferences
                 from aragora.rlm.types import RLMConfig
+
                 config = RLMConfig(root_model=rlm_model)
                 self._aragora_rlm = get_rlm(config=config, force_new=True)
                 if DebateContextAdapter is not None:
@@ -200,13 +202,15 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             )
 
         # Extended stats
-        self.stats.update({
-            "rlm_compressions": 0,
-            "rlm_queries": 0,
-            "real_rlm_used": 0,
-            "compression_ratio_avg": 1.0,
-            "abstraction_levels_used": {},
-        })
+        self.stats.update(
+            {
+                "rlm_compressions": 0,
+                "rlm_queries": 0,
+                "real_rlm_used": 0,
+                "compression_ratio_avg": 1.0,
+                "abstraction_levels_used": {},
+            }
+        )
 
     @property
     def has_real_rlm(self) -> bool:
@@ -336,7 +340,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             reserve_for_response=base_budget.reserve_for_response,
             # RLM settings scale with stress
             enable_rlm_compression=True,
-            compression_threshold=base_budget.max_context_tokens * 2,  # 2x budget triggers compression
+            compression_threshold=base_budget.max_context_tokens
+            * 2,  # 2x budget triggers compression
             max_recent_full_messages=max(2, base_budget.max_history_messages // 3),
             summary_level="ABSTRACT" if level == "critical" else "SUMMARY",
         )
@@ -393,17 +398,13 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         # Compress messages hierarchically
         if messages:
-            compressed_messages, levels = await self._compress_messages_async(
-                messages, budget
-            )
+            compressed_messages, levels = await self._compress_messages_async(messages, budget)
             result.messages = compressed_messages
             result.abstraction_levels.extend(levels)
 
         # Compress critiques
         if critiques:
-            compressed_critiques = await self._compress_critiques_async(
-                critiques, budget
-            )
+            compressed_critiques = await self._compress_critiques_async(critiques, budget)
             result.critiques = compressed_critiques
 
         # Patterns and extra context use rule-based compression
@@ -462,9 +463,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         # Compress middle section if exists
         if middle:
-            compressed_middle = await self._compress_message_section(
-                middle, budget.summary_level
-            )
+            compressed_middle = await self._compress_message_section(middle, budget.summary_level)
             result.append(compressed_middle)
             levels_used.append(budget.summary_level)
 
@@ -533,7 +532,12 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
                 # Get the target level content from the context
                 from aragora.rlm.types import AbstractionLevel
-                level_enum = AbstractionLevel[target_level] if isinstance(target_level, str) else target_level
+
+                level_enum = (
+                    AbstractionLevel[target_level]
+                    if isinstance(target_level, str)
+                    else target_level
+                )
                 target_content = compression_result.context.get_at_level(level_enum)
                 if target_content:
                     return Message(
@@ -560,8 +564,12 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         lines = content.split("\n")
 
         # Find consensus/agreement indicators
-        agreements = [line for line in lines if "agree" in line.lower() or "consensus" in line.lower()]
-        disagreements = [line for line in lines if "disagree" in line.lower() or "however" in line.lower()]
+        agreements = [
+            line for line in lines if "agree" in line.lower() or "consensus" in line.lower()
+        ]
+        disagreements = [
+            line for line in lines if "disagree" in line.lower() or "however" in line.lower()
+        ]
 
         # Build summary
         summary_parts = [f"Summary of {message_count} messages:"]
@@ -651,7 +659,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             return ". ".join(result) + f"... [{len(text) - current_len} chars omitted]"
 
         # Fallback to hard truncation
-        return text[:max_chars - 30] + "... [truncated]"
+        return text[: max_chars - 30] + "... [truncated]"
 
     def _calculate_total_chars(
         self,
@@ -750,15 +758,16 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
                 if middle:
                     summary = self._rule_based_summarize(
-                        "\n".join(str(getattr(m, "content", m)) for m in middle),
-                        len(middle)
+                        "\n".join(str(getattr(m, "content", m)) for m in middle), len(middle)
                     )
-                    compressed.append(Message(
-                        agent="system",
-                        role="context",
-                        content=f"## Compressed History\n\n{summary}",
-                        round=-1,
-                    ))
+                    compressed.append(
+                        Message(
+                            agent="system",
+                            role="context",
+                            content=f"## Compressed History\n\n{summary}",
+                            round=-1,
+                        )
+                    )
 
                 compressed.extend(recent)
                 result.messages = compressed
@@ -782,7 +791,6 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         )
 
         return result
-
 
     async def query_compressed_context(
         self,

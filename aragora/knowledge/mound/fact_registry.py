@@ -188,12 +188,24 @@ class RegisteredFact:
             vertical=data.get("vertical", "general"),
             category=data.get("category", "general"),
             base_confidence=data.get("base_confidence", 0.5),
-            verification_date=datetime.fromisoformat(data["verification_date"]) if data.get("verification_date") else datetime.now(),
+            verification_date=(
+                datetime.fromisoformat(data["verification_date"])
+                if data.get("verification_date")
+                else datetime.now()
+            ),
             decay_rate=data.get("decay_rate", 0.02),
-            validation_status=ValidationStatus(data["validation_status"]) if data.get("validation_status") else ValidationStatus.UNVERIFIED,
+            validation_status=(
+                ValidationStatus(data["validation_status"])
+                if data.get("validation_status")
+                else ValidationStatus.UNVERIFIED
+            ),
             verification_count=data.get("verification_count", 0),
             contradiction_count=data.get("contradiction_count", 0),
-            source_type=ProvenanceType(data["source_type"]) if data.get("source_type") else ProvenanceType.DOCUMENT,
+            source_type=(
+                ProvenanceType(data["source_type"])
+                if data.get("source_type")
+                else ProvenanceType.DOCUMENT
+            ),
             source_ids=data.get("source_ids", []),
             contributing_agents=data.get("contributing_agents", []),
             workspace_id=data.get("workspace_id", ""),
@@ -201,9 +213,19 @@ class RegisteredFact:
             supports=data.get("supports", []),
             contradicts=data.get("contradicts", []),
             derived_from=data.get("derived_from", []),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
-            superseded_at=datetime.fromisoformat(data["superseded_at"]) if data.get("superseded_at") else None,
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if data.get("updated_at")
+                else datetime.now()
+            ),
+            superseded_at=(
+                datetime.fromisoformat(data["superseded_at"]) if data.get("superseded_at") else None
+            ),
             superseded_by=data.get("superseded_by"),
         )
 
@@ -301,7 +323,9 @@ class FactRegistry:
                     if existing:
                         existing.refresh()
                         existing.verification_count += 1
-                        logger.debug(f"Updated existing fact {existing_id} instead of creating duplicate")
+                        logger.debug(
+                            f"Updated existing fact {existing_id} instead of creating duplicate"
+                        )
                         return existing
 
         # Create new fact
@@ -369,16 +393,26 @@ class FactRegistry:
         if not self._vector_store:
             # Fall back to in-memory search
             return self._search_memory(
-                query, verticals, workspace_id, min_confidence,
-                include_stale, include_superseded, limit
+                query,
+                verticals,
+                workspace_id,
+                min_confidence,
+                include_stale,
+                include_superseded,
+                limit,
             )
 
         # Generate embedding for semantic search
         embedding = await self._get_embedding(query)
         if not embedding:
             return self._search_memory(
-                query, verticals, workspace_id, min_confidence,
-                include_stale, include_superseded, limit
+                query,
+                verticals,
+                workspace_id,
+                min_confidence,
+                include_stale,
+                include_superseded,
+                limit,
             )
 
         # Query each requested vertical namespace

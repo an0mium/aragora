@@ -119,7 +119,10 @@ class TestCoordinatorHandlerRateLimiting:
 
     def test_rate_limit_exceeded(self):
         """Test rate limiting returns 429 when exceeded."""
-        from aragora.server.handlers.memory.coordinator import CoordinatorHandler, _coordinator_limiter
+        from aragora.server.handlers.memory.coordinator import (
+            CoordinatorHandler,
+            _coordinator_limiter,
+        )
 
         handler = CoordinatorHandler(server_context={})
 

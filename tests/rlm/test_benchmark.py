@@ -44,38 +44,41 @@ def short_content() -> str:
 @pytest.fixture
 def medium_content() -> str:
     """Medium content (~1000 tokens)."""
-    paragraphs = [
-        """
+    paragraphs = (
+        [
+            """
         Software deployment practices have evolved significantly over the past decade.
         Modern teams employ continuous integration and continuous deployment (CI/CD)
         pipelines to automate the build, test, and deployment processes. This automation
         reduces human error and enables faster iteration cycles.
         """,
-        """
+            """
         Feature flags represent a key advancement in deployment strategies. By wrapping
         new features in conditional logic, teams can deploy code to production without
         immediately exposing it to all users. This decoupling of deployment from release
         provides unprecedented control over the user experience.
         """,
-        """
+            """
         The benefits of feature flags extend beyond simple on/off toggles. Advanced
         implementations support percentage-based rollouts, user segment targeting, and
         A/B testing. This granularity enables data-driven decisions about feature launches
         and quick rollback capabilities when issues arise.
         """,
-        """
+            """
         However, feature flags introduce their own complexity. Without proper management,
         technical debt can accumulate as unused flags linger in the codebase. Teams must
         establish lifecycle policies that mandate regular cleanup and documentation of
         all active flags.
         """,
-        """
+            """
         Best practices for feature flag management include: establishing naming conventions,
         maintaining documentation, setting expiration dates, integrating with monitoring
         systems, and conducting regular audits. These practices ensure that the benefits
         of feature flags outweigh their maintenance costs.
         """,
-    ] * 4  # Repeat to get ~1000 tokens
+        ]
+        * 4
+    )  # Repeat to get ~1000 tokens
 
     return "\n\n".join(paragraphs)
 
@@ -83,40 +86,43 @@ def medium_content() -> str:
 @pytest.fixture
 def long_content() -> str:
     """Long content (~10000 tokens)."""
-    paragraphs = [
-        """
+    paragraphs = (
+        [
+            """
         The evolution of software engineering practices has been marked by continuous
         innovation in how teams build, test, and deploy applications. From waterfall
         methodologies to agile practices, the industry has consistently moved toward
         faster feedback loops and more iterative development processes.
         """,
-        """
+            """
         Continuous integration emerged as a fundamental practice in the early 2000s,
         enabling teams to merge code changes frequently and catch integration issues
         early. This practice laid the groundwork for continuous deployment, where
         code changes automatically flow to production after passing automated tests.
         """,
-        """
+            """
         The microservices architecture pattern has further accelerated deployment
         practices. By decomposing monolithic applications into smaller, independently
         deployable services, teams can release updates to specific components without
         affecting the entire system. This granularity enables faster iteration and
         reduced risk per deployment.
         """,
-        """
+            """
         Container technologies like Docker and orchestration platforms like Kubernetes
         have revolutionized how applications are packaged and deployed. Containers
         provide consistent environments across development, testing, and production,
         while Kubernetes manages the complexity of running applications at scale.
         """,
-        """
+            """
         Infrastructure as Code (IaC) tools such as Terraform and CloudFormation
         enable teams to define and provision infrastructure through code. This
         approach brings the same version control and review processes used for
         application code to infrastructure management, improving reliability and
         reproducibility.
         """,
-    ] * 20  # Repeat to get ~10000 tokens
+        ]
+        * 20
+    )  # Repeat to get ~10000 tokens
 
     return "\n\n".join(paragraphs)
 
@@ -231,47 +237,33 @@ class TestCompressionAsyncBenchmarks:
     def test_benchmark_compress_short(self, benchmark: Any, short_content: str):
         """Benchmark compressing short content."""
         clear_compression_cache()
-        compressor = HierarchicalCompressor(
-            config=RLMConfig(cache_compressions=False)
-        )
+        compressor = HierarchicalCompressor(config=RLMConfig(cache_compressions=False))
 
         def run_compress():
-            return asyncio.run(
-                compressor.compress(short_content, source_type="text")
-            )
+            return asyncio.run(compressor.compress(short_content, source_type="text"))
 
         benchmark.pedantic(run_compress, rounds=3, iterations=1)
 
     def test_benchmark_compress_medium(self, benchmark: Any, medium_content: str):
         """Benchmark compressing medium content."""
         clear_compression_cache()
-        compressor = HierarchicalCompressor(
-            config=RLMConfig(cache_compressions=False)
-        )
+        compressor = HierarchicalCompressor(config=RLMConfig(cache_compressions=False))
 
         def run_compress():
-            return asyncio.run(
-                compressor.compress(medium_content, source_type="text")
-            )
+            return asyncio.run(compressor.compress(medium_content, source_type="text"))
 
         benchmark.pedantic(run_compress, rounds=3, iterations=1)
 
     def test_benchmark_compress_with_cache(self, benchmark: Any, medium_content: str):
         """Benchmark compression with cache enabled (cache hits)."""
         clear_compression_cache()
-        compressor = HierarchicalCompressor(
-            config=RLMConfig(cache_compressions=True)
-        )
+        compressor = HierarchicalCompressor(config=RLMConfig(cache_compressions=True))
 
         # Warm up cache
-        asyncio.run(
-            compressor.compress(medium_content, source_type="text")
-        )
+        asyncio.run(compressor.compress(medium_content, source_type="text"))
 
         def run_compress():
-            return asyncio.run(
-                compressor.compress(medium_content, source_type="text")
-            )
+            return asyncio.run(compressor.compress(medium_content, source_type="text"))
 
         benchmark.pedantic(run_compress, rounds=5, iterations=1)
 
@@ -323,33 +315,25 @@ class TestQueryBenchmarks:
 class TestDebateCompressionBenchmarks:
     """Benchmarks for debate-specific compression."""
 
-    def test_benchmark_debate_formatting(
-        self, benchmark: Any, sample_debate_result: DebateResult
-    ):
+    def test_benchmark_debate_formatting(self, benchmark: Any, sample_debate_result: DebateResult):
         """Benchmark debate formatting for RLM."""
         adapter = DebateContextAdapter()
 
         benchmark(adapter.format_for_rlm, sample_debate_result)
 
-    def test_benchmark_debate_to_text(
-        self, benchmark: Any, sample_debate_result: DebateResult
-    ):
+    def test_benchmark_debate_to_text(self, benchmark: Any, sample_debate_result: DebateResult):
         """Benchmark converting debate to text."""
         adapter = DebateContextAdapter()
 
         benchmark(adapter.to_text, sample_debate_result)
 
-    def test_benchmark_debate_compression(
-        self, benchmark: Any, sample_debate_result: DebateResult
-    ):
+    def test_benchmark_debate_compression(self, benchmark: Any, sample_debate_result: DebateResult):
         """Benchmark full debate compression."""
         clear_compression_cache()
         adapter = DebateContextAdapter()
 
         def run_compress():
-            return asyncio.run(
-                adapter.compress_debate(sample_debate_result)
-            )
+            return asyncio.run(adapter.compress_debate(sample_debate_result))
 
         benchmark.pedantic(run_compress, rounds=3, iterations=1)
 
@@ -429,6 +413,7 @@ class TestMetricsBenchmarks:
 
 # Additional utility benchmarks
 
+
 class TestCacheBenchmarks:
     """Detailed cache benchmarks."""
 
@@ -436,8 +421,7 @@ class TestCacheBenchmarks:
         """Benchmark cache with mixed hit/miss pattern."""
         cache = LRUCompressionCache(max_size=100)
         contexts = [
-            RLMContext(original_content=f"Content {i}", original_tokens=i * 10)
-            for i in range(50)
+            RLMContext(original_content=f"Content {i}", original_tokens=i * 10) for i in range(50)
         ]
 
         # Populate half the cache

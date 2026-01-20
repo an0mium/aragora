@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.config import ALLOWED_AGENT_TYPES, MAX_AGENTS_PER_DEBATE
+from aragora.config import MAX_AGENTS_PER_DEBATE
 from aragora.exceptions import ConfigurationError
 from aragora.rlm.debate_integration import create_training_hook
 
@@ -269,6 +269,7 @@ class DebateFactory:
             Persona-specific system prompt, or None if not found
         """
         import warnings
+
         warnings.warn(
             "_get_persona_prompt is deprecated. Use aragora.agents.personas.get_persona_prompt() instead.",
             DeprecationWarning,
@@ -295,7 +296,9 @@ class DebateFactory:
             try:
                 stored_persona = self.persona_manager.get_persona(persona)
                 if stored_persona:
-                    traits_str = ", ".join(stored_persona.traits) if stored_persona.traits else "analytical"
+                    traits_str = (
+                        ", ".join(stored_persona.traits) if stored_persona.traits else "analytical"
+                    )
                     prompt = f"You are a {traits_str} agent. {stored_persona.description}"
                     return prompt
             except Exception as e:
@@ -317,6 +320,7 @@ class DebateFactory:
             persona: Persona name to look up parameters from
         """
         import warnings
+
         warnings.warn(
             "_apply_persona_params is deprecated. Use aragora.agents.personas.apply_persona_to_agent() instead.",
             DeprecationWarning,
@@ -464,9 +468,12 @@ class DebateFactory:
             existing_hook = hooks.get("on_debate_complete")
             if existing_hook:
                 # Chain hooks together
-                def chained_hook(result, ctx=None, _existing=existing_hook, _training=training_hook):
+                def chained_hook(
+                    result, ctx=None, _existing=existing_hook, _training=training_hook
+                ):
                     _existing(result, ctx)
                     _training(result, ctx)
+
                 hooks["on_debate_complete"] = chained_hook
             else:
                 hooks["on_debate_complete"] = training_hook

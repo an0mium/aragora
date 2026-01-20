@@ -58,7 +58,8 @@ def production_database(temp_workspace: Path) -> Path:
     cursor = conn.cursor()
 
     # Create realistic schema
-    cursor.executescript("""
+    cursor.executescript(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
@@ -97,7 +98,8 @@ def production_database(temp_workspace: Path) -> Path:
         CREATE INDEX idx_users_org ON users(org_id);
         CREATE INDEX idx_debates_org ON debates(org_id);
         CREATE INDEX idx_audit_timestamp ON audit_events(timestamp);
-    """)
+    """
+    )
 
     # Insert test data
     orgs = ["acme-corp", "tech-startup", "enterprise-co"]
@@ -219,9 +221,9 @@ class TestBackupRestorationDrill:
 
         # Phase 5: Verify data integrity
         restored_counts = self._get_table_counts(restore_path)
-        assert restored_counts == original_counts, (
-            f"Data mismatch: original={original_counts}, restored={restored_counts}"
-        )
+        assert (
+            restored_counts == original_counts
+        ), f"Data mismatch: original={original_counts}, restored={restored_counts}"
 
         # Verify specific data
         self._verify_data_integrity(restore_path)
@@ -415,7 +417,7 @@ class TestComponentFailoverValidation:
         multiplier = 2.0
 
         def get_delay(attempt: int) -> float:
-            delay = base_delay * (multiplier ** attempt)
+            delay = base_delay * (multiplier**attempt)
             return min(delay, max_delay)
 
         # Simulate rate limit retries
@@ -472,9 +474,9 @@ class TestDataIntegrityVerification:
         # Get restored schema
         restored_schema = self._get_schema(restore_path)
 
-        assert original_schema == restored_schema, (
-            f"Schema mismatch:\nOriginal: {original_schema}\nRestored: {restored_schema}"
-        )
+        assert (
+            original_schema == restored_schema
+        ), f"Schema mismatch:\nOriginal: {original_schema}\nRestored: {restored_schema}"
 
     def test_row_count_tolerance(
         self,
@@ -495,9 +497,7 @@ class TestDataIntegrityVerification:
         """Extract table schemas from database."""
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor.execute("SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name")
         schema = {row[0]: row[1] for row in cursor.fetchall() if row[1]}
         conn.close()
         return schema
@@ -548,7 +548,7 @@ class TestRTORPOMetrics:
         restore_time = metrics["restore_end"] - metrics["verify_end"]
         total_rto = metrics["restore_end"] - metrics["backup_start"]
 
-        print(f"RTO Breakdown:")
+        print("RTO Breakdown:")
         print(f"  Backup:  {backup_time:.3f}s")
         print(f"  Verify:  {verify_time:.3f}s")
         print(f"  Restore: {restore_time:.3f}s")
@@ -619,17 +619,13 @@ class TestProtectedFileRecovery:
         protected_file.write_text("# Core module\ndef main(): pass")
 
         # Compute checksum
-        original_checksum = hashlib.sha256(
-            protected_file.read_bytes()
-        ).hexdigest()[:16]
+        original_checksum = hashlib.sha256(protected_file.read_bytes()).hexdigest()[:16]
 
         # Modify file (simulating corruption/attack)
         protected_file.write_text("# Modified!")
 
         # Compute new checksum
-        modified_checksum = hashlib.sha256(
-            protected_file.read_bytes()
-        ).hexdigest()[:16]
+        modified_checksum = hashlib.sha256(protected_file.read_bytes()).hexdigest()[:16]
 
         # Checksums should differ
         assert original_checksum != modified_checksum
@@ -675,9 +671,7 @@ class TestProtectedFileRecovery:
         # Verify recovery
         for fname in files:
             restored = (source_dir / fname).read_text()
-            assert restored == original_contents[fname], (
-                f"{fname} not properly restored"
-            )
+            assert restored == original_contents[fname], f"{fname} not properly restored"
 
 
 class TestRetentionPolicyEnforcement:

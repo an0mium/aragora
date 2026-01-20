@@ -112,11 +112,7 @@ class TestTeamBuilderBasic:
     def test_calculate_diversity_single_agent(self):
         """Test diversity calculation with single agent."""
         builder = TeamBuilder()
-        agent = MockAgentProfile(
-            name="agent1",
-            agent_type="cli",
-            traits=["thorough"]
-        )
+        agent = MockAgentProfile(name="agent1", agent_type="cli", traits=["thorough"])
         diversity = builder.calculate_diversity([agent])
         assert diversity == 0.0
 
@@ -136,18 +132,8 @@ class TestTeamBuilderBasic:
         """Test diversity calculation with different agent types."""
         builder = TeamBuilder()
         agents = [
-            MockAgentProfile(
-                name="agent1",
-                agent_type="cli",
-                elo_rating=1500,
-                traits=["thorough"]
-            ),
-            MockAgentProfile(
-                name="agent2",
-                agent_type="api",
-                elo_rating=1800,
-                traits=["creative"]
-            ),
+            MockAgentProfile(name="agent1", agent_type="cli", elo_rating=1500, traits=["thorough"]),
+            MockAgentProfile(name="agent2", agent_type="api", elo_rating=1800, traits=["creative"]),
         ]
         diversity = builder.calculate_diversity(agents)
 
@@ -207,10 +193,7 @@ class TestSelectDiverseTeam:
     def test_select_diverse_team_respects_max(self):
         """Test that team selection respects max_size."""
         builder = TeamBuilder()
-        scored = [
-            (MockAgentProfile(name=f"agent{i}"), 0.9 - i * 0.1)
-            for i in range(10)
-        ]
+        scored = [(MockAgentProfile(name=f"agent{i}"), 0.9 - i * 0.1) for i in range(10)]
 
         team = builder.select_diverse_team(scored, min_size=2, max_size=3, diversity_pref=0.5)
 
@@ -237,10 +220,7 @@ class TestAssignRoles:
     def test_assign_roles_single_agent(self):
         """Test role assignment with single agent."""
         builder = TeamBuilder()
-        agent = MockAgentProfile(
-            name="agent1",
-            expertise={"general": 0.8}
-        )
+        agent = MockAgentProfile(name="agent1", expertise={"general": 0.8})
         requirements = MockTaskRequirements(primary_domain="general")
 
         roles = builder.assign_roles([agent], requirements)
@@ -425,11 +405,13 @@ class TestSelectTeamIntegration:
         builder = TeamBuilder()
 
         # Manually add to history to test tracking
-        builder._selection_history.append({
-            "task_id": "test1",
-            "selected": ["agent1", "agent2"],
-            "timestamp": "2025-01-01T00:00:00",
-        })
+        builder._selection_history.append(
+            {
+                "task_id": "test1",
+                "selected": ["agent1", "agent2"],
+                "timestamp": "2025-01-01T00:00:00",
+            }
+        )
 
         assert len(builder._selection_history) == 1
         assert builder._selection_history[0]["task_id"] == "test1"
@@ -460,16 +442,8 @@ class TestTeamBuilderEdgeCases:
         """Test diversity calculation with many traits."""
         builder = TeamBuilder()
         agents = [
-            MockAgentProfile(
-                name="agent1",
-                agent_type="cli",
-                traits=["a", "b", "c", "d", "e"]
-            ),
-            MockAgentProfile(
-                name="agent2",
-                agent_type="api",
-                traits=["f", "g", "h", "i", "j"]
-            ),
+            MockAgentProfile(name="agent1", agent_type="cli", traits=["a", "b", "c", "d", "e"]),
+            MockAgentProfile(name="agent2", agent_type="api", traits=["f", "g", "h", "i", "j"]),
         ]
 
         diversity = builder.calculate_diversity(agents)
@@ -509,8 +483,7 @@ class TestTeamBuilderEdgeCases:
         """Test diverse selection when all agents are same type."""
         builder = TeamBuilder()
         scored = [
-            (MockAgentProfile(name=f"agent{i}", agent_type="cli"), 0.9 - i * 0.1)
-            for i in range(5)
+            (MockAgentProfile(name=f"agent{i}", agent_type="cli"), 0.9 - i * 0.1) for i in range(5)
         ]
 
         team = builder.select_diverse_team(scored, min_size=2, max_size=3, diversity_pref=1.0)

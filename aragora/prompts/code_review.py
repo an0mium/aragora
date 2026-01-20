@@ -1,5 +1,5 @@
 """
-Specialized prompts for AI Red Team code review.
+Specialized prompts for multi-agent code review.
 
 These prompts are designed to focus agents on finding real, actionable issues
 rather than style nits or false positives.

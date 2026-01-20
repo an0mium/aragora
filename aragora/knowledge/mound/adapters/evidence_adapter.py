@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.evidence.store import EvidenceStore
     from aragora.knowledge.mound.types import IngestionRequest
 
@@ -143,6 +144,7 @@ class EvidenceAdapter:
         """
         # Use content hash-based lookup for exact matches
         import hashlib
+
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
 
         existing = self._store.get_evidence_by_hash(content_hash)
@@ -168,7 +170,7 @@ class EvidenceAdapter:
         """
         # Strip mound prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX):]
+            evidence_id = evidence_id[len(self.ID_PREFIX) :]
 
         return self._store.get_evidence(evidence_id)
 
@@ -205,6 +207,7 @@ class EvidenceAdapter:
         quality_scores = {}
         if evidence.get("quality_scores_json"):
             import json
+
             try:
                 quality_scores = json.loads(evidence["quality_scores_json"])
             except (json.JSONDecodeError, TypeError):
@@ -214,6 +217,7 @@ class EvidenceAdapter:
         enriched_metadata = {}
         if evidence.get("enriched_metadata_json"):
             import json
+
             try:
                 enriched_metadata = json.loads(evidence["enriched_metadata_json"])
             except (json.JSONDecodeError, TypeError):
@@ -285,7 +289,11 @@ class EvidenceAdapter:
             "url": request.metadata.get("url", ""),
             "reliability_score": request.confidence,
             "metadata": {
-                "source_type": request.source_type.value if hasattr(request.source_type, 'value') else str(request.source_type),
+                "source_type": (
+                    request.source_type.value
+                    if hasattr(request.source_type, "value")
+                    else str(request.source_type)
+                ),
                 "debate_id": request.debate_id,
                 "document_id": request.document_id,
                 "agent_id": request.agent_id,
@@ -364,7 +372,7 @@ class EvidenceAdapter:
         """
         # Strip prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX):]
+            evidence_id = evidence_id[len(self.ID_PREFIX) :]
 
         # Get current evidence
         evidence = self._store.get_evidence(evidence_id)
@@ -379,10 +387,7 @@ class EvidenceAdapter:
 
         # Weighted average: more validations = more weight on KM confidence
         weight = min(0.5, validation_count * 0.1)  # Max 50% weight
-        new_reliability = (
-            current_reliability * (1 - weight) +
-            km_confidence * weight
-        )
+        new_reliability = current_reliability * (1 - weight) + km_confidence * weight
 
         # Update the evidence
         self._store.update_evidence(

@@ -184,9 +184,7 @@ class ConsensusAdapter:
             "split": ConfidenceLevel.LOW,
             "contested": ConfidenceLevel.UNVERIFIED,
         }
-        confidence = strength_to_confidence.get(
-            consensus.strength.value, ConfidenceLevel.MEDIUM
-        )
+        confidence = strength_to_confidence.get(consensus.strength.value, ConfidenceLevel.MEDIUM)
 
         # Use conclusion as content, with topic as fallback
         content = consensus.conclusion or consensus.topic

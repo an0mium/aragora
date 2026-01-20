@@ -16,11 +16,12 @@ class AbstractionLevel(Enum):
     Level 0 is the most detailed (full content), higher levels are
     progressively more compressed summaries.
     """
-    FULL = 0        # Original full content
-    DETAILED = 1    # Detailed summary (~50% compression)
-    SUMMARY = 2     # Key points summary (~80% compression)
-    ABSTRACT = 3    # High-level abstract (~95% compression)
-    METADATA = 4    # Tags and routing info only
+
+    FULL = 0  # Original full content
+    DETAILED = 1  # Detailed summary (~50% compression)
+    SUMMARY = 2  # Key points summary (~80% compression)
+    ABSTRACT = 3  # High-level abstract (~95% compression)
+    METADATA = 4  # Tags and routing info only
 
 
 class DecompositionStrategy(Enum):
@@ -34,6 +35,7 @@ class DecompositionStrategy(Enum):
     - SUMMARIZE: Process subsets and extract summaries
     - HIERARCHICAL: Navigate pre-built abstraction hierarchy
     """
+
     PEEK = "peek"
     GREP = "grep"
     PARTITION_MAP = "partition_map"
@@ -83,6 +85,7 @@ class AbstractionNode:
     Each node represents content at a specific abstraction level,
     with references to its children (more detailed) and parent (more abstract).
     """
+
     id: str
     level: AbstractionLevel
     content: str
@@ -103,6 +106,7 @@ class AbstractionNode:
     def __post_init__(self) -> None:
         if not self.id:
             import uuid
+
             self.id = str(uuid.uuid4())[:8]
 
 
@@ -114,6 +118,7 @@ class RLMContext:
     Stores content at multiple abstraction levels, enabling efficient
     navigation from high-level summaries to detailed content.
     """
+
     # Original content
     original_content: str
     original_tokens: int
@@ -301,6 +306,7 @@ class RLMStreamEvent:
     def __post_init__(self) -> None:
         if self.timestamp == 0.0:
             import time
+
             self.timestamp = time.time()
 
     def to_dict(self) -> dict[str, Any]:

@@ -282,8 +282,16 @@ class TestPatternBridge:
     async def test_store_debate_patterns(self, bridge, mock_mound):
         """Test storing patterns from debate analysis."""
         patterns = [
-            {"type": "critique", "description": "Round 1 proposals are often revised", "occurrences": 15},
-            {"type": "debate", "description": "Critiques improve proposal quality", "occurrences": 12},
+            {
+                "type": "critique",
+                "description": "Round 1 proposals are often revised",
+                "occurrences": 15,
+            },
+            {
+                "type": "debate",
+                "description": "Critiques improve proposal quality",
+                "occurrences": 12,
+            },
             {"type": "consensus", "description": "Consensus emerges by round 3", "occurrences": 8},
         ]
 
@@ -433,7 +441,9 @@ class TestBridgeIntegration:
 
         async def store_patterns():
             for i in range(10):
-                await hub.patterns.store_pattern(pattern_type="test", description=f"Pattern {i}", confidence=0.5)
+                await hub.patterns.store_pattern(
+                    pattern_type="test", description=f"Pattern {i}", confidence=0.5
+                )
 
         await asyncio.gather(store_evidence(), store_patterns())
 

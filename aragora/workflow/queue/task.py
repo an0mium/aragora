@@ -248,10 +248,18 @@ class WorkflowTask:
             status=TaskStatus(data.get("status", TaskStatus.PENDING)),
             retry_count=data.get("retry_count", 0),
             result=result,
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
             queued_at=datetime.fromisoformat(data["queued_at"]) if data.get("queued_at") else None,
-            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
-            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            started_at=(
+                datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None
+            ),
+            completed_at=(
+                datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
+            ),
             executor_id=data.get("executor_id"),
             tenant_id=data.get("tenant_id", "default"),
             metadata=data.get("metadata", {}),

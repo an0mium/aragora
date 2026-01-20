@@ -271,16 +271,12 @@ class TestCLIErrorHandlerSuggestions:
 
     def test_config_suggestions(self):
         """Test suggestions for config errors."""
-        suggestions = CLIErrorHandler.get_suggestions(
-            ErrorCategory.CONFIG, Exception("Bad config")
-        )
+        suggestions = CLIErrorHandler.get_suggestions(ErrorCategory.CONFIG, Exception("Bad config"))
         assert len(suggestions) >= 1
 
     def test_unknown_suggestions(self):
         """Test suggestions for unknown errors."""
-        suggestions = CLIErrorHandler.get_suggestions(
-            ErrorCategory.UNKNOWN, Exception("???")
-        )
+        suggestions = CLIErrorHandler.get_suggestions(ErrorCategory.UNKNOWN, Exception("???"))
         assert len(suggestions) >= 1
         # Should suggest diagnostics
         all_text = " ".join(str(s) for s in suggestions)

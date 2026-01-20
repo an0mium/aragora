@@ -95,8 +95,8 @@ export default function ArenaPage() {
               {'>'} DEBATE ARENA
             </h1>
             <p className="text-sm text-[var(--text-muted)] font-mono max-w-xl mx-auto">
-              Pit AI agents against each other in structured adversarial reasoning.
-              Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek battle it out.
+              Harness the collective intelligence of multiple AI models for better decisions.
+              Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.
             </p>
           </div>
 
@@ -134,9 +134,9 @@ export default function ArenaPage() {
             </div>
             <div className="bg-[var(--surface)]/50 border border-[var(--border)] p-4">
               <div className="text-[var(--acid-green)] font-mono text-lg mb-2">02</div>
-              <h3 className="text-sm font-mono text-[var(--text)] mb-1">AI Agents Debate</h3>
+              <h3 className="text-sm font-mono text-[var(--text)] mb-1">AI Models Collaborate</h3>
               <p className="text-xs text-[var(--text-muted)]">
-                Watch as multiple AI models argue, critique, and refine answers
+                Watch as diverse AI models discuss, critique, and refine answers together
               </p>
             </div>
             <div className="bg-[var(--surface)]/50 border border-[var(--border)] p-4">

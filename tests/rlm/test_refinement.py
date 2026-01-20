@@ -89,7 +89,6 @@ class TestFINALPrimitive:
     def test_final_defaults_to_ready(self):
         """Test FINAL() defaults to ready=True."""
         from aragora.rlm.repl import RLMEnvironment, REPLState
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -105,7 +104,6 @@ class TestFINALPrimitive:
     def test_final_with_ready_false(self):
         """Test FINAL() with ready=False."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -121,7 +119,6 @@ class TestFINALPrimitive:
     def test_final_var_with_ready(self):
         """Test FINAL_VAR() with ready parameter."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -142,7 +139,6 @@ class TestSetReadyPrimitive:
     def test_set_ready_true(self):
         """Test SET_READY(True)."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -158,7 +154,6 @@ class TestSetReadyPrimitive:
     def test_set_ready_false(self):
         """Test SET_READY(False)."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -177,7 +172,6 @@ class TestFeedbackPrimitive:
     def test_feedback_returns_none_initially(self):
         """Test FEEDBACK() returns None on first iteration."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -192,7 +186,6 @@ class TestFeedbackPrimitive:
     def test_feedback_returns_set_value(self):
         """Test FEEDBACK() returns value set via set_iteration_context."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -212,7 +205,6 @@ class TestSetIterationContext:
     def test_sets_iteration_and_feedback(self):
         """Test that set_iteration_context sets iteration and feedback."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -231,7 +223,6 @@ class TestSetIterationContext:
     def test_clears_previous_final_answer(self):
         """Test that set_iteration_context clears previous final answer."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -254,7 +245,6 @@ class TestGetResultWithRefinement:
     def test_get_result_includes_ready(self):
         """Test that get_result includes ready field."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -271,7 +261,6 @@ class TestGetResultWithRefinement:
     def test_get_result_includes_iteration(self):
         """Test that get_result includes iteration field."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -303,7 +292,6 @@ class TestREPLNamespaceHasNewPrimitives:
     def test_namespace_has_set_ready(self):
         """Test namespace has SET_READY primitive."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",
@@ -317,7 +305,6 @@ class TestREPLNamespaceHasNewPrimitives:
     def test_namespace_has_feedback(self):
         """Test namespace has FEEDBACK primitive."""
         from aragora.rlm.repl import RLMEnvironment
-        from aragora.rlm.types import RLMConfig, RLMContext
 
         context = RLMContext(
             original_content="test content",

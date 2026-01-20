@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_federation_sync, track_federation_regions
@@ -21,7 +21,6 @@ from aragora.server.metrics import track_federation_sync, track_federation_regio
 from ...base import (
     HandlerResult,
     error_response,
-    get_bounded_string_param,
     handle_errors,
     json_response,
 )
@@ -46,9 +45,7 @@ class FederationOperationsMixin:
 
     @rate_limit(rpm=10, limiter_name="federation_admin")
     @handle_errors("register federated region")
-    def _handle_register_region(
-        self: FederationHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_register_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/regions - Register a federated region."""
         # Admin only
         user, err = self.require_admin_or_error(handler)
@@ -91,7 +88,9 @@ class FederationOperationsMixin:
             sync_scope = SyncScope(sync_scope_str)
         except ValueError:
             valid_scopes = [s.value for s in SyncScope]
-            return error_response(f"Invalid sync_scope: {sync_scope_str}. Valid: {valid_scopes}", 400)
+            return error_response(
+                f"Invalid sync_scope: {sync_scope_str}. Valid: {valid_scopes}", 400
+            )
 
         mound = self._get_mound()
         if not mound:
@@ -111,16 +110,19 @@ class FederationOperationsMixin:
             logger.error(f"Failed to register region: {e}")
             return error_response(f"Failed to register region: {e}", 500)
 
-        return json_response({
-            "success": True,
-            "region": {
-                "region_id": region.region_id,
-                "endpoint_url": region.endpoint_url,
-                "mode": region.mode.value,
-                "sync_scope": region.sync_scope.value,
-                "enabled": region.enabled,
+        return json_response(
+            {
+                "success": True,
+                "region": {
+                    "region_id": region.region_id,
+                    "endpoint_url": region.endpoint_url,
+                    "mode": region.mode.value,
+                    "sync_scope": region.sync_scope.value,
+                    "enabled": region.enabled,
+                },
             },
-        }, status=201)
+            status=201,
+        )
 
     @handle_errors("unregister region")
     def _handle_unregister_region(
@@ -144,16 +146,16 @@ class FederationOperationsMixin:
         if not success:
             return error_response(f"Region not found: {region_id}", 404)
 
-        return json_response({
-            "success": True,
-            "region_id": region_id,
-        })
+        return json_response(
+            {
+                "success": True,
+                "region_id": region_id,
+            }
+        )
 
     @rate_limit(rpm=5, limiter_name="federation_sync")
     @handle_errors("sync to region")
-    def _handle_sync_to_region(
-        self: FederationHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_sync_to_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/sync/push - Sync to a region."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -205,22 +207,22 @@ class FederationOperationsMixin:
                 logger.error(f"Failed to sync to region: {e}")
                 return error_response(f"Failed to sync to region: {e}", 500)
 
-        return json_response({
-            "success": result.success,
-            "region_id": result.region_id,
-            "direction": result.direction,
-            "nodes_synced": result.nodes_synced,
-            "nodes_skipped": result.nodes_skipped,
-            "nodes_failed": result.nodes_failed,
-            "duration_ms": result.duration_ms,
-            "error": result.error,
-        })
+        return json_response(
+            {
+                "success": result.success,
+                "region_id": result.region_id,
+                "direction": result.direction,
+                "nodes_synced": result.nodes_synced,
+                "nodes_skipped": result.nodes_skipped,
+                "nodes_failed": result.nodes_failed,
+                "duration_ms": result.duration_ms,
+                "error": result.error,
+            }
+        )
 
     @rate_limit(rpm=5, limiter_name="federation_sync")
     @handle_errors("pull from region")
-    def _handle_pull_from_region(
-        self: FederationHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_pull_from_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/sync/pull - Pull from a region."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -270,20 +272,20 @@ class FederationOperationsMixin:
                 logger.error(f"Failed to pull from region: {e}")
                 return error_response(f"Failed to pull from region: {e}", 500)
 
-        return json_response({
-            "success": result.success,
-            "region_id": result.region_id,
-            "direction": result.direction,
-            "nodes_synced": result.nodes_synced,
-            "nodes_failed": result.nodes_failed,
-            "duration_ms": result.duration_ms,
-            "error": result.error,
-        })
+        return json_response(
+            {
+                "success": result.success,
+                "region_id": result.region_id,
+                "direction": result.direction,
+                "nodes_synced": result.nodes_synced,
+                "nodes_failed": result.nodes_failed,
+                "duration_ms": result.duration_ms,
+                "error": result.error,
+            }
+        )
 
     @handle_errors("sync all regions")
-    def _handle_sync_all_regions(
-        self: FederationHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_sync_all_regions(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/sync/all - Sync with all regions."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -324,22 +326,24 @@ class FederationOperationsMixin:
             logger.error(f"Failed to sync all regions: {e}")
             return error_response(f"Failed to sync all regions: {e}", 500)
 
-        return json_response({
-            "results": [
-                {
-                    "region_id": r.region_id,
-                    "direction": r.direction,
-                    "success": r.success,
-                    "nodes_synced": r.nodes_synced,
-                    "nodes_failed": r.nodes_failed,
-                    "error": r.error,
-                }
-                for r in results
-            ],
-            "total_regions": len(results),
-            "successful": sum(1 for r in results if r.success),
-            "failed": sum(1 for r in results if not r.success),
-        })
+        return json_response(
+            {
+                "results": [
+                    {
+                        "region_id": r.region_id,
+                        "direction": r.direction,
+                        "success": r.success,
+                        "nodes_synced": r.nodes_synced,
+                        "nodes_failed": r.nodes_failed,
+                        "error": r.error,
+                    }
+                    for r in results
+                ],
+                "total_regions": len(results),
+                "successful": sum(1 for r in results if r.success),
+                "failed": sum(1 for r in results if not r.success),
+            }
+        )
 
     @handle_errors("get federation status")
     def _handle_get_federation_status(
@@ -368,16 +372,16 @@ class FederationOperationsMixin:
             unhealthy=unhealthy_count,
         )
 
-        return json_response({
-            "regions": status,
-            "total_regions": len(status),
-            "enabled_regions": enabled_count,
-        })
+        return json_response(
+            {
+                "regions": status,
+                "total_regions": len(status),
+                "enabled_regions": enabled_count,
+            }
+        )
 
     @handle_errors("list federated regions")
-    def _handle_list_regions(
-        self: FederationHandlerProtocol, query_params: dict
-    ) -> HandlerResult:
+    def _handle_list_regions(self: FederationHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/federation/regions - List federated regions."""
         mound = self._get_mound()
         if not mound:
@@ -397,7 +401,9 @@ class FederationOperationsMixin:
             for region_id, region_data in status.items()
         ]
 
-        return json_response({
-            "regions": regions,
-            "count": len(regions),
-        })
+        return json_response(
+            {
+                "regions": regions,
+                "count": len(regions),
+            }
+        )

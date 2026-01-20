@@ -255,14 +255,42 @@ class TestHarnessResult:
     def test_result_severity_counts(self):
         """Test automatic severity counting."""
         findings = [
-            AnalysisFinding(id="1", title="T", description="D", severity="high",
-                          confidence=0.9, category="c", file_path="f"),
-            AnalysisFinding(id="2", title="T", description="D", severity="high",
-                          confidence=0.8, category="c", file_path="f"),
-            AnalysisFinding(id="3", title="T", description="D", severity="medium",
-                          confidence=0.7, category="c", file_path="f"),
-            AnalysisFinding(id="4", title="T", description="D", severity="low",
-                          confidence=0.6, category="c", file_path="f"),
+            AnalysisFinding(
+                id="1",
+                title="T",
+                description="D",
+                severity="high",
+                confidence=0.9,
+                category="c",
+                file_path="f",
+            ),
+            AnalysisFinding(
+                id="2",
+                title="T",
+                description="D",
+                severity="high",
+                confidence=0.8,
+                category="c",
+                file_path="f",
+            ),
+            AnalysisFinding(
+                id="3",
+                title="T",
+                description="D",
+                severity="medium",
+                confidence=0.7,
+                category="c",
+                file_path="f",
+            ),
+            AnalysisFinding(
+                id="4",
+                title="T",
+                description="D",
+                severity="low",
+                confidence=0.6,
+                category="c",
+                file_path="f",
+            ),
         ]
 
         result = HarnessResult(
@@ -356,6 +384,7 @@ class TestCodeAnalysisHarnessBase:
 
     def test_validate_path_exists(self, temp_repo):
         """Test path validation for existing path."""
+
         # Create a concrete implementation for testing
         class TestHarness(CodeAnalysisHarness):
             @property
@@ -366,15 +395,19 @@ class TestCodeAnalysisHarnessBase:
             def supported_analysis_types(self):
                 return [AnalysisType.GENERAL]
 
-            async def analyze_repository(self, repo_path, analysis_type=AnalysisType.GENERAL,
-                                        prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_repository(
+                self, repo_path, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
-            async def analyze_files(self, files, analysis_type=AnalysisType.GENERAL,
-                                   prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_files(
+                self, files, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
         harness = TestHarness()
         # Should not raise
@@ -382,6 +415,7 @@ class TestCodeAnalysisHarnessBase:
 
     def test_validate_path_not_exists(self):
         """Test path validation for non-existing path."""
+
         class TestHarness(CodeAnalysisHarness):
             @property
             def name(self):
@@ -391,15 +425,19 @@ class TestCodeAnalysisHarnessBase:
             def supported_analysis_types(self):
                 return [AnalysisType.GENERAL]
 
-            async def analyze_repository(self, repo_path, analysis_type=AnalysisType.GENERAL,
-                                        prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_repository(
+                self, repo_path, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
-            async def analyze_files(self, files, analysis_type=AnalysisType.GENERAL,
-                                   prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_files(
+                self, files, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
         harness = TestHarness()
 
@@ -408,6 +446,7 @@ class TestCodeAnalysisHarnessBase:
 
     def test_should_include_file(self, harness_config, temp_repo):
         """Test file inclusion logic."""
+
         class TestHarness(CodeAnalysisHarness):
             @property
             def name(self):
@@ -417,15 +456,19 @@ class TestCodeAnalysisHarnessBase:
             def supported_analysis_types(self):
                 return [AnalysisType.GENERAL]
 
-            async def analyze_repository(self, repo_path, analysis_type=AnalysisType.GENERAL,
-                                        prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_repository(
+                self, repo_path, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
-            async def analyze_files(self, files, analysis_type=AnalysisType.GENERAL,
-                                   prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_files(
+                self, files, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
         harness = TestHarness(harness_config)
 
@@ -437,6 +480,7 @@ class TestCodeAnalysisHarnessBase:
 
     def test_interactive_session_not_implemented(self, harness_config):
         """Test that interactive session raises NotImplementedError by default."""
+
         class TestHarness(CodeAnalysisHarness):
             @property
             def name(self):
@@ -446,28 +490,28 @@ class TestCodeAnalysisHarnessBase:
             def supported_analysis_types(self):
                 return [AnalysisType.GENERAL]
 
-            async def analyze_repository(self, repo_path, analysis_type=AnalysisType.GENERAL,
-                                        prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_repository(
+                self, repo_path, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
-            async def analyze_files(self, files, analysis_type=AnalysisType.GENERAL,
-                                   prompt=None, options=None):
-                return HarnessResult(harness="test", analysis_type=analysis_type,
-                                    success=True, findings=[])
+            async def analyze_files(
+                self, files, analysis_type=AnalysisType.GENERAL, prompt=None, options=None
+            ):
+                return HarnessResult(
+                    harness="test", analysis_type=analysis_type, success=True, findings=[]
+                )
 
         harness = TestHarness(harness_config)
         context = SessionContext(session_id="s1", repo_path=Path("."))
 
         with pytest.raises(NotImplementedError):
-            asyncio.run(
-                harness.start_interactive_session(context)
-            )
+            asyncio.run(harness.start_interactive_session(context))
 
         with pytest.raises(NotImplementedError):
-            asyncio.run(
-                harness.continue_session(context, "test input")
-            )
+            asyncio.run(harness.continue_session(context, "test input"))
 
 
 # =============================================================================
@@ -546,7 +590,7 @@ class TestClaudeCodeHarness:
         """Test repository analysis."""
         harness = ClaudeCodeHarness(claude_config)
 
-        mock_output = '''Here is my analysis:
+        mock_output = """Here is my analysis:
 [
     {
         "id": "finding-1",
@@ -558,7 +602,7 @@ class TestClaudeCodeHarness:
         "file_path": "main.py"
     }
 ]
-'''
+"""
 
         with patch.object(harness, "_run_claude_code", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (mock_output, "")
@@ -617,12 +661,12 @@ class TestClaudeCodeHarness:
         """Test parsing JSON findings from output."""
         harness = ClaudeCodeHarness(claude_config)
 
-        output = '''Some text here...
+        output = """Some text here...
 [
     {"id": "1", "title": "Finding 1", "description": "Desc", "severity": "high", "confidence": 0.9, "category": "security", "file_path": "test.py"},
     {"id": "2", "title": "Finding 2", "description": "Desc", "severity": "low", "confidence": 0.6, "category": "quality", "file_path": "other.py"}
 ]
-More text...'''
+More text..."""
 
         findings = harness._parse_findings(output, AnalysisType.SECURITY)
 
@@ -749,13 +793,13 @@ class TestHarnessIntegration:
         """Test complete analysis workflow."""
         harness = ClaudeCodeHarness(claude_config)
 
-        mock_output = '''Analysis complete.
+        mock_output = """Analysis complete.
 [
     {"id": "1", "title": "Missing docstring", "description": "Function lacks documentation",
      "severity": "low", "confidence": 0.8, "category": "documentation", "file_path": "main.py",
      "line_start": 1, "recommendation": "Add a docstring"}
 ]
-'''
+"""
 
         with patch.object(harness, "_run_claude_code", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (mock_output, "")

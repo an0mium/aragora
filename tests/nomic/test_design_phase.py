@@ -67,7 +67,7 @@ class TestDesignPhaseArchitecture:
             "reasoning": "Improves reliability",
         }
 
-        with patch.object(phase, '_generate_design', new_callable=AsyncMock) as mock_design:
+        with patch.object(phase, "_generate_design", new_callable=AsyncMock) as mock_design:
             mock_design.return_value = {
                 "components": ["ErrorHandler", "RetryLogic"],
                 "files_to_modify": ["aragora/errors.py"],
@@ -98,7 +98,7 @@ class TestDesignPhaseArchitecture:
             "description": "Add error handling to core module",
         }
 
-        with patch.object(phase, '_identify_files', new_callable=AsyncMock) as mock_identify:
+        with patch.object(phase, "_identify_files", new_callable=AsyncMock) as mock_identify:
             mock_identify.return_value = [
                 "aragora/core.py",
                 "aragora/errors.py",
@@ -138,9 +138,7 @@ class TestDesignPhaseSafetyReview:
         assert "protected" in result.get("reason", "").lower()
 
     @pytest.mark.asyncio
-    async def test_allows_safe_designs(
-        self, mock_aragora_path, mock_claude_agent, mock_log_fn
-    ):
+    async def test_allows_safe_designs(self, mock_aragora_path, mock_claude_agent, mock_log_fn):
         """Should allow designs that don't touch protected files."""
         from aragora.nomic.phases.design import DesignPhase
 
@@ -178,7 +176,7 @@ class TestDesignPhaseSafetyReview:
             "files_to_modify": ["aragora/executor.py"],
         }
 
-        with patch.object(phase, '_check_risk_patterns') as mock_check:
+        with patch.object(phase, "_check_risk_patterns") as mock_check:
             mock_check.return_value = {
                 "high_risk": True,
                 "patterns_found": ["eval", "exec"],
@@ -212,7 +210,7 @@ class TestDesignPhaseApproval:
             "files_to_modify": ["aragora/utils.py"],
         }
 
-        with patch.object(phase, 'safety_review', new_callable=AsyncMock) as mock_review:
+        with patch.object(phase, "safety_review", new_callable=AsyncMock) as mock_review:
             mock_review.return_value = {"safe": True, "risk_score": 0.2}
 
             result = await phase.approve_design(design)
@@ -239,7 +237,7 @@ class TestDesignPhaseApproval:
             "files_to_modify": ["aragora/core.py"],
         }
 
-        with patch.object(phase, 'safety_review', new_callable=AsyncMock) as mock_review:
+        with patch.object(phase, "safety_review", new_callable=AsyncMock) as mock_review:
             mock_review.return_value = {"safe": True, "risk_score": 0.8}
 
             result = await phase.approve_design(design)
@@ -263,9 +261,9 @@ class TestDesignPhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_design', new_callable=AsyncMock) as mock_gen:
-            with patch.object(phase, 'safety_review', new_callable=AsyncMock) as mock_review:
-                with patch.object(phase, 'approve_design', new_callable=AsyncMock) as mock_approve:
+        with patch.object(phase, "generate_design", new_callable=AsyncMock) as mock_gen:
+            with patch.object(phase, "safety_review", new_callable=AsyncMock) as mock_review:
+                with patch.object(phase, "approve_design", new_callable=AsyncMock) as mock_approve:
                     mock_gen.return_value = {
                         "components": ["ErrorHandler"],
                         "files_to_modify": ["aragora/errors.py"],
@@ -273,9 +271,7 @@ class TestDesignPhaseIntegration:
                     mock_review.return_value = {"safe": True}
                     mock_approve.return_value = {"approved": True}
 
-                    result = await phase.run(
-                        winning_proposal=mock_debate_result["proposals"][0]
-                    )
+                    result = await phase.run(winning_proposal=mock_debate_result["proposals"][0])
 
                     assert result is not None
                     assert result.get("approved", False) is True
@@ -298,7 +294,7 @@ class TestDesignPhaseIntegration:
             "proposal": "Modify core module",
         }
 
-        with patch.object(phase, 'generate_design', new_callable=AsyncMock) as mock_gen:
+        with patch.object(phase, "generate_design", new_callable=AsyncMock) as mock_gen:
             mock_gen.return_value = {
                 "files_to_modify": ["aragora/core.py"],  # Protected
             }

@@ -15,11 +15,10 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -215,25 +214,29 @@ class GmailIngestHandler(BaseHandler):
         state = get_user_state(user_id)
 
         if not state:
-            return json_response({
-                "connected": False,
-                "configured": self._is_configured(),
-            })
+            return json_response(
+                {
+                    "connected": False,
+                    "configured": self._is_configured(),
+                }
+            )
 
-        return json_response({
-            "connected": bool(state.refresh_token),
-            "configured": self._is_configured(),
-            "email_address": state.email_address,
-            "indexed_count": state.indexed_count,
-            "last_sync": state.last_sync.isoformat() if state.last_sync else None,
-        })
+        return json_response(
+            {
+                "connected": bool(state.refresh_token),
+                "configured": self._is_configured(),
+                "email_address": state.email_address,
+                "indexed_count": state.indexed_count,
+                "last_sync": state.last_sync.isoformat() if state.last_sync else None,
+            }
+        )
 
     def _is_configured(self) -> bool:
         """Check if Gmail OAuth is configured."""
         return bool(
-            os.environ.get("GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_CLIENT_ID")
+            os.environ.get("GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_CLIENT_ID")
         )
 
     def _get_auth_url(self, query_params: Dict[str, Any]) -> HandlerResult:
@@ -264,10 +267,12 @@ class GmailIngestHandler(BaseHandler):
             connector = GmailConnector()
             url = connector.get_oauth_url(redirect_uri, state)
 
-            return json_response({
-                "url": url,
-                "state": state,
-            })
+            return json_response(
+                {
+                    "url": url,
+                    "state": state,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[Gmail] Failed to start connect: {e}")
@@ -356,11 +361,13 @@ class GmailIngestHandler(BaseHandler):
             )
             save_user_state(state)
 
-            return json_response({
-                "success": True,
-                "email_address": state.email_address,
-                "user_id": user_id,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "email_address": state.email_address,
+                    "user_id": user_id,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[Gmail] OAuth completion failed: {e}")
@@ -379,11 +386,13 @@ class GmailIngestHandler(BaseHandler):
 
         # Check if sync already running
         if user_id in _sync_jobs and _sync_jobs[user_id].get("status") == "running":
-            return json_response({
-                "message": "Sync already in progress",
-                "status": "running",
-                "progress": _sync_jobs[user_id].get("progress", 0),
-            })
+            return json_response(
+                {
+                    "message": "Sync already in progress",
+                    "status": "running",
+                    "progress": _sync_jobs[user_id].get("progress", 0),
+                }
+            )
 
         # Start sync in background
         _sync_jobs[user_id] = {
@@ -396,6 +405,7 @@ class GmailIngestHandler(BaseHandler):
 
         # Run sync in thread
         import threading
+
         thread = threading.Thread(
             target=self._run_sync,
             args=(user_id, state, full_sync, max_messages, labels),
@@ -403,11 +413,13 @@ class GmailIngestHandler(BaseHandler):
         )
         thread.start()
 
-        return json_response({
-            "message": "Sync started",
-            "status": "running",
-            "job_id": user_id,
-        })
+        return json_response(
+            {
+                "message": "Sync started",
+                "status": "running",
+                "job_id": user_id,
+            }
+        )
 
     def _run_sync(
         self,
@@ -474,16 +486,18 @@ class GmailIngestHandler(BaseHandler):
         state = get_user_state(user_id)
         job = _sync_jobs.get(user_id, {})
 
-        return json_response({
-            "connected": bool(state and state.refresh_token),
-            "email_address": state.email_address if state else None,
-            "indexed_count": state.indexed_count if state else 0,
-            "last_sync": state.last_sync.isoformat() if state and state.last_sync else None,
-            "job_status": job.get("status", "idle"),
-            "job_progress": job.get("progress", 0),
-            "job_messages_synced": job.get("messages_synced", 0),
-            "job_error": job.get("error"),
-        })
+        return json_response(
+            {
+                "connected": bool(state and state.refresh_token),
+                "email_address": state.email_address if state else None,
+                "indexed_count": state.indexed_count if state else 0,
+                "last_sync": state.last_sync.isoformat() if state and state.last_sync else None,
+                "job_status": job.get("status", "idle"),
+                "job_progress": job.get("progress", 0),
+                "job_messages_synced": job.get("messages_synced", 0),
+                "job_error": job.get("error"),
+            }
+        )
 
     def _list_messages(
         self,
@@ -513,28 +527,28 @@ class GmailIngestHandler(BaseHandler):
             asyncio.set_event_loop(loop)
 
             try:
-                results = loop.run_until_complete(
-                    connector.search(query=query, limit=limit)
-                )
+                results = loop.run_until_complete(connector.search(query=query, limit=limit))
             finally:
                 loop.close()
 
-            return json_response({
-                "messages": [
-                    {
-                        "id": r.id.replace("gmail-", ""),
-                        "subject": r.title,
-                        "from": r.author,
-                        "snippet": r.content,
-                        "date": r.metadata.get("date"),
-                        "url": r.url,
-                    }
-                    for r in results
-                ],
-                "total": len(results),
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "messages": [
+                        {
+                            "id": r.id.replace("gmail-", ""),
+                            "subject": r.title,
+                            "from": r.author,
+                            "snippet": r.content,
+                            "date": r.metadata.get("date"),
+                            "url": r.url,
+                        }
+                        for r in results
+                    ],
+                    "total": len(results),
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[Gmail] List messages failed: {e}")
@@ -594,27 +608,27 @@ class GmailIngestHandler(BaseHandler):
             asyncio.set_event_loop(loop)
 
             try:
-                results = loop.run_until_complete(
-                    connector.search(query=query, limit=limit)
-                )
+                results = loop.run_until_complete(connector.search(query=query, limit=limit))
             finally:
                 loop.close()
 
-            return json_response({
-                "query": query,
-                "results": [
-                    {
-                        "id": r.id.replace("gmail-", ""),
-                        "subject": r.title,
-                        "from": r.author,
-                        "snippet": r.content,
-                        "date": r.metadata.get("date"),
-                        "url": r.url,
-                    }
-                    for r in results
-                ],
-                "count": len(results),
-            })
+            return json_response(
+                {
+                    "query": query,
+                    "results": [
+                        {
+                            "id": r.id.replace("gmail-", ""),
+                            "subject": r.title,
+                            "from": r.author,
+                            "snippet": r.content,
+                            "date": r.metadata.get("date"),
+                            "url": r.url,
+                        }
+                        for r in results
+                    ],
+                    "count": len(results),
+                }
+            )
 
         except Exception as e:
             logger.error(f"[Gmail] Search failed: {e}")
@@ -627,10 +641,12 @@ class GmailIngestHandler(BaseHandler):
         if user_id in _sync_jobs:
             del _sync_jobs[user_id]
 
-        return json_response({
-            "success": True,
-            "was_connected": deleted,
-        })
+        return json_response(
+            {
+                "success": True,
+                "was_connected": deleted,
+            }
+        )
 
 
 # Export for handler registration

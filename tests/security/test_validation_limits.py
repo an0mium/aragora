@@ -350,18 +350,18 @@ class TestSecurityIntegration:
         """Test validation workflow for debate creation."""
         # Typical debate creation inputs
         title_result = validate_debate_title("AI Ethics Discussion")
-        task_result = validate_task_content(
-            "Discuss the ethical implications of AI in healthcare"
-        )
+        task_result = validate_task_content("Discuss the ethical implications of AI in healthcare")
         context_result = validate_context_size({"background": "some context"})
         agent_result = validate_agent_count(3)
 
-        assert all([
-            title_result.is_valid,
-            task_result.is_valid,
-            context_result.is_valid,
-            agent_result.is_valid,
-        ])
+        assert all(
+            [
+                title_result.is_valid,
+                task_result.is_valid,
+                context_result.is_valid,
+                agent_result.is_valid,
+            ]
+        )
 
     def test_malicious_input_handling(self):
         """Test that malicious inputs are properly rejected."""

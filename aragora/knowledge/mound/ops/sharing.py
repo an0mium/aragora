@@ -16,13 +16,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol
 from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         AccessGrant,
-        AccessGrantType,
         KnowledgeItem,
         MoundConfig,
     )
@@ -41,7 +40,9 @@ class SharingProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
 
-    async def get(self, node_id: str, workspace_id: Optional[str] = None) -> Optional["KnowledgeItem"]: ...
+    async def get(
+        self, node_id: str, workspace_id: Optional[str] = None
+    ) -> Optional["KnowledgeItem"]: ...
 
 
 class KnowledgeSharingMixin:
@@ -119,6 +120,15 @@ class KnowledgeSharingMixin:
             f"to workspace {to_workspace_id} by {shared_by}"
         )
 
+        # Send notification asynchronously (best effort)
+        await self._send_share_notification(
+            item_id=item_id,
+            item_title=getattr(item, "content", "")[:50],
+            from_user_id=shared_by,
+            to_workspace_id=to_workspace_id,
+            permissions=permissions,
+        )
+
         return grant
 
     async def share_with_user(
@@ -174,8 +184,16 @@ class KnowledgeSharingMixin:
             logger.warning("Store does not support access grants, grant not persisted")
 
         logger.info(
-            f"Shared item {item_id} from {from_workspace_id} "
-            f"to user {user_id} by {shared_by}"
+            f"Shared item {item_id} from {from_workspace_id} " f"to user {user_id} by {shared_by}"
+        )
+
+        # Send notification asynchronously (best effort)
+        await self._send_user_share_notification(
+            item_id=item_id,
+            item_title=getattr(item, "content", "")[:50],
+            from_user_id=shared_by,
+            to_user_id=user_id,
+            permissions=permissions,
         )
 
         return grant
@@ -258,9 +276,7 @@ class KnowledgeSharingMixin:
         if hasattr(self._meta_store, "delete_access_grant_async"):
             result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
-                logger.info(
-                    f"Revoked share for item {item_id} from {grantee_id} by {revoked_by}"
-                )
+                logger.info(f"Revoked share for item {item_id} from {grantee_id} by {revoked_by}")
             return result
 
         logger.warning("Store does not support access grants")
@@ -370,3 +386,57 @@ class KnowledgeSharingMixin:
             pass
         except Exception as e:
             logger.warning(f"Failed to record sharing consent: {e}")
+
+    async def _send_share_notification(
+        self: SharingProtocol,
+        item_id: str,
+        item_title: str,
+        from_user_id: str,
+        to_workspace_id: str,
+        permissions: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Send notification about workspace sharing (best effort).
+
+        For workspace shares, we notify all workspace members.
+        This is a simplified implementation - production would look up members.
+        """
+        try:
+            from aragora.knowledge.mound.notifications import notify_item_shared
+
+            # Note: In production, we would look up workspace members
+            # and notify each one. For now, log the notification.
+            logger.debug(
+                f"Would notify workspace {to_workspace_id} about shared item {item_id}"
+            )
+        except ImportError:
+            logger.debug("Notifications module not available")
+        except Exception as e:
+            logger.warning(f"Failed to send share notification: {e}")
+
+    async def _send_user_share_notification(
+        self: SharingProtocol,
+        item_id: str,
+        item_title: str,
+        from_user_id: str,
+        to_user_id: str,
+        permissions: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Send notification to a user about item sharing (best effort).
+        """
+        try:
+            from aragora.knowledge.mound.notifications import notify_item_shared
+
+            await notify_item_shared(
+                item_id=item_id,
+                item_title=item_title,
+                from_user_id=from_user_id,
+                from_user_name=from_user_id,  # Would look up display name in production
+                to_user_id=to_user_id,
+                permissions=permissions,
+            )
+        except ImportError:
+            logger.debug("Notifications module not available")
+        except Exception as e:
+            logger.warning(f"Failed to send share notification: {e}")

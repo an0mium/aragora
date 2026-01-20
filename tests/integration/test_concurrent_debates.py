@@ -187,6 +187,7 @@ class TestConcurrentDebateExecution:
 
         # Force garbage collection
         import gc
+
         gc.collect()
 
         # Memory should be released (no major leaks)
@@ -238,11 +239,11 @@ class TestConcurrentDebatePerformance:
 
         # Mix of fast and slow operations
         tasks = [
-            timed_operation(0, 0.1),   # Fast
-            timed_operation(1, 0.5),   # Slow
-            timed_operation(2, 0.1),   # Fast
-            timed_operation(3, 0.5),   # Slow
-            timed_operation(4, 0.1),   # Fast
+            timed_operation(0, 0.1),  # Fast
+            timed_operation(1, 0.5),  # Slow
+            timed_operation(2, 0.1),  # Fast
+            timed_operation(3, 0.5),  # Slow
+            timed_operation(4, 0.1),  # Fast
         ]
 
         start = time.time()

@@ -40,6 +40,7 @@ from aragora.server.handlers.base import HandlerResult
 # Check for optional PyJWT dependency (used in token forgery test)
 try:
     import jwt
+
     HAS_PYJWT = True
 except ImportError:
     HAS_PYJWT = False

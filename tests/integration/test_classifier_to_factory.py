@@ -67,8 +67,15 @@ class TestClassifierToFactoryPipeline:
         # Verify
         assert len(specs) >= 2
         assert classification.category in [
-            "technical", "scientific", "general", "ethical",
-            "financial", "healthcare", "legal", "security", "political",
+            "technical",
+            "scientific",
+            "general",
+            "ethical",
+            "financial",
+            "healthcare",
+            "legal",
+            "security",
+            "political",
         ]
 
         # Check all specs have valid roles
@@ -216,6 +223,7 @@ class TestEdgeCases:
         # Should still be parseable (even if only 1 agent)
         # DebateConfig will raise if < 2 agents, but parsing should work
         from aragora.agents.spec import AgentSpec
+
         specs = AgentSpec.parse_list(agent_string)
         assert len(specs) >= 1
 
@@ -232,6 +240,7 @@ class TestEdgeCases:
 
         # Should produce some agents from fallback
         from aragora.agents.spec import AgentSpec
+
         specs = AgentSpec.parse_list(agent_string)
         # May be empty or have fallback - just verify no crash
         assert isinstance(specs, list)

@@ -42,8 +42,9 @@ def mock_http_handler():
 def reset_rate_limiter():
     """Reset rate limiter before each test."""
     from aragora.server.handlers.genesis import _genesis_limiter
+
     # RateLimiter uses _buckets (dict of timestamp lists), not _requests
-    if hasattr(_genesis_limiter, '_buckets'):
+    if hasattr(_genesis_limiter, "_buckets"):
         _genesis_limiter._buckets.clear()
     yield
 
@@ -168,7 +169,9 @@ class TestGenesisHandlerStatsEndpoint:
     def test_stats_handles_exception_gracefully(self, handler, mock_http_handler):
         """Stats endpoint returns 500 on internal error."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
-            with patch("aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("DB error")):
+            with patch(
+                "aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("DB error")
+            ):
                 result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
@@ -248,7 +251,10 @@ class TestGenesisHandlerEventsEndpoint:
 
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
-                with patch("aragora.server.handlers.genesis.GenesisEventType", side_effect=ValueError("Unknown")):
+                with patch(
+                    "aragora.server.handlers.genesis.GenesisEventType",
+                    side_effect=ValueError("Unknown"),
+                ):
                     result = handler.handle(
                         "/api/genesis/events",
                         {"event_type": ["invalid_type"]},
@@ -781,7 +787,7 @@ class TestGenesisHandlerRateLimiting:
         from aragora.server.handlers.genesis import _genesis_limiter
 
         # Simulate rate limit exceeded
-        with patch.object(_genesis_limiter, 'is_allowed', return_value=False):
+        with patch.object(_genesis_limiter, "is_allowed", return_value=False):
             result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
@@ -859,8 +865,13 @@ class TestGenesisHandlerIntegration:
             result = handler.handle(route, {}, mock_http_handler)
             assert result is not None, f"Route {route} returned None"
             # All should return some response (success or feature unavailable)
-            assert result.status_code in [200, 400, 429, 500, 503], \
-                f"Route {route} returned unexpected status {result.status_code}"
+            assert result.status_code in [
+                200,
+                400,
+                429,
+                500,
+                503,
+            ], f"Route {route} returned unexpected status {result.status_code}"
 
     def test_all_dynamic_routes_reachable(self, handler, mock_http_handler):
         """All dynamic routes return a response."""
@@ -874,8 +885,14 @@ class TestGenesisHandlerIntegration:
         for route in dynamic_routes:
             result = handler.handle(route, {}, mock_http_handler)
             assert result is not None, f"Route {route} returned None"
-            assert result.status_code in [200, 400, 404, 429, 500, 503], \
-                f"Route {route} returned unexpected status {result.status_code}"
+            assert result.status_code in [
+                200,
+                400,
+                404,
+                429,
+                500,
+                503,
+            ], f"Route {route} returned unexpected status {result.status_code}"
 
     def test_handle_returns_none_for_unknown(self, handler, mock_http_handler):
         """Handle returns None for unknown paths."""
@@ -885,4 +902,5 @@ class TestGenesisHandlerIntegration:
     def test_handler_inherits_from_base(self, handler):
         """Handler inherits from BaseHandler."""
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(handler, BaseHandler)

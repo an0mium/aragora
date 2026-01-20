@@ -594,7 +594,9 @@ class TestMetricsCallback:
     """Tests for metrics callback functionality."""
 
     @pytest.mark.asyncio
-    async def test_metrics_callback_called(self, mock_step_registry, workflow_config, simple_workflow):
+    async def test_metrics_callback_called(
+        self, mock_step_registry, workflow_config, simple_workflow
+    ):
         """Test that metrics callback is called during execution."""
         callback_data: List[Dict[str, Any]] = []
 
@@ -614,7 +616,9 @@ class TestMetricsCallback:
         assert "tokens_used" in callback_data[0]
 
     @pytest.mark.asyncio
-    async def test_metrics_callback_error_ignored(self, mock_step_registry, workflow_config, simple_workflow):
+    async def test_metrics_callback_error_ignored(
+        self, mock_step_registry, workflow_config, simple_workflow
+    ):
         """Test that errors in metrics callback don't break execution."""
 
         def failing_callback(metrics: Dict[str, Any]) -> None:

@@ -205,10 +205,7 @@ class ScopedCacheManager:
     def get_stats(self) -> dict[str, CacheStats]:
         """Get statistics for all active caches."""
         with self._lock:
-            return {
-                scope_id: cache.get_stats()
-                for scope_id, cache in self._caches.items()
-            }
+            return {scope_id: cache.get_stats() for scope_id, cache in self._caches.items()}
 
     def clear_all(self) -> None:
         """Clear all caches (for testing)."""

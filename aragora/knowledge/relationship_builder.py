@@ -77,9 +77,7 @@ class CodeEntity:
         )
 
     @classmethod
-    def from_symbol(
-        cls, symbol: FileSymbol, file_path: str, repository: str
-    ) -> "CodeEntity":
+    def from_symbol(cls, symbol: FileSymbol, file_path: str, repository: str) -> "CodeEntity":
         """Create a CodeEntity from a FileSymbol."""
         entity_id = f"{repository}:{file_path}:{symbol.name}"
         if symbol.parent:
@@ -447,9 +445,7 @@ class RelationshipBuilder:
                     )
                 )
 
-    def _build_dependency_relationships(
-        self, dependency_graph: Dict[str, List[str]]
-    ) -> None:
+    def _build_dependency_relationships(self, dependency_graph: Dict[str, List[str]]) -> None:
         """Build relationships from the crawl's dependency graph."""
         for source_path, target_paths in dependency_graph.items():
             source_id = f"{self.repository_name}:{source_path}"

@@ -52,6 +52,7 @@ from aragora.agents.personas import (
 # SyncState Tests
 # =============================================================================
 
+
 class TestSyncState:
     """Tests for SyncState dataclass."""
 
@@ -104,6 +105,7 @@ class TestSyncState:
 # SyncItem Tests
 # =============================================================================
 
+
 class TestSyncItem:
     """Tests for SyncItem dataclass."""
 
@@ -145,6 +147,7 @@ class TestSyncItem:
 # Credential Provider Tests
 # =============================================================================
 
+
 class TestEnvCredentialProvider:
     """Tests for EnvCredentialProvider."""
 
@@ -178,6 +181,7 @@ class TestEnvCredentialProvider:
 # =============================================================================
 # SyncSchedule Tests
 # =============================================================================
+
 
 class TestSyncSchedule:
     """Tests for SyncSchedule configuration."""
@@ -224,6 +228,7 @@ class TestSyncSchedule:
 # =============================================================================
 # SyncJob Tests
 # =============================================================================
+
 
 class TestSyncJob:
     """Tests for SyncJob."""
@@ -274,6 +279,7 @@ class TestSyncJob:
 # =============================================================================
 # SyncHistory Tests
 # =============================================================================
+
 
 class TestSyncHistory:
     """Tests for SyncHistory."""
@@ -332,6 +338,7 @@ class TestSyncHistory:
 # =============================================================================
 # SyncScheduler Tests
 # =============================================================================
+
 
 class TestSyncScheduler:
     """Tests for SyncScheduler."""
@@ -397,6 +404,7 @@ class TestSyncScheduler:
 # Specialist Model Config Tests
 # =============================================================================
 
+
 class TestSpecialistModelConfig:
     """Tests for SpecialistModelConfig."""
 
@@ -424,6 +432,7 @@ class TestSpecialistModelConfig:
 # =============================================================================
 # Specialist Model Registry Tests
 # =============================================================================
+
 
 class TestSpecialistModelRegistry:
     """Tests for SpecialistModelRegistry."""
@@ -498,6 +507,7 @@ class TestSpecialistModelRegistry:
 # =============================================================================
 # Industry Personas Tests
 # =============================================================================
+
 
 class TestIndustryPersonas:
     """Tests for industry-specific personas."""
@@ -574,9 +584,15 @@ class TestIndustryPersonas:
         """Test all persona traits are in PERSONALITY_TRAITS."""
         # Get all allowed traits (including some that might not be in base list)
         allowed_traits = set(PERSONALITY_TRAITS) | {
-            "contemplative", "nuanced", "interdisciplinary",
-            "empathetic", "balanced", "practical",
-            "probing", "authentic", "individualistic",
+            "contemplative",
+            "nuanced",
+            "interdisciplinary",
+            "empathetic",
+            "balanced",
+            "practical",
+            "probing",
+            "authentic",
+            "individualistic",
             "methodical",
         }
 
@@ -599,26 +615,34 @@ class TestIndustryPersonas:
 
         for name in healthcare_personas:
             persona = DEFAULT_PERSONAS[name]
-            assert "hipaa" in persona.expertise or "data_privacy" in persona.expertise, \
-                f"{name} missing HIPAA/privacy expertise"
+            assert (
+                "hipaa" in persona.expertise or "data_privacy" in persona.expertise
+            ), f"{name} missing HIPAA/privacy expertise"
 
     def test_compliance_personas_have_low_temperature(self):
         """Test compliance-focused personas have low temperature."""
         compliance_personas = [
-            "sox", "pci_dss", "hipaa", "gdpr", "finra",
-            "financial_auditor", "hipaa_auditor",
+            "sox",
+            "pci_dss",
+            "hipaa",
+            "gdpr",
+            "finra",
+            "financial_auditor",
+            "hipaa_auditor",
         ]
 
         for name in compliance_personas:
             if name in DEFAULT_PERSONAS:
                 persona = DEFAULT_PERSONAS[name]
-                assert persona.temperature <= 0.5, \
-                    f"{name} temperature too high for compliance: {persona.temperature}"
+                assert (
+                    persona.temperature <= 0.5
+                ), f"{name} temperature too high for compliance: {persona.temperature}"
 
 
 # =============================================================================
 # Expertise Domains Tests
 # =============================================================================
+
 
 class TestExpertiseDomains:
     """Tests for expertise domains."""
@@ -633,8 +657,13 @@ class TestExpertiseDomains:
     def test_compliance_domains_exist(self):
         """Test compliance domains are defined."""
         compliance_domains = [
-            "sox_compliance", "pci_dss", "hipaa", "gdpr",
-            "fda_21_cfr", "fisma", "finra",
+            "sox_compliance",
+            "pci_dss",
+            "hipaa",
+            "gdpr",
+            "fda_21_cfr",
+            "fisma",
+            "finra",
         ]
 
         for domain in compliance_domains:
@@ -644,6 +673,7 @@ class TestExpertiseDomains:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestConnectorIntegration:
     """Integration tests for connector system."""
@@ -657,16 +687,18 @@ class TestConnectorIntegration:
         mock_connector = MagicMock()
         mock_connector.connector_id = "mock-connector"
         mock_connector.name = "Mock Connector"
-        mock_connector.sync = AsyncMock(return_value=SyncResult(
-            connector_id="mock-connector",
-            success=True,
-            items_synced=10,
-            items_updated=5,
-            items_skipped=0,
-            items_failed=0,
-            duration_ms=1500.0,
-            errors=[],
-        ))
+        mock_connector.sync = AsyncMock(
+            return_value=SyncResult(
+                connector_id="mock-connector",
+                success=True,
+                items_synced=10,
+                items_updated=5,
+                items_skipped=0,
+                items_failed=0,
+                duration_ms=1500.0,
+                errors=[],
+            )
+        )
 
         scheduler.register_connector(
             mock_connector,
@@ -692,5 +724,6 @@ class TestConnectorIntegration:
 
         for vertical, expected_personas in vertical_persona_map.items():
             for persona_name in expected_personas:
-                assert persona_name in DEFAULT_PERSONAS, \
-                    f"Vertical {vertical.value} missing persona {persona_name}"
+                assert (
+                    persona_name in DEFAULT_PERSONAS
+                ), f"Vertical {vertical.value} missing persona {persona_name}"

@@ -309,7 +309,9 @@ class EvidenceStore(SQLiteStore):
                         "evidence_id": evidence_id,
                     },
                 )
-                self._km_adapter.store(**self._km_adapter.from_ingestion_request(request, evidence_id=evidence_id))
+                self._km_adapter.store(
+                    **self._km_adapter.from_ingestion_request(request, evidence_id=evidence_id)
+                )
                 logger.debug(f"Evidence synced to Knowledge Mound: {evidence_id}")
             except Exception as e:
                 # Log but don't fail - KM sync is optional
@@ -838,9 +840,7 @@ class EvidenceStore(SQLiteStore):
             cutoff_query = f"datetime('now', '-{retention_days} days')"
 
             # Total expired
-            cursor.execute(
-                f"SELECT COUNT(*) FROM evidence WHERE created_at < {cutoff_query}"
-            )
+            cursor.execute(f"SELECT COUNT(*) FROM evidence WHERE created_at < {cutoff_query}")
             total_expired = cursor.fetchone()[0]
 
             # Expired but linked

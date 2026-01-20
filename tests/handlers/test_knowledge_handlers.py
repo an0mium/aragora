@@ -197,9 +197,7 @@ def mock_fact_store():
 
     # Configure store methods
     store.list_facts.return_value = facts[:2]
-    store.get_fact.side_effect = lambda fid: next(
-        (f for f in facts if f.id == fid), None
-    )
+    store.get_fact.side_effect = lambda fid: next((f for f in facts if f.id == fid), None)
     store.add_fact.return_value = facts[0]
     store.update_fact.return_value = facts[0]
     store.delete_fact.return_value = True
@@ -287,9 +285,7 @@ def authenticated_handler(knowledge_handler):
     mock_user.email = "test@example.com"
     mock_user.is_authenticated = True
 
-    with patch.object(
-        knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
-    ):
+    with patch.object(knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)):
         yield knowledge_handler
 
 
@@ -324,9 +320,7 @@ class TestKnowledgeHandlerInitialization:
         handler = KnowledgeHandler({})
 
         # Mock the FactStore to avoid database dependency
-        with patch(
-            "aragora.server.handlers.knowledge_base.handler.FactStore"
-        ) as MockFactStore:
+        with patch("aragora.server.handlers.knowledge_base.handler.FactStore") as MockFactStore:
             MockFactStore.return_value = MagicMock()
             store = handler._get_fact_store()
             assert store is not None
@@ -417,17 +411,9 @@ class TestKnowledgeHandlerRouting:
 
     def test_can_handle_facts_with_action(self, knowledge_handler):
         """Test can_handle recognizes facts with actions."""
-        assert (
-            knowledge_handler.can_handle("/api/knowledge/facts/fact-1/verify") is True
-        )
-        assert (
-            knowledge_handler.can_handle("/api/knowledge/facts/fact-1/contradictions")
-            is True
-        )
-        assert (
-            knowledge_handler.can_handle("/api/knowledge/facts/fact-1/relations")
-            is True
-        )
+        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/verify") is True
+        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/contradictions") is True
+        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/relations") is True
 
     def test_can_handle_search_endpoint(self, knowledge_handler):
         """Test can_handle recognizes search endpoint."""
@@ -496,9 +482,7 @@ class TestFactsListOperation:
         assert result is not None
         assert result.status_code == 200
 
-    def test_list_facts_with_confidence_filter(
-        self, knowledge_handler, mock_fact_store
-    ):
+    def test_list_facts_with_confidence_filter(self, knowledge_handler, mock_fact_store):
         """Test listing facts with minimum confidence filter."""
         handler = create_handler()
         params = {"min_confidence": ["0.8"]}
@@ -538,9 +522,7 @@ class TestFactsGetOperation:
     def test_get_fact_success(self, knowledge_handler, mock_fact_store):
         """Test getting a specific fact."""
         handler = create_handler()
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -554,9 +536,7 @@ class TestFactsGetOperation:
         mock_fact_store.get_fact.return_value = None
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/nonexistent", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -576,12 +556,15 @@ class TestFactsCreateOperation:
 
     def test_create_fact_success(self, knowledge_handler, mock_fact_store):
         """Test creating a fact with valid auth."""
-        handler = create_handler("POST", {
-            "statement": "New test fact",
-            "workspace_id": "default",
-            "confidence": 0.8,
-            "topics": ["test"],
-        })
+        handler = create_handler(
+            "POST",
+            {
+                "statement": "New test fact",
+                "workspace_id": "default",
+                "confidence": 0.8,
+                "topics": ["test"],
+            },
+        )
 
         mock_user = MagicMock()
         with patch.object(
@@ -644,27 +627,26 @@ class TestFactsUpdateOperation:
         """Test updating a fact requires authentication."""
         handler = create_handler("PUT", {"confidence": 0.95})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
 
     def test_update_fact_success(self, knowledge_handler, mock_fact_store):
         """Test updating a fact with valid auth."""
-        handler = create_handler("PUT", {
-            "confidence": 0.95,
-            "topics": ["updated", "science"],
-        })
+        handler = create_handler(
+            "PUT",
+            {
+                "confidence": 0.95,
+                "topics": ["updated", "science"],
+            },
+        )
 
         mock_user = MagicMock()
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/fact-1", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -679,9 +661,7 @@ class TestFactsUpdateOperation:
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/nonexistent", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/nonexistent", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -694,9 +674,7 @@ class TestFactsDeleteOperation:
         """Test deleting a fact requires authentication."""
         handler = create_handler("DELETE")
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -709,9 +687,7 @@ class TestFactsDeleteOperation:
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/fact-1", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -726,9 +702,7 @@ class TestFactsDeleteOperation:
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/nonexistent", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/nonexistent", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -742,16 +716,12 @@ class TestFactsVerifyOperation:
         mock_fact_store.get_fact.return_value = None
         handler = create_handler("POST", {})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent/verify", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/nonexistent/verify", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
 
-    def test_verify_fact_queued_for_simple_engine(
-        self, knowledge_handler, mock_fact_store
-    ):
+    def test_verify_fact_queued_for_simple_engine(self, knowledge_handler, mock_fact_store):
         """Test verifying fact is queued when using SimpleQueryEngine."""
         handler = create_handler("POST", {})
 
@@ -762,9 +732,7 @@ class TestFactsVerifyOperation:
             "aragora.server.handlers.knowledge_base.handler.FactStore",
             side_effect=Exception("DB unavailable"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/fact-1/verify", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/fact-1/verify", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -779,9 +747,7 @@ class TestFactsContradictionsOperation:
         """Test getting contradictions for a fact."""
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/contradictions", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/contradictions", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -811,9 +777,7 @@ class TestFactsRelationsOperation:
         """Test getting relations for a fact."""
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -828,9 +792,7 @@ class TestFactsRelationsOperation:
         mock_fact_store.get_fact.return_value = None
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent/relations", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/nonexistent/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -840,24 +802,23 @@ class TestFactsRelationsOperation:
         handler = create_handler()
         params = {"type": ["supports"]}
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", params, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", params, handler)
 
         assert result is not None
         assert result.status_code == 200
 
     def test_add_relation_success(self, knowledge_handler, mock_fact_store):
         """Test adding a relation between facts."""
-        handler = create_handler("POST", {
-            "target_fact_id": "fact-2",
-            "relation_type": "supports",
-            "confidence": 0.8,
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "target_fact_id": "fact-2",
+                "relation_type": "supports",
+                "confidence": 0.8,
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -866,9 +827,7 @@ class TestFactsRelationsOperation:
         """Test adding a relation without target_fact_id returns 400."""
         handler = create_handler("POST", {"relation_type": "supports"})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -877,23 +836,22 @@ class TestFactsRelationsOperation:
         """Test adding a relation without relation_type returns 400."""
         handler = create_handler("POST", {"target_fact_id": "fact-2"})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_add_relation_invalid_type(self, knowledge_handler, mock_fact_store):
         """Test adding a relation with invalid type returns 400."""
-        handler = create_handler("POST", {
-            "target_fact_id": "fact-2",
-            "relation_type": "invalid_type",
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "target_fact_id": "fact-2",
+                "relation_type": "invalid_type",
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -904,14 +862,15 @@ class TestFactsRelationsOperation:
             MockFact(id="fact-2", statement="test") if fid == "fact-2" else None
         )
 
-        handler = create_handler("POST", {
-            "target_fact_id": "fact-2",
-            "relation_type": "supports",
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "target_fact_id": "fact-2",
+                "relation_type": "supports",
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/nonexistent/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -922,43 +881,46 @@ class TestFactsRelationsBulkOperation:
 
     def test_add_relation_bulk_success(self, knowledge_handler, mock_fact_store):
         """Test adding a relation via bulk endpoint."""
-        handler = create_handler("POST", {
-            "source_fact_id": "fact-1",
-            "target_fact_id": "fact-2",
-            "relation_type": "supports",
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "source_fact_id": "fact-1",
+                "target_fact_id": "fact-2",
+                "relation_type": "supports",
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
 
     def test_add_relation_bulk_missing_source(self, knowledge_handler):
         """Test bulk relation without source_fact_id returns 400."""
-        handler = create_handler("POST", {
-            "target_fact_id": "fact-2",
-            "relation_type": "supports",
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "target_fact_id": "fact-2",
+                "relation_type": "supports",
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_add_relation_bulk_missing_target(self, knowledge_handler):
         """Test bulk relation without target_fact_id returns 400."""
-        handler = create_handler("POST", {
-            "source_fact_id": "fact-1",
-            "relation_type": "supports",
-        })
-
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/relations", {}, handler
+        handler = create_handler(
+            "POST",
+            {
+                "source_fact_id": "fact-1",
+                "relation_type": "supports",
+            },
         )
+
+        result = knowledge_handler.handle("/api/knowledge/facts/relations", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -974,18 +936,19 @@ class TestQueryOperation:
 
     def test_query_success(self, knowledge_handler, mock_query_engine):
         """Test natural language query returns expected data."""
-        handler = create_handler("POST", {
-            "question": "Why is the sky blue?",
-            "workspace_id": "default",
-        })
+        handler = create_handler(
+            "POST",
+            {
+                "question": "Why is the sky blue?",
+                "workspace_id": "default",
+            },
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MockQueryResult(answer="Rayleigh scattering"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -997,9 +960,7 @@ class TestQueryOperation:
         """Test query without question returns 400."""
         handler = create_handler("POST", {"workspace_id": "default"})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/query", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1008,50 +969,50 @@ class TestQueryOperation:
         """Test query with empty body returns 400."""
         handler = create_handler("POST", {})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/query", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_query_with_options(self, knowledge_handler, mock_query_engine):
         """Test query with custom options."""
-        handler = create_handler("POST", {
-            "question": "What is water?",
-            "options": {
-                "max_chunks": 5,
-                "search_alpha": 0.7,
-                "use_agents": True,
-                "extract_facts": True,
-                "include_citations": True,
+        handler = create_handler(
+            "POST",
+            {
+                "question": "What is water?",
+                "options": {
+                    "max_chunks": 5,
+                    "search_alpha": 0.7,
+                    "use_agents": True,
+                    "extract_facts": True,
+                    "include_citations": True,
+                },
             },
-        })
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MockQueryResult(answer="H2O"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
 
     def test_query_error_handling(self, knowledge_handler, mock_query_engine):
         """Test query handles engine errors gracefully."""
-        handler = create_handler("POST", {
-            "question": "Test question",
-        })
+        handler = create_handler(
+            "POST",
+            {
+                "question": "Test question",
+            },
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             side_effect=Exception("Query engine error"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1081,9 +1042,7 @@ class TestSearchOperation:
                 )
             ],
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/search", params, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/search", params, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1098,9 +1057,7 @@ class TestSearchOperation:
         handler = create_handler()
         params = {}
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/search", params, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/search", params, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1114,9 +1071,7 @@ class TestSearchOperation:
             "aragora.server.handlers.knowledge_base.search._run_async",
             return_value=[],
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/search", params, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/search", params, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1130,9 +1085,7 @@ class TestSearchOperation:
             "aragora.server.handlers.knowledge_base.search._run_async",
             return_value=[],
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/search", params, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/search", params, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1146,9 +1099,7 @@ class TestSearchOperation:
             "aragora.server.handlers.knowledge_base.search._run_async",
             side_effect=Exception("Search engine error"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/search", params, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/search", params, handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1161,9 +1112,7 @@ class TestStatsOperation:
         """Test stats returns expected data structure."""
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/stats", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/stats", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1176,9 +1125,7 @@ class TestStatsOperation:
         handler = create_handler()
         params = {"workspace_id": ["test-workspace"]}
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/stats", params, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/stats", params, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1227,9 +1174,7 @@ class TestErrorHandling:
         """Test unknown endpoint within facts returns 404."""
         handler = create_handler()
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/unknown", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/unknown", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -1316,23 +1261,22 @@ class TestIntegrationScenarios:
         mock_user = MagicMock()
 
         # Create
-        create_handler_obj = create_handler("POST", {
-            "statement": "Integration test fact",
-            "workspace_id": "integration",
-        })
+        create_handler_obj = create_handler(
+            "POST",
+            {
+                "statement": "Integration test fact",
+                "workspace_id": "integration",
+            },
+        )
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts", {}, create_handler_obj
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts", {}, create_handler_obj)
         assert result.status_code == 201
 
         # Read
         read_handler = create_handler()
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, read_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, read_handler)
         assert result.status_code == 200
 
         # Update
@@ -1340,9 +1284,7 @@ class TestIntegrationScenarios:
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/fact-1", {}, update_handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, update_handler)
         assert result.status_code == 200
 
         # Delete
@@ -1350,25 +1292,24 @@ class TestIntegrationScenarios:
         with patch.object(
             knowledge_handler, "require_auth_or_error", return_value=(mock_user, None)
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/facts/fact-1", {}, delete_handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, delete_handler)
         assert result.status_code == 200
 
     def test_query_and_verify_workflow(self, knowledge_handler, mock_fact_store):
         """Test querying knowledge base and verifying facts."""
         # Query
-        query_handler = create_handler("POST", {
-            "question": "What facts do we have?",
-        })
+        query_handler = create_handler(
+            "POST",
+            {
+                "question": "What facts do we have?",
+            },
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MockQueryResult(answer="Test answer"),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, query_handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, query_handler)
         assert result.status_code == 200
 
         # Get contradictions
@@ -1401,14 +1342,10 @@ class TestIntegrationScenarios:
             "aragora.server.handlers.knowledge_base.search._run_async",
             return_value=[],
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/search", params, search_handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/search", params, search_handler)
         assert result.status_code == 200
 
         # Stats
         stats_handler = create_handler()
-        result = knowledge_handler.handle(
-            "/api/knowledge/stats", {}, stats_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/stats", {}, stats_handler)
         assert result.status_code == 200

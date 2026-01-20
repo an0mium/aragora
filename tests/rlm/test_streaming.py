@@ -161,11 +161,13 @@ class TestQueryStream:
     async def test_query_stream_emits_start_event(self, sample_context):
         """Test that query_stream emits a start event."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):
@@ -179,11 +181,13 @@ class TestQueryStream:
     async def test_query_stream_emits_level_events(self, sample_context):
         """Test that query_stream emits level entered events."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):
@@ -197,11 +201,13 @@ class TestQueryStream:
     async def test_query_stream_emits_node_events(self, sample_context):
         """Test that query_stream emits node examined events."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):
@@ -216,12 +222,14 @@ class TestQueryStream:
     async def test_query_stream_emits_complete_event(self, sample_context):
         """Test that query_stream emits a complete event with result."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-            tokens_processed=100,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+                tokens_processed=100,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):
@@ -318,7 +326,9 @@ class TestQueryWithRefinementStream:
         assert len(iteration_starts) == 3  # 3 iterations
 
         # Should have feedback generated events for iterations > 0
-        feedback_events = [e for e in events if e.event_type == RLMStreamEventType.FEEDBACK_GENERATED]
+        feedback_events = [
+            e for e in events if e.event_type == RLMStreamEventType.FEEDBACK_GENERATED
+        ]
         assert len(feedback_events) == 2  # Iterations 1 and 2
 
         # Should have partial answer events
@@ -349,7 +359,9 @@ class TestQueryWithRefinementStream:
             events.append(event)
 
         # Should have confidence update events
-        confidence_events = [e for e in events if e.event_type == RLMStreamEventType.CONFIDENCE_UPDATE]
+        confidence_events = [
+            e for e in events if e.event_type == RLMStreamEventType.CONFIDENCE_UPDATE
+        ]
         assert len(confidence_events) >= 1
 
         # Confidence should increase
@@ -431,11 +443,13 @@ class TestStreamEventOrdering:
     async def test_events_are_chronologically_ordered(self, sample_context):
         """Test that events have increasing timestamps."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):
@@ -453,11 +467,13 @@ class TestStreamEventOrdering:
     async def test_start_before_complete(self, sample_context):
         """Test that start events come before complete events."""
         rlm = AragoraRLM()
-        rlm.query = AsyncMock(return_value=RLMResult(
-            answer="Test answer",
-            ready=True,
-            confidence=0.9,
-        ))
+        rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="Test answer",
+                ready=True,
+                confidence=0.9,
+            )
+        )
 
         events = []
         async for event in rlm.query_stream("What is X?", sample_context):

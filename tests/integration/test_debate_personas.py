@@ -25,7 +25,10 @@ class TestPersonaApplication:
         result = apply_persona_to_agent(agent, "philosopher")
 
         assert result is True
-        assert "philosopher" in agent.system_prompt.lower() or "deep thinker" in agent.system_prompt.lower()
+        assert (
+            "philosopher" in agent.system_prompt.lower()
+            or "deep thinker" in agent.system_prompt.lower()
+        )
         agent.set_generation_params.assert_called_once()
 
         # Verify generation params were set
@@ -175,11 +178,13 @@ class TestPersonaInAgentSpec:
         """Test creating a team with personas."""
         from aragora.agents.spec import AgentSpec
 
-        team = AgentSpec.create_team([
-            {"provider": "anthropic-api", "persona": "philosopher"},
-            {"provider": "openai-api", "persona": "security_engineer"},
-            {"provider": "gemini", "persona": "devils_advocate"},
-        ])
+        team = AgentSpec.create_team(
+            [
+                {"provider": "anthropic-api", "persona": "philosopher"},
+                {"provider": "openai-api", "persona": "security_engineer"},
+                {"provider": "gemini", "persona": "devils_advocate"},
+            ]
+        )
 
         assert len(team) == 3
         assert team[0].persona == "philosopher"
@@ -241,4 +246,6 @@ class TestPersonaEvolution:
         result = apply_persona_to_agent(agent, "custom_reviewer", manager=manager)
 
         assert result is True
-        assert "reviewer" in agent.system_prompt.lower() or "thorough" in agent.system_prompt.lower()
+        assert (
+            "reviewer" in agent.system_prompt.lower() or "thorough" in agent.system_prompt.lower()
+        )

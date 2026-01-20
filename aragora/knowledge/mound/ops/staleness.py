@@ -120,6 +120,7 @@ class StalenessOperationsMixin:
             # Add to control plane queue
             try:
                 from aragora.server.handlers.features.control_plane import _task_queue
+
                 _task_queue.append(task)
                 task_ids.append(task_id)
                 logger.debug(f"Scheduled revalidation task {task_id} for node {node_id}")

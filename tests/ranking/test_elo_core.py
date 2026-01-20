@@ -322,9 +322,7 @@ class TestApplyEloChanges:
         }
         elo_changes = {"alice": 10.0}
 
-        apply_elo_changes(
-            elo_changes, ratings, winner="alice", domain="math", debate_id="test"
-        )
+        apply_elo_changes(elo_changes, ratings, winner="alice", domain="math", debate_id="test")
 
         assert ratings["alice"].domain_elos["math"] == pytest.approx(1560, rel=1e-6)
 
@@ -335,9 +333,7 @@ class TestApplyEloChanges:
         }
         elo_changes = {"alice": 10.0}
 
-        apply_elo_changes(
-            elo_changes, ratings, winner="alice", domain="physics", debate_id="test"
-        )
+        apply_elo_changes(elo_changes, ratings, winner="alice", domain="physics", debate_id="test")
 
         # Should use default ELO (1500) + change
         assert ratings["alice"].domain_elos["physics"] == pytest.approx(1510, rel=1e-6)

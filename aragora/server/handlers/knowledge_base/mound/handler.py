@@ -427,6 +427,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/dedup/merge."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in merge_duplicate_cluster: %s", e)
@@ -453,6 +454,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/dedup/auto-merge."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in auto_merge_exact_duplicates: %s", e)
@@ -491,6 +493,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/pruning/execute."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in execute_prune: %s", e)
@@ -517,6 +520,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/pruning/auto."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in auto_prune: %s", e)
@@ -557,6 +561,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/pruning/restore."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in restore_pruned_item: %s", e)
@@ -579,6 +584,7 @@ class KnowledgeMoundHandler(
         """Handle POST /api/knowledge/mound/pruning/decay."""
         try:
             import json
+
             body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
             logger.warning("Failed to parse request body in apply_confidence_decay: %s", e)

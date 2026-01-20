@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import email
 import logging
 from datetime import datetime, timezone
 from email.utils import parseaddr
@@ -123,10 +122,11 @@ class GmailConnector(EnterpriseConnector):
     def is_configured(self) -> bool:
         """Check if connector has required configuration."""
         import os
+
         return bool(
-            os.environ.get("GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_CLIENT_ID")
+            os.environ.get("GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_CLIENT_ID")
         )
 
     def get_oauth_url(self, redirect_uri: str, state: str = "") -> str:
@@ -144,9 +144,9 @@ class GmailConnector(EnterpriseConnector):
         from urllib.parse import urlencode
 
         client_id = (
-            os.environ.get("GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_CLIENT_ID", "")
+            os.environ.get("GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_CLIENT_ID", "")
         )
 
         params = {
@@ -187,14 +187,14 @@ class GmailConnector(EnterpriseConnector):
         import httpx
 
         client_id = (
-            os.environ.get("GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_CLIENT_ID", "")
+            os.environ.get("GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_CLIENT_ID", "")
         )
         client_secret = (
-            os.environ.get("GMAIL_CLIENT_SECRET") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_SECRET") or
-            os.environ.get("GOOGLE_CLIENT_SECRET", "")
+            os.environ.get("GMAIL_CLIENT_SECRET")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_SECRET")
+            or os.environ.get("GOOGLE_CLIENT_SECRET", "")
         )
 
         if not client_id or not client_secret:
@@ -238,6 +238,7 @@ class GmailConnector(EnterpriseConnector):
 
             expires_in = data.get("expires_in", 3600)
             from datetime import timedelta
+
             self._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in - 60)
 
             logger.info("[Gmail] Authentication successful")
@@ -257,14 +258,14 @@ class GmailConnector(EnterpriseConnector):
             raise ValueError("No refresh token available")
 
         client_id = (
-            os.environ.get("GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_ID") or
-            os.environ.get("GOOGLE_CLIENT_ID", "")
+            os.environ.get("GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_ID")
+            or os.environ.get("GOOGLE_CLIENT_ID", "")
         )
         client_secret = (
-            os.environ.get("GMAIL_CLIENT_SECRET") or
-            os.environ.get("GOOGLE_GMAIL_CLIENT_SECRET") or
-            os.environ.get("GOOGLE_CLIENT_SECRET", "")
+            os.environ.get("GMAIL_CLIENT_SECRET")
+            or os.environ.get("GOOGLE_GMAIL_CLIENT_SECRET")
+            or os.environ.get("GOOGLE_CLIENT_SECRET", "")
         )
 
         async with httpx.AsyncClient() as client:
@@ -283,6 +284,7 @@ class GmailConnector(EnterpriseConnector):
         self._access_token = data["access_token"]
         expires_in = data.get("expires_in", 3600)
         from datetime import timedelta
+
         self._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in - 60)
 
         return self._access_token
@@ -430,6 +432,7 @@ class GmailConnector(EnterpriseConnector):
         date_str = headers.get("date", "")
         try:
             from email.utils import parsedate_to_datetime
+
             date = parsedate_to_datetime(date_str)
         except (ValueError, TypeError) as e:
             logger.debug(f"Failed to parse date string '{date_str}': {e}")
@@ -505,7 +508,9 @@ class GmailConnector(EnterpriseConnector):
 
             # Nested multipart
             if part.get("parts"):
-                nested_text, nested_html, nested_attachments = self._extract_body_and_attachments(part)
+                nested_text, nested_html, nested_attachments = self._extract_body_and_attachments(
+                    part
+                )
                 if not body_text:
                     body_text = nested_text
                 if not body_html:
@@ -515,7 +520,9 @@ class GmailConnector(EnterpriseConnector):
 
             # Body content
             if part_body.get("data"):
-                content = base64.urlsafe_b64decode(part_body["data"]).decode("utf-8", errors="replace")
+                content = base64.urlsafe_b64decode(part_body["data"]).decode(
+                    "utf-8", errors="replace"
+                )
                 if "text/plain" in part_mime and not body_text:
                     body_text = content
                 elif "text/html" in part_mime and not body_html:

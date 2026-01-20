@@ -165,9 +165,7 @@ class DebateContextAdapter:
         summary_parts = [f"## Critique Summary ({len(critiques)} total)\n"]
 
         for c in critiques[:10]:  # Limit to 10
-            summary_parts.append(
-                f"**{c['critic']} → {c['target']}**: {c['content'][:200]}..."
-            )
+            summary_parts.append(f"**{c['critic']} → {c['target']}**: {c['content'][:200]}...")
 
         return "\n\n".join(summary_parts)
 
@@ -242,9 +240,7 @@ class DebateContextAdapter:
         for c in data["CRITIQUES"]:
             content = c.get("content", "").lower()
             if any(w in content for w in ["disagree", "incorrect", "wrong", "however", "but"]):
-                disagreements.append(
-                    f"{c['critic']} → {c['target']}: {c.get('content', '')[:150]}"
-                )
+                disagreements.append(f"{c['critic']} → {c['target']}: {c.get('content', '')[:150]}")
 
         if disagreements:
             return "## Key Disagreements\n\n" + "\n\n".join(disagreements[:5])
@@ -280,10 +276,12 @@ class DebateContextAdapter:
                     for p in r.proposals:
                         agent = getattr(p, "agent", "unknown")
                         content = getattr(p, "content", str(p))
-                        round_proposals.append({
-                            "agent": agent,
-                            "content": content,
-                        })
+                        round_proposals.append(
+                            {
+                                "agent": agent,
+                                "content": content,
+                            }
+                        )
                         proposals.setdefault(agent, []).append(content)
 
                 # Extract critiques

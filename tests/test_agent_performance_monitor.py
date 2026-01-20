@@ -176,34 +176,40 @@ class TestAgentStats:
         stats = AgentStats()
 
         # First call - success
-        stats.update(AgentMetric(
-            agent_name="claude",
-            operation="generate",
-            start_time=1000.0,
-            duration_ms=1000.0,
-            success=True,
-            response_length=50,
-        ))
+        stats.update(
+            AgentMetric(
+                agent_name="claude",
+                operation="generate",
+                start_time=1000.0,
+                duration_ms=1000.0,
+                success=True,
+                response_length=50,
+            )
+        )
 
         # Second call - success
-        stats.update(AgentMetric(
-            agent_name="claude",
-            operation="generate",
-            start_time=1002.0,
-            duration_ms=3000.0,
-            success=True,
-            response_length=150,
-        ))
+        stats.update(
+            AgentMetric(
+                agent_name="claude",
+                operation="generate",
+                start_time=1002.0,
+                duration_ms=3000.0,
+                success=True,
+                response_length=150,
+            )
+        )
 
         # Third call - failure
-        stats.update(AgentMetric(
-            agent_name="claude",
-            operation="generate",
-            start_time=1005.0,
-            duration_ms=500.0,
-            success=False,
-            error="Error",
-        ))
+        stats.update(
+            AgentMetric(
+                agent_name="claude",
+                operation="generate",
+                start_time=1005.0,
+                duration_ms=500.0,
+                success=False,
+                error="Error",
+            )
+        )
 
         assert stats.total_calls == 3
         assert stats.successful_calls == 2

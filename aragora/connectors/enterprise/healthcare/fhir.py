@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # FHIR Resource Types
 # =============================================================================
 
+
 class FHIRResourceType(str, Enum):
     """Supported FHIR R4 resource types."""
 
@@ -92,6 +93,7 @@ PHI_IDENTIFIERS = {
 # PHI Redaction
 # =============================================================================
 
+
 @dataclass
 class RedactionResult:
     """Result of PHI redaction."""
@@ -116,7 +118,9 @@ class PHIRedactor:
         "phone": re.compile(r"\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
         "email": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
         "mrn": re.compile(r"\b(?:MRN|Medical Record|Patient ID)[:\s#]*[\w-]+\b", re.IGNORECASE),
-        "date_full": re.compile(r"\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"),
+        "date_full": re.compile(
+            r"\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"
+        ),
         "ip_address": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
         "zip_full": re.compile(r"\b\d{5}(?:-\d{4})?\b"),
         "account": re.compile(r"\b(?:Account|Acct)[:\s#]*[\w-]+\b", re.IGNORECASE),
@@ -125,14 +129,25 @@ class PHIRedactor:
     # FHIR paths containing PHI
     PHI_PATHS = {
         "Patient": [
-            "name", "telecom", "address", "birthDate",
-            "identifier", "photo", "contact",
+            "name",
+            "telecom",
+            "address",
+            "birthDate",
+            "identifier",
+            "photo",
+            "contact",
         ],
         "Practitioner": [
-            "name", "telecom", "address", "identifier", "photo",
+            "name",
+            "telecom",
+            "address",
+            "identifier",
+            "photo",
         ],
         "Organization": [
-            "telecom", "address", "identifier",
+            "telecom",
+            "address",
+            "identifier",
         ],
     }
 
@@ -247,7 +262,9 @@ class PHIRedactor:
             "line": ["[REDACTED]"],
             "city": "[REDACTED]",
             "state": address.get("state"),  # Keep state (Safe Harbor allows)
-            "postalCode": address.get("postalCode", "")[:3] + "XX" if address.get("postalCode") else None,
+            "postalCode": (
+                address.get("postalCode", "")[:3] + "XX" if address.get("postalCode") else None
+            ),
             "country": address.get("country"),
         }
 
@@ -256,9 +273,9 @@ class PHIRedactor:
         return {
             "system": identifier.get("system"),
             "type": identifier.get("type"),
-            "value": hashlib.sha256(
-                str(identifier.get("value", "")).encode()
-            ).hexdigest()[:16],  # One-way hash
+            "value": hashlib.sha256(str(identifier.get("value", "")).encode()).hexdigest()[
+                :16
+            ],  # One-way hash
         }
 
     def _redact_date(self, date_str: str) -> str:
@@ -297,6 +314,7 @@ class PHIRedactor:
 # =============================================================================
 # FHIR Audit Logger
 # =============================================================================
+
 
 @dataclass
 class AuditEvent:
@@ -371,8 +389,7 @@ class FHIRAuditLogger:
         )
         self._events.append(event)
         logger.info(
-            f"[AUDIT] READ {resource_type}/{resource_id} by {self.user_id} "
-            f"reason={reason}"
+            f"[AUDIT] READ {resource_type}/{resource_id} by {self.user_id} " f"reason={reason}"
         )
         return event
 
@@ -451,6 +468,7 @@ class FHIRAuditLogger:
 # =============================================================================
 # FHIR Connector
 # =============================================================================
+
 
 class FHIRConnector(EnterpriseConnector):
     """
@@ -583,7 +601,9 @@ class FHIRConnector(EnterpriseConnector):
                     token_data = response.json()
                     self._access_token = token_data["access_token"]
                     expires_in = token_data.get("expires_in", 3600)
-                    self._token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in - 60)
+                    self._token_expires_at = datetime.now(timezone.utc) + timedelta(
+                        seconds=expires_in - 60
+                    )
                     logger.info(f"[{self.name}] Authenticated successfully")
                 else:
                     logger.warning(f"[{self.name}] Authentication failed: {response.status_code}")
@@ -672,14 +692,24 @@ class FHIRConnector(EnterpriseConnector):
     def _infer_domain(self, resource_type: str) -> str:
         """Infer domain from resource type."""
         clinical_types = {
-            "Condition", "Observation", "Procedure", "DiagnosticReport",
-            "MedicationRequest", "MedicationStatement", "Immunization",
-            "AllergyIntolerance", "CarePlan",
+            "Condition",
+            "Observation",
+            "Procedure",
+            "DiagnosticReport",
+            "MedicationRequest",
+            "MedicationStatement",
+            "Immunization",
+            "AllergyIntolerance",
+            "CarePlan",
         }
 
         admin_types = {
-            "Patient", "Practitioner", "Organization", "Location",
-            "Encounter", "Appointment",
+            "Patient",
+            "Practitioner",
+            "Organization",
+            "Location",
+            "Encounter",
+            "Appointment",
         }
 
         if resource_type in clinical_types:
@@ -760,9 +790,7 @@ class FHIRConnector(EnterpriseConnector):
 
                         # Apply PHI redaction if enabled
                         if self.enable_phi_redaction:
-                            resource = self._redactor.redact_fhir_resource(
-                                resource, resource_name
-                            )
+                            resource = self._redactor.redact_fhir_resource(resource, resource_name)
 
                         # Convert to content
                         content = self._resource_to_content(resource)
@@ -831,8 +859,7 @@ class FHIRConnector(EnterpriseConnector):
         results = []
 
         resource_types = (
-            [resource_type] if resource_type
-            else [rt.value for rt in self.resource_types]
+            [resource_type] if resource_type else [rt.value for rt in self.resource_types]
         )
 
         for rt in resource_types[:3]:  # Limit resource types
@@ -867,12 +894,14 @@ class FHIRConnector(EnterpriseConnector):
                         if self.enable_phi_redaction:
                             resource = self._redactor.redact_fhir_resource(resource, rt)
 
-                        results.append({
-                            "resource_type": rt,
-                            "resource_id": resource.get("id"),
-                            "content": self._resource_to_content(resource),
-                            "score": entry.get("search", {}).get("score", 0.5),
-                        })
+                        results.append(
+                            {
+                                "resource_type": rt,
+                                "resource_id": resource.get("id"),
+                                "content": self._resource_to_content(resource),
+                                "score": entry.get("search", {}).get("score", 0.5),
+                            }
+                        )
 
             except Exception as e:
                 logger.debug(f"Search failed for {rt}: {e}")
@@ -912,9 +941,7 @@ class FHIRConnector(EnterpriseConnector):
                 )
 
                 if self.enable_phi_redaction:
-                    resource = self._redactor.redact_fhir_resource(
-                        resource, resource_type
-                    )
+                    resource = self._redactor.redact_fhir_resource(resource, resource_type)
 
                 return resource
 

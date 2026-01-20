@@ -66,56 +66,56 @@ class ResearchKnowledge(BaseVerticalKnowledge):
     RESEARCH_PATTERNS = [
         ResearchPattern(
             name="Hypothesis",
-            pattern=r'(?:hypothes(?:is|es|ize)|H[0-9]+:|we\s+(?:hypothesize|propose|predict))',
+            pattern=r"(?:hypothes(?:is|es|ize)|H[0-9]+:|we\s+(?:hypothesize|propose|predict))",
             category="hypothesis",
             confidence_weight=0.7,
             description="Research hypothesis or prediction",
         ),
         ResearchPattern(
             name="Methodology",
-            pattern=r'(?:method(?:ology|s)?|procedure|protocol|experimental\s+design)',
+            pattern=r"(?:method(?:ology|s)?|procedure|protocol|experimental\s+design)",
             category="methodology",
             confidence_weight=0.8,
             description="Research methodology",
         ),
         ResearchPattern(
             name="Sample Size",
-            pattern=r'(?:n\s*=\s*\d+|sample\s+(?:size|of)\s+\d+|participants?|subjects?)',
+            pattern=r"(?:n\s*=\s*\d+|sample\s+(?:size|of)\s+\d+|participants?|subjects?)",
             category="methodology",
             confidence_weight=0.85,
             description="Sample size information",
         ),
         ResearchPattern(
             name="Results",
-            pattern=r'(?:results?\s+(?:show|indicate|demonstrate|suggest)|findings?\s+(?:reveal|show))',
+            pattern=r"(?:results?\s+(?:show|indicate|demonstrate|suggest)|findings?\s+(?:reveal|show))",
             category="finding",
             confidence_weight=0.75,
             description="Research results",
         ),
         ResearchPattern(
             name="Conclusion",
-            pattern=r'(?:conclude|in\s+conclusion|we\s+find\s+that|our\s+(?:results|findings)\s+suggest)',
+            pattern=r"(?:conclude|in\s+conclusion|we\s+find\s+that|our\s+(?:results|findings)\s+suggest)",
             category="conclusion",
             confidence_weight=0.7,
             description="Research conclusions",
         ),
         ResearchPattern(
             name="Limitation",
-            pattern=r'(?:limitation|caveat|shortcoming|future\s+(?:work|research)|further\s+study)',
+            pattern=r"(?:limitation|caveat|shortcoming|future\s+(?:work|research)|further\s+study)",
             category="limitation",
             confidence_weight=0.8,
             description="Study limitations",
         ),
         ResearchPattern(
             name="Literature Review",
-            pattern=r'(?:previous\s+(?:work|studies?|research)|literature\s+review|prior\s+research)',
+            pattern=r"(?:previous\s+(?:work|studies?|research)|literature\s+review|prior\s+research)",
             category="literature",
             confidence_weight=0.75,
             description="Literature review",
         ),
         ResearchPattern(
             name="Data Source",
-            pattern=r'(?:data(?:set|base)?|corpus|survey|questionnaire|interview)',
+            pattern=r"(?:data(?:set|base)?|corpus|survey|questionnaire|interview)",
             category="data",
             confidence_weight=0.8,
             description="Data source",
@@ -126,43 +126,43 @@ class ResearchKnowledge(BaseVerticalKnowledge):
     STATISTICAL_PATTERNS = [
         StatisticalPattern(
             name="P-Value",
-            pattern=r'(?:p\s*[<>=]\s*[0-9.]+|p-?value|statistical(?:ly)?\s+significant)',
+            pattern=r"(?:p\s*[<>=]\s*[0-9.]+|p-?value|statistical(?:ly)?\s+significant)",
             category="p_value",
             description="Statistical significance",
         ),
         StatisticalPattern(
             name="Confidence Interval",
-            pattern=r'(?:confidence\s+interval|CI\s*[:=]?\s*\[?[0-9.]+|95%\s+CI)',
+            pattern=r"(?:confidence\s+interval|CI\s*[:=]?\s*\[?[0-9.]+|95%\s+CI)",
             category="confidence_interval",
             description="Confidence interval",
         ),
         StatisticalPattern(
             name="Effect Size",
-            pattern=r'(?:effect\s+size|Cohen\'?s?\s+d|eta\s+squared|r\s*=\s*[0-9.]+)',
+            pattern=r"(?:effect\s+size|Cohen\'?s?\s+d|eta\s+squared|r\s*=\s*[0-9.]+)",
             category="effect_size",
             description="Effect size measure",
         ),
         StatisticalPattern(
             name="Regression",
-            pattern=r'(?:regression|R²|R-squared|beta\s+coefficient|linear\s+model)',
+            pattern=r"(?:regression|R²|R-squared|beta\s+coefficient|linear\s+model)",
             category="regression",
             description="Regression analysis",
         ),
         StatisticalPattern(
             name="Correlation",
-            pattern=r'(?:correlat(?:e|ion)|Pearson|Spearman|r\s*=\s*-?[0-9.]+)',
+            pattern=r"(?:correlat(?:e|ion)|Pearson|Spearman|r\s*=\s*-?[0-9.]+)",
             category="correlation",
             description="Correlation analysis",
         ),
         StatisticalPattern(
             name="Statistical Test",
-            pattern=r'(?:t-?test|ANOVA|chi-?square|Mann-?Whitney|Wilcoxon|Kruskal)',
+            pattern=r"(?:t-?test|ANOVA|chi-?square|Mann-?Whitney|Wilcoxon|Kruskal)",
             category="test",
             description="Statistical test",
         ),
         StatisticalPattern(
             name="Mean/SD",
-            pattern=r'(?:mean\s*=|M\s*=|SD\s*=|standard\s+deviation|μ\s*=|σ\s*=)',
+            pattern=r"(?:mean\s*=|M\s*=|SD\s*=|standard\s+deviation|μ\s*=|σ\s*=)",
             category="descriptive",
             description="Descriptive statistics",
         ),
@@ -170,21 +170,25 @@ class ResearchKnowledge(BaseVerticalKnowledge):
 
     # Citation patterns
     CITATION_PATTERNS = [
-        (r'\((?:[A-Z][a-z]+(?:\s+(?:et\s+al\.?|&\s+[A-Z][a-z]+))?),?\s*\d{4}\)', "author_year"),
-        (r'\[\d+\]', "numbered"),
-        (r'(?:doi|DOI):\s*[0-9.]+/[^\s]+', "doi"),
-        (r'(?:arXiv|arxiv):[0-9.]+', "arxiv"),
-        (r'(?:PMID|pmid):\s*\d+', "pubmed"),
-        (r'(?:ISBN|isbn)[-:\s]*[\d-X]+', "isbn"),
+        (r"\((?:[A-Z][a-z]+(?:\s+(?:et\s+al\.?|&\s+[A-Z][a-z]+))?),?\s*\d{4}\)", "author_year"),
+        (r"\[\d+\]", "numbered"),
+        (r"(?:doi|DOI):\s*[0-9.]+/[^\s]+", "doi"),
+        (r"(?:arXiv|arxiv):[0-9.]+", "arxiv"),
+        (r"(?:PMID|pmid):\s*\d+", "pubmed"),
+        (r"(?:ISBN|isbn)[-:\s]*[\d-X]+", "isbn"),
     ]
 
     # Research integrity patterns
     INTEGRITY_PATTERNS = [
-        (r'(?:conflict\s+of\s+interest|COI|disclosure)', "coi", "Conflict of interest disclosure"),
-        (r'(?:IRB|ethics\s+(?:committee|approval)|informed\s+consent)', "ethics", "Ethics approval"),
-        (r'(?:pre-?register|registered\s+report)', "preregistration", "Study preregistration"),
-        (r'(?:replicat(?:e|ion)|reproduc(?:e|ibility))', "replication", "Replication study"),
-        (r'(?:peer\s+review|double-?blind)', "peer_review", "Peer review status"),
+        (r"(?:conflict\s+of\s+interest|COI|disclosure)", "coi", "Conflict of interest disclosure"),
+        (
+            r"(?:IRB|ethics\s+(?:committee|approval)|informed\s+consent)",
+            "ethics",
+            "Ethics approval",
+        ),
+        (r"(?:pre-?register|registered\s+report)", "preregistration", "Study preregistration"),
+        (r"(?:replicat(?:e|ion)|reproduc(?:e|ibility))", "replication", "Replication study"),
+        (r"(?:peer\s+review|double-?blind)", "peer_review", "Peer review status"),
     ]
 
     @property
@@ -197,7 +201,9 @@ class ResearchKnowledge(BaseVerticalKnowledge):
 
     @property
     def description(self) -> str:
-        return "Academic research, citations, methodology, statistical analysis, and literature review"
+        return (
+            "Academic research, citations, methodology, statistical analysis, and literature review"
+        )
 
     @property
     def capabilities(self) -> VerticalCapabilities:
@@ -380,8 +386,7 @@ class ResearchKnowledge(BaseVerticalKnowledge):
                     description=f"Document includes {len(found_sections)} key research sections",
                     confidence=0.8,
                     supporting_facts=[
-                        f.id for cat in found_sections
-                        for f in by_category.get(cat, [])
+                        f.id for cat in found_sections for f in by_category.get(cat, [])
                     ][:5],
                     metadata={"sections_found": list(found_sections)},
                 )
@@ -433,9 +438,7 @@ class ResearchKnowledge(BaseVerticalKnowledge):
             )
 
         # Pattern: Study limitations acknowledged
-        limitation_facts = [
-            f for f in facts if f.category == "limitation"
-        ]
+        limitation_facts = [f for f in facts if f.category == "limitation"]
         if limitation_facts:
             patterns.append(
                 PatternMatch(
@@ -482,8 +485,7 @@ class ResearchKnowledge(BaseVerticalKnowledge):
 
         integrity_facts = [f for f in facts if f.category == "integrity"]
         ethics_facts = [
-            f for f in integrity_facts
-            if f.provenance.get("integrity_type") == "ethics"
+            f for f in integrity_facts if f.provenance.get("integrity_type") == "ethics"
         ]
 
         if ethics_facts:

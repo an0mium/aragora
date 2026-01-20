@@ -180,10 +180,7 @@ class EvidenceProvenanceBridge:
         logger.debug(f"Registered evidence {snippet.id} as provenance {record.id}")
         return record
 
-    def get_provenance_for_evidence(
-        self,
-        evidence_id: str
-    ) -> Optional[ProvenanceRecord]:
+    def get_provenance_for_evidence(self, evidence_id: str) -> Optional[ProvenanceRecord]:
         """
         Get the provenance record for an evidence snippet.
 
@@ -225,10 +222,7 @@ class EvidenceProvenanceBridge:
             provenance_id = record.id
 
         # Calculate weight based on reliability and freshness
-        weight = (
-            snippet.reliability_score * 0.7 +
-            snippet.freshness_score * 0.3
-        ) * relevance
+        weight = (snippet.reliability_score * 0.7 + snippet.freshness_score * 0.3) * relevance
 
         link = EvidenceLink(
             evidence_id=snippet.id,
@@ -259,10 +253,7 @@ class EvidenceProvenanceBridge:
         logger.debug(f"Linked evidence {snippet.id} to claim {claim_id}")
         return link
 
-    def get_evidence_for_claim(
-        self,
-        claim_id: str
-    ) -> list[EvidenceLink]:
+    def get_evidence_for_claim(self, claim_id: str) -> list[EvidenceLink]:
         """
         Get all evidence links for a claim.
 
@@ -274,10 +265,7 @@ class EvidenceProvenanceBridge:
         """
         return self._claim_links.get(claim_id, [])
 
-    def get_claims_for_evidence(
-        self,
-        evidence_id: str
-    ) -> list[EvidenceLink]:
+    def get_claims_for_evidence(self, evidence_id: str) -> list[EvidenceLink]:
         """
         Get all claims linked to an evidence snippet.
 
@@ -328,10 +316,7 @@ class EvidenceProvenanceBridge:
 
         for snippet in evidence:
             # Weight based on reliability and freshness
-            weight = (
-                snippet.reliability_score * 0.7 +
-                snippet.freshness_score * 0.3
-            )
+            weight = snippet.reliability_score * 0.7 + snippet.freshness_score * 0.3
             total_weight += weight
             total_relevance += 1.0  # Default relevance when not linked
 
@@ -435,10 +420,7 @@ class EvidenceProvenanceBridge:
         logger.info(f"Created evidence chain {chain_id} with {len(snippets)} snippets")
         return chain_id
 
-    def get_chain_summary(
-        self,
-        chain_id: str
-    ) -> dict:
+    def get_chain_summary(self, chain_id: str) -> dict:
         """
         Get summary of an evidence chain.
 

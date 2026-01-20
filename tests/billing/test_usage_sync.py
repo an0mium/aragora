@@ -148,11 +148,13 @@ class TestUsageSyncService:
     def mock_usage_tracker(self):
         """Create a mock UsageTracker."""
         tracker = MagicMock()
-        tracker.get_usage = MagicMock(return_value={
-            "tokens_in": 5000,
-            "tokens_out": 2000,
-            "debates": 10,
-        })
+        tracker.get_usage = MagicMock(
+            return_value={
+                "tokens_in": 5000,
+                "tokens_out": 2000,
+                "debates": 10,
+            }
+        )
         return tracker
 
     @pytest.fixture
@@ -173,8 +175,10 @@ class TestUsageSyncService:
 
     def test_service_creation_defaults(self):
         """Test service creation with default values."""
-        with patch("aragora.billing.usage_sync.UsageTracker"), \
-             patch("aragora.billing.usage_sync.get_stripe_client"):
+        with (
+            patch("aragora.billing.usage_sync.UsageTracker"),
+            patch("aragora.billing.usage_sync.get_stripe_client"),
+        ):
             service = UsageSyncService()
             assert service.sync_interval == UsageSyncService.DEFAULT_SYNC_INTERVAL
 
@@ -217,8 +221,10 @@ class TestUsageTracking:
     @pytest.fixture
     def service(self):
         """Create service with mocks."""
-        with patch("aragora.billing.usage_sync.UsageTracker"), \
-             patch("aragora.billing.usage_sync.get_stripe_client"):
+        with (
+            patch("aragora.billing.usage_sync.UsageTracker"),
+            patch("aragora.billing.usage_sync.get_stripe_client"),
+        ):
             return UsageSyncService(sync_interval=60)
 
     def test_track_synced_tokens_input(self, service):
@@ -390,7 +396,9 @@ class TestUsageSyncPersistence:
         client.report_usage = MagicMock(return_value=mock_record)
         return client
 
-    def test_watermarks_persist_to_database(self, temp_db_dir, mock_usage_tracker, mock_stripe_client):
+    def test_watermarks_persist_to_database(
+        self, temp_db_dir, mock_usage_tracker, mock_stripe_client
+    ):
         """Test that sync watermarks are persisted to the database."""
         # Create first service instance
         service1 = UsageSyncService(
@@ -555,7 +563,8 @@ class TestUsageSyncPersistence:
         db_path = temp_db_dir / "billing.db"
 
         with sqlite3.connect(db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
                     org_id TEXT NOT NULL,
                     tokens_in INTEGER DEFAULT 0,
@@ -565,7 +574,8 @@ class TestUsageSyncPersistence:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (org_id, period_start)
                 )
-            """)
+            """
+            )
             # Insert a watermark from last month (different period)
             conn.execute(
                 """
@@ -631,6 +641,7 @@ class TestRemainderCarry:
 
         # Register org with metered billing
         from aragora.billing.models import SubscriptionTier
+
         config = OrgBillingConfig(
             org_id="org-remainder",
             stripe_customer_id="cus_test",
@@ -645,7 +656,9 @@ class TestRemainderCarry:
         # Mock usage tracker to return 1500 tokens
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-remainder",
-            period_start=datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0),
+            period_start=datetime.utcnow().replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            ),
             period_end=datetime.utcnow(),
             total_tokens_in=1500,  # 1000 billable + 500 remainder
             total_tokens_out=0,
@@ -698,7 +711,9 @@ class TestRemainderCarry:
             org_id="org-accum",
             period_start=period_start,
             period_end=datetime.utcnow(),
-            total_tokens_in=800, total_tokens_out=0, total_debates=0
+            total_tokens_in=800,
+            total_tokens_out=0,
+            total_debates=0,
         )
         records = service.sync_org(config)
         assert len(records) == 0  # Nothing billed yet
@@ -709,7 +724,9 @@ class TestRemainderCarry:
             org_id="org-accum",
             period_start=period_start,
             period_end=datetime.utcnow(),
-            total_tokens_in=1600, total_tokens_out=0, total_debates=0
+            total_tokens_in=1600,
+            total_tokens_out=0,
+            total_debates=0,
         )
         records = service.sync_org(config)
         assert len(records) == 1
@@ -721,7 +738,9 @@ class TestRemainderCarry:
             org_id="org-accum",
             period_start=period_start,
             period_end=datetime.utcnow(),
-            total_tokens_in=2500, total_tokens_out=0, total_debates=0
+            total_tokens_in=2500,
+            total_tokens_out=0,
+            total_debates=0,
         )
         records = service.sync_org(config)
         assert len(records) == 1

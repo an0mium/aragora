@@ -176,7 +176,7 @@ class TestSlackChannelOperations:
             "response_metadata": {"next_cursor": ""},
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             channels = await connector._get_channels()
@@ -226,7 +226,7 @@ class TestSlackMessageOperations:
             "has_more": False,
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             # _get_messages returns tuple (messages, has_more)
@@ -266,7 +266,7 @@ class TestSlackThreadHandling:
             ],
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             # _get_thread_replies returns List[SlackMessage]
@@ -309,7 +309,7 @@ class TestSlackUserResolution:
             },
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             user = await connector._get_user("U001")
@@ -336,7 +336,7 @@ class TestSlackUserResolution:
             },
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             # First call should hit API
@@ -355,7 +355,10 @@ class TestSlackMessageToContent:
     def test_format_message_content_basic(self, mock_credentials):
         """Should format basic message to content with channel and user."""
         from aragora.connectors.enterprise.collaboration.slack import (
-            SlackConnector, SlackMessage, SlackChannel, SlackUser
+            SlackConnector,
+            SlackMessage,
+            SlackChannel,
+            SlackUser,
         )
 
         connector = SlackConnector()
@@ -403,7 +406,7 @@ class TestSlackSyncItems:
         connector.credentials = mock_credentials
 
         # Mock _get_channels to return empty list for simplicity
-        with patch.object(connector, '_get_channels', new_callable=AsyncMock) as mock_channels:
+        with patch.object(connector, "_get_channels", new_callable=AsyncMock) as mock_channels:
             mock_channels.return_value = []
 
             state = SyncState(connector_id="slack_test")
@@ -427,7 +430,7 @@ class TestSlackErrorHandling:
         connector = SlackConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("ratelimited")
 
             # Should handle gracefully or raise controlled exception
@@ -446,7 +449,7 @@ class TestSlackErrorHandling:
         connector = SlackConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("missing_scope: channels:read")
 
             try:

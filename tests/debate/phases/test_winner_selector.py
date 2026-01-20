@@ -113,9 +113,7 @@ class TestDetermineMajorityWinner:
 
     def test_empty_votes(self):
         """Empty votes falls back to first proposal."""
-        ctx = MockDebateContext(
-            proposals={"agent1": "Proposal 1", "agent2": "Proposal 2"}
-        )
+        ctx = MockDebateContext(proposals={"agent1": "Proposal 1", "agent2": "Proposal 2"})
         selector = WinnerSelector()
 
         selector.determine_majority_winner(

@@ -481,9 +481,7 @@ class TestWebhookProvider:
     def test_is_configured_with_endpoints(self):
         """Test is_configured with endpoints."""
         provider = WebhookProvider()
-        provider.add_endpoint(
-            WebhookEndpoint(id="ep-1", url="https://example.com/hook")
-        )
+        provider.add_endpoint(WebhookEndpoint(id="ep-1", url="https://example.com/hook"))
         assert provider.is_configured()
 
     def test_add_endpoint(self):
@@ -499,9 +497,7 @@ class TestWebhookProvider:
     def test_remove_endpoint(self):
         """Test removing webhook endpoint."""
         provider = WebhookProvider()
-        provider.add_endpoint(
-            WebhookEndpoint(id="ep-1", url="https://example.com/hook")
-        )
+        provider.add_endpoint(WebhookEndpoint(id="ep-1", url="https://example.com/hook"))
 
         result = provider.remove_endpoint("ep-1")
 
@@ -880,9 +876,7 @@ class TestChannelRouting:
 
         notification = Notification(title="Test", message="Hello")
 
-        recipients = service._get_default_recipients(
-            NotificationChannel.SLACK, notification
-        )
+        recipients = service._get_default_recipients(NotificationChannel.SLACK, notification)
 
         assert recipients == ["#custom-default"]
 
@@ -907,9 +901,7 @@ class TestChannelRouting:
 
         notification = Notification(title="Test", message="Hello")
 
-        recipients = service._get_default_recipients(
-            NotificationChannel.WEBHOOK, notification
-        )
+        recipients = service._get_default_recipients(NotificationChannel.WEBHOOK, notification)
 
         assert "ep-1" in recipients
         assert "ep-2" not in recipients  # Disabled
@@ -946,9 +938,7 @@ class TestErrorHandling:
         import aiohttp
 
         provider = WebhookProvider()
-        provider.add_endpoint(
-            WebhookEndpoint(id="ep-1", url="https://slow.example.com")
-        )
+        provider.add_endpoint(WebhookEndpoint(id="ep-1", url="https://slow.example.com"))
         notification = Notification(title="Test", message="Hello")
 
         # Create mock for aiohttp.ClientSession

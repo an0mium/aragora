@@ -6,7 +6,6 @@ Useful for testing and graceful degradation.
 
 import hashlib
 import struct
-from typing import Optional
 
 from aragora.core.embeddings.backends import EmbeddingBackend
 from aragora.core.embeddings.types import EmbeddingConfig

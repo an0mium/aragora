@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class SyncStatus(Enum):
     """Status of a sync job."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -46,7 +47,7 @@ class RetryPolicy:
         import random
 
         # Exponential backoff
-        delay = self.base_delay * (self.exponential_base ** attempt)
+        delay = self.base_delay * (self.exponential_base**attempt)
 
         # Cap at max delay
         delay = min(delay, self.max_delay)
@@ -115,6 +116,7 @@ class SyncSchedule:
 
     Supports cron-like expressions and intervals.
     """
+
     # Schedule type
     schedule_type: str = "interval"  # "cron", "interval", "webhook_only"
 
@@ -127,8 +129,8 @@ class SyncSchedule:
     # Schedule constraints
     enabled: bool = True
     start_time: Optional[datetime] = None  # Don't run before this
-    end_time: Optional[datetime] = None    # Don't run after this
-    max_concurrent: int = 1                 # Max concurrent syncs for this job
+    end_time: Optional[datetime] = None  # Don't run after this
+    max_concurrent: int = 1  # Max concurrent syncs for this job
 
     # Retry configuration
     retry_on_failure: bool = True
@@ -156,7 +158,9 @@ class SyncSchedule:
             interval_minutes=data.get("interval_minutes", 60),
             cron_expression=data.get("cron_expression"),
             enabled=data.get("enabled", True),
-            start_time=datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None,
+            start_time=(
+                datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
+            ),
             end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
             max_concurrent=data.get("max_concurrent", 1),
             retry_on_failure=data.get("retry_on_failure", True),
@@ -168,6 +172,7 @@ class SyncSchedule:
 @dataclass
 class SyncHistory:
     """Record of a sync execution."""
+
     id: str
     job_id: str
     connector_id: str
@@ -208,6 +213,7 @@ class SyncJob:
     """
     A scheduled sync job for a connector.
     """
+
     id: str
     connector_id: str
     tenant_id: str
@@ -258,6 +264,7 @@ class SyncJob:
         """Parse cron expression and get next run time."""
         try:
             from croniter import croniter  # type: ignore[import-untyped]
+
             cron = croniter(cron_expr, datetime.now(timezone.utc))
             return cron.get_next(datetime)
         except ImportError:
@@ -479,8 +486,13 @@ class SyncScheduler:
                 job.on_error(e)
 
             # Schedule retry if configured
-            if job.schedule.retry_on_failure and job.consecutive_failures <= job.schedule.max_retries:
-                job.next_run = datetime.now(timezone.utc) + timedelta(minutes=job.schedule.retry_delay_minutes)
+            if (
+                job.schedule.retry_on_failure
+                and job.consecutive_failures <= job.schedule.max_retries
+            ):
+                job.next_run = datetime.now(timezone.utc) + timedelta(
+                    minutes=job.schedule.retry_delay_minutes
+                )
                 logger.info(f"Retry scheduled for {job.connector_id} at {job.next_run}")
 
         finally:
@@ -611,8 +623,7 @@ class SyncScheduler:
 
         total_items = sum(h.items_synced for h in history)
         avg_duration = (
-            sum(h.duration_seconds or 0 for h in history) / total_syncs
-            if total_syncs > 0 else 0
+            sum(h.duration_seconds or 0 for h in history) / total_syncs if total_syncs > 0 else 0
         )
 
         return {
@@ -660,7 +671,11 @@ class SyncScheduler:
                     tenant_id=h_data["tenant_id"],
                     status=SyncStatus(h_data["status"]),
                     started_at=datetime.fromisoformat(h_data["started_at"]),
-                    completed_at=datetime.fromisoformat(h_data["completed_at"]) if h_data.get("completed_at") else None,
+                    completed_at=(
+                        datetime.fromisoformat(h_data["completed_at"])
+                        if h_data.get("completed_at")
+                        else None
+                    ),
                     items_synced=h_data.get("items_synced", 0),
                     items_total=h_data.get("items_total", 0),
                     errors=h_data.get("errors", []),

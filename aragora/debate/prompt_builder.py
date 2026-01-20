@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 # Check for RLM availability (use factory for consistent initialization)
 try:
     from aragora.rlm import AbstractionLevel, RLMContextAdapter, HAS_OFFICIAL_RLM
+
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
@@ -616,7 +617,7 @@ and building on others' ideas."""
         if context:
             logger.debug(
                 "[rlm] Set hierarchical context with %d levels",
-                len(context.levels) if hasattr(context, 'levels') else 0
+                len(context.levels) if hasattr(context, "levels") else 0,
             )
 
     def get_rlm_context_hint(self) -> str:
@@ -634,9 +635,9 @@ and building on others' ideas."""
 
         # Build hint based on available abstraction levels
         levels_available = []
-        if hasattr(self._rlm_context, 'levels'):
+        if hasattr(self._rlm_context, "levels"):
             for level in self._rlm_context.levels:
-                levels_available.append(level.name if hasattr(level, 'name') else str(level))
+                levels_available.append(level.name if hasattr(level, "name") else str(level))
 
         if not levels_available:
             return ""
@@ -670,7 +671,7 @@ The system will provide relevant details from the full history."""
 
         try:
             # Try to get ABSTRACT level first, then SUMMARY
-            if AbstractionLevel and hasattr(self._rlm_context, 'get_at_level'):
+            if AbstractionLevel and hasattr(self._rlm_context, "get_at_level"):
                 abstract = self._rlm_context.get_at_level(AbstractionLevel.ABSTRACT)
                 if abstract:
                     return abstract[:max_chars]
@@ -680,7 +681,7 @@ The system will provide relevant details from the full history."""
                     return summary[:max_chars]
 
             # Fallback to original content truncated
-            if hasattr(self._rlm_context, 'original_content'):
+            if hasattr(self._rlm_context, "original_content"):
                 return self._rlm_context.original_content[:max_chars] + "..."
 
         except (AttributeError, TypeError, KeyError) as e:
@@ -890,7 +891,9 @@ The system will provide relevant details from the full history."""
                     except (AttributeError, TypeError, KeyError) as e:
                         logger.debug(f"Failed to get calibration summary for {name}: {e}")
                     except Exception as e:
-                        logger.warning(f"Unexpected error getting calibration summary for {name}: {e}")
+                        logger.warning(
+                            f"Unexpected error getting calibration summary for {name}: {e}"
+                        )
 
                 lines.append(
                     f"  {rank}. {name}: {elo:.0f} ELO ({total} debates{calib_str}){marker}"
@@ -997,7 +1000,7 @@ The system will provide relevant details from the full history."""
             Formatted trending context, or empty string if disabled or no topics
         """
         # Check if trending injection is enabled in protocol
-        if not getattr(self.protocol, 'enable_trending_injection', False):
+        if not getattr(self.protocol, "enable_trending_injection", False):
             return ""
 
         if not self.trending_topics:
@@ -1005,19 +1008,19 @@ The system will provide relevant details from the full history."""
 
         # Use protocol config for max topics if not specified
         if max_topics is None:
-            max_topics = getattr(self.protocol, 'trending_injection_max_topics', 3)
+            max_topics = getattr(self.protocol, "trending_injection_max_topics", 3)
 
         # Check if relevance filtering is enabled
-        use_relevance_filter = getattr(self.protocol, 'trending_relevance_filter', True)
+        use_relevance_filter = getattr(self.protocol, "trending_relevance_filter", True)
 
         if use_relevance_filter:
             # Filter for relevance to task if possible
             task_lower = self.env.task.lower() if self.env else ""
             relevant_topics = []
 
-            for topic in self.trending_topics[:max_topics * 2]:  # Get more for filtering
+            for topic in self.trending_topics[: max_topics * 2]:  # Get more for filtering
                 # Simple relevance check - topic keywords in task or vice versa
-                topic_text = topic.topic.lower() if hasattr(topic, 'topic') else str(topic).lower()
+                topic_text = topic.topic.lower() if hasattr(topic, "topic") else str(topic).lower()
                 if any(word in task_lower for word in topic_text.split() if len(word) > 3):
                     relevant_topics.append(topic)
                 elif len(relevant_topics) < max_topics:
@@ -1036,10 +1039,10 @@ The system will provide relevant details from the full history."""
         lines.append("These topics are currently trending and may provide timely context:\n")
 
         for topic in relevant_topics:
-            topic_name = getattr(topic, 'topic', str(topic))
-            platform = getattr(topic, 'platform', 'unknown')
-            volume = getattr(topic, 'volume', 0)
-            category = getattr(topic, 'category', 'general')
+            topic_name = getattr(topic, "topic", str(topic))
+            platform = getattr(topic, "platform", "unknown")
+            volume = getattr(topic, "volume", 0)
+            category = getattr(topic, "category", "general")
 
             lines.append(f"- **{topic_name}** ({platform})")
             if volume:
@@ -1140,7 +1143,9 @@ The system will provide relevant details from the full history."""
                         dissent_section = f"\n\n## Historical Minority Views\n{formatted}"
                     else:
                         # Fallback: simple truncation
-                        dissent_section = f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
+                        dissent_section = (
+                            f"\n\n## Historical Minority Views\n{dissent_context[:600]}"
+                        )
             except (AttributeError, TypeError, KeyError) as e:
                 logger.debug(f"Dissent retrieval error: {e}")
             except Exception as e:

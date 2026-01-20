@@ -294,9 +294,21 @@ WORKSPACE_ENDPOINTS = {
                 {"name": "actor_id", "in": "query", "schema": {"type": "string"}},
                 {"name": "resource_id", "in": "query", "schema": {"type": "string"}},
                 {"name": "action", "in": "query", "schema": {"type": "string"}},
-                {"name": "outcome", "in": "query", "schema": {"type": "string", "enum": ["success", "denied", "error"]}},
-                {"name": "start_time", "in": "query", "schema": {"type": "string", "format": "date-time"}},
-                {"name": "end_time", "in": "query", "schema": {"type": "string", "format": "date-time"}},
+                {
+                    "name": "outcome",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["success", "denied", "error"]},
+                },
+                {
+                    "name": "start_time",
+                    "in": "query",
+                    "schema": {"type": "string", "format": "date-time"},
+                },
+                {
+                    "name": "end_time",
+                    "in": "query",
+                    "schema": {"type": "string", "format": "date-time"},
+                },
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
             ],
             "responses": {

@@ -244,7 +244,9 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_with_reputation(self):
         """Test weight with reputation source."""
-        reputation_fn = lambda name: 1.2  # 20% bonus
+
+        def reputation_fn(name):
+            return 1.2  # 20% bonus
 
         calc = VoteWeightCalculator(reputation_source=reputation_fn)
         weight = calc.compute_weight("agent-1")
@@ -265,8 +267,10 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_with_consistency(self):
         """Test weight with consistency source."""
+
         # Consistency score 1.0 maps to weight 1.0
-        consistency_fn = lambda name: 1.0
+        def consistency_fn(name):
+            return 1.0
 
         calc = VoteWeightCalculator(consistency_source=consistency_fn)
         weight = calc.compute_weight("agent-1")
@@ -275,7 +279,9 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_with_calibration(self):
         """Test weight with calibration source."""
-        calibration_fn = lambda name: 1.3  # 30% bonus
+
+        def calibration_fn(name):
+            return 1.3  # 30% bonus
 
         calc = VoteWeightCalculator(calibration_source=calibration_fn)
         weight = calc.compute_weight("agent-1")
@@ -284,8 +290,12 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_combined_sources(self):
         """Test weight with multiple sources."""
-        reputation_fn = lambda name: 1.1
-        calibration_fn = lambda name: 1.2
+
+        def reputation_fn(name):
+            return 1.1
+
+        def calibration_fn(name):
+            return 1.2
 
         calc = VoteWeightCalculator(
             reputation_source=reputation_fn,
@@ -298,8 +308,10 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_clamped_to_min(self):
         """Test weight is clamped to minimum."""
+
         # Very low reputation
-        reputation_fn = lambda name: 0.05
+        def reputation_fn(name):
+            return 0.05
 
         config = WeightConfig(min_weight=0.5)
         calc = VoteWeightCalculator(config=config, reputation_source=reputation_fn)
@@ -309,8 +321,10 @@ class TestVoteWeightCalculator:
 
     def test_compute_weight_clamped_to_max(self):
         """Test weight is clamped to maximum."""
+
         # Very high reputation
-        reputation_fn = lambda name: 5.0
+        def reputation_fn(name):
+            return 5.0
 
         config = WeightConfig(max_weight=2.0)
         calc = VoteWeightCalculator(config=config, reputation_source=reputation_fn)
@@ -338,7 +352,9 @@ class TestVoteWeightCalculator:
 
     def test_compute_weights_batch(self):
         """Test batch weight computation."""
-        reputation_fn = lambda name: 1.0 + (0.1 * int(name[-1]))
+
+        def reputation_fn(name):
+            return 1.0 + (0.1 * int(name[-1]))
 
         calc = VoteWeightCalculator(reputation_source=reputation_fn)
         weights = calc.compute_weights_batch(["agent-1", "agent-2", "agent-3"])
@@ -367,7 +383,9 @@ class TestVoteWeightCalculator:
 
     def test_contribution_disabled(self):
         """Test disabling a contribution source."""
-        reputation_fn = lambda name: 1.5  # Would give 50% bonus
+
+        def reputation_fn(name):
+            return 1.5  # Would give 50% bonus
 
         config = WeightConfig(reputation_contribution=0.0)  # Disabled
         calc = VoteWeightCalculator(config=config, reputation_source=reputation_fn)
@@ -377,7 +395,9 @@ class TestVoteWeightCalculator:
 
     def test_partial_contribution(self):
         """Test partial contribution factor."""
-        reputation_fn = lambda name: 1.4  # 40% bonus at full contribution
+
+        def reputation_fn(name):
+            return 1.4  # 40% bonus at full contribution
 
         config = WeightConfig(reputation_contribution=0.5)  # Half contribution
         calc = VoteWeightCalculator(config=config, reputation_source=reputation_fn)
@@ -603,38 +623,33 @@ class TestNLIContradictionDetection:
     def test_nli_detects_accept_reject(self, nli_backend):
         """NLI should detect accept/reject as contradictions."""
         assert nli_backend.is_contradictory(
-            "We should accept the proposal",
-            "We should reject the proposal"
+            "We should accept the proposal", "We should reject the proposal"
         )
 
     def test_nli_detects_semantic_opposites(self, nli_backend):
         """NLI should detect nuanced semantic opposites."""
         # These wouldn't be caught by simple pattern matching
         assert nli_backend.is_contradictory(
-            "We should proceed cautiously",
-            "We should move quickly without hesitation"
+            "We should proceed cautiously", "We should move quickly without hesitation"
         )
 
     def test_nli_detects_agreement_disagreement(self, nli_backend):
         """NLI should detect agreement vs disagreement."""
         assert nli_backend.is_contradictory(
-            "I agree with the proposal",
-            "I disagree with the proposal"
+            "I agree with the proposal", "I disagree with the proposal"
         )
 
     def test_nli_allows_paraphrases(self, nli_backend):
         """NLI should NOT flag paraphrases as contradictions."""
         # These are saying the same thing differently
         assert not nli_backend.is_contradictory(
-            "Using a vector database is the best approach",
-            "A vector DB would be ideal for this"
+            "Using a vector database is the best approach", "A vector DB would be ideal for this"
         )
 
     def test_nli_allows_unrelated_statements(self, nli_backend):
         """NLI should NOT flag unrelated statements as contradictions."""
         assert not nli_backend.is_contradictory(
-            "Python is a programming language",
-            "The weather is nice today"
+            "Python is a programming language", "The weather is nice today"
         )
 
     def test_nli_fallback_when_disabled(self):
@@ -697,7 +712,9 @@ class TestVotingEngineCounting:
 
     def test_count_votes_with_weights(self):
         """Test counting with weighted votes."""
-        reputation_fn = lambda name: 2.0 if name == "agent-2" else 1.0
+
+        def reputation_fn(name):
+            return 2.0 if name == "agent-2" else 1.0
 
         # Disable vote grouping to test pure weighting logic
         protocol = MockProtocol(vote_grouping=False)

@@ -65,6 +65,7 @@ class VerticalsHandler(BaseHandler):
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             query_params = parse_qs(query_str)
 
         # GET /api/verticals - List all verticals
@@ -125,6 +126,7 @@ class VerticalsHandler(BaseHandler):
         """Get the VerticalRegistry, handling import errors."""
         try:
             from aragora.verticals import VerticalRegistry
+
             return VerticalRegistry
         except ImportError:
             logger.warning("Verticals module not available")
@@ -134,11 +136,14 @@ class VerticalsHandler(BaseHandler):
         """List all available verticals."""
         registry = self._get_registry()
         if registry is None:
-            return json_response({
-                "verticals": [],
-                "total": 0,
-                "message": "Verticals module not available",
-            }, status=503)
+            return json_response(
+                {
+                    "verticals": [],
+                    "total": 0,
+                    "message": "Verticals module not available",
+                },
+                status=503,
+            )
 
         try:
             # Get optional keyword filter
@@ -149,23 +154,23 @@ class VerticalsHandler(BaseHandler):
                 matching_ids = registry.get_by_keyword(keyword)
                 all_verticals = registry.list_all()
                 verticals = {
-                    vid: all_verticals[vid]
-                    for vid in matching_ids
-                    if vid in all_verticals
+                    vid: all_verticals[vid] for vid in matching_ids if vid in all_verticals
                 }
             else:
                 verticals = registry.list_all()
 
-            return json_response({
-                "verticals": [
-                    {
-                        "vertical_id": vid,
-                        **data,
-                    }
-                    for vid, data in verticals.items()
-                ],
-                "total": len(verticals),
-            })
+            return json_response(
+                {
+                    "verticals": [
+                        {
+                            "vertical_id": vid,
+                            **data,
+                        }
+                        for vid, data in verticals.items()
+                    ],
+                    "total": len(verticals),
+                }
+            )
 
         except (KeyError, ValueError, TypeError) as e:
             logger.warning(f"Data error listing verticals: {e}")
@@ -185,26 +190,26 @@ class VerticalsHandler(BaseHandler):
             if spec is None:
                 available = registry.get_registered_ids()
                 return error_response(
-                    f"Vertical not found: {vertical_id}. "
-                    f"Available: {', '.join(available)}",
-                    404
+                    f"Vertical not found: {vertical_id}. " f"Available: {', '.join(available)}", 404
                 )
 
             config = spec.config
 
-            return json_response({
-                "vertical_id": vertical_id,
-                "display_name": config.display_name,
-                "description": spec.description,
-                "domain_keywords": config.domain_keywords,
-                "expertise_areas": config.expertise_areas,
-                "tools": [t.to_dict() for t in config.tools],
-                "compliance_frameworks": [c.to_dict() for c in config.compliance_frameworks],
-                "model_config": config.model_config.to_dict(),
-                "version": config.version,
-                "author": config.author,
-                "tags": config.tags,
-            })
+            return json_response(
+                {
+                    "vertical_id": vertical_id,
+                    "display_name": config.display_name,
+                    "description": spec.description,
+                    "domain_keywords": config.domain_keywords,
+                    "expertise_areas": config.expertise_areas,
+                    "tools": [t.to_dict() for t in config.tools],
+                    "compliance_frameworks": [c.to_dict() for c in config.compliance_frameworks],
+                    "model_config": config.model_config.to_dict(),
+                    "version": config.version,
+                    "author": config.author,
+                    "tags": config.tags,
+                }
+            )
 
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error getting vertical {vertical_id}: {e}")
@@ -227,12 +232,14 @@ class VerticalsHandler(BaseHandler):
             tools = config.tools
             enabled_tools = config.get_enabled_tools()
 
-            return json_response({
-                "vertical_id": vertical_id,
-                "tools": [t.to_dict() for t in tools],
-                "enabled_count": len(enabled_tools),
-                "total_count": len(tools),
-            })
+            return json_response(
+                {
+                    "vertical_id": vertical_id,
+                    "tools": [t.to_dict() for t in tools],
+                    "enabled_count": len(enabled_tools),
+                    "total_count": len(tools),
+                }
+            )
 
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error getting tools for {vertical_id}: {e}")
@@ -264,16 +271,18 @@ class VerticalsHandler(BaseHandler):
                     return error_response(
                         f"Invalid level: {level_filter}. "
                         f"Valid values: {[lvl.value for lvl in ComplianceLevel]}",
-                        400
+                        400,
                     )
 
             frameworks = config.get_compliance_frameworks(level=level_enum)
 
-            return json_response({
-                "vertical_id": vertical_id,
-                "compliance_frameworks": [f.to_dict() for f in frameworks],
-                "total": len(frameworks),
-            })
+            return json_response(
+                {
+                    "vertical_id": vertical_id,
+                    "compliance_frameworks": [f.to_dict() for f in frameworks],
+                    "total": len(frameworks),
+                }
+            )
 
         except ImportError:
             return error_response("Compliance module not available", 503)
@@ -298,24 +307,28 @@ class VerticalsHandler(BaseHandler):
             suggested = registry.get_for_task(task)
 
             if suggested is None:
-                return json_response({
-                    "suggestion": None,
-                    "message": "No vertical matches the given task",
-                    "available_verticals": registry.get_registered_ids(),
-                })
+                return json_response(
+                    {
+                        "suggestion": None,
+                        "message": "No vertical matches the given task",
+                        "available_verticals": registry.get_registered_ids(),
+                    }
+                )
 
             spec = registry.get(suggested)
             config = spec.config if spec else None
 
-            return json_response({
-                "suggestion": {
-                    "vertical_id": suggested,
-                    "display_name": config.display_name if config else suggested,
-                    "description": spec.description if spec else "",
-                    "expertise_areas": config.expertise_areas if config else [],
-                },
-                "task": task,
-            })
+            return json_response(
+                {
+                    "suggestion": {
+                        "vertical_id": suggested,
+                        "display_name": config.display_name if config else suggested,
+                        "description": spec.description if spec else "",
+                        "expertise_areas": config.expertise_areas if config else [],
+                    },
+                    "task": task,
+                }
+            )
 
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error suggesting vertical: {e}")
@@ -371,11 +384,13 @@ class VerticalsHandler(BaseHandler):
                     if isinstance(agent_spec, str):
                         agents.append(create_agent(agent_spec))
                     elif isinstance(agent_spec, dict):
-                        agents.append(create_agent(
-                            agent_spec.get("type", "anthropic-api"),
-                            name=agent_spec.get("name"),
-                            role=agent_spec.get("role"),
-                        ))
+                        agents.append(
+                            create_agent(
+                                agent_spec.get("type", "anthropic-api"),
+                                name=agent_spec.get("name"),
+                                role=agent_spec.get("role"),
+                            )
+                        )
 
             # Create environment and protocol
             env = Environment(task=topic)
@@ -388,17 +403,21 @@ class VerticalsHandler(BaseHandler):
             arena = Arena(env, agents=agents, protocol=protocol)
             result = await arena.run()
 
-            return json_response({
-                "debate_id": result.debate_id if hasattr(result, "debate_id") else None,
-                "vertical_id": vertical_id,
-                "topic": topic,
-                "consensus_reached": (
-                    result.consensus_reached if hasattr(result, "consensus_reached") else False
-                ),
-                "final_answer": result.final_answer if hasattr(result, "final_answer") else None,
-                "confidence": result.confidence if hasattr(result, "confidence") else 0.0,
-                "participants": [a.name for a in agents],
-            })
+            return json_response(
+                {
+                    "debate_id": result.debate_id if hasattr(result, "debate_id") else None,
+                    "vertical_id": vertical_id,
+                    "topic": topic,
+                    "consensus_reached": (
+                        result.consensus_reached if hasattr(result, "consensus_reached") else False
+                    ),
+                    "final_answer": (
+                        result.final_answer if hasattr(result, "final_answer") else None
+                    ),
+                    "confidence": result.confidence if hasattr(result, "confidence") else 0.0,
+                    "participants": [a.name for a in agents],
+                }
+            )
 
         except ImportError as e:
             logger.error(f"Debate infrastructure not available: {e}")
@@ -438,16 +457,18 @@ class VerticalsHandler(BaseHandler):
                 role=role,
             )
 
-            return json_response({
-                "agent": specialist.to_dict(),
-                "vertical_id": vertical_id,
-                "name": specialist.name,
-                "model": specialist.model,
-                "role": specialist.role,
-                "expertise_areas": specialist.expertise_areas,
-                "tools": [t.name for t in specialist.get_enabled_tools()],
-                "message": "Specialist agent created successfully",
-            })
+            return json_response(
+                {
+                    "agent": specialist.to_dict(),
+                    "vertical_id": vertical_id,
+                    "name": specialist.name,
+                    "model": specialist.model,
+                    "role": specialist.role,
+                    "expertise_areas": specialist.expertise_areas,
+                    "tools": [t.name for t in specialist.get_enabled_tools()],
+                    "message": "Specialist agent created successfully",
+                }
+            )
 
         except ValueError as e:
             return error_response(str(e), 400)

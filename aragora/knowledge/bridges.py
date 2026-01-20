@@ -313,9 +313,13 @@ class EvidenceBridge:
                         "source": evidence.source,
                         "evidence_type": evidence.evidence_type,
                         "supports": evidence.supports_claim,
-                        "metadata": evidence.metadata if hasattr(evidence, 'metadata') else {},
+                        "metadata": evidence.metadata if hasattr(evidence, "metadata") else {},
                     },
-                    "timestamp": evidence.timestamp if hasattr(evidence, 'timestamp') else datetime.now().isoformat(),
+                    "timestamp": (
+                        evidence.timestamp
+                        if hasattr(evidence, "timestamp")
+                        else datetime.now().isoformat()
+                    ),
                 }
             ],
         )

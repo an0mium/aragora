@@ -10,7 +10,6 @@ Provides a single entry point for:
 import asyncio
 import os
 import re
-import sqlite3
 from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,13 +36,17 @@ if TYPE_CHECKING:
     from aragora.storage import UserStore
 import logging
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
-from .prometheus import record_http_request
 from .storage import DebateStorage
-from .stream import ControlPlaneStreamServer, DebateStreamServer, NomicLoopStreamServer, SyncEventEmitter
+from .stream import (
+    ControlPlaneStreamServer,
+    DebateStreamServer,
+    NomicLoopStreamServer,
+    SyncEventEmitter,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -51,7 +54,6 @@ logger = logging.getLogger(__name__)
 # Import centralized config and error utilities
 from aragora.server.debate_controller import DebateController
 from aragora.server.debate_factory import DebateFactory
-from aragora.server.debate_utils import get_active_debates
 
 # Import utilities from extracted modules
 from aragora.server.http_utils import validate_query_params as _validate_query_params
@@ -335,36 +337,38 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         return content_length
 
     # Paths exempt from authentication (health checks, probes, OAuth flow, public read-only)
-    AUTH_EXEMPT_PATHS = frozenset([
-        # Health checks (needed for load balancers, monitoring)
-        "/healthz",
-        "/readyz",
-        "/api/health",
-        "/api/health/detailed",
-        "/api/health/deep",
-        "/api/health/stores",
-        # OAuth
-        "/api/auth/oauth/providers",  # Login page needs to show available providers
-        # API documentation (public)
-        "/api/openapi",
-        "/api/openapi.json",
-        "/api/openapi.yaml",
-        "/api/postman.json",
-        "/api/docs",
-        "/api/docs/",
-        "/api/redoc",
-        "/api/redoc/",
-        # Read-only public endpoints
-        "/api/insights/recent",
-        "/api/flips/recent",
-        "/api/evidence",
-        "/api/evidence/statistics",
-        "/api/verification/status",
-        # Agent/ranking public data
-        "/api/leaderboard",
-        "/api/leaderboard-view",
-        "/api/agents",
-    ])
+    AUTH_EXEMPT_PATHS = frozenset(
+        [
+            # Health checks (needed for load balancers, monitoring)
+            "/healthz",
+            "/readyz",
+            "/api/health",
+            "/api/health/detailed",
+            "/api/health/deep",
+            "/api/health/stores",
+            # OAuth
+            "/api/auth/oauth/providers",  # Login page needs to show available providers
+            # API documentation (public)
+            "/api/openapi",
+            "/api/openapi.json",
+            "/api/openapi.yaml",
+            "/api/postman.json",
+            "/api/docs",
+            "/api/docs/",
+            "/api/redoc",
+            "/api/redoc/",
+            # Read-only public endpoints
+            "/api/insights/recent",
+            "/api/flips/recent",
+            "/api/evidence",
+            "/api/evidence/statistics",
+            "/api/verification/status",
+            # Agent/ranking public data
+            "/api/leaderboard",
+            "/api/leaderboard-view",
+            "/api/agents",
+        ]
+    )
 
     # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
     AUTH_EXEMPT_PREFIXES = (
@@ -374,9 +378,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     )
 
     # Path prefixes exempt ONLY for GET requests (read-only access)
-    AUTH_EXEMPT_GET_PREFIXES = (
-        "/api/evidence/",  # Evidence read-only access
-    )
+    AUTH_EXEMPT_GET_PREFIXES = ("/api/evidence/",)  # Evidence read-only access
 
     def _check_rate_limit(self) -> bool:
         """Check auth and rate limit. Returns True if allowed, False if blocked.

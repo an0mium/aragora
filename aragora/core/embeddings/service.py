@@ -5,7 +5,6 @@ It consolidates previously fragmented implementations and provides a single,
 consistent interface.
 """
 
-import hashlib
 import logging
 import struct
 from typing import Optional
@@ -171,14 +170,16 @@ class UnifiedEmbeddingService:
             if self._cache is not None:
                 cached = self._cache.get(text)
                 if cached is not None:
-                    results.append(EmbeddingResult(
-                        embedding=cached,
-                        text=text[:100],
-                        provider=self._backend.provider_name,
-                        model=self._backend.model_name,
-                        cached=True,
-                        dimension=len(cached),
-                    ))
+                    results.append(
+                        EmbeddingResult(
+                            embedding=cached,
+                            text=text[:100],
+                            provider=self._backend.provider_name,
+                            model=self._backend.model_name,
+                            cached=True,
+                            dimension=len(cached),
+                        )
+                    )
                     continue
 
             texts_to_embed.append((i, text))

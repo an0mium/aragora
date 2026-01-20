@@ -504,6 +504,7 @@ class TestConsensusPhaseWithPositionTracking:
 
 # Integration tests that test multiple components working together
 
+
 class TestConsensusPhaseIntegration:
     """Integration tests for ConsensusPhase."""
 

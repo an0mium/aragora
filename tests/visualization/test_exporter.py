@@ -152,9 +152,7 @@ class TestSaveDebateVisualization:
 
     def test_saves_json_format(self, cartographer, temp_dir):
         """Test saving JSON format."""
-        results = save_debate_visualization(
-            cartographer, temp_dir, "test-debate", formats=["json"]
-        )
+        results = save_debate_visualization(cartographer, temp_dir, "test-debate", formats=["json"])
 
         assert "json" in results
         json_path = Path(results["json"])
@@ -170,9 +168,7 @@ class TestSaveDebateVisualization:
 
     def test_saves_html_format(self, cartographer, temp_dir):
         """Test saving HTML format."""
-        results = save_debate_visualization(
-            cartographer, temp_dir, "test-debate", formats=["html"]
-        )
+        results = save_debate_visualization(cartographer, temp_dir, "test-debate", formats=["html"])
 
         assert "html" in results
         html_path = Path(results["html"])
@@ -193,9 +189,7 @@ class TestSaveDebateVisualization:
         """Test creates output directory if needed."""
         nested_dir = temp_dir / "nested" / "output"
 
-        results = save_debate_visualization(
-            cartographer, nested_dir, "test", formats=["json"]
-        )
+        results = save_debate_visualization(cartographer, nested_dir, "test", formats=["json"])
 
         assert nested_dir.exists()
         assert Path(results["json"]).exists()
@@ -211,9 +205,7 @@ class TestSaveDebateVisualization:
     def test_uses_cache(self, cartographer, temp_dir):
         """Test caching is used for performance."""
         # First call - populates cache
-        save_debate_visualization(
-            cartographer, temp_dir, "test", formats=["json"], use_cache=True
-        )
+        save_debate_visualization(cartographer, temp_dir, "test", formats=["json"], use_cache=True)
 
         # Second call - should use cache
         with patch("aragora.visualization.exporter._get_cached_export") as mock_cache:
@@ -315,7 +307,10 @@ class TestExporterIntegration:
         cart.set_debate_context("debate-integration", "Should we use TypeScript?")
 
         cart.update_from_message(
-            "claude", "TypeScript provides type safety and catches errors at compile time.", "proposal", 1
+            "claude",
+            "TypeScript provides type safety and catches errors at compile time.",
+            "proposal",
+            1,
         )
         cart.update_from_message(
             "gpt", "JavaScript is more flexible and has wider adoption.", "proposal", 1

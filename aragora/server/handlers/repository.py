@@ -80,6 +80,7 @@ async def _get_relationship_builder(repository_name: str) -> Optional[Any]:
     """Get a relationship builder instance for a repository."""
     try:
         from aragora.knowledge.relationship_builder import RelationshipBuilder
+
         return RelationshipBuilder(repository_name)
     except ImportError as e:
         logger.warning(f"Failed to import RelationshipBuilder: {e}")
@@ -116,6 +117,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             query_params = parse_qs(query_str)
 
             # Read JSON body for POST requests
@@ -190,6 +192,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         if "crawl_config" in body:
             try:
                 from aragora.connectors.repository_crawler import CrawlConfig
+
                 config_data = body["crawl_config"]
                 crawl_config = CrawlConfig(
                     include_patterns=config_data.get("include_patterns", ["*", "**/*"]),
@@ -210,10 +213,12 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                 incremental=False,  # Full index
             )
 
-            return json_response({
-                "success": len(result.errors) == 0,
-                "result": result.to_dict(),
-            })
+            return json_response(
+                {
+                    "success": len(result.errors) == 0,
+                    "result": result.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Repository indexing failed: {e}")
@@ -237,10 +242,12 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                 workspace_id=workspace_id,
             )
 
-            return json_response({
-                "success": len(result.errors) == 0,
-                "result": result.to_dict(),
-            })
+            return json_response(
+                {
+                    "success": len(result.errors) == 0,
+                    "result": result.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Incremental update failed: {e}")
@@ -272,10 +279,12 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
             result = await orchestrator.index_multiple(repo_configs)
 
-            return json_response({
-                "success": result.failed == 0,
-                "result": result.to_dict(),
-            })
+            return json_response(
+                {
+                    "success": result.failed == 0,
+                    "result": result.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Batch indexing failed: {e}")
@@ -298,26 +307,28 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     break
 
         if not progress:
-            return json_response({
+            return json_response(
+                {
+                    "repository_id": repo_id,
+                    "status": "unknown",
+                    "message": "No active indexing operation found",
+                }
+            )
+
+        return json_response(
+            {
                 "repository_id": repo_id,
-                "status": "unknown",
-                "message": "No active indexing operation found",
-            })
+                "status": progress.status,
+                "files_discovered": progress.files_discovered,
+                "files_processed": progress.files_processed,
+                "nodes_created": progress.nodes_created,
+                "current_file": progress.current_file,
+                "started_at": progress.started_at.isoformat() if progress.started_at else None,
+                "error": progress.error,
+            }
+        )
 
-        return json_response({
-            "repository_id": repo_id,
-            "status": progress.status,
-            "files_discovered": progress.files_discovered,
-            "files_processed": progress.files_processed,
-            "nodes_created": progress.nodes_created,
-            "current_file": progress.current_file,
-            "started_at": progress.started_at.isoformat() if progress.started_at else None,
-            "error": progress.error,
-        })
-
-    async def _get_entities(
-        self, repo_id: str, query_params: Dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_entities(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get entities from an indexed repository."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -344,27 +355,29 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
             entities = []
             for item in results.items:
-                entities.append({
-                    "id": item.id,
-                    "content": item.content[:500] if item.content else None,
-                    "metadata": item.metadata,
-                })
+                entities.append(
+                    {
+                        "id": item.id,
+                        "content": item.content[:500] if item.content else None,
+                        "metadata": item.metadata,
+                    }
+                )
 
-            return json_response({
-                "repository_id": repo_id,
-                "entities": entities,
-                "total": results.total_count,
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "repository_id": repo_id,
+                    "entities": entities,
+                    "total": results.total_count,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get entities: {e}")
             return error_response(safe_error_message(e, "get entities"), 500)
 
-    async def _get_graph(
-        self, repo_id: str, query_params: Dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_graph(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get relationship graph for a repository."""
         builder = await _get_relationship_builder(repo_id)
         if not builder:
@@ -387,29 +400,33 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     dependents = await builder.find_dependents(entity_id, depth)
                     entities = deps + dependents
 
-                return json_response({
-                    "repository_id": repo_id,
-                    "entity_id": entity_id,
-                    "direction": direction,
-                    "depth": depth,
-                    "entities": [
-                        {
-                            "id": e.id,
-                            "name": e.name,
-                            "kind": e.kind,
-                            "file_path": e.file_path,
-                            "line_start": e.line_start,
-                        }
-                        for e in entities
-                    ],
-                })
+                return json_response(
+                    {
+                        "repository_id": repo_id,
+                        "entity_id": entity_id,
+                        "direction": direction,
+                        "depth": depth,
+                        "entities": [
+                            {
+                                "id": e.id,
+                                "name": e.name,
+                                "kind": e.kind,
+                                "file_path": e.file_path,
+                                "line_start": e.line_start,
+                            }
+                            for e in entities
+                        ],
+                    }
+                )
             else:
                 # Return graph statistics
                 stats = builder.get_statistics()
-                return json_response({
-                    "repository_id": repo_id,
-                    "statistics": stats,
-                })
+                return json_response(
+                    {
+                        "repository_id": repo_id,
+                        "statistics": stats,
+                    }
+                )
 
         except Exception as e:
             logger.error(f"Failed to get graph: {e}")
@@ -433,9 +450,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Failed to get repository: {e}")
             return error_response(safe_error_message(e, "get repository"), 500)
 
-    async def _remove_repository(
-        self, repo_id: str, body: Dict[str, Any]
-    ) -> HandlerResult:
+    async def _remove_repository(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Remove an indexed repository."""
         orchestrator = await _get_orchestrator()
         if not orchestrator:
@@ -449,11 +464,13 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                 workspace_id=workspace_id,
             )
 
-            return json_response({
-                "success": True,
-                "repository_id": repo_id,
-                "nodes_removed": removed,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "repository_id": repo_id,
+                    "nodes_removed": removed,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to remove repository: {e}")

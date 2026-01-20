@@ -29,14 +29,12 @@ from aragora.transcription.youtube import (
 # Check if yt-dlp is available
 try:
     import yt_dlp
+
     YT_DLP_AVAILABLE = True
 except ImportError:
     YT_DLP_AVAILABLE = False
 
-requires_yt_dlp = pytest.mark.skipif(
-    not YT_DLP_AVAILABLE,
-    reason="yt-dlp not installed"
-)
+requires_yt_dlp = pytest.mark.skipif(not YT_DLP_AVAILABLE, reason="yt-dlp not installed")
 
 
 def validate_youtube_url(url: str) -> bool:
@@ -118,12 +116,10 @@ class TestURLValidation:
 
     def test_url_with_extra_params(self):
         """Test URLs with additional parameters."""
-        assert validate_youtube_url(
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s"
-        ) is True
-        assert validate_youtube_url(
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest"
-        ) is True
+        assert validate_youtube_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s") is True
+        assert (
+            validate_youtube_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest") is True
+        )
 
 
 # ===========================================================================
@@ -164,12 +160,8 @@ class TestPlaylistDetection:
 
     def test_playlist_url(self):
         """Test detection of playlist URLs."""
-        assert is_playlist_url(
-            "https://www.youtube.com/playlist?list=PLtest123"
-        ) is True
-        assert is_playlist_url(
-            "https://www.youtube.com/watch?v=abc&list=PLtest123"
-        ) is True
+        assert is_playlist_url("https://www.youtube.com/playlist?list=PLtest123") is True
+        assert is_playlist_url("https://www.youtube.com/watch?v=abc&list=PLtest123") is True
 
     def test_non_playlist_url(self):
         """Test regular video URLs are not flagged as playlists."""
@@ -178,9 +170,7 @@ class TestPlaylistDetection:
 
     def test_mix_url(self):
         """Test Mix playlists (auto-generated) are detected."""
-        assert is_playlist_url(
-            "https://www.youtube.com/watch?v=abc&list=RDabc"
-        ) is True
+        assert is_playlist_url("https://www.youtube.com/watch?v=abc&list=RDabc") is True
 
 
 # ===========================================================================
@@ -268,9 +258,7 @@ class TestYouTubeFetcher:
             mock_class.return_value.__enter__ = MagicMock(return_value=mock_yt_dlp)
             mock_class.return_value.__exit__ = MagicMock(return_value=False)
 
-            info = await fetcher.get_video_info(
-                "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            )
+            info = await fetcher.get_video_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
             assert info.video_id == "dQw4w9WgXcQ"
             assert info.title == "Test Video"
@@ -286,9 +274,7 @@ class TestYouTubeFetcher:
     async def test_get_video_info_playlist_rejected(self, fetcher):
         """Test playlist URLs are rejected."""
         with pytest.raises(ValueError, match="[Pp]laylist"):
-            await fetcher.get_video_info(
-                "https://www.youtube.com/playlist?list=PLtest123"
-            )
+            await fetcher.get_video_info("https://www.youtube.com/playlist?list=PLtest123")
 
     @requires_yt_dlp
     @pytest.mark.asyncio
@@ -330,14 +316,13 @@ class TestYouTubeFetcher:
             mock_class.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(ValueError, match="duration"):
-                await fetcher.download_audio(
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                )
+                await fetcher.download_audio("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
     @pytest.mark.asyncio
     async def test_download_audio_yt_dlp_not_available(self, fetcher):
         """Test error when yt-dlp is not installed."""
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -347,9 +332,7 @@ class TestYouTubeFetcher:
 
         with patch.object(builtins, "__import__", mock_import):
             with pytest.raises(RuntimeError, match="yt-dlp"):
-                await fetcher.download_audio(
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                )
+                await fetcher.download_audio("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
 
 # ===========================================================================
@@ -372,9 +355,12 @@ class TestEdgeCases:
     def test_unicode_in_url(self):
         """Test handling of unicode in URL parameters."""
         # Should handle gracefully
-        assert validate_youtube_url(
-            "https://www.youtube.com/watch?v=abc12345678&title=%E6%B5%8B%E8%AF%95"
-        ) is True
+        assert (
+            validate_youtube_url(
+                "https://www.youtube.com/watch?v=abc12345678&title=%E6%B5%8B%E8%AF%95"
+            )
+            is True
+        )
 
     @requires_yt_dlp
     @pytest.mark.asyncio
@@ -387,6 +373,4 @@ class TestEdgeCases:
             mock_class.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(Exception, match="Network error"):
-                await fetcher.get_video_info(
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                )
+                await fetcher.get_video_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ")

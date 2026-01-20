@@ -412,4 +412,6 @@ class TestBotConfig:
         )
 
         # Should have some default or be None
-        assert config.api_base is None or "localhost" in str(config.api_base) or config.api_base == ""
+        assert (
+            config.api_base is None or "localhost" in str(config.api_base) or config.api_base == ""
+        )

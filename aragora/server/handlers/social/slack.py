@@ -536,20 +536,24 @@ class SlackHandler(BaseHandler):
                         if len(vulnerabilities) > 5:
                             vuln_text += f"_...and {len(vulnerabilities) - 5} more_"
 
-                        blocks.append({
-                            "type": "section",
-                            "text": {"type": "mrkdwn", "text": vuln_text},
-                        })
-
-                    blocks.append({
-                        "type": "context",
-                        "elements": [
+                        blocks.append(
                             {
-                                "type": "mrkdwn",
-                                "text": f"Run ID: `{run_id}` | Requested by <@{user_id}>",
-                            },
-                        ],
-                    })
+                                "type": "section",
+                                "text": {"type": "mrkdwn", "text": vuln_text},
+                            }
+                        )
+
+                    blocks.append(
+                        {
+                            "type": "context",
+                            "elements": [
+                                {
+                                    "type": "mrkdwn",
+                                    "text": f"Run ID: `{run_id}` | Requested by <@{user_id}>",
+                                },
+                            ],
+                        }
+                    )
 
                     await self._post_to_response_url(
                         response_url,

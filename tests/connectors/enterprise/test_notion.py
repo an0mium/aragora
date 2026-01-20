@@ -170,7 +170,7 @@ class TestNotionPageOperations:
             "next_cursor": None,
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             pages = await connector._search_pages()
@@ -191,7 +191,7 @@ class TestNotionPageOperations:
             "has_more": False,
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             content = await connector._get_page_content("page-001")
@@ -228,9 +228,7 @@ class TestNotionBlockExtraction:
 
         block = {
             "type": "paragraph",
-            "paragraph": {
-                "rich_text": [{"plain_text": "This is a paragraph."}]
-            },
+            "paragraph": {"rich_text": [{"plain_text": "This is a paragraph."}]},
         }
 
         text = connector._extract_block_content(block)
@@ -245,9 +243,7 @@ class TestNotionBlockExtraction:
 
         block = {
             "type": "heading_1",
-            "heading_1": {
-                "rich_text": [{"plain_text": "Main Title"}]
-            },
+            "heading_1": {"rich_text": [{"plain_text": "Main Title"}]},
         }
 
         text = connector._extract_block_content(block)
@@ -262,9 +258,7 @@ class TestNotionBlockExtraction:
 
         block = {
             "type": "bulleted_list_item",
-            "bulleted_list_item": {
-                "rich_text": [{"plain_text": "List item text"}]
-            },
+            "bulleted_list_item": {"rich_text": [{"plain_text": "List item text"}]},
         }
 
         text = connector._extract_block_content(block)
@@ -307,7 +301,7 @@ class TestNotionDatabaseOperations:
             "url": "https://notion.so/db-001",
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             database = await connector._get_database("db-001")
@@ -337,8 +331,10 @@ class TestNotionSyncItems:
         connector = NotionConnector(include_databases=False)
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_search_pages', new_callable=AsyncMock) as mock_search:
-            with patch.object(connector, '_get_page_content', new_callable=AsyncMock) as mock_content:
+        with patch.object(connector, "_search_pages", new_callable=AsyncMock) as mock_search:
+            with patch.object(
+                connector, "_get_page_content", new_callable=AsyncMock
+            ) as mock_content:
                 # _search_pages returns tuple (results, next_cursor)
                 mock_search.return_value = ([], None)  # Empty results, no next cursor
                 mock_content.return_value = "Page content"
@@ -375,7 +371,7 @@ class TestNotionErrorHandling:
         connector = NotionConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("rate_limited")
 
             # Should handle gracefully
@@ -392,7 +388,7 @@ class TestNotionErrorHandling:
         connector = NotionConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("object_not_found")
 
             try:
@@ -410,7 +406,7 @@ class TestNotionErrorHandling:
         connector = NotionConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("restricted_resource")
 
             try:
@@ -462,10 +458,7 @@ class TestNotionRichTextExtraction:
             "url": "https://notion.so/page-001",
             "archived": False,
             "properties": {
-                "Name": {
-                    "type": "title",
-                    "title": [{"plain_text": "My Page Title"}]
-                },
+                "Name": {"type": "title", "title": [{"plain_text": "My Page Title"}]},
             },
             "parent": {"type": "workspace"},
             "created_by": {"id": "user-001"},

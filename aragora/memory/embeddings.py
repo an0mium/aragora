@@ -28,7 +28,6 @@ import json
 import logging
 import os
 import struct
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -46,7 +45,7 @@ from aragora.core.embeddings.service import (
 )
 
 # Use unified embedding cache from core
-from aragora.core.embeddings.cache import EmbeddingCache, get_global_cache
+from aragora.core.embeddings.cache import EmbeddingCache
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +58,9 @@ def _get_embedding_cache() -> EmbeddingCache:
     """Get or create the global embedding cache."""
     global _embedding_cache
     if _embedding_cache is None:
-        _embedding_cache = EmbeddingCache(
-            ttl_seconds=CACHE_TTL_EMBEDDINGS,
-            max_size=1000
-        )
+        _embedding_cache = EmbeddingCache(ttl_seconds=CACHE_TTL_EMBEDDINGS, max_size=1000)
     return _embedding_cache
+
 
 # Default API timeout
 _API_TIMEOUT = aiohttp.ClientTimeout(total=30)

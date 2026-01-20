@@ -68,8 +68,8 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_gather_claude_context', new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, '_gather_codex_context', new_callable=AsyncMock) as mock_codex:
+        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
+            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
                 mock_claude.return_value = ("Claude found modules", 1.5)
                 mock_codex.return_value = ("Codex found handlers", 1.2)
 
@@ -91,8 +91,8 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_gather_claude_context', new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, '_gather_codex_context', new_callable=AsyncMock) as mock_codex:
+        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
+            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
                 mock_claude.side_effect = asyncio.TimeoutError("Agent timeout")
                 mock_codex.return_value = ("Codex found handlers", 1.2)
 
@@ -113,8 +113,8 @@ class TestContextPhaseExecution:
             get_features_fn=lambda: "Fallback features list",
         )
 
-        with patch.object(phase, '_gather_claude_context', new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, '_gather_codex_context', new_callable=AsyncMock) as mock_codex:
+        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
+            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
                 mock_claude.return_value = (None, 0)
                 mock_codex.return_value = (None, 0)
 
@@ -148,8 +148,8 @@ class TestContextPhaseMetrics:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_gather_claude_context', new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, '_gather_codex_context', new_callable=AsyncMock) as mock_codex:
+        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
+            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
                 mock_claude.return_value = ("Context", 1.0)
                 mock_codex.return_value = ("Context", 1.0)
 

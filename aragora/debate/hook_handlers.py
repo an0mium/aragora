@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from aragora.debate.hooks import HookManager, HookType, HookPriority
+    from aragora.debate.hooks import HookManager, HookPriority
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,7 @@ class HookHandlerRegistry:
 
         # Round completion
         if hasattr(analytics, "on_round_complete"):
+
             def handle_round_complete(ctx: Any = None, round_num: int = 0, **kwargs: Any) -> None:
                 try:
                     analytics.on_round_complete(ctx, round_num)
@@ -168,6 +169,7 @@ class HookHandlerRegistry:
 
         # Agent response
         if hasattr(analytics, "on_agent_response"):
+
             def handle_agent_response(agent: Any = None, response: str = "", **kwargs: Any) -> None:
                 try:
                     analytics.on_agent_response(agent, response)
@@ -184,6 +186,7 @@ class HookHandlerRegistry:
 
         # Debate completion
         if hasattr(analytics, "on_debate_complete"):
+
             def handle_debate_complete(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     analytics.on_debate_complete(ctx, result)
@@ -218,7 +221,10 @@ class HookHandlerRegistry:
         continuum = self.subsystems.get("continuum_memory")
         if continuum:
             if hasattr(continuum, "on_debate_end"):
-                def handle_continuum_debate_end(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
+
+                def handle_continuum_debate_end(
+                    ctx: Any = None, result: Any = None, **kwargs: Any
+                ) -> None:
                     try:
                         continuum.on_debate_end(ctx, result)
                     except Exception as e:
@@ -236,6 +242,7 @@ class HookHandlerRegistry:
         consensus = self.subsystems.get("consensus_memory")
         if consensus:
             if hasattr(consensus, "on_consensus_reached"):
+
                 def handle_consensus(
                     ctx: Any = None,
                     consensus_text: str = "",
@@ -277,6 +284,7 @@ class HookHandlerRegistry:
 
         # Record predictions after votes
         if hasattr(calibration, "on_vote"):
+
             def handle_vote(ctx: Any = None, vote: Any = None, **kwargs: Any) -> None:
                 try:
                     calibration.on_vote(ctx, vote)
@@ -293,6 +301,7 @@ class HookHandlerRegistry:
 
         # Update calibration after debate
         if hasattr(calibration, "on_debate_outcome"):
+
             def handle_outcome(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     calibration.on_debate_outcome(ctx, result)
@@ -329,6 +338,7 @@ class HookHandlerRegistry:
 
         # Record debate outcome
         if hasattr(outcome_tracker, "record_outcome"):
+
             def handle_debate_outcome(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     outcome_tracker.record_outcome(ctx, result)
@@ -345,6 +355,7 @@ class HookHandlerRegistry:
 
         # Track convergence
         if hasattr(outcome_tracker, "on_convergence"):
+
             def handle_convergence(ctx: Any = None, **kwargs: Any) -> None:
                 try:
                     outcome_tracker.on_convergence(ctx)
@@ -381,6 +392,7 @@ class HookHandlerRegistry:
 
         # Track agent responses
         if hasattr(performance, "record_response"):
+
             def handle_response(
                 agent: Any = None,
                 response: str = "",
@@ -402,6 +414,7 @@ class HookHandlerRegistry:
 
         # Track round timing
         if hasattr(performance, "record_round"):
+
             def handle_round(
                 ctx: Any = None,
                 round_num: int = 0,
@@ -443,6 +456,7 @@ class HookHandlerRegistry:
 
         # Update selection weights after debate
         if hasattr(feedback_loop, "record_debate_outcome"):
+
             def handle_feedback(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     feedback_loop.record_debate_outcome(ctx, result)
@@ -477,6 +491,7 @@ class HookHandlerRegistry:
         trickster = self.subsystems.get("trickster")
         if trickster:
             if hasattr(trickster, "check_consensus"):
+
                 def handle_consensus_check(
                     ctx: Any = None,
                     votes: List[Any] = None,
@@ -500,6 +515,7 @@ class HookHandlerRegistry:
         flip_detector = self.subsystems.get("flip_detector")
         if flip_detector:
             if hasattr(flip_detector, "check_positions"):
+
                 def handle_flip_check(
                     ctx: Any = None,
                     round_num: int = 0,
@@ -543,6 +559,7 @@ class HookHandlerRegistry:
         if km:
             # Store debate knowledge at debate end
             if hasattr(km, "on_debate_end"):
+
                 def handle_km_debate_end(
                     ctx: Any = None,
                     result: Any = None,
@@ -563,6 +580,7 @@ class HookHandlerRegistry:
 
             # Trigger validation on consensus
             if hasattr(km, "on_consensus_reached"):
+
                 def handle_km_consensus(
                     ctx: Any = None,
                     consensus_text: str = "",
@@ -584,6 +602,7 @@ class HookHandlerRegistry:
 
             # Record outcome for KM pattern tracking
             if hasattr(km, "on_outcome_tracked"):
+
                 def handle_km_outcome(
                     ctx: Any = None,
                     outcome: Any = None,
@@ -607,6 +626,7 @@ class HookHandlerRegistry:
         if km_coordinator:
             # Trigger bidirectional sync after debate
             if hasattr(km_coordinator, "on_debate_complete"):
+
                 def handle_coord_sync(
                     ctx: Any = None,
                     result: Any = None,
@@ -627,6 +647,7 @@ class HookHandlerRegistry:
 
             # Run validation sync after consensus
             if hasattr(km_coordinator, "on_consensus_reached"):
+
                 def handle_coord_consensus(
                     ctx: Any = None,
                     consensus_text: str = "",

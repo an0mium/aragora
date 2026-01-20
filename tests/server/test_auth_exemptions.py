@@ -22,6 +22,7 @@ class TestAuthExemptPaths:
     def exempt_paths(self):
         """Get the AUTH_EXEMPT_PATHS from unified_server."""
         from aragora.server.unified_server import UnifiedHandler
+
         return UnifiedHandler.AUTH_EXEMPT_PATHS
 
     def test_health_endpoints_exempt(self, exempt_paths):
@@ -79,6 +80,7 @@ class TestAuthExemptPrefixes:
     def exempt_prefixes(self):
         """Get the AUTH_EXEMPT_PREFIXES from unified_server."""
         from aragora.server.unified_server import UnifiedHandler
+
         return UnifiedHandler.AUTH_EXEMPT_PREFIXES
 
     def test_oauth_flow_prefix_exempt(self, exempt_prefixes):
@@ -118,6 +120,7 @@ class TestAuthExemptGetPrefixes:
     def get_prefixes(self):
         """Get the AUTH_EXEMPT_GET_PREFIXES from unified_server."""
         from aragora.server.unified_server import UnifiedHandler
+
         return UnifiedHandler.AUTH_EXEMPT_GET_PREFIXES
 
     def test_evidence_prefix_get_only(self, get_prefixes):
@@ -143,6 +146,7 @@ class TestOAuthQueryParams:
     def allowed_params(self):
         """Get ALLOWED_QUERY_PARAMS from http_utils."""
         from aragora.server.http_utils import ALLOWED_QUERY_PARAMS
+
         return ALLOWED_QUERY_PARAMS
 
     def test_oauth_callback_params_allowed(self, allowed_params):
@@ -177,16 +181,19 @@ class TestAuthExemptionIntegration:
     def test_exempt_paths_is_frozenset(self):
         """AUTH_EXEMPT_PATHS should be immutable."""
         from aragora.server.unified_server import UnifiedHandler
+
         assert isinstance(UnifiedHandler.AUTH_EXEMPT_PATHS, frozenset)
 
     def test_exempt_prefixes_is_tuple(self):
         """AUTH_EXEMPT_PREFIXES should be a tuple for efficient iteration."""
         from aragora.server.unified_server import UnifiedHandler
+
         assert isinstance(UnifiedHandler.AUTH_EXEMPT_PREFIXES, tuple)
 
     def test_get_prefixes_is_tuple(self):
         """AUTH_EXEMPT_GET_PREFIXES should be a tuple."""
         from aragora.server.unified_server import UnifiedHandler
+
         assert isinstance(UnifiedHandler.AUTH_EXEMPT_GET_PREFIXES, tuple)
 
     def test_no_duplicate_paths(self):
@@ -212,5 +219,6 @@ class TestAuthExemptionIntegration:
                 pass
             elif path.endswith("/") and len(path) > 1:
                 # Some doc endpoints intentionally have trailing slash variants
-                assert path.rstrip("/") in UnifiedHandler.AUTH_EXEMPT_PATHS, \
-                    f"Trailing slash path {path} should have non-slash variant"
+                assert (
+                    path.rstrip("/") in UnifiedHandler.AUTH_EXEMPT_PATHS
+                ), f"Trailing slash path {path} should have non-slash variant"

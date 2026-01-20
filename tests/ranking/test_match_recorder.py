@@ -68,9 +68,7 @@ class TestGenerateMatchId:
 
     def test_id_task_takes_precedence(self):
         """Test task takes precedence over domain."""
-        match_id = generate_match_id(
-            ["claude", "gpt"], task="rate-limiting", domain="security"
-        )
+        match_id = generate_match_id(["claude", "gpt"], task="rate-limiting", domain="security")
 
         assert "rate-limiting" in match_id
         # Domain should not appear when task is provided
@@ -486,20 +484,24 @@ class TestDetermineWinner:
 
     def test_multiple_participants_winner(self):
         """Test winner from multiple participants."""
-        winner = determine_winner({
-            "claude": 0.8,
-            "gpt": 0.6,
-            "gemini": 0.4,
-        })
+        winner = determine_winner(
+            {
+                "claude": 0.8,
+                "gpt": 0.6,
+                "gemini": 0.4,
+            }
+        )
         assert winner == "claude"
 
     def test_multiple_participants_tie_for_first(self):
         """Test tie for first place."""
-        winner = determine_winner({
-            "claude": 0.8,
-            "gpt": 0.8,
-            "gemini": 0.4,
-        })
+        winner = determine_winner(
+            {
+                "claude": 0.8,
+                "gpt": 0.8,
+                "gemini": 0.4,
+            }
+        )
         # Tie between top two = no winner
         assert winner is None
 

@@ -13,14 +13,13 @@ This eliminates ~150 lines of duplicate code per agent.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, AsyncGenerator, Optional, cast
+from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
 from aragora.core import Critique, Message
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from aragora.agents.protocols import OpenAICompatibleBase
 
 from aragora.agents.api_agents.common import (
     AgentAPIError,
@@ -28,8 +27,6 @@ from aragora.agents.api_agents.common import (
     AgentRateLimitError,
     AgentStreamError,
     AgentTimeoutError,
-    Critique,
-    Message,
     _sanitize_error_message,
     create_client_session,
     create_openai_sse_parser,
@@ -174,7 +171,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Generate a response using the OpenAI-compatible API."""
         full_prompt = prompt
         if context:
-            full_prompt = self._build_context_prompt(context) + prompt  
+            full_prompt = self._build_context_prompt(context) + prompt
         url = self._get_endpoint_url()
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
@@ -220,7 +217,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Stream tokens from the OpenAI-compatible API."""
         full_prompt = prompt
         if context:
-            full_prompt = self._build_context_prompt(context) + prompt  
+            full_prompt = self._build_context_prompt(context) + prompt
         url = self._get_endpoint_url()
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
@@ -285,6 +282,7 @@ SEVERITY: X.X
 REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, target_agent or "proposal", proposal)  
+        return self._parse_critique(response, target_agent or "proposal", proposal)
+
 
 __all__ = ["OpenAICompatibleMixin"]

@@ -105,6 +105,7 @@ class QualityScorer:
         if self._embedding_service is None and self.config.use_embeddings:
             try:
                 from aragora.ml.embeddings import get_embedding_service
+
                 self._embedding_service = get_embedding_service()
             except Exception as e:
                 logger.warning(f"Could not load embedding service: {e}")
@@ -118,7 +119,7 @@ class QualityScorer:
         # Length features
         char_count = len(text)
         word_count = len(text.split())
-        sentence_count = len(re.split(r'[.!?]+', text))
+        sentence_count = len(re.split(r"[.!?]+", text))
 
         features["char_count"] = char_count
         features["word_count"] = word_count
@@ -128,9 +129,9 @@ class QualityScorer:
 
         # Structural features
         features["has_paragraphs"] = float("\n\n" in text or "\n" in text)
-        features["has_lists"] = float(bool(re.search(r'^\s*[-*•]\s', text, re.MULTILINE)))
+        features["has_lists"] = float(bool(re.search(r"^\s*[-*•]\s", text, re.MULTILINE)))
         features["has_code"] = float("```" in text or "    " in text)
-        features["has_headers"] = float(bool(re.search(r'^#+\s', text, re.MULTILINE)))
+        features["has_headers"] = float(bool(re.search(r"^#+\s", text, re.MULTILINE)))
 
         # Vocabulary features
         words = text.lower().split()
@@ -144,19 +145,41 @@ class QualityScorer:
 
         # Technical indicator words
         technical_words = {
-            "function", "class", "method", "api", "data", "system", "process",
-            "implement", "algorithm", "parameter", "variable", "database",
-            "because", "therefore", "however", "furthermore", "specifically",
+            "function",
+            "class",
+            "method",
+            "api",
+            "data",
+            "system",
+            "process",
+            "implement",
+            "algorithm",
+            "parameter",
+            "variable",
+            "database",
+            "because",
+            "therefore",
+            "however",
+            "furthermore",
+            "specifically",
         }
         technical_count = sum(1 for w in words if w in technical_words)
         features["technical_ratio"] = technical_count / max(1, len(words))
 
         # Question handling (if text seems to answer questions)
         features["has_explanation"] = float(
-            any(phrase in text.lower() for phrase in [
-                "because", "this means", "in other words", "for example",
-                "the reason", "this is due to", "as a result"
-            ])
+            any(
+                phrase in text.lower()
+                for phrase in [
+                    "because",
+                    "this means",
+                    "in other words",
+                    "for example",
+                    "the reason",
+                    "this is due to",
+                    "as a result",
+                ]
+            )
         )
 
         return features
@@ -300,10 +323,10 @@ class QualityScorer:
 
         # Weighted overall score
         overall = (
-            self.config.weight_coherence * coherence +
-            self.config.weight_completeness * completeness +
-            self.config.weight_relevance * relevance +
-            self.config.weight_clarity * clarity
+            self.config.weight_coherence * coherence
+            + self.config.weight_completeness * completeness
+            + self.config.weight_relevance * relevance
+            + self.config.weight_clarity * clarity
         )
 
         # Confidence based on text length and feature quality
@@ -338,10 +361,7 @@ class QualityScorer:
         if contexts is None:
             contexts = [None] * len(texts)
 
-        return [
-            self.score(text, context)
-            for text, context in zip(texts, contexts)
-        ]
+        return [self.score(text, context) for text, context in zip(texts, contexts)]
 
     def filter_quality(
         self,
@@ -360,11 +380,7 @@ class QualityScorer:
             List of (text, score) tuples above threshold
         """
         scores = self.score_batch(texts, contexts)
-        return [
-            (text, score)
-            for text, score in zip(texts, scores)
-            if score.overall >= threshold
-        ]
+        return [(text, score) for text, score in zip(texts, scores) if score.overall >= threshold]
 
 
 # Global instance

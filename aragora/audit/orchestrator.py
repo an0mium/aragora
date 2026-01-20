@@ -417,7 +417,9 @@ class AuditOrchestrator:
                     auditor_findings = await auditor.post_audit_hook(auditor_findings, context)
 
                     self._findings.extend(auditor_findings)
-                    logger.debug(f"Completed {vertical.value} with {len(auditor_findings)} findings")
+                    logger.debug(
+                        f"Completed {vertical.value} with {len(auditor_findings)} findings"
+                    )
 
                 except Exception as e:
                     error_msg = f"Auditor {vertical.value} failed: {e}"
@@ -425,10 +427,7 @@ class AuditOrchestrator:
                     self._errors.append(error_msg)
 
         # Run all auditors concurrently
-        tasks = [
-            run_auditor(vertical, auditor)
-            for vertical, auditor in self._auditors.items()
-        ]
+        tasks = [run_auditor(vertical, auditor) for vertical, auditor in self._auditors.items()]
         await asyncio.gather(*tasks)
 
     async def _run_serial(

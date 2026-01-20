@@ -36,44 +36,95 @@ SERVICENOW_TABLES = {
     "incident": {
         "name": "Incidents",
         "fields": [
-            "number", "short_description", "description", "state",
-            "priority", "urgency", "impact", "assigned_to",
-            "caller_id", "category", "subcategory", "resolution_notes",
-            "sys_created_on", "sys_updated_on", "resolved_at", "closed_at",
+            "number",
+            "short_description",
+            "description",
+            "state",
+            "priority",
+            "urgency",
+            "impact",
+            "assigned_to",
+            "caller_id",
+            "category",
+            "subcategory",
+            "resolution_notes",
+            "sys_created_on",
+            "sys_updated_on",
+            "resolved_at",
+            "closed_at",
         ],
     },
     "problem": {
         "name": "Problems",
         "fields": [
-            "number", "short_description", "description", "state",
-            "priority", "urgency", "impact", "assigned_to",
-            "known_error", "workaround", "root_cause",
-            "sys_created_on", "sys_updated_on", "resolved_at", "closed_at",
+            "number",
+            "short_description",
+            "description",
+            "state",
+            "priority",
+            "urgency",
+            "impact",
+            "assigned_to",
+            "known_error",
+            "workaround",
+            "root_cause",
+            "sys_created_on",
+            "sys_updated_on",
+            "resolved_at",
+            "closed_at",
         ],
     },
     "change_request": {
         "name": "Change Requests",
         "fields": [
-            "number", "short_description", "description", "state", "type",
-            "priority", "risk", "impact", "assigned_to", "requested_by",
-            "start_date", "end_date", "justification", "implementation_plan",
-            "backout_plan", "test_plan", "sys_created_on", "sys_updated_on",
+            "number",
+            "short_description",
+            "description",
+            "state",
+            "type",
+            "priority",
+            "risk",
+            "impact",
+            "assigned_to",
+            "requested_by",
+            "start_date",
+            "end_date",
+            "justification",
+            "implementation_plan",
+            "backout_plan",
+            "test_plan",
+            "sys_created_on",
+            "sys_updated_on",
         ],
     },
     "sc_req_item": {
         "name": "Requested Items",
         "fields": [
-            "number", "short_description", "description", "state",
-            "priority", "requested_for", "assigned_to", "cat_item",
-            "sys_created_on", "sys_updated_on",
+            "number",
+            "short_description",
+            "description",
+            "state",
+            "priority",
+            "requested_for",
+            "assigned_to",
+            "cat_item",
+            "sys_created_on",
+            "sys_updated_on",
         ],
     },
     "kb_knowledge": {
         "name": "Knowledge Articles",
         "fields": [
-            "number", "short_description", "text", "article_type",
-            "workflow_state", "valid_to", "author", "kb_category",
-            "sys_created_on", "sys_updated_on",
+            "number",
+            "short_description",
+            "text",
+            "article_type",
+            "workflow_state",
+            "valid_to",
+            "author",
+            "kb_category",
+            "sys_created_on",
+            "sys_updated_on",
         ],
     },
 }
@@ -365,11 +416,27 @@ class ServiceNowConnector(EnterpriseConnector):
                     closed_at=closed_at,
                     url=f"{self.instance_url}/{table}.do?sys_id={record.get('sys_id', '')}",
                     additional_fields={
-                        k: v for k, v in record.items()
-                        if k not in ["sys_id", "number", "short_description", "description",
-                                    "state", "priority", "urgency", "impact", "assigned_to",
-                                    "caller_id", "category", "sys_created_on", "sys_updated_on",
-                                    "resolved_at", "closed_at", "text"]
+                        k: v
+                        for k, v in record.items()
+                        if k
+                        not in [
+                            "sys_id",
+                            "number",
+                            "short_description",
+                            "description",
+                            "state",
+                            "priority",
+                            "urgency",
+                            "impact",
+                            "assigned_to",
+                            "caller_id",
+                            "category",
+                            "sys_created_on",
+                            "sys_updated_on",
+                            "resolved_at",
+                            "closed_at",
+                            "text",
+                        ]
                     },
                 )
 
@@ -676,6 +743,7 @@ class ServiceNowConnector(EnterpriseConnector):
             if timestamp:
                 try:
                     import time
+
                     request_time = float(timestamp)
                     if abs(time.time() - request_time) > 300:
                         logger.warning(f"[{self.name}] Webhook timestamp too old")
@@ -745,6 +813,7 @@ class ServiceNowConnector(EnterpriseConnector):
     def get_webhook_secret(self) -> Optional[str]:
         """Get webhook secret for signature verification."""
         import os
+
         return os.environ.get("SERVICENOW_WEBHOOK_SECRET")
 
     async def resolve_reference(

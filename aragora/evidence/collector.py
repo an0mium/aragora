@@ -31,42 +31,44 @@ logger = logging.getLogger(__name__)
 
 # Default allowed domains for URL fetching (SSRF protection)
 # These are well-known, trusted sources for research
-DEFAULT_ALLOWED_DOMAINS: FrozenSet[str] = frozenset({
-    # Code/Documentation
-    "github.com",
-    "raw.githubusercontent.com",
-    "gist.github.com",
-    "gitlab.com",
-    "bitbucket.org",
-    "docs.python.org",
-    "docs.anthropic.com",
-    "platform.openai.com",
-    "cloud.google.com",
-    "docs.microsoft.com",
-    "learn.microsoft.com",
-    "developer.mozilla.org",
-    # Research/Academic
-    "arxiv.org",
-    "wikipedia.org",
-    "en.wikipedia.org",
-    "scholar.google.com",
-    "pubmed.ncbi.nlm.nih.gov",
-    "ncbi.nlm.nih.gov",
-    # Q&A/Forums
-    "stackoverflow.com",
-    "stackexchange.com",
-    "reddit.com",
-    "news.ycombinator.com",
-    # News/Media
-    "nytimes.com",
-    "bbc.com",
-    "bbc.co.uk",
-    "reuters.com",
-    "theguardian.com",
-    # Cloud providers
-    "aws.amazon.com",
-    "azure.microsoft.com",
-})
+DEFAULT_ALLOWED_DOMAINS: FrozenSet[str] = frozenset(
+    {
+        # Code/Documentation
+        "github.com",
+        "raw.githubusercontent.com",
+        "gist.github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "docs.python.org",
+        "docs.anthropic.com",
+        "platform.openai.com",
+        "cloud.google.com",
+        "docs.microsoft.com",
+        "learn.microsoft.com",
+        "developer.mozilla.org",
+        # Research/Academic
+        "arxiv.org",
+        "wikipedia.org",
+        "en.wikipedia.org",
+        "scholar.google.com",
+        "pubmed.ncbi.nlm.nih.gov",
+        "ncbi.nlm.nih.gov",
+        # Q&A/Forums
+        "stackoverflow.com",
+        "stackexchange.com",
+        "reddit.com",
+        "news.ycombinator.com",
+        # News/Media
+        "nytimes.com",
+        "bbc.com",
+        "bbc.co.uk",
+        "reuters.com",
+        "theguardian.com",
+        # Cloud providers
+        "aws.amazon.com",
+        "azure.microsoft.com",
+    }
+)
 
 from aragora.connectors.base import Connector
 from aragora.reasoning.provenance import ProvenanceManager
@@ -273,13 +275,12 @@ class EvidenceCollector:
         self._org_id: Optional[str] = None  # Set via set_org_context()
 
         if require_url_consent and url_consent_callback is None:
-            raise ValueError(
-                "url_consent_callback is required when require_url_consent=True"
-            )
+            raise ValueError("url_consent_callback is required when require_url_consent=True")
 
         # Load URL security settings
         try:
             from aragora.config.settings import get_settings
+
             settings = get_settings()
             self._url_fetch_all_enabled = settings.evidence.url_fetch_all_enabled
             additional_domains = settings.evidence.additional_allowed_domains
@@ -313,9 +314,7 @@ class EvidenceCollector:
             return True
 
         if self._url_consent_callback is None:
-            logger.warning(
-                f"URL consent required but no callback configured. Blocking: {url}"
-            )
+            logger.warning(f"URL consent required but no callback configured. Blocking: {url}")
             self._log_audit(url, org_id, "blocked_consent", False)
             return False
 
@@ -465,9 +464,7 @@ class EvidenceCollector:
             enabled_connectors = list(self.connectors.keys())
 
         # Determine URL fetching mode (explicit parameter > settings > default)
-        allow_all_urls = (
-            fetch_urls if fetch_urls is not None else self._url_fetch_all_enabled
-        )
+        allow_all_urls = fetch_urls if fetch_urls is not None else self._url_fetch_all_enabled
 
         all_snippets = []
         total_searched = 0

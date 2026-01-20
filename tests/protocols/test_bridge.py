@@ -118,9 +118,7 @@ class TestProtocolBridge:
     @pytest.mark.asyncio
     async def test_initialize_discovers_agents(self):
         """Initialize discovers agents from registries."""
-        config = BridgeConfig(
-            a2a_registries=["https://registry.example.com"]
-        )
+        config = BridgeConfig(a2a_registries=["https://registry.example.com"])
         bridge = ProtocolBridge(config)
 
         # Mock the client
@@ -430,6 +428,7 @@ class TestGlobalBridge:
     def test_get_protocol_bridge_returns_instance(self):
         """get_protocol_bridge returns a bridge."""
         import aragora.protocols.bridge as br
+
         br._bridge = None
 
         bridge = get_protocol_bridge()
@@ -438,6 +437,7 @@ class TestGlobalBridge:
     def test_get_protocol_bridge_returns_singleton(self):
         """get_protocol_bridge returns same instance."""
         import aragora.protocols.bridge as br
+
         br._bridge = None
 
         b1 = get_protocol_bridge()
@@ -447,6 +447,7 @@ class TestGlobalBridge:
     def test_get_protocol_bridge_with_config(self):
         """Config is used for initial creation."""
         import aragora.protocols.bridge as br
+
         br._bridge = None
 
         config = BridgeConfig(enable_mcp=False)

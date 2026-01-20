@@ -40,6 +40,7 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
     """Check if Bot Framework SDK is available."""
     try:
         from botbuilder.core import TurnContext
+
         return True, None
     except ImportError:
         return False, "botbuilder-core not installed"
@@ -75,6 +76,7 @@ class TeamsHandler(BaseHandler):
 
         try:
             from aragora.bots.teams_bot import create_teams_bot
+
             self._bot = create_teams_bot()
 
             # Run setup synchronously
@@ -124,13 +126,15 @@ class TeamsHandler(BaseHandler):
         """Get Teams bot status."""
         available, error = _check_botframework_available()
 
-        return json_response({
-            "enabled": bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD),
-            "app_id_configured": bool(TEAMS_APP_ID),
-            "password_configured": bool(TEAMS_APP_PASSWORD),
-            "sdk_available": available,
-            "sdk_error": error,
-        })
+        return json_response(
+            {
+                "enabled": bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD),
+                "app_id_configured": bool(TEAMS_APP_ID),
+                "password_configured": bool(TEAMS_APP_PASSWORD),
+                "sdk_available": available,
+                "sdk_error": error,
+            }
+        )
 
     def _handle_messages(self, handler: Any) -> HandlerResult:
         """Handle incoming Bot Framework messages.
@@ -140,10 +144,13 @@ class TeamsHandler(BaseHandler):
         """
         bot = self._ensure_bot()
         if not bot:
-            return json_response({
-                "error": "Teams bot not configured",
-                "details": "Set TEAMS_APP_ID and TEAMS_APP_PASSWORD environment variables",
-            }, status_code=503)
+            return json_response(
+                {
+                    "error": "Teams bot not configured",
+                    "details": "Set TEAMS_APP_ID and TEAMS_APP_PASSWORD environment variables",
+                },
+                status_code=503,
+            )
 
         try:
             # Read body
@@ -176,9 +183,7 @@ class TeamsHandler(BaseHandler):
 
                 # Authenticate the request
                 try:
-                    claims_identity = await adapter.authenticate_request(
-                        activity, auth_header
-                    )
+                    await adapter.authenticate_request(activity, auth_header)
                 except (ValueError, KeyError) as auth_error:
                     logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
                     response_status = 401

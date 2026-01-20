@@ -36,7 +36,8 @@ class MockMetaStore:
     async def save_access_grant_async(self, grant):
         # Replace existing grant if same item/grantee
         self._grants = [
-            g for g in self._grants
+            g
+            for g in self._grants
             if not (g.item_id == grant.item_id and g.grantee_id == grant.grantee_id)
         ]
         self._grants.append(grant)
@@ -55,8 +56,7 @@ class MockMetaStore:
     async def delete_access_grant_async(self, item_id, grantee_id):
         before = len(self._grants)
         self._grants = [
-            g for g in self._grants
-            if not (g.item_id == item_id and g.grantee_id == grantee_id)
+            g for g in self._grants if not (g.item_id == item_id and g.grantee_id == grantee_id)
         ]
         return len(self._grants) < before
 

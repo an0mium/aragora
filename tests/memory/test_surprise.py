@@ -53,9 +53,7 @@ class TestCalculateSurprise:
         """Test surprise respects max_surprise."""
         from aragora.memory.surprise import calculate_surprise
 
-        surprise = calculate_surprise(
-            actual=1.0, expected=0.0, scale_factor=2.0, max_surprise=0.5
-        )
+        surprise = calculate_surprise(actual=1.0, expected=0.0, scale_factor=2.0, max_surprise=0.5)
         assert surprise == pytest.approx(0.5)
 
 

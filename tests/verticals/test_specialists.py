@@ -45,30 +45,30 @@ class TestSoftwareSpecialist:
     async def test_security_scan_sql_injection(self, specialist):
         """Test detecting SQL injection."""
         # Use a pattern that matches the security patterns
-        vulnerable_code = '''
+        vulnerable_code = """
         import os
         os.system("rm -rf " + user_input)
-        '''
+        """
         result = await specialist._security_scan({"code": vulnerable_code})
         assert len(result["findings"]) > 0
 
     @pytest.mark.asyncio
     async def test_security_scan_command_injection(self, specialist):
         """Test detecting command injection."""
-        vulnerable_code = '''
+        vulnerable_code = """
         import os
         os.system("ls " + user_input)
-        '''
+        """
         result = await specialist._security_scan({"code": vulnerable_code})
         assert len(result["findings"]) > 0
 
     @pytest.mark.asyncio
     async def test_security_scan_clean_code(self, specialist):
         """Test clean code has no findings."""
-        clean_code = '''
+        clean_code = """
         def add(a, b):
             return a + b
-        '''
+        """
         result = await specialist._security_scan({"code": clean_code})
         assert len(result["findings"]) == 0
 
@@ -83,11 +83,11 @@ class TestSoftwareSpecialist:
     @pytest.mark.asyncio
     async def test_review_code(self, specialist):
         """Test code review."""
-        code = '''
+        code = """
         def execute_query(user_input):
             query = f"SELECT * FROM users WHERE name = '{user_input}'"
             return db.execute(query)
-        '''
+        """
         result = await specialist.review_code(code, language="python")
         assert "security_findings" in result
         assert len(result["security_findings"]) > 0
@@ -225,13 +225,15 @@ class TestAccountingSpecialist:
     @pytest.mark.asyncio
     async def test_calculate_ratios(self, specialist):
         """Test financial ratio calculation."""
-        result = await specialist._calculate_ratios({
-            "current_assets": 100000,
-            "current_liabilities": 50000,
-            "inventory": 20000,
-            "revenue": 500000,
-            "net_income": 50000,
-        })
+        result = await specialist._calculate_ratios(
+            {
+                "current_assets": 100000,
+                "current_liabilities": 50000,
+                "inventory": 20000,
+                "revenue": 500000,
+                "net_income": 50000,
+            }
+        )
         ratios = result["ratios"]
         assert ratios["current_ratio"] == 2.0
         assert ratios["quick_ratio"] == 1.6
@@ -355,12 +357,14 @@ class TestComplianceBlocking:
     async def test_should_block_on_enforced_violation(self, healthcare_specialist):
         """Test that enforced violations trigger blocking."""
         # Create a critical violation (HIPAA is enforced)
-        violations = [{
-            "framework": "HIPAA",
-            "rule": "Privacy Rule",
-            "severity": "critical",
-            "message": "PHI exposed",
-        }]
+        violations = [
+            {
+                "framework": "HIPAA",
+                "rule": "Privacy Rule",
+                "severity": "critical",
+                "message": "PHI exposed",
+            }
+        ]
         should_block = healthcare_specialist.should_block_on_compliance(violations)
         assert should_block
 
@@ -368,11 +372,13 @@ class TestComplianceBlocking:
     async def test_should_not_block_on_warning_violation(self, healthcare_specialist):
         """Test that warning violations don't trigger blocking."""
         # FDA 21 CFR 11 is at WARNING level
-        violations = [{
-            "framework": "FDA_21CFR11",
-            "rule": "Electronic Records",
-            "severity": "medium",
-            "message": "Missing audit trail",
-        }]
+        violations = [
+            {
+                "framework": "FDA_21CFR11",
+                "rule": "Electronic Records",
+                "severity": "medium",
+                "message": "Missing audit trail",
+            }
+        ]
         should_block = healthcare_specialist.should_block_on_compliance(violations)
         assert not should_block

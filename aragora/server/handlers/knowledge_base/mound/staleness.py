@@ -44,8 +44,12 @@ class StalenessOperationsMixin:
     def _handle_get_stale(self: StalenessHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/stale - Get stale knowledge items."""
 
-        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
-        threshold = get_bounded_float_param(query_params, "threshold", 0.5, min_val=0.0, max_val=1.0)
+        workspace_id = get_bounded_string_param(
+            query_params, "workspace_id", "default", max_length=100
+        )
+        threshold = get_bounded_float_param(
+            query_params, "threshold", 0.5, min_val=0.0, max_val=1.0
+        )
         limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
 
         mound = self._get_mound()
@@ -64,24 +68,30 @@ class StalenessOperationsMixin:
             logger.error(f"Failed to get stale knowledge: {e}")
             return error_response(f"Failed to get stale knowledge: {e}", 500)
 
-        return json_response({
-            "stale_items": [
-                {
-                    "node_id": item.node_id,
-                    "staleness_score": item.staleness_score,
-                    "reasons": [r.value if hasattr(r, 'value') else r for r in item.reasons],
-                    "last_validated_at": item.last_validated_at.isoformat() if item.last_validated_at else None,
-                    "recommended_action": item.recommended_action,
-                }
-                for item in stale_items
-            ],
-            "total": len(stale_items),
-            "threshold": threshold,
-            "workspace_id": workspace_id,
-        })
+        return json_response(
+            {
+                "stale_items": [
+                    {
+                        "node_id": item.node_id,
+                        "staleness_score": item.staleness_score,
+                        "reasons": [r.value if hasattr(r, "value") else r for r in item.reasons],
+                        "last_validated_at": (
+                            item.last_validated_at.isoformat() if item.last_validated_at else None
+                        ),
+                        "recommended_action": item.recommended_action,
+                    }
+                    for item in stale_items
+                ],
+                "total": len(stale_items),
+                "threshold": threshold,
+                "workspace_id": workspace_id,
+            }
+        )
 
     @handle_errors("revalidate node")
-    def _handle_revalidate_node(self: StalenessHandlerProtocol, node_id: str, handler: Any) -> HandlerResult:
+    def _handle_revalidate_node(
+        self: StalenessHandlerProtocol, node_id: str, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/mound/revalidate/:id - Trigger revalidation."""
 
         try:
@@ -107,16 +117,20 @@ class StalenessOperationsMixin:
             logger.error(f"Failed to revalidate node: {e}")
             return error_response(f"Failed to revalidate node: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "validated": True,
-            "validator": validator,
-            "new_confidence": new_confidence,
-            "message": "Node revalidated successfully",
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "validated": True,
+                "validator": validator,
+                "new_confidence": new_confidence,
+                "message": "Node revalidated successfully",
+            }
+        )
 
     @handle_errors("schedule revalidation")
-    def _handle_schedule_revalidation(self: StalenessHandlerProtocol, handler: Any) -> HandlerResult:
+    def _handle_schedule_revalidation(
+        self: StalenessHandlerProtocol, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/knowledge/mound/schedule-revalidation - Schedule batch."""
 
         try:
@@ -147,9 +161,12 @@ class StalenessOperationsMixin:
             logger.error(f"Failed to schedule revalidation: {e}")
             return error_response(f"Failed to schedule revalidation: {e}", 500)
 
-        return json_response({
-            "scheduled": scheduled,
-            "priority": priority,
-            "count": len(scheduled),
-            "message": f"Scheduled {len(scheduled)} nodes for revalidation",
-        }, status=202)
+        return json_response(
+            {
+                "scheduled": scheduled,
+                "priority": priority,
+                "count": len(scheduled),
+                "message": f"Scheduled {len(scheduled)} nodes for revalidation",
+            },
+            status=202,
+        )

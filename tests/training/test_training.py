@@ -358,12 +358,8 @@ class TestTrainingSchedulerJobManagement:
 
     def test_list_jobs_by_type(self, scheduler):
         """Test listing jobs by type."""
-        scheduler._jobs["sft-job"] = TrainingJob(
-            job_id="sft-job", job_type=JobType.SFT, model="m"
-        )
-        scheduler._jobs["dpo-job"] = TrainingJob(
-            job_id="dpo-job", job_type=JobType.DPO, model="m"
-        )
+        scheduler._jobs["sft-job"] = TrainingJob(job_id="sft-job", job_type=JobType.SFT, model="m")
+        scheduler._jobs["dpo-job"] = TrainingJob(job_id="dpo-job", job_type=JobType.DPO, model="m")
 
         sft_jobs = scheduler.list_jobs(job_type=JobType.SFT)
         assert len(sft_jobs) == 1

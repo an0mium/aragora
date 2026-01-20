@@ -188,6 +188,7 @@ class TestConnectionPool:
 
         # Pool should be closed
         from aragora.exceptions import DatabaseError
+
         with pytest.raises(DatabaseError):
             pool.acquire()
 

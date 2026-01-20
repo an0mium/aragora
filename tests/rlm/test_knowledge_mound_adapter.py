@@ -107,9 +107,7 @@ class TestKnowledgeMoundAdapterToRLMContext:
         consensus_node.content = "A consensus"
         consensus_node.node_type = "consensus"
 
-        mock_mound.query_semantic = AsyncMock(
-            return_value=[fact_node, consensus_node]
-        )
+        mock_mound.query_semantic = AsyncMock(return_value=[fact_node, consensus_node])
 
         adapter = KnowledgeMoundAdapter(mock_mound)
 

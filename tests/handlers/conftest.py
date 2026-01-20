@@ -11,6 +11,7 @@ import pytest
 
 class AgentStatus(Enum):
     """Mock agent status enum."""
+
     IDLE = "idle"
     BUSY = "busy"
     OFFLINE = "offline"
@@ -18,6 +19,7 @@ class AgentStatus(Enum):
 
 class TaskStatus(Enum):
     """Mock task status enum."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -27,6 +29,7 @@ class TaskStatus(Enum):
 
 class TaskPriority(Enum):
     """Mock task priority enum."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -35,6 +38,7 @@ class TaskPriority(Enum):
 
 class HealthStatus(Enum):
     """Mock health status enum."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -43,6 +47,7 @@ class HealthStatus(Enum):
 @dataclass
 class MockAgentInfo:
     """Mock agent info."""
+
     agent_id: str
     capabilities: List[str]
     model: str
@@ -66,6 +71,7 @@ class MockAgentInfo:
 @dataclass
 class MockTask:
     """Mock task."""
+
     task_id: str
     task_type: str
     payload: Dict[str, Any]
@@ -97,6 +103,7 @@ class MockTask:
 @dataclass
 class MockHealthCheck:
     """Mock health check."""
+
     agent_id: str
     status: HealthStatus
     last_check: datetime
@@ -168,9 +175,7 @@ class MockCoordinator:
             agents = [a for a in agents if a.status != AgentStatus.OFFLINE]
         return agents
 
-    async def heartbeat(
-        self, agent_id: str, status: Optional[AgentStatus] = None
-    ) -> bool:
+    async def heartbeat(self, agent_id: str, status: Optional[AgentStatus] = None) -> bool:
         """Process agent heartbeat."""
         agent = self._agents.get(agent_id)
         if not agent:
@@ -191,6 +196,7 @@ class MockCoordinator:
     ) -> str:
         """Submit a task."""
         import uuid
+
         task_id = f"task_{uuid.uuid4().hex[:12]}"
         task = MockTask(
             task_id=task_id,
@@ -277,10 +283,7 @@ class MockCoordinator:
         """Get overall system health."""
         if not self._agents:
             return HealthStatus.DEGRADED
-        healthy_count = sum(
-            1 for h in self._health.values()
-            if h.status == HealthStatus.HEALTHY
-        )
+        healthy_count = sum(1 for h in self._health.values() if h.status == HealthStatus.HEALTHY)
         if healthy_count == 0:
             return HealthStatus.UNHEALTHY
         if healthy_count < len(self._agents):
@@ -303,7 +306,9 @@ class MockCoordinator:
                 "total": len(self._tasks),
                 "pending": sum(1 for t in self._tasks.values() if t.status == TaskStatus.PENDING),
                 "running": sum(1 for t in self._tasks.values() if t.status == TaskStatus.RUNNING),
-                "completed": sum(1 for t in self._tasks.values() if t.status == TaskStatus.COMPLETED),
+                "completed": sum(
+                    1 for t in self._tasks.values() if t.status == TaskStatus.COMPLETED
+                ),
             },
         }
 
@@ -330,6 +335,7 @@ class MockRequest:
     async def body(self) -> bytes:
         """Get raw body."""
         import json
+
         return json.dumps(self._body or {}).encode()
 
 
@@ -341,6 +347,7 @@ class MockHandler:
         self._body = body
         if body:
             import json
+
             body_bytes = json.dumps(body).encode()
             self.rfile.read.return_value = body_bytes
             self.headers = {"Content-Length": str(len(body_bytes))}
@@ -358,6 +365,7 @@ def mock_coordinator():
 @pytest.fixture
 def mock_request():
     """Factory for creating mock requests."""
+
     def _create_request(
         method: str = "GET",
         path: str = "/",
@@ -365,12 +373,15 @@ def mock_request():
         body: Optional[Dict[str, Any]] = None,
     ) -> MockRequest:
         return MockRequest(method=method, path=path, query=query, body=body)
+
     return _create_request
 
 
 @pytest.fixture
 def mock_handler():
     """Factory for creating mock handlers."""
+
     def _create_handler(body: Optional[Dict[str, Any]] = None) -> MockHandler:
         return MockHandler(body=body)
+
     return _create_handler

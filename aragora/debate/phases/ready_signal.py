@@ -120,7 +120,7 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
 
     # Try HTML comment format first (preferred)
     # <!-- READY_SIGNAL: {"confidence": 0.85, "ready": true, "reasoning": "..."} -->
-    html_pattern = r'<!--\s*READY_SIGNAL:\s*(\{[^}]+\})\s*-->'
+    html_pattern = r"<!--\s*READY_SIGNAL:\s*(\{[^}]+\})\s*-->"
     html_match = re.search(html_pattern, content, re.IGNORECASE)
     if html_match:
         try:
@@ -134,7 +134,7 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
 
     # Try JSON code block format
     # ```ready_signal {"confidence": 0.85, "ready": true} ```
-    json_pattern = r'```ready_signal\s*(\{[^}]+\})\s*```'
+    json_pattern = r"```ready_signal\s*(\{[^}]+\})\s*```"
     json_match = re.search(json_pattern, content, re.IGNORECASE)
     if json_match:
         try:
@@ -148,7 +148,9 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
 
     # Try inline marker format
     # [READY: confidence=0.85, ready=true]
-    inline_pattern = r'\[READY:\s*confidence=([0-9.]+),?\s*ready=(true|false)(?:,?\s*reasoning="([^"]*)")?\]'
+    inline_pattern = (
+        r'\[READY:\s*confidence=([0-9.]+),?\s*ready=(true|false)(?:,?\s*reasoning="([^"]*)")?\]'
+    )
     inline_match = re.search(inline_pattern, content, re.IGNORECASE)
     if inline_match:
         try:

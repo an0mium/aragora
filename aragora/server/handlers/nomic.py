@@ -127,7 +127,7 @@ class NomicHandler(BaseHandler):
             except (ConnectionError, OSError, TimeoutError) as e:
                 last_error = e
                 if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                     logger.debug(
                         f"Nomic stream emission attempt {attempt + 1} failed with connection error, "
                         f"retrying in {delay:.2f}s: {e}"
@@ -451,9 +451,7 @@ class NomicHandler(BaseHandler):
     # =========================================================================
 
     @rate_limit(rpm=30)
-    def handle_post(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for control operations."""
         if path == "/api/nomic/control/start":
             body = self.read_json_body(handler) or {}
@@ -514,8 +512,10 @@ class NomicHandler(BaseHandler):
                 return error_response("Nomic loop script not found", 500)
 
             cmd = [
-                "python", str(script_path),
-                "--cycles", str(min(cycles, max_cycles)),
+                "python",
+                str(script_path),
+                "--cycles",
+                str(min(cycles, max_cycles)),
             ]
             if auto_approve:
                 cmd.append("--auto-approve")
@@ -550,11 +550,14 @@ class NomicHandler(BaseHandler):
                 dry_run=body.get("dry_run", False),
             )
 
-            return json_response({
-                "status": "started",
-                "pid": process.pid,
-                "target_cycles": cycles,
-            }, status=202)
+            return json_response(
+                {
+                    "status": "started",
+                    "pid": process.pid,
+                    "target_cycles": cycles,
+                },
+                status=202,
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
@@ -617,10 +620,12 @@ class NomicHandler(BaseHandler):
                 reason="user_requested",
             )
 
-            return json_response({
-                "status": "stopping" if graceful else "killed",
-                "pid": pid,
-            })
+            return json_response(
+                {
+                    "status": "stopping" if graceful else "killed",
+                    "pid": pid,
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
@@ -665,11 +670,13 @@ class NomicHandler(BaseHandler):
                 current_cycle=state.get("cycle", 0),
             )
 
-            return json_response({
-                "status": "paused",
-                "cycle": state.get("cycle", 0),
-                "phase": state.get("phase", "unknown"),
-            })
+            return json_response(
+                {
+                    "status": "paused",
+                    "cycle": state.get("cycle", 0),
+                    "phase": state.get("phase", "unknown"),
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
@@ -711,11 +718,13 @@ class NomicHandler(BaseHandler):
                 current_cycle=state.get("cycle", 0),
             )
 
-            return json_response({
-                "status": "resumed",
-                "cycle": state.get("cycle", 0),
-                "phase": state.get("phase", "unknown"),
-            })
+            return json_response(
+                {
+                    "status": "resumed",
+                    "cycle": state.get("cycle", 0),
+                    "phase": state.get("phase", "unknown"),
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in nomic state file: %s", e)
@@ -768,12 +777,14 @@ class NomicHandler(BaseHandler):
                     reason="user_requested",
                 )
 
-                return json_response({
-                    "status": "skip_requested",
-                    "previous_phase": current_phase,
-                    "next_phase": next_phase,
-                    "cycle": state.get("cycle", 0),
-                })
+                return json_response(
+                    {
+                        "status": "skip_requested",
+                        "previous_phase": current_phase,
+                        "next_phase": next_phase,
+                        "cycle": state.get("cycle", 0),
+                    }
+                )
             else:
                 return error_response(f"Unknown phase: {current_phase}", 400)
 
@@ -804,11 +815,13 @@ class NomicHandler(BaseHandler):
             proposals = data.get("proposals", [])
             pending = [p for p in proposals if p.get("status") == "pending"]
 
-            return json_response({
-                "proposals": pending,
-                "total": len(pending),
-                "all_proposals": len(proposals),
-            })
+            return json_response(
+                {
+                    "proposals": pending,
+                    "total": len(pending),
+                    "all_proposals": len(proposals),
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)
@@ -862,10 +875,12 @@ class NomicHandler(BaseHandler):
                 approved_by=body.get("approved_by", "user"),
             )
 
-            return json_response({
-                "status": "approved",
-                "proposal_id": proposal_id,
-            })
+            return json_response(
+                {
+                    "status": "approved",
+                    "proposal_id": proposal_id,
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)
@@ -921,10 +936,12 @@ class NomicHandler(BaseHandler):
                 reason=body.get("reason", ""),
             )
 
-            return json_response({
-                "status": "rejected",
-                "proposal_id": proposal_id,
-            })
+            return json_response(
+                {
+                    "status": "rejected",
+                    "proposal_id": proposal_id,
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.warning("Invalid JSON in proposals file: %s", e)

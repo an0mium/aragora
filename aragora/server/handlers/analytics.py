@@ -452,7 +452,7 @@ class AnalyticsHandler(BaseHandler):
         try:
             from aragora.ranking.elo import get_elo_store
 
-            elo = get_elo_store()
+            get_elo_store()
             stats["learning"]["enabled"] = True
             stats["voting_accuracy"]["enabled"] = True
             stats["calibration"]["enabled"] = True
@@ -560,14 +560,16 @@ class AnalyticsHandler(BaseHandler):
             if tracker:
                 summary = tracker.get_calibration_summary(agent)
                 if summary:
-                    return json_response({
-                        "agent": agent,
-                        "calibration": {
-                            "total_predictions": summary.total_predictions,
-                            "temperature": summary.temperature,
-                            "scaling_factor": getattr(summary, "scaling_factor", 1.0),
-                        },
-                    })
+                    return json_response(
+                        {
+                            "agent": agent,
+                            "calibration": {
+                                "total_predictions": summary.total_predictions,
+                                "temperature": summary.temperature,
+                                "scaling_factor": getattr(summary, "scaling_factor", 1.0),
+                            },
+                        }
+                    )
             return json_response({"agent": agent, "calibration": None})
 
         # Get calibration for top agents

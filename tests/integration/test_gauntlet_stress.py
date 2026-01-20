@@ -134,13 +134,16 @@ class TestLargeInputHandling:
     @pytest.mark.asyncio
     async def test_special_characters_input(self, quick_config):
         """Handle special characters in input."""
-        special_input = """
+        special_input = (
+            """
         SQL: SELECT * FROM users WHERE name = 'O\'Brien';
         Shell: rm -rf /; echo "done"
         Regex: ^[a-z].*\\d+$
         HTML: <script>alert('xss')</script>
         JSON: {"key": "value", "nested": {"a": 1}}
-        """ * 100
+        """
+            * 100
+        )
 
         runner = GauntletRunner(config=quick_config)
         result = await runner.run(special_input)
@@ -235,9 +238,7 @@ class TestConcurrentExecution:
             runner = GauntletRunner(config=config)
             return await runner.run(f"Config test {idx}")
 
-        results = await asyncio.gather(
-            *[run_with_config(cfg, i) for i, cfg in enumerate(configs)]
-        )
+        results = await asyncio.gather(*[run_with_config(cfg, i) for i, cfg in enumerate(configs)])
 
         assert len(results) == 4
         # Each should reflect its config
@@ -333,9 +334,7 @@ class TestErrorRecovery:
         """Recover gracefully from red team phase error."""
         runner = GauntletRunner(config=quick_config)
 
-        with patch.object(
-            runner, "_run_red_team", side_effect=Exception("Red team failed")
-        ):
+        with patch.object(runner, "_run_red_team", side_effect=Exception("Red team failed")):
             result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)
@@ -359,9 +358,7 @@ class TestErrorRecovery:
         config = GauntletConfig(run_scenario_matrix=True)
         runner = GauntletRunner(config=config)
 
-        with patch.object(
-            runner, "_run_scenarios", side_effect=Exception("Scenario failed")
-        ):
+        with patch.object(runner, "_run_scenarios", side_effect=Exception("Scenario failed")):
             result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)

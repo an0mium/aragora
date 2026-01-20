@@ -43,9 +43,7 @@ class MockCalibrationSummary:
     brier_score: float = 0.1
     ece: float = 0.08
     buckets: List[MockCalibrationBucket] = field(default_factory=list)
-    temperature_params: MockTemperatureParams = field(
-        default_factory=MockTemperatureParams
-    )
+    temperature_params: MockTemperatureParams = field(default_factory=MockTemperatureParams)
 
     @property
     def accuracy(self) -> float:
@@ -161,9 +159,7 @@ class TestCalibrationCostBridge:
     def test_compute_cost_efficiency_insufficient_data(self):
         """Test efficiency with insufficient data."""
         tracker = MockCalibrationTracker()
-        tracker.add_summary(
-            MockCalibrationSummary(agent="claude", total_predictions=5)
-        )
+        tracker.add_summary(MockCalibrationSummary(agent="claude", total_predictions=5))
 
         bridge = CalibrationCostBridge(
             calibration_tracker=tracker,
@@ -329,9 +325,7 @@ class TestCalibrationCostBridge:
 
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
-        ranking = bridge.rank_agents_by_cost_efficiency(
-            available_agents=["best", "good", "poor"]
-        )
+        ranking = bridge.rank_agents_by_cost_efficiency(available_agents=["best", "good", "poor"])
 
         # Should be sorted by efficiency descending
         assert ranking[0][0] == "best"
@@ -379,15 +373,11 @@ class TestCalibrationCostBridge:
     def test_get_overconfident_agents(self):
         """Test getting overconfident agents."""
         tracker = MockCalibrationTracker()
-        summary1 = MockCalibrationSummary(
-            agent="overconfident", total_predictions=100
-        )
+        summary1 = MockCalibrationSummary(agent="overconfident", total_predictions=100)
         summary1._overconfident = True
         tracker.add_summary(summary1)
 
-        summary2 = MockCalibrationSummary(
-            agent="well-calibrated", total_predictions=100
-        )
+        summary2 = MockCalibrationSummary(agent="well-calibrated", total_predictions=100)
         tracker.add_summary(summary2)
 
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
@@ -440,12 +430,8 @@ class TestCalibrationCostBridge:
     def test_refresh_cache(self):
         """Test refreshing cache."""
         tracker = MockCalibrationTracker()
-        tracker.add_summary(
-            MockCalibrationSummary(agent="agent1", total_predictions=100)
-        )
-        tracker.add_summary(
-            MockCalibrationSummary(agent="agent2", total_predictions=100)
-        )
+        tracker.add_summary(MockCalibrationSummary(agent="agent1", total_predictions=100))
+        tracker.add_summary(MockCalibrationSummary(agent="agent2", total_predictions=100))
 
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 

@@ -74,6 +74,7 @@ from aragora.knowledge.integration import (
     queue_document_processing,
     shutdown_pipeline,
 )
+
 # Import main KnowledgeMound from mound_core.py
 from aragora.knowledge.mound_core import (
     KnowledgeMound,
@@ -81,6 +82,7 @@ from aragora.knowledge.mound_core import (
     ProvenanceChain,
     ProvenanceType,
 )
+
 # Import unified query interface
 from aragora.knowledge.unified import (
     UnifiedKnowledgeStore,

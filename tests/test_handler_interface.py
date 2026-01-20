@@ -60,20 +60,31 @@ class TestHandlerInterfaceProtocol:
 
     def test_object_with_all_methods_is_handler(self):
         """Test that object implementing all methods is recognized."""
+
         class FullHandler:
-            def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
-            def handle_post(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle_post(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
-            def handle_delete(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle_delete(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
-            def handle_patch(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle_patch(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
-            def handle_put(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle_put(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
         handler = FullHandler()
@@ -82,9 +93,13 @@ class TestHandlerInterfaceProtocol:
 
     def test_object_with_partial_methods_not_handler(self):
         """Test that object missing methods is not recognized."""
+
         class PartialHandler:
-            def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
+
             # Missing other handle_* methods
 
         handler = PartialHandler()
@@ -94,7 +109,9 @@ class TestHandlerInterfaceProtocol:
 
     def test_mock_handler_can_be_made_compatible(self):
         """Test creating a mock that matches interface."""
-        mock_handler = MagicMock(spec=["handle", "handle_post", "handle_delete", "handle_patch", "handle_put"])
+        mock_handler = MagicMock(
+            spec=["handle", "handle_post", "handle_delete", "handle_patch", "handle_put"]
+        )
         mock_handler.handle.return_value = None
         mock_handler.handle_post.return_value = None
         mock_handler.handle_delete.return_value = None
@@ -109,11 +126,14 @@ class TestAuthenticatedHandlerInterfaceProtocol:
 
     def test_object_with_auth_methods_is_authenticated_handler(self):
         """Test object with auth methods is recognized."""
+
         class AuthHandler:
             def get_current_user(self, handler: Any) -> Optional[Any]:
                 return None
 
-            def require_auth_or_error(self, handler: Any) -> Tuple[Optional[Any], Optional[HandlerResult]]:
+            def require_auth_or_error(
+                self, handler: Any
+            ) -> Tuple[Optional[Any], Optional[HandlerResult]]:
                 return (None, None)
 
         handler = AuthHandler()
@@ -122,8 +142,11 @@ class TestAuthenticatedHandlerInterfaceProtocol:
 
     def test_object_without_auth_methods_not_authenticated(self):
         """Test object without auth methods is not recognized."""
+
         class NonAuthHandler:
-            def handle(self, path: str, query_params: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
+            def handle(
+                self, path: str, query_params: Dict[str, Any], handler: Any
+            ) -> Optional[HandlerResult]:
                 return None
 
         handler = NonAuthHandler()
@@ -136,6 +159,7 @@ class TestPaginatedHandlerInterfaceProtocol:
 
     def test_object_with_pagination_methods_matches(self):
         """Test object with pagination methods matches protocol."""
+
         class PaginatedHandler:
             def get_pagination(
                 self,
@@ -164,6 +188,7 @@ class TestCachedHandlerInterfaceProtocol:
 
     def test_object_with_cache_method_matches(self):
         """Test object with cached_response method matches protocol."""
+
         class CachedHandler:
             def cached_response(
                 self,
@@ -182,15 +207,20 @@ class TestIsHandlerFunction:
 
     def test_returns_true_for_handler(self):
         """Test returns True for valid handler."""
+
         class ValidHandler:
             def handle(self, path, query_params, handler):
                 return None
+
             def handle_post(self, path, query_params, handler):
                 return None
+
             def handle_delete(self, path, query_params, handler):
                 return None
+
             def handle_patch(self, path, query_params, handler):
                 return None
+
             def handle_put(self, path, query_params, handler):
                 return None
 
@@ -209,9 +239,11 @@ class TestIsAuthenticatedHandlerFunction:
 
     def test_returns_true_for_auth_handler(self):
         """Test returns True for authenticated handler."""
+
         class AuthHandler:
             def get_current_user(self, handler):
                 return None
+
             def require_auth_or_error(self, handler):
                 return (None, None)
 
@@ -283,28 +315,35 @@ class TestProtocolComposition:
 
     def test_handler_can_implement_multiple_protocols(self):
         """Test that a handler can implement multiple protocols."""
+
         class MultiProtocolHandler:
             # HandlerInterface
             def handle(self, path, query_params, handler):
                 return None
+
             def handle_post(self, path, query_params, handler):
                 return None
+
             def handle_delete(self, path, query_params, handler):
                 return None
+
             def handle_patch(self, path, query_params, handler):
                 return None
+
             def handle_put(self, path, query_params, handler):
                 return None
 
             # AuthenticatedHandlerInterface
             def get_current_user(self, handler):
                 return None
+
             def require_auth_or_error(self, handler):
                 return (None, None)
 
             # PaginatedHandlerInterface
             def get_pagination(self, query_params, default_limit=None, max_limit=None):
                 return (10, 0)
+
             def paginated_response(self, items, total, limit, offset, items_key="items"):
                 return {"body": b"{}", "status": 200}
 

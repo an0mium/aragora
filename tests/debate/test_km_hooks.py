@@ -40,10 +40,7 @@ class MockHookManager:
 
     def get_registered(self, hook_type):
         """Get registered callbacks for a hook type."""
-        return [
-            entry for (ht, _), entry in self.registered_hooks.items()
-            if ht == hook_type
-        ]
+        return [entry for (ht, _), entry in self.registered_hooks.items() if ht == hook_type]
 
 
 class MockKnowledgeMound:
@@ -60,11 +57,13 @@ class MockKnowledgeMound:
 
     def on_consensus_reached(self, ctx, consensus_text, confidence):
         """Handle consensus reached."""
-        self.consensus_calls.append({
-            "ctx": ctx,
-            "consensus_text": consensus_text,
-            "confidence": confidence,
-        })
+        self.consensus_calls.append(
+            {
+                "ctx": ctx,
+                "consensus_text": consensus_text,
+                "confidence": confidence,
+            }
+        )
 
     def on_outcome_tracked(self, ctx, outcome):
         """Handle outcome tracked."""
@@ -84,11 +83,13 @@ class MockKMCoordinator:
 
     def on_consensus_reached(self, ctx, consensus_text, confidence):
         """Handle consensus reached."""
-        self.consensus_calls.append({
-            "ctx": ctx,
-            "consensus_text": consensus_text,
-            "confidence": confidence,
-        })
+        self.consensus_calls.append(
+            {
+                "ctx": ctx,
+                "consensus_text": consensus_text,
+                "confidence": confidence,
+            }
+        )
 
 
 class TestKMHookRegistration:
@@ -170,8 +171,7 @@ class TestKMHookRegistration:
 
         # No KM-specific handlers
         km_handlers = [
-            name for _, name, _ in hook_manager.callbacks
-            if name and "km" in name.lower()
+            name for _, name, _ in hook_manager.callbacks if name and "km" in name.lower()
         ]
         assert len(km_handlers) == 0
 
@@ -300,6 +300,7 @@ class TestKMHookErrorHandling:
 
     def test_km_handler_error_isolation(self, hook_manager):
         """Test that KM handler errors are isolated."""
+
         class FailingKM:
             def on_debate_end(self, ctx, result):
                 raise ValueError("KM failure")
@@ -326,6 +327,7 @@ class TestKMHookErrorHandling:
 
     def test_coordinator_handler_error_isolation(self, hook_manager):
         """Test that coordinator handler errors are isolated."""
+
         class FailingCoordinator:
             def on_debate_complete(self, ctx, result):
                 raise ValueError("Coordinator failure")
@@ -440,10 +442,12 @@ class TestKMHookPriority:
                 # Coordinator handlers should be LOW priority
                 if "coordinator" in name:
                     from aragora.debate.hooks import HookPriority
+
                     assert entry["priority"] == HookPriority.LOW
                 # Main KM outcome tracked should be LOW
                 elif "outcome_tracked" in name:
                     from aragora.debate.hooks import HookPriority
+
                     assert entry["priority"] == HookPriority.LOW
 
 

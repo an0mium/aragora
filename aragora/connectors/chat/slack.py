@@ -40,10 +40,8 @@ from .models import (
     FileAttachment,
     InteractionType,
     MessageButton,
-    MessageType,
     SendMessageResponse,
     UserInteraction,
-    VoiceMessage,
     WebhookEvent,
 )
 
@@ -568,7 +566,8 @@ class SlackConnector(ChatPlatformConnector):
 
         if actions:
             action_elements = [
-                self.format_button(btn.text, btn.action_id, btn.value, btn.style, btn.url) for btn in actions
+                self.format_button(btn.text, btn.action_id, btn.value, btn.style, btn.url)
+                for btn in actions
             ]
             blocks.append(
                 {
@@ -775,9 +774,11 @@ class SlackConnector(ChatPlatformConnector):
                 action = actions[0]
                 event.interaction = UserInteraction(
                     id=payload.get("trigger_id", ""),
-                    interaction_type=InteractionType.BUTTON_CLICK
-                    if action.get("type") == "button"
-                    else InteractionType.SELECT_MENU,
+                    interaction_type=(
+                        InteractionType.BUTTON_CLICK
+                        if action.get("type") == "button"
+                        else InteractionType.SELECT_MENU
+                    ),
                     action_id=action.get("action_id", ""),
                     value=action.get("value"),
                     values=action.get("selected_options", []),
@@ -1113,9 +1114,7 @@ class SlackConnector(ChatPlatformConnector):
                         channel=channel,
                         author=user,
                         content=match.get("text", ""),
-                        timestamp=datetime.fromtimestamp(
-                            float(match.get("ts", "0").split(".")[0])
-                        ),
+                        timestamp=datetime.fromtimestamp(float(match.get("ts", "0").split(".")[0])),
                         metadata={
                             "permalink": match.get("permalink"),
                             "score": match.get("score"),

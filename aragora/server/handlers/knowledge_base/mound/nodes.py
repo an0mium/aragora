@@ -83,12 +83,14 @@ class NodeOperationsMixin:
             logger.error(f"Mound query failed: {e}")
             return error_response(f"Query failed: {e}", 500)
 
-        return json_response({
-            "query": result.query,
-            "nodes": [n.to_dict() for n in result.nodes],
-            "total_count": result.total_count,
-            "processing_time_ms": result.processing_time_ms,
-        })
+        return json_response(
+            {
+                "query": result.query,
+                "nodes": [n.to_dict() for n in result.nodes],
+                "total_count": result.total_count,
+                "processing_time_ms": result.processing_time_ms,
+            }
+        )
 
     @handle_errors("create node")
     def _handle_create_node(self: NodeHandlerProtocol, handler: Any) -> HandlerResult:
@@ -183,10 +185,14 @@ class NodeOperationsMixin:
         """Handle GET /api/knowledge/mound/nodes - List/filter nodes."""
         from aragora.memory.tier_manager import MemoryTier
 
-        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
+        workspace_id = get_bounded_string_param(
+            query_params, "workspace_id", "default", max_length=100
+        )
         node_types_str = get_bounded_string_param(query_params, "node_types", None, max_length=200)
         node_types = node_types_str.split(",") if node_types_str else None
-        min_confidence = get_bounded_float_param(query_params, "min_confidence", 0.0, min_val=0.0, max_val=1.0)
+        min_confidence = get_bounded_float_param(
+            query_params, "min_confidence", 0.0, min_val=0.0, max_val=1.0
+        )
         tier_str = get_bounded_string_param(query_params, "tier", None, max_length=20)
         tier = MemoryTier(tier_str) if tier_str else None
         limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
@@ -211,12 +217,14 @@ class NodeOperationsMixin:
             logger.error(f"Failed to list nodes: {e}")
             return error_response(f"Failed to list nodes: {e}", 500)
 
-        return json_response({
-            "nodes": [n.to_dict() for n in nodes],
-            "count": len(nodes),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "nodes": [n.to_dict() for n in nodes],
+                "count": len(nodes),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("mound stats")
     def _handle_mound_stats(self: NodeHandlerProtocol, query_params: dict) -> HandlerResult:

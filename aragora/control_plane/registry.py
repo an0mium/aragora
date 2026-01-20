@@ -255,9 +255,7 @@ class AgentRegistry:
         Returns:
             AgentInfo for the registered agent
         """
-        cap_strs = {
-            c.value if isinstance(c, AgentCapability) else c for c in capabilities
-        }
+        cap_strs = {c.value if isinstance(c, AgentCapability) else c for c in capabilities}
 
         agent = AgentInfo(
             agent_id=agent_id,
@@ -272,9 +270,7 @@ class AgentRegistry:
         )
 
         await self._save_agent(agent)
-        logger.info(
-            f"Agent registered: {agent_id} (model={model}, capabilities={cap_strs})"
-        )
+        logger.info(f"Agent registered: {agent_id} (model={model}, capabilities={cap_strs})")
 
         return agent
 
@@ -401,8 +397,7 @@ class AgentRegistry:
         return [
             a
             for a in agents
-            if a.has_capability(cap_str)
-            and (not only_available or a.is_available())
+            if a.has_capability(cap_str) and (not only_available or a.is_available())
         ]
 
     async def find_by_capabilities(
@@ -425,8 +420,7 @@ class AgentRegistry:
         return [
             a
             for a in agents
-            if a.has_all_capabilities(capabilities)
-            and (not only_available or a.is_available())
+            if a.has_all_capabilities(capabilities) and (not only_available or a.is_available())
         ]
 
     async def select_agent(
@@ -516,9 +510,7 @@ class AgentRegistry:
 
         # Update rolling average latency
         total_tasks = agent.tasks_completed + agent.tasks_failed
-        agent.avg_latency_ms = (
-            (agent.avg_latency_ms * (total_tasks - 1) + latency_ms) / total_tasks
-        )
+        agent.avg_latency_ms = (agent.avg_latency_ms * (total_tasks - 1) + latency_ms) / total_tasks
 
         agent.current_task_id = None
         agent.status = AgentStatus.READY

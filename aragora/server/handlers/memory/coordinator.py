@@ -81,42 +81,46 @@ class CoordinatorHandler(BaseHandler):
 
         if not coordinator:
             # Return default metrics when no coordinator is configured
-            return json_response({
-                "configured": False,
-                "metrics": {
-                    "total_transactions": 0,
-                    "successful_transactions": 0,
-                    "partial_failures": 0,
-                    "rollbacks_performed": 0,
-                    "success_rate": 0.0,
-                },
-                "memory_systems": {
-                    "continuum": False,
-                    "consensus": False,
-                    "critique": False,
-                    "mound": False,
-                },
-            })
+            return json_response(
+                {
+                    "configured": False,
+                    "metrics": {
+                        "total_transactions": 0,
+                        "successful_transactions": 0,
+                        "partial_failures": 0,
+                        "rollbacks_performed": 0,
+                        "success_rate": 0.0,
+                    },
+                    "memory_systems": {
+                        "continuum": False,
+                        "consensus": False,
+                        "critique": False,
+                        "mound": False,
+                    },
+                }
+            )
 
         metrics = coordinator.get_metrics()
 
-        return json_response({
-            "configured": True,
-            "metrics": {
-                "total_transactions": metrics.get("total_transactions", 0),
-                "successful_transactions": metrics.get("successful_transactions", 0),
-                "partial_failures": metrics.get("partial_failures", 0),
-                "rollbacks_performed": metrics.get("rollbacks_performed", 0),
-                "success_rate": metrics.get("success_rate", 0.0),
-            },
-            "memory_systems": {
-                "continuum": coordinator.continuum_memory is not None,
-                "consensus": coordinator.consensus_memory is not None,
-                "critique": coordinator.critique_store is not None,
-                "mound": coordinator.knowledge_mound is not None,
-            },
-            "rollback_handlers": list(coordinator._rollback_handlers.keys()),
-        })
+        return json_response(
+            {
+                "configured": True,
+                "metrics": {
+                    "total_transactions": metrics.get("total_transactions", 0),
+                    "successful_transactions": metrics.get("successful_transactions", 0),
+                    "partial_failures": metrics.get("partial_failures", 0),
+                    "rollbacks_performed": metrics.get("rollbacks_performed", 0),
+                    "success_rate": metrics.get("success_rate", 0.0),
+                },
+                "memory_systems": {
+                    "continuum": coordinator.continuum_memory is not None,
+                    "consensus": coordinator.consensus_memory is not None,
+                    "critique": coordinator.critique_store is not None,
+                    "mound": coordinator.knowledge_mound is not None,
+                },
+                "rollback_handlers": list(coordinator._rollback_handlers.keys()),
+            }
+        )
 
     @handle_errors("coordinator config")
     def _get_config(self) -> HandlerResult:
@@ -125,22 +129,26 @@ class CoordinatorHandler(BaseHandler):
 
         if not coordinator:
             # Return default config when no coordinator is configured
-            return json_response({
-                "configured": False,
-                "options": CoordinatorOptions().__dict__ if CoordinatorOptions else {},
-            })
+            return json_response(
+                {
+                    "configured": False,
+                    "options": CoordinatorOptions().__dict__ if CoordinatorOptions else {},
+                }
+            )
 
         options = coordinator.options if hasattr(coordinator, "options") else CoordinatorOptions()
 
-        return json_response({
-            "configured": True,
-            "options": {
-                "write_continuum": options.write_continuum,
-                "write_consensus": options.write_consensus,
-                "write_critique": options.write_critique,
-                "write_mound": options.write_mound,
-                "rollback_on_failure": options.rollback_on_failure,
-                "parallel_writes": options.parallel_writes,
-                "min_confidence_for_mound": options.min_confidence_for_mound,
-            },
-        })
+        return json_response(
+            {
+                "configured": True,
+                "options": {
+                    "write_continuum": options.write_continuum,
+                    "write_consensus": options.write_consensus,
+                    "write_critique": options.write_critique,
+                    "write_mound": options.write_mound,
+                    "rollback_on_failure": options.rollback_on_failure,
+                    "parallel_writes": options.parallel_writes,
+                    "min_confidence_for_mound": options.min_confidence_for_mound,
+                },
+            }
+        )

@@ -70,9 +70,9 @@ def record_control_plane_task_completed(
         duration_seconds: Time to complete the task
     """
     if PROMETHEUS_AVAILABLE:
-        CONTROL_PLANE_TASK_DURATION.labels(
-            task_type=task_type, outcome=outcome
-        ).observe(duration_seconds)
+        CONTROL_PLANE_TASK_DURATION.labels(task_type=task_type, outcome=outcome).observe(
+            duration_seconds
+        )
     else:
         _simple_metrics.observe_histogram(
             "aragora_control_plane_task_duration_seconds",

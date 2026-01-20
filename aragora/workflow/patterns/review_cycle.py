@@ -159,30 +159,32 @@ class ReviewCyclePattern(WorkflowPattern):
         draft_step.next_steps = ["review"]
         review_step.next_steps = ["check_convergence"]
 
-        transitions.extend([
-            self._create_transition("draft", "review"),
-            self._create_transition("review", "check_convergence"),
-            # Conditional: converged -> output
-            TransitionRule(
-                id="tr_converged",
-                from_step="check_convergence",
-                to_step="output",
-                condition="step_output.get('converged', False) == True",
-                priority=10,
-                label="Converged",
-                visual=VisualEdgeData(edge_type=EdgeType.CONDITIONAL, label="Converged"),
-            ),
-            # Conditional: not converged -> back to draft
-            TransitionRule(
-                id="tr_refine",
-                from_step="check_convergence",
-                to_step="draft",
-                condition="step_output.get('converged', False) == False",
-                priority=5,
-                label="Refine",
-                visual=VisualEdgeData(edge_type=EdgeType.CONDITIONAL, label="Needs Work"),
-            ),
-        ])
+        transitions.extend(
+            [
+                self._create_transition("draft", "review"),
+                self._create_transition("review", "check_convergence"),
+                # Conditional: converged -> output
+                TransitionRule(
+                    id="tr_converged",
+                    from_step="check_convergence",
+                    to_step="output",
+                    condition="step_output.get('converged', False) == True",
+                    priority=10,
+                    label="Converged",
+                    visual=VisualEdgeData(edge_type=EdgeType.CONDITIONAL, label="Converged"),
+                ),
+                # Conditional: not converged -> back to draft
+                TransitionRule(
+                    id="tr_refine",
+                    from_step="check_convergence",
+                    to_step="draft",
+                    condition="step_output.get('converged', False) == False",
+                    priority=5,
+                    label="Refine",
+                    visual=VisualEdgeData(edge_type=EdgeType.CONDITIONAL, label="Needs Work"),
+                ),
+            ]
+        )
 
         return WorkflowDefinition(
             id=workflow_id,
@@ -255,7 +257,7 @@ def _register_review_cycle_handlers():
 
             # Extract score from review
             score = 0.0
-            score_match = re.search(r'SCORE:\s*([\d.]+)', response)
+            score_match = re.search(r"SCORE:\s*([\d.]+)", response)
             if score_match:
                 try:
                     score = float(score_match.group(1))
@@ -264,12 +266,12 @@ def _register_review_cycle_handlers():
 
             # Extract feedback for next iteration
             feedback = ""
-            feedback_match = re.search(r'FEEDBACK:([\s\S]*?)(?:SUGGESTIONS:|$)', response)
+            feedback_match = re.search(r"FEEDBACK:([\s\S]*?)(?:SUGGESTIONS:|$)", response)
             if feedback_match:
                 feedback = feedback_match.group(1).strip()
 
             suggestions = ""
-            suggestions_match = re.search(r'SUGGESTIONS:([\s\S]*?)$', response)
+            suggestions_match = re.search(r"SUGGESTIONS:([\s\S]*?)$", response)
             if suggestions_match:
                 suggestions = suggestions_match.group(1).strip()
 
@@ -290,9 +292,11 @@ def _register_review_cycle_handlers():
                 "reason": (
                     f"Score {score:.2f} >= threshold {threshold}"
                     if score >= threshold
-                    else f"Max iterations ({max_iterations}) reached"
-                    if iteration >= max_iterations
-                    else f"Score {score:.2f} < threshold {threshold}, continuing"
+                    else (
+                        f"Max iterations ({max_iterations}) reached"
+                        if iteration >= max_iterations
+                        else f"Score {score:.2f} < threshold {threshold}, continuing"
+                    )
                 ),
             }
 

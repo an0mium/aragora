@@ -209,7 +209,9 @@ class TestSessionRegeneration:
         }
 
         # Mock both extract_user and TOTP verification
-        with patch("aragora.server.handlers.auth.handler.extract_user_from_request", return_value=auth_ctx):
+        with patch(
+            "aragora.server.handlers.auth.handler.extract_user_from_request", return_value=auth_ctx
+        ):
             with patch.object(pyotp, "TOTP") as mock_totp_class:
                 mock_totp = Mock()
                 mock_totp.verify.return_value = True

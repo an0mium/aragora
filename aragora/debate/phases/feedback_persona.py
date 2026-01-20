@@ -105,9 +105,7 @@ class PersonaFeedback:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
-    def detect_emerging_traits(
-        self, agent_name: str, ctx: "DebateContext"
-    ) -> List[Dict[str, Any]]:
+    def detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> List[Dict[str, Any]]:
         """Detect traits based on agent performance patterns.
 
         Returns list of trait dicts with name, description, confidence.

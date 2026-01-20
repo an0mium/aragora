@@ -28,6 +28,7 @@ from aragora.debate.judge_selector import JudgePanel, JudgingStrategy, JudgeVote
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str
     role: str = "debater"
 
@@ -35,6 +36,7 @@ class MockAgent:
 @dataclass
 class MockVote:
     """Mock vote for testing."""
+
     agent: str
     choice: str
     confidence: float
@@ -45,12 +47,14 @@ class MockVote:
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test debate task"
 
 
 @dataclass
 class MockResult:
     """Mock result for testing."""
+
     votes: List[Any] = field(default_factory=list)
     final_answer: str = ""
     consensus_reached: bool = False
@@ -63,6 +67,7 @@ class MockResult:
 @dataclass
 class MockDebateContext:
     """Mock debate context for testing."""
+
     agents: List[MockAgent] = field(default_factory=list)
     proposals: Dict[str, str] = field(default_factory=dict)
     env: MockEnvironment = field(default_factory=MockEnvironment)
@@ -162,7 +167,7 @@ class TestSelfVoteIntegration:
 
         votes = [
             MockVote(agent="alice", choice="alice", confidence=0.9),  # Self-vote
-            MockVote(agent="bob", choice="alice", confidence=0.8),    # Not self-vote
+            MockVote(agent="bob", choice="alice", confidence=0.8),  # Not self-vote
         ]
 
         config = WeightCalculatorConfig(
@@ -263,7 +268,7 @@ class TestJudgeDeliberationIntegration:
             # Simulate deliberation changing opinions
             if "deliberation" in prompt.lower():
                 return "After considering other views, I APPROVE the consensus."
-            return f"Initial assessment: I recommend APPROVE. The reasoning is sound."
+            return "Initial assessment: I recommend APPROVE. The reasoning is sound."
 
         panel = JudgePanel(
             judges=judges,
@@ -323,24 +328,24 @@ class TestProtocolBiasMitigationConfig:
         protocol = DebateProtocol()
 
         # Position shuffling
-        assert hasattr(protocol, 'enable_position_shuffling')
-        assert hasattr(protocol, 'position_shuffling_permutations')
+        assert hasattr(protocol, "enable_position_shuffling")
+        assert hasattr(protocol, "position_shuffling_permutations")
 
         # Self-vote
-        assert hasattr(protocol, 'enable_self_vote_mitigation')
-        assert hasattr(protocol, 'self_vote_mode')
-        assert hasattr(protocol, 'self_vote_downweight')
+        assert hasattr(protocol, "enable_self_vote_mitigation")
+        assert hasattr(protocol, "self_vote_mode")
+        assert hasattr(protocol, "self_vote_downweight")
 
         # Verbosity
-        assert hasattr(protocol, 'enable_verbosity_normalization')
-        assert hasattr(protocol, 'verbosity_target_length')
+        assert hasattr(protocol, "enable_verbosity_normalization")
+        assert hasattr(protocol, "verbosity_target_length")
 
         # Judge deliberation
-        assert hasattr(protocol, 'enable_judge_deliberation')
-        assert hasattr(protocol, 'judge_deliberation_rounds')
+        assert hasattr(protocol, "enable_judge_deliberation")
+        assert hasattr(protocol, "judge_deliberation_rounds")
 
         # Process evaluation
-        assert hasattr(protocol, 'enable_process_evaluation')
+        assert hasattr(protocol, "enable_process_evaluation")
 
     def test_protocol_bias_mitigation_all_disabled_by_default(self):
         """Test all bias mitigation is disabled by default for backwards compatibility."""

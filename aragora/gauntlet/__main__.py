@@ -205,21 +205,16 @@ def main() -> int:
     )
 
     if not args.quiet:
-        print("\n" + "=" * 60)
-        print("GAUNTLET - Adversarial Stress-Testing")
-        print("=" * 60)
+        pass
 
     # Load input content
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"\nError: Input file not found: {input_path}", file=sys.stderr)
-        print("\nUsage:", file=sys.stderr)
-        print("  gauntlet path/to/spec.md --input-type spec", file=sys.stderr)
         return 1
 
     input_content = input_path.read_text()
     if not args.quiet:
-        print(f"\nInput: {input_path} ({len(input_content)} chars)")
+        pass
 
     # Determine input type
     input_type_map = {
@@ -232,7 +227,7 @@ def main() -> int:
     }
     input_type = input_type_map.get(args.input_type, InputType.SPEC)
     if not args.quiet:
-        print(f"Type: {input_type.value}")
+        pass
 
     # Parse and create agents
     specs = AgentSpec.parse_list(args.agents)
@@ -259,19 +254,15 @@ def main() -> int:
         except Exception as e:
             failed_agents.append((spec.provider, str(e)))
             if not args.quiet:
-                print(f"Warning: Could not create agent {spec.provider}: {e}")
+                pass
 
     if not agents:
-        print("\nError: No agents could be created.", file=sys.stderr)
-        print("\nFailed agents:", file=sys.stderr)
         for agent_type, error in failed_agents:
-            print(f"  - {agent_type}: {error}", file=sys.stderr)
-        print("\nTo fix:", file=sys.stderr)
-        print("  Set required API keys: export ANTHROPIC_API_KEY='your-key'", file=sys.stderr)
+            pass
         return 1
 
     if not args.quiet:
-        print(f"Agents: {', '.join(a.name for a in agents)}")
+        pass
 
     # Profile configuration
     profile_configs = {
@@ -290,7 +281,7 @@ def main() -> int:
     persona = args.persona
     if persona:
         if not args.quiet:
-            print(f"Persona: {persona}")
+            pass
         if args.profile in ("quick", "thorough"):
             base_config, _ = profile_configs[args.profile]
         else:
@@ -318,11 +309,7 @@ def main() -> int:
     )
 
     if not args.quiet:
-        print(f"Profile: {args.profile}")
-        print(f"Max duration: {config.max_duration_seconds}s")
-        print("\n" + "-" * 60)
-        print("Running stress-test...")
-        print("-" * 60 + "\n")
+        pass
 
     # Progress callback
     last_phase: list[Optional[str]] = [None]
@@ -357,7 +344,6 @@ def main() -> int:
     result = asyncio.run(orchestrator.run(config))
 
     # Print summary
-    print("\n" + result.summary())
 
     # Generate and save receipt
     if args.output:
@@ -369,16 +355,12 @@ def main() -> int:
         if format_ext not in ("json", "md", "html"):
             format_ext = "html"
 
-        output_file = _save_receipt(receipt, output_path, format_ext)
-        print(f"\nDecision Receipt saved: {output_file}")
-        print(f"Artifact Hash: {receipt.artifact_hash[:16]}...")
+        _save_receipt(receipt, output_path, format_ext)
 
     # Exit code based on verdict
     if result.verdict.value == "rejected":
-        print("\n[REJECTED] This input failed the stress-test.")
         return 1
     elif result.verdict.value == "needs_review":
-        print("\n[NEEDS REVIEW] This input requires human review.")
         return 2
 
     return 0

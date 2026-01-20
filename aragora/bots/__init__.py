@@ -37,26 +37,35 @@ from aragora.bots.commands import (
     get_default_registry,
 )
 
+
 # Platform-specific bots (lazy imports to avoid dependency issues)
 def get_discord_bot():
     """Get Discord bot class (requires discord.py)."""
     from aragora.bots.discord_bot import AragoraDiscordBot, create_discord_bot
+
     return AragoraDiscordBot, create_discord_bot
+
 
 def get_teams_bot():
     """Get Teams bot class (requires botbuilder-core)."""
     from aragora.bots.teams_bot import AragoraTeamsBot, create_teams_bot
+
     return AragoraTeamsBot, create_teams_bot
+
 
 def get_zoom_bot():
     """Get Zoom bot class (requires aiohttp)."""
     from aragora.bots.zoom_bot import AragoraZoomBot, create_zoom_bot
+
     return AragoraZoomBot, create_zoom_bot
+
 
 def get_slack_bot():
     """Get Slack bot class (requires slack-bolt)."""
     from aragora.bots.slack_bot import AragoraSlackBot, create_slack_bot
+
     return AragoraSlackBot, create_slack_bot
+
 
 __all__ = [
     # Base classes

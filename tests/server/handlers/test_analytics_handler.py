@@ -39,7 +39,7 @@ def mock_http_handler():
 def mock_storage():
     """Create a mock storage with sample debates."""
     storage = MagicMock()
-    
+
     # Sample debate data
     debates = [
         {
@@ -74,7 +74,7 @@ def mock_storage():
             },
         },
     ]
-    
+
     storage.list_debates.return_value = debates
     return storage
 
@@ -83,23 +83,23 @@ def mock_storage():
 def mock_elo_system():
     """Create a mock ELO system."""
     elo = MagicMock()
-    
+
     # Mock agent data
     agent1 = MagicMock()
     agent1.agent_name = "claude"
     agent1.elo = 1650
     agent1.debates_count = 50
-    
+
     agent2 = MagicMock()
     agent2.agent_name = "gpt-4"
     agent2.elo = 1550
     agent2.debates_count = 45
-    
+
     agent3 = MagicMock()
     agent3.agent_name = "codex"
     agent3.elo = 1480
     agent3.debates_count = 30
-    
+
     elo.get_leaderboard.return_value = [agent1, agent2, agent3]
     return elo
 
@@ -142,22 +142,20 @@ class TestAnalyticsHandlerDisagreements:
 
     def test_disagreement_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test disagreement stats returns empty when no storage."""
-        result = analytics_handler.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_disagreement_stats_with_storage(self, analytics_handler, mock_http_handler, mock_storage):
+    def test_disagreement_stats_with_storage(
+        self, analytics_handler, mock_http_handler, mock_storage
+    ):
         """Test disagreement stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
-        
-        result = analytics_handler.handle(
-            "/api/analytics/disagreements", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -173,22 +171,20 @@ class TestAnalyticsHandlerRoleRotation:
 
     def test_role_rotation_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test role rotation stats returns empty when no storage."""
-        result = analytics_handler.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/analytics/role-rotation", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_role_rotation_stats_with_storage(self, analytics_handler, mock_http_handler, mock_storage):
+    def test_role_rotation_stats_with_storage(
+        self, analytics_handler, mock_http_handler, mock_storage
+    ):
         """Test role rotation stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
-        
-        result = analytics_handler.handle(
-            "/api/analytics/role-rotation", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/analytics/role-rotation", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -202,22 +198,20 @@ class TestAnalyticsHandlerEarlyStops:
 
     def test_early_stop_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test early stop stats returns empty when no storage."""
-        result = analytics_handler.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/analytics/early-stops", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
 
-    def test_early_stop_stats_with_storage(self, analytics_handler, mock_http_handler, mock_storage):
+    def test_early_stop_stats_with_storage(
+        self, analytics_handler, mock_http_handler, mock_storage
+    ):
         """Test early stop stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
-        
-        result = analytics_handler.handle(
-            "/api/analytics/early-stops", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/analytics/early-stops", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -233,23 +227,21 @@ class TestAnalyticsHandlerConsensusQuality:
 
     def test_consensus_quality_no_storage(self, analytics_handler, mock_http_handler):
         """Test consensus quality returns empty when no storage."""
-        result = analytics_handler.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
         assert "quality_score" in body
 
-    def test_consensus_quality_with_storage(self, analytics_handler, mock_http_handler, mock_storage):
+    def test_consensus_quality_with_storage(
+        self, analytics_handler, mock_http_handler, mock_storage
+    ):
         """Test consensus quality with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
-        
-        result = analytics_handler.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -266,11 +258,9 @@ class TestAnalyticsHandlerConsensusQuality:
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx["storage"] = mock_storage
-        
-        result = analytics_handler.handle(
-            "/api/analytics/consensus-quality", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert body["quality_score"] == 0
@@ -282,21 +272,17 @@ class TestAnalyticsHandlerRankingStats:
 
     def test_ranking_stats_no_elo(self, analytics_handler, mock_http_handler):
         """Test ranking stats returns 503 when no ELO system."""
-        result = analytics_handler.handle(
-            "/api/ranking/stats", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/ranking/stats", {}, mock_http_handler)
+
         assert result is not None
         assert result.status_code == 503
 
     def test_ranking_stats_with_elo(self, analytics_handler, mock_http_handler, mock_elo_system):
         """Test ranking stats with ELO system data."""
         analytics_handler.ctx["elo_system"] = mock_elo_system
-        
-        result = analytics_handler.handle(
-            "/api/ranking/stats", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/ranking/stats", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -315,10 +301,8 @@ class TestAnalyticsHandlerMemoryStats:
 
     def test_memory_stats_no_nomic_dir(self, analytics_handler, mock_http_handler):
         """Test memory stats returns empty when no nomic dir."""
-        result = analytics_handler.handle(
-            "/api/memory/stats", {}, mock_http_handler
-        )
-        
+        result = analytics_handler.handle("/api/memory/stats", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -329,13 +313,11 @@ class TestAnalyticsHandlerMemoryStats:
         nomic_dir = tmp_path / "nomic"
         nomic_dir.mkdir()
         (nomic_dir / "debate_embeddings.db").touch()
-        
+
         analytics_handler.ctx["nomic_dir"] = nomic_dir
-        
-        result = analytics_handler.handle(
-            "/api/memory/stats", {}, mock_http_handler
-        )
-        
+
+        result = analytics_handler.handle("/api/memory/stats", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "stats" in body
@@ -352,38 +334,42 @@ class TestAnalyticsHandlerRateLimiting:
     def test_rate_limit_exceeded(self, analytics_handler, mock_http_handler):
         """Test rate limiting returns 429 after many requests."""
         from aragora.server.handlers.analytics import _analytics_limiter
-        
+
         # Save original state
-        original_requests = _analytics_limiter._requests.copy() if hasattr(_analytics_limiter, '_requests') else {}
-        
+        original_requests = (
+            _analytics_limiter._requests.copy() if hasattr(_analytics_limiter, "_requests") else {}
+        )
+
         try:
             # Make many requests to trigger rate limit
             for _ in range(35):
                 result = analytics_handler.handle(
                     "/api/analytics/disagreements", {}, mock_http_handler
                 )
-            
+
             # The rate limiter should eventually kick in
             # Note: The exact behavior depends on implementation
             assert result is not None
         finally:
             # Restore rate limiter state
-            if hasattr(_analytics_limiter, '_requests'):
+            if hasattr(_analytics_limiter, "_requests"):
                 _analytics_limiter._requests = original_requests
 
 
 class TestAnalyticsHandlerIntegration:
     """Integration tests for analytics handler."""
 
-    def test_all_endpoints_return_valid_json(self, analytics_handler, mock_http_handler, mock_storage, mock_elo_system, tmp_path):
+    def test_all_endpoints_return_valid_json(
+        self, analytics_handler, mock_http_handler, mock_storage, mock_elo_system, tmp_path
+    ):
         """Test all analytics endpoints return valid JSON."""
         nomic_dir = tmp_path / "nomic"
         nomic_dir.mkdir()
-        
+
         analytics_handler.ctx["storage"] = mock_storage
         analytics_handler.ctx["elo_system"] = mock_elo_system
         analytics_handler.ctx["nomic_dir"] = nomic_dir
-        
+
         endpoints = [
             "/api/analytics/disagreements",
             "/api/analytics/role-rotation",
@@ -392,11 +378,11 @@ class TestAnalyticsHandlerIntegration:
             "/api/ranking/stats",
             "/api/memory/stats",
         ]
-        
+
         for endpoint in endpoints:
             result = analytics_handler.handle(endpoint, {}, mock_http_handler)
             assert result is not None, f"Endpoint {endpoint} returned None"
-            
+
             # Verify it's valid JSON
             try:
                 body = json.loads(result.body)

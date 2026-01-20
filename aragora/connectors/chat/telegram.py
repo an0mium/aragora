@@ -34,7 +34,6 @@ from .models import (
     ChatUser,
     FileAttachment,
     InteractionType,
-    MessageButton,
     MessageType,
     SendMessageResponse,
     UserInteraction,
@@ -142,7 +141,7 @@ class TelegramConnector(ChatPlatformConnector):
                 success=True,
                 message_id=str(result.get("message_id")),
                 channel_id=str(result.get("chat", {}).get("id")),
-                timestamp=datetime.fromtimestamp(result.get("date", 0)),
+                timestamp=datetime.fromtimestamp(result.get("date", 0)).isoformat(),
             )
 
     async def update_message(
@@ -209,7 +208,7 @@ class TelegramConnector(ChatPlatformConnector):
             data = response.json()
             return data.get("ok", False)
 
-    async def upload_file(
+    async def upload_file(  # type: ignore[override]
         self,
         channel_id: str,
         file_path: str,
@@ -240,13 +239,13 @@ class TelegramConnector(ChatPlatformConnector):
 
                 doc = result.get("result", {}).get("document", {})
                 return FileAttachment(
-                    file_id=doc.get("file_id", ""),
+                    id=doc.get("file_id", ""),
                     filename=doc.get("file_name", filename or ""),
-                    size_bytes=doc.get("file_size", 0),
-                    mime_type=doc.get("mime_type", "application/octet-stream"),
+                    size=doc.get("file_size", 0),
+                    content_type=doc.get("mime_type", "application/octet-stream"),
                 )
 
-    async def download_file(
+    async def download_file(  # type: ignore[override]
         self,
         file_id: str,
         **kwargs: Any,
@@ -288,11 +287,13 @@ class TelegramConnector(ChatPlatformConnector):
             return WebhookEvent(
                 event_type="message",
                 platform="telegram",
-                channel_id=str(msg.get("chat", {}).get("id")),
-                user_id=str(msg.get("from", {}).get("id")),
-                message_id=str(msg.get("message_id")),
                 timestamp=datetime.fromtimestamp(msg.get("date", 0)),
                 raw_payload=payload,
+                metadata={
+                    "channel_id": str(msg.get("chat", {}).get("id")),
+                    "user_id": str(msg.get("from", {}).get("id")),
+                    "message_id": str(msg.get("message_id")),
+                },
             )
 
         # Handle callback queries (button clicks)
@@ -301,11 +302,13 @@ class TelegramConnector(ChatPlatformConnector):
             return WebhookEvent(
                 event_type="callback_query",
                 platform="telegram",
-                channel_id=str(query.get("message", {}).get("chat", {}).get("id")),
-                user_id=str(query.get("from", {}).get("id")),
-                message_id=str(query.get("message", {}).get("message_id")),
                 timestamp=datetime.now(),
                 raw_payload=payload,
+                metadata={
+                    "channel_id": str(query.get("message", {}).get("chat", {}).get("id")),
+                    "user_id": str(query.get("from", {}).get("id")),
+                    "message_id": str(query.get("message", {}).get("message_id")),
+                },
             )
 
         return WebhookEvent(
@@ -357,7 +360,11 @@ class TelegramConnector(ChatPlatformConnector):
             content=msg.get("text", msg.get("caption", "")),
             message_type=msg_type,
             timestamp=datetime.fromtimestamp(msg.get("date", 0)),
-            thread_id=str(msg.get("reply_to_message", {}).get("message_id")) if msg.get("reply_to_message") else None,
+            thread_id=(
+                str(msg.get("reply_to_message", {}).get("message_id"))
+                if msg.get("reply_to_message")
+                else None
+            ),
             metadata={"raw_data": msg},
         )
 
@@ -417,16 +424,31 @@ class TelegramConnector(ChatPlatformConnector):
         query = payload.get("callback_query", {})
         user_data = query.get("from", {})
         msg = query.get("message", {})
+        chat_data = msg.get("chat", {})
+
+        # Build user and channel objects
+        user = ChatUser(
+            id=str(user_data.get("id")),
+            platform="telegram",
+            username=user_data.get("username", ""),
+            display_name=f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+        )
+        channel = ChatChannel(
+            id=str(chat_data.get("id")),
+            platform="telegram",
+            name=chat_data.get("title") or chat_data.get("username"),
+        )
 
         return UserInteraction(
+            id=query.get("id", ""),
             interaction_type=InteractionType.BUTTON_CLICK,
-            user_id=str(user_data.get("id")),
-            channel_id=str(msg.get("chat", {}).get("id")),
-            message_id=str(msg.get("message_id")),
             action_id=query.get("data", ""),
-            action_value=query.get("data", ""),
+            value=query.get("data", ""),
+            user=user,
+            channel=channel,
+            message_id=str(msg.get("message_id")),
             platform="telegram",
-            raw_data=query,
+            metadata={"raw_data": query},
         )
 
     async def send_voice_message(
@@ -464,7 +486,7 @@ class TelegramConnector(ChatPlatformConnector):
                 success=True,
                 message_id=str(msg.get("message_id")),
                 channel_id=channel_id,
-                timestamp=datetime.fromtimestamp(msg.get("date", 0)),
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
             )
 
     async def download_voice_message(
@@ -473,7 +495,7 @@ class TelegramConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> bytes:
         """Download a voice message."""
-        return await self.download_file(voice_message.file_id)
+        return await self.download_file(voice_message.file.id)
 
     async def get_channel_info(
         self,
@@ -495,12 +517,14 @@ class TelegramConnector(ChatPlatformConnector):
                 raise RuntimeError(data.get("description", "Failed to get chat"))
 
             chat = data.get("result", {})
+            chat_type = chat.get("type", "private")
             return ChatChannel(
-                channel_id=str(chat.get("id")),
-                name=chat.get("title") or chat.get("username") or "",
-                channel_type=chat.get("type", "private"),
+                id=str(chat.get("id")),
                 platform="telegram",
-                member_count=chat.get("member_count"),
+                name=chat.get("title") or chat.get("username") or "",
+                is_private=chat_type == "private",
+                is_dm=chat_type == "private",
+                metadata={"type": chat_type, "member_count": chat.get("member_count")},
             )
 
     async def get_user_info(
@@ -512,7 +536,7 @@ class TelegramConnector(ChatPlatformConnector):
         # Telegram doesn't have a direct getUser API
         # User info typically comes from message updates
         return ChatUser(
-            user_id=user_id,
+            id=user_id,
             platform="telegram",
         )
 
@@ -522,15 +546,30 @@ class TelegramConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> ChatEvidence:
         """Extract evidence from a message for debate."""
+        import hashlib
+
+        # Generate unique ID
+        evidence_id = hashlib.sha256(
+            f"telegram:{message.channel.id}:{message.id}".encode()
+        ).hexdigest()[:16]
+
         return ChatEvidence(
-            content=message.text,
-            source_url=f"https://t.me/c/{message.channel_id}/{message.message_id}",
-            author=message.user.display_name or message.user.username,
-            timestamp=message.timestamp,
+            id=evidence_id,
+            source_type="chat",
+            source_id=message.id,
             platform="telegram",
-            channel_id=message.channel_id,
-            message_id=message.message_id,
-            metadata={"raw": message.raw_data},
+            channel_id=message.channel.id,
+            channel_name=message.channel.name,
+            content=message.content,
+            title=message.content[:100] if message.content else "",
+            author_id=message.author.id,
+            author_name=message.author.display_name or message.author.username,
+            timestamp=message.timestamp,
+            source_message=message,
+            metadata={
+                "raw": message.metadata,
+                "permalink": f"https://t.me/c/{message.channel.id}/{message.id}",
+            },
         )
 
     async def answer_callback_query(
@@ -563,15 +602,19 @@ class TelegramConnector(ChatPlatformConnector):
 
         for block in blocks:
             if block.get("type") == "button":
-                buttons.append({
-                    "text": block.get("text", ""),
-                    "callback_data": block.get("action_id", block.get("value", "")),
-                })
+                buttons.append(
+                    {
+                        "text": block.get("text", ""),
+                        "callback_data": block.get("action_id", block.get("value", "")),
+                    }
+                )
             elif block.get("type") == "url_button":
-                buttons.append({
-                    "text": block.get("text", ""),
-                    "url": block.get("url", ""),
-                })
+                buttons.append(
+                    {
+                        "text": block.get("text", ""),
+                        "url": block.get("url", ""),
+                    }
+                )
 
         if not buttons:
             return None

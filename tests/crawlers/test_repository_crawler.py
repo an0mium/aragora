@@ -590,13 +590,13 @@ const fs = require('fs');
 
     def test_go_imports(self, crawler):
         """Test extracting Go imports."""
-        content = '''
+        content = """
 import "fmt"
 import (
     "os"
     "net/http"
 )
-'''
+"""
         imports = crawler._extract_imports(content, "go")
 
         assert "fmt" in imports

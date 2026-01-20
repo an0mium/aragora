@@ -348,9 +348,7 @@ class TestTeamSelection:
 
     def test_select_team_all_excluded(self, pool):
         """All agents excluded returns empty team."""
-        team = pool.select_team(
-            exclude={"agent_a", "agent_b", "agent_c", "agent_d", "agent_e"}
-        )
+        team = pool.select_team(exclude={"agent_a", "agent_b", "agent_c", "agent_d", "agent_e"})
         assert team == []
 
 

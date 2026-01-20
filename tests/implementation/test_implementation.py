@@ -378,7 +378,9 @@ class TestCheckpoint:
         assert loaded is not None
         assert loaded.current_task == "task-3"
 
-    def test_save_atomic_creates_parent_dir(self, tmp_path: Path, sample_progress: ImplementProgress):
+    def test_save_atomic_creates_parent_dir(
+        self, tmp_path: Path, sample_progress: ImplementProgress
+    ):
         """Test that save creates .nomic directory if missing."""
         repo = tmp_path / "new_repo"
         repo.mkdir()
@@ -398,23 +400,23 @@ class TestExtractJson:
 
     def test_extract_from_code_block(self):
         """Test extracting JSON from markdown code block."""
-        text = '''Here's the plan:
+        text = """Here's the plan:
 
 ```json
 {"tasks": [{"id": "task-1"}]}
 ```
 
-Done!'''
+Done!"""
         result = extract_json(text)
         assert '{"tasks"' in result
 
     def test_extract_from_bare_code_block(self):
         """Test extracting JSON from code block without language."""
-        text = '''
+        text = """
 ```
 {"key": "value"}
 ```
-'''
+"""
         result = extract_json(text)
         data = json.loads(result)
         assert data["key"] == "value"
@@ -428,12 +430,12 @@ Done!'''
 
     def test_extract_multiline_json(self):
         """Test extracting multiline JSON."""
-        text = '''{
+        text = """{
   "tasks": [
     {"id": "task-1"},
     {"id": "task-2"}
   ]
-}'''
+}"""
         result = extract_json(text)
         data = json.loads(result)
         assert len(data["tasks"]) == 2
@@ -495,11 +497,7 @@ class TestValidatePlan:
 
     def test_validate_missing_id(self):
         """Test validation when task is missing id."""
-        plan = {
-            "tasks": [
-                {"description": "Task without id", "files": [], "complexity": "simple"}
-            ]
-        }
+        plan = {"tasks": [{"description": "Task without id", "files": [], "complexity": "simple"}]}
         errors = validate_plan(plan)
         assert any("missing 'id'" in e for e in errors)
 
@@ -511,9 +509,7 @@ class TestValidatePlan:
 
     def test_validate_missing_files(self):
         """Test validation when task is missing files."""
-        plan = {
-            "tasks": [{"id": "task-1", "description": "Task", "complexity": "simple"}]
-        }
+        plan = {"tasks": [{"id": "task-1", "description": "Task", "complexity": "simple"}]}
         errors = validate_plan(plan)
         assert any("missing or invalid 'files'" in e for e in errors)
 
@@ -701,9 +697,7 @@ class TestPromptBuilding:
         """Create executor for testing."""
         return HybridExecutor(temp_repo)
 
-    def test_build_prompt_with_files(
-        self, executor: HybridExecutor, sample_task: ImplementTask
-    ):
+    def test_build_prompt_with_files(self, executor: HybridExecutor, sample_task: ImplementTask):
         """Test prompt includes file list."""
         prompt = executor._build_prompt(sample_task)
         assert "src/rate_limiter.py" in prompt
@@ -789,9 +783,7 @@ class TestTaskExecution:
         return HybridExecutor(temp_repo)
 
     @pytest.mark.asyncio
-    async def test_execute_task_success(
-        self, executor: HybridExecutor, sample_task: ImplementTask
-    ):
+    async def test_execute_task_success(self, executor: HybridExecutor, sample_task: ImplementTask):
         """Test successful task execution."""
         # Mock the claude agent
         mock_claude = AsyncMock()
@@ -817,9 +809,7 @@ class TestTaskExecution:
         assert result.diff == "1 file changed"
 
     @pytest.mark.asyncio
-    async def test_execute_task_timeout(
-        self, executor: HybridExecutor, sample_task: ImplementTask
-    ):
+    async def test_execute_task_timeout(self, executor: HybridExecutor, sample_task: ImplementTask):
         """Test task execution timeout."""
         mock_claude = AsyncMock()
         mock_claude.generate = AsyncMock(side_effect=TimeoutError("Timed out"))
@@ -859,9 +849,7 @@ class TestTaskExecution:
                 "aragora.server.stream.arena_hooks.streaming_task_context",
                 return_value=mock_context,
             ):
-                result = await executor.execute_task(
-                    sample_task, attempt=3, use_fallback=True
-                )
+                result = await executor.execute_task(sample_task, attempt=3, use_fallback=True)
 
         assert result.success is True
         assert result.model_used == "codex-fallback"
@@ -1034,9 +1022,7 @@ class TestCodeReview:
         )
         mock_codex.name = "codex-reviewer"
 
-        with patch(
-            "aragora.implement.executor.CodexAgent", return_value=mock_codex
-        ):
+        with patch("aragora.implement.executor.CodexAgent", return_value=mock_codex):
             with patch(
                 "aragora.server.stream.arena_hooks.streaming_task_context",
                 return_value=mock_context,
@@ -1055,9 +1041,7 @@ class TestCodeReview:
         )
         mock_codex.name = "codex-reviewer"
 
-        with patch(
-            "aragora.implement.executor.CodexAgent", return_value=mock_codex
-        ):
+        with patch("aragora.implement.executor.CodexAgent", return_value=mock_codex):
             with patch(
                 "aragora.server.stream.arena_hooks.streaming_task_context",
                 return_value=mock_context,
@@ -1073,9 +1057,7 @@ class TestCodeReview:
         mock_codex.generate = AsyncMock(side_effect=Exception("API error"))
         mock_codex.name = "codex-reviewer"
 
-        with patch(
-            "aragora.implement.executor.CodexAgent", return_value=mock_codex
-        ):
+        with patch("aragora.implement.executor.CodexAgent", return_value=mock_codex):
             with patch(
                 "aragora.server.stream.arena_hooks.streaming_task_context",
                 return_value=mock_context,
@@ -1114,9 +1096,7 @@ class TestRetryLogic:
         """Test retry on timeout error."""
         # First call times out, second succeeds
         mock_claude = AsyncMock()
-        mock_claude.generate = AsyncMock(
-            side_effect=[TimeoutError("Timeout"), "Success"]
-        )
+        mock_claude.generate = AsyncMock(side_effect=[TimeoutError("Timeout"), "Success"])
         mock_claude.name = "claude-test"
         executor._claude = mock_claude
 

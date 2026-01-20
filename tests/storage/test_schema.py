@@ -348,9 +348,7 @@ class TestSchemaManager:
         """Creating initial schema."""
         manager = SchemaManager(db_conn, "test_module", current_version=1)
 
-        result = manager.ensure_schema(
-            initial_schema="CREATE TABLE users (id INTEGER PRIMARY KEY)"
-        )
+        result = manager.ensure_schema(initial_schema="CREATE TABLE users (id INTEGER PRIMARY KEY)")
 
         assert result is True
         assert manager.get_version() == 1
@@ -365,9 +363,7 @@ class TestSchemaManager:
         manager = SchemaManager(db_conn, "test_module", current_version=2)
 
         # Register migration BEFORE calling ensure_schema
-        manager.register_migration(
-            1, 2, sql="ALTER TABLE test ADD COLUMN name TEXT"
-        )
+        manager.register_migration(1, 2, sql="ALTER TABLE test ADD COLUMN name TEXT")
 
         # Create initial schema and run migrations
         result = manager.ensure_schema(initial_schema="CREATE TABLE test (id INTEGER)")
@@ -446,9 +442,7 @@ class TestSafeAddColumn:
 
     def test_adds_column_with_default(self, db_conn):
         """Adds column with default value."""
-        result = safe_add_column(
-            db_conn, "test", "status", "TEXT", default="'active'"
-        )
+        result = safe_add_column(db_conn, "test", "status", "TEXT", default="'active'")
 
         assert result is True
 
@@ -688,9 +682,7 @@ class TestCreatePerformanceIndexes:
 
     def test_creates_indexes(self, db_conn):
         """Creates indexes on existing tables."""
-        result = create_performance_indexes(
-            db_conn, tables_to_index=["memory_store", "votes"]
-        )
+        result = create_performance_indexes(db_conn, tables_to_index=["memory_store", "votes"])
 
         assert len(result["created"]) > 0
         assert "idx_memory_agent_debate" in result["created"]
@@ -698,15 +690,11 @@ class TestCreatePerformanceIndexes:
     def test_skips_existing_indexes(self, db_conn):
         """Skips indexes that already exist."""
         # Create index first time
-        result1 = create_performance_indexes(
-            db_conn, tables_to_index=["memory_store"]
-        )
+        result1 = create_performance_indexes(db_conn, tables_to_index=["memory_store"])
         created_first = result1["created"]
 
         # Try to create again
-        result2 = create_performance_indexes(
-            db_conn, tables_to_index=["memory_store"]
-        )
+        result2 = create_performance_indexes(db_conn, tables_to_index=["memory_store"])
 
         # Should be in skipped, not created
         for idx in created_first:
@@ -725,9 +713,7 @@ class TestCreatePerformanceIndexes:
 
     def test_filters_by_tables_to_index(self, db_conn):
         """Only indexes specified tables."""
-        result = create_performance_indexes(
-            db_conn, tables_to_index=["votes"]
-        )
+        result = create_performance_indexes(db_conn, tables_to_index=["votes"])
 
         # Should only have votes indexes
         for idx in result["created"]:

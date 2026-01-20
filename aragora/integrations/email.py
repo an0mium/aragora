@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 class EmailProvider(Enum):
     """Email service provider."""
+
     SMTP = "smtp"
     SENDGRID = "sendgrid"
     SES = "ses"
@@ -269,14 +270,10 @@ class EmailIntegration:
                         recipient, subject, html_body, text_body
                     )
                 elif provider == EmailProvider.SES:
-                    success = await self._send_via_ses(
-                        recipient, subject, html_body, text_body
-                    )
+                    success = await self._send_via_ses(recipient, subject, html_body, text_body)
                 else:
                     # Default to SMTP
-                    success = await self._send_via_smtp(
-                        recipient, subject, html_body, text_body
-                    )
+                    success = await self._send_via_smtp(recipient, subject, html_body, text_body)
 
                 if success:
                     logger.debug(f"Email sent to {recipient.email} via {provider.value}")

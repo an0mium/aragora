@@ -68,31 +68,31 @@ class TestSandboxEscapePrevention:
 
     def test_callable_blocked(self, env):
         """callable() function is blocked."""
-        code = 'callable(search)'
+        code = "callable(search)"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_vars_blocked(self, env):
         """vars() function is blocked (exposes __dict__)."""
-        code = 'vars(search)'
+        code = "vars(search)"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_dir_blocked(self, env):
         """dir() function is blocked (can discover dunder methods)."""
-        code = 'dir(search)'
+        code = "dir(search)"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_globals_blocked(self, env):
         """globals() function is blocked."""
-        code = 'globals()'
+        code = "globals()"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_locals_blocked(self, env):
         """locals() function is blocked."""
-        code = 'locals()'
+        code = "locals()"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
@@ -109,7 +109,7 @@ class TestDunderAttributeBlocking:
 
     def test_globals_attribute_blocked(self, env):
         """__globals__ attribute access is blocked."""
-        code = 'search.__globals__'
+        code = "search.__globals__"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
@@ -127,26 +127,26 @@ class TestDunderAttributeBlocking:
 
     def test_dict_attribute_blocked(self, env):
         """__dict__ attribute access is blocked."""
-        code = 'search.__dict__'
+        code = "search.__dict__"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_builtins_attribute_blocked(self, env):
         """__builtins__ attribute access is blocked."""
-        code = '__builtins__'
+        code = "__builtins__"
         output, _ = env.execute(code)
         # Should fail because __builtins__ is not in namespace
         assert "Error" in output or output.strip() == ""
 
     def test_code_attribute_blocked(self, env):
         """__code__ attribute access is blocked."""
-        code = 'search.__code__'
+        code = "search.__code__"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_private_attribute_blocked(self, env):
         """Private _attribute access is blocked."""
-        code = 'search._something'
+        code = "search._something"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
@@ -191,37 +191,37 @@ class TestImportBlocking:
 
     def test_os_import_blocked(self, env):
         """os module import is blocked."""
-        code = 'import os'
+        code = "import os"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_sys_import_blocked(self, env):
         """sys module import is blocked."""
-        code = 'import sys'
+        code = "import sys"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_subprocess_import_blocked(self, env):
         """subprocess module import is blocked."""
-        code = 'import subprocess'
+        code = "import subprocess"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_builtins_import_blocked(self, env):
         """builtins module import is blocked."""
-        code = 'import builtins'
+        code = "import builtins"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_from_import_blocked(self, env):
         """from X import Y is blocked (except re)."""
-        code = 'from os import system'
+        code = "from os import system"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_re_import_allowed(self, env):
         """re module import is allowed."""
-        code = 'import re'
+        code = "import re"
         output, _ = env.execute(code)
         # Should not raise SecurityError
         assert "SecurityError" not in output
@@ -263,7 +263,7 @@ class TestDangerousFunctionBlocking:
 
     def test_breakpoint_blocked(self, env):
         """breakpoint() is blocked."""
-        code = 'breakpoint()'
+        code = "breakpoint()"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
@@ -292,19 +292,19 @@ class TestComplexEscapeAttempts:
 
     def test_type_subclasses_escape_blocked(self, env):
         """type.__subclasses__ escape is blocked."""
-        code = 'type.__subclasses__(type)'
+        code = "type.__subclasses__(type)"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_object_init_subclass_blocked(self, env):
         """__init_subclass__ access is blocked."""
-        code = 'object.__init_subclass__'
+        code = "object.__init_subclass__"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
     def test_mro_access_blocked(self, env):
         """__mro__ access is blocked."""
-        code = 'str.__mro__'
+        code = "str.__mro__"
         output, _ = env.execute(code)
         assert "SecurityError" in output
 
@@ -320,13 +320,13 @@ class TestLegitimateUsage:
 
     def test_list_operations(self, env):
         """Basic list operations work."""
-        code = 'x = [1, 2, 3]; print(len(x))'
+        code = "x = [1, 2, 3]; print(len(x))"
         output, _ = env.execute(code)
         assert "3" in output
 
     def test_context_access(self, env):
         """CONTEXT variable is accessible."""
-        code = 'print(CONTEXT[:10])'
+        code = "print(CONTEXT[:10])"
         output, _ = env.execute(code)
         assert "Test" in output
 
@@ -434,7 +434,9 @@ class TestMemoryProtection:
         # Try to create a 100MB string
         code = 'x = "a" * (100 * 1024 * 1024)'
         output, _ = env.execute(code)
-        assert "SecurityError" in output or "size limit" in output.lower() or "MemoryError" in output
+        assert (
+            "SecurityError" in output or "size limit" in output.lower() or "MemoryError" in output
+        )
 
     def test_moderate_string_allowed(self, env):
         """Moderate string sizes are allowed."""
@@ -472,7 +474,9 @@ class TestSafeReModule:
 
     def test_re_match_works(self, env):
         """re.match works with safe patterns."""
-        code = 'match = re.match(r"hello", "hello world"); print(match.group() if match else "none")'
+        code = (
+            'match = re.match(r"hello", "hello world"); print(match.group() if match else "none")'
+        )
         output, _ = env.execute(code)
         assert "hello" in output
 
@@ -503,7 +507,7 @@ class TestVariableNameBlocking:
         """Variable names containing __globals__ are blocked."""
         # This is a tricky case - we need to test the post-exec validation
         # The variable name itself would contain blocked patterns
-        code = 'my___globals___var = 1'
+        code = "my___globals___var = 1"
         output, _ = env.execute(code)
         # Should either error at parse time or post-exec
         # This specific case might pass AST but fail post-exec if the name contains patterns

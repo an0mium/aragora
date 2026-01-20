@@ -65,9 +65,12 @@ class TestGetAgentString:
             )
             provider, model, persona, role = parts
             assert provider, f"Provider should not be empty in spec '{spec}'"
-            assert role in ("proposer", "critic", "synthesizer", "judge"), (
-                f"Role '{role}' should be a valid debate role"
-            )
+            assert role in (
+                "proposer",
+                "critic",
+                "synthesizer",
+                "judge",
+            ), f"Role '{role}' should be a valid debate role"
 
     def test_openrouter_specs_are_valid(self):
         """OpenRouter agent specs should be valid pipe format."""
@@ -198,9 +201,12 @@ class TestDebateFactoryCompatibility:
             assert isinstance(spec, AgentSpec)
             assert spec.provider, f"Provider should not be empty: {spec}"
             # Role should be a valid debate role, not a model path
-            assert spec.role in ("proposer", "critic", "synthesizer", "judge"), (
-                f"Role '{spec.role}' should be a valid debate role"
-            )
-            assert "/" not in (spec.role or ""), (
-                f"Role '{spec.role}' contains '/', suggesting a model path leaked into role"
-            )
+            assert spec.role in (
+                "proposer",
+                "critic",
+                "synthesizer",
+                "judge",
+            ), f"Role '{spec.role}' should be a valid debate role"
+            assert "/" not in (
+                spec.role or ""
+            ), f"Role '{spec.role}' contains '/', suggesting a model path leaked into role"

@@ -64,9 +64,7 @@ class TestCritiquePhaseTopologies:
         phase = CritiquePhase(protocol, agents)
 
         # Include proposer in critics list
-        critics = phase.select_critics_for_proposal(
-            "alice", [MockAgent("alice"), MockAgent("bob")]
-        )
+        critics = phase.select_critics_for_proposal("alice", [MockAgent("alice"), MockAgent("bob")])
 
         assert len(critics) == 1
         assert critics[0].name == "bob"

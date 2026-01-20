@@ -53,6 +53,7 @@ def reset_handler_state():
     # Reset rate limiters
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -63,6 +64,7 @@ def reset_handler_state():
     # Cleanup after test
     try:
         from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
         reset_rate_limiters()
     except ImportError:
         pass
@@ -142,35 +144,25 @@ class TestGenerateBroadcast:
 
     def test_returns_503_without_broadcast_module(self, broadcast_handler):
         """Returns 503 when broadcast module not available."""
-        with patch(
-            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", False):
             result = broadcast_handler._generate_broadcast("test-debate", MockHandler())
             assert result.status_code == 503
 
     def test_returns_503_without_storage(self, broadcast_handler):
         """Returns 503 when storage not available."""
-        with patch(
-            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch.object(broadcast_handler, "get_storage", return_value=None):
-                result = broadcast_handler._generate_broadcast(
-                    "test-debate", MockHandler()
-                )
+                result = broadcast_handler._generate_broadcast("test-debate", MockHandler())
                 assert result.status_code == 503
 
     def test_returns_503_without_nomic_dir(self, broadcast_handler):
         """Returns 503 when nomic directory not configured."""
         mock_storage = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch.object(broadcast_handler, "get_storage", return_value=mock_storage):
                 with patch.object(broadcast_handler, "get_nomic_dir", return_value=None):
-                    result = broadcast_handler._generate_broadcast(
-                        "test-debate", MockHandler()
-                    )
+                    result = broadcast_handler._generate_broadcast("test-debate", MockHandler())
                     assert result.status_code == 503
 
     def test_returns_404_debate_not_found(self, broadcast_handler):
@@ -179,16 +171,10 @@ class TestGenerateBroadcast:
         mock_storage.get_debate.return_value = None
         mock_storage.get_debate_by_slug.return_value = None
 
-        with patch(
-            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch.object(broadcast_handler, "get_storage", return_value=mock_storage):
-                with patch.object(
-                    broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")
-                ):
-                    result = broadcast_handler._generate_broadcast(
-                        "nonexistent", MockHandler()
-                    )
+                with patch.object(broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")):
+                    result = broadcast_handler._generate_broadcast("nonexistent", MockHandler())
                     assert result.status_code == 404
 
     def test_returns_existing_audio_if_available(self, broadcast_handler):
@@ -203,16 +189,10 @@ class TestGenerateBroadcast:
 
         broadcast_handler.ctx["audio_store"] = mock_audio_store
 
-        with patch(
-            "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch.object(broadcast_handler, "get_storage", return_value=mock_storage):
-                with patch.object(
-                    broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")
-                ):
-                    result = broadcast_handler._generate_broadcast(
-                        "test-123", MockHandler()
-                    )
+                with patch.object(broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")):
+                    result = broadcast_handler._generate_broadcast("test-123", MockHandler())
                     assert result.status_code == 200
                     data = json.loads(result.body)
                     assert data["status"] == "exists"
@@ -229,9 +209,7 @@ class TestFullPipeline:
     def test_returns_503_without_pipeline(self, broadcast_handler):
         """Returns 503 when pipeline not available."""
         with patch.object(broadcast_handler, "_get_pipeline", return_value=None):
-            result = broadcast_handler._run_full_pipeline(
-                "test-debate", {}, MockHandler()
-            )
+            result = broadcast_handler._run_full_pipeline("test-debate", {}, MockHandler())
             assert result.status_code == 503
 
     def test_parses_query_params(self, broadcast_handler):
@@ -285,9 +263,7 @@ class TestFullPipeline:
                 "aragora.server.handlers.features.broadcast._run_async",
                 side_effect=RuntimeError("Pipeline crashed"),
             ):
-                result = broadcast_handler._run_full_pipeline(
-                    "test-123", {}, MockHandler()
-                )
+                result = broadcast_handler._run_full_pipeline("test-123", {}, MockHandler())
                 assert result.status_code == 500
 
 
@@ -301,9 +277,7 @@ class TestPathExtraction:
 
     def test_extracts_debate_id_from_broadcast_path(self, broadcast_handler):
         """Extracts debate ID from /api/debates/{id}/broadcast."""
-        result = broadcast_handler.handle_post(
-            "/api/debates/test-123/broadcast", {}, MockHandler()
-        )
+        result = broadcast_handler.handle_post("/api/debates/test-123/broadcast", {}, MockHandler())
         # Will fail due to missing modules but ID extraction should work
         assert result is not None
 
@@ -346,9 +320,7 @@ class TestHandleMethods:
         with patch.object(
             broadcast_handler, "_run_full_pipeline", return_value=MagicMock(status_code=200)
         ) as mock_pipeline:
-            broadcast_handler.handle_post(
-                "/api/debates/test-123/broadcast/full", {}, MockHandler()
-            )
+            broadcast_handler.handle_post("/api/debates/test-123/broadcast/full", {}, MockHandler())
             mock_pipeline.assert_called_once()
 
     def test_handle_post_routes_to_basic_broadcast(self, broadcast_handler):
@@ -356,9 +328,7 @@ class TestHandleMethods:
         with patch.object(
             broadcast_handler, "_generate_broadcast", return_value=MagicMock(status_code=200)
         ) as mock_gen:
-            broadcast_handler.handle_post(
-                "/api/debates/test-123/broadcast", {}, MockHandler()
-            )
+            broadcast_handler.handle_post("/api/debates/test-123/broadcast", {}, MockHandler())
             mock_gen.assert_called_once()
 
     def test_handle_post_returns_none_for_unmatched(self, broadcast_handler):
@@ -377,18 +347,14 @@ class TestPipelineCaching:
 
     def test_pipeline_created_once(self, broadcast_handler):
         """Pipeline instance is cached after first creation."""
-        with patch(
-            "aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE", True
-        ):
+        with patch("aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.features.broadcast.BroadcastPipeline"
             ) as MockPipeline:
                 mock_instance = MagicMock()
                 MockPipeline.return_value = mock_instance
 
-                with patch.object(
-                    broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")
-                ):
+                with patch.object(broadcast_handler, "get_nomic_dir", return_value=Path("/tmp")):
                     # First call creates pipeline
                     pipeline1 = broadcast_handler._get_pipeline()
 
@@ -400,9 +366,7 @@ class TestPipelineCaching:
 
     def test_returns_none_when_unavailable(self, broadcast_handler):
         """Returns None when pipeline module not available."""
-        with patch(
-            "aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.features.broadcast.PIPELINE_AVAILABLE", False):
             result = broadcast_handler._get_pipeline()
             assert result is None
 
@@ -447,9 +411,7 @@ class TestErrorHandling:
                     True,
                 ):
                     with patch.object(handler, "get_storage", return_value=mock_storage):
-                        with patch.object(
-                            handler, "get_nomic_dir", return_value=nomic_path
-                        ):
+                        with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
                             # Call the underlying method directly
                             result = handler._generate_broadcast.__wrapped__(
                                 handler, "test-err-1", MockHandler()
@@ -492,9 +454,7 @@ class TestErrorHandling:
                     True,
                 ):
                     with patch.object(handler, "get_storage", return_value=mock_storage):
-                        with patch.object(
-                            handler, "get_nomic_dir", return_value=nomic_path
-                        ):
+                        with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
                             # Call the underlying method directly
                             result = handler._generate_broadcast.__wrapped__(
                                 handler, "test-err-2", MockHandler()

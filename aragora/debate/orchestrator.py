@@ -600,9 +600,7 @@ class Arena:
             cleanup_embedding_cache(self._convergence_debate_id)
             logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
 
-    def _queue_for_supabase_sync(
-        self, ctx: "DebateContext", result: "DebateResult"
-    ) -> None:
+    def _queue_for_supabase_sync(self, ctx: "DebateContext", result: "DebateResult") -> None:
         """Queue debate result for background Supabase sync.
 
         This is a non-blocking operation. If sync is disabled or fails,
@@ -702,6 +700,7 @@ class Arena:
         self.knowledge_bridge_hub = None
         if self.knowledge_mound:
             from aragora.knowledge.bridges import KnowledgeBridgeHub
+
             self.knowledge_bridge_hub = KnowledgeBridgeHub(self.knowledge_mound)
 
         # Initialize RevalidationScheduler for automatic knowledge revalidation
@@ -713,7 +712,9 @@ class Arena:
                 self.revalidation_scheduler = RevalidationScheduler(
                     knowledge_mound=self.knowledge_mound,
                     staleness_threshold=getattr(self, "revalidation_staleness_threshold", 0.7),
-                    check_interval_seconds=getattr(self, "revalidation_check_interval_seconds", 3600),
+                    check_interval_seconds=getattr(
+                        self, "revalidation_check_interval_seconds", 3600
+                    ),
                 )
                 logger.info(
                     "[knowledge_mound] RevalidationScheduler initialized "
@@ -1081,17 +1082,13 @@ class Arena:
             )
             removed = len(responses) - len(filtered)
             if removed > 0:
-                logger.debug(
-                    f"[ml] Quality gate filtered {removed} low-quality responses"
-                )
+                logger.debug(f"[ml] Quality gate filtered {removed} low-quality responses")
             return filtered
         except Exception as e:
             logger.warning(f"[ml] Quality gate failed, keeping all responses: {e}")
             return responses
 
-    def _should_terminate_early(
-        self, responses: list[tuple[str, str]], current_round: int
-    ) -> bool:
+    def _should_terminate_early(self, responses: list[tuple[str, str]], current_round: int) -> bool:
         """Check if debate should terminate early based on consensus estimation.
 
         Args:
@@ -1461,8 +1458,10 @@ class Arena:
         perf_monitor = get_debate_monitor()
         agent_names = [a.name for a in self.agents]
 
-        with tracer.start_as_current_span("debate") as span, \
-             perf_monitor.track_debate(debate_id, task=self.env.task, agent_names=agent_names):
+        with (
+            tracer.start_as_current_span("debate") as span,
+            perf_monitor.track_debate(debate_id, task=self.env.task, agent_names=agent_names),
+        ):
             # Add debate attributes to span
             add_span_attributes(
                 span,

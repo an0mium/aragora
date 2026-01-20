@@ -336,9 +336,7 @@ class TestGenerateMandatorySynthesis:
 
         gen = SynthesisGenerator()
 
-        with patch(
-            "aragora.agents.api_agents.anthropic.AnthropicAPIAgent"
-        ) as mock_agent_class:
+        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
             mock_agent = AsyncMock()
             mock_agent.generate = AsyncMock(return_value="Generated synthesis")
             mock_agent_class.return_value = mock_agent
@@ -366,9 +364,7 @@ class TestGenerateMandatorySynthesis:
                 raise asyncio.TimeoutError()
             return "Sonnet synthesis"
 
-        with patch(
-            "aragora.agents.api_agents.anthropic.AnthropicAPIAgent"
-        ) as mock_agent_class:
+        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.generate = mock_generate
             mock_agent_class.return_value = mock_agent
@@ -389,6 +385,7 @@ class TestGenerateMandatorySynthesis:
 
         # Patch the import to raise ImportError
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -412,15 +409,16 @@ class TestGenerateMandatorySynthesis:
 
         gen = SynthesisGenerator()
 
-        with patch(
-            "aragora.agents.api_agents.anthropic.AnthropicAPIAgent"
-        ) as mock_agent_class:
+        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
             mock_agent_class.side_effect = Exception("All agents failed")
 
             result = await gen.generate_mandatory_synthesis(ctx)
 
         assert result is True
-        assert "Combined Perspectives" in ctx.result.synthesis or "Final Synthesis" in ctx.result.synthesis
+        assert (
+            "Combined Perspectives" in ctx.result.synthesis
+            or "Final Synthesis" in ctx.result.synthesis
+        )
 
     @pytest.mark.asyncio
     async def test_export_links_generated(self):
@@ -431,9 +429,7 @@ class TestGenerateMandatorySynthesis:
 
         gen = SynthesisGenerator()
 
-        with patch(
-            "aragora.agents.api_agents.anthropic.AnthropicAPIAgent"
-        ) as mock_agent_class:
+        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
             mock_agent = AsyncMock()
             mock_agent.generate = AsyncMock(return_value="Synthesis")
             mock_agent_class.return_value = mock_agent
@@ -452,9 +448,7 @@ class TestGenerateMandatorySynthesis:
 
         gen = SynthesisGenerator(hooks={"on_synthesis": on_synthesis})
 
-        with patch(
-            "aragora.agents.api_agents.anthropic.AnthropicAPIAgent"
-        ) as mock_agent_class:
+        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
             mock_agent = AsyncMock()
             mock_agent.generate = AsyncMock(return_value="Synthesis")
             mock_agent_class.return_value = mock_agent

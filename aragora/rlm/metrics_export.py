@@ -52,9 +52,7 @@ class MetricsSnapshot:
         """Convert to dictionary."""
         return {
             "timestamp": self.timestamp,
-            "timestamp_iso": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.timestamp)
-            ),
+            "timestamp_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.timestamp)),
             "metrics": self.metrics,
         }
 
@@ -100,10 +98,7 @@ class MetricsCollector:
             return None
 
         current = get_factory_metrics()
-        return {
-            key: current[key] - self._last_snapshot.metrics.get(key, 0)
-            for key in current
-        }
+        return {key: current[key] - self._last_snapshot.metrics.get(key, 0) for key in current}
 
     def get_rates(self, window_seconds: float = 60.0) -> Dict[str, float]:
         """Calculate rates (per second) over the given window."""

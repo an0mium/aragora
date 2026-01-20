@@ -36,11 +36,14 @@ from aragora.connectors.enterprise.documents.sharepoint import (
 def mock_credentials():
     """Mock credential provider with Azure AD credentials."""
     from tests.connectors.enterprise.conftest import MockCredentialProvider
-    return MockCredentialProvider({
-        "SHAREPOINT_TENANT_ID": "tenant-123-456",
-        "SHAREPOINT_CLIENT_ID": "client-abc-def",
-        "SHAREPOINT_CLIENT_SECRET": "secret_value_xyz",
-    })
+
+    return MockCredentialProvider(
+        {
+            "SHAREPOINT_TENANT_ID": "tenant-123-456",
+            "SHAREPOINT_CLIENT_ID": "client-abc-def",
+            "SHAREPOINT_CLIENT_SECRET": "secret_value_xyz",
+        }
+    )
 
 
 @pytest.fixture
@@ -115,7 +118,9 @@ def sample_drive_items():
             "name": "Project Spec.docx",
             "webUrl": "https://contoso.sharepoint.com/sites/engineering/Documents/Project%20Spec.docx",
             "size": 50000,
-            "file": {"mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+            "file": {
+                "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
             "parentReference": {"path": "/drives/drive-001/root:"},
             "createdBy": {"user": {"displayName": "Alice Smith"}},
             "lastModifiedBy": {"user": {"displayName": "Bob Jones"}},
@@ -224,6 +229,7 @@ class TestSharePointConnectorInit:
     def test_source_type(self, sharepoint_connector):
         """Test source type property."""
         from aragora.reasoning.provenance import SourceType
+
         assert sharepoint_connector.source_type == SourceType.DOCUMENT
 
     def test_name_property(self, sharepoint_connector):
@@ -296,6 +302,7 @@ class TestAccessToken:
     async def test_get_access_token_missing_credentials(self, tmp_path):
         """Test error when credentials are missing."""
         from tests.connectors.enterprise.conftest import MockCredentialProvider
+
         empty_credentials = MockCredentialProvider({})
 
         connector = SharePointConnector(
@@ -345,7 +352,7 @@ class TestGraphApiRequest:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {}
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -543,7 +550,9 @@ class TestDriveItems:
             {
                 "id": "item-large",
                 "name": "huge.docx",
-                "file": {"mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                "file": {
+                    "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                },
                 "parentReference": {"path": "/drives/drive-001/root:"},
                 "size": MAX_FILE_SIZE + 1,
             },
@@ -658,10 +667,23 @@ class TestSync:
         # Mock the API calls - return empty after first call to avoid recursion
         async def mock_graph_request(endpoint, **kwargs):
             # Match _get_site() endpoint pattern: /sites/{tenant}.sharepoint.com or /sites/{tenant}.sharepoint.com:/sites/{path}
-            if endpoint.startswith("/sites/") and "/drives" not in endpoint and "/sites/" not in endpoint[7:]:
+            if (
+                endpoint.startswith("/sites/")
+                and "/drives" not in endpoint
+                and "/sites/" not in endpoint[7:]
+            ):
                 return sample_site
             elif "/drives" in endpoint and "/items/" not in endpoint:
-                return {"value": [{"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}]}
+                return {
+                    "value": [
+                        {
+                            "id": "drive-001",
+                            "name": "Documents",
+                            "driveType": "documentLibrary",
+                            "webUrl": "",
+                        }
+                    ]
+                }
             elif "/sites/" in endpoint and endpoint.endswith("/sites"):
                 return {"value": []}  # No subsites (endpoint like /sites/{id}/sites)
             elif "/children" in endpoint:
@@ -711,7 +733,9 @@ class TestSync:
         test_item = {
             "id": "item-meta",
             "name": "metadata_test.docx",
-            "file": {"mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+            "file": {
+                "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
             "parentReference": {"path": "/drives/drive-001/root:/Documents"},
             "size": 10000,
             "webUrl": "https://contoso.sharepoint.com/sites/engineering/Documents/metadata_test.docx",
@@ -726,10 +750,23 @@ class TestSync:
 
         async def mock_graph_request(endpoint, **kwargs):
             # Match _get_site() endpoint pattern
-            if endpoint.startswith("/sites/") and "/drives" not in endpoint and "/sites/" not in endpoint[7:]:
+            if (
+                endpoint.startswith("/sites/")
+                and "/drives" not in endpoint
+                and "/sites/" not in endpoint[7:]
+            ):
                 return sample_site
             elif "/drives" in endpoint and "/items/" not in endpoint:
-                return {"value": [{"id": "drive-001", "name": "Docs", "driveType": "documentLibrary", "webUrl": ""}]}
+                return {
+                    "value": [
+                        {
+                            "id": "drive-001",
+                            "name": "Docs",
+                            "driveType": "documentLibrary",
+                            "webUrl": "",
+                        }
+                    ]
+                }
             elif "/sites/" in endpoint and endpoint.endswith("/sites"):
                 return {"value": []}  # No subsites
             elif "/children" in endpoint:
@@ -756,7 +793,10 @@ class TestSync:
         assert item.title == "metadata_test.docx"
         assert "site_id" in item.metadata
         assert "drive_id" in item.metadata
-        assert item.metadata.get("mime_type") == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        assert (
+            item.metadata.get("mime_type")
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
 
 # =============================================================================
@@ -831,11 +871,17 @@ class TestFetch:
             "createdDateTime": "2024-01-15T10:00:00Z",
         }
 
-        drives_data = [{"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}]
+        drives_data = [
+            {"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}
+        ]
 
         async def mock_graph_request(endpoint, **kwargs):
             # Match _get_site() endpoint pattern
-            if endpoint.startswith("/sites/") and "/drives" not in endpoint and "/sites/" not in endpoint[7:]:
+            if (
+                endpoint.startswith("/sites/")
+                and "/drives" not in endpoint
+                and "/sites/" not in endpoint[7:]
+            ):
                 return sample_site
             elif "/drives" in endpoint and "/items/" not in endpoint:
                 return {"value": drives_data}
@@ -867,11 +913,17 @@ class TestFetch:
             "lastModifiedBy": {"user": {"displayName": "User"}},
         }
 
-        drives_data = [{"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}]
+        drives_data = [
+            {"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}
+        ]
 
         async def mock_graph_request(endpoint, **kwargs):
             # Match _get_site() endpoint pattern
-            if endpoint.startswith("/sites/") and "/drives" not in endpoint and "/sites/" not in endpoint[7:]:
+            if (
+                endpoint.startswith("/sites/")
+                and "/drives" not in endpoint
+                and "/sites/" not in endpoint[7:]
+            ):
                 return sample_site
             elif "/drives" in endpoint and "/items/" not in endpoint:
                 return {"value": drives_data}
@@ -892,11 +944,17 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_fetch_not_found(self, sharepoint_connector, sample_site):
         """Test fetch when item not found."""
-        drives_data = [{"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}]
+        drives_data = [
+            {"id": "drive-001", "name": "Documents", "driveType": "documentLibrary", "webUrl": ""}
+        ]
 
         async def mock_graph_request(endpoint, **kwargs):
             # Match _get_site() endpoint pattern
-            if endpoint.startswith("/sites/") and "/drives" not in endpoint and "/sites/" not in endpoint[7:]:
+            if (
+                endpoint.startswith("/sites/")
+                and "/drives" not in endpoint
+                and "/sites/" not in endpoint[7:]
+            ):
                 return sample_site
             elif "/drives" in endpoint and "/items/" not in endpoint:
                 return {"value": drives_data}

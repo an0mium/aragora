@@ -158,9 +158,7 @@ class TestMemoryHandlers:
             confidence=0.85,
         )
 
-        mock_consensus.on_consensus_reached.assert_called_once_with(
-            None, "Agreement reached", 0.85
-        )
+        mock_consensus.on_consensus_reached.assert_called_once_with(None, "Agreement reached", 0.85)
 
 
 class TestCalibrationHandlers:

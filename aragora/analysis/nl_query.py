@@ -173,7 +173,9 @@ def _detect_query_mode_cached(question_lower: str) -> str:
         return QueryMode.SUMMARY.value
 
     # Comparison indicators
-    if any(word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]):
+    if any(
+        word in question_lower for word in ["compare", "difference", "versus", "vs", "contrast"]
+    ):
         return QueryMode.COMPARATIVE.value
 
     # Analysis indicators

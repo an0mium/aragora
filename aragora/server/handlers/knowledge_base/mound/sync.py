@@ -62,33 +62,42 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_continuum_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_continuum_incremental(
+                    workspace_id=workspace_id, since=since, limit=limit
+                )
             )
         except AttributeError:
             # Fallback: Connect continuum and try direct sync
             try:
                 from aragora.memory import get_continuum_memory
+
                 continuum = get_continuum_memory()
                 _run_async(mound.connect_memory_stores(continuum=continuum))
                 result = _run_async(
-                    mound.sync_continuum_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                    mound.sync_continuum_incremental(
+                        workspace_id=workspace_id, since=since, limit=limit
+                    )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
                 logger.debug(f"ContinuumMemory fallback failed: {inner_e}")
-                return json_response({
-                    "synced": 0,
-                    "message": "ContinuumMemory not available or not connected",
-                    "workspace_id": workspace_id,
-                })
+                return json_response(
+                    {
+                        "synced": 0,
+                        "message": "ContinuumMemory not available or not connected",
+                        "workspace_id": workspace_id,
+                    }
+                )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from continuum: {e}")
             return error_response(f"Failed to sync from continuum: {e}", 500)
 
-        return json_response({
-            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
-            "workspace_id": workspace_id,
-            "message": "Sync from ContinuumMemory completed",
-        })
+        return json_response(
+            {
+                "synced": result.nodes_synced if hasattr(result, "nodes_synced") else 0,
+                "workspace_id": workspace_id,
+                "message": "Sync from ContinuumMemory completed",
+            }
+        )
 
     @handle_errors("sync consensus")
     def _handle_sync_consensus(self: SyncHandlerProtocol, handler: Any) -> HandlerResult:
@@ -115,33 +124,42 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_consensus_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_consensus_incremental(
+                    workspace_id=workspace_id, since=since, limit=limit
+                )
             )
         except AttributeError:
             # Fallback: Connect consensus and try direct sync
             try:
                 from aragora.memory import ConsensusMemory
+
                 consensus = ConsensusMemory()
                 _run_async(mound.connect_memory_stores(consensus=consensus))
                 result = _run_async(
-                    mound.sync_consensus_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                    mound.sync_consensus_incremental(
+                        workspace_id=workspace_id, since=since, limit=limit
+                    )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
                 logger.debug(f"ConsensusMemory fallback failed: {inner_e}")
-                return json_response({
-                    "synced": 0,
-                    "message": "ConsensusMemory not available or not connected",
-                    "workspace_id": workspace_id,
-                })
+                return json_response(
+                    {
+                        "synced": 0,
+                        "message": "ConsensusMemory not available or not connected",
+                        "workspace_id": workspace_id,
+                    }
+                )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from consensus: {e}")
             return error_response(f"Failed to sync from consensus: {e}", 500)
 
-        return json_response({
-            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
-            "workspace_id": workspace_id,
-            "message": "Sync from ConsensusMemory completed",
-        })
+        return json_response(
+            {
+                "synced": result.nodes_synced if hasattr(result, "nodes_synced") else 0,
+                "workspace_id": workspace_id,
+                "message": "Sync from ConsensusMemory completed",
+            }
+        )
 
     @handle_errors("sync facts")
     def _handle_sync_facts(self: SyncHandlerProtocol, handler: Any) -> HandlerResult:
@@ -174,24 +192,31 @@ class SyncOperationsMixin:
             # Fallback: Connect facts store and try direct sync
             try:
                 from aragora.knowledge.fact_store import FactStore
+
                 facts = FactStore()
                 _run_async(mound.connect_memory_stores(facts=facts))
                 result = _run_async(
-                    mound.sync_facts_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                    mound.sync_facts_incremental(
+                        workspace_id=workspace_id, since=since, limit=limit
+                    )
                 )
             except (ImportError, AttributeError, RuntimeError) as inner_e:
                 logger.debug(f"FactStore fallback failed: {inner_e}")
-                return json_response({
-                    "synced": 0,
-                    "message": "FactStore not available or not connected",
-                    "workspace_id": workspace_id,
-                })
+                return json_response(
+                    {
+                        "synced": 0,
+                        "message": "FactStore not available or not connected",
+                        "workspace_id": workspace_id,
+                    }
+                )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from facts: {e}")
             return error_response(f"Failed to sync from facts: {e}", 500)
 
-        return json_response({
-            "synced": result.nodes_synced if hasattr(result, 'nodes_synced') else 0,
-            "workspace_id": workspace_id,
-            "message": "Sync from FactStore completed",
-        })
+        return json_response(
+            {
+                "synced": result.nodes_synced if hasattr(result, "nodes_synced") else 0,
+                "workspace_id": workspace_id,
+                "message": "Sync from FactStore completed",
+            }
+        )

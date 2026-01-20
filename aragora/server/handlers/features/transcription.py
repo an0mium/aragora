@@ -25,11 +25,9 @@ from typing import Any, Optional
 from ..base import (
     BaseHandler,
     HandlerResult,
-    error_response,
     handle_errors,
     json_response,
     require_user_auth,
-    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -196,13 +194,15 @@ class TranscriptionHandler(BaseHandler):
 
     def _get_supported_formats(self) -> HandlerResult:
         """Get list of supported audio/video formats."""
-        return json_response({
-            "audio": sorted(list(AUDIO_EXTENSIONS)),
-            "video": sorted(list(VIDEO_EXTENSIONS)),
-            "max_size_mb": MAX_FILE_SIZE_MB,
-            "model": "whisper-1",
-            "note": "Video files have audio extracted before transcription",
-        })
+        return json_response(
+            {
+                "audio": sorted(list(AUDIO_EXTENSIONS)),
+                "video": sorted(list(VIDEO_EXTENSIONS)),
+                "max_size_mb": MAX_FILE_SIZE_MB,
+                "model": "whisper-1",
+                "note": "Video files have audio extracted before transcription",
+            }
+        )
 
     def _get_job_status(self, job_id: str) -> HandlerResult:
         """Get transcription job status and result."""
@@ -229,19 +229,23 @@ class TranscriptionHandler(BaseHandler):
             ).to_response(404)
 
         if job.status != TranscriptionStatus.COMPLETED:
-            return json_response({
+            return json_response(
+                {
+                    "job_id": job_id,
+                    "status": job.status.value,
+                    "segments": [],
+                    "message": f"Job is {job.status.value}, segments available when completed",
+                }
+            )
+
+        return json_response(
+            {
                 "job_id": job_id,
                 "status": job.status.value,
-                "segments": [],
-                "message": f"Job is {job.status.value}, segments available when completed",
-            })
-
-        return json_response({
-            "job_id": job_id,
-            "status": job.status.value,
-            "segments": job.segments,
-            "segment_count": len(job.segments),
-        })
+                "segments": job.segments,
+                "segment_count": len(job.segments),
+            }
+        )
 
     def _delete_job(self, job_id: str) -> HandlerResult:
         """Delete a transcription job."""
@@ -255,10 +259,12 @@ class TranscriptionHandler(BaseHandler):
             del TranscriptionHandler._jobs[job_id]
 
         logger.info(f"Transcription job deleted: {job_id}")
-        return json_response({
-            "success": True,
-            "message": f"Transcription job {job_id} deleted",
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": f"Transcription job {job_id} deleted",
+            }
+        )
 
     def _check_rate_limit(self, handler) -> Optional[HandlerResult]:
         """Check IP-based upload rate limit."""
@@ -276,8 +282,7 @@ class TranscriptionHandler(BaseHandler):
 
             # Clean up old entries
             TranscriptionHandler._upload_counts[client_ip] = [
-                ts for ts in TranscriptionHandler._upload_counts[client_ip]
-                if ts > one_hour_ago
+                ts for ts in TranscriptionHandler._upload_counts[client_ip] if ts > one_hour_ago
             ]
 
             if not TranscriptionHandler._upload_counts[client_ip]:
@@ -340,7 +345,7 @@ class TranscriptionHandler(BaseHandler):
                     # No completed jobs, just remove oldest
                     oldest_key = min(
                         TranscriptionHandler._jobs.keys(),
-                        key=lambda k: TranscriptionHandler._jobs[k].created_at
+                        key=lambda k: TranscriptionHandler._jobs[k].created_at,
                     )
                     del TranscriptionHandler._jobs[oldest_key]
 
@@ -447,16 +452,21 @@ class TranscriptionHandler(BaseHandler):
         # Queue for async processing
         asyncio.create_task(self._process_transcription(job.id, file_content, filename))
 
-        logger.info(f"Transcription job created: {job.id} for {filename} ({len(file_content)} bytes)")
+        logger.info(
+            f"Transcription job created: {job.id} for {filename} ({len(file_content)} bytes)"
+        )
 
-        return json_response({
-            "success": True,
-            "job_id": job.id,
-            "filename": filename,
-            "file_size_bytes": len(file_content),
-            "status": "pending",
-            "message": f"Transcription queued. Poll /api/transcription/{job.id} for status.",
-        }, status=202)
+        return json_response(
+            {
+                "success": True,
+                "job_id": job.id,
+                "filename": filename,
+                "file_size_bytes": len(file_content),
+                "status": "pending",
+                "message": f"Transcription queued. Poll /api/transcription/{job.id} for status.",
+            },
+            status=202,
+        )
 
     async def _process_transcription(
         self,
@@ -536,27 +546,39 @@ class TranscriptionHandler(BaseHandler):
                 break
 
         if not boundary:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.MISSING_BOUNDARY,
-                "Missing boundary in multipart/form-data Content-Type header",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.MISSING_BOUNDARY,
+                    "Missing boundary in multipart/form-data Content-Type header",
+                ),
+            )
 
         try:
             body: bytes = handler.rfile.read(content_length)
         except Exception as e:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.CORRUPTED_UPLOAD,
-                f"Failed to read upload body: {str(e)[:100]}",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.CORRUPTED_UPLOAD,
+                    f"Failed to read upload body: {str(e)[:100]}",
+                ),
+            )
 
         boundary_bytes = f"--{boundary}".encode()
         body_parts: list[bytes] = body.split(boundary_bytes)
 
         if len(body_parts) > MAX_MULTIPART_PARTS:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.MULTIPART_PARSE_ERROR,
-                f"Too many parts in multipart upload. Maximum: {MAX_MULTIPART_PARTS}",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.MULTIPART_PARSE_ERROR,
+                    f"Too many parts in multipart upload. Maximum: {MAX_MULTIPART_PARTS}",
+                ),
+            )
 
         for part in body_parts:
             if b"Content-Disposition" not in part:
@@ -565,7 +587,7 @@ class TranscriptionHandler(BaseHandler):
             try:
                 header_end = part.index(b"\r\n\r\n")
                 headers_raw = part[:header_end].decode("utf-8", errors="ignore")
-                file_data = part[header_end + 4:]
+                file_data = part[header_end + 4 :]
 
                 # Remove trailing boundary markers
                 if file_data.endswith(b"--\r\n"):
@@ -581,25 +603,37 @@ class TranscriptionHandler(BaseHandler):
                     filename = os.path.basename(raw_filename)
 
                     if not filename:
-                        return (None, None, TranscriptionError(
-                            TranscriptionErrorCode.INVALID_FILENAME,
-                            "Empty filename in upload",
-                        ))
+                        return (
+                            None,
+                            None,
+                            TranscriptionError(
+                                TranscriptionErrorCode.INVALID_FILENAME,
+                                "Empty filename in upload",
+                            ),
+                        )
                     if "\x00" in filename or ".." in filename:
-                        return (None, None, TranscriptionError(
-                            TranscriptionErrorCode.INVALID_FILENAME,
-                            "Invalid filename (potential path traversal)",
-                        ))
+                        return (
+                            None,
+                            None,
+                            TranscriptionError(
+                                TranscriptionErrorCode.INVALID_FILENAME,
+                                "Invalid filename (potential path traversal)",
+                            ),
+                        )
 
                     return (file_data, filename, None)
 
             except (ValueError, IndexError):
                 continue
 
-        return (None, None, TranscriptionError(
-            TranscriptionErrorCode.MULTIPART_PARSE_ERROR,
-            "No file found in multipart upload",
-        ))
+        return (
+            None,
+            None,
+            TranscriptionError(
+                TranscriptionErrorCode.MULTIPART_PARSE_ERROR,
+                "No file found in multipart upload",
+            ),
+        )
 
     def _parse_raw_upload(
         self,
@@ -610,23 +644,35 @@ class TranscriptionHandler(BaseHandler):
         filename = handler.headers.get("X-Filename")
 
         if not filename:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.INVALID_FILENAME,
-                "Missing filename. Use multipart/form-data or set X-Filename header.",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.INVALID_FILENAME,
+                    "Missing filename. Use multipart/form-data or set X-Filename header.",
+                ),
+            )
 
         filename = os.path.basename(filename)
         if not filename or "\x00" in filename or ".." in filename:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.INVALID_FILENAME,
-                "Invalid filename",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.INVALID_FILENAME,
+                    "Invalid filename",
+                ),
+            )
 
         try:
             content = handler.rfile.read(content_length)
             return (content, filename, None)
         except Exception as e:
-            return (None, None, TranscriptionError(
-                TranscriptionErrorCode.CORRUPTED_UPLOAD,
-                f"Failed to read upload: {str(e)[:100]}",
-            ))
+            return (
+                None,
+                None,
+                TranscriptionError(
+                    TranscriptionErrorCode.CORRUPTED_UPLOAD,
+                    f"Failed to read upload: {str(e)[:100]}",
+                ),
+            )

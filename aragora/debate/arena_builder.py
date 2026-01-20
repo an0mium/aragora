@@ -253,6 +253,7 @@ class ArenaBuilder:
         # Extensions: RLM training hook (reads from settings)
         try:
             from aragora.config.settings import get_settings
+
             self._enable_rlm_training: bool = get_settings().integration.rlm_training_enabled
         except (ImportError, AttributeError, KeyError):
             self._enable_rlm_training: bool = True  # Fallback to enabled
@@ -1027,9 +1028,12 @@ class ArenaBuilder:
                 existing_hook = event_hooks.get("on_debate_complete")
                 if existing_hook:
                     # Chain hooks together
-                    def chained_hook(result, ctx=None, _existing=existing_hook, _training=training_hook):
+                    def chained_hook(
+                        result, ctx=None, _existing=existing_hook, _training=training_hook
+                    ):
                         _existing(result, ctx)
                         _training(result, ctx)
+
                     event_hooks["on_debate_complete"] = chained_hook
                 else:
                     event_hooks["on_debate_complete"] = training_hook

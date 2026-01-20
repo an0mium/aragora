@@ -39,7 +39,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from .types import AbstractionLevel, RLMContext, RLMQuery, RLMResult
+from .types import RLMResult
 
 if TYPE_CHECKING:
     from .compressor import HierarchicalCompressor
@@ -279,9 +279,7 @@ class RLMContextAdapter:
 
         if not self._agent_call:
             # No LLM available - return relevant snippet
-            snippet = self._search_content(
-                registered.full_content, question, max_response_chars
-            )
+            snippet = self._search_content(registered.full_content, question, max_response_chars)
             return RLMResult(
                 answer=snippet,
                 ready=True,
@@ -310,9 +308,7 @@ Answer (be specific and cite relevant parts):"""
         except Exception as e:
             logger.warning(f"adapter_query_failed error={e}")
             return RLMResult(
-                answer=self._search_content(
-                    registered.full_content, question, max_response_chars
-                ),
+                answer=self._search_content(registered.full_content, question, max_response_chars),
                 ready=True,
                 confidence=0.3,
             )
@@ -506,9 +502,13 @@ Summary:"""
                     registered.full_content,
                     source_type=registered.content_type,
                 )
-                summary = result.context.get_at_level(
-                    result.context.abstraction_levels.get("summary", "SUMMARY")
-                ) if hasattr(result, 'context') else str(result)
+                summary = (
+                    result.context.get_at_level(
+                        result.context.abstraction_levels.get("summary", "SUMMARY")
+                    )
+                    if hasattr(result, "context")
+                    else str(result)
+                )
                 registered.summary = summary
 
                 if max_chars and len(summary) > max_chars:
@@ -571,9 +571,7 @@ Summary:"""
         """Alias for _heuristic_summary for backwards compatibility."""
         return self._heuristic_summary(content, content_type)
 
-    def _extract_sections(
-        self, content: str, content_type: str
-    ) -> dict[str, str]:
+    def _extract_sections(self, content: str, content_type: str) -> dict[str, str]:
         """Extract named sections from content."""
         sections: dict[str, str] = {}
 
@@ -620,9 +618,7 @@ Summary:"""
 
         return sections
 
-    def _search_content(
-        self, content: str, query: str, max_chars: Optional[int] = None
-    ) -> str:
+    def _search_content(self, content: str, query: str, max_chars: Optional[int] = None) -> str:
         """Search content for query-relevant portion."""
         if not query or not content:
             return content[:max_chars] if max_chars else content
@@ -671,9 +667,7 @@ Summary:"""
 
         # Try to break at sentence boundary
         for i in range(len(truncated) - 1, int(max_chars * 0.5), -1):
-            if truncated[i] in ".!?" and (
-                i + 1 >= len(truncated) or truncated[i + 1] in " \n"
-            ):
+            if truncated[i] in ".!?" and (i + 1 >= len(truncated) or truncated[i + 1] in " \n"):
                 return content[: i + 1]
 
         # Break at word boundary

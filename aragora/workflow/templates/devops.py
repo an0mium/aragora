@@ -203,7 +203,11 @@ INCIDENT_RESPONSE_TEMPLATE: Dict[str, Any] = {
             "description": "Notify stakeholders and activate war room",
             "config": {
                 "approval_type": "acknowledge",
-                "notification_channels": ["incident_response_team", "engineering_leads", "executives"],
+                "notification_channels": [
+                    "incident_response_team",
+                    "engineering_leads",
+                    "executives",
+                ],
                 "urgent": True,
             },
         },

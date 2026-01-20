@@ -133,9 +133,7 @@ class TestVerificationConfidenceAdjustment:
         verification_results = {"agent_a": {"verified": 1, "disproven": 0}}
         proposals = {"agent_a": "proposal text"}
 
-        verifier.adjust_vote_confidence_from_verification(
-            votes, verification_results, proposals
-        )
+        verifier.adjust_vote_confidence_from_verification(votes, verification_results, proposals)
 
         # Confidence should be boosted (0.7 * 1.3 = 0.91)
         assert votes[0].confidence > 0.7
@@ -155,9 +153,7 @@ class TestVerificationConfidenceAdjustment:
         verification_results = {"agent_b": {"verified": 0, "disproven": 1}}
         proposals = {"agent_b": "proposal text"}
 
-        verifier.adjust_vote_confidence_from_verification(
-            votes, verification_results, proposals
-        )
+        verifier.adjust_vote_confidence_from_verification(votes, verification_results, proposals)
 
         # Confidence should be reduced (0.8 * 0.3 = 0.24)
         assert votes[0].confidence < 0.8

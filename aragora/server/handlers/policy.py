@@ -66,14 +66,13 @@ class PolicyHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=120)
-    async def handle(
-        self, path: str, method: str, handler: Any = None
-    ) -> Optional[HandlerResult]:
+    async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:
         """Route request to appropriate handler method."""
         query_params: Dict[str, Any] = {}
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             query_params = parse_qs(query_str)
 
         # === Policy endpoints ===
@@ -168,6 +167,7 @@ class PolicyHandler(BaseHandler):
         """Get or create the policy store."""
         try:
             from aragora.compliance.policy_store import get_policy_store
+
             return get_policy_store()
         except ImportError:
             logger.warning("Policy store module not available")
@@ -177,6 +177,7 @@ class PolicyHandler(BaseHandler):
         """Get the compliance framework manager."""
         try:
             from aragora.compliance.framework import ComplianceFrameworkManager
+
             return ComplianceFrameworkManager()
         except ImportError:
             logger.warning("Compliance framework module not available")
@@ -209,12 +210,14 @@ class PolicyHandler(BaseHandler):
                 offset=offset,
             )
 
-            return json_response({
-                "policies": [p.to_dict() for p in policies],
-                "total": len(policies),
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "policies": [p.to_dict() for p in policies],
+                    "total": len(policies),
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to list policies: {e}")
@@ -276,10 +279,13 @@ class PolicyHandler(BaseHandler):
 
             created = store.create_policy(policy)
 
-            return json_response({
-                "policy": created.to_dict(),
-                "message": "Policy created successfully",
-            }, status=201)
+            return json_response(
+                {
+                    "policy": created.to_dict(),
+                    "message": "Policy created successfully",
+                },
+                status=201,
+            )
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
@@ -311,10 +317,12 @@ class PolicyHandler(BaseHandler):
             if updated is None:
                 return error_response(f"Policy not found: {policy_id}", 404)
 
-            return json_response({
-                "policy": updated.to_dict(),
-                "message": "Policy updated successfully",
-            })
+            return json_response(
+                {
+                    "policy": updated.to_dict(),
+                    "message": "Policy updated successfully",
+                }
+            )
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
@@ -333,10 +341,12 @@ class PolicyHandler(BaseHandler):
             if not success:
                 return error_response(f"Policy not found: {policy_id}", 404)
 
-            return json_response({
-                "message": "Policy deleted successfully",
-                "policy_id": policy_id,
-            })
+            return json_response(
+                {
+                    "message": "Policy deleted successfully",
+                    "policy_id": policy_id,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to delete policy {policy_id}: {e}")
@@ -370,11 +380,13 @@ class PolicyHandler(BaseHandler):
             if not success:
                 return error_response(f"Policy not found: {policy_id}", 404)
 
-            return json_response({
-                "message": f"Policy {'enabled' if enabled else 'disabled'} successfully",
-                "policy_id": policy_id,
-                "enabled": enabled,
-            })
+            return json_response(
+                {
+                    "message": f"Policy {'enabled' if enabled else 'disabled'} successfully",
+                    "policy_id": policy_id,
+                    "enabled": enabled,
+                }
+            )
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
@@ -407,11 +419,13 @@ class PolicyHandler(BaseHandler):
                 offset=offset,
             )
 
-            return json_response({
-                "violations": [v.to_dict() for v in violations],
-                "total": len(violations),
-                "policy_id": policy_id,
-            })
+            return json_response(
+                {
+                    "violations": [v.to_dict() for v in violations],
+                    "total": len(violations),
+                    "policy_id": policy_id,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get violations for policy {policy_id}: {e}")
@@ -446,12 +460,14 @@ class PolicyHandler(BaseHandler):
                 offset=offset,
             )
 
-            return json_response({
-                "violations": [v.to_dict() for v in violations],
-                "total": len(violations),
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "violations": [v.to_dict() for v in violations],
+                    "total": len(violations),
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to list violations: {e}")
@@ -493,8 +509,7 @@ class PolicyHandler(BaseHandler):
             valid_statuses = ["open", "investigating", "resolved", "false_positive"]
             if status not in valid_statuses:
                 return error_response(
-                    f"Invalid status: {status}. Valid values: {valid_statuses}",
-                    400
+                    f"Invalid status: {status}. Valid values: {valid_statuses}", 400
                 )
 
             user_id = None
@@ -511,10 +526,12 @@ class PolicyHandler(BaseHandler):
             if updated is None:
                 return error_response(f"Violation not found: {violation_id}", 404)
 
-            return json_response({
-                "violation": updated.to_dict(),
-                "message": f"Violation status updated to {status}",
-            })
+            return json_response(
+                {
+                    "violation": updated.to_dict(),
+                    "message": f"Violation status updated to {status}",
+                }
+            )
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
@@ -547,13 +564,14 @@ class PolicyHandler(BaseHandler):
 
             # Map string to enum
             from aragora.compliance.framework import ComplianceSeverity
+
             try:
                 severity_enum = ComplianceSeverity(min_severity)
             except ValueError:
                 return error_response(
                     f"Invalid min_severity: {min_severity}. "
                     f"Valid values: critical, high, medium, low, info",
-                    400
+                    400,
                 )
 
             result = manager.check(content, frameworks=frameworks, min_severity=severity_enum)
@@ -585,12 +603,14 @@ class PolicyHandler(BaseHandler):
                         )
                         store.create_violation(violation)
 
-            return json_response({
-                "result": result.to_dict(),
-                "compliant": result.compliant,
-                "score": result.score,
-                "issue_count": len(result.issues),
-            })
+            return json_response(
+                {
+                    "result": result.to_dict(),
+                    "compliant": result.compliant,
+                    "score": result.score,
+                    "issue_count": len(result.issues),
+                }
+            )
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
@@ -615,29 +635,36 @@ class PolicyHandler(BaseHandler):
             policies = store.list_policies(workspace_id=workspace_id)
             enabled_policies = [p for p in policies if p.enabled]
 
-            return json_response({
-                "policies": {
-                    "total": len(policies),
-                    "enabled": len(enabled_policies),
-                    "disabled": len(policies) - len(enabled_policies),
-                },
-                "violations": {
-                    "total": all_counts["total"],
-                    "open": open_counts["total"],
-                    "by_severity": {
-                        "critical": open_counts["critical"],
-                        "high": open_counts["high"],
-                        "medium": open_counts["medium"],
-                        "low": open_counts["low"],
+            return json_response(
+                {
+                    "policies": {
+                        "total": len(policies),
+                        "enabled": len(enabled_policies),
+                        "disabled": len(policies) - len(enabled_policies),
                     },
-                },
-                "risk_score": min(100, sum([
-                    open_counts["critical"] * 25,
-                    open_counts["high"] * 10,
-                    open_counts["medium"] * 5,
-                    open_counts["low"] * 2,
-                ])),
-            })
+                    "violations": {
+                        "total": all_counts["total"],
+                        "open": open_counts["total"],
+                        "by_severity": {
+                            "critical": open_counts["critical"],
+                            "high": open_counts["high"],
+                            "medium": open_counts["medium"],
+                            "low": open_counts["low"],
+                        },
+                    },
+                    "risk_score": min(
+                        100,
+                        sum(
+                            [
+                                open_counts["critical"] * 25,
+                                open_counts["high"] * 10,
+                                open_counts["medium"] * 5,
+                                open_counts["low"] * 2,
+                            ]
+                        ),
+                    ),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get compliance stats: {e}")

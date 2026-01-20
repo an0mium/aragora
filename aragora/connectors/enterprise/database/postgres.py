@@ -255,7 +255,11 @@ class PostgreSQLConnector(EnterpriseConnector):
                         if ts_column and row_dict.get(ts_column):
                             ts_value = row_dict[ts_column]
                             if isinstance(ts_value, datetime):
-                                updated_at = ts_value.replace(tzinfo=timezone.utc) if ts_value.tzinfo is None else ts_value
+                                updated_at = (
+                                    ts_value.replace(tzinfo=timezone.utc)
+                                    if ts_value.tzinfo is None
+                                    else ts_value
+                                )
 
                         # Create sync item
                         item_id = f"pg:{self.database}:{table}:{hashlib.sha256(str(pk_value).encode()).hexdigest()[:12]}"
@@ -320,19 +324,27 @@ class PostgreSQLConnector(EnterpriseConnector):
                     try:
                         rows = await conn.fetch(fts_query, query, limit)
                         for row in rows:
-                            results.append({
-                                "table": table,
-                                "data": dict(row),
-                                "rank": row.get("rank", 0),
-                            })
+                            results.append(
+                                {
+                                    "table": table,
+                                    "data": dict(row),
+                                    "rank": row.get("rank", 0),
+                                }
+                            )
                     except Exception as e:
                         # Fallback to ILIKE search (FTS may not be configured)
                         logger.debug(f"FTS query failed on {table}, falling back to ILIKE: {e}")
                         columns = await self._get_table_columns(table)
-                        text_columns = [c["column_name"] for c in columns if "char" in c["data_type"] or "text" in c["data_type"]]
+                        text_columns = [
+                            c["column_name"]
+                            for c in columns
+                            if "char" in c["data_type"] or "text" in c["data_type"]
+                        ]
 
                         if text_columns:
-                            conditions = " OR ".join([f'"{col}"::text ILIKE $1' for col in text_columns[:3]])
+                            conditions = " OR ".join(
+                                [f'"{col}"::text ILIKE $1' for col in text_columns[:3]]
+                            )
                             fallback_query = f"""
                                 SELECT * FROM {qualified_table}
                                 WHERE {conditions}
@@ -340,11 +352,13 @@ class PostgreSQLConnector(EnterpriseConnector):
                             """
                             rows = await conn.fetch(fallback_query, f"%{query}%", limit)
                             for row in rows:
-                                results.append({
-                                    "table": table,
-                                    "data": dict(row),
-                                    "rank": 0.5,
-                                })
+                                results.append(
+                                    {
+                                        "table": table,
+                                        "data": dict(row),
+                                        "rank": 0.5,
+                                    }
+                                )
 
                 except Exception as e:
                     logger.debug(f"Search failed on {table}: {e}")

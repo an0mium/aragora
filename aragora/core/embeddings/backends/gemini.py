@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-from typing import Optional
 
 import aiohttp
 
@@ -29,7 +28,9 @@ class GeminiBackend(EmbeddingBackend):
             config: Embedding configuration
         """
         super().__init__(config)
-        self._api_key = config.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        self._api_key = (
+            config.api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        )
         self._model = config.model or self.DEFAULT_MODEL
         self._timeout = aiohttp.ClientTimeout(total=config.timeout)
         self.dimension = 768  # Gemini text-embedding-004
@@ -72,7 +73,7 @@ class GeminiBackend(EmbeddingBackend):
                         json={"content": {"parts": [{"text": text}]}},
                     ) as response:
                         if response.status == 429:
-                            delay = self.config.base_delay * (2 ** attempt)
+                            delay = self.config.base_delay * (2**attempt)
                             logger.warning(f"Gemini rate limited, retrying in {delay}s")
                             await asyncio.sleep(delay)
                             continue
@@ -89,7 +90,7 @@ class GeminiBackend(EmbeddingBackend):
             except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                 if attempt == self.config.max_retries - 1:
                     raise RuntimeError(f"Gemini API call failed after retries: {e}")
-                delay = self.config.base_delay * (2 ** attempt)
+                delay = self.config.base_delay * (2**attempt)
                 logger.warning(f"Gemini API call failed, retrying in {delay}s: {e}")
                 await asyncio.sleep(delay)
 

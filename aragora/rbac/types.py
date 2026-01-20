@@ -288,8 +288,7 @@ SYSTEM_ROLES: dict[str, Role] = {
         name="Superadmin",
         description="Full system access",
         permissions={
-            Permission(resource=r, action=Action.ADMIN, scope=Scope.GLOBAL)
-            for r in ResourceType
+            Permission(resource=r, action=Action.ADMIN, scope=Scope.GLOBAL) for r in ResourceType
         },
         scope=Scope.GLOBAL,
         is_system=True,
@@ -310,8 +309,7 @@ SYSTEM_ROLES: dict[str, Role] = {
         name="Workspace Admin",
         description="Full workspace access",
         permissions={
-            Permission(resource=r, action=Action.ADMIN, scope=Scope.WORKSPACE)
-            for r in ResourceType
+            Permission(resource=r, action=Action.ADMIN, scope=Scope.WORKSPACE) for r in ResourceType
         },
         scope=Scope.WORKSPACE,
         is_system=True,
@@ -338,8 +336,7 @@ SYSTEM_ROLES: dict[str, Role] = {
         name="Workspace Viewer",
         description="Read-only access to workspace",
         permissions={
-            Permission(resource=r, action=Action.READ, scope=Scope.WORKSPACE)
-            for r in ResourceType
+            Permission(resource=r, action=Action.READ, scope=Scope.WORKSPACE) for r in ResourceType
         },
         scope=Scope.WORKSPACE,
         is_system=True,
@@ -349,18 +346,14 @@ SYSTEM_ROLES: dict[str, Role] = {
         name="Auditor",
         description="Can run and view audits",
         permissions={
-            Permission(
-                resource=ResourceType.AUDIT_SESSION, action=a, scope=Scope.WORKSPACE
-            )
+            Permission(resource=ResourceType.AUDIT_SESSION, action=a, scope=Scope.WORKSPACE)
             for a in [Action.CREATE, Action.READ, Action.EXECUTE]
         }
         | {
             Permission(
                 resource=ResourceType.AUDIT_FINDING, action=Action.READ, scope=Scope.WORKSPACE
             ),
-            Permission(
-                resource=ResourceType.DOCUMENT, action=Action.READ, scope=Scope.WORKSPACE
-            ),
+            Permission(resource=ResourceType.DOCUMENT, action=Action.READ, scope=Scope.WORKSPACE),
         },
         scope=Scope.WORKSPACE,
         is_system=True,
@@ -374,9 +367,7 @@ SYSTEM_ROLES: dict[str, Role] = {
             for a in [Action.CREATE, Action.READ, Action.UPDATE, Action.DELETE]
         }
         | {
-            Permission(
-                resource=ResourceType.SPECIALIST_MODEL, action=a, scope=Scope.ORGANIZATION
-            )
+            Permission(resource=ResourceType.SPECIALIST_MODEL, action=a, scope=Scope.ORGANIZATION)
             for a in [Action.CREATE, Action.READ, Action.UPDATE, Action.DELETE]
         },
         scope=Scope.ORGANIZATION,

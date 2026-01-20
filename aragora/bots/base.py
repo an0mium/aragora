@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -358,9 +358,7 @@ class DefaultBotEventHandler(BotEventHandler):
         """
         # Check if this is in an active debate
         if channel_id in self._active_debates:
-            await self._handle_debate_reaction(
-                channel_id, message_id, user_id, emoji
-            )
+            await self._handle_debate_reaction(channel_id, message_id, user_id, emoji)
             return
 
         # Log other reactions
@@ -376,9 +374,7 @@ class DefaultBotEventHandler(BotEventHandler):
         otherwise logs a warning.
         """
         if not self._registry:
-            logger.warning(
-                f"No command registry set, cannot execute: {ctx.args}"
-            )
+            logger.warning(f"No command registry set, cannot execute: {ctx.args}")
             return
 
         try:
@@ -438,23 +434,17 @@ class DefaultBotEventHandler(BotEventHandler):
         debate_id = self._active_debates.get(message.channel.id)
 
         if debate_id:
-            logger.info(
-                f"Routing message to debate {debate_id}: {message.text[:50]}..."
-            )
+            logger.info(f"Routing message to debate {debate_id}: {message.text[:50]}...")
             # Subclasses should override to send to debate API
         else:
-            logger.debug(
-                f"Debate keyword detected but no active debate: {message.text[:50]}..."
-            )
+            logger.debug(f"Debate keyword detected but no active debate: {message.text[:50]}...")
 
     async def _handle_general_message(self, message: BotMessage) -> None:
         """Handle messages that aren't commands or debate-related.
 
         Override this method for custom general message handling.
         """
-        logger.debug(
-            f"General message from {message.user.username}: {message.text[:50]}..."
-        )
+        logger.debug(f"General message from {message.user.username}: {message.text[:50]}...")
 
     async def _handle_debate_reaction(
         self,

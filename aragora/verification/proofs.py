@@ -629,7 +629,14 @@ class ProofExecutor:
                 passed=False,
                 error=f"Execution timed out after {timeout}s",
             )
-        except (RuntimeError, VerificationError, ValueError, TypeError, KeyError, AttributeError) as e:
+        except (
+            RuntimeError,
+            VerificationError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ) as e:
             import logging
 
             logging.getLogger(__name__).exception(f"Proof execution failed for {proof.id}")

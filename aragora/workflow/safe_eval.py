@@ -260,7 +260,7 @@ class _SafeEvaluator(ast.NodeVisitor):
         In newer Python versions, the subscript node's slice is the value directly.
         """
         # In Python 3.9+, ast.Index may not exist or may not have 'value' attribute
-        if hasattr(node, 'value'):
+        if hasattr(node, "value"):
             return self.visit(node.value)
         # Fallback: the node itself is the value
         return self.visit(node)
@@ -280,9 +280,7 @@ class _SafeEvaluator(ast.NodeVisitor):
     def visit_Dict(self, node: ast.Dict) -> Any:
         """Handle dict literals ({a: b, c: d})."""
         return {
-            self.visit(k): self.visit(v)
-            for k, v in zip(node.keys, node.values)
-            if k is not None
+            self.visit(k): self.visit(v) for k, v in zip(node.keys, node.values) if k is not None
         }
 
     def visit_Call(self, node: ast.Call) -> Any:
@@ -327,9 +325,7 @@ class _SafeEvaluator(ast.NodeVisitor):
                 # Handle tuple unpacking
                 target = gen.target
                 if isinstance(target, ast.Tuple):
-                    if not isinstance(item, (tuple, list)) or len(item) != len(
-                        target.elts
-                    ):
+                    if not isinstance(item, (tuple, list)) or len(item) != len(target.elts):
                         raise SafeEvalError("Cannot unpack iterable")
                     for t, v in zip(target.elts, item):
                         if isinstance(t, ast.Name):
@@ -356,9 +352,7 @@ class _SafeEvaluator(ast.NodeVisitor):
                 # Handle tuple unpacking
                 target = gen.target
                 if isinstance(target, ast.Tuple):
-                    if not isinstance(item, (tuple, list)) or len(item) != len(
-                        target.elts
-                    ):
+                    if not isinstance(item, (tuple, list)) or len(item) != len(target.elts):
                         raise SafeEvalError("Cannot unpack iterable")
                     for t, v in zip(target.elts, item):
                         if isinstance(t, ast.Name):

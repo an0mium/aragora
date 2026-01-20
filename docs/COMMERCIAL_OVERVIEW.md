@@ -1,10 +1,10 @@
-# Aragora - Enterprise AI Decision Validation Platform
+# Aragora - Omnivorous Multi Agent Decision Making Platform
 
 *Version 2.0 | Commercial Overview*
 
 ## Executive Summary
 
-Aragora is an **adversarial validation engine** that stress-tests high-stakes decisions through multi-agent AI debate. Rather than trusting a single AI to evaluate your specifications, architectures, or policies, Aragora orchestrates heterogeneous AI agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) to attack, defend, and synthesize positions—producing **audit-ready Decision Receipts** for regulated environments.
+Aragora is an **omnivorous multi-agent decision making engine** that harnesses diverse AI models for collaborative decision making through structured debate. Rather than trusting a single AI to evaluate your specifications, architectures, or policies, Aragora orchestrates heterogeneous AI agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) to discuss, critique, and synthesize positions—producing **audit-ready Decision Receipts** for regulated environments.
 
 **The product is not debate. The product is a defensible decision record.**
 

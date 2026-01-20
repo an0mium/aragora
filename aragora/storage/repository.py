@@ -494,9 +494,7 @@ class DatabaseRepository:
 
         if count > 0:
             self._notify_change("update")
-            logger.debug(
-                f"Batch updated {count}/{len(id_values)} records in {self.TABLE_NAME}"
-            )
+            logger.debug(f"Batch updated {count}/{len(id_values)} records in {self.TABLE_NAME}")
 
         return count
 

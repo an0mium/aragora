@@ -31,39 +31,133 @@ if TYPE_CHECKING:
 # Keywords for filtering debates by vertical
 VERTICAL_KEYWORDS: Dict[str, List[str]] = {
     "legal": [
-        "contract", "legal", "law", "attorney", "liability", "compliance",
-        "regulation", "clause", "agreement", "litigation", "court", "judge",
-        "statute", "tort", "damages", "patent", "trademark", "copyright",
+        "contract",
+        "legal",
+        "law",
+        "attorney",
+        "liability",
+        "compliance",
+        "regulation",
+        "clause",
+        "agreement",
+        "litigation",
+        "court",
+        "judge",
+        "statute",
+        "tort",
+        "damages",
+        "patent",
+        "trademark",
+        "copyright",
     ],
     "healthcare": [
-        "medical", "health", "patient", "clinical", "diagnosis", "treatment",
-        "hipaa", "pharmaceutical", "doctor", "nurse", "hospital", "therapy",
-        "symptoms", "prescription", "disease", "vaccine", "surgery",
+        "medical",
+        "health",
+        "patient",
+        "clinical",
+        "diagnosis",
+        "treatment",
+        "hipaa",
+        "pharmaceutical",
+        "doctor",
+        "nurse",
+        "hospital",
+        "therapy",
+        "symptoms",
+        "prescription",
+        "disease",
+        "vaccine",
+        "surgery",
     ],
     "security": [
-        "security", "vulnerability", "authentication", "encryption", "cyber",
-        "attack", "firewall", "intrusion", "malware", "phishing", "breach",
-        "access control", "penetration", "threat", "risk", "audit",
+        "security",
+        "vulnerability",
+        "authentication",
+        "encryption",
+        "cyber",
+        "attack",
+        "firewall",
+        "intrusion",
+        "malware",
+        "phishing",
+        "breach",
+        "access control",
+        "penetration",
+        "threat",
+        "risk",
+        "audit",
     ],
     "accounting": [
-        "accounting", "financial", "audit", "tax", "revenue", "expense",
-        "balance sheet", "income statement", "gaap", "ifrs", "depreciation",
-        "amortization", "accrual", "ledger", "reconciliation", "sox",
+        "accounting",
+        "financial",
+        "audit",
+        "tax",
+        "revenue",
+        "expense",
+        "balance sheet",
+        "income statement",
+        "gaap",
+        "ifrs",
+        "depreciation",
+        "amortization",
+        "accrual",
+        "ledger",
+        "reconciliation",
+        "sox",
     ],
     "regulatory": [
-        "regulatory", "compliance", "regulation", "policy", "governance",
-        "gdpr", "sox", "sec", "fda", "epa", "osha", "ftc", "standard",
-        "requirement", "mandate", "enforcement", "inspection",
+        "regulatory",
+        "compliance",
+        "regulation",
+        "policy",
+        "governance",
+        "gdpr",
+        "sox",
+        "sec",
+        "fda",
+        "epa",
+        "osha",
+        "ftc",
+        "standard",
+        "requirement",
+        "mandate",
+        "enforcement",
+        "inspection",
     ],
     "academic": [
-        "research", "academic", "study", "paper", "citation", "thesis",
-        "dissertation", "peer review", "methodology", "hypothesis", "analysis",
-        "literature review", "empirical", "theoretical", "publication",
+        "research",
+        "academic",
+        "study",
+        "paper",
+        "citation",
+        "thesis",
+        "dissertation",
+        "peer review",
+        "methodology",
+        "hypothesis",
+        "analysis",
+        "literature review",
+        "empirical",
+        "theoretical",
+        "publication",
     ],
     "software": [
-        "code", "software", "programming", "algorithm", "api", "database",
-        "architecture", "testing", "debugging", "deployment", "git", "review",
-        "refactor", "optimization", "performance", "scalability",
+        "code",
+        "software",
+        "programming",
+        "algorithm",
+        "api",
+        "database",
+        "architecture",
+        "testing",
+        "debugging",
+        "deployment",
+        "git",
+        "review",
+        "refactor",
+        "optimization",
+        "performance",
+        "scalability",
     ],
 }
 
@@ -227,8 +321,16 @@ class SpecialistModel:
             vertical=Vertical(data["vertical"]),
             org_id=data.get("org_id"),
             status=TrainingStatus(data.get("status", "pending")),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now()
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updated_at"])
+                if data.get("updated_at")
+                else datetime.now()
+            ),
             created_by=data.get("created_by", ""),
             training_job_id=data.get("training_job_id"),
             training_data_debates=data.get("training_data_debates", 0),
@@ -477,7 +579,11 @@ class SpecialistModelRegistry:
             by_org[org] = by_org.get(org, 0) + 1
 
         ready_models = [m for m in self._specialists.values() if m.status == TrainingStatus.READY]
-        avg_elo = sum(m.elo_rating or 1000 for m in ready_models) / len(ready_models) if ready_models else 0
+        avg_elo = (
+            sum(m.elo_rating or 1000 for m in ready_models) / len(ready_models)
+            if ready_models
+            else 0
+        )
 
         return {
             "total_models": len(self._specialists),
@@ -625,7 +731,9 @@ class SpecialistTrainingPipeline:
                         self.final_answer = data.get("final_answer", "")
                         self.confidence = data.get("consensus_proof", {}).get("confidence", 0)
                         self.rounds_used = len(data.get("rounds", []))
-                        self.consensus_reached = data.get("consensus_proof", {}).get("reached", False)
+                        self.consensus_reached = data.get("consensus_proof", {}).get(
+                            "reached", False
+                        )
                         self.messages = data.get("messages", [])
 
                 result = _DebateResult(artifact)
@@ -774,15 +882,16 @@ class SpecialistTrainingPipeline:
                 }
 
                 eval_prompt = vertical_prompts.get(
-                    config.vertical.value,
-                    "Evaluate this content for quality and accuracy."
+                    config.vertical.value, "Evaluate this content for quality and accuracy."
                 )
 
                 # Run gauntlet evaluation
-                gauntlet = GauntletRunner(config=GauntletConfig(
-                    agents=["claude", "gpt-4"],
-                    run_scenario_matrix=False,  # Skip scenarios for faster eval
-                ))
+                gauntlet = GauntletRunner(
+                    config=GauntletConfig(
+                        agents=["claude", "gpt-4"],
+                        run_scenario_matrix=False,  # Skip scenarios for faster eval
+                    )
+                )
 
                 eval_result = await gauntlet.run(
                     input_content=eval_prompt,

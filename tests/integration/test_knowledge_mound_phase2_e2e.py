@@ -18,7 +18,9 @@ from io import BytesIO
 
 from aragora.server.handlers.knowledge_base.mound.federation import FederationOperationsMixin
 from aragora.server.handlers.knowledge_base.mound.sharing import SharingOperationsMixin
-from aragora.server.handlers.knowledge_base.mound.global_knowledge import GlobalKnowledgeOperationsMixin
+from aragora.server.handlers.knowledge_base.mound.global_knowledge import (
+    GlobalKnowledgeOperationsMixin,
+)
 from aragora.server.handlers.utils.responses import HandlerResult
 
 
@@ -66,14 +68,18 @@ class MockKnowledgeMound:
         self._regions = {}
         self._global_facts = []
 
-    async def store_verified_fact(self, content, source, confidence, evidence_ids, verified_by, topics):
+    async def store_verified_fact(
+        self, content, source, confidence, evidence_ids, verified_by, topics
+    ):
         node_id = f"fact_{len(self._global_facts)}"
-        self._global_facts.append({
-            "id": node_id,
-            "content": content,
-            "source": source,
-            "confidence": confidence,
-        })
+        self._global_facts.append(
+            {
+                "id": node_id,
+                "content": content,
+                "source": source,
+                "confidence": confidence,
+            }
+        )
         return node_id
 
     async def query_global_knowledge(self, query, limit, topics=None):
@@ -93,14 +99,18 @@ class MockKnowledgeMound:
     async def promote_to_global(self, item_id, workspace_id, promoted_by, reason):
         return f"global_{item_id}"
 
-    async def share_with_workspace(self, item_id, from_workspace_id, to_workspace_id, shared_by, permissions, expires_at):
+    async def share_with_workspace(
+        self, item_id, from_workspace_id, to_workspace_id, shared_by, permissions, expires_at
+    ):
         grant = MagicMock()
         grant.item_id = item_id
         grant.grantee_id = to_workspace_id
         self._grants.append(grant)
         return grant
 
-    async def share_with_user(self, item_id, from_workspace_id, to_user_id, shared_by, permissions, expires_at):
+    async def share_with_user(
+        self, item_id, from_workspace_id, to_user_id, shared_by, permissions, expires_at
+    ):
         grant = MagicMock()
         grant.item_id = item_id
         grant.grantee_id = to_user_id
@@ -116,7 +126,9 @@ class MockKnowledgeMound:
         return items
 
     async def revoke_share(self, item_id, grantee_id, revoked_by):
-        self._grants = [g for g in self._grants if g.item_id != item_id or g.grantee_id != grantee_id]
+        self._grants = [
+            g for g in self._grants if g.item_id != item_id or g.grantee_id != grantee_id
+        ]
 
     async def get_share_grants(self, shared_by, workspace_id):
         grants = []
@@ -126,9 +138,15 @@ class MockKnowledgeMound:
             grants.append(mock_grant)
         return grants
 
-    async def update_share_permissions(self, item_id, grantee_id, permissions, expires_at, updated_by):
+    async def update_share_permissions(
+        self, item_id, grantee_id, permissions, expires_at, updated_by
+    ):
         grant = MagicMock()
-        grant.to_dict = lambda: {"item_id": item_id, "grantee_id": grantee_id, "permissions": permissions}
+        grant.to_dict = lambda: {
+            "item_id": item_id,
+            "grantee_id": grantee_id,
+            "permissions": permissions,
+        }
         return grant
 
     async def register_federated_region(self, region_id, endpoint_url, api_key, mode, sync_scope):
@@ -212,12 +230,14 @@ class TestableHandler(
         if self._user:
             return self._user, None
         from aragora.server.handlers.base import error_response
+
         return None, error_response("Unauthorized", 401)
 
     def require_admin_or_error(self, handler):
         if self._user and self._user.is_admin:
             return self._user, None
         from aragora.server.handlers.base import error_response
+
         return None, error_response("Admin required", 403)
 
 
@@ -239,14 +259,18 @@ class TestGlobalKnowledgeE2E:
     def test_store_verified_fact_success(self, setup):
         """Should store verified fact via handler."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "content": "The Earth orbits the Sun.",
-            "source": "astronomy.gov",
-            "confidence": 0.99,
-            "topics": ["astronomy", "physics"],
-        })
+        http_handler = MockHandler(
+            body={
+                "content": "The Earth orbits the Sun.",
+                "source": "astronomy.gov",
+                "confidence": 0.99,
+                "topics": ["astronomy", "physics"],
+            }
+        )
 
-        with patch("aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact"):
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact"
+        ):
             result = handler._handle_store_verified_fact(http_handler)
 
         body, status = parse_response(result)
@@ -259,10 +283,12 @@ class TestGlobalKnowledgeE2E:
         mound = MockKnowledgeMound()
         regular_user = MockUser("user1", "user@example.com", [])
         handler = TestableHandler(mound, regular_user)
-        http_handler = MockHandler(body={
-            "content": "Test fact",
-            "source": "test",
-        })
+        http_handler = MockHandler(
+            body={
+                "content": "Test fact",
+                "source": "test",
+            }
+        )
 
         result = handler._handle_store_verified_fact(http_handler)
         body, status = parse_response(result)
@@ -278,7 +304,9 @@ class TestGlobalKnowledgeE2E:
             {"id": "fact2", "content": "Fact 2"},
         ]
 
-        with patch("aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_query"):
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_query"
+        ):
             result = handler._handle_query_global({"query": ["test"], "limit": ["10"]})
 
         body, status = parse_response(result)
@@ -315,12 +343,14 @@ class TestSharingE2E:
     def test_share_item_with_workspace(self, setup):
         """Should share item with workspace."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "item_id": "item1",
-            "target_type": "workspace",
-            "target_id": "workspace2",
-            "permissions": ["read"],
-        })
+        http_handler = MockHandler(
+            body={
+                "item_id": "item1",
+                "target_type": "workspace",
+                "target_id": "workspace2",
+                "permissions": ["read"],
+            }
+        )
 
         with patch("aragora.server.handlers.knowledge_base.mound.sharing.track_share"):
             result = handler._handle_share_item(http_handler)
@@ -333,12 +363,14 @@ class TestSharingE2E:
     def test_share_item_with_user(self, setup):
         """Should share item with user."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "item_id": "item1",
-            "target_type": "user",
-            "target_id": "user2",
-            "permissions": ["read", "comment"],
-        })
+        http_handler = MockHandler(
+            body={
+                "item_id": "item1",
+                "target_type": "user",
+                "target_id": "user2",
+                "permissions": ["read", "comment"],
+            }
+        )
 
         with patch("aragora.server.handlers.knowledge_base.mound.sharing.track_share"):
             result = handler._handle_share_item(http_handler)
@@ -350,11 +382,13 @@ class TestSharingE2E:
     def test_share_requires_valid_target_type(self, setup):
         """Should reject invalid target type."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "item_id": "item1",
-            "target_type": "invalid",
-            "target_id": "something",
-        })
+        http_handler = MockHandler(
+            body={
+                "item_id": "item1",
+                "target_type": "invalid",
+                "target_id": "something",
+            }
+        )
 
         result = handler._handle_share_item(http_handler)
         body, status = parse_response(result)
@@ -385,10 +419,12 @@ class TestSharingE2E:
         grant.grantee_id = "user2"
         mound._grants.append(grant)
 
-        http_handler = MockHandler(body={
-            "item_id": "item1",
-            "grantee_id": "user2",
-        })
+        http_handler = MockHandler(
+            body={
+                "item_id": "item1",
+                "grantee_id": "user2",
+            }
+        )
 
         result = handler._handle_revoke_share(http_handler)
         body, status = parse_response(result)
@@ -415,13 +451,15 @@ class TestFederationE2E:
     def test_register_region(self, setup):
         """Should register federated region."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "region_id": "us-west",
-            "endpoint_url": "https://us-west.aragora.io/api",
-            "api_key": "secret_key_123",
-            "mode": "bidirectional",
-            "sync_scope": "summary",
-        })
+        http_handler = MockHandler(
+            body={
+                "region_id": "us-west",
+                "endpoint_url": "https://us-west.aragora.io/api",
+                "api_key": "secret_key_123",
+                "mode": "bidirectional",
+                "sync_scope": "summary",
+            }
+        )
 
         result = handler._handle_register_region(http_handler)
         body, status = parse_response(result)
@@ -435,11 +473,13 @@ class TestFederationE2E:
         mound = MockKnowledgeMound()
         regular_user = MockUser("user1", "user@example.com")
         handler = TestableHandler(mound, regular_user)
-        http_handler = MockHandler(body={
-            "region_id": "us-west",
-            "endpoint_url": "https://us-west.aragora.io/api",
-            "api_key": "key",
-        })
+        http_handler = MockHandler(
+            body={
+                "region_id": "us-west",
+                "endpoint_url": "https://us-west.aragora.io/api",
+                "api_key": "key",
+            }
+        )
 
         result = handler._handle_register_region(http_handler)
         body, status = parse_response(result)
@@ -470,12 +510,16 @@ class TestFederationE2E:
         region.region_id = "us-west"
         mound._regions["us-west"] = region
 
-        http_handler = MockHandler(body={
-            "region_id": "us-west",
-            "workspace_id": "workspace1",
-        })
+        http_handler = MockHandler(
+            body={
+                "region_id": "us-west",
+                "workspace_id": "workspace1",
+            }
+        )
 
-        with patch("aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync") as mock_track:
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync"
+        ) as mock_track:
             mock_track.return_value.__enter__ = MagicMock(return_value={})
             mock_track.return_value.__exit__ = MagicMock(return_value=False)
             result = handler._handle_sync_to_region(http_handler)
@@ -489,12 +533,16 @@ class TestFederationE2E:
     def test_pull_from_region(self, setup):
         """Should pull from region."""
         handler, mound = setup
-        http_handler = MockHandler(body={
-            "region_id": "us-west",
-            "workspace_id": "workspace1",
-        })
+        http_handler = MockHandler(
+            body={
+                "region_id": "us-west",
+                "workspace_id": "workspace1",
+            }
+        )
 
-        with patch("aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync") as mock_track:
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync"
+        ) as mock_track:
             mock_track.return_value.__enter__ = MagicMock(return_value={})
             mock_track.return_value.__exit__ = MagicMock(return_value=False)
             result = handler._handle_pull_from_region(http_handler)
@@ -514,7 +562,9 @@ class TestFederationE2E:
             region.enabled = True
             mound._regions[region_id] = region
 
-        with patch("aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions"):
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_regions"
+        ):
             result = handler._handle_get_federation_status({})
 
         body, status = parse_response(result)
@@ -555,21 +605,27 @@ class TestCrossFeatureIntegration:
         handler = TestableHandler(mound, admin_user)
 
         # Store a global fact
-        http_handler = MockHandler(body={
-            "content": "Water boils at 100C at sea level",
-            "source": "physics.edu",
-        })
-        with patch("aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact"):
+        http_handler = MockHandler(
+            body={
+                "content": "Water boils at 100C at sea level",
+                "source": "physics.edu",
+            }
+        )
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.global_knowledge.track_global_fact"
+        ):
             result = handler._handle_store_verified_fact(http_handler)
         body, status = parse_response(result)
         assert status == 201
 
         # Share it with another workspace
-        http_handler = MockHandler(body={
-            "item_id": "fact_0",
-            "target_type": "workspace",
-            "target_id": "workspace2",
-        })
+        http_handler = MockHandler(
+            body={
+                "item_id": "fact_0",
+                "target_type": "workspace",
+                "target_id": "workspace2",
+            }
+        )
         with patch("aragora.server.handlers.knowledge_base.mound.sharing.track_share"):
             result = handler._handle_share_item(http_handler)
         body, status = parse_response(result)
@@ -582,22 +638,28 @@ class TestCrossFeatureIntegration:
         handler = TestableHandler(mound, admin_user)
 
         # Register a region
-        http_handler = MockHandler(body={
-            "region_id": "partner-region",
-            "endpoint_url": "https://partner.aragora.io/api",
-            "api_key": "partner_key",
-            "sync_scope": "summary",
-        })
+        http_handler = MockHandler(
+            body={
+                "region_id": "partner-region",
+                "endpoint_url": "https://partner.aragora.io/api",
+                "api_key": "partner_key",
+                "sync_scope": "summary",
+            }
+        )
         result = handler._handle_register_region(http_handler)
         body, status = parse_response(result)
         assert status == 201
 
         # Sync should respect the scope
-        http_handler = MockHandler(body={
-            "region_id": "partner-region",
-            "visibility_levels": ["public", "organization"],
-        })
-        with patch("aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync") as mock_track:
+        http_handler = MockHandler(
+            body={
+                "region_id": "partner-region",
+                "visibility_levels": ["public", "organization"],
+            }
+        )
+        with patch(
+            "aragora.server.handlers.knowledge_base.mound.federation.track_federation_sync"
+        ) as mock_track:
             mock_track.return_value.__enter__ = MagicMock(return_value={})
             mock_track.return_value.__exit__ = MagicMock(return_value=False)
             result = handler._handle_sync_to_region(http_handler)
@@ -638,9 +700,11 @@ class TestErrorHandling:
         admin_user = MockUser("admin1", "admin@example.com", ["admin"], is_admin=True)
         handler = TestableHandler(mound, admin_user)
 
-        http_handler = MockHandler(body={
-            # Missing region_id, endpoint_url, api_key
-        })
+        http_handler = MockHandler(
+            body={
+                # Missing region_id, endpoint_url, api_key
+            }
+        )
 
         result = handler._handle_register_region(http_handler)
         body, status = parse_response(result)

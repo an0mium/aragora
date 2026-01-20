@@ -220,10 +220,7 @@ class WeightCalculator:
         weights = {}
         for agent in agents:
             # Find this agent's vote
-            agent_vote = next(
-                (v for v in votes if getattr(v, 'agent', None) == agent.name),
-                None
-            )
+            agent_vote = next((v for v in votes if getattr(v, "agent", None) == agent.name), None)
             weights[agent.name] = self.get_weight_for_vote(agent.name, agent_vote)
 
         # Clear context after computation
@@ -367,7 +364,7 @@ class WeightCalculator:
             Weight factor (1.0 = no penalty, lower = penalized)
         """
         # Create config for self-vote detection
-        self_vote_config = SelfVoteConfig(
+        SelfVoteConfig(
             enabled=True,
             mode=self.config.self_vote_mode,
             downweight_factor=self.config.self_vote_downweight,
@@ -404,12 +401,12 @@ class WeightCalculator:
             Weight factor (0.7-1.0, lower = penalized for verbosity)
         """
         # Get the proposal that was voted for
-        choice = getattr(vote, 'choice', None)
+        choice = getattr(vote, "choice", None)
         if not choice or not self._current_proposals:
             return 1.0
 
         # Find proposal text - choice might be agent name or proposal text
-        proposal_text = self._current_proposals.get(choice, '')
+        proposal_text = self._current_proposals.get(choice, "")
         if not proposal_text:
             # Try finding by partial match
             for agent_name, text in self._current_proposals.items():
@@ -519,6 +516,7 @@ class WeightCalculator:
                     domain_elos = rating.domain_elos
                     if isinstance(domain_elos, str):
                         import json
+
                         domain_elos = json.loads(domain_elos)
                     elo = domain_elos.get(self.domain)
                 # Fallback to overall ELO
@@ -534,6 +532,7 @@ class WeightCalculator:
                         domain_elos = rating.domain_elos
                         if isinstance(domain_elos, str):
                             import json
+
                             domain_elos = json.loads(domain_elos)
                         elo = domain_elos.get(self.domain)
                     if elo is None:

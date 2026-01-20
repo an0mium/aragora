@@ -102,9 +102,7 @@ class TestGraphDebatePostValidation:
     @pytest.mark.asyncio
     async def test_returns_404_for_wrong_path(self, graph_handler, mock_http_handler):
         """Returns 404 for non-graph POST paths."""
-        result = await graph_handler.handle_post(
-            mock_http_handler, "/api/debates/other", {}
-        )
+        result = await graph_handler.handle_post(mock_http_handler, "/api/debates/other", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -154,9 +152,7 @@ class TestGraphDebatePostValidation:
         assert "5000 characters" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_suspicious_task_script(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_suspicious_task_script(self, graph_handler, mock_http_handler):
         """Returns 400 when task contains script tag."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -168,9 +164,7 @@ class TestGraphDebatePostValidation:
         assert "invalid characters" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_suspicious_task_template(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_suspicious_task_template(self, graph_handler, mock_http_handler):
         """Returns 400 when task contains template injection."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -191,9 +185,7 @@ class TestGraphDebateAgentValidation:
     """Tests for agent validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_array_agents(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_array_agents(self, graph_handler, mock_http_handler):
         """Returns 400 when agents is not an array."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -205,9 +197,7 @@ class TestGraphDebateAgentValidation:
         assert "array" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_few_agents(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_few_agents(self, graph_handler, mock_http_handler):
         """Returns 400 when less than 2 agents provided."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -219,9 +209,7 @@ class TestGraphDebateAgentValidation:
         assert "2 agents" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_agents(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_agents(self, graph_handler, mock_http_handler):
         """Returns 400 when more than 10 agents provided."""
         agents = [f"agent{i}" for i in range(11)]
         result = await graph_handler.handle_post(
@@ -234,9 +222,7 @@ class TestGraphDebateAgentValidation:
         assert "10 agents" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_string_agent(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_string_agent(self, graph_handler, mock_http_handler):
         """Returns 400 when agent name is not a string."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -248,9 +234,7 @@ class TestGraphDebateAgentValidation:
         assert "agents[1]" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_long_agent_name(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_long_agent_name(self, graph_handler, mock_http_handler):
         """Returns 400 when agent name exceeds 50 chars."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -265,9 +249,7 @@ class TestGraphDebateAgentValidation:
         assert "50 chars" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_agent_name(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_agent_name(self, graph_handler, mock_http_handler):
         """Returns 400 when agent name contains invalid characters."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -291,9 +273,7 @@ class TestGraphDebateRoundsValidation:
     """Tests for max_rounds validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_max_rounds(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_max_rounds(self, graph_handler, mock_http_handler):
         """Returns 400 when max_rounds is not a number."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -309,9 +289,7 @@ class TestGraphDebateRoundsValidation:
         assert "max_rounds" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_zero_max_rounds(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_zero_max_rounds(self, graph_handler, mock_http_handler):
         """Returns 400 when max_rounds is less than 1."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -327,9 +305,7 @@ class TestGraphDebateRoundsValidation:
         assert "at least 1" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_rounds(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_rounds(self, graph_handler, mock_http_handler):
         """Returns 400 when max_rounds exceeds 20."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -354,9 +330,7 @@ class TestGraphDebateBranchPolicyValidation:
     """Tests for branch_policy validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_dict_branch_policy(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_dict_branch_policy(self, graph_handler, mock_http_handler):
         """Returns 400 when branch_policy is not an object."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -372,9 +346,7 @@ class TestGraphDebateBranchPolicyValidation:
         assert "object" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_min_disagreement(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_min_disagreement(self, graph_handler, mock_http_handler):
         """Returns 400 when min_disagreement is out of range."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -390,9 +362,7 @@ class TestGraphDebateBranchPolicyValidation:
         assert "min_disagreement" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_max_branches(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_max_branches(self, graph_handler, mock_http_handler):
         """Returns 400 when max_branches is out of range."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -408,9 +378,7 @@ class TestGraphDebateBranchPolicyValidation:
         assert "max_branches" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_merge_strategy(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_merge_strategy(self, graph_handler, mock_http_handler):
         """Returns 400 when merge_strategy is invalid."""
         result = await graph_handler.handle_post(
             mock_http_handler,
@@ -435,19 +403,13 @@ class TestGraphDebateGetEndpoints:
     """Tests for GET endpoints."""
 
     @pytest.mark.asyncio
-    async def test_get_returns_404_for_base_path(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_returns_404_for_base_path(self, graph_handler, mock_http_handler):
         """Returns 404 for GET on base graph path."""
-        result = await graph_handler.handle_get(
-            mock_http_handler, "/api/debates/graph", {}
-        )
+        result = await graph_handler.handle_get(mock_http_handler, "/api/debates/graph", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_503_without_storage(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_503_without_storage(self, graph_handler, mock_http_handler):
         """Returns 503 when storage is not configured."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
@@ -458,9 +420,7 @@ class TestGraphDebateGetEndpoints:
         assert "storage" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_404_when_not_found(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_404_when_not_found(self, graph_handler, mock_http_handler):
         """Returns 404 when graph debate doesn't exist."""
         mock_storage = AsyncMock()
         mock_storage.get_graph_debate = AsyncMock(return_value=None)
@@ -472,9 +432,7 @@ class TestGraphDebateGetEndpoints:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_debate_data(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_debate_data(self, graph_handler, mock_http_handler):
         """Returns debate data when found."""
         debate_data = {"id": "test-123", "task": "Test task", "nodes": []}
         mock_storage = AsyncMock()
@@ -489,9 +447,7 @@ class TestGraphDebateGetEndpoints:
         assert data["id"] == "test-123"
 
     @pytest.mark.asyncio
-    async def test_get_branches_returns_503_without_storage(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_branches_returns_503_without_storage(self, graph_handler, mock_http_handler):
         """Returns 503 when storage is not configured for branches."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
@@ -500,9 +456,7 @@ class TestGraphDebateGetEndpoints:
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_branches_returns_branch_data(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_branches_returns_branch_data(self, graph_handler, mock_http_handler):
         """Returns branch data when found."""
         branches = [{"id": "branch-1"}, {"id": "branch-2"}]
         mock_storage = AsyncMock()
@@ -518,9 +472,7 @@ class TestGraphDebateGetEndpoints:
         assert len(data["branches"]) == 2
 
     @pytest.mark.asyncio
-    async def test_get_nodes_returns_503_without_storage(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_nodes_returns_503_without_storage(self, graph_handler, mock_http_handler):
         """Returns 503 when storage is not configured for nodes."""
         mock_http_handler.storage = None
         result = await graph_handler.handle_get(
@@ -529,9 +481,7 @@ class TestGraphDebateGetEndpoints:
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_nodes_returns_node_data(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_nodes_returns_node_data(self, graph_handler, mock_http_handler):
         """Returns node data when found."""
         nodes = [{"id": "node-1", "content": "First"}, {"id": "node-2", "content": "Second"}]
         mock_storage = AsyncMock()
@@ -611,9 +561,7 @@ class TestGraphDebateErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_no_valid_agents(self, graph_handler, mock_http_handler):
         """Returns 400 when no valid agents are found."""
-        with patch.object(
-            graph_handler, "_load_agents", new_callable=AsyncMock, return_value=[]
-        ):
+        with patch.object(graph_handler, "_load_agents", new_callable=AsyncMock, return_value=[]):
             result = await graph_handler.handle_post(
                 mock_http_handler,
                 "/api/debates/graph",
@@ -627,14 +575,10 @@ class TestGraphDebateErrorHandling:
             assert "no valid agents" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_debate_handles_storage_error(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_debate_handles_storage_error(self, graph_handler, mock_http_handler):
         """Returns 500 on storage error when getting debate."""
         mock_storage = AsyncMock()
-        mock_storage.get_graph_debate = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_graph_debate = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
@@ -643,14 +587,10 @@ class TestGraphDebateErrorHandling:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_get_branches_handles_storage_error(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_branches_handles_storage_error(self, graph_handler, mock_http_handler):
         """Returns 500 on storage error when getting branches."""
         mock_storage = AsyncMock()
-        mock_storage.get_debate_branches = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_debate_branches = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(
@@ -659,14 +599,10 @@ class TestGraphDebateErrorHandling:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_get_nodes_handles_storage_error(
-        self, graph_handler, mock_http_handler
-    ):
+    async def test_get_nodes_handles_storage_error(self, graph_handler, mock_http_handler):
         """Returns 500 on storage error when getting nodes."""
         mock_storage = AsyncMock()
-        mock_storage.get_debate_nodes = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_debate_nodes = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await graph_handler.handle_get(

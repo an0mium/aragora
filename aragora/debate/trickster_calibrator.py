@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker
-    from aragora.debate.trickster import EvidencePoweredTrickster, TricksterConfig
+    from aragora.debate.trickster import EvidencePoweredTrickster
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,9 @@ class TricksterCalibrator:
                 self.sensitivity_bounds[0],
                 current_sensitivity - self.adjustment_step,
             )
-            reason = f"false_positive_rate={false_positive_rate:.2f} > {self.false_positive_tolerance}"
+            reason = (
+                f"false_positive_rate={false_positive_rate:.2f} > {self.false_positive_tolerance}"
+            )
 
         elif miss_rate > self.miss_tolerance:
             # Too many misses - raise sensitivity
@@ -335,7 +337,9 @@ class TricksterCalibrator:
 
         # Update detector threshold if accessible
         if hasattr(self.trickster, "_detector"):
-            self.trickster._detector.min_quality_threshold = self.trickster.config.min_quality_threshold
+            self.trickster._detector.min_quality_threshold = (
+                self.trickster.config.min_quality_threshold
+            )
 
         logger.debug(
             "trickster_sensitivity_applied sensitivity=%.2f threshold=%.2f",
@@ -362,9 +366,7 @@ class TricksterCalibrator:
         Returns:
             Dict with calibration metrics and history
         """
-        analysis = (
-            self._analyze_outcomes() if len(self._data_points) >= 5 else {}
-        )
+        analysis = self._analyze_outcomes() if len(self._data_points) >= 5 else {}
 
         current_sensitivity = 0.5
         if self.trickster is not None:
@@ -377,9 +379,7 @@ class TricksterCalibrator:
             "calibration_count": len(self._calibration_history),
             "analysis": analysis,
             "last_calibration": (
-                self._calibration_history[-1].timestamp
-                if self._calibration_history
-                else None
+                self._calibration_history[-1].timestamp if self._calibration_history else None
             ),
             "pending_interventions": len(self._intervention_history),
         }

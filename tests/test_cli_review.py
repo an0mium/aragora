@@ -198,10 +198,10 @@ class TestFormatGithubComment:
     """Tests for format_github_comment function."""
 
     def test_includes_header(self):
-        """format_github_comment includes AI Red Team header."""
+        """format_github_comment includes Multi Agent header."""
         findings = get_demo_findings()
         comment = format_github_comment(None, findings)
-        assert "AI Red Team" in comment
+        assert "Multi Agent" in comment
 
     def test_includes_unanimous_issues(self):
         """format_github_comment includes unanimous issues."""

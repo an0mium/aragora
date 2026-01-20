@@ -237,11 +237,7 @@ class TenantDataIsolation:
         sql_upper = base_sql.upper()
         if "WHERE" in sql_upper:
             # Add to existing WHERE
-            modified_sql = base_sql.replace(
-                "WHERE",
-                f"WHERE {col} = :tenant_id AND",
-                1
-            )
+            modified_sql = base_sql.replace("WHERE", f"WHERE {col} = :tenant_id AND", 1)
         else:
             # Find insertion point (before ORDER BY, LIMIT, etc.)
             insert_keywords = ["ORDER BY", "GROUP BY", "LIMIT", "OFFSET", ";"]
@@ -252,9 +248,9 @@ class TenantDataIsolation:
                     insert_pos = pos
 
             modified_sql = (
-                base_sql[:insert_pos].rstrip() +
-                f" WHERE {col} = :tenant_id " +
-                base_sql[insert_pos:]
+                base_sql[:insert_pos].rstrip()
+                + f" WHERE {col} = :tenant_id "
+                + base_sql[insert_pos:]
             )
 
         return modified_sql, {"tenant_id": tid}
@@ -322,8 +318,7 @@ class TenantDataIsolation:
             )
             if self.config.strict_validation:
                 raise IsolationViolation(
-                    f"Resource belongs to tenant {resource_tenant}, "
-                    f"not {expected}",
+                    f"Resource belongs to tenant {resource_tenant}, " f"not {expected}",
                     tenant_id=expected,
                 )
             return False
@@ -526,21 +521,18 @@ def ensure_tenant_scope(func: Callable[..., T]) -> Callable[..., T]:
     def wrapper(*args, **kwargs):
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
-            raise TenantNotSetError(
-                f"Function {func.__name__} requires tenant scope"
-            )
+            raise TenantNotSetError(f"Function {func.__name__} requires tenant scope")
         return func(*args, **kwargs)
 
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
-            raise TenantNotSetError(
-                f"Function {func.__name__} requires tenant scope"
-            )
+            raise TenantNotSetError(f"Function {func.__name__} requires tenant scope")
         return await func(*args, **kwargs)
 
     import asyncio
+
     if asyncio.iscoroutinefunction(func):
         return async_wrapper  # type: ignore
     return wrapper  # type: ignore

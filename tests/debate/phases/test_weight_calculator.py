@@ -135,9 +135,7 @@ class TestWeightCalculator:
 
     def test_weight_with_reliability(self):
         """Reliability weight is used from agent_weights."""
-        calculator = WeightCalculator(
-            agent_weights={"agent1": 0.9, "agent2": 0.8}
-        )
+        calculator = WeightCalculator(agent_weights={"agent1": 0.9, "agent2": 0.8})
 
         weight1 = calculator.get_weight("agent1")
         weight2 = calculator.get_weight("agent2")
@@ -148,9 +146,7 @@ class TestWeightCalculator:
     def test_weight_with_consistency(self):
         """Consistency weight is calculated from FlipDetector."""
         flip_detector = MagicMock()
-        flip_detector.get_agent_consistency.return_value = MockConsistency(
-            consistency_score=1.0
-        )
+        flip_detector.get_agent_consistency.return_value = MockConsistency(consistency_score=1.0)
 
         calculator = WeightCalculator(flip_detector=flip_detector)
         weight = calculator.get_weight("agent1")
@@ -194,9 +190,7 @@ class TestWeightCalculator:
 
     def test_compute_weights_batch(self):
         """compute_weights calculates for all agents."""
-        calculator = WeightCalculator(
-            agent_weights={"agent1": 1.5, "agent2": 1.2, "agent3": 0.9}
-        )
+        calculator = WeightCalculator(agent_weights={"agent1": 1.5, "agent2": 1.2, "agent3": 0.9})
         agents = [MockAgent("agent1"), MockAgent("agent2"), MockAgent("agent3")]
 
         weights = calculator.compute_weights(agents)

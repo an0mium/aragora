@@ -40,45 +40,55 @@ def mock_mound():
 
     # Visibility methods
     mound.set_visibility = AsyncMock(return_value=True)
-    mound.get_node = AsyncMock(return_value=MagicMock(
-        id="test_node_1",
-        content="Test content",
-        metadata={
-            "visibility": "workspace",
-            "visibility_set_by": "user_1",
-            "is_discoverable": True,
-        },
-    ))
-    mound.grant_access = AsyncMock(return_value=MagicMock(
-        id="grant_1",
-        item_id="test_node_1",
-        grantee_type="user",
-        grantee_id="user_2",
-        permissions=["read"],
-        granted_by="user_1",
-    ))
+    mound.get_node = AsyncMock(
+        return_value=MagicMock(
+            id="test_node_1",
+            content="Test content",
+            metadata={
+                "visibility": "workspace",
+                "visibility_set_by": "user_1",
+                "is_discoverable": True,
+            },
+        )
+    )
+    mound.grant_access = AsyncMock(
+        return_value=MagicMock(
+            id="grant_1",
+            item_id="test_node_1",
+            grantee_type="user",
+            grantee_id="user_2",
+            permissions=["read"],
+            granted_by="user_1",
+        )
+    )
     mound.revoke_access = AsyncMock(return_value=True)
     mound.get_access_grants = AsyncMock(return_value=[])
 
     # Sharing methods
-    mound.share_with_workspace = AsyncMock(return_value=MagicMock(
-        id="share_1",
-        item_id="test_node_1",
-        grantee_id="workspace_2",
-    ))
-    mound.share_with_user = AsyncMock(return_value=MagicMock(
-        id="share_2",
-        item_id="test_node_1",
-        grantee_id="user_3",
-    ))
+    mound.share_with_workspace = AsyncMock(
+        return_value=MagicMock(
+            id="share_1",
+            item_id="test_node_1",
+            grantee_id="workspace_2",
+        )
+    )
+    mound.share_with_user = AsyncMock(
+        return_value=MagicMock(
+            id="share_2",
+            item_id="test_node_1",
+            grantee_id="user_3",
+        )
+    )
     mound.get_shared_with_me = AsyncMock(return_value=[])
     mound.revoke_share = AsyncMock(return_value=True)
     mound.get_share_grants = AsyncMock(return_value=[])
-    mound.update_share_permissions = AsyncMock(return_value=MagicMock(
-        item_id="test_node_1",
-        grantee_id="user_2",
-        permissions=["read", "write"],
-    ))
+    mound.update_share_permissions = AsyncMock(
+        return_value=MagicMock(
+            item_id="test_node_1",
+            grantee_id="user_2",
+            permissions=["read", "write"],
+        )
+    )
 
     # Global knowledge methods
     mound.store_verified_fact = AsyncMock(return_value="global_fact_1")
@@ -88,33 +98,39 @@ def mock_mound():
     mound.get_system_workspace_id = MagicMock(return_value="__system__")
 
     # Federation methods
-    mound.register_federated_region = AsyncMock(return_value=MagicMock(
-        region_id="us-west-2",
-        endpoint_url="https://us-west-2.example.com/api",
-        mode=MagicMock(value="bidirectional"),
-        sync_scope=MagicMock(value="summary"),
-        enabled=True,
-    ))
+    mound.register_federated_region = AsyncMock(
+        return_value=MagicMock(
+            region_id="us-west-2",
+            endpoint_url="https://us-west-2.example.com/api",
+            mode=MagicMock(value="bidirectional"),
+            sync_scope=MagicMock(value="summary"),
+            enabled=True,
+        )
+    )
     mound.unregister_federated_region = AsyncMock(return_value=True)
-    mound.sync_to_region = AsyncMock(return_value=MagicMock(
-        success=True,
-        region_id="us-west-2",
-        direction="push",
-        nodes_synced=10,
-        nodes_skipped=2,
-        nodes_failed=0,
-        duration_ms=150,
-        error=None,
-    ))
-    mound.pull_from_region = AsyncMock(return_value=MagicMock(
-        success=True,
-        region_id="us-west-2",
-        direction="pull",
-        nodes_synced=5,
-        nodes_failed=0,
-        duration_ms=120,
-        error=None,
-    ))
+    mound.sync_to_region = AsyncMock(
+        return_value=MagicMock(
+            success=True,
+            region_id="us-west-2",
+            direction="push",
+            nodes_synced=10,
+            nodes_skipped=2,
+            nodes_failed=0,
+            duration_ms=150,
+            error=None,
+        )
+    )
+    mound.pull_from_region = AsyncMock(
+        return_value=MagicMock(
+            success=True,
+            region_id="us-west-2",
+            direction="pull",
+            nodes_synced=5,
+            nodes_failed=0,
+            duration_ms=120,
+            error=None,
+        )
+    )
     mound.sync_all_regions = AsyncMock(return_value=[])
     mound.get_federation_status = AsyncMock(return_value={})
 
@@ -183,10 +199,12 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "visibility": "private",
-            "is_discoverable": False,
-        })
+        http_handler = make_handler_with_body(
+            {
+                "visibility": "private",
+                "is_discoverable": False,
+            }
+        )
 
         result = handler_instance._handle_set_visibility("node_1", http_handler)
 
@@ -211,9 +229,11 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "visibility": "invalid_level",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "visibility": "invalid_level",
+            }
+        )
 
         result = handler_instance._handle_set_visibility("node_1", http_handler)
 
@@ -255,11 +275,13 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "grantee_type": "user",
-            "grantee_id": "user_2",
-            "permissions": ["read", "write"],
-        })
+        http_handler = make_handler_with_body(
+            {
+                "grantee_type": "user",
+                "grantee_id": "user_2",
+                "permissions": ["read", "write"],
+            }
+        )
 
         result = handler_instance._handle_grant_access("node_1", http_handler)
 
@@ -284,12 +306,14 @@ class TestVisibilityOperations:
 
         handler_instance = TestHandler()
         expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
-        http_handler = make_handler_with_body({
-            "grantee_type": "workspace",
-            "grantee_id": "workspace_2",
-            "permissions": ["read"],
-            "expires_at": expires_at,
-        })
+        http_handler = make_handler_with_body(
+            {
+                "grantee_type": "workspace",
+                "grantee_id": "workspace_2",
+                "permissions": ["read"],
+                "expires_at": expires_at,
+            }
+        )
 
         result = handler_instance._handle_grant_access("node_1", http_handler)
 
@@ -312,9 +336,11 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "grantee_id": "user_2",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "grantee_id": "user_2",
+            }
+        )
 
         result = handler_instance._handle_revoke_access("node_1", http_handler)
 
@@ -347,13 +373,15 @@ class TestSharingOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "item_id": "node_1",
-            "target_type": "workspace",
-            "target_id": "workspace_2",
-            "permissions": ["read"],
-            "from_workspace_id": "workspace_1",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "item_id": "node_1",
+                "target_type": "workspace",
+                "target_id": "workspace_2",
+                "permissions": ["read"],
+                "from_workspace_id": "workspace_1",
+            }
+        )
 
         result = handler_instance._handle_share_item(http_handler)
 
@@ -378,12 +406,14 @@ class TestSharingOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "item_id": "node_1",
-            "target_type": "user",
-            "target_id": "user_3",
-            "permissions": ["read", "write"],
-        })
+        http_handler = make_handler_with_body(
+            {
+                "item_id": "node_1",
+                "target_type": "user",
+                "target_id": "user_3",
+                "permissions": ["read", "write"],
+            }
+        )
 
         result = handler_instance._handle_share_item(http_handler)
 
@@ -407,11 +437,13 @@ class TestSharingOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "item_id": "node_1",
-            "target_type": "invalid",
-            "target_id": "target_1",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "item_id": "node_1",
+                "target_type": "invalid",
+                "target_id": "target_1",
+            }
+        )
 
         result = handler_instance._handle_share_item(http_handler)
 
@@ -427,18 +459,20 @@ class TestSharingOperations:
         )
 
         # Setup mock to return shared items
-        mock_mound.get_shared_with_me = AsyncMock(return_value=[
-            MagicMock(
-                id="shared_1",
-                content="Shared content 1",
-                to_dict=lambda: {"id": "shared_1", "content": "Shared content 1"},
-            ),
-            MagicMock(
-                id="shared_2",
-                content="Shared content 2",
-                to_dict=lambda: {"id": "shared_2", "content": "Shared content 2"},
-            ),
-        ])
+        mock_mound.get_shared_with_me = AsyncMock(
+            return_value=[
+                MagicMock(
+                    id="shared_1",
+                    content="Shared content 1",
+                    to_dict=lambda: {"id": "shared_1", "content": "Shared content 1"},
+                ),
+                MagicMock(
+                    id="shared_2",
+                    content="Shared content 2",
+                    to_dict=lambda: {"id": "shared_2", "content": "Shared content 2"},
+                ),
+            ]
+        )
 
         class TestHandler(SharingOperationsMixin):
             def _get_mound(self):
@@ -475,10 +509,12 @@ class TestSharingOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "item_id": "node_1",
-            "grantee_id": "workspace_2",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "item_id": "node_1",
+                "grantee_id": "workspace_2",
+            }
+        )
 
         result = handler_instance._handle_revoke_share(http_handler)
 
@@ -514,12 +550,14 @@ class TestGlobalKnowledgeOperations:
                 return mock_admin_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "content": "The Earth orbits the Sun",
-            "source": "scientific_consensus",
-            "confidence": 0.99,
-            "topics": ["astronomy", "science"],
-        })
+        http_handler = make_handler_with_body(
+            {
+                "content": "The Earth orbits the Sun",
+                "source": "scientific_consensus",
+                "confidence": 0.99,
+                "topics": ["astronomy", "science"],
+            }
+        )
 
         result = handler_instance._handle_store_verified_fact(http_handler)
 
@@ -548,10 +586,12 @@ class TestGlobalKnowledgeOperations:
                 return None, error_response("Admin required", 403)
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "content": "Test fact",
-            "source": "test",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "content": "Test fact",
+                "source": "test",
+            }
+        )
 
         result = handler_instance._handle_store_verified_fact(http_handler)
 
@@ -565,14 +605,16 @@ class TestGlobalKnowledgeOperations:
             GlobalKnowledgeOperationsMixin,
         )
 
-        mock_mound.query_global_knowledge = AsyncMock(return_value=[
-            MagicMock(
-                id="fact_1",
-                content="Important global fact",
-                importance=0.9,
-                to_dict=lambda: {"id": "fact_1", "content": "Important global fact"},
-            ),
-        ])
+        mock_mound.query_global_knowledge = AsyncMock(
+            return_value=[
+                MagicMock(
+                    id="fact_1",
+                    content="Important global fact",
+                    importance=0.9,
+                    to_dict=lambda: {"id": "fact_1", "content": "Important global fact"},
+                ),
+            ]
+        )
 
         class TestHandler(GlobalKnowledgeOperationsMixin):
             def _get_mound(self):
@@ -603,11 +645,13 @@ class TestGlobalKnowledgeOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "item_id": "node_1",
-            "workspace_id": "workspace_1",
-            "reason": "high_consensus",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "item_id": "node_1",
+                "workspace_id": "workspace_1",
+                "reason": "high_consensus",
+            }
+        )
 
         result = handler_instance._handle_promote_to_global(http_handler)
 
@@ -662,13 +706,15 @@ class TestFederationOperations:
                 return mock_admin_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "region_id": "us-west-2",
-            "endpoint_url": "https://us-west-2.example.com/api",
-            "api_key": "secret_api_key",
-            "mode": "bidirectional",
-            "sync_scope": "summary",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "region_id": "us-west-2",
+                "endpoint_url": "https://us-west-2.example.com/api",
+                "api_key": "secret_api_key",
+                "mode": "bidirectional",
+                "sync_scope": "summary",
+            }
+        )
 
         result = handler_instance._handle_register_region(http_handler)
 
@@ -720,10 +766,12 @@ class TestFederationOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "region_id": "us-west-2",
-            "workspace_id": "workspace_1",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "region_id": "us-west-2",
+                "workspace_id": "workspace_1",
+            }
+        )
 
         result = handler_instance._handle_sync_to_region(http_handler)
 
@@ -748,10 +796,12 @@ class TestFederationOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        http_handler = make_handler_with_body({
-            "region_id": "us-west-2",
-            "workspace_id": "workspace_1",
-        })
+        http_handler = make_handler_with_body(
+            {
+                "region_id": "us-west-2",
+                "workspace_id": "workspace_1",
+            }
+        )
 
         result = handler_instance._handle_pull_from_region(http_handler)
 
@@ -777,10 +827,12 @@ class TestFederationOperations:
 
         handler_instance = TestHandler()
         since_time = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
-        http_handler = make_handler_with_body({
-            "region_id": "us-west-2",
-            "since": since_time,
-        })
+        http_handler = make_handler_with_body(
+            {
+                "region_id": "us-west-2",
+                "since": since_time,
+            }
+        )
 
         result = handler_instance._handle_sync_to_region(http_handler)
 
@@ -795,20 +847,22 @@ class TestFederationOperations:
             FederationOperationsMixin,
         )
 
-        mock_mound.get_federation_status = AsyncMock(return_value={
-            "us-west-2": {
-                "enabled": True,
-                "mode": "bidirectional",
-                "last_sync": datetime.utcnow().isoformat(),
-                "health": "healthy",
-            },
-            "eu-west-1": {
-                "enabled": False,
-                "mode": "pull",
-                "last_sync": None,
-                "health": "unknown",
-            },
-        })
+        mock_mound.get_federation_status = AsyncMock(
+            return_value={
+                "us-west-2": {
+                    "enabled": True,
+                    "mode": "bidirectional",
+                    "last_sync": datetime.utcnow().isoformat(),
+                    "health": "healthy",
+                },
+                "eu-west-1": {
+                    "enabled": False,
+                    "mode": "pull",
+                    "last_sync": None,
+                    "health": "unknown",
+                },
+            }
+        )
 
         class TestHandler(FederationOperationsMixin):
             def _get_mound(self):
@@ -829,10 +883,12 @@ class TestFederationOperations:
             FederationOperationsMixin,
         )
 
-        mock_mound.get_federation_status = AsyncMock(return_value={
-            "us-west-2": {"enabled": True, "mode": "bidirectional"},
-            "eu-west-1": {"enabled": False, "mode": "pull"},
-        })
+        mock_mound.get_federation_status = AsyncMock(
+            return_value={
+                "us-west-2": {"enabled": True, "mode": "bidirectional"},
+                "eu-west-1": {"enabled": False, "mode": "pull"},
+            }
+        )
 
         class TestHandler(FederationOperationsMixin):
             def _get_mound(self):
@@ -865,6 +921,7 @@ class TestFullStackIntegration:
     def server_url(self):
         """Get test server URL from environment."""
         import os
+
         url = os.environ.get("ARAGORA_TEST_SERVER_URL")
         if not url:
             pytest.skip("ARAGORA_TEST_SERVER_URL not set")
@@ -874,6 +931,7 @@ class TestFullStackIntegration:
     def auth_token(self):
         """Get test auth token from environment."""
         import os
+
         token = os.environ.get("ARAGORA_TEST_AUTH_TOKEN")
         if not token:
             pytest.skip("ARAGORA_TEST_AUTH_TOKEN not set")

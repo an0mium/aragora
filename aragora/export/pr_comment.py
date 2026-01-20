@@ -1,5 +1,5 @@
 """
-PR Comment Formatter for AI Red Team Code Review.
+PR Comment Formatter for Multi Agent Code Review.
 
 Generates GitHub-flavored markdown comments from debate results.
 Designed to be scannable in 30 seconds with clear severity hierarchy.
@@ -59,7 +59,7 @@ def format_pr_comment(
     agent_names = _format_agent_names(agents_used)
 
     lines = [
-        "## AI Red Team Code Review",
+        "## Multi Agent Code Review",
         "",
         f"**{len(agents_used)} agents reviewed this PR** ({agent_names})",
     ]
@@ -176,7 +176,7 @@ def format_pr_comment(
         lines.extend(
             [
                 "---",
-                f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*",
+                f"*Agreement score: {agreement:.0%} | Powered by [Aragora](https://github.com/an0mium/aragora) - Multi Agent Decision Making*",
             ]
         )
 
@@ -234,7 +234,7 @@ def format_slack_message(findings: dict) -> dict:
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "AI Red Team Code Review",
+                "text": "Multi Agent Code Review",
             },
         }
     )

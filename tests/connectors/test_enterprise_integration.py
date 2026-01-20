@@ -45,6 +45,7 @@ from aragora.agents.personas import DEFAULT_PERSONAS
 # PHI Redactor Tests
 # =============================================================================
 
+
 class TestPHIRedactor:
     """Tests for HIPAA-compliant PHI redaction."""
 
@@ -151,6 +152,7 @@ class TestPHIRedactor:
 # FHIR Audit Logger Tests
 # =============================================================================
 
+
 class TestFHIRAuditLogger:
     """Tests for HIPAA audit logging."""
 
@@ -207,6 +209,7 @@ class TestFHIRAuditLogger:
 # Workflow Template Tests
 # =============================================================================
 
+
 class TestWorkflowTemplates:
     """Tests for industry workflow templates."""
 
@@ -228,25 +231,39 @@ class TestWorkflowTemplates:
             for step in debate_steps:
                 agents = step.get("config", {}).get("agents", [])
                 # Should include at least one legal persona
-                legal_personas = {"contract_analyst", "compliance_officer", "litigation_support", "m_and_a_counsel"}
+                legal_personas = {
+                    "contract_analyst",
+                    "compliance_officer",
+                    "litigation_support",
+                    "m_and_a_counsel",
+                }
                 has_legal = any(a in legal_personas for a in agents)
                 assert has_legal, f"Legal template step {step['id']} should use legal personas"
 
     def test_healthcare_templates_use_healthcare_personas(self):
         """Test healthcare templates reference healthcare personas."""
-        healthcare_templates = [t for tid, t in WORKFLOW_TEMPLATES.items() if tid.startswith("healthcare/")]
+        healthcare_templates = [
+            t for tid, t in WORKFLOW_TEMPLATES.items() if tid.startswith("healthcare/")
+        ]
 
         for template in healthcare_templates:
             debate_steps = [s for s in template["steps"] if s.get("type") == "debate"]
 
             for step in debate_steps:
                 agents = step.get("config", {}).get("agents", [])
-                healthcare_personas = {"hipaa_auditor", "clinical_reviewer", "research_analyst_clinical", "medical_coder"}
+                healthcare_personas = {
+                    "hipaa_auditor",
+                    "clinical_reviewer",
+                    "research_analyst_clinical",
+                    "medical_coder",
+                }
                 has_healthcare = any(a in healthcare_personas for a in agents)
                 # Allow compliance personas too
                 compliance_personas = {"compliance_officer", "sox", "security_engineer"}
                 has_compliance = any(a in compliance_personas for a in agents)
-                assert has_healthcare or has_compliance, f"Healthcare template step {step['id']} should use healthcare/compliance personas"
+                assert (
+                    has_healthcare or has_compliance
+                ), f"Healthcare template step {step['id']} should use healthcare/compliance personas"
 
     def test_code_templates_use_code_personas(self):
         """Test code templates reference code review personas."""
@@ -258,17 +275,23 @@ class TestWorkflowTemplates:
             for step in debate_steps:
                 agents = step.get("config", {}).get("agents", [])
                 code_personas = {
-                    "code_security_specialist", "architecture_reviewer",
-                    "code_quality_reviewer", "api_design_reviewer",
-                    "security_engineer", "performance_engineer",
-                    "data_architect", "devops_engineer",
+                    "code_security_specialist",
+                    "architecture_reviewer",
+                    "code_quality_reviewer",
+                    "api_design_reviewer",
+                    "security_engineer",
+                    "performance_engineer",
+                    "data_architect",
+                    "devops_engineer",
                 }
                 has_code = any(a in code_personas for a in agents)
                 assert has_code, f"Code template step {step['id']} should use code personas"
 
     def test_accounting_templates_use_financial_personas(self):
         """Test accounting templates reference financial personas."""
-        accounting_templates = [t for tid, t in WORKFLOW_TEMPLATES.items() if tid.startswith("accounting/")]
+        accounting_templates = [
+            t for tid, t in WORKFLOW_TEMPLATES.items() if tid.startswith("accounting/")
+        ]
 
         for template in accounting_templates:
             debate_steps = [s for s in template["steps"] if s.get("type") == "debate"]
@@ -276,11 +299,17 @@ class TestWorkflowTemplates:
             for step in debate_steps:
                 agents = step.get("config", {}).get("agents", [])
                 financial_personas = {
-                    "financial_auditor", "tax_specialist", "forensic_accountant",
-                    "internal_auditor", "sox", "compliance_officer",
+                    "financial_auditor",
+                    "tax_specialist",
+                    "forensic_accountant",
+                    "internal_auditor",
+                    "sox",
+                    "compliance_officer",
                 }
                 has_financial = any(a in financial_personas for a in agents)
-                assert has_financial, f"Accounting template step {step['id']} should use financial personas"
+                assert (
+                    has_financial
+                ), f"Accounting template step {step['id']} should use financial personas"
 
     def test_templates_have_human_checkpoints(self):
         """Test templates include human review steps."""
@@ -293,8 +322,7 @@ class TestWorkflowTemplates:
         templates_with_memory = 0
         for template_id, template in WORKFLOW_TEMPLATES.items():
             memory_steps = [
-                s for s in template["steps"]
-                if s.get("type") in ("memory_read", "memory_write")
+                s for s in template["steps"] if s.get("type") in ("memory_read", "memory_write")
             ]
             if len(memory_steps) >= 1:
                 templates_with_memory += 1
@@ -327,6 +355,7 @@ class TestWorkflowTemplates:
 # =============================================================================
 # API Handler Tests
 # =============================================================================
+
 
 class TestConnectorAPIHandlers:
     """Tests for connector API handlers."""
@@ -444,6 +473,7 @@ class TestWorkflowTemplateAPIHandlers:
 # End-to-End Integration Tests
 # =============================================================================
 
+
 class TestEndToEndIntegration:
     """End-to-end integration tests."""
 
@@ -451,21 +481,53 @@ class TestEndToEndIntegration:
         """Test that all personas used in templates exist in DEFAULT_PERSONAS or are known role-based agents."""
         # Known model names that are valid agents
         KNOWN_MODELS = {
-            "claude", "codex", "gemini", "grok", "deepseek",
-            "qwen", "yi", "llama", "gpt4", "gpt-4",
+            "claude",
+            "codex",
+            "gemini",
+            "grok",
+            "deepseek",
+            "qwen",
+            "yi",
+            "llama",
+            "gpt4",
+            "gpt-4",
         }
         # Enterprise role-based agents used in workflow templates
         ENTERPRISE_ROLES = {
-            "security_engineer", "compliance_officer", "legal_analyst",
-            "auditor", "data_scientist", "ml_engineer", "data_engineer",
-            "devops_engineer", "sre", "architect", "tech_lead",
-            "product_manager", "project_manager", "business_analyst",
-            "ux_researcher", "designer", "technical_writer", "qa_engineer",
-            "data_analyst", "statistician", "ai_ethics_specialist",
-            "data_governance_specialist", "product_marketing", "customer_success",
-            "financial_auditor", "tax_specialist", "forensic_accountant",
-            "internal_auditor", "sox", "hipaa_specialist", "clinical_analyst",
-            "medical_informaticist", "healthcare_compliance", "phi_specialist",
+            "security_engineer",
+            "compliance_officer",
+            "legal_analyst",
+            "auditor",
+            "data_scientist",
+            "ml_engineer",
+            "data_engineer",
+            "devops_engineer",
+            "sre",
+            "architect",
+            "tech_lead",
+            "product_manager",
+            "project_manager",
+            "business_analyst",
+            "ux_researcher",
+            "designer",
+            "technical_writer",
+            "qa_engineer",
+            "data_analyst",
+            "statistician",
+            "ai_ethics_specialist",
+            "data_governance_specialist",
+            "product_marketing",
+            "customer_success",
+            "financial_auditor",
+            "tax_specialist",
+            "forensic_accountant",
+            "internal_auditor",
+            "sox",
+            "hipaa_specialist",
+            "clinical_analyst",
+            "medical_informaticist",
+            "healthcare_compliance",
+            "phi_specialist",
             "prompt_engineer",
         }
 
@@ -475,7 +537,11 @@ class TestEndToEndIntegration:
                 if step.get("type") == "debate":
                     agents = step.get("config", {}).get("agents", [])
                     for agent in agents:
-                        if agent not in DEFAULT_PERSONAS and agent not in KNOWN_MODELS and agent not in ENTERPRISE_ROLES:
+                        if (
+                            agent not in DEFAULT_PERSONAS
+                            and agent not in KNOWN_MODELS
+                            and agent not in ENTERPRISE_ROLES
+                        ):
                             missing_personas.add(agent)
 
         assert len(missing_personas) == 0, f"Missing personas: {missing_personas}"
@@ -497,8 +563,12 @@ class TestEndToEndIntegration:
                 from_step = transition["from"]
                 to_step = transition["to"]
 
-                assert from_step in step_ids, f"Template {template_id}: transition from unknown step {from_step}"
-                assert to_step in step_ids, f"Template {template_id}: transition to unknown step {to_step}"
+                assert (
+                    from_step in step_ids
+                ), f"Template {template_id}: transition from unknown step {from_step}"
+                assert (
+                    to_step in step_ids
+                ), f"Template {template_id}: transition to unknown step {to_step}"
 
     def test_fhir_connector_with_redaction(self):
         """Test FHIR connector with PHI redaction enabled."""

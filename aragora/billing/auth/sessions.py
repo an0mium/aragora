@@ -227,9 +227,7 @@ class JWTSessionManager:
             while len(user_sessions) >= self.max_sessions_per_user:
                 oldest_id = next(iter(user_sessions))
                 del user_sessions[oldest_id]
-                logger.debug(
-                    f"Evicted oldest session {oldest_id[:8]}... for user {user_id}"
-                )
+                logger.debug(f"Evicted oldest session {oldest_id[:8]}... for user {user_id}")
 
             user_sessions[token_jti] = session
 

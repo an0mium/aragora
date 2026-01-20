@@ -88,13 +88,15 @@ class KnowledgeMoundAdapter:
                 for n in type_nodes[:10]
             )
 
-            abstraction_nodes.append(AbstractionNode(
-                id=f"type_{node_type}",
-                level=AbstractionLevel.SUMMARY,
-                content=summary_content,
-                token_count=len(summary_content) // 4,
-                child_ids=[n.id for n in type_nodes],
-            ))
+            abstraction_nodes.append(
+                AbstractionNode(
+                    id=f"type_{node_type}",
+                    level=AbstractionLevel.SUMMARY,
+                    content=summary_content,
+                    token_count=len(summary_content) // 4,
+                    child_ids=[n.id for n in type_nodes],
+                )
+            )
 
         context.levels[AbstractionLevel.SUMMARY] = abstraction_nodes
         for node in abstraction_nodes:
@@ -108,6 +110,7 @@ class KnowledgeMoundAdapter:
 
         Returns dict of functions that can be injected into REPL namespace.
         """
+
         async def search_mound(query: str, limit: int = 10) -> list[dict]:
             nodes = await self.mound.query_semantic(query=query, limit=limit)
             return [

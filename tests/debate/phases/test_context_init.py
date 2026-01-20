@@ -582,6 +582,7 @@ class TestInjectKnowledgeContext:
         """Handles knowledge fetch timeout."""
         # Clear the module-level knowledge cache to ensure fresh fetch
         from aragora.debate.phases import context_init
+
         context_init._knowledge_cache.clear()
 
         ctx = MockDebateContext()

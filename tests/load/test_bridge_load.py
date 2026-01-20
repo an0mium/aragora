@@ -83,9 +83,7 @@ class LoadTestRelationshipTracker:
                         agreement_rate=0.4 + ((i * j) % 5) * 0.1,
                     )
 
-    def compute_metrics(
-        self, agent_a: str, agent_b: str
-    ) -> Optional[LoadTestRelationshipMetrics]:
+    def compute_metrics(self, agent_a: str, agent_b: str) -> Optional[LoadTestRelationshipMetrics]:
         key = tuple(sorted([agent_a, agent_b]))
         return self._relationships.get(key)
 
@@ -122,9 +120,7 @@ class LoadTestCalibrationTracker:
                 ece=0.05 + (i % 10) * 0.01,
             )
 
-    def get_calibration_summary(
-        self, agent_name: str
-    ) -> Optional[LoadTestCalibrationSummary]:
+    def get_calibration_summary(self, agent_name: str) -> Optional[LoadTestCalibrationSummary]:
         return self._summaries.get(agent_name)
 
     def get_all_agents(self) -> List[str]:
@@ -198,9 +194,7 @@ class TestPerformanceRouterBridgeLoad:
         result = benchmark(select_best)
         assert result is None or result.startswith("agent_")
 
-    def test_agent_ranking_throughput(
-        self, performance_monitor, available_agents, benchmark
-    ):
+    def test_agent_ranking_throughput(self, performance_monitor, available_agents, benchmark):
         """Test agent ranking throughput."""
         from aragora.debate.performance_router_bridge import PerformanceRouterBridge
 
@@ -230,9 +224,7 @@ class TestPerformanceRouterBridgeLoad:
 
         # Run concurrent computations
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            futures = [
-                executor.submit(compute_score, agent) for agent in available_agents
-            ]
+            futures = [executor.submit(compute_score, agent) for agent in available_agents]
             concurrent.futures.wait(futures)
 
         assert len(errors) == 0, f"Errors: {errors}"
@@ -255,9 +247,7 @@ class TestPerformanceRouterBridgeLoad:
         ops_per_second = iterations / elapsed
 
         # Should handle at least 500 operations per second
-        assert (
-            ops_per_second > 500
-        ), f"Only {ops_per_second:.0f} ops/sec, expected > 500"
+        assert ops_per_second > 500, f"Only {ops_per_second:.0f} ops/sec, expected > 500"
 
 
 # =============================================================================
@@ -322,9 +312,7 @@ class TestRelationshipBiasBridgeLoad:
         elapsed = time.perf_counter() - start_time
         ops_per_second = iterations / elapsed
 
-        assert (
-            ops_per_second > 100
-        ), f"Only {ops_per_second:.0f} ops/sec, expected > 100"
+        assert ops_per_second > 100, f"Only {ops_per_second:.0f} ops/sec, expected > 100"
 
 
 # =============================================================================
@@ -347,9 +335,7 @@ class TestCalibrationCostBridgeLoad:
 
         benchmark(compute_efficiency)
 
-    def test_budget_filtering_throughput(
-        self, calibration_tracker, available_agents, benchmark
-    ):
+    def test_budget_filtering_throughput(self, calibration_tracker, available_agents, benchmark):
         """Test budget-aware filtering throughput."""
         from aragora.billing.calibration_cost_bridge import CalibrationCostBridge
 
@@ -364,9 +350,7 @@ class TestCalibrationCostBridgeLoad:
         result = benchmark(filter_by_budget)
         assert isinstance(result, list)
 
-    def test_concurrent_efficiency_calculation(
-        self, calibration_tracker, available_agents
-    ):
+    def test_concurrent_efficiency_calculation(self, calibration_tracker, available_agents):
         """Test concurrent cost efficiency calculations."""
         from aragora.billing.calibration_cost_bridge import CalibrationCostBridge
 
@@ -383,10 +367,7 @@ class TestCalibrationCostBridgeLoad:
                 errors.append(e)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            futures = [
-                executor.submit(calculate_efficiency, agent)
-                for agent in available_agents
-            ]
+            futures = [executor.submit(calculate_efficiency, agent) for agent in available_agents]
             concurrent.futures.wait(futures)
 
         assert len(errors) == 0, f"Errors: {errors}"

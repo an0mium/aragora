@@ -80,6 +80,7 @@ try:
         KnowledgeSource,
         ConfidenceLevel,
     )
+
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
@@ -667,7 +668,9 @@ Include dates, numbers, names, and specific claims where possible."""
                     metadata={
                         "fact_id": fact.id,
                         "document_id": document.id,
-                        "validation_status": fact.validation_status.value if fact.validation_status else "unverified",
+                        "validation_status": (
+                            fact.validation_status.value if fact.validation_status else "unverified"
+                        ),
                         "source_documents": fact.source_documents,
                     },
                 )
@@ -854,7 +857,6 @@ Include dates, numbers, names, and specific claims where possible."""
             "fact_stats": fact_stats,
             "mound_stats": mound_stats,
         }
-
 
     async def get_stale_knowledge(
         self,

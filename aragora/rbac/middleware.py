@@ -82,14 +82,16 @@ class RBACMiddlewareConfig:
 
     route_permissions: list[RoutePermission] = field(default_factory=list)
     default_authenticated: bool = True
-    bypass_paths: set[str] = field(default_factory=lambda: {
-        "/health",
-        "/healthz",
-        "/ready",
-        "/metrics",
-        "/api/docs",
-        "/openapi.json",
-    })
+    bypass_paths: set[str] = field(
+        default_factory=lambda: {
+            "/health",
+            "/healthz",
+            "/ready",
+            "/metrics",
+            "/api/docs",
+            "/openapi.json",
+        }
+    )
     bypass_methods: set[str] = field(default_factory=lambda: {"OPTIONS"})
     permission_checker: PermissionChecker | None = None
 
@@ -106,62 +108,50 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/debates?/([^/]+)/run$", "POST", "debates.run", 1),
     RoutePermission(r"^/api/debates?/([^/]+)/stop$", "POST", "debates.stop", 1),
     RoutePermission(r"^/api/debates?/([^/]+)/fork$", "POST", "debates.fork", 1),
-
     # Agents
     RoutePermission(r"^/api/agents?$", "GET", "agents.read"),
     RoutePermission(r"^/api/agents?$", "POST", "agents.create"),
     RoutePermission(r"^/api/agents?/([^/]+)$", "GET", "agents.read", 1),
     RoutePermission(r"^/api/agents?/([^/]+)$", "PUT", "agents.update", 1),
     RoutePermission(r"^/api/agents?/([^/]+)$", "DELETE", "agents.delete", 1),
-
     # Workflows
     RoutePermission(r"^/api/workflows?$", "GET", "workflows.read"),
     RoutePermission(r"^/api/workflows?$", "POST", "workflows.create"),
     RoutePermission(r"^/api/workflows?/([^/]+)$", "GET", "workflows.read", 1),
     RoutePermission(r"^/api/workflows?/([^/]+)$", "DELETE", "workflows.delete", 1),
     RoutePermission(r"^/api/workflows?/([^/]+)/execute$", "POST", "workflows.run", 1),
-
     # Memory
     RoutePermission(r"^/api/memory", "GET", "memory.read"),
     RoutePermission(r"^/api/memory", "POST", "memory.update"),
     RoutePermission(r"^/api/memory", "DELETE", "memory.delete"),
-
     # Analytics
     RoutePermission(r"^/api/analytics", "GET", "analytics.read"),
     RoutePermission(r"^/api/analytics/export", "POST", "analytics.export_data"),
-
     # Training
     RoutePermission(r"^/api/training", "GET", "training.read"),
     RoutePermission(r"^/api/training/export", "POST", "training.create"),
-
     # Evidence
     RoutePermission(r"^/api/evidence", "GET", "evidence.read"),
     RoutePermission(r"^/api/evidence", "POST", "evidence.create"),
-
     # Connectors
     RoutePermission(r"^/api/connectors?$", "GET", "connectors.read"),
     RoutePermission(r"^/api/connectors?$", "POST", "connectors.create"),
     RoutePermission(r"^/api/connectors?/([^/]+)$", "DELETE", "connectors.delete", 1),
-
     # Webhooks
     RoutePermission(r"^/api/webhooks?$", "GET", "webhooks.read"),
     RoutePermission(r"^/api/webhooks?$", "POST", "webhooks.create"),
     RoutePermission(r"^/api/webhooks?/([^/]+)$", "DELETE", "webhooks.delete", 1),
-
     # Checkpoints
     RoutePermission(r"^/api/checkpoints?$", "GET", "checkpoints.read"),
     RoutePermission(r"^/api/checkpoints?$", "POST", "checkpoints.create"),
     RoutePermission(r"^/api/checkpoints?/([^/]+)$", "DELETE", "checkpoints.delete", 1),
-
     # Admin routes - require admin permission
     RoutePermission(r"^/api/admin", "*", "admin.*"),
-
     # User management
     RoutePermission(r"^/api/users?$", "GET", "users.read"),
     RoutePermission(r"^/api/users?/invite$", "POST", "users.invite"),
     RoutePermission(r"^/api/users?/([^/]+)$", "DELETE", "users.remove", 1),
     RoutePermission(r"^/api/users?/([^/]+)/role$", "PUT", "users.change_role", 1),
-
     # Organization
     RoutePermission(r"^/api/org", "GET", "organization.read"),
     RoutePermission(r"^/api/org", "PUT", "organization.update"),
@@ -169,12 +159,10 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/org/billing", "*", "organization.manage_billing"),
     RoutePermission(r"^/api/org/audit", "GET", "organization.view_audit"),
     RoutePermission(r"^/api/org/export", "POST", "organization.export_data"),
-
     # API keys
     RoutePermission(r"^/api/keys?$", "GET", "api.generate_key"),
     RoutePermission(r"^/api/keys?$", "POST", "api.generate_key"),
     RoutePermission(r"^/api/keys?/([^/]+)$", "DELETE", "api.revoke_key", 1),
-
     # Auth routes - allow unauthenticated
     RoutePermission(r"^/api/auth/login", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/register", "POST", "", allow_unauthenticated=True),
@@ -270,8 +258,13 @@ class RBACMiddleware:
     def remove_route_permission(self, pattern: str, method: str) -> None:
         """Remove a route permission rule by pattern and method."""
         self.config.route_permissions = [
-            r for r in self.config.route_permissions
-            if not (isinstance(r.pattern, Pattern) and r.pattern.pattern == pattern and r.method == method)
+            r
+            for r in self.config.route_permissions
+            if not (
+                isinstance(r.pattern, Pattern)
+                and r.pattern.pattern == pattern
+                and r.method == method
+            )
         ]
 
     def get_required_permission(self, path: str, method: str) -> str | None:
@@ -297,6 +290,7 @@ def create_permission_handler(
     Returns:
         Handler function that takes (request, context) and returns (allowed, reason)
     """
+
     def handler(request: Any, context: AuthorizationContext) -> tuple[bool, str]:
         resource_id = None
         if resource_id_extractor:

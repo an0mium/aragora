@@ -22,7 +22,6 @@ from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.reasoning.provenance import SourceType
 
 
-
 class TestMongoDBConnectorInitialization:
     """Tests for connector initialization."""
 
@@ -193,8 +192,14 @@ class TestMongoDBDomainInference:
 
         connector = MongoDBConnector()
 
-        assert "financial" in connector._infer_domain("orders").lower() or "transaction" in connector._infer_domain("orders").lower()
-        assert "financial" in connector._infer_domain("payments").lower() or "transaction" in connector._infer_domain("payments").lower()
+        assert (
+            "financial" in connector._infer_domain("orders").lower()
+            or "transaction" in connector._infer_domain("orders").lower()
+        )
+        assert (
+            "financial" in connector._infer_domain("payments").lower()
+            or "transaction" in connector._infer_domain("payments").lower()
+        )
 
     def test_infer_domain_default(self):
         """Should return generic domain for unknown collections."""
@@ -217,7 +222,7 @@ class TestMongoDBCollectionDiscovery:
         connector = MongoDBConnector()
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_get_client', return_value=mock_mongo_client):
+        with patch.object(connector, "_get_client", return_value=mock_mongo_client):
             connector._db = mock_mongo_client["test"]
             collections = await connector._discover_collections()
 
@@ -248,7 +253,9 @@ class TestMongoDBClientConnection:
         mock_motor_asyncio = MagicMock()
         mock_motor_asyncio.AsyncIOMotorClient = MagicMock(return_value=mock_motor_client)
 
-        with patch.dict(sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor_asyncio}):
+        with patch.dict(
+            sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor_asyncio}
+        ):
             await connector._get_client()
 
             # Should have called with connection string containing host
@@ -308,7 +315,7 @@ class TestMongoDBSyncItems:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch.object(connector, '_get_client', new_callable=AsyncMock) as mock_get:
+        with patch.object(connector, "_get_client", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_client
             connector._db = mock_db
 
@@ -335,7 +342,7 @@ class TestMongoDBSyncItems:
         mock_db = MagicMock()
         mock_db.__getitem__ = MagicMock(return_value=mock_collection)
 
-        with patch.object(connector, '_get_client', new_callable=AsyncMock):
+        with patch.object(connector, "_get_client", new_callable=AsyncMock):
             connector._db = mock_db
 
             state = SyncState(connector_id="test")
@@ -372,7 +379,7 @@ class TestMongoDBSearch:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch.object(connector, '_get_client', new_callable=AsyncMock) as mock_get:
+        with patch.object(connector, "_get_client", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_client
             connector._db = mock_db
 
@@ -399,7 +406,7 @@ class TestMongoDBErrorHandling:
         mock_db = MagicMock()
         mock_db.__getitem__ = MagicMock(return_value=mock_collection)
 
-        with patch.object(connector, '_get_client', new_callable=AsyncMock):
+        with patch.object(connector, "_get_client", new_callable=AsyncMock):
             connector._db = mock_db
 
             state = SyncState(connector_id="test")

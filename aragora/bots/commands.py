@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
 
 from aragora.bots.base import (
     CommandContext,
@@ -111,10 +110,7 @@ class CommandRegistry:
 
     def list_for_platform(self, platform: Platform) -> List[BotCommand]:
         """Get all commands available on a platform."""
-        return [
-            cmd for cmd in self._commands.values()
-            if cmd.matches_platform(platform)
-        ]
+        return [cmd for cmd in self._commands.values() if cmd.matches_platform(platform)]
 
     def list_commands(self, platform: Optional[Platform] = None) -> List[BotCommand]:
         """List all registered commands, optionally filtered by platform."""
@@ -132,6 +128,7 @@ class CommandRegistry:
 
         user_cooldowns = self._cooldowns[command.name]
         import time
+
         now = time.time()
 
         if user_id in user_cooldowns:
@@ -150,6 +147,7 @@ class CommandRegistry:
             self._cooldowns[command.name] = {}
 
         import time
+
         self._cooldowns[command.name][user_id] = time.time()
 
     async def execute(self, ctx: CommandContext) -> CommandResult:
@@ -218,6 +216,7 @@ class CommandRegistry:
         cooldown: float = 0,
     ) -> Callable[[CommandHandler], CommandHandler]:
         """Decorator to register a command handler."""
+
         def decorator(handler: CommandHandler) -> CommandHandler:
             cmd = BotCommand(
                 name=name,
@@ -235,6 +234,7 @@ class CommandRegistry:
             )
             self.register(cmd)
             return handler
+
         return decorator
 
 
@@ -313,7 +313,9 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{api_base}/healthz", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                async with session.get(
+                    f"{api_base}/healthz", timeout=aiohttp.ClientTimeout(total=5)
+                ) as resp:
                     if resp.status == 200:
                         return CommandResult.ok("Aragora is online and healthy.")
                     else:

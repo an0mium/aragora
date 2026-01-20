@@ -114,11 +114,7 @@ class MatrixIntegration:
     @property
     def is_configured(self) -> bool:
         """Check if Matrix integration is configured."""
-        return bool(
-            self.config.homeserver_url
-            and self.config.access_token
-            and self.config.room_id
-        )
+        return bool(self.config.homeserver_url and self.config.access_token and self.config.room_id)
 
     def _api_url(self, path: str) -> str:
         """Build Matrix API URL."""
@@ -309,11 +305,7 @@ class MatrixIntegration:
             answer_preview += "..."
 
         # Plain text
-        text = (
-            f"CONSENSUS REACHED\n\n"
-            f"{answer_preview}\n\n"
-            f"Confidence: {confidence:.0%}\n"
-        )
+        text = f"CONSENSUS REACHED\n\n" f"{answer_preview}\n\n" f"Confidence: {confidence:.0%}\n"
         if agents:
             text += f"Agreement from: {', '.join(agents[:5])}\n"
         text += f"\nhttps://aragora.ai/debate/{debate_id}"

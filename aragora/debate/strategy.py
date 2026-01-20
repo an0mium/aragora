@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
-    from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +115,11 @@ class DebateStrategy:
                 memory_ids = [m.id for m in glacial_memories]
 
                 if max_confidence >= self.high_confidence_threshold:
-                    rounds = max(2, self.quick_validation_rounds) if respect_minimum else self.quick_validation_rounds
+                    rounds = (
+                        max(2, self.quick_validation_rounds)
+                        if respect_minimum
+                        else self.quick_validation_rounds
+                    )
                     return StrategyRecommendation(
                         estimated_rounds=rounds,
                         confidence=max_confidence,
@@ -220,7 +223,11 @@ class DebateStrategy:
                 memory_ids = [m.id for m in glacial_memories]
 
                 if max_confidence >= self.high_confidence_threshold:
-                    rounds = max(2, self.quick_validation_rounds) if respect_minimum else self.quick_validation_rounds
+                    rounds = (
+                        max(2, self.quick_validation_rounds)
+                        if respect_minimum
+                        else self.quick_validation_rounds
+                    )
                     return StrategyRecommendation(
                         estimated_rounds=rounds,
                         confidence=max_confidence,

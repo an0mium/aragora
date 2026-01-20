@@ -96,7 +96,12 @@ class MemoryReadStep(BaseStep):
 
         except ImportError:
             logger.warning("Knowledge Mound not available, returning empty result")
-            return {"items": [], "total_count": 0, "query": query, "error": "Knowledge Mound not available"}
+            return {
+                "items": [],
+                "total_count": 0,
+                "query": query,
+                "error": "Knowledge Mound not available",
+            }
 
         except Exception as e:
             logger.error(f"Memory read failed: {e}")

@@ -21,7 +21,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,9 @@ try:
     HANDLER_BASE_AVAILABLE = True
 except ImportError:
     HANDLER_BASE_AVAILABLE = False
-    logger.warning("Handler base not available - SmartUploadHandler will have limited functionality")
+    logger.warning(
+        "Handler base not available - SmartUploadHandler will have limited functionality"
+    )
 
 
 class FileCategory(str, Enum):
@@ -71,21 +73,61 @@ class ProcessingAction(str, Enum):
 FILE_PATTERNS: Dict[FileCategory, Dict[str, List[str]]] = {
     FileCategory.CODE: {
         "extensions": [
-            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java",
-            ".c", ".cpp", ".h", ".hpp", ".rb", ".php", ".swift", ".kt",
-            ".scala", ".r", ".jl", ".lua", ".sh", ".bash", ".zsh",
-            ".ps1", ".sql", ".graphql", ".proto", ".ex", ".exs",
+            ".py",
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".c",
+            ".cpp",
+            ".h",
+            ".hpp",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".scala",
+            ".r",
+            ".jl",
+            ".lua",
+            ".sh",
+            ".bash",
+            ".zsh",
+            ".ps1",
+            ".sql",
+            ".graphql",
+            ".proto",
+            ".ex",
+            ".exs",
         ],
         "mime_patterns": ["text/x-", "application/x-python", "application/javascript"],
     },
     FileCategory.DOCUMENT: {
         "extensions": [
-            ".pdf", ".docx", ".doc", ".txt", ".md", ".markdown", ".rtf",
-            ".odt", ".pptx", ".ppt", ".xlsx", ".xls", ".epub", ".mobi",
+            ".pdf",
+            ".docx",
+            ".doc",
+            ".txt",
+            ".md",
+            ".markdown",
+            ".rtf",
+            ".odt",
+            ".pptx",
+            ".ppt",
+            ".xlsx",
+            ".xls",
+            ".epub",
+            ".mobi",
         ],
         "mime_patterns": [
-            "application/pdf", "application/vnd.openxmlformats",
-            "application/msword", "text/plain", "text/markdown",
+            "application/pdf",
+            "application/vnd.openxmlformats",
+            "application/msword",
+            "text/plain",
+            "text/markdown",
         ],
     },
     FileCategory.AUDIO: {
@@ -472,10 +514,12 @@ def _extract_symbols(content: str, filename: str) -> List[Dict[str, Any]]:
     if language == "python":
         # Match class and function definitions
         for match in re.finditer(r"^(class|def)\s+(\w+)", content, re.MULTILINE):
-            symbols.append({
-                "type": "class" if match.group(1) == "class" else "function",
-                "name": match.group(2),
-            })
+            symbols.append(
+                {
+                    "type": "class" if match.group(1) == "class" else "function",
+                    "name": match.group(2),
+                }
+            )
 
     elif language in ("javascript", "typescript"):
         # Match function/class declarations
@@ -505,11 +549,13 @@ async def _expand_archive(
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as zf:
                 for info in zf.infolist():
-                    files.append({
-                        "name": info.filename,
-                        "size": info.file_size,
-                        "compressed": info.compress_size,
-                    })
+                    files.append(
+                        {
+                            "name": info.filename,
+                            "size": info.file_size,
+                            "compressed": info.compress_size,
+                        }
+                    )
         except Exception as e:
             return {"error": str(e)}
 
@@ -518,10 +564,12 @@ async def _expand_archive(
             mode = "r:gz" if ext in (".gz", ".tgz") else "r"
             with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:
                 for member in tf.getmembers():
-                    files.append({
-                        "name": member.name,
-                        "size": member.size,
-                    })
+                    files.append(
+                        {
+                            "name": member.name,
+                            "size": member.size,
+                        }
+                    )
         except Exception as e:
             return {"error": str(e)}
 
@@ -638,7 +686,6 @@ if HANDLER_BASE_AVAILABLE:
             handler: Any,
         ) -> Optional[HandlerResult]:
             """Handle POST uploads."""
-            import asyncio
 
             if path == "/api/upload/smart":
                 return self._handle_smart_upload(body, handler)
@@ -682,16 +729,18 @@ if HANDLER_BASE_AVAILABLE:
                 smart_upload(file_content, filename, mime_type, override_action, options)
             )
 
-            return json_response({
-                "id": result.id,
-                "filename": result.filename,
-                "size": result.size,
-                "category": result.category.value,
-                "action": result.action.value,
-                "status": result.status,
-                "result": result.result,
-                "error": result.error,
-            })
+            return json_response(
+                {
+                    "id": result.id,
+                    "filename": result.filename,
+                    "size": result.size,
+                    "category": result.category.value,
+                    "action": result.action.value,
+                    "status": result.status,
+                    "result": result.result,
+                    "error": result.error,
+                }
+            )
 
         def _handle_batch_upload(
             self,
@@ -727,13 +776,15 @@ if HANDLER_BASE_AVAILABLE:
                         ProcessingAction(file_info["action"]) if file_info.get("action") else None,
                         file_info.get("options"),
                     )
-                    results.append({
-                        "id": result.id,
-                        "filename": result.filename,
-                        "status": result.status,
-                        "category": result.category.value,
-                        "error": result.error,
-                    })
+                    results.append(
+                        {
+                            "id": result.id,
+                            "filename": result.filename,
+                            "status": result.status,
+                            "category": result.category.value,
+                            "error": result.error,
+                        }
+                    )
                 return results
 
             results = loop.run_until_complete(process_all())
@@ -745,15 +796,17 @@ if HANDLER_BASE_AVAILABLE:
             if not result:
                 return error_response("Upload not found", 404)
 
-            return json_response({
-                "id": result.id,
-                "filename": result.filename,
-                "size": result.size,
-                "category": result.category.value,
-                "action": result.action.value,
-                "status": result.status,
-                "created_at": result.created_at,
-                "completed_at": result.completed_at,
-                "result": result.result,
-                "error": result.error,
-            })
+            return json_response(
+                {
+                    "id": result.id,
+                    "filename": result.filename,
+                    "size": result.size,
+                    "category": result.category.value,
+                    "action": result.action.value,
+                    "status": result.status,
+                    "created_at": result.created_at,
+                    "completed_at": result.completed_at,
+                    "result": result.result,
+                    "error": result.error,
+                }
+            )

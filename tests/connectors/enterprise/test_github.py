@@ -40,10 +40,13 @@ from aragora.connectors.enterprise.git.github import (
 def mock_credentials():
     """Mock credential provider."""
     from tests.connectors.enterprise.conftest import MockCredentialProvider
-    return MockCredentialProvider({
-        "GITHUB_TOKEN": "ghp_test_token_12345",
-        "GITHUB_WEBHOOK_SECRET": "webhook_secret_abc",
-    })
+
+    return MockCredentialProvider(
+        {
+            "GITHUB_TOKEN": "ghp_test_token_12345",
+            "GITHUB_WEBHOOK_SECRET": "webhook_secret_abc",
+        }
+    )
 
 
 @pytest.fixture
@@ -64,10 +67,12 @@ def github_connector(mock_credentials, tmp_path):
 @pytest.fixture
 def mock_gh_output():
     """Mock gh CLI output helper."""
+
     def _make_output(data: Any) -> str:
         if isinstance(data, (dict, list)):
             return json.dumps(data)
         return str(data)
+
     return _make_output
 
 
@@ -80,7 +85,12 @@ def sample_tree():
         {"path": "src/utils.ts", "type": "blob", "sha": "ghi789", "size": 1500},
         {"path": "package.json", "type": "blob", "sha": "jkl012", "size": 500},
         {"path": "node_modules/dep/index.js", "type": "blob", "sha": "mno345", "size": 3000},
-        {"path": "src/__pycache__/main.cpython-310.pyc", "type": "blob", "sha": "pqr678", "size": 4000},
+        {
+            "path": "src/__pycache__/main.cpython-310.pyc",
+            "type": "blob",
+            "sha": "pqr678",
+            "size": 4000,
+        },
         {"path": "large_file.py", "type": "blob", "sha": "stu901", "size": 2000000},  # > 1MB
         {"path": "src", "type": "tree", "sha": "tree123"},  # Directory, not file
     ]
@@ -240,6 +250,7 @@ class TestGitHubConnectorInit:
     def test_source_type(self, github_connector):
         """Test source type property."""
         from aragora.reasoning.provenance import SourceType
+
         assert github_connector.source_type == SourceType.CODE_ANALYSIS
 
     def test_name_property(self, github_connector):
@@ -300,14 +311,14 @@ class TestCodeElementExtraction:
 
     def test_extract_python_classes(self, github_connector):
         """Test Python class extraction."""
-        content = '''
+        content = """
 class MyClass:
     pass
 
 class AnotherClass(BaseClass):
     def method(self):
         pass
-'''
+"""
         elements = github_connector._extract_python_elements(content, "test.py")
         class_elements = [e for e in elements if e["type"] == "class"]
         assert len(class_elements) == 2
@@ -316,7 +327,7 @@ class AnotherClass(BaseClass):
 
     def test_extract_python_functions(self, github_connector):
         """Test Python function extraction."""
-        content = '''
+        content = """
 def regular_function(arg1, arg2):
     return arg1 + arg2
 
@@ -325,7 +336,7 @@ async def async_function(data: str) -> dict:
 
 def typed_function(x: int, y: int) -> int:
     return x * y
-'''
+"""
         elements = github_connector._extract_python_elements(content, "test.py")
         func_elements = [e for e in elements if e["type"] == "function"]
         assert len(func_elements) == 3
@@ -335,12 +346,12 @@ def typed_function(x: int, y: int) -> int:
 
     def test_extract_python_line_numbers(self, github_connector):
         """Test Python element line numbers."""
-        content = '''class First:
+        content = """class First:
     pass
 
 def second():
     pass
-'''
+"""
         elements = github_connector._extract_python_elements(content, "test.py")
         first_class = next(e for e in elements if e["name"] == "First")
         second_func = next(e for e in elements if e["name"] == "second")
@@ -349,7 +360,7 @@ def second():
 
     def test_extract_js_classes(self, github_connector):
         """Test JavaScript class extraction."""
-        content = '''
+        content = """
 class MyComponent {
     constructor() {}
 }
@@ -357,7 +368,7 @@ class MyComponent {
 export class ExportedClass extends BaseClass {
     render() {}
 }
-'''
+"""
         elements = github_connector._extract_js_elements(content, "test.js")
         class_elements = [e for e in elements if e["type"] == "class"]
         assert len(class_elements) == 2
@@ -366,7 +377,7 @@ export class ExportedClass extends BaseClass {
 
     def test_extract_js_functions(self, github_connector):
         """Test JavaScript function extraction."""
-        content = '''
+        content = """
 function regularFunction(arg) {
     return arg;
 }
@@ -380,7 +391,7 @@ const arrowFunc = (x) => x * 2;
 export const exportedArrow = async (y) => {
     return y;
 };
-'''
+"""
         elements = github_connector._extract_js_elements(content, "test.js")
         func_elements = [e for e in elements if e["type"] == "function"]
         assert len(func_elements) == 4
@@ -417,14 +428,14 @@ class TestDependencyExtraction:
 
     def test_extract_python_imports(self, github_connector):
         """Test Python import extraction."""
-        content = '''
+        content = """
 import os
 import json
 from typing import List, Dict
 from collections.abc import Mapping
 from aragora.connectors.base import BaseConnector
 import asyncio
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.py")
         assert "os" in deps
         assert "json" in deps
@@ -435,10 +446,10 @@ import asyncio
 
     def test_extract_python_multi_imports(self, github_connector):
         """Test Python multi-line imports."""
-        content = '''
+        content = """
 import sys, re, time
 from pathlib import Path
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.py")
         assert "sys" in deps
         assert "re" in deps
@@ -447,13 +458,13 @@ from pathlib import Path
 
     def test_extract_js_imports(self, github_connector):
         """Test JavaScript import extraction."""
-        content = '''
+        content = """
 import React from 'react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '@mui/material';
 import utils from './utils';
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.js")
         assert "react" in deps
         assert "axios" in deps
@@ -463,11 +474,11 @@ import utils from './utils';
 
     def test_extract_js_require(self, github_connector):
         """Test JavaScript require() extraction."""
-        content = '''
+        content = """
 const fs = require('fs');
 const path = require('path');
 const localModule = require('./local');
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.js")
         assert "fs" in deps
         assert "path" in deps
@@ -476,20 +487,20 @@ const localModule = require('./local');
 
     def test_extract_ts_imports(self, github_connector):
         """Test TypeScript import extraction."""
-        content = '''
+        content = """
 import type { User } from './types';
 import { Component } from '@angular/core';
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.ts")
         assert "@angular" in deps
 
     def test_no_duplicate_dependencies(self, github_connector):
         """Test dependencies are deduplicated."""
-        content = '''
+        content = """
 import React from 'react';
 import { useState } from 'react';
 import { useEffect } from 'react';
-'''
+"""
         deps = github_connector._extract_dependencies(content, "test.js")
         assert deps.count("react") == 1
 
@@ -534,7 +545,7 @@ class TestGhCli:
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(return_value=(b'{"result": "success"}', b''))
+        mock_proc.communicate = AsyncMock(return_value=(b'{"result": "success"}', b""))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await github_connector._run_gh(["api", "test"])
@@ -554,7 +565,7 @@ class TestGhCli:
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 1
-        mock_proc.communicate = AsyncMock(return_value=(b'', b'Error message'))
+        mock_proc.communicate = AsyncMock(return_value=(b"", b"Error message"))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await github_connector._run_gh(["api", "test"])
@@ -576,7 +587,7 @@ class TestApiMethods:
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(return_value=(b'abc123def456\n', b''))
+        mock_proc.communicate = AsyncMock(return_value=(b"abc123def456\n", b""))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             sha = await github_connector._get_latest_commit()
@@ -597,7 +608,7 @@ class TestApiMethods:
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(
-            return_value=(mock_gh_output(sample_commits).encode(), b'')
+            return_value=(mock_gh_output(sample_commits).encode(), b"")
         )
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
@@ -607,14 +618,16 @@ class TestApiMethods:
             assert commits[0].author == "Alice"
 
     @pytest.mark.asyncio
-    async def test_get_commits_since_stops_at_cursor(self, github_connector, sample_commits, mock_gh_output):
+    async def test_get_commits_since_stops_at_cursor(
+        self, github_connector, sample_commits, mock_gh_output
+    ):
         """Test commits stop at the since_sha cursor."""
         github_connector._gh_available = True
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(
-            return_value=(mock_gh_output(sample_commits).encode(), b'')
+            return_value=(mock_gh_output(sample_commits).encode(), b"")
         )
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
@@ -630,9 +643,7 @@ class TestApiMethods:
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(
-            return_value=(mock_gh_output(sample_tree).encode(), b'')
-        )
+        mock_proc.communicate = AsyncMock(return_value=(mock_gh_output(sample_tree).encode(), b""))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             tree = await github_connector._get_tree("abc123")
@@ -643,12 +654,13 @@ class TestApiMethods:
         """Test getting file content."""
         github_connector._gh_available = True
         import base64
+
         content = "print('Hello, World!')"
         encoded = base64.b64encode(content.encode()).decode()
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(return_value=(encoded.encode() + b'\n', b''))
+        mock_proc.communicate = AsyncMock(return_value=(encoded.encode() + b"\n", b""))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await github_connector._get_file_content("test.py")
@@ -662,7 +674,7 @@ class TestApiMethods:
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(
-            return_value=(mock_gh_output(sample_issues).encode(), b'')
+            return_value=(mock_gh_output(sample_issues).encode(), b"")
         )
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
@@ -678,9 +690,7 @@ class TestApiMethods:
 
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
-        mock_proc.communicate = AsyncMock(
-            return_value=(mock_gh_output(sample_prs).encode(), b'')
-        )
+        mock_proc.communicate = AsyncMock(return_value=(mock_gh_output(sample_prs).encode(), b""))
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             prs = await github_connector._get_prs(state="all", limit=10)
@@ -718,6 +728,7 @@ class TestSync:
         github_connector.include_prs = False
 
         import base64
+
         file_content = "# README\n\nThis is a test."
         encoded = base64.b64encode(file_content.encode()).decode()
 
@@ -878,9 +889,7 @@ class TestSearchAndFetch:
 
             results = await github_connector.search("test query", limit=5)
             assert len(results) == 1
-            mock_instance.search.assert_called_once_with(
-                "test query", limit=5, search_type="code"
-            )
+            mock_instance.search.assert_called_once_with("test query", limit=5, search_type="code")
 
     @pytest.mark.asyncio
     async def test_fetch_delegates_to_connector(self, github_connector):
@@ -912,6 +921,7 @@ class TestSyncItemContent:
         github_connector.include_prs = False
 
         import base64
+
         py_content = "def hello(): pass"
         encoded = base64.b64encode(py_content.encode()).decode()
 

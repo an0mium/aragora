@@ -994,7 +994,9 @@ class DocumentProcessingError(AragoraError):
 class DocumentParseError(DocumentProcessingError):
     """Raised when document parsing fails."""
 
-    def __init__(self, document_id: str | None, reason: str, original_error: Exception | None = None):
+    def __init__(
+        self, document_id: str | None, reason: str, original_error: Exception | None = None
+    ):
         details = {"reason": reason}
         if document_id:
             details["document_id"] = document_id
@@ -1007,7 +1009,9 @@ class DocumentParseError(DocumentProcessingError):
 class DocumentChunkError(DocumentProcessingError):
     """Raised when document chunking fails."""
 
-    def __init__(self, document_id: str | None, reason: str, original_error: Exception | None = None):
+    def __init__(
+        self, document_id: str | None, reason: str, original_error: Exception | None = None
+    ):
         details = {"reason": reason}
         if document_id:
             details["document_id"] = document_id

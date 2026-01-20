@@ -166,12 +166,8 @@ class MockCoordinator:
         return {
             "total_agents": len(self._agents),
             "total_tasks": len(self._tasks),
-            "pending_tasks": sum(
-                1 for t in self._tasks.values() if t["status"] == "pending"
-            ),
-            "completed_tasks": sum(
-                1 for t in self._tasks.values() if t["status"] == "completed"
-            ),
+            "pending_tasks": sum(1 for t in self._tasks.values() if t["status"] == "pending"),
+            "completed_tasks": sum(1 for t in self._tasks.values() if t["status"] == "completed"),
         }
 
 
@@ -186,7 +182,9 @@ def handler(mock_coordinator):
     """Create a handler with mock coordinator."""
     handler = ControlPlaneHandler({})
     handler.__class__.coordinator = mock_coordinator
-    return handler
+    yield handler
+    # Cleanup: Remove class attribute to prevent test pollution
+    handler.__class__.coordinator = None
 
 
 @pytest.fixture
@@ -195,6 +193,16 @@ def mock_http_handler():
     handler = MagicMock()
     handler.rfile = MagicMock()
     return handler
+
+
+@pytest.fixture
+def mock_user():
+    """Create a mock authenticated user context."""
+    user = MagicMock()
+    user.user_id = "test-user"
+    user.email = "test@example.com"
+    user.role = "user"
+    return user
 
 
 class TestControlPlaneHandlerInit:
@@ -236,30 +244,20 @@ class TestListAgents:
         """Test listing agents with registered agents."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate", "critique"])
-        )
-        asyncio.run(
-            mock_coordinator.register_agent("agent-2", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate", "critique"]))
+        asyncio.run(mock_coordinator.register_agent("agent-2", ["debate"]))
 
         result = handler.handle("/api/control-plane/agents", {}, mock_http_handler)
 
         data = json.loads(result.body)
         assert data["total"] == 2
 
-    def test_list_agents_filter_by_capability(
-        self, handler, mock_coordinator, mock_http_handler
-    ):
+    def test_list_agents_filter_by_capability(self, handler, mock_coordinator, mock_http_handler):
         """Test filtering agents by capability."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate", "critique"])
-        )
-        asyncio.run(
-            mock_coordinator.register_agent("agent-2", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate", "critique"]))
+        asyncio.run(mock_coordinator.register_agent("agent-2", ["debate"]))
 
         result = handler.handle(
             "/api/control-plane/agents", {"capability": "critique"}, mock_http_handler
@@ -287,13 +285,9 @@ class TestGetAgent:
         """Test getting agent by ID."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
-        result = handler.handle(
-            "/api/control-plane/agents/agent-1", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/agents/agent-1", {}, mock_http_handler)
 
         assert result is not None
         data = json.loads(result.body)
@@ -301,9 +295,7 @@ class TestGetAgent:
 
     def test_get_agent_not_found(self, handler, mock_http_handler):
         """Test getting non-existent agent."""
-        result = handler.handle(
-            "/api/control-plane/agents/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/agents/nonexistent", {}, mock_http_handler)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -313,7 +305,7 @@ class TestGetAgent:
 class TestRegisterAgent:
     """Test POST /api/control-plane/agents."""
 
-    def test_register_agent_success(self, handler, mock_http_handler):
+    def test_register_agent_success(self, handler, mock_http_handler, mock_user):
         """Test registering a new agent."""
         body = {
             "agent_id": "agent-new",
@@ -323,22 +315,20 @@ class TestRegisterAgent:
         }
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/agents", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert result.status_code == 201
         data = json.loads(result.body)
         assert data["agent_id"] == "agent-new"
 
-    def test_register_agent_missing_id(self, handler, mock_http_handler):
+    def test_register_agent_missing_id(self, handler, mock_http_handler, mock_user):
         """Test registering agent without ID."""
         body = {"capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/agents", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -348,29 +338,25 @@ class TestRegisterAgent:
 class TestUnregisterAgent:
     """Test DELETE /api/control-plane/agents/:id."""
 
-    def test_unregister_agent_success(
-        self, handler, mock_coordinator, mock_http_handler
-    ):
+    def test_unregister_agent_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test unregistering an agent."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
-        result = handler.handle_delete(
-            "/api/control-plane/agents/agent-1", {}, mock_http_handler
-        )
+        with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            result = handler.handle_delete("/api/control-plane/agents/agent-1", {}, mock_http_handler)
 
         assert result is not None
         data = json.loads(result.body)
         assert data["unregistered"] is True
 
-    def test_unregister_agent_not_found(self, handler, mock_http_handler):
+    def test_unregister_agent_not_found(self, handler, mock_http_handler, mock_user):
         """Test unregistering non-existent agent."""
-        result = handler.handle_delete(
-            "/api/control-plane/agents/nonexistent", {}, mock_http_handler
-        )
+        with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            result = handler.handle_delete(
+                "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+            )
 
         assert result.status_code == 404
 
@@ -378,41 +364,41 @@ class TestUnregisterAgent:
 class TestAgentHeartbeat:
     """Test POST /api/control-plane/agents/:id/heartbeat."""
 
-    def test_heartbeat_success(self, handler, mock_coordinator, mock_http_handler):
+    def test_heartbeat_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test sending heartbeat."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
         body = {"status": "available"}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
-            ):
-                result = handler.handle_post(
-                    "/api/control-plane/agents/agent-1/heartbeat", {}, mock_http_handler
-                )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                with patch(
+                    "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/agents/agent-1/heartbeat", {}, mock_http_handler
+                    )
 
         assert result is not None
         data = json.loads(result.body)
         assert data["acknowledged"] is True
 
-    def test_heartbeat_agent_not_found(self, handler, mock_http_handler):
+    def test_heartbeat_agent_not_found(self, handler, mock_http_handler, mock_user):
         """Test heartbeat for non-existent agent."""
         body = {"status": "available"}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
-            ):
-                result = handler.handle_post(
-                    "/api/control-plane/agents/nonexistent/heartbeat",
-                    {},
-                    mock_http_handler,
-                )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                with patch(
+                    "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/agents/nonexistent/heartbeat",
+                        {},
+                        mock_http_handler,
+                    )
 
         assert result.status_code == 404
 
@@ -420,7 +406,7 @@ class TestAgentHeartbeat:
 class TestSubmitTask:
     """Test POST /api/control-plane/tasks."""
 
-    def test_submit_task_success(self, handler, mock_http_handler):
+    def test_submit_task_success(self, handler, mock_http_handler, mock_user):
         """Test submitting a new task."""
         body = {
             "task_type": "debate",
@@ -429,26 +415,24 @@ class TestSubmitTask:
         }
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.control_plane.scheduler.TaskPriority",
-                MagicMock(NORMAL="normal"),
-            ):
-                result = handler.handle_post(
-                    "/api/control-plane/tasks", {}, mock_http_handler
-                )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                with patch(
+                    "aragora.control_plane.scheduler.TaskPriority",
+                    MagicMock(NORMAL="normal"),
+                ):
+                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert result.status_code == 201
         data = json.loads(result.body)
         assert "task_id" in data
 
-    def test_submit_task_missing_type(self, handler, mock_http_handler):
+    def test_submit_task_missing_type(self, handler, mock_http_handler, mock_user):
         """Test submitting task without type."""
         body = {"payload": {"topic": "AI"}}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/tasks", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -462,9 +446,7 @@ class TestGetTask:
         """Test getting task by ID."""
         import asyncio
 
-        task_id = asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        task_id = asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         result = handler.handle(f"/api/control-plane/tasks/{task_id}", {}, mock_http_handler)
 
@@ -474,9 +456,7 @@ class TestGetTask:
 
     def test_get_task_not_found(self, handler, mock_http_handler):
         """Test getting non-existent task."""
-        result = handler.handle(
-            "/api/control-plane/tasks/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/tasks/nonexistent", {}, mock_http_handler)
 
         assert result.status_code == 404
 
@@ -484,33 +464,33 @@ class TestGetTask:
 class TestCompleteTask:
     """Test POST /api/control-plane/tasks/:id/complete."""
 
-    def test_complete_task_success(self, handler, mock_coordinator, mock_http_handler):
+    def test_complete_task_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test completing a task."""
         import asyncio
 
-        task_id = asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        task_id = asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         body = {"result": {"consensus": "reached"}, "latency_ms": 1500}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                f"/api/control-plane/tasks/{task_id}/complete", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    f"/api/control-plane/tasks/{task_id}/complete", {}, mock_http_handler
+                )
 
         assert result is not None
         data = json.loads(result.body)
         assert data["completed"] is True
 
-    def test_complete_task_not_found(self, handler, mock_http_handler):
+    def test_complete_task_not_found(self, handler, mock_http_handler, mock_user):
         """Test completing non-existent task."""
         body = {"result": {"consensus": "reached"}}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/tasks/nonexistent/complete", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    "/api/control-plane/tasks/nonexistent/complete", {}, mock_http_handler
+                )
 
         assert result.status_code == 404
 
@@ -518,20 +498,19 @@ class TestCompleteTask:
 class TestFailTask:
     """Test POST /api/control-plane/tasks/:id/fail."""
 
-    def test_fail_task_success(self, handler, mock_coordinator, mock_http_handler):
+    def test_fail_task_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test failing a task."""
         import asyncio
 
-        task_id = asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        task_id = asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         body = {"error": "Agent timeout", "requeue": True}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                f"/api/control-plane/tasks/{task_id}/fail", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    f"/api/control-plane/tasks/{task_id}/fail", {}, mock_http_handler
+                )
 
         assert result is not None
         data = json.loads(result.body)
@@ -541,17 +520,16 @@ class TestFailTask:
 class TestCancelTask:
     """Test POST /api/control-plane/tasks/:id/cancel."""
 
-    def test_cancel_task_success(self, handler, mock_coordinator, mock_http_handler):
+    def test_cancel_task_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test cancelling a task."""
         import asyncio
 
-        task_id = asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        task_id = asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
-        result = handler.handle_post(
-            f"/api/control-plane/tasks/{task_id}/cancel", {}, mock_http_handler
-        )
+        with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+            result = handler.handle_post(
+                f"/api/control-plane/tasks/{task_id}/cancel", {}, mock_http_handler
+            )
 
         assert result is not None
         data = json.loads(result.body)
@@ -577,13 +555,9 @@ class TestAgentHealth:
         """Test getting agent health."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate"])
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
-        result = handler.handle(
-            "/api/control-plane/health/agent-1", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/health/agent-1", {}, mock_http_handler)
 
         assert result is not None
         data = json.loads(result.body)
@@ -591,9 +565,7 @@ class TestAgentHealth:
 
     def test_agent_health_not_found(self, handler, mock_http_handler):
         """Test getting health for non-existent agent."""
-        result = handler.handle(
-            "/api/control-plane/health/nonexistent", {}, mock_http_handler
-        )
+        result = handler.handle("/api/control-plane/health/nonexistent", {}, mock_http_handler)
 
         assert result.status_code == 404
 
@@ -605,12 +577,8 @@ class TestStats:
         """Test getting control plane statistics."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.register_agent("agent-1", ["debate"])
-        )
-        asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
+        asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         result = handler.handle("/api/control-plane/stats", {}, mock_http_handler)
 
@@ -623,46 +591,47 @@ class TestStats:
 class TestClaimTask:
     """Test POST /api/control-plane/tasks/:id/claim."""
 
-    def test_claim_task_success(self, handler, mock_coordinator, mock_http_handler):
+    def test_claim_task_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test claiming a task."""
         import asyncio
 
-        asyncio.run(
-            mock_coordinator.submit_task("debate", {"topic": "AI"})
-        )
+        asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         body = {"agent_id": "agent-1", "capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                )
 
         assert result is not None
         data = json.loads(result.body)
         assert "task" in data
         assert data["task"] is not None
 
-    def test_claim_task_no_tasks_available(self, handler, mock_http_handler):
+    def test_claim_task_no_tasks_available(self, handler, mock_http_handler, mock_user):
         """Test claiming when no tasks available."""
         body = {"agent_id": "agent-1", "capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                )
 
         data = json.loads(result.body)
         assert data["task"] is None
 
-    def test_claim_task_missing_agent_id(self, handler, mock_http_handler):
+    def test_claim_task_missing_agent_id(self, handler, mock_http_handler, mock_user):
         """Test claiming without agent_id."""
         body = {"capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            result = handler.handle_post(
-                "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-            )
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
+                result = handler.handle_post(
+                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                )
 
         assert result.status_code == 400
         data = json.loads(result.body)

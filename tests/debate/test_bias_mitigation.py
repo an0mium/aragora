@@ -95,6 +95,7 @@ class TestPositionBiasMitigation:
 
     def test_average_permutation_votes_basic(self):
         """Test basic vote averaging across permutations."""
+
         # Create mock votes
         @dataclass
         class MockVote:
@@ -135,6 +136,7 @@ class TestSelfVoteBiasDetection:
 
     def test_detect_self_vote_true(self):
         """Test detection when agent votes for own proposal."""
+
         @dataclass
         class MockVote:
             agent: str
@@ -149,6 +151,7 @@ class TestSelfVoteBiasDetection:
 
     def test_detect_self_vote_false(self):
         """Test detection when agent votes for different proposal."""
+
         @dataclass
         class MockVote:
             agent: str
@@ -163,6 +166,7 @@ class TestSelfVoteBiasDetection:
 
     def test_apply_self_vote_penalty_exclude(self):
         """Test exclude mode for self-vote penalty."""
+
         @dataclass
         class MockVote:
             agent: str
@@ -172,7 +176,7 @@ class TestSelfVoteBiasDetection:
 
         votes = [
             MockVote(agent="alice", choice="alice"),  # Self-vote
-            MockVote(agent="bob", choice="alice"),    # Not self-vote
+            MockVote(agent="bob", choice="alice"),  # Not self-vote
         ]
         proposals = {"alice": "A", "bob": "B"}
         weights = {"alice": 1.0, "bob": 1.0}
@@ -181,10 +185,11 @@ class TestSelfVoteBiasDetection:
         adjusted = apply_self_vote_penalty(weights.copy(), votes, proposals, config)
 
         assert adjusted["alice"] == 0.0  # Excluded
-        assert adjusted["bob"] == 1.0    # Unchanged
+        assert adjusted["bob"] == 1.0  # Unchanged
 
     def test_apply_self_vote_penalty_downweight(self):
         """Test downweight mode for self-vote penalty."""
+
         @dataclass
         class MockVote:
             agent: str
@@ -351,10 +356,12 @@ class TestProcessEvaluation:
         class MockEvidencePack:
             snippets: list
 
-        evidence = MockEvidencePack(snippets=[
-            MockSnippet(id="123", text="Evidence 1"),
-            MockSnippet(id="456", text="Evidence 2"),
-        ])
+        evidence = MockEvidencePack(
+            snippets=[
+                MockSnippet(id="123", text="Evidence 1"),
+                MockSnippet(id="456", text="Evidence 2"),
+            ]
+        )
 
         proposal_with_evidence = """
         Based on EVID-123 and EVID-456, we should proceed.
@@ -481,7 +488,7 @@ class TestBiasMitigationIntegration:
         verbosity_weights = get_verbosity_weights(proposals, verbosity_config)
 
         assert verbosity_weights["alice"] == 1.0  # Short is fine
-        assert verbosity_weights["bob"] < 1.0     # Verbose gets penalty
+        assert verbosity_weights["bob"] < 1.0  # Verbose gets penalty
         assert verbosity_weights["carol"] == 1.0
 
 

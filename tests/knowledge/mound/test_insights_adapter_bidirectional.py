@@ -174,30 +174,36 @@ class TestInsightsAdapterThresholdUpdates:
 
         # 0.7-0.8 bucket: 80% accuracy
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.75,
-                    "was_accurate": i < 8,  # 8/10 = 80%
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.75,
+                        "was_accurate": i < 8,  # 8/10 = 80%
+                    }
                 }
-            })
+            )
 
         # 0.8-0.9 bucket: 90% accuracy
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.85,
-                    "was_accurate": i < 9,
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.85,
+                        "was_accurate": i < 9,
+                    }
                 }
-            })
+            )
 
         # Add more items for high confidence
         for _ in range(30):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.9,
-                    "was_accurate": True,
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.9,
+                        "was_accurate": True,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_flip_thresholds_from_km(km_items, min_confidence=0.7)
 
@@ -211,30 +217,36 @@ class TestInsightsAdapterThresholdUpdates:
 
         # 0.6-0.7 bucket: 80% accuracy (should enable lowering)
         for i in range(5):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.65,
-                    "was_accurate": i < 4,
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.65,
+                        "was_accurate": i < 4,
+                    }
                 }
-            })
+            )
 
         # 0.7-0.8 bucket: 75% accuracy
         for i in range(8):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.75,
-                    "was_accurate": i < 6,
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.75,
+                        "was_accurate": i < 6,
+                    }
                 }
-            })
+            )
 
         # Add more items for confidence
         for _ in range(37):
-            km_items.append({
-                "metadata": {
-                    "similarity_score": 0.85,
-                    "was_accurate": True,
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": 0.85,
+                        "was_accurate": True,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_flip_thresholds_from_km(km_items, min_confidence=0.7)
 
@@ -449,8 +461,20 @@ class TestInsightsAdapterBatchSync:
     async def test_sync_updates_baselines(self, adapter):
         """Test that sync updates agent baselines."""
         km_items = [
-            {"metadata": {"agent_name": "claude", "flip_type": "contradiction", "similarity_score": 0.8}},
-            {"metadata": {"agent_name": "gemini", "flip_type": "refinement", "similarity_score": 0.75}},
+            {
+                "metadata": {
+                    "agent_name": "claude",
+                    "flip_type": "contradiction",
+                    "similarity_score": 0.8,
+                }
+            },
+            {
+                "metadata": {
+                    "agent_name": "gemini",
+                    "flip_type": "refinement",
+                    "similarity_score": 0.75,
+                }
+            },
         ]
 
         result = await adapter.sync_validations_from_km(km_items)
@@ -586,12 +610,14 @@ class TestInsightsAdapterIntegration:
         km_items = []
         for i in range(60):
             similarity = 0.55 + (i % 5) * 0.1  # 0.55, 0.65, 0.75, 0.85, 0.95
-            km_items.append({
-                "metadata": {
-                    "similarity_score": similarity,
-                    "was_accurate": similarity >= 0.65,  # Accurate above 0.65
+            km_items.append(
+                {
+                    "metadata": {
+                        "similarity_score": similarity,
+                        "was_accurate": similarity >= 0.65,  # Accurate above 0.65
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_flip_thresholds_from_km(km_items, min_confidence=0.5)
 

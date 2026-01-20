@@ -218,6 +218,7 @@ class TestDecorators:
 
     def test_require_permission_allowed(self):
         """Test require_permission decorator when allowed."""
+
         @require_permission("debates.read")
         def handler(context: AuthorizationContext):
             return "success"
@@ -232,6 +233,7 @@ class TestDecorators:
 
     def test_require_permission_denied(self):
         """Test require_permission decorator when denied."""
+
         @require_permission("debates.delete")
         def handler(context: AuthorizationContext):
             return "success"
@@ -246,6 +248,7 @@ class TestDecorators:
 
     def test_require_role_single(self):
         """Test require_role with single role."""
+
         @require_role("admin")
         def handler(context: AuthorizationContext):
             return "success"
@@ -261,6 +264,7 @@ class TestDecorators:
 
     def test_require_role_any(self):
         """Test require_role with multiple roles (any)."""
+
         @require_role("admin", "owner")
         def handler(context: AuthorizationContext):
             return "success"
@@ -280,6 +284,7 @@ class TestDecorators:
 
     def test_require_admin(self):
         """Test require_admin shorthand."""
+
         @require_admin()
         def handler(context: AuthorizationContext):
             return "success"
@@ -304,6 +309,7 @@ class TestAsyncDecorators:
     @pytest.mark.asyncio
     async def test_require_permission_async(self):
         """Test require_permission on async function."""
+
         @require_permission("debates.create")
         async def handler(context: AuthorizationContext):
             return "success"
@@ -319,6 +325,7 @@ class TestAsyncDecorators:
     @pytest.mark.asyncio
     async def test_require_role_async(self):
         """Test require_role on async function."""
+
         @require_role("admin")
         async def handler(context: AuthorizationContext):
             return "success"

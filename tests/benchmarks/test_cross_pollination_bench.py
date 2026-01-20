@@ -127,7 +127,9 @@ class TestWeightCalculatorBenchmarks:
 
         # Some factors should be at most 3x slower than minimal
         overhead_ratio = some_bench.mean / minimal_bench.mean if minimal_bench.mean > 0 else 1
-        assert overhead_ratio < 3.0, f"Some factors config {overhead_ratio:.1f}x slower than minimal"
+        assert (
+            overhead_ratio < 3.0
+        ), f"Some factors config {overhead_ratio:.1f}x slower than minimal"
 
 
 # =============================================================================
@@ -231,12 +233,11 @@ class TestCalibrationBenchmarks:
         bench = SimpleBenchmark("calibration_record")
 
         for i in range(100):  # Fewer iterations for DB-backed operations
-            bench(lambda: tracker.record_prediction(
-                agent="test_agent",
-                confidence=0.75,
-                correct=i % 2 == 0,
-                domain="benchmark"
-            ))
+            bench(
+                lambda: tracker.record_prediction(
+                    agent="test_agent", confidence=0.75, correct=i % 2 == 0, domain="benchmark"
+                )
+            )
 
         # Recording to SQLite should be reasonable (<10ms)
         assert bench.mean < 0.01, f"Mean time {bench.mean*1000:.3f}ms exceeds 10ms"
@@ -253,7 +254,7 @@ class TestCalibrationBenchmarks:
                 agent="test_agent",
                 confidence=0.5 + (i % 10) * 0.05,  # Varying confidence
                 correct=i % 5 != 0,  # 80% correct
-                domain="test"
+                domain="test",
             )
 
         bench = SimpleBenchmark("calibration_brier")
@@ -303,11 +304,7 @@ class TestELOBenchmarks:
         bench = SimpleBenchmark("elo_match")
 
         for _ in range(100):
-            bench(lambda: elo_system.record_match(
-                winner="winner",
-                loser="loser",
-                domain="test"
-            ))
+            bench(lambda: elo_system.record_match(winner="winner", loser="loser", domain="test"))
 
         # ELO update should be reasonable (<5ms)
         assert bench.mean < 0.005, f"Mean time {bench.mean*1000:.3f}ms exceeds 5ms"
@@ -321,7 +318,7 @@ class TestELOBenchmarks:
             elo_system.record_match(
                 winner="learner" if i % 3 == 0 else "opponent",
                 loser="opponent" if i % 3 == 0 else "learner",
-                domain="test"
+                domain="test",
             )
 
         bench = SimpleBenchmark("learning_efficiency")

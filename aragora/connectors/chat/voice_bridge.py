@@ -11,7 +11,7 @@ import logging
 from typing import Any, Optional
 
 from .base import ChatPlatformConnector
-from .models import VoiceMessage, FileAttachment
+from .models import VoiceMessage
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +91,7 @@ class VoiceBridge:
         # Check file size
         if len(content) > self.max_file_size:
             raise ValueError(
-                f"Audio file too large: {len(content)} bytes "
-                f"(max: {self.max_file_size})"
+                f"Audio file too large: {len(content)} bytes " f"(max: {self.max_file_size})"
             )
 
         # Transcribe using Whisper

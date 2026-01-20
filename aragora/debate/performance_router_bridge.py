@@ -130,14 +130,10 @@ class PerformanceRouterBridge:
 
     performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
     agent_router: Optional["AgentRouter"] = None
-    config: PerformanceRouterBridgeConfig = field(
-        default_factory=PerformanceRouterBridgeConfig
-    )
+    config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state
-    _routing_scores: Dict[str, AgentRoutingScore] = field(
-        default_factory=dict, repr=False
-    )
+    _routing_scores: Dict[str, AgentRoutingScore] = field(default_factory=dict, repr=False)
     _last_sync: Optional[datetime] = field(default=None, repr=False)
     _sync_history: List[SyncResult] = field(default_factory=list, repr=False)
 
@@ -226,9 +222,7 @@ class PerformanceRouterBridge:
             return 0.0
         else:
             # Linear interpolation
-            range_size = (
-                self.config.slow_latency_threshold - self.config.fast_latency_threshold
-            )
+            range_size = self.config.slow_latency_threshold - self.config.fast_latency_threshold
             return 1.0 - (avg_time - self.config.fast_latency_threshold) / range_size
 
     def _compute_quality_score(self, metrics: Any) -> float:
@@ -320,9 +314,7 @@ class PerformanceRouterBridge:
         self._last_sync = datetime.now()
         self._sync_history.append(result)
 
-        logger.debug(
-            f"router_sync synced={result.agents_synced} skipped={result.agents_skipped}"
-        )
+        logger.debug(f"router_sync synced={result.agents_synced} skipped={result.agents_skipped}")
 
         # Record telemetry
         self._record_sync_metrics(result, time.perf_counter() - start_time)

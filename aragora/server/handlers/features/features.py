@@ -282,8 +282,12 @@ def _check_pulse() -> tuple[bool, Optional[str]]:
     try:
         importlib.import_module("aragora.pulse.manager")
         # Check if API keys are configured
-        has_twitter = bool(os.environ.get("TWITTER_API_KEY") or os.environ.get("TWITTER_BEARER_TOKEN"))
-        has_reddit = bool(os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"))
+        has_twitter = bool(
+            os.environ.get("TWITTER_API_KEY") or os.environ.get("TWITTER_BEARER_TOKEN")
+        )
+        has_reddit = bool(
+            os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET")
+        )
         if not has_twitter and not has_reddit:
             return False, "Requires configuration: Set TWITTER_API_KEY or REDDIT_CLIENT_ID/SECRET"
         return True, None

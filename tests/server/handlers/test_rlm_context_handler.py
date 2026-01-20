@@ -115,9 +115,7 @@ class TestRLMContextHandlerStats:
 
     def test_stats_returns_cache_info(self, rlm_context_handler, mock_http_handler):
         """Test stats endpoint returns cache statistics."""
-        result = rlm_context_handler.handle(
-            "/api/rlm/stats", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -129,9 +127,7 @@ class TestRLMContextHandlerStats:
 
     def test_stats_includes_system_info(self, rlm_context_handler, mock_http_handler):
         """Test stats includes system availability info."""
-        result = rlm_context_handler.handle(
-            "/api/rlm/stats", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/stats", {}, mock_http_handler)
 
         body = json.loads(result.body)
         assert "has_official_rlm" in body["system"]
@@ -144,9 +140,7 @@ class TestRLMContextHandlerStrategies:
 
     def test_strategies_returns_list(self, rlm_context_handler, mock_http_handler):
         """Test strategies endpoint returns strategy list."""
-        result = rlm_context_handler.handle(
-            "/api/rlm/strategies", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/strategies", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -157,9 +151,7 @@ class TestRLMContextHandlerStrategies:
 
     def test_strategies_includes_all_types(self, rlm_context_handler, mock_http_handler):
         """Test strategies includes all expected strategy types."""
-        result = rlm_context_handler.handle(
-            "/api/rlm/strategies", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/strategies", {}, mock_http_handler)
 
         body = json.loads(result.body)
         strategies = body["strategies"]
@@ -177,9 +169,7 @@ class TestRLMContextHandlerCompress:
         """Test compress endpoint requires authentication."""
         handler = create_request_body({"content": "test content"})
 
-        result = rlm_context_handler.handle_post(
-            "/api/rlm/compress", {}, handler
-        )
+        result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         # Should require auth
         assert result is not None
@@ -190,9 +180,7 @@ class TestRLMContextHandlerCompress:
         handler = create_auth_request_body({})
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/compress", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -201,15 +189,15 @@ class TestRLMContextHandlerCompress:
 
     def test_compress_validates_source_type(self, rlm_context_handler):
         """Test compress validates source_type parameter."""
-        handler = create_auth_request_body({
-            "content": "test content",
-            "source_type": "invalid",
-        })
+        handler = create_auth_request_body(
+            {
+                "content": "test content",
+                "source_type": "invalid",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/compress", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -218,15 +206,15 @@ class TestRLMContextHandlerCompress:
 
     def test_compress_validates_levels(self, rlm_context_handler):
         """Test compress validates levels parameter."""
-        handler = create_auth_request_body({
-            "content": "test content",
-            "levels": 10,  # Invalid - max is 5
-        })
+        handler = create_auth_request_body(
+            {
+                "content": "test content",
+                "levels": 10,  # Invalid - max is 5
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/compress", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -235,11 +223,13 @@ class TestRLMContextHandlerCompress:
 
     def test_compress_success(self, rlm_context_handler):
         """Test successful content compression."""
-        handler = create_auth_request_body({
-            "content": "This is test content for compression.",
-            "source_type": "text",
-            "levels": 4,
-        })
+        handler = create_auth_request_body(
+            {
+                "content": "This is test content for compression.",
+                "source_type": "text",
+                "levels": 4,
+            }
+        )
 
         # Mock the compressor
         mock_context = MagicMock()
@@ -253,9 +243,7 @@ class TestRLMContextHandlerCompress:
                 mock_compressor.compress = AsyncMock(return_value=mock_context)
                 mock_get.return_value = mock_compressor
 
-                result = rlm_context_handler.handle_post(
-                    "/api/rlm/compress", {}, handler
-                )
+                result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -271,14 +259,14 @@ class TestRLMContextHandlerQuery:
 
     def test_query_requires_context_id(self, rlm_context_handler):
         """Test query requires context_id field."""
-        handler = create_auth_request_body({
-            "query": "What is this about?",
-        })
+        handler = create_auth_request_body(
+            {
+                "query": "What is this about?",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/query", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -287,14 +275,14 @@ class TestRLMContextHandlerQuery:
 
     def test_query_requires_query(self, rlm_context_handler):
         """Test query requires query field."""
-        handler = create_auth_request_body({
-            "context_id": "ctx_abc123",
-        })
+        handler = create_auth_request_body(
+            {
+                "context_id": "ctx_abc123",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/query", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -303,15 +291,15 @@ class TestRLMContextHandlerQuery:
 
     def test_query_context_not_found(self, rlm_context_handler):
         """Test query returns 404 for unknown context."""
-        handler = create_auth_request_body({
-            "context_id": "ctx_nonexistent",
-            "query": "What is this about?",
-        })
+        handler = create_auth_request_body(
+            {
+                "context_id": "ctx_nonexistent",
+                "query": "What is this about?",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/query", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -326,16 +314,16 @@ class TestRLMContextHandlerQuery:
             "original_tokens": 100,
         }
 
-        handler = create_auth_request_body({
-            "context_id": "ctx_test",
-            "query": "What is this about?",
-            "strategy": "invalid_strategy",
-        })
+        handler = create_auth_request_body(
+            {
+                "context_id": "ctx_test",
+                "query": "What is this about?",
+                "strategy": "invalid_strategy",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/query", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -348,9 +336,7 @@ class TestRLMContextHandlerContexts:
 
     def test_list_contexts_empty(self, rlm_context_handler, mock_http_handler):
         """Test list contexts returns empty list when no contexts."""
-        result = rlm_context_handler.handle(
-            "/api/rlm/contexts", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/contexts", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -375,9 +361,7 @@ class TestRLMContextHandlerContexts:
             "original_tokens": 200,
         }
 
-        result = rlm_context_handler.handle(
-            "/api/rlm/contexts", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/contexts", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -434,9 +418,7 @@ class TestRLMContextHandlerGetContext:
             "original_tokens": 1000,
         }
 
-        result = rlm_context_handler.handle(
-            "/api/rlm/context/ctx_test123", {}, mock_http_handler
-        )
+        result = rlm_context_handler.handle("/api/rlm/context/ctx_test123", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -463,9 +445,7 @@ class TestRLMContextHandlerDeleteContext:
         handler.headers = {}
         handler.command = "DELETE"
 
-        result = rlm_context_handler.handle_delete(
-            "/api/rlm/context/ctx_test", {}, handler
-        )
+        result = rlm_context_handler.handle_delete("/api/rlm/context/ctx_test", {}, handler)
 
         # Should require auth
         assert result is not None
@@ -518,21 +498,26 @@ class TestRLMContextHandlerIntegration:
     def test_routes_constant_matches_can_handle(self, rlm_context_handler):
         """Test that ROUTES constant matches can_handle logic."""
         for route in RLMContextHandler.ROUTES:
-            assert rlm_context_handler.can_handle(route), f"can_handle should return True for {route}"
+            assert rlm_context_handler.can_handle(
+                route
+            ), f"can_handle should return True for {route}"
 
     def test_handler_inherits_base(self, rlm_context_handler):
         """Test that RLMContextHandler inherits from BaseHandler."""
         from aragora.server.handlers.base import BaseHandler
+
         assert isinstance(rlm_context_handler, BaseHandler)
 
     def test_handler_exported_from_package(self):
         """Test that RLMContextHandler is exported from handlers package."""
         from aragora.server.handlers import RLMContextHandler as ExportedHandler
+
         assert ExportedHandler is RLMContextHandler
 
     def test_handler_in_all_handlers(self):
         """Test that RLMContextHandler is in ALL_HANDLERS registry."""
         from aragora.server.handlers import ALL_HANDLERS
+
         assert RLMContextHandler in ALL_HANDLERS
 
 
@@ -541,16 +526,16 @@ class TestRLMContextHandlerErrorHandling:
 
     def test_compress_handles_compressor_unavailable(self, rlm_context_handler):
         """Test compress handles unavailable compressor gracefully."""
-        handler = create_auth_request_body({
-            "content": "test content",
-            "source_type": "text",
-        })
+        handler = create_auth_request_body(
+            {
+                "content": "test content",
+                "source_type": "text",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
             with patch.object(rlm_context_handler, "_get_compressor", return_value=None):
-                result = rlm_context_handler.handle_post(
-                    "/api/rlm/compress", {}, handler
-                )
+                result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         assert result.status_code == 503  # Service unavailable
@@ -568,15 +553,15 @@ class TestRLMContextHandlerErrorHandling:
         returning 400 "Request body required" for oversized payloads.
         """
         large_content = "x" * (10_000_001)  # Just over 10MB limit
-        handler = create_auth_request_body({
-            "content": large_content,
-            "source_type": "text",
-        })
+        handler = create_auth_request_body(
+            {
+                "content": large_content,
+                "source_type": "text",
+            }
+        )
 
         with patch("aragora.server.auth.auth_config", mock_auth_config()):
-            result = rlm_context_handler.handle_post(
-                "/api/rlm/compress", {}, handler
-            )
+            result = rlm_context_handler.handle_post("/api/rlm/compress", {}, handler)
 
         assert result is not None
         # Large bodies are rejected at the read_json_body stage

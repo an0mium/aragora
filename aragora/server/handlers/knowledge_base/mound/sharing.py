@@ -13,10 +13,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
-from aragora.server.metrics import track_share, track_shared_items_count
+from aragora.server.metrics import track_share
 
 from ...base import (
     HandlerResult,
@@ -46,9 +46,7 @@ class SharingOperationsMixin:
 
     @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("share item")
-    def _handle_share_item(
-        self: SharingHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_share_item(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/share - Share item with workspace/user."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -95,7 +93,7 @@ class SharingOperationsMixin:
 
         try:
             if target_type == "workspace":
-                grant = _run_async(
+                _run_async(
                     mound.share_with_workspace(
                         item_id=item_id,
                         from_workspace_id=workspace_id,
@@ -106,7 +104,7 @@ class SharingOperationsMixin:
                     )
                 )
             else:
-                grant = _run_async(
+                _run_async(
                     mound.share_with_user(
                         item_id=item_id,
                         from_workspace_id=workspace_id,
@@ -125,18 +123,21 @@ class SharingOperationsMixin:
         # Track metrics
         track_share(action="share", target_type=target_type)
 
-        return json_response({
-            "success": True,
-            "share": {
-                "item_id": item_id,
-                "target_type": target_type,
-                "target_id": target_id,
-                "permissions": permissions,
-                "shared_by": user_id,
-                "expires_at": expires_at.isoformat() if expires_at else None,
-                "message": message,
+        return json_response(
+            {
+                "success": True,
+                "share": {
+                    "item_id": item_id,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "permissions": permissions,
+                    "shared_by": user_id,
+                    "expires_at": expires_at.isoformat() if expires_at else None,
+                    "message": message,
+                },
             },
-        }, status=201)
+            status=201,
+        )
 
     @handle_errors("list shared with me")
     def _handle_shared_with_me(
@@ -173,24 +174,28 @@ class SharingOperationsMixin:
             logger.error(f"Failed to get shared items: {e}")
             return error_response(f"Failed to get shared items: {e}", 500)
 
-        return json_response({
-            "items": [
-                item.to_dict() if hasattr(item, "to_dict") else {
-                    "id": getattr(item, "id", "unknown"),
-                    "content": getattr(item, "content", ""),
-                }
-                for item in items[offset:offset + limit]
-            ],
-            "count": len(items),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "items": [
+                    (
+                        item.to_dict()
+                        if hasattr(item, "to_dict")
+                        else {
+                            "id": getattr(item, "id", "unknown"),
+                            "content": getattr(item, "content", ""),
+                        }
+                    )
+                    for item in items[offset : offset + limit]
+                ],
+                "count": len(items),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @rate_limit(rpm=30, limiter_name="knowledge_share")
     @handle_errors("revoke share")
-    def _handle_revoke_share(
-        self: SharingHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_revoke_share(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle DELETE /api/knowledge/mound/share - Revoke a share."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -232,12 +237,14 @@ class SharingOperationsMixin:
             logger.error(f"Failed to revoke share: {e}")
             return error_response(f"Failed to revoke share: {e}", 500)
 
-        return json_response({
-            "success": True,
-            "item_id": item_id,
-            "grantee_id": grantee_id,
-            "revoked_by": user_id,
-        })
+        return json_response(
+            {
+                "success": True,
+                "item_id": item_id,
+                "grantee_id": grantee_id,
+                "revoked_by": user_id,
+            }
+        )
 
     @handle_errors("list my shares")
     def _handle_my_shares(
@@ -271,20 +278,20 @@ class SharingOperationsMixin:
             logger.error(f"Failed to list shares: {e}")
             return error_response(f"Failed to list shares: {e}", 500)
 
-        return json_response({
-            "grants": [
-                g.to_dict() if hasattr(g, "to_dict") else g
-                for g in grants[offset:offset + limit]
-            ],
-            "count": len(grants),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "grants": [
+                    g.to_dict() if hasattr(g, "to_dict") else g
+                    for g in grants[offset : offset + limit]
+                ],
+                "count": len(grants),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("update share permissions")
-    def _handle_update_share(
-        self: SharingHandlerProtocol, handler: Any
-    ) -> HandlerResult:
+    def _handle_update_share(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle PATCH /api/knowledge/mound/share - Update share permissions."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -339,11 +346,17 @@ class SharingOperationsMixin:
             logger.error(f"Failed to update share: {e}")
             return error_response(f"Failed to update share: {e}", 500)
 
-        return json_response({
-            "success": True,
-            "grant": updated_grant.to_dict() if hasattr(updated_grant, "to_dict") else {
-                "item_id": item_id,
-                "grantee_id": grantee_id,
-                "permissions": permissions,
-            },
-        })
+        return json_response(
+            {
+                "success": True,
+                "grant": (
+                    updated_grant.to_dict()
+                    if hasattr(updated_grant, "to_dict")
+                    else {
+                        "item_id": item_id,
+                        "grantee_id": grantee_id,
+                        "permissions": permissions,
+                    }
+                ),
+            }
+        )

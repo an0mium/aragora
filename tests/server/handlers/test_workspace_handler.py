@@ -258,7 +258,9 @@ class TestWorkspaceHandlerRetentionRouting:
         """DELETE /api/retention/policies/{id} routes to delete."""
         mock_http = MagicMock()
 
-        result = handler._route_retention("/api/retention/policies/pol_123", {}, mock_http, "DELETE")
+        result = handler._route_retention(
+            "/api/retention/policies/pol_123", {}, mock_http, "DELETE"
+        )
 
         assert result is not None
 

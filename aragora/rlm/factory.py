@@ -28,8 +28,8 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Dict, Optional
 
 if TYPE_CHECKING:
     from .bridge import AragoraRLM
@@ -243,7 +243,7 @@ async def compress_and_query(
             _metrics.compression_fallback_calls += 1
 
         return result
-    except Exception as e:
+    except Exception:
         _metrics.failed_queries += 1
         raise
 

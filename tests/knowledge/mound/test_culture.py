@@ -73,6 +73,7 @@ def org_culture_manager(mock_mound, culture_accumulator):
 @pytest.fixture
 def sample_debate_result():
     """Create a sample debate result object."""
+
     @dataclass
     class Proposal:
         agent_type: str
@@ -643,9 +644,7 @@ class TestCultureAccumulator:
         assert profile.total_observations == 0
 
     @pytest.mark.asyncio
-    async def test_get_profile_with_patterns(
-        self, culture_accumulator, sample_debate_result
-    ):
+    async def test_get_profile_with_patterns(self, culture_accumulator, sample_debate_result):
         """Test getting profile with accumulated patterns."""
         # Observe several debates
         for i in range(3):
@@ -685,8 +684,14 @@ class TestCultureAccumulator:
         """Test domain inference from topic."""
         assert culture_accumulator._infer_domain("Review security architecture") == "security"
         # Keywords may match in priority order - "optimize" matches "performance", "design" matches "architecture"
-        assert culture_accumulator._infer_domain("Optimize database queries") in ("database", "performance")
-        assert culture_accumulator._infer_domain("Design REST API endpoints") in ("api", "architecture")
+        assert culture_accumulator._infer_domain("Optimize database queries") in (
+            "database",
+            "performance",
+        )
+        assert culture_accumulator._infer_domain("Design REST API endpoints") in (
+            "api",
+            "architecture",
+        )
         assert culture_accumulator._infer_domain("Random topic") is None
         # More specific tests where keywords are unambiguous
         assert culture_accumulator._infer_domain("Fix SQL query bug") == "database"

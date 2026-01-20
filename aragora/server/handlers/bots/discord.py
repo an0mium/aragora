@@ -102,11 +102,13 @@ class DiscordHandler(BaseHandler):
 
     def _get_status(self) -> HandlerResult:
         """Get Discord bot status."""
-        return json_response({
-            "enabled": bool(DISCORD_APPLICATION_ID),
-            "application_id_configured": bool(DISCORD_APPLICATION_ID),
-            "public_key_configured": bool(DISCORD_PUBLIC_KEY),
-        })
+        return json_response(
+            {
+                "enabled": bool(DISCORD_APPLICATION_ID),
+                "application_id_configured": bool(DISCORD_APPLICATION_ID),
+                "public_key_configured": bool(DISCORD_PUBLIC_KEY),
+            }
+        )
 
     def _handle_interactions(self, handler: Any) -> HandlerResult:
         """Handle Discord interaction webhooks.
@@ -156,35 +158,41 @@ class DiscordHandler(BaseHandler):
 
             # Unknown interaction type
             logger.warning(f"Unknown Discord interaction type: {interaction_type}")
-            return json_response({
-                "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
-                "data": {
-                    "content": "Unknown interaction type",
-                    "flags": 64,  # Ephemeral
-                },
-            })
+            return json_response(
+                {
+                    "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
+                    "data": {
+                        "content": "Unknown interaction type",
+                        "flags": 64,  # Ephemeral
+                    },
+                }
+            )
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in Discord interaction: {e}")
             return error_response("Invalid JSON payload", 400)
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in Discord interaction: {e}")
-            return json_response({
-                "type": 4,
-                "data": {
-                    "content": f"Invalid request data: {str(e)[:100]}",
-                    "flags": 64,
-                },
-            })
+            return json_response(
+                {
+                    "type": 4,
+                    "data": {
+                        "content": f"Invalid request data: {str(e)[:100]}",
+                        "flags": 64,
+                    },
+                }
+            )
         except Exception as e:
             logger.exception(f"Unexpected Discord interaction error: {e}")
-            return json_response({
-                "type": 4,
-                "data": {
-                    "content": "An unexpected error occurred",
-                    "flags": 64,
-                },
-            })
+            return json_response(
+                {
+                    "type": 4,
+                    "data": {
+                        "content": "An unexpected error occurred",
+                        "flags": 64,
+                    },
+                }
+            )
 
     def _handle_application_command(self, interaction: Dict[str, Any]) -> HandlerResult:
         """Handle slash command interactions."""
@@ -221,13 +229,15 @@ class DiscordHandler(BaseHandler):
             return self._execute_command("status", "", user_id, interaction)
 
         # Unknown command
-        return json_response({
-            "type": 4,
-            "data": {
-                "content": f"Unknown command: {command_name}",
-                "flags": 64,
-            },
-        })
+        return json_response(
+            {
+                "type": 4,
+                "data": {
+                    "content": f"Unknown command: {command_name}",
+                    "flags": 64,
+                },
+            }
+        )
 
     def _execute_command(
         self,
@@ -307,18 +317,22 @@ class DiscordHandler(BaseHandler):
             if result.ephemeral:
                 response_data["flags"] = 64
 
-            return json_response({
-                "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
-                "data": response_data,
-            })
+            return json_response(
+                {
+                    "type": 4,  # CHANNEL_MESSAGE_WITH_SOURCE
+                    "data": response_data,
+                }
+            )
         else:
-            return json_response({
-                "type": 4,
-                "data": {
-                    "content": f"Error: {result.error}",
-                    "flags": 64,
-                },
-            })
+            return json_response(
+                {
+                    "type": 4,
+                    "data": {
+                        "content": f"Error: {result.error}",
+                        "flags": 64,
+                    },
+                }
+            )
 
     def _handle_message_component(self, interaction: Dict[str, Any]) -> HandlerResult:
         """Handle button/select interactions."""
@@ -340,6 +354,7 @@ class DiscordHandler(BaseHandler):
                 # Record vote
                 try:
                     from aragora.server.storage import get_debates_db
+
                     db = get_debates_db()
                     if db and hasattr(db, "record_vote"):
                         db.record_vote(
@@ -354,22 +369,26 @@ class DiscordHandler(BaseHandler):
                     logger.exception(f"Unexpected error recording vote: {e}")
 
                 emoji = "thumbsup" if vote == "agree" else "thumbsdown"
-                return json_response({
-                    "type": 4,
-                    "data": {
-                        "content": f":{emoji}: Your vote has been recorded!",
-                        "flags": 64,
-                    },
-                })
+                return json_response(
+                    {
+                        "type": 4,
+                        "data": {
+                            "content": f":{emoji}: Your vote has been recorded!",
+                            "flags": 64,
+                        },
+                    }
+                )
 
         # Unknown component
-        return json_response({
-            "type": 4,
-            "data": {
-                "content": "Interaction received",
-                "flags": 64,
-            },
-        })
+        return json_response(
+            {
+                "type": 4,
+                "data": {
+                    "content": "Interaction received",
+                    "flags": 64,
+                },
+            }
+        )
 
     def _handle_modal_submit(self, interaction: Dict[str, Any]) -> HandlerResult:
         """Handle modal submission interactions."""
@@ -378,13 +397,15 @@ class DiscordHandler(BaseHandler):
 
         logger.info(f"Discord modal submit: {custom_id}")
 
-        return json_response({
-            "type": 4,
-            "data": {
-                "content": "Form submitted",
-                "flags": 64,
-            },
-        })
+        return json_response(
+            {
+                "type": 4,
+                "data": {
+                    "content": "Form submitted",
+                    "flags": 64,
+                },
+            }
+        )
 
 
 __all__ = ["DiscordHandler"]

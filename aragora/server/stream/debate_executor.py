@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     ]
 
 from aragora.config import (
-    ALLOWED_AGENT_TYPES,
     DEBATE_TIMEOUT_SECONDS,
     MAX_AGENTS_PER_DEBATE,
 )

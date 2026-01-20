@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable
 from uuid import uuid4
 
-from .models import AuthorizationContext, AuthorizationDecision, RoleAssignment
+from .models import AuthorizationDecision, RoleAssignment
 
 logger = logging.getLogger(__name__)
 
@@ -366,7 +366,7 @@ class AuthorizationAuditor:
         # Buffer for batch processing
         self._event_buffer.append(event)
         if len(self._event_buffer) >= self._buffer_size:
-            self._event_buffer = self._event_buffer[-self._buffer_size:]
+            self._event_buffer = self._event_buffer[-self._buffer_size :]
 
     def _default_log_handler(self, event: AuditEvent) -> None:
         """Default handler that logs to Python logger."""
@@ -419,9 +419,7 @@ def log_permission_check(
     """Quick function to log a permission check."""
     event = AuditEvent(
         event_type=(
-            AuditEventType.PERMISSION_GRANTED
-            if allowed
-            else AuditEventType.PERMISSION_DENIED
+            AuditEventType.PERMISSION_GRANTED if allowed else AuditEventType.PERMISSION_DENIED
         ),
         user_id=user_id,
         org_id=org_id,

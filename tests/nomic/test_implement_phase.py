@@ -61,7 +61,7 @@ class TestImplementPhaseCodeGeneration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, '_generate_code', new_callable=AsyncMock) as mock_gen:
+        with patch.object(phase, "_generate_code", new_callable=AsyncMock) as mock_gen:
             mock_gen.return_value = {
                 "aragora/errors.py": "class ErrorHandler:\n    pass",
                 "tests/test_errors.py": "def test_handler():\n    assert True",
@@ -134,7 +134,7 @@ class TestImplementPhaseBackup:
 
         files_to_modify = ["aragora/utils.py"]
 
-        with patch('shutil.copy2') as mock_copy:
+        with patch("shutil.copy2") as mock_copy:
             backup_manifest = await phase.create_backup(files_to_modify)
 
             assert backup_manifest is not None
@@ -153,7 +153,7 @@ class TestImplementPhaseBackup:
             log_fn=mock_log_fn,
         )
 
-        with patch('shutil.copy2'):
+        with patch("shutil.copy2"):
             backup_manifest = await phase.create_backup(["test.py"])
 
             if backup_manifest and "path" in backup_manifest:
@@ -165,9 +165,7 @@ class TestImplementPhaseFileWriting:
     """Tests for file writing."""
 
     @pytest.mark.asyncio
-    async def test_writes_generated_files(
-        self, mock_aragora_path, mock_codex_agent, mock_log_fn
-    ):
+    async def test_writes_generated_files(self, mock_aragora_path, mock_codex_agent, mock_log_fn):
         """Should write generated files to disk."""
         from aragora.nomic.phases.implement import ImplementPhase
 
@@ -181,8 +179,8 @@ class TestImplementPhaseFileWriting:
             "aragora/new_module.py": "def new_function():\n    pass",
         }
 
-        with patch('builtins.open', MagicMock()) as mock_open:
-            with patch.object(phase, 'create_backup', new_callable=AsyncMock) as mock_backup:
+        with patch("builtins.open", MagicMock()) as mock_open:
+            with patch.object(phase, "create_backup", new_callable=AsyncMock) as mock_backup:
                 mock_backup.return_value = {"path": "/backup"}
 
                 result = await phase.write_files(code_changes)
@@ -207,9 +205,9 @@ class TestImplementPhaseFileWriting:
             "aragora/new_dir/new_module.py": "def func(): pass",
         }
 
-        with patch('pathlib.Path.mkdir') as mock_mkdir:
-            with patch('builtins.open', MagicMock()):
-                with patch.object(phase, 'create_backup', new_callable=AsyncMock) as mock_backup:
+        with patch("pathlib.Path.mkdir") as mock_mkdir:
+            with patch("builtins.open", MagicMock()):
+                with patch.object(phase, "create_backup", new_callable=AsyncMock) as mock_backup:
                     mock_backup.return_value = {"path": "/backup"}
 
                     await phase.write_files(code_changes)
@@ -238,7 +236,7 @@ class TestImplementPhaseRollback:
             "files": ["aragora/utils.py"],
         }
 
-        with patch('shutil.copy2') as mock_copy:
+        with patch("shutil.copy2") as mock_copy:
             await phase.rollback(backup_manifest)
 
             # Should restore backed up files
@@ -261,7 +259,7 @@ class TestImplementPhaseRollback:
             "files_created": ["aragora/new_module.py"],
         }
 
-        with patch('pathlib.Path.unlink') as mock_unlink:
+        with patch("pathlib.Path.unlink") as mock_unlink:
             await phase.rollback(backup_manifest)
 
             # Should attempt to remove created files
@@ -283,9 +281,9 @@ class TestImplementPhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_code', new_callable=AsyncMock) as mock_gen:
-            with patch.object(phase, 'create_backup', new_callable=AsyncMock) as mock_backup:
-                with patch.object(phase, 'write_files', new_callable=AsyncMock) as mock_write:
+        with patch.object(phase, "generate_code", new_callable=AsyncMock) as mock_gen:
+            with patch.object(phase, "create_backup", new_callable=AsyncMock) as mock_backup:
+                with patch.object(phase, "write_files", new_callable=AsyncMock) as mock_write:
                     mock_gen.return_value = {"aragora/test.py": "pass"}
                     mock_backup.return_value = {"path": "/backup"}
                     mock_write.return_value = {"success": True}
@@ -311,13 +309,16 @@ class TestImplementPhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_code', new_callable=AsyncMock) as mock_gen:
+        with patch.object(phase, "generate_code", new_callable=AsyncMock) as mock_gen:
             mock_gen.return_value = {"aragora/test.py": "def broken(\n    return"}
 
             result = await phase.run(design=mock_design_result["design"])
 
             # Should detect syntax error and not write
-            assert result.get("success", True) is False or "syntax" in str(result.get("error", "")).lower()
+            assert (
+                result.get("success", True) is False
+                or "syntax" in str(result.get("error", "")).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_implementation_with_rollback_on_failure(
@@ -332,10 +333,10 @@ class TestImplementPhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, 'generate_code', new_callable=AsyncMock) as mock_gen:
-            with patch.object(phase, 'create_backup', new_callable=AsyncMock) as mock_backup:
-                with patch.object(phase, 'write_files', new_callable=AsyncMock) as mock_write:
-                    with patch.object(phase, 'rollback', new_callable=AsyncMock) as mock_rollback:
+        with patch.object(phase, "generate_code", new_callable=AsyncMock) as mock_gen:
+            with patch.object(phase, "create_backup", new_callable=AsyncMock) as mock_backup:
+                with patch.object(phase, "write_files", new_callable=AsyncMock) as mock_write:
+                    with patch.object(phase, "rollback", new_callable=AsyncMock) as mock_rollback:
                         mock_gen.return_value = {"aragora/test.py": "pass"}
                         mock_backup.return_value = {"path": "/backup"}
                         mock_write.side_effect = IOError("Write failed")

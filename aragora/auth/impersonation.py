@@ -11,7 +11,7 @@ Provides secure admin impersonation with:
 import hashlib
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
@@ -287,7 +287,10 @@ class ImpersonationManager:
                 error_message=f"Maximum concurrent sessions ({self._max_concurrent_sessions}) reached",
             )
             self._log_audit(entry)
-            return None, f"Maximum concurrent impersonation sessions ({self._max_concurrent_sessions}) reached"
+            return (
+                None,
+                f"Maximum concurrent impersonation sessions ({self._max_concurrent_sessions}) reached",
+            )
 
         # Calculate duration
         effective_duration = duration or self.DEFAULT_SESSION_DURATION
@@ -500,9 +503,7 @@ class ImpersonationManager:
                 sid for sid in self._admin_sessions[admin_id] if sid != session_id
             ]
 
-    def get_active_sessions_for_admin(
-        self, admin_user_id: str
-    ) -> List[ImpersonationSession]:
+    def get_active_sessions_for_admin(self, admin_user_id: str) -> List[ImpersonationSession]:
         """Get all active sessions for an admin."""
         session_ids = self._admin_sessions.get(admin_user_id, [])
         sessions = []

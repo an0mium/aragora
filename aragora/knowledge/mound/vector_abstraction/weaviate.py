@@ -379,9 +379,7 @@ class WeaviateVectorStore(BaseVectorStore):
                     content=obj.properties.get("content", ""),
                     score=score,
                     metadata={
-                        k: v
-                        for k, v in obj.properties.items()
-                        if k not in ["content", "namespace"]
+                        k: v for k, v in obj.properties.items() if k not in ["content", "namespace"]
                     },
                     embedding=obj.vector.get("default") if obj.vector else None,
                 )
@@ -412,9 +410,7 @@ class WeaviateVectorStore(BaseVectorStore):
                     content=obj.properties.get("content", ""),
                     score=1.0,
                     metadata={
-                        k: v
-                        for k, v in obj.properties.items()
-                        if k not in ["content", "namespace"]
+                        k: v for k, v in obj.properties.items() if k not in ["content", "namespace"]
                     },
                     embedding=obj.vector.get("default") if obj.vector else None,
                 )

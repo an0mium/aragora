@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..base import (
@@ -63,10 +62,7 @@ class GmailQueryHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the path."""
-        return (
-            path.startswith("/api/gmail/query") or
-            path.startswith("/api/gmail/inbox/")
-        )
+        return path.startswith("/api/gmail/query") or path.startswith("/api/gmail/inbox/")
 
     def handle(
         self,
@@ -125,9 +121,7 @@ class GmailQueryHandler(BaseHandler):
             asyncio.set_event_loop(loop)
 
             try:
-                response = loop.run_until_complete(
-                    self._run_query(user_id, state, question, limit)
-                )
+                response = loop.run_until_complete(self._run_query(user_id, state, question, limit))
             finally:
                 loop.close()
 
@@ -180,13 +174,15 @@ class GmailQueryHandler(BaseHandler):
                     f"Content: {msg.body_text[:1000] if msg.body_text else msg.snippet}\n"
                 )
 
-                sources.append({
-                    "id": msg_id,
-                    "subject": msg.subject,
-                    "from": msg.from_address,
-                    "date": msg.date.isoformat() if msg.date else None,
-                    "url": f"https://mail.google.com/mail/u/0/#inbox/{msg_id}",
-                })
+                sources.append(
+                    {
+                        "id": msg_id,
+                        "subject": msg.subject,
+                        "from": msg.from_address,
+                        "date": msg.date.isoformat() if msg.date else None,
+                        "url": f"https://mail.google.com/mail/u/0/#inbox/{msg_id}",
+                    }
+                )
 
             except Exception as e:
                 logger.warning(f"[GmailQuery] Failed to fetch message: {e}")
@@ -294,10 +290,7 @@ class GmailQueryHandler(BaseHandler):
             if subjects:
                 return f"Found {email_count} emails about: {'; '.join(subjects[:3])}"
 
-        return (
-            f"I found {email_count} relevant emails. "
-            "Check the sources below for details."
-        )
+        return f"I found {email_count} relevant emails. " "Check the sources below for details."
 
     def _handle_voice_query(
         self,
@@ -326,14 +319,17 @@ class GmailQueryHandler(BaseHandler):
                 # Transcribe audio
                 if audio_data:
                     import base64
+
                     audio_bytes = base64.b64decode(audio_data)
                 else:
                     # Fetch from URL
                     import httpx
+
                     async def fetch_audio():
                         async with httpx.AsyncClient() as client:
                             resp = await client.get(audio_url)
                             return resp.content
+
                     audio_bytes = loop.run_until_complete(fetch_audio())
 
                 # Transcribe
@@ -401,11 +397,13 @@ class GmailQueryHandler(BaseHandler):
             finally:
                 loop.close()
 
-            return json_response({
-                "emails": emails,
-                "count": len(emails),
-                "user_id": user_id,
-            })
+            return json_response(
+                {
+                    "emails": emails,
+                    "count": len(emails),
+                    "user_id": user_id,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailQuery] Priority inbox failed: {e}")
@@ -436,7 +434,7 @@ class GmailQueryHandler(BaseHandler):
 
         # Fetch and score emails
         emails = []
-        for msg_id in message_ids[:limit * 2]:
+        for msg_id in message_ids[: limit * 2]:
             try:
                 msg = await connector.get_message(msg_id, format="metadata")
 
@@ -451,20 +449,22 @@ class GmailQueryHandler(BaseHandler):
                     is_starred=msg.is_starred,
                 )
 
-                emails.append({
-                    "id": msg.id,
-                    "thread_id": msg.thread_id,
-                    "subject": msg.subject,
-                    "from": msg.from_address,
-                    "snippet": msg.snippet,
-                    "date": msg.date.isoformat() if msg.date else None,
-                    "labels": msg.labels,
-                    "is_read": msg.is_read,
-                    "is_starred": msg.is_starred,
-                    "priority_score": score.score,
-                    "priority_reason": score.reason,
-                    "url": f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
-                })
+                emails.append(
+                    {
+                        "id": msg.id,
+                        "thread_id": msg.thread_id,
+                        "subject": msg.subject,
+                        "from": msg.from_address,
+                        "snippet": msg.snippet,
+                        "date": msg.date.isoformat() if msg.date else None,
+                        "labels": msg.labels,
+                        "is_read": msg.is_read,
+                        "is_starred": msg.is_starred,
+                        "priority_score": score.score,
+                        "priority_reason": score.reason,
+                        "url": f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
+                    }
+                )
 
             except Exception as e:
                 logger.warning(f"[GmailQuery] Failed to process message {msg_id}: {e}")
@@ -509,11 +509,13 @@ class GmailQueryHandler(BaseHandler):
             finally:
                 loop.close()
 
-            return json_response({
-                "success": success,
-                "email_id": email_id,
-                "action": action,
-            })
+            return json_response(
+                {
+                    "success": success,
+                    "email_id": email_id,
+                    "action": action,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailQuery] Feedback recording failed: {e}")

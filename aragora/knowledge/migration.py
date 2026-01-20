@@ -130,9 +130,7 @@ class MigrationContext:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
         """Exit migration context, rolling back on error."""
         if exc_type is not None:
-            logger.error(
-                f"Migration {self._migration_id} failed: {exc_val}, rolling back..."
-            )
+            logger.error(f"Migration {self._migration_id} failed: {exc_val}, rolling back...")
             # Rollback is handled by deleting created nodes
             # In production, we'd have more sophisticated rollback
             self._completed = False
@@ -222,6 +220,7 @@ class KnowledgeMoundMigrator:
             MigrationResult with migration statistics
         """
         import time
+
         start_time = time.time()
 
         result = MigrationResult(
@@ -266,10 +265,12 @@ class KnowledgeMoundMigrator:
 
                 except Exception as e:
                     result.error_count += 1
-                    result.errors.append({
-                        "entry_id": entry.id,
-                        "error": str(e),
-                    })
+                    result.errors.append(
+                        {
+                            "entry_id": entry.id,
+                            "error": str(e),
+                        }
+                    )
                     logger.warning(f"Failed to migrate entry {entry.id}: {e}")
 
             result.duration_seconds = time.time() - start_time
@@ -352,6 +353,7 @@ class KnowledgeMoundMigrator:
             MigrationResult with migration statistics
         """
         import time
+
         start_time = time.time()
 
         result = MigrationResult(
@@ -417,9 +419,7 @@ class KnowledgeMoundMigrator:
                         for dissent_id in record.dissent_ids:
                             dissent = source.get_dissent(dissent_id)
                             if dissent:
-                                dissent_node = self._dissent_record_to_node(
-                                    dissent, workspace_id
-                                )
+                                dissent_node = self._dissent_record_to_node(dissent, workspace_id)
                                 d_node_id = await self._mound.add_node(
                                     dissent_node, deduplicate=True
                                 )
@@ -438,10 +438,12 @@ class KnowledgeMoundMigrator:
 
                 except Exception as e:
                     result.error_count += 1
-                    result.errors.append({
-                        "record_id": record.id,
-                        "error": str(e),
-                    })
+                    result.errors.append(
+                        {
+                            "record_id": record.id,
+                            "error": str(e),
+                        }
+                    )
                     logger.warning(f"Failed to migrate consensus {record.id}: {e}")
 
             result.duration_seconds = time.time() - start_time
@@ -484,9 +486,7 @@ class KnowledgeMoundMigrator:
             workspace_id=workspace_id,
             # Consensus tends to be slower-changing knowledge
             tier=MemoryTier.SLOW,
-            validation_status=validation_map.get(
-                record.strength, ValidationStatus.UNVERIFIED
-            ),
+            validation_status=validation_map.get(record.strength, ValidationStatus.UNVERIFIED),
             topics=record.tags,
             metadata={
                 "source": "consensus_memory",
@@ -572,9 +572,7 @@ class KnowledgeMoundMigrator:
         # Log summary
         total_migrated = sum(r.migrated_count for r in results.values())
         total_errors = sum(r.error_count for r in results.values())
-        logger.info(
-            f"Migration complete: {total_migrated} records migrated, {total_errors} errors"
-        )
+        logger.info(f"Migration complete: {total_migrated} records migrated, {total_errors} errors")
 
         return results
 

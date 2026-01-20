@@ -453,7 +453,9 @@ class EvidenceSettings(BaseSettings):
         """Get additional allowed domains as a list."""
         if not self.additional_allowed_domains_str:
             return []
-        return [d.strip().lower() for d in self.additional_allowed_domains_str.split(",") if d.strip()]
+        return [
+            d.strip().lower() for d in self.additional_allowed_domains_str.split(",") if d.strip()
+        ]
 
 
 class FeatureSettings(BaseSettings):
@@ -622,6 +624,98 @@ class IntegrationSettings(BaseSettings):
         alias="ARAGORA_INTEGRATION_EVIDENCE_AUTO_REGISTER",
         description="Automatically register evidence during debates",
     )
+
+    # KM Bidirectional Handler Flags
+    # Inbound handlers (subsystem → KM)
+    km_memory_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MEMORY_TO_MOUND",
+        description="Enable memory → KM handler (stores high-importance memories)",
+    )
+    km_belief_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_BELIEF_TO_MOUND",
+        description="Enable belief → KM handler (stores converged beliefs)",
+    )
+    km_elo_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_ELO_TO_MOUND",
+        description="Enable ELO → KM handler (stores agent expertise)",
+    )
+    km_rlm_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_RLM_TO_MOUND",
+        description="Enable RLM → KM handler (stores compression patterns)",
+    )
+    km_insight_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_INSIGHT_TO_MOUND",
+        description="Enable insight → KM handler (stores high-confidence insights)",
+    )
+    km_flip_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_FLIP_TO_MOUND",
+        description="Enable flip → KM handler (stores flip events)",
+    )
+    km_provenance_to_mound_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_PROVENANCE_TO_MOUND",
+        description="Enable provenance → KM handler (stores verified chains)",
+    )
+
+    # Outbound handlers (KM → subsystem)
+    km_mound_to_memory_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_MEMORY",
+        description="Enable KM → memory handler (pre-warms cache)",
+    )
+    km_mound_to_belief_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_BELIEF",
+        description="Enable KM → belief handler (initializes priors)",
+    )
+    km_mound_to_rlm_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_RLM",
+        description="Enable KM → RLM handler (updates compression priorities)",
+    )
+    km_mound_to_team_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_TEAM",
+        description="Enable KM → team selection handler (queries domain experts)",
+    )
+    km_mound_to_trickster_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_TRICKSTER",
+        description="Enable KM → Trickster handler (queries flip history)",
+    )
+    km_culture_to_debate_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_CULTURE_TO_DEBATE",
+        description="Enable culture → debate handler (informs protocol)",
+    )
+    km_staleness_to_debate_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_STALENESS_TO_DEBATE",
+        description="Enable staleness → debate handler (injects warnings)",
+    )
+    km_mound_to_provenance_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_INTEGRATION_KM_MOUND_TO_PROVENANCE",
+        description="Enable KM → provenance handler (queries verification history)",
+    )
+
+    def is_km_handler_enabled(self, handler_name: str) -> bool:
+        """Check if a specific KM handler is enabled.
+
+        Args:
+            handler_name: The handler name (e.g., 'memory_to_mound', 'mound_to_belief')
+
+        Returns:
+            True if the handler is enabled
+        """
+        attr_name = f"km_{handler_name}_enabled"
+        return getattr(self, attr_name, True)
 
 
 class ProviderRateLimitSettings(BaseSettings):

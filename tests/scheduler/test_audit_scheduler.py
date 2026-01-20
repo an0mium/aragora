@@ -842,6 +842,7 @@ class TestGetScheduler:
         """Returns an AuditScheduler instance."""
         # Reset singleton for test
         import aragora.scheduler.audit_scheduler as module
+
         module._scheduler = None
 
         scheduler = get_scheduler()
@@ -852,6 +853,7 @@ class TestGetScheduler:
         """Returns the same instance on subsequent calls."""
         # Reset singleton for test
         import aragora.scheduler.audit_scheduler as module
+
         module._scheduler = None
 
         scheduler1 = get_scheduler()

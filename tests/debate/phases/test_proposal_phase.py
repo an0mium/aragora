@@ -249,9 +249,7 @@ class TestProposalPhaseGenerateProposalsParallel:
         ctx = MockDebateContext(agents=agents)
 
         # Mock _generate_single_proposal to track calls
-        with patch.object(
-            phase, "_generate_single_proposal", new_callable=AsyncMock
-        ) as mock_gen:
+        with patch.object(phase, "_generate_single_proposal", new_callable=AsyncMock) as mock_gen:
             mock_gen.return_value = None
 
             # Use smaller stagger for testing

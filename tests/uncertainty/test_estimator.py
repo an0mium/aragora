@@ -57,9 +57,7 @@ class TestConfidenceScore:
 
     def test_to_dict(self):
         """Test serialization to dictionary."""
-        score = ConfidenceScore(
-            agent_name="claude", value=0.75, reasoning="Based on evidence"
-        )
+        score = ConfidenceScore(agent_name="claude", value=0.75, reasoning="Based on evidence")
         result = score.to_dict()
 
         assert result["agent"] == "claude"
@@ -95,24 +93,18 @@ class TestDisagreementCrux:
 
     def test_auto_generated_id(self):
         """Test crux_id is auto-generated when not provided."""
-        crux = DisagreementCrux(
-            description="Test crux", divergent_agents=["agent1"]
-        )
+        crux = DisagreementCrux(description="Test crux", divergent_agents=["agent1"])
         assert crux.crux_id.startswith("crux-")
         assert len(crux.crux_id) == 10  # "crux-" + 5 digits
 
     def test_custom_id(self):
         """Test custom crux_id is preserved."""
-        crux = DisagreementCrux(
-            description="Test", divergent_agents=[], crux_id="custom-id"
-        )
+        crux = DisagreementCrux(description="Test", divergent_agents=[], crux_id="custom-id")
         assert crux.crux_id == "custom-id"
 
     def test_default_values(self):
         """Test default values are set correctly."""
-        crux = DisagreementCrux(
-            description="Test", divergent_agents=[]
-        )
+        crux = DisagreementCrux(description="Test", divergent_agents=[])
         assert crux.evidence_needed == ""
         assert crux.severity == 0.5
 
@@ -163,9 +155,7 @@ class TestFollowUpSuggestion:
     def test_default_values(self):
         """Test default values."""
         crux = DisagreementCrux(description="Test", divergent_agents=[])
-        suggestion = FollowUpSuggestion(
-            crux=crux, suggested_task="Task", priority=0.5
-        )
+        suggestion = FollowUpSuggestion(crux=crux, suggested_task="Task", priority=0.5)
         assert suggestion.parent_debate_id is None
         assert suggestion.suggested_agents == []
 
@@ -675,9 +665,7 @@ class TestUncertaintyIntegration:
             agent = MagicMock()
             agent.name = name
             agent.vote = AsyncMock(
-                return_value=MagicMock(
-                    confidence=0.7 + i * 0.1, reasoning=f"Reasoning from {name}"
-                )
+                return_value=MagicMock(confidence=0.7 + i * 0.1, reasoning=f"Reasoning from {name}")
             )
             agents.append(agent)
 

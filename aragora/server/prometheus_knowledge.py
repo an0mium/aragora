@@ -272,7 +272,15 @@ def timed_knowledge_federation_sync(
     ctx: dict = {"status": "success", "nodes_synced": 0}
     try:
         yield ctx
-    except (ValueError, TypeError, KeyError, RuntimeError, OSError, TimeoutError, ConnectionError) as e:
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        RuntimeError,
+        OSError,
+        TimeoutError,
+        ConnectionError,
+    ) as e:
         logger.warning("Federation sync to %s (%s) failed: %s", region_id, direction, e)
         ctx["status"] = "failed"
         raise

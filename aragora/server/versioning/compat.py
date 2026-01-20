@@ -24,9 +24,11 @@ class VersionConfig:
     current: APIVersion = APIVersion.V2
     supported: Set[APIVersion] = field(default_factory=lambda: {APIVersion.V1, APIVersion.V2})
     deprecated: Set[APIVersion] = field(default_factory=lambda: {APIVersion.V1})
-    sunset_dates: Dict[APIVersion, str] = field(default_factory=lambda: {
-        APIVersion.V1: "2026-12-31",
-    })
+    sunset_dates: Dict[APIVersion, str] = field(
+        default_factory=lambda: {
+            APIVersion.V1: "2026-12-31",
+        }
+    )
     default_for_legacy: APIVersion = APIVersion.V1
 
     def is_supported(self, version: APIVersion) -> bool:
@@ -111,7 +113,9 @@ def version_response_headers(version: APIVersion, is_legacy: bool = False) -> Di
 
     if is_legacy:
         headers["X-API-Legacy"] = "true"
-        headers["X-API-Migration"] = f"Use /api/{config.current.value}/ prefix for versioned endpoints"
+        headers["X-API-Migration"] = (
+            f"Use /api/{config.current.value}/ prefix for versioned endpoints"
+        )
 
     if config.is_deprecated(version):
         headers["X-API-Deprecated"] = "true"

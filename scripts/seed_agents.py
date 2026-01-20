@@ -35,6 +35,7 @@ try:
         get_nomic_dir,
         get_db_mode,
     )
+
     DB_CONFIG_AVAILABLE = True
 except ImportError:
     DB_CONFIG_AVAILABLE = False
@@ -248,7 +249,8 @@ def seed_agent_metadata(db_path: Path) -> int:
     conn = sqlite3.connect(db_path)
 
     # Create metadata table
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS agent_metadata (
             agent_name TEXT PRIMARY KEY,
             provider TEXT NOT NULL,
@@ -260,7 +262,8 @@ def seed_agent_metadata(db_path: Path) -> int:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """
+    )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_provider ON agent_metadata(provider)")
 
     seeded = 0
@@ -268,20 +271,23 @@ def seed_agent_metadata(db_path: Path) -> int:
 
     for agent in AGENT_METADATA:
         try:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO agent_metadata
                 (agent_name, provider, model_id, context_window, specialties, strengths, release_date, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                agent["name"],
-                agent["provider"],
-                agent.get("model_id"),
-                agent.get("context_window"),
-                json.dumps(agent.get("specialties", [])),
-                json.dumps(agent.get("strengths", [])),
-                agent.get("release_date"),
-                now,
-            ))
+            """,
+                (
+                    agent["name"],
+                    agent["provider"],
+                    agent.get("model_id"),
+                    agent.get("context_window"),
+                    json.dumps(agent.get("specialties", [])),
+                    json.dumps(agent.get("strengths", [])),
+                    agent.get("release_date"),
+                    now,
+                ),
+            )
             seeded += 1
         except Exception as e:
             logger.warning(f"Failed to seed metadata for {agent['name']}: {e}")
@@ -433,9 +439,11 @@ def main():
     if args.list_agents:
         logger.info(f"Available agents ({len(AGENT_METADATA)}):\n")
         for agent in AGENT_METADATA:
-            print(f"  {agent['name']:<20} ({agent['provider']:<10}) "
-                  f"ctx:{agent.get('context_window', 'N/A'):<8} "
-                  f"specialties: {', '.join(agent.get('specialties', []))}")
+            print(
+                f"  {agent['name']:<20} ({agent['provider']:<10}) "
+                f"ctx:{agent.get('context_window', 'N/A'):<8} "
+                f"specialties: {', '.join(agent.get('specialties', []))}"
+            )
         return
 
     # Export JSON mode
@@ -466,8 +474,9 @@ def main():
         for agent in AGENT_METADATA:
             ctx = agent.get("context_window", "N/A")
             specs = ", ".join(agent.get("specialties", [])[:3])
-            logger.info(f"  Would seed: {agent['name']} ({agent['provider']}) "
-                       f"[ctx:{ctx}, {specs}]")
+            logger.info(
+                f"  Would seed: {agent['name']} ({agent['provider']}) " f"[ctx:{ctx}, {specs}]"
+            )
         return
 
     # Ensure .nomic directory exists

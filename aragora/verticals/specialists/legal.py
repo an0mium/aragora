@@ -31,9 +31,22 @@ LEGAL_CONFIG = VerticalConfig(
     display_name="Legal Specialist",
     description="Expert in contract analysis, compliance, and regulatory matters.",
     domain_keywords=[
-        "contract", "legal", "law", "compliance", "regulation", "liability",
-        "indemnification", "warranty", "terms", "agreement", "clause",
-        "attorney", "counsel", "litigation", "dispute", "statute",
+        "contract",
+        "legal",
+        "law",
+        "compliance",
+        "regulation",
+        "liability",
+        "indemnification",
+        "warranty",
+        "terms",
+        "agreement",
+        "clause",
+        "attorney",
+        "counsel",
+        "litigation",
+        "dispute",
+        "statute",
     ],
     expertise_areas=[
         "Contract Analysis",
@@ -240,34 +253,40 @@ class LegalSpecialist(VerticalSpecialistAgent):
         # Check for data processing provisions
         if "data_processing" in framework.rules or not framework.rules:
             if not re.search(r"lawful\s+basis|legal\s+basis|consent", content_lower):
-                violations.append({
-                    "framework": "GDPR",
-                    "rule": "Article 6 - Lawful Basis",
-                    "severity": "high",
-                    "message": "Missing specification of lawful basis for data processing",
-                })
+                violations.append(
+                    {
+                        "framework": "GDPR",
+                        "rule": "Article 6 - Lawful Basis",
+                        "severity": "high",
+                        "message": "Missing specification of lawful basis for data processing",
+                    }
+                )
 
         # Check for consent requirements
         if "consent" in framework.rules or not framework.rules:
             if re.search(r"personal\s+data|pii", content_lower):
                 if not re.search(r"consent|opt.?in", content_lower):
-                    violations.append({
-                        "framework": "GDPR",
-                        "rule": "Article 7 - Consent",
-                        "severity": "medium",
-                        "message": "Personal data processing without clear consent provisions",
-                    })
+                    violations.append(
+                        {
+                            "framework": "GDPR",
+                            "rule": "Article 7 - Consent",
+                            "severity": "medium",
+                            "message": "Personal data processing without clear consent provisions",
+                        }
+                    )
 
         # Check for data subject rights
         if "rights" in framework.rules or not framework.rules:
             rights_terms = ["right to access", "right to erasure", "data portability"]
             if not any(term in content_lower for term in rights_terms):
-                violations.append({
-                    "framework": "GDPR",
-                    "rule": "Chapter III - Rights of Data Subject",
-                    "severity": "medium",
-                    "message": "Missing data subject rights provisions",
-                })
+                violations.append(
+                    {
+                        "framework": "GDPR",
+                        "rule": "Chapter III - Rights of Data Subject",
+                        "severity": "medium",
+                        "message": "Missing data subject rights provisions",
+                    }
+                )
 
         return violations
 
@@ -284,23 +303,27 @@ class LegalSpecialist(VerticalSpecialistAgent):
         if "disclosure" in framework.rules or not framework.rules:
             if re.search(r"personal\s+information|consumer\s+data", content_lower):
                 if not re.search(r"categories\s+of\s+personal\s+information", content_lower):
-                    violations.append({
-                        "framework": "CCPA",
-                        "rule": "Section 1798.100 - Disclosure",
-                        "severity": "medium",
-                        "message": "Missing disclosure of personal information categories",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CCPA",
+                            "rule": "Section 1798.100 - Disclosure",
+                            "severity": "medium",
+                            "message": "Missing disclosure of personal information categories",
+                        }
+                    )
 
         # Check for opt-out provisions
         if "opt_out" in framework.rules or not framework.rules:
             if re.search(r"sell|share.*personal", content_lower):
                 if not re.search(r"opt.?out|do\s+not\s+sell", content_lower):
-                    violations.append({
-                        "framework": "CCPA",
-                        "rule": "Section 1798.120 - Opt-Out",
-                        "severity": "high",
-                        "message": "Missing opt-out right for sale of personal information",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CCPA",
+                            "rule": "Section 1798.120 - Opt-Out",
+                            "severity": "high",
+                            "message": "Missing opt-out right for sale of personal information",
+                        }
+                    )
 
         return violations
 
@@ -319,21 +342,25 @@ class LegalSpecialist(VerticalSpecialistAgent):
             # Check for required protections
             if "privacy" in framework.rules or not framework.rules:
                 if not re.search(r"privacy\s+(?:rule|notice|practices)", content_lower):
-                    violations.append({
-                        "framework": "HIPAA",
-                        "rule": "Privacy Rule",
-                        "severity": "high",
-                        "message": "PHI referenced without privacy rule compliance",
-                    })
+                    violations.append(
+                        {
+                            "framework": "HIPAA",
+                            "rule": "Privacy Rule",
+                            "severity": "high",
+                            "message": "PHI referenced without privacy rule compliance",
+                        }
+                    )
 
             if "security" in framework.rules or not framework.rules:
                 if not re.search(r"safeguard|encrypt|security\s+measure", content_lower):
-                    violations.append({
-                        "framework": "HIPAA",
-                        "rule": "Security Rule",
-                        "severity": "high",
-                        "message": "PHI referenced without security safeguards",
-                    })
+                    violations.append(
+                        {
+                            "framework": "HIPAA",
+                            "rule": "Security Rule",
+                            "severity": "high",
+                            "message": "PHI referenced without security safeguards",
+                        }
+                    )
 
         return violations
 
@@ -348,9 +375,9 @@ class LegalSpecialist(VerticalSpecialistAgent):
         return Message(
             role="assistant",
             content=f"[Legal Specialist Response for: {task}]\n\n"
-                    f"DISCLAIMER: This analysis is for informational purposes only "
-                    f"and does not constitute legal advice.\n\n"
-                    f"This would contain expert legal analysis.",
+            f"DISCLAIMER: This analysis is for informational purposes only "
+            f"and does not constitute legal advice.\n\n"
+            f"This would contain expert legal analysis.",
             agent=self.name,
         )
 

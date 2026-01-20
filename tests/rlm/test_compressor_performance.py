@@ -142,6 +142,7 @@ class TestGlobalCacheFunctions:
 
         # Add something (via module internals)
         from aragora.rlm import compressor
+
         context = RLMContext(original_content="test", original_tokens=1)
         compressor._compression_cache.set("test_key", context)
 
@@ -178,6 +179,7 @@ class TestSemaphoreControl:
         """Test getting the call semaphore."""
         # Reset the semaphore
         from aragora.rlm import compressor
+
         compressor._call_semaphore = None
 
         semaphore = get_call_semaphore(max_concurrent=5)
@@ -187,6 +189,7 @@ class TestSemaphoreControl:
     def test_semaphore_reuse(self):
         """Test that semaphore is reused."""
         from aragora.rlm import compressor
+
         compressor._call_semaphore = None
 
         sem1 = get_call_semaphore(10)

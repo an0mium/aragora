@@ -141,19 +141,15 @@ class QuotaConfig:
                 # API rate limits
                 QuotaLimit("api_requests", 60, QuotaPeriod.MINUTE, burst_limit=100),
                 QuotaLimit("api_requests", 10000, QuotaPeriod.DAY),
-
                 # Debate limits
                 QuotaLimit("debates", 100, QuotaPeriod.DAY),
                 QuotaLimit("concurrent_debates", 5, QuotaPeriod.UNLIMITED),
-
                 # Token limits
                 QuotaLimit("tokens", 1_000_000, QuotaPeriod.MONTH),
                 QuotaLimit("tokens_per_debate", 50_000, QuotaPeriod.UNLIMITED),
-
                 # Storage limits
                 QuotaLimit("storage_bytes", 10 * 1024 * 1024 * 1024, QuotaPeriod.UNLIMITED),  # 10GB
                 QuotaLimit("knowledge_bytes", 1 * 1024 * 1024 * 1024, QuotaPeriod.UNLIMITED),  # 1GB
-
                 # User limits
                 QuotaLimit("users", 10, QuotaPeriod.UNLIMITED),
                 QuotaLimit("connectors", 5, QuotaPeriod.UNLIMITED),
@@ -602,8 +598,7 @@ class QuotaManager:
 
         async with self._lock:
             keys_to_remove = [
-                key for key in self._usage.get(tid, {})
-                if key.startswith(f"{resource}:")
+                key for key in self._usage.get(tid, {}) if key.startswith(f"{resource}:")
             ]
             for key in keys_to_remove:
                 del self._usage[tid][key]

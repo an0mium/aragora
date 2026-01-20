@@ -12,13 +12,9 @@ Environment Variables:
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 import logging
 import os
-from base64 import b64decode
-from datetime import datetime
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -41,10 +37,8 @@ from .models import (
     FileAttachment,
     InteractionType,
     MessageButton,
-    MessageType,
     SendMessageResponse,
     UserInteraction,
-    VoiceMessage,
     WebhookEvent,
 )
 
@@ -474,7 +468,10 @@ class TeamsConnector(ChatPlatformConnector):
         if actions:
             action_set = {
                 "type": "ActionSet",
-                "actions": [self.format_button(btn.text, btn.action_id, btn.value, btn.style) for btn in actions],
+                "actions": [
+                    self.format_button(btn.text, btn.action_id, btn.value, btn.style)
+                    for btn in actions
+                ],
             }
             elements.append(action_set)
 

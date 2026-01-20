@@ -29,7 +29,6 @@ from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
-    json_response,
     safe_error_message,
     ttl_cache,
 )

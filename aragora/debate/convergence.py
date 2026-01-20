@@ -232,14 +232,8 @@ class AdvancedConvergenceAnalyzer:
             similarity_backend: Backend for text similarity (auto-selects if None)
         """
         if similarity_backend is None:
-            # Use best available backend
-            try:
-                self.backend: SimilarityBackend = SentenceTransformerBackend()
-            except ImportError:
-                try:
-                    self.backend = TFIDFBackend()
-                except ImportError:
-                    self.backend = JaccardBackend()
+            # Use factory function for consistent backend selection
+            self.backend: SimilarityBackend = get_similarity_backend("auto")
         else:
             self.backend = similarity_backend
 

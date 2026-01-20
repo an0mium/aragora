@@ -87,54 +87,75 @@ class TestShouldReceiveEvent:
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
         tenant_filter.register_client(client_id=2, tenant_id=None)
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id=None, event_resource_id=None
-        ) is True
-        assert tenant_filter.should_receive_event(
-            client_id=2, event_tenant_id=None, event_resource_id=None
-        ) is True
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id=None, event_resource_id=None
+            )
+            is True
+        )
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=2, event_tenant_id=None, event_resource_id=None
+            )
+            is True
+        )
 
     def test_tenant_event_to_matching_client(self, tenant_filter):
         """Tenant-scoped events should go to matching clients."""
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id="tenant1", event_resource_id=None
-        ) is True
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id="tenant1", event_resource_id=None
+            )
+            is True
+        )
 
     def test_tenant_event_not_to_other_tenant(self, tenant_filter):
         """Tenant-scoped events should not go to other tenants."""
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id="tenant2", event_resource_id=None
-        ) is False
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id="tenant2", event_resource_id=None
+            )
+            is False
+        )
 
     def test_tenant_event_not_to_unauthenticated(self, tenant_filter):
         """Tenant-scoped events should not go to unauthenticated clients."""
         tenant_filter.register_client(client_id=1, tenant_id=None)
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id="tenant1", event_resource_id=None
-        ) is False
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id="tenant1", event_resource_id=None
+            )
+            is False
+        )
 
     def test_resource_event_uses_resource_tenant(self, tenant_filter):
         """Resource events should use resource's tenant for filtering."""
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
         tenant_filter.register_resource(resource_id="debate1", tenant_id="tenant1")
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id=None, event_resource_id="debate1"
-        ) is True
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id=None, event_resource_id="debate1"
+            )
+            is True
+        )
 
     def test_resource_event_blocked_for_other_tenant(self, tenant_filter):
         """Resource events should be blocked for other tenants."""
         tenant_filter.register_client(client_id=1, tenant_id="tenant2")
         tenant_filter.register_resource(resource_id="debate1", tenant_id="tenant1")
 
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id=None, event_resource_id="debate1"
-        ) is False
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id=None, event_resource_id="debate1"
+            )
+            is False
+        )
 
     def test_explicit_tenant_overrides_resource(self, tenant_filter):
         """Explicit tenant_id should take precedence over resource tenant."""
@@ -143,9 +164,12 @@ class TestShouldReceiveEvent:
 
         # Event has explicit tenant1, resource is tenant2
         # Should use explicit tenant1
-        assert tenant_filter.should_receive_event(
-            client_id=1, event_tenant_id="tenant1", event_resource_id="debate1"
-        ) is True
+        assert (
+            tenant_filter.should_receive_event(
+                client_id=1, event_tenant_id="tenant1", event_resource_id="debate1"
+            )
+            is True
+        )
 
 
 class TestFilterClientsForEvent:
@@ -210,9 +234,7 @@ class TestValidateSubscription:
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
         tenant_filter.register_resource(resource_id="debate1", tenant_id="tenant1")
 
-        allowed, msg = tenant_filter.validate_subscription(
-            client_id=1, resource_id="debate1"
-        )
+        allowed, msg = tenant_filter.validate_subscription(client_id=1, resource_id="debate1")
         assert allowed is True
         assert "allowed" in msg.lower()
 
@@ -221,9 +243,7 @@ class TestValidateSubscription:
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
         tenant_filter.register_resource(resource_id="debate1", tenant_id="tenant2")
 
-        allowed, msg = tenant_filter.validate_subscription(
-            client_id=1, resource_id="debate1"
-        )
+        allowed, msg = tenant_filter.validate_subscription(client_id=1, resource_id="debate1")
         assert allowed is False
         assert "denied" in msg.lower()
 
@@ -232,9 +252,7 @@ class TestValidateSubscription:
         tenant_filter.register_client(client_id=1, tenant_id="tenant1")
         # Resource not registered = public
 
-        allowed, msg = tenant_filter.validate_subscription(
-            client_id=1, resource_id="public1"
-        )
+        allowed, msg = tenant_filter.validate_subscription(client_id=1, resource_id="public1")
         assert allowed is True
 
 

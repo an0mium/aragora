@@ -102,9 +102,7 @@ class TestTrajectory:
             "trajectory_id": "test123",
             "query": "test query",
             "strategy": "grep",
-            "steps": [
-                {"action": "code", "action_type": "code", "observation": "out"}
-            ],
+            "steps": [{"action": "code", "action_type": "code", "observation": "out"}],
             "final_answer": "answer",
             "outcome": {"success": True},
             "stats": {"total_steps": 1},
@@ -173,9 +171,7 @@ class TestExperienceBuffer:
             t.finalize(f"answer {i}", {"success": True})
             buffer.add(t)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             filepath = f.name
 
         try:
@@ -193,7 +189,7 @@ class TestExperienceBuffer:
         for i in range(5):
             t = Trajectory(query=f"query {i}", strategy="grep")
             t.add_step(Step(action="code"))
-            t.finalize(f"answer", {"success": i % 2 == 0})
+            t.finalize("answer", {"success": i % 2 == 0})
             buffer.add(t)
 
         stats = buffer.get_stats()
@@ -480,7 +476,7 @@ class TestTrainer:
         trajectories = []
         for i in range(5):
             t = Trajectory(query=f"query {i}")
-            t.finalize(f"answer", {"success": True})
+            t.finalize("answer", {"success": True})
             trajectories.append(t)
 
         rewards = trainer.compute_rewards(trajectories)
@@ -496,7 +492,7 @@ class TestTrainer:
         trajectories = []
         for i, strategy in enumerate(["grep", "peek", "grep"]):
             t = Trajectory(query=f"query {i}", strategy=strategy)
-            t.finalize(f"answer", {"success": True}, stats={"confidence": 0.8})
+            t.finalize("answer", {"success": True}, stats={"confidence": 0.8})
             trajectories.append(t)
 
         rewards = trainer.compute_rewards(trajectories)
@@ -523,7 +519,7 @@ class TestTrainer:
         # Add some trajectories
         for i in range(3):
             t = Trajectory(query=f"query {i}")
-            t.finalize(f"answer", {"success": True})
+            t.finalize("answer", {"success": True})
             trainer.experience_buffer.add(t)
 
         stats = trainer.get_buffer_stats()

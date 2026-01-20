@@ -170,7 +170,7 @@ class TestAuthHandlerRouting:
         """Create mock HTTP handler."""
         mock = MagicMock()
         mock.rfile = MagicMock()
-        mock.rfile.read = MagicMock(return_value=b'{}')
+        mock.rfile.read = MagicMock(return_value=b"{}")
         mock.headers = {"Content-Length": "2"}
         mock.command = "POST"
         return mock

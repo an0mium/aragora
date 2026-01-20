@@ -47,10 +47,8 @@ from .models import (
     FileAttachment,
     InteractionType,
     MessageButton,
-    MessageType,
     SendMessageResponse,
     UserInteraction,
-    VoiceMessage,
     WebhookEvent,
 )
 
@@ -559,9 +557,11 @@ class DiscordConnector(ChatPlatformConnector):
             platform=self.platform_name,
             username=user_data.get("username"),
             display_name=user_data.get("global_name") or user_data.get("username"),
-            avatar_url=f"https://cdn.discordapp.com/avatars/{user_data.get('id')}/{user_data.get('avatar')}.png"
-            if user_data.get("avatar")
-            else None,
+            avatar_url=(
+                f"https://cdn.discordapp.com/avatars/{user_data.get('id')}/{user_data.get('avatar')}.png"
+                if user_data.get("avatar")
+                else None
+            ),
             is_bot=user_data.get("bot", False),
         )
 
@@ -612,7 +612,9 @@ class DiscordConnector(ChatPlatformConnector):
             value = parts[1] if len(parts) > 1 else None
 
             comp_type = comp_data.get("component_type", 2)
-            int_type = InteractionType.BUTTON_CLICK if comp_type == 2 else InteractionType.SELECT_MENU
+            int_type = (
+                InteractionType.BUTTON_CLICK if comp_type == 2 else InteractionType.SELECT_MENU
+            )
 
             event.interaction = UserInteraction(
                 id=payload.get("id", ""),
@@ -721,9 +723,11 @@ class DiscordConnector(ChatPlatformConnector):
                         platform=self.platform_name,
                         username=author_data.get("username"),
                         display_name=author_data.get("global_name"),
-                        avatar_url=f"https://cdn.discordapp.com/avatars/{author_data.get('id')}/{author_data.get('avatar')}.png"
-                        if author_data.get("avatar")
-                        else None,
+                        avatar_url=(
+                            f"https://cdn.discordapp.com/avatars/{author_data.get('id')}/{author_data.get('avatar')}.png"
+                            if author_data.get("avatar")
+                            else None
+                        ),
                         is_bot=author_data.get("bot", False),
                     )
 

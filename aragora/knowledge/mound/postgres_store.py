@@ -229,7 +229,9 @@ class PostgresStore:
             logger.info("PostgreSQL store initialized")
 
         except ImportError:
-            raise ImportError("asyncpg required for PostgreSQL backend. Install with: pip install asyncpg")
+            raise ImportError(
+                "asyncpg required for PostgreSQL backend. Install with: pip install asyncpg"
+            )
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"PostgreSQL connection failed: {e}")
             raise
@@ -410,9 +412,7 @@ class PostgresStore:
     # Relationship Operations
     # =========================================================================
 
-    async def save_relationship_async(
-        self, from_id: str, to_id: str, rel_type: str
-    ) -> str:
+    async def save_relationship_async(self, from_id: str, to_id: str, rel_type: str) -> str:
         """Save a relationship between nodes."""
         import uuid
 
@@ -550,14 +550,15 @@ class PostgresStore:
             ):
                 by_validation[row["validation_status"]] = row["count"]
 
-            avg_confidence = await conn.fetchval(
-                "SELECT AVG(confidence) FROM knowledge_nodes WHERE workspace_id = $1",
-                workspace_id,
-            ) or 0.0
-
-            rel_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM knowledge_relationships"
+            avg_confidence = (
+                await conn.fetchval(
+                    "SELECT AVG(confidence) FROM knowledge_nodes WHERE workspace_id = $1",
+                    workspace_id,
+                )
+                or 0.0
             )
+
+            rel_count = await conn.fetchval("SELECT COUNT(*) FROM knowledge_relationships")
 
             rel_by_type = {}
             for row in await conn.fetch(

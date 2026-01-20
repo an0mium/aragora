@@ -31,7 +31,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from aragora.agents.errors import _build_error_action
 from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.feedback_elo import EloFeedback
 from aragora.debate.phases.feedback_evolution import EvolutionFeedback
@@ -133,7 +132,9 @@ class FeedbackPhase:
         enable_coordinated_writes: bool = True,  # Use coordinator instead of individual writes
         coordinator_options: Optional[Any] = None,  # CoordinatorOptions for behavior
         # Selection Feedback Loop
-        selection_feedback_loop: Optional[Any] = None,  # SelectionFeedbackLoop for performance feedback
+        selection_feedback_loop: Optional[
+            Any
+        ] = None,  # SelectionFeedbackLoop for performance feedback
         enable_performance_feedback: bool = True,  # Update selection weights based on performance
         # Post-debate workflow automation
         post_debate_workflow: Optional[Any] = None,  # Workflow DAG to trigger after debates

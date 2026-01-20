@@ -727,6 +727,7 @@ class HealthHandler(BaseHandler):
                 elo_path = nomic_dir / "elo.db"
                 if elo_path.exists():
                     import sqlite3
+
                     conn = sqlite3.connect(elo_path)
                     cursor = conn.execute(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name='agent_metadata'"
@@ -765,17 +766,21 @@ class HealthHandler(BaseHandler):
 
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
 
-        return json_response({
-            "status": "healthy" if all_healthy else "degraded",
-            "stores": stores,
-            "elapsed_ms": elapsed_ms,
-            "summary": {
-                "total": len(stores),
-                "healthy": sum(1 for s in stores.values() if s.get("healthy", False)),
-                "connected": sum(1 for s in stores.values() if s.get("status") == "connected"),
-                "not_initialized": sum(1 for s in stores.values() if s.get("status") == "not_initialized"),
-            },
-        })
+        return json_response(
+            {
+                "status": "healthy" if all_healthy else "degraded",
+                "stores": stores,
+                "elapsed_ms": elapsed_ms,
+                "summary": {
+                    "total": len(stores),
+                    "healthy": sum(1 for s in stores.values() if s.get("healthy", False)),
+                    "connected": sum(1 for s in stores.values() if s.get("status") == "connected"),
+                    "not_initialized": sum(
+                        1 for s in stores.values() if s.get("status") == "not_initialized"
+                    ),
+                },
+            }
+        )
 
     def _deep_health_check(self) -> HandlerResult:
         """Deep health check - verifies all external dependencies.
@@ -997,9 +1002,7 @@ class HealthHandler(BaseHandler):
                     "synced_count": status.synced_count,
                     "failed_count": status.failed_count,
                     "last_sync_at": (
-                        status.last_sync_at.isoformat() + "Z"
-                        if status.last_sync_at
-                        else None
+                        status.last_sync_at.isoformat() + "Z" if status.last_sync_at else None
                     ),
                     "last_error": status.last_error,
                     "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -1040,6 +1043,7 @@ class HealthHandler(BaseHandler):
         """
         # Slow threshold: 30 seconds total, or configurable via env
         import os
+
         slow_threshold = float(os.getenv("ARAGORA_SLOW_DEBATE_THRESHOLD", "30"))
 
         current_slow = []
@@ -1060,15 +1064,17 @@ class HealthHandler(BaseHandler):
                     start_time = debate_info.get("start_time", now)
                     duration = now - start_time
                     if duration > slow_threshold:
-                        current_slow.append({
-                            "debate_id": debate_id,
-                            "duration_seconds": round(duration, 2),
-                            "task": debate_info.get("task", "")[:100],
-                            "agents": debate_info.get("agents", []),
-                            "current_round": debate_info.get("current_round", 0),
-                            "total_rounds": debate_info.get("total_rounds", 0),
-                            "started_at": datetime.fromtimestamp(start_time).isoformat() + "Z",
-                        })
+                        current_slow.append(
+                            {
+                                "debate_id": debate_id,
+                                "duration_seconds": round(duration, 2),
+                                "task": debate_info.get("task", "")[:100],
+                                "agents": debate_info.get("agents", []),
+                                "current_round": debate_info.get("current_round", 0),
+                                "total_rounds": debate_info.get("total_rounds", 0),
+                                "started_at": datetime.fromtimestamp(start_time).isoformat() + "Z",
+                            }
+                        )
 
             # Sort by duration descending
             current_slow.sort(key=lambda x: x["duration_seconds"], reverse=True)
@@ -1105,16 +1111,18 @@ class HealthHandler(BaseHandler):
         if errors and total_slow == 0:
             status = "partial"
 
-        return json_response({
-            "status": status,
-            "slow_threshold_seconds": slow_threshold,
-            "current_slow_count": len(current_slow),
-            "recent_slow_count": len(recent_slow),
-            "current_slow": current_slow[:20],
-            "recent_slow": recent_slow[:20],
-            "errors": errors if errors else None,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-        })
+        return json_response(
+            {
+                "status": status,
+                "slow_threshold_seconds": slow_threshold,
+                "current_slow_count": len(current_slow),
+                "recent_slow_count": len(recent_slow),
+                "current_slow": current_slow[:20],
+                "recent_slow": recent_slow[:20],
+                "errors": errors if errors else None,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+        )
 
     def _circuit_breakers_status(self) -> HandlerResult:
         """Get detailed circuit breaker status for all registered breakers.

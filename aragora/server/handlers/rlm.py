@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from .base import (
     BaseHandler,
@@ -147,7 +147,7 @@ class RLMContextHandler(BaseHandler):
     ) -> Optional[HandlerResult]:
         """Route DELETE requests to appropriate methods."""
         if path.startswith(self.CONTEXT_ROUTE_PREFIX):
-            context_id = path[len(self.CONTEXT_ROUTE_PREFIX):]
+            context_id = path[len(self.CONTEXT_ROUTE_PREFIX) :]
             if context_id and "/" not in context_id:
                 return self._delete_context(context_id, query_params, handler)
 
@@ -227,16 +227,18 @@ class RLMContextHandler(BaseHandler):
 
         except ImportError as e:
             logger.warning(f"RLM module not fully available: {e}")
-            return json_response({
-                "cache": {"error": "RLM module not available"},
-                "contexts": {"stored": len(self._contexts)},
-                "system": {
-                    "has_official_rlm": False,
-                    "compressor_available": False,
-                    "rlm_available": False,
-                },
-                "timestamp": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "cache": {"error": "RLM module not available"},
+                    "contexts": {"stored": len(self._contexts)},
+                    "system": {
+                        "has_official_rlm": False,
+                        "compressor_available": False,
+                        "rlm_available": False,
+                    },
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
     @rate_limit(rpm=120, limiter_name="rlm_strategies")
     def handle_strategies(
@@ -292,11 +294,13 @@ class RLMContextHandler(BaseHandler):
             },
         }
 
-        return json_response({
-            "strategies": strategies,
-            "default": "auto",
-            "documentation": "https://github.com/alexzhang13/rlm",
-        })
+        return json_response(
+            {
+                "strategies": strategies,
+                "default": "auto",
+                "documentation": "https://github.com/alexzhang13/rlm",
+            }
+        )
 
     @require_auth
     @rate_limit(rpm=20, limiter_name="rlm_compress")
@@ -393,17 +397,19 @@ class RLMContextHandler(BaseHandler):
                 compression_ratio,
             )
 
-            return json_response({
-                "context_id": context_id,
-                "compression_result": {
-                    "original_tokens": context.original_tokens,
-                    "compressed_tokens": context.total_tokens(),
-                    "compression_ratio": compression_ratio,
-                    "levels": level_stats,
-                    "source_type": source_type,
-                },
-                "created_at": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "context_id": context_id,
+                    "compression_result": {
+                        "original_tokens": context.original_tokens,
+                        "compressed_tokens": context.total_tokens(),
+                        "compression_ratio": compression_ratio,
+                        "levels": level_stats,
+                        "source_type": source_type,
+                    },
+                    "created_at": datetime.now().isoformat(),
+                }
+            )
 
         except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.exception("Compression async operation failed: %s", e)
@@ -503,19 +509,21 @@ class RLMContextHandler(BaseHandler):
                 getattr(result, "confidence", 0.0),
             )
 
-            return json_response({
-                "answer": result.answer,
-                "metadata": {
-                    "context_id": context_id,
-                    "strategy": strategy,
-                    "refined": refine,
-                    "confidence": getattr(result, "confidence", None),
-                    "iterations": getattr(result, "iteration", 1),
-                    "tokens_processed": getattr(result, "tokens_processed", None),
-                    "sub_calls_made": getattr(result, "sub_calls_made", None),
-                },
-                "timestamp": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "answer": result.answer,
+                    "metadata": {
+                        "context_id": context_id,
+                        "strategy": strategy,
+                        "refined": refine,
+                        "confidence": getattr(result, "confidence", None),
+                        "iterations": getattr(result, "iteration", 1),
+                        "tokens_processed": getattr(result, "tokens_processed", None),
+                        "sub_calls_made": getattr(result, "sub_calls_made", None),
+                    },
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
         except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.exception("Query async operation failed: %s", e)
@@ -537,26 +545,28 @@ class RLMContextHandler(BaseHandler):
 
             summary_content = context.get_at_level(AbstractionLevel.SUMMARY)
             if summary_content:
-                combined = "\n".join(
-                    node.content for node in summary_content[:5]  # First 5 nodes
+                combined = "\n".join(node.content for node in summary_content[:5])  # First 5 nodes
+                return json_response(
+                    {
+                        "answer": f"[Fallback mode - RLM not fully available]\n\nBased on the summary:\n{combined[:2000]}",
+                        "metadata": {
+                            "strategy": strategy,
+                            "fallback": True,
+                            "nodes_examined": min(5, len(summary_content)),
+                        },
+                        "timestamp": datetime.now().isoformat(),
+                    }
                 )
-                return json_response({
-                    "answer": f"[Fallback mode - RLM not fully available]\n\nBased on the summary:\n{combined[:2000]}",
-                    "metadata": {
-                        "strategy": strategy,
-                        "fallback": True,
-                        "nodes_examined": min(5, len(summary_content)),
-                    },
-                    "timestamp": datetime.now().isoformat(),
-                })
         except (ImportError, AttributeError, KeyError, TypeError) as e:
             logger.warning("Fallback query could not retrieve summary content: %s", e)
 
-        return json_response({
-            "answer": "[Fallback mode - Unable to process query]",
-            "metadata": {"fallback": True, "error": "No summary content available"},
-            "timestamp": datetime.now().isoformat(),
-        })
+        return json_response(
+            {
+                "answer": "[Fallback mode - Unable to process query]",
+                "metadata": {"fallback": True, "error": "No summary content available"},
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     @rate_limit(rpm=60, limiter_name="rlm_contexts")
     def handle_list_contexts(
@@ -592,19 +602,23 @@ class RLMContextHandler(BaseHandler):
         contexts = []
         for ctx_id in selected_ids:
             ctx_data = self._contexts[ctx_id]
-            contexts.append({
-                "id": ctx_id,
-                "source_type": ctx_data.get("source_type", "unknown"),
-                "original_tokens": ctx_data.get("original_tokens", 0),
-                "created_at": ctx_data.get("created_at"),
-            })
+            contexts.append(
+                {
+                    "id": ctx_id,
+                    "source_type": ctx_data.get("source_type", "unknown"),
+                    "original_tokens": ctx_data.get("original_tokens", 0),
+                    "created_at": ctx_data.get("created_at"),
+                }
+            )
 
-        return json_response({
-            "contexts": contexts,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "contexts": contexts,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     # ============================================================================
     # Context-Specific Route Handlers
@@ -660,8 +674,7 @@ class RLMContextHandler(BaseHandler):
                 summary_nodes = context.get_at_level(AbstractionLevel.SUMMARY)
                 if summary_nodes:
                     response["summary_preview"] = [
-                        {"id": n.id, "content": n.content[:500]}
-                        for n in summary_nodes[:5]
+                        {"id": n.id, "content": n.content[:500]} for n in summary_nodes[:5]
                     ]
             except (ImportError, AttributeError, KeyError, TypeError) as e:
                 logger.warning("Could not retrieve summary preview: %s", e)
@@ -683,11 +696,13 @@ class RLMContextHandler(BaseHandler):
 
         logger.info("rlm_context_deleted context_id=%s", context_id)
 
-        return json_response({
-            "success": True,
-            "context_id": context_id,
-            "message": "Context deleted",
-        })
+        return json_response(
+            {
+                "success": True,
+                "context_id": context_id,
+                "message": "Context deleted",
+            }
+        )
 
     # ============================================================================
     # Utility Methods

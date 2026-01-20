@@ -12,11 +12,9 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import os
 import tempfile
-import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -96,10 +94,12 @@ class SpeechHandler(BaseHandler):
         for p in providers:
             p["is_default"] = p["name"] == default_provider
 
-        return json_response({
-            "providers": providers,
-            "default": default_provider,
-        })
+        return json_response(
+            {
+                "providers": providers,
+                "default": default_provider,
+            }
+        )
 
     @require_user_auth
     @handle_errors("speech transcription")
@@ -115,10 +115,13 @@ class SpeechHandler(BaseHandler):
             return json_response({"error": "No audio file provided"}, status=400)
 
         if content_length > MAX_FILE_SIZE_BYTES:
-            return json_response({
-                "error": f"File too large. Maximum size: {MAX_FILE_SIZE_MB}MB",
-                "max_bytes": MAX_FILE_SIZE_BYTES,
-            }, status=413)
+            return json_response(
+                {
+                    "error": f"File too large. Maximum size: {MAX_FILE_SIZE_MB}MB",
+                    "max_bytes": MAX_FILE_SIZE_BYTES,
+                },
+                status=413,
+            )
 
         # Parse options from query params
         language = query_params.get("language", [None])[0]
@@ -136,10 +139,13 @@ class SpeechHandler(BaseHandler):
         # Validate extension
         ext = ("." + filename.split(".")[-1].lower()) if filename and "." in filename else ""
         if ext and ext not in SUPPORTED_EXTENSIONS:
-            return json_response({
-                "error": f"Unsupported audio format: {ext}",
-                "supported": sorted(list(SUPPORTED_EXTENSIONS)),
-            }, status=400)
+            return json_response(
+                {
+                    "error": f"Unsupported audio format: {ext}",
+                    "supported": sorted(list(SUPPORTED_EXTENSIONS)),
+                },
+                status=400,
+            )
 
         # Run transcription asynchronously
         try:
@@ -181,7 +187,9 @@ class SpeechHandler(BaseHandler):
 
         # Validate URL
         if not url.startswith(("http://", "https://")):
-            return json_response({"error": "Invalid URL. Must start with http:// or https://"}, status=400)
+            return json_response(
+                {"error": "Invalid URL. Must start with http:// or https://"}, status=400
+            )
 
         language = data.get("language")
         prompt = data.get("prompt")
@@ -209,15 +217,17 @@ class SpeechHandler(BaseHandler):
                 return json_response({"error": error}, status=400)
 
         except ImportError:
-            return json_response({
-                "error": "aiohttp package required for URL transcription"
-            }, status=500)
-        except asyncio.TimeoutError as e:
+            return json_response(
+                {"error": "aiohttp package required for URL transcription"}, status=500
+            )
+        except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching audio from URL: {url}")
             return json_response({"error": "Timeout fetching audio from URL"}, status=400)
         except OSError as e:
             logger.warning(f"Network error fetching audio: {e}")
-            return json_response({"error": safe_error_message(e, "Failed to fetch audio")}, status=400)
+            return json_response(
+                {"error": safe_error_message(e, "Failed to fetch audio")}, status=400
+            )
 
         # Extract filename from URL
         filename = url.split("/")[-1].split("?")[0] or "audio.mp3"
@@ -338,7 +348,7 @@ class SpeechHandler(BaseHandler):
             try:
                 header_end = part.index(b"\r\n\r\n")
                 headers_raw = part[:header_end].decode("utf-8", errors="ignore")
-                file_data = part[header_end + 4:]
+                file_data = part[header_end + 4 :]
 
                 # Remove trailing boundary markers
                 if file_data.endswith(b"--\r\n"):

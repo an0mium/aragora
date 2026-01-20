@@ -168,6 +168,7 @@ class TestLlmBatch:
     @pytest.mark.asyncio
     async def test_empty_items(self):
         """Test with empty input list."""
+
         async def process(x):
             return x * 2
 
@@ -177,6 +178,7 @@ class TestLlmBatch:
     @pytest.mark.asyncio
     async def test_single_item(self):
         """Test with single item."""
+
         async def process(x):
             return x * 2
 
@@ -186,6 +188,7 @@ class TestLlmBatch:
     @pytest.mark.asyncio
     async def test_multiple_items(self):
         """Test with multiple items."""
+
         async def process(x):
             await asyncio.sleep(0.01)  # Simulate async work
             return x * 2
@@ -286,6 +289,7 @@ class TestLlmBatch:
     @pytest.mark.asyncio
     async def test_with_errors(self):
         """Test handling of errors during processing."""
+
         async def process(x):
             if x == 2:
                 raise ValueError("Error on 2")
@@ -302,6 +306,7 @@ class TestLlmBatch:
     @pytest.mark.asyncio
     async def test_with_config(self):
         """Test using BatchConfig."""
+
         async def process(x):
             await asyncio.sleep(0.01)
             return x + 100
@@ -322,6 +327,7 @@ class TestLlmBatchDetailed:
     @pytest.mark.asyncio
     async def test_detailed_result(self):
         """Test detailed result structure."""
+
         async def process(x):
             await asyncio.sleep(0.01)
             return x * 2
@@ -336,6 +342,7 @@ class TestLlmBatchDetailed:
     @pytest.mark.asyncio
     async def test_detailed_timing(self):
         """Test that timing information is captured."""
+
         async def process(x):
             await asyncio.sleep(0.05)
             return x
@@ -349,6 +356,7 @@ class TestLlmBatchDetailed:
     @pytest.mark.asyncio
     async def test_detailed_with_failure(self):
         """Test detailed result with failures."""
+
         async def process(x):
             if x == 2:
                 raise ValueError("Failed")
@@ -384,6 +392,7 @@ class TestLlmBatchDetailed:
     @pytest.mark.asyncio
     async def test_timeout(self):
         """Test timeout handling."""
+
         async def slow_process(x):
             await asyncio.sleep(1.0)  # Very slow
             return x
@@ -470,6 +479,7 @@ class TestBatchMap:
     @pytest.mark.asyncio
     async def test_batch_map(self):
         """Test batch_map for simple mapping."""
+
         async def double(x):
             return x * 2
 
@@ -483,6 +493,7 @@ class TestBatchFilter:
     @pytest.mark.asyncio
     async def test_batch_filter(self):
         """Test batch_filter for filtering."""
+
         async def is_even(x):
             return x % 2 == 0
 
@@ -496,6 +507,7 @@ class TestBatchFirst:
     @pytest.mark.asyncio
     async def test_batch_first_found(self):
         """Test batch_first when match is found."""
+
         async def is_greater_than_five(x):
             await asyncio.sleep(0.01)
             return x > 5
@@ -506,6 +518,7 @@ class TestBatchFirst:
     @pytest.mark.asyncio
     async def test_batch_first_not_found(self):
         """Test batch_first when no match is found."""
+
         async def is_negative(x):
             return x < 0
 
@@ -519,6 +532,7 @@ class TestBatchRace:
     @pytest.mark.asyncio
     async def test_batch_race_first_wins(self):
         """Test batch_race returns first completed result."""
+
         async def fast():
             await asyncio.sleep(0.01)
             return "fast"
@@ -533,6 +547,7 @@ class TestBatchRace:
     @pytest.mark.asyncio
     async def test_batch_race_with_predicate(self):
         """Test batch_race with winner predicate."""
+
         async def returns_none():
             await asyncio.sleep(0.01)
             return None
@@ -601,6 +616,7 @@ class TestRealWorldPatterns:
     @pytest.mark.asyncio
     async def test_strategy_racing(self):
         """Test pattern: racing multiple strategies."""
+
         async def strategy_a():
             await asyncio.sleep(0.05)
             return {"confidence": 0.7, "answer": "A"}
@@ -646,6 +662,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_all_items_fail(self):
         """Test when all items fail."""
+
         async def always_fail(x):
             raise ValueError(f"Failed on {x}")
 
@@ -655,6 +672,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_none_results(self):
         """Test handling of None results."""
+
         async def maybe_none(x):
             return None if x % 2 == 0 else x
 
@@ -669,6 +687,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_large_batch(self):
         """Test with larger batch size."""
+
         async def process(x):
             await asyncio.sleep(0.001)
             return x * 2
@@ -682,6 +701,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_zero_timeout(self):
         """Test with very short timeout."""
+
         async def slow(x):
             await asyncio.sleep(0.5)
             return x

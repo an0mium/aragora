@@ -247,7 +247,9 @@ class RLMContextManager:
 
         # Add compressed summary of older rounds
         if window_start > 0 and self._state.compressed_history:
-            parts.append(f"## Previous Rounds Summary (1-{window_start})\n{self._state.compressed_history}")
+            parts.append(
+                f"## Previous Rounds Summary (1-{window_start})\n{self._state.compressed_history}"
+            )
 
         # Add recent rounds at full detail
         for msg in debate_context.context_messages:

@@ -130,13 +130,15 @@ class TrainingData:
         with open(path) as f:
             for line in f:
                 data = json.loads(line)
-                examples.append(TrainingExample(
-                    instruction=data.get("instruction", ""),
-                    input_text=data.get("input", ""),
-                    output=data.get("output", ""),
-                    rejected=data.get("rejected", ""),
-                    metadata=data.get("metadata", {}),
-                ))
+                examples.append(
+                    TrainingExample(
+                        instruction=data.get("instruction", ""),
+                        input_text=data.get("input", ""),
+                        output=data.get("output", ""),
+                        rejected=data.get("rejected", ""),
+                        metadata=data.get("metadata", {}),
+                    )
+                )
         return cls(examples=examples)
 
     @classmethod
@@ -169,12 +171,14 @@ class TrainingData:
             # Create example with best rejected response for preference learning
             rejected = rejected_list[0] if rejected_list else ""
 
-            data.add(TrainingExample.from_debate(
-                task=task,
-                winning_response=consensus,
-                losing_response=rejected,
-                context=context,
-            ))
+            data.add(
+                TrainingExample.from_debate(
+                    task=task,
+                    winning_response=consensus,
+                    losing_response=rejected,
+                    context=context,
+                )
+            )
 
         return data
 
@@ -261,6 +265,7 @@ class LocalFineTuner:
             import torch
             import transformers
             import peft
+
             return True
         except ImportError as e:
             logger.error(
@@ -348,8 +353,7 @@ class LocalFineTuner:
 
         trainable, total = self._peft_model.get_nb_trainable_parameters()
         logger.info(
-            f"Trainable parameters: {trainable:,} / {total:,} "
-            f"({100 * trainable / total:.2f}%)"
+            f"Trainable parameters: {trainable:,} / {total:,} " f"({100 * trainable / total:.2f}%)"
         )
 
     def _format_training_example(self, example: TrainingExample) -> str:
@@ -361,19 +365,13 @@ class LocalFineTuner:
                 f"### Response:\n{example.output}"
             )
         else:
-            return (
-                f"### Instruction:\n{example.instruction}\n\n"
-                f"### Response:\n{example.output}"
-            )
+            return f"### Instruction:\n{example.instruction}\n\n" f"### Response:\n{example.output}"
 
     def _prepare_dataset(self, data: TrainingData):
         """Prepare dataset for training."""
         from datasets import Dataset
 
-        formatted = [
-            {"text": self._format_training_example(ex)}
-            for ex in data.examples
-        ]
+        formatted = [{"text": self._format_training_example(ex)} for ex in data.examples]
 
         return Dataset.from_list(formatted)
 
@@ -387,6 +385,7 @@ class LocalFineTuner:
             Fine-tuning result with metrics
         """
         import time
+
         start_time = time.time()
 
         try:
@@ -574,7 +573,7 @@ class LocalFineTuner:
             )
 
         generated = self._tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
+            outputs[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )
 
@@ -590,8 +589,7 @@ class LocalFineTuner:
         """Async wrapper for generation."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            lambda: self.generate(prompt, max_new_tokens, temperature, top_p)
+            None, lambda: self.generate(prompt, max_new_tokens, temperature, top_p)
         )
 
 
@@ -635,6 +633,7 @@ class DPOFineTuner(LocalFineTuner):
             return super().train(data)
 
         import time
+
         start_time = time.time()
 
         try:
@@ -649,11 +648,13 @@ class DPOFineTuner(LocalFineTuner):
 
             formatted = []
             for ex in preference_data.examples:
-                formatted.append({
-                    "prompt": ex.instruction + (f"\n{ex.input_text}" if ex.input_text else ""),
-                    "chosen": ex.output,
-                    "rejected": ex.rejected,
-                })
+                formatted.append(
+                    {
+                        "prompt": ex.instruction + (f"\n{ex.input_text}" if ex.input_text else ""),
+                        "chosen": ex.output,
+                        "rejected": ex.rejected,
+                    }
+                )
 
             dataset = Dataset.from_list(formatted)
 

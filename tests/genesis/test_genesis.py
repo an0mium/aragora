@@ -81,6 +81,7 @@ def breeder():
 def mock_persona():
     """Create a mock Persona object."""
     from aragora.agents.personas import Persona
+
     return Persona(
         agent_name="mock-agent",
         description="A mock agent for testing",
@@ -167,8 +168,8 @@ class TestAgentGenomeCreation:
         assert persona.agent_name == sample_genome.name
         # Active traits are those with weight > 0.5
         assert "analytical" in persona.traits  # 0.8 > 0.5
-        assert "creative" in persona.traits    # 0.6 > 0.5
-        assert "cautious" in persona.traits    # 0.7 > 0.5
+        assert "creative" in persona.traits  # 0.6 > 0.5
+        assert "cautious" in persona.traits  # 0.7 > 0.5
 
 
 # =============================================================================
@@ -186,14 +187,14 @@ class TestAgentGenomeTraits:
         assert len(dominant) == 2
         # Should be sorted by weight
         assert dominant[0] == "analytical"  # 0.8
-        assert dominant[1] == "cautious"    # 0.7
+        assert dominant[1] == "cautious"  # 0.7
 
     def test_get_top_expertise(self, sample_genome):
         """Test getting top expertise areas."""
         top = sample_genome.get_top_expertise(top_n=2)
 
         assert len(top) == 2
-        assert top[0][0] == "security"      # 0.9
+        assert top[0][0] == "security"  # 0.9
         assert top[0][1] == 0.9
         assert top[1][0] == "architecture"  # 0.7
 
@@ -289,12 +290,14 @@ class TestAgentGenomeSimilarity:
     def test_similarity_partial_overlap(self):
         """Test similarity with partially overlapping traits."""
         g1 = AgentGenome(
-            genome_id="1", name="a",
+            genome_id="1",
+            name="a",
             traits={"a": 1.0, "b": 0.5},
             expertise={"x": 0.8},
         )
         g2 = AgentGenome(
-            genome_id="2", name="b",
+            genome_id="2",
+            name="b",
             traits={"b": 0.5, "c": 1.0},
             expertise={"x": 0.8, "y": 0.5},
         )
@@ -576,8 +579,9 @@ class TestGenomeBreederCrossover:
         # Analytical: 0.5 * 0.8 + 0.5 * 0.4 = 0.6
         if "analytical" in child.traits:
             # With 0.5 ratio, should be average
-            expected = 0.5 * sample_genome.traits.get("analytical", 0) + \
-                      0.5 * sample_genome_2.traits.get("analytical", 0)
+            expected = 0.5 * sample_genome.traits.get(
+                "analytical", 0
+            ) + 0.5 * sample_genome_2.traits.get("analytical", 0)
             assert abs(child.traits["analytical"] - expected) < 0.01
 
     def test_crossover_blends_expertise(self, breeder, sample_genome, sample_genome_2):
@@ -598,7 +602,8 @@ class TestGenomeBreederCrossover:
     def test_crossover_records_debate_id(self, breeder, sample_genome, sample_genome_2):
         """Test crossover records birth debate ID."""
         child = breeder.crossover(
-            sample_genome, sample_genome_2,
+            sample_genome,
+            sample_genome_2,
             debate_id="debate-123",
         )
 
@@ -649,10 +654,7 @@ class TestGenomeBreederMutation:
         # With 100% rate, should see some changes
         # Check that at least one trait value changed
         original_values = set(sample_genome.traits.values())
-        changed = any(
-            any(v not in original_values for v in m.traits.values())
-            for m in results
-        )
+        changed = any(any(v not in original_values for v in m.traits.values()) for m in results)
         # May or may not change depending on random values, but structure should differ
 
     def test_mutate_bounds_values(self, sample_genome):

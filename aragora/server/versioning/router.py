@@ -235,6 +235,7 @@ class VersionedRouter:
             sunset_date: When this endpoint will be removed
             replacement: URL of replacement endpoint
         """
+
         def decorator(handler: Callable) -> Callable:
             key = self._route_key(path, method)
 
@@ -352,6 +353,7 @@ def version_route(
         def my_handler(request):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         setattr(func, "_api_version", version)
         setattr(func, "_deprecated", deprecated)

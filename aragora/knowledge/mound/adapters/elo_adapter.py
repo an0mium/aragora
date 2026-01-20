@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.ranking.elo import AgentRating, EloSystem, MatchResult
     from aragora.ranking.relationships import RelationshipMetrics
 
@@ -41,7 +42,9 @@ class KMEloPattern:
     """
 
     agent_name: str
-    pattern_type: str  # "success_contributor", "contradiction_source", "domain_expert", "crux_resolver"
+    pattern_type: (
+        str  # "success_contributor", "contradiction_source", "domain_expert", "crux_resolver"
+    )
     confidence: float  # 0.0-1.0 KM confidence in this pattern
     observation_count: int = 1  # How many times observed
     domain: Optional[str] = None  # Domain if pattern is domain-specific
@@ -314,9 +317,7 @@ class EloAdapter:
             The relationship ID if stored, None if below threshold
         """
         if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:
-            logger.debug(
-                f"Relationship {metrics.agent_a}-{metrics.agent_b} below debate threshold"
-            )
+            logger.debug(f"Relationship {metrics.agent_a}-{metrics.agent_b} below debate threshold")
             return None
 
         rel_id = f"{self.ID_PREFIX}rel_{metrics.agent_a}_{metrics.agent_b}"
@@ -329,8 +330,8 @@ class EloAdapter:
             "a_wins_vs_b": metrics.a_wins_vs_b,
             "b_wins_vs_a": metrics.b_wins_vs_a,
             "draws": metrics.draws,
-            "avg_elo_diff": metrics.avg_elo_diff if hasattr(metrics, 'avg_elo_diff') else 0.0,
-            "synergy_score": metrics.synergy_score if hasattr(metrics, 'synergy_score') else 0.5,
+            "avg_elo_diff": metrics.avg_elo_diff if hasattr(metrics, "avg_elo_diff") else 0.0,
+            "synergy_score": metrics.synergy_score if hasattr(metrics, "synergy_score") else 0.5,
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -493,8 +494,7 @@ class EloAdapter:
             List of calibration dicts
         """
         results = [
-            cal for cal in self._calibrations.values()
-            if cal.get("agent_name") == agent_name
+            cal for cal in self._calibrations.values() if cal.get("agent_name") == agent_name
         ]
 
         results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -681,50 +681,58 @@ class EloAdapter:
         # Detect success_contributor pattern
         success_rate = success_count / total_items
         if success_rate >= 0.6 and success_count >= 3:
-            patterns.append(KMEloPattern(
-                agent_name=agent_name,
-                pattern_type="success_contributor",
-                confidence=min(0.95, success_rate + 0.1),
-                observation_count=success_count,
-                debate_ids=debate_ids[:10],  # Cap at 10
-                metadata={"success_rate": success_rate, "total_items": total_items},
-            ))
+            patterns.append(
+                KMEloPattern(
+                    agent_name=agent_name,
+                    pattern_type="success_contributor",
+                    confidence=min(0.95, success_rate + 0.1),
+                    observation_count=success_count,
+                    debate_ids=debate_ids[:10],  # Cap at 10
+                    metadata={"success_rate": success_rate, "total_items": total_items},
+                )
+            )
 
         # Detect contradiction_source pattern (negative)
         contradiction_rate = contradiction_count / total_items
         if contradiction_rate >= 0.3 and contradiction_count >= 3:
-            patterns.append(KMEloPattern(
-                agent_name=agent_name,
-                pattern_type="contradiction_source",
-                confidence=min(0.95, contradiction_rate + 0.2),
-                observation_count=contradiction_count,
-                debate_ids=debate_ids[:10],
-                metadata={"contradiction_rate": contradiction_rate},
-            ))
+            patterns.append(
+                KMEloPattern(
+                    agent_name=agent_name,
+                    pattern_type="contradiction_source",
+                    confidence=min(0.95, contradiction_rate + 0.2),
+                    observation_count=contradiction_count,
+                    debate_ids=debate_ids[:10],
+                    metadata={"contradiction_rate": contradiction_rate},
+                )
+            )
 
         # Detect domain_expert patterns
         for domain, count in domain_mentions.items():
             if count >= 5:  # Need sufficient domain presence
-                patterns.append(KMEloPattern(
-                    agent_name=agent_name,
-                    pattern_type="domain_expert",
-                    confidence=min(0.9, count / 20 + 0.5),
-                    observation_count=count,
-                    domain=domain,
-                    debate_ids=debate_ids[:5],
-                    metadata={"domain_item_count": count},
-                ))
+                patterns.append(
+                    KMEloPattern(
+                        agent_name=agent_name,
+                        pattern_type="domain_expert",
+                        confidence=min(0.9, count / 20 + 0.5),
+                        observation_count=count,
+                        domain=domain,
+                        debate_ids=debate_ids[:5],
+                        metadata={"domain_item_count": count},
+                    )
+                )
 
         # Detect crux_resolver pattern
         if crux_resolutions >= 3:
-            patterns.append(KMEloPattern(
-                agent_name=agent_name,
-                pattern_type="crux_resolver",
-                confidence=min(0.9, crux_resolutions / 10 + 0.5),
-                observation_count=crux_resolutions,
-                debate_ids=debate_ids[:10],
-                metadata={"crux_resolutions": crux_resolutions},
-            ))
+            patterns.append(
+                KMEloPattern(
+                    agent_name=agent_name,
+                    pattern_type="crux_resolver",
+                    confidence=min(0.9, crux_resolutions / 10 + 0.5),
+                    observation_count=crux_resolutions,
+                    debate_ids=debate_ids[:10],
+                    metadata={"crux_resolutions": crux_resolutions},
+                )
+            )
 
         # Filter by confidence threshold
         patterns = [p for p in patterns if p.confidence >= min_confidence]
@@ -993,9 +1001,7 @@ class EloAdapter:
         avg_confidence = 0.0
         if total_patterns > 0:
             all_confidences = [
-                p.confidence
-                for patterns in self._km_patterns.values()
-                for p in patterns
+                p.confidence for patterns in self._km_patterns.values() for p in patterns
             ]
             avg_confidence = sum(all_confidences) / len(all_confidences)
 

@@ -12,12 +12,11 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import tempfile
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -201,9 +200,7 @@ class TranscriptionHandler(BaseHandler):
             # Read the file from the request
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > MAX_AUDIO_SIZE_MB * 1024 * 1024:
-                return error_response(
-                    f"File too large. Max: {MAX_AUDIO_SIZE_MB}MB", 413
-                )
+                return error_response(f"File too large. Max: {MAX_AUDIO_SIZE_MB}MB", 413)
 
             # Parse multipart data
             file_data, filename, params = self._parse_multipart(handler, content_type)
@@ -298,9 +295,7 @@ class TranscriptionHandler(BaseHandler):
 
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > MAX_VIDEO_SIZE_MB * 1024 * 1024:
-                return error_response(
-                    f"File too large. Max: {MAX_VIDEO_SIZE_MB}MB", 413
-                )
+                return error_response(f"File too large. Max: {MAX_VIDEO_SIZE_MB}MB", 413)
 
             file_data, filename, params = self._parse_multipart(handler, content_type)
             if not file_data:
@@ -513,9 +508,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected error getting YouTube info: {e}")
             return error_response(safe_error_message(e, "video info"), 500)
 
-    def _parse_multipart(
-        self, handler, content_type: str
-    ) -> tuple[Optional[bytes], str, dict]:
+    def _parse_multipart(self, handler, content_type: str) -> tuple[Optional[bytes], str, dict]:
         """Parse multipart form data.
 
         Returns:

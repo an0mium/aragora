@@ -264,14 +264,10 @@ class TestCompressDebate:
                 "levels_created": 1,
             }
 
-        with patch.object(
-            rlm_handler, "_execute_compression", side_effect=mock_compress
-        ):
+        with patch.object(rlm_handler, "_execute_compression", side_effect=mock_compress):
             with patch(
                 "aragora.server.handlers.features.rlm._run_async",
-                side_effect=lambda coro: asyncio.run(coro)
-                if hasattr(coro, "__await__")
-                else coro,
+                side_effect=lambda coro: asyncio.run(coro) if hasattr(coro, "__await__") else coro,
             ):
                 # Test would need async handling
                 pass
@@ -405,9 +401,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_query_debate_rlm", return_value=MagicMock(status_code=200)
         ) as mock_query:
-            rlm_handler.handle_post(
-                "/api/debates/test-123/query-rlm", {}, MockHandler()
-            )
+            rlm_handler.handle_post("/api/debates/test-123/query-rlm", {}, MockHandler())
             mock_query.assert_called_once()
 
     def test_handle_post_routes_compress(self, rlm_handler):
@@ -415,9 +409,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_compress_debate", return_value=MagicMock(status_code=200)
         ) as mock_compress:
-            rlm_handler.handle_post(
-                "/api/debates/test-123/compress", {}, MockHandler()
-            )
+            rlm_handler.handle_post("/api/debates/test-123/compress", {}, MockHandler())
             mock_compress.assert_called_once()
 
     def test_handle_post_routes_knowledge_query(self, rlm_handler):
@@ -466,9 +458,7 @@ class TestErrorHandling:
 
     def test_status_handles_exception(self, rlm_handler):
         """_get_rlm_status handles exceptions gracefully."""
-        with patch(
-            "aragora.server.handlers.features.rlm.logger"
-        ) as mock_logger:
+        with patch("aragora.server.handlers.features.rlm.logger") as mock_logger:
             # Force an exception in the status check
             with patch("builtins.__import__", side_effect=RuntimeError("Test error")):
                 result = rlm_handler._get_rlm_status()

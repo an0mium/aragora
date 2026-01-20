@@ -49,7 +49,9 @@ class PruningPolicy:
 
     # Actions
     action: PruningAction = PruningAction.ARCHIVE
-    tier_exceptions: list[str] = field(default_factory=lambda: ["glacial"])  # Don't prune these tiers
+    tier_exceptions: list[str] = field(
+        default_factory=lambda: ["glacial"]
+    )  # Don't prune these tiers
 
     # Schedule
     auto_prune: bool = False
@@ -147,7 +149,11 @@ class PruningOperationsMixin:
             reasons = []
             if node.staleness_score >= staleness_threshold:
                 reasons.append(f"staleness={node.staleness_score:.2f}")
-            if min_confidence > 0 and hasattr(node, "confidence") and node.confidence < min_confidence:
+            if (
+                min_confidence > 0
+                and hasattr(node, "confidence")
+                and node.confidence < min_confidence
+            ):
                 reasons.append(f"low_confidence={node.confidence:.2f}")
 
             # Determine recommended action based on tier

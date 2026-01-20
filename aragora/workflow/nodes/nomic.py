@@ -208,7 +208,9 @@ class NomicLoopStep(BaseStep):
                         retries = 0
                         while retries < max_retries:
                             retries += 1
-                            logger.info(f"Retrying phase {phase_name} (attempt {retries}/{max_retries})")
+                            logger.info(
+                                f"Retrying phase {phase_name} (attempt {retries}/{max_retries})"
+                            )
                             try:
                                 phase_result = await phase.execute(phase_context)
                                 cycle_result["phases"][phase_name] = {

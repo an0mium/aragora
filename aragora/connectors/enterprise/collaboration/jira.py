@@ -171,8 +171,7 @@ class JiraConnector(EnterpriseConnector):
 
             if not email or not token:
                 raise ValueError(
-                    "Jira Cloud credentials not configured. "
-                    "Set JIRA_EMAIL and JIRA_API_TOKEN"
+                    "Jira Cloud credentials not configured. " "Set JIRA_EMAIL and JIRA_API_TOKEN"
                 )
 
             auth = base64.b64encode(f"{email}:{token}".encode()).decode()
@@ -181,10 +180,7 @@ class JiraConnector(EnterpriseConnector):
             token = await self.credentials.get_credential("JIRA_PAT")
 
             if not token:
-                raise ValueError(
-                    "Jira Data Center credentials not configured. "
-                    "Set JIRA_PAT"
-                )
+                raise ValueError("Jira Data Center credentials not configured. " "Set JIRA_PAT")
 
             return {"Authorization": f"Bearer {token}"}
 
@@ -384,8 +380,16 @@ class JiraConnector(EnterpriseConnector):
                     issue_type=issue_type,
                     status=status,
                     priority=fields.get("priority", {}).get("name", ""),
-                    assignee=fields.get("assignee", {}).get("displayName", "") if fields.get("assignee") else "",
-                    reporter=fields.get("reporter", {}).get("displayName", "") if fields.get("reporter") else "",
+                    assignee=(
+                        fields.get("assignee", {}).get("displayName", "")
+                        if fields.get("assignee")
+                        else ""
+                    ),
+                    reporter=(
+                        fields.get("reporter", {}).get("displayName", "")
+                        if fields.get("reporter")
+                        else ""
+                    ),
                     created_at=created_at,
                     updated_at=updated_at,
                     resolved_at=resolved_at,
@@ -393,7 +397,9 @@ class JiraConnector(EnterpriseConnector):
                     components=[c.get("name", "") for c in fields.get("components", [])],
                     fix_versions=[v.get("name", "") for v in fields.get("fixVersions", [])],
                     url=f"{self.base_url}/browse/{item.get('key', '')}",
-                    parent_key=fields.get("parent", {}).get("key") if fields.get("parent") else None,
+                    parent_key=(
+                        fields.get("parent", {}).get("key") if fields.get("parent") else None
+                    ),
                     story_points=fields.get("customfield_10016"),
                 )
 
@@ -702,14 +708,22 @@ class JiraConnector(EnterpriseConnector):
                 content=f"{fields.get('summary', '')}\n\n{description}",
                 title=f"[{issue_key}] {fields.get('summary', '')}",
                 url=f"{self.base_url}/browse/{issue_key}",
-                author=fields.get("reporter", {}).get("displayName", "") if fields.get("reporter") else "",
+                author=(
+                    fields.get("reporter", {}).get("displayName", "")
+                    if fields.get("reporter")
+                    else ""
+                ),
                 created_at=fields.get("created"),
                 confidence=0.85,
                 metadata={
                     "issue_type": fields.get("issuetype", {}).get("name", ""),
                     "status": fields.get("status", {}).get("name", ""),
                     "priority": fields.get("priority", {}).get("name", ""),
-                    "assignee": fields.get("assignee", {}).get("displayName", "") if fields.get("assignee") else "",
+                    "assignee": (
+                        fields.get("assignee", {}).get("displayName", "")
+                        if fields.get("assignee")
+                        else ""
+                    ),
                 },
             )
 
@@ -740,6 +754,7 @@ class JiraConnector(EnterpriseConnector):
     def get_webhook_secret(self) -> Optional[str]:
         """Get webhook secret for signature verification."""
         import os
+
         return os.environ.get("JIRA_WEBHOOK_SECRET")
 
 

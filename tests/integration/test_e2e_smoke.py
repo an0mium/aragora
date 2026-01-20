@@ -77,7 +77,7 @@ class TestCoreDebateFlowSmoke:
 
         assert arena is not None
         # Arena stores agents internally
-        assert hasattr(arena, 'agents') or hasattr(arena, '_agents')
+        assert hasattr(arena, "agents") or hasattr(arena, "_agents")
 
     @pytest.mark.asyncio
     async def test_arena_from_config_initializes(self, mock_agents, simple_environment):

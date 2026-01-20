@@ -110,7 +110,7 @@ class MockUserStore:
         if active_only:
             users = [u for u in users if u.is_active]
         total = len(users)
-        return users[offset:offset + limit], total
+        return users[offset : offset + limit], total
 
     def list_all_organizations(
         self,
@@ -122,7 +122,7 @@ class MockUserStore:
         if tier_filter:
             orgs = [o for o in orgs if o.tier == tier_filter]
         total = len(orgs)
-        return orgs[offset:offset + limit], total
+        return orgs[offset : offset + limit], total
 
     def get_admin_stats(self) -> dict:
         return {

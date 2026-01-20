@@ -225,9 +225,7 @@ class TestTrendingEndpoint:
         mock_manager.ingestors = {}  # Set up ingestors as empty dict
         # RuntimeError in async fetch is caught by _run_async_safely
         # which returns empty list and 200 (graceful degradation)
-        mock_manager.get_trending_topics = AsyncMock(
-            side_effect=RuntimeError("Network error")
-        )
+        mock_manager.get_trending_topics = AsyncMock(side_effect=RuntimeError("Network error"))
 
         # _get_trending_topics creates PulseManager directly via import
         with patch("aragora.pulse.ingestor.PulseManager", return_value=mock_manager):
@@ -275,9 +273,7 @@ class TestSuggestEndpoint:
             "aragora.server.handlers.features.pulse.get_pulse_manager",
             return_value=mock_manager,
         ):
-            result = handler.handle(
-                "/api/pulse/suggest", {"category": ["technology"]}, None
-            )
+            result = handler.handle("/api/pulse/suggest", {"category": ["technology"]}, None)
 
             # Should either succeed (404 if no topics) or fail for other reasons
             assert result is not None
@@ -330,9 +326,7 @@ class TestSuggestEndpoint:
         mock_manager = Mock()
         # Mock select_topic_for_debate to raise RuntimeError which is caught
         mock_manager.get_trending_topics = AsyncMock(return_value=[Mock()])
-        mock_manager.select_topic_for_debate = Mock(
-            side_effect=RuntimeError("Selection error")
-        )
+        mock_manager.select_topic_for_debate = Mock(side_effect=RuntimeError("Selection error"))
 
         # _suggest_debate_topic creates PulseManager directly via import
         with patch("aragora.pulse.ingestor.PulseManager", return_value=mock_manager):
@@ -623,7 +617,9 @@ class TestDebateTopicEndpoint:
 
         # Need to mock auth decorator to test the validation
         with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-            with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+            with patch(
+                "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+            ):
                 # Re-import to get undecorated version
                 result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
                     handler, mock_handler
@@ -643,7 +639,9 @@ class TestDebateTopicEndpoint:
         mock_handler.rfile = BytesIO(body)
 
         with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-            with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+            with patch(
+                "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+            ):
                 result = handler._start_debate_on_topic.__wrapped__.__wrapped__(
                     handler, mock_handler
                 )
@@ -661,7 +659,9 @@ class TestSchedulerControlEndpoints:
 
         with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._start_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -674,7 +674,9 @@ class TestSchedulerControlEndpoints:
 
         with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._stop_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -686,7 +688,9 @@ class TestSchedulerControlEndpoints:
 
         with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._pause_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -698,7 +702,9 @@ class TestSchedulerControlEndpoints:
 
         with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._resume_scheduler.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -718,7 +724,9 @@ class TestSchedulerConfigEndpoint:
 
         with patch("aragora.server.handlers.features.pulse.get_pulse_scheduler", return_value=None):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -736,7 +744,9 @@ class TestSchedulerConfigEndpoint:
             return_value=mock_scheduler,
         ):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -760,7 +770,9 @@ class TestSchedulerConfigEndpoint:
             return_value=mock_scheduler,
         ):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )
@@ -787,7 +799,9 @@ class TestSchedulerConfigEndpoint:
             return_value=mock_scheduler,
         ):
             with patch("aragora.server.handlers.features.pulse.require_auth", lambda f: f):
-                with patch("aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f):
+                with patch(
+                    "aragora.server.handlers.features.pulse.rate_limit", lambda **kw: lambda f: f
+                ):
                     result = handler._update_scheduler_config.__wrapped__.__wrapped__.__wrapped__(
                         handler, mock_handler
                     )

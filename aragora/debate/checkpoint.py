@@ -1164,7 +1164,9 @@ class CheckpointWebhook:
             except (TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"Checkpoint webhook handler failed for event '{event}': {e}")
             except Exception as e:
-                logger.exception(f"Unexpected error in checkpoint webhook handler for event '{event}': {e}")
+                logger.exception(
+                    f"Unexpected error in checkpoint webhook handler for event '{event}': {e}"
+                )
 
         # Send to webhook if configured
         if self.webhook_url:

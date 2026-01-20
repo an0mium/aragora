@@ -151,11 +151,13 @@ class HierarchicalPattern(WorkflowPattern):
         parse_step.next_steps = ["dispatch_workers"]
         dispatch_step.next_steps = ["review"]
 
-        transitions.extend([
-            self._create_transition("decompose", "parse_subtasks"),
-            self._create_transition("parse_subtasks", "dispatch_workers"),
-            self._create_transition("dispatch_workers", "review"),
-        ])
+        transitions.extend(
+            [
+                self._create_transition("decompose", "parse_subtasks"),
+                self._create_transition("parse_subtasks", "dispatch_workers"),
+                self._create_transition("dispatch_workers", "review"),
+            ]
+        )
 
         return WorkflowDefinition(
             id=workflow_id,
@@ -229,7 +231,8 @@ def _register_hierarchical_handlers():
             try:
                 # Find JSON array in response
                 import re
-                json_match = re.search(r'\[[\s\S]*\]', response)
+
+                json_match = re.search(r"\[[\s\S]*\]", response)
                 if json_match:
                     subtasks = json.loads(json_match.group())
             except (json.JSONDecodeError, AttributeError):
@@ -294,10 +297,9 @@ Provide a thorough response:"""
             failed = [r for r in results if not r["success"]]
 
             # Format results for review
-            formatted = "\n\n".join([
-                f"### {r['subtask']} ({r['agent']})\n{r['result']}"
-                for r in successful
-            ])
+            formatted = "\n\n".join(
+                [f"### {r['subtask']} ({r['agent']})\n{r['result']}" for r in successful]
+            )
 
             return {
                 "results": successful,

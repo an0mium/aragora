@@ -512,7 +512,9 @@ class WorkflowDefinition:
         data = yaml.safe_load(yaml_str)
         return cls.from_dict(data)
 
-    def clone(self, new_id: Optional[str] = None, new_name: Optional[str] = None) -> "WorkflowDefinition":
+    def clone(
+        self, new_id: Optional[str] = None, new_name: Optional[str] = None
+    ) -> "WorkflowDefinition":
         """Create a copy of this workflow with optional new ID/name."""
         import uuid
 
@@ -613,9 +615,19 @@ class WorkflowConfig:
 
 # Type aliases
 StepType = Literal[
-    "phase", "agent", "parallel", "conditional", "loop", "custom",
+    "phase",
+    "agent",
+    "parallel",
+    "conditional",
+    "loop",
+    "custom",
     # Phase 2: New step types for workflow builder
-    "human_checkpoint", "memory_read", "memory_write", "debate", "decision", "task",
+    "human_checkpoint",
+    "memory_read",
+    "memory_write",
+    "debate",
+    "decision",
+    "task",
 ]
 
 # Default colors for node categories (for React Flow)

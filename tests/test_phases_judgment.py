@@ -205,9 +205,7 @@ class TestJudgeTermination:
         """Should continue before min_rounds_before_judge_check."""
         from aragora.debate.phases.judgment import JudgmentPhase
 
-        protocol = MockProtocol(
-            judge_termination=True, min_rounds_before_judge_check=3
-        )
+        protocol = MockProtocol(judge_termination=True, min_rounds_before_judge_check=3)
         phase = JudgmentPhase(protocol, [])
 
         should_continue, reason = phase.should_terminate(2, {}, "Conclusive: yes")
@@ -218,9 +216,7 @@ class TestJudgeTermination:
         """Should continue when judge_response is None."""
         from aragora.debate.phases.judgment import JudgmentPhase
 
-        protocol = MockProtocol(
-            judge_termination=True, min_rounds_before_judge_check=1
-        )
+        protocol = MockProtocol(judge_termination=True, min_rounds_before_judge_check=1)
         phase = JudgmentPhase(protocol, [])
 
         should_continue, reason = phase.should_terminate(5, {}, None)
@@ -231,9 +227,7 @@ class TestJudgeTermination:
         """Should terminate when judge says 'Conclusive: yes'."""
         from aragora.debate.phases.judgment import JudgmentPhase
 
-        protocol = MockProtocol(
-            judge_termination=True, min_rounds_before_judge_check=1
-        )
+        protocol = MockProtocol(judge_termination=True, min_rounds_before_judge_check=1)
         phase = JudgmentPhase(protocol, [])
 
         should_continue, reason = phase.should_terminate(
@@ -247,9 +241,7 @@ class TestJudgeTermination:
         """Should continue when judge says 'Conclusive: no'."""
         from aragora.debate.phases.judgment import JudgmentPhase
 
-        protocol = MockProtocol(
-            judge_termination=True, min_rounds_before_judge_check=1
-        )
+        protocol = MockProtocol(judge_termination=True, min_rounds_before_judge_check=1)
         phase = JudgmentPhase(protocol, [])
 
         should_continue, reason = phase.should_terminate(
@@ -262,9 +254,7 @@ class TestJudgeTermination:
         """Should continue when response lacks 'Conclusive:' marker."""
         from aragora.debate.phases.judgment import JudgmentPhase
 
-        protocol = MockProtocol(
-            judge_termination=True, min_rounds_before_judge_check=1
-        )
+        protocol = MockProtocol(judge_termination=True, min_rounds_before_judge_check=1)
         phase = JudgmentPhase(protocol, [])
 
         should_continue, reason = phase.should_terminate(
@@ -316,9 +306,7 @@ class TestJudgeStats:
 
         protocol = MockProtocol()
         agents = [MockAgent("alice")]
-        phase = JudgmentPhase(
-            protocol, agents, calibration_weight_fn=mock_calibration
-        )
+        phase = JudgmentPhase(protocol, agents, calibration_weight_fn=mock_calibration)
 
         stats = phase.get_judge_stats(agents[0])
 

@@ -266,7 +266,11 @@ class KnowledgeMoundCheckpointStore:
                 "completed_steps": list(checkpoint.completed_steps),
                 "step_outputs": dict(checkpoint.step_outputs),
                 "context_state": dict(getattr(checkpoint, "context_state", {})),
-                "created_at": checkpoint.created_at.isoformat() if hasattr(checkpoint.created_at, "isoformat") else str(checkpoint.created_at),
+                "created_at": (
+                    checkpoint.created_at.isoformat()
+                    if hasattr(checkpoint.created_at, "isoformat")
+                    else str(checkpoint.created_at)
+                ),
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
@@ -353,10 +357,7 @@ class FileCheckpointStore:
 
     async def list_checkpoints(self, workflow_id: str) -> List[str]:
         """List all checkpoint IDs for a workflow."""
-        return [
-            f.stem
-            for f in self.checkpoint_dir.glob(f"{workflow_id}_*.json")
-        ]
+        return [f.stem for f in self.checkpoint_dir.glob(f"{workflow_id}_*.json")]
 
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint file."""
@@ -382,7 +383,11 @@ class FileCheckpointStore:
                 "completed_steps": list(checkpoint.completed_steps),
                 "step_outputs": dict(checkpoint.step_outputs),
                 "context_state": dict(getattr(checkpoint, "context_state", {})),
-                "created_at": checkpoint.created_at.isoformat() if hasattr(checkpoint.created_at, "isoformat") else str(checkpoint.created_at),
+                "created_at": (
+                    checkpoint.created_at.isoformat()
+                    if hasattr(checkpoint.created_at, "isoformat")
+                    else str(checkpoint.created_at)
+                ),
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 

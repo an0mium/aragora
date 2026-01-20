@@ -398,6 +398,7 @@ class MemoryManager:
             evidence_bridge = None
             try:
                 from aragora.reasoning.evidence_bridge import get_evidence_bridge
+
                 evidence_bridge = get_evidence_bridge()
             except ImportError:
                 pass  # Bridge not available

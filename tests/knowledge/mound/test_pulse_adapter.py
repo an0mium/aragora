@@ -170,6 +170,7 @@ class TestPulseAdapterSearchPastDebates:
         adapter = PulseAdapter()
 
         import hashlib
+
         topic_hash = hashlib.sha256("ai safety".encode()).hexdigest()[:16]
 
         adapter._debates["pl_d1"] = {

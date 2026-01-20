@@ -247,7 +247,6 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
         logger.warning("Invalid replay data for %s: %s", debate_id, e)
         return error_response(f"Invalid replay data: {e}", 400)
 
-
     def _get_rhetorical_observations(
         self: _DebatesHandlerProtocol, debate_id: str
     ) -> HandlerResult:
@@ -320,9 +319,7 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
             )
             return error_response("Error analyzing rhetorical patterns", 500)
 
-    def _get_trickster_status(
-        self: _DebatesHandlerProtocol, debate_id: str
-    ) -> HandlerResult:
+    def _get_trickster_status(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get trickster intervention status for a debate.
 
         Returns hollow consensus alerts and any interventions that were triggered.

@@ -60,7 +60,7 @@ def create_auth_request_body(data: dict) -> MagicMock:
 def mock_coordinator():
     """Create a mock control plane coordinator."""
     coordinator = MagicMock()
-    
+
     # Mock agent data
     mock_agent = MagicMock()
     mock_agent.to_dict.return_value = {
@@ -70,7 +70,7 @@ def mock_coordinator():
         "provider": "anthropic",
         "status": "ready",
     }
-    
+
     # Mock task data
     mock_task = MagicMock()
     mock_task.id = "task-123"
@@ -80,7 +80,7 @@ def mock_coordinator():
         "status": "pending",
         "payload": {},
     }
-    
+
     # Mock health data
     mock_health = MagicMock()
     mock_health.to_dict.return_value = {
@@ -88,32 +88,34 @@ def mock_coordinator():
         "last_heartbeat": "2024-01-01T00:00:00Z",
     }
     mock_health.value = "healthy"
-    
+
     # Set up async methods
     coordinator.list_agents = AsyncMock(return_value=[mock_agent])
     coordinator.get_agent = AsyncMock(return_value=mock_agent)
     coordinator.register_agent = AsyncMock(return_value=mock_agent)
     coordinator.unregister_agent = AsyncMock(return_value=True)
     coordinator.heartbeat = AsyncMock(return_value=True)
-    
+
     coordinator.get_task = AsyncMock(return_value=mock_task)
     coordinator.submit_task = AsyncMock(return_value="task-123")
     coordinator.claim_task = AsyncMock(return_value=mock_task)
     coordinator.complete_task = AsyncMock(return_value=True)
     coordinator.fail_task = AsyncMock(return_value=True)
     coordinator.cancel_task = AsyncMock(return_value=True)
-    
-    coordinator.get_stats = AsyncMock(return_value={
-        "scheduler": {"by_status": {"running": 5, "pending": 10, "completed": 100}},
-        "registry": {"total_agents": 10, "available_agents": 7, "by_status": {"busy": 3}},
-    })
-    
+
+    coordinator.get_stats = AsyncMock(
+        return_value={
+            "scheduler": {"by_status": {"running": 5, "pending": 10, "completed": 100}},
+            "registry": {"total_agents": 10, "available_agents": 7, "by_status": {"busy": 3}},
+        }
+    )
+
     # Sync methods
     coordinator.get_system_health.return_value = mock_health
     coordinator.get_agent_health.return_value = mock_health
     coordinator._health_monitor = MagicMock()
     coordinator._health_monitor.get_all_health.return_value = {"test-agent": mock_health}
-    
+
     return coordinator
 
 
@@ -167,10 +169,8 @@ class TestControlPlaneHandlerNoCoordinator:
 
     def test_list_agents_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test list agents returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle(
-            "/api/control-plane/agents", {}, mock_http_handler
-        )
-        
+        result = control_plane_handler.handle("/api/control-plane/agents", {}, mock_http_handler)
+
         assert result is not None
         assert result.status_code == 503
         body = json.loads(result.body)
@@ -182,25 +182,21 @@ class TestControlPlaneHandlerNoCoordinator:
         result = control_plane_handler.handle(
             "/api/control-plane/agents/test-agent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         assert result.status_code == 503
 
     def test_get_health_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test get health returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle(
-            "/api/control-plane/health", {}, mock_http_handler
-        )
-        
+        result = control_plane_handler.handle("/api/control-plane/health", {}, mock_http_handler)
+
         assert result is not None
         assert result.status_code == 503
 
     def test_get_stats_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test get stats returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle(
-            "/api/control-plane/stats", {}, mock_http_handler
-        )
-        
+        result = control_plane_handler.handle("/api/control-plane/stats", {}, mock_http_handler)
+
         assert result is not None
         assert result.status_code == 503
 
@@ -211,25 +207,25 @@ class TestControlPlaneHandlerListAgents:
     def test_list_agents_success(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test listing agents with coordinator."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
-        result = control_plane_handler.handle(
-            "/api/control-plane/agents", {}, mock_http_handler
-        )
-        
+
+        result = control_plane_handler.handle("/api/control-plane/agents", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "agents" in body
         assert "total" in body
         assert body["total"] >= 0
 
-    def test_list_agents_with_capability_filter(self, control_plane_handler, mock_http_handler, mock_coordinator):
+    def test_list_agents_with_capability_filter(
+        self, control_plane_handler, mock_http_handler, mock_coordinator
+    ):
         """Test listing agents filtered by capability."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/agents", {"capability": "debate"}, mock_http_handler
         )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert "agents" in body
@@ -241,11 +237,11 @@ class TestControlPlaneHandlerGetAgent:
     def test_get_agent_success(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting agent by ID."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/agents/test-agent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert "agent_id" in body
@@ -254,11 +250,11 @@ class TestControlPlaneHandlerGetAgent:
         """Test getting non-existent agent returns 404."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.get_agent = AsyncMock(return_value=None)
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/agents/nonexistent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -269,11 +265,11 @@ class TestControlPlaneHandlerGetTask:
     def test_get_task_success(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting task by ID."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/tasks/task-123", {}, mock_http_handler
         )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert "id" in body
@@ -282,11 +278,11 @@ class TestControlPlaneHandlerGetTask:
         """Test getting non-existent task returns 404."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.get_task = AsyncMock(return_value=None)
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/tasks/nonexistent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -297,11 +293,9 @@ class TestControlPlaneHandlerHealth:
     def test_get_system_health(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting system health status."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
-        result = control_plane_handler.handle(
-            "/api/control-plane/health", {}, mock_http_handler
-        )
-        
+
+        result = control_plane_handler.handle("/api/control-plane/health", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
@@ -310,24 +304,26 @@ class TestControlPlaneHandlerHealth:
     def test_get_agent_health(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting specific agent health."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/health/test-agent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert "status" in body
 
-    def test_get_agent_health_not_found(self, control_plane_handler, mock_http_handler, mock_coordinator):
+    def test_get_agent_health_not_found(
+        self, control_plane_handler, mock_http_handler, mock_coordinator
+    ):
         """Test getting health for non-existent agent returns 404."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.get_agent_health.return_value = None
-        
+
         result = control_plane_handler.handle(
             "/api/control-plane/health/nonexistent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -338,11 +334,9 @@ class TestControlPlaneHandlerStats:
     def test_get_stats(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting control plane statistics."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
-        result = control_plane_handler.handle(
-            "/api/control-plane/stats", {}, mock_http_handler
-        )
-        
+
+        result = control_plane_handler.handle("/api/control-plane/stats", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "scheduler" in body or "registry" in body
@@ -354,11 +348,9 @@ class TestControlPlaneHandlerMetrics:
     def test_get_metrics(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test getting dashboard metrics."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
-        result = control_plane_handler.handle(
-            "/api/control-plane/metrics", {}, mock_http_handler
-        )
-        
+
+        result = control_plane_handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+
         assert result is not None
         body = json.loads(result.body)
         assert "active_jobs" in body
@@ -374,48 +366,52 @@ class TestControlPlaneHandlerRegisterAgent:
     def test_register_agent_requires_auth(self, control_plane_handler, mock_coordinator):
         """Test registering agent requires authentication."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_request_body({
-            "agent_id": "new-agent",
-            "capabilities": ["debate"],
-        })
-        
-        result = control_plane_handler.handle_post(
-            "/api/control-plane/agents", {}, handler
+        handler = create_request_body(
+            {
+                "agent_id": "new-agent",
+                "capabilities": ["debate"],
+            }
         )
-        
+
+        result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+
         assert result is not None
         assert result.status_code == 401
 
     def test_register_agent_missing_id(self, control_plane_handler, mock_coordinator):
         """Test registering agent without ID returns error."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "capabilities": ["debate"],
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
-            result = control_plane_handler.handle_post(
-                "/api/control-plane/agents", {}, handler
-            )
-        
+        handler = create_auth_request_body(
+            {
+                "capabilities": ["debate"],
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
+            result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+
         assert result is not None
         assert result.status_code == 400
 
     def test_register_agent_success(self, control_plane_handler, mock_coordinator):
         """Test successfully registering an agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "agent_id": "new-agent",
-            "capabilities": ["debate", "coding"],
-            "model": "claude-3",
-            "provider": "anthropic",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
-            result = control_plane_handler.handle_post(
-                "/api/control-plane/agents", {}, handler
-            )
-        
+        handler = create_auth_request_body(
+            {
+                "agent_id": "new-agent",
+                "capabilities": ["debate", "coding"],
+                "model": "claude-3",
+                "provider": "anthropic",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
+            result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+
         assert result is not None
         assert result.status_code == 201
         body = json.loads(result.body)
@@ -428,15 +424,19 @@ class TestControlPlaneHandlerHeartbeat:
     def test_heartbeat_success(self, control_plane_handler, mock_coordinator):
         """Test sending heartbeat."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "status": "ready",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "status": "ready",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/test-agent/heartbeat", {}, handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("acknowledged") is True
@@ -445,15 +445,19 @@ class TestControlPlaneHandlerHeartbeat:
         """Test heartbeat for non-existent agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.heartbeat = AsyncMock(return_value=False)
-        handler = create_auth_request_body({
-            "status": "ready",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "status": "ready",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/nonexistent/heartbeat", {}, handler
             )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -464,47 +468,51 @@ class TestControlPlaneHandlerSubmitTask:
     def test_submit_task_requires_auth(self, control_plane_handler, mock_coordinator):
         """Test submitting task requires authentication."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_request_body({
-            "task_type": "debate",
-            "payload": {},
-        })
-        
-        result = control_plane_handler.handle_post(
-            "/api/control-plane/tasks", {}, handler
+        handler = create_request_body(
+            {
+                "task_type": "debate",
+                "payload": {},
+            }
         )
-        
+
+        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+
         assert result is not None
         assert result.status_code == 401
 
     def test_submit_task_missing_type(self, control_plane_handler, mock_coordinator):
         """Test submitting task without type returns error."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "payload": {},
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
-            result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks", {}, handler
-            )
-        
+        handler = create_auth_request_body(
+            {
+                "payload": {},
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
+            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+
         assert result is not None
         assert result.status_code == 400
 
     def test_submit_task_success(self, control_plane_handler, mock_coordinator):
         """Test successfully submitting a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "task_type": "debate",
-            "payload": {"topic": "test"},
-            "priority": "normal",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
-            result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks", {}, handler
-            )
-        
+        handler = create_auth_request_body(
+            {
+                "task_type": "debate",
+                "payload": {"topic": "test"},
+                "priority": "normal",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
+            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+
         assert result is not None
         assert result.status_code == 201
         body = json.loads(result.body)
@@ -513,16 +521,18 @@ class TestControlPlaneHandlerSubmitTask:
     def test_submit_task_invalid_priority(self, control_plane_handler, mock_coordinator):
         """Test submitting task with invalid priority."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "task_type": "debate",
-            "priority": "invalid_priority",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
-            result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks", {}, handler
-            )
-        
+        handler = create_auth_request_body(
+            {
+                "task_type": "debate",
+                "priority": "invalid_priority",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
+            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+
         assert result is not None
         assert result.status_code == 400
 
@@ -533,16 +543,20 @@ class TestControlPlaneHandlerCompleteTask:
     def test_complete_task_success(self, control_plane_handler, mock_coordinator):
         """Test completing a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "result": {"output": "completed"},
-            "agent_id": "test-agent",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "result": {"output": "completed"},
+                "agent_id": "test-agent",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/complete", {}, handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("completed") is True
@@ -551,15 +565,19 @@ class TestControlPlaneHandlerCompleteTask:
         """Test completing non-existent task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.complete_task = AsyncMock(return_value=False)
-        handler = create_auth_request_body({
-            "result": {},
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "result": {},
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/complete", {}, handler
             )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -570,16 +588,20 @@ class TestControlPlaneHandlerFailTask:
     def test_fail_task_success(self, control_plane_handler, mock_coordinator):
         """Test failing a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        handler = create_auth_request_body({
-            "error": "Task failed due to timeout",
-            "agent_id": "test-agent",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "error": "Task failed due to timeout",
+                "agent_id": "test-agent",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/fail", {}, handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("failed") is True
@@ -588,15 +610,19 @@ class TestControlPlaneHandlerFailTask:
         """Test failing non-existent task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.fail_task = AsyncMock(return_value=False)
-        handler = create_auth_request_body({
-            "error": "Some error",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        handler = create_auth_request_body(
+            {
+                "error": "Some error",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/fail", {}, handler
             )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -608,12 +634,14 @@ class TestControlPlaneHandlerCancelTask:
         """Test canceling a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body({})
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/cancel", {}, handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("cancelled") is True
@@ -623,12 +651,14 @@ class TestControlPlaneHandlerCancelTask:
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.cancel_task = AsyncMock(return_value=False)
         handler = create_auth_request_body({})
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/cancel", {}, handler
             )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -636,40 +666,50 @@ class TestControlPlaneHandlerCancelTask:
 class TestControlPlaneHandlerUnregisterAgent:
     """Test DELETE /api/control-plane/agents/:id endpoint."""
 
-    def test_unregister_agent_requires_auth(self, control_plane_handler, mock_coordinator, mock_http_handler):
+    def test_unregister_agent_requires_auth(
+        self, control_plane_handler, mock_coordinator, mock_http_handler
+    ):
         """Test unregistering agent requires authentication."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         result = control_plane_handler.handle_delete(
             "/api/control-plane/agents/test-agent", {}, mock_http_handler
         )
-        
+
         assert result is not None
         assert result.status_code == 401
 
-    def test_unregister_agent_success(self, control_plane_handler, mock_coordinator, mock_http_handler):
+    def test_unregister_agent_success(
+        self, control_plane_handler, mock_coordinator, mock_http_handler
+    ):
         """Test successfully unregistering an agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/test-agent", {}, mock_http_handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("unregistered") is True
 
-    def test_unregister_agent_not_found(self, control_plane_handler, mock_coordinator, mock_http_handler):
+    def test_unregister_agent_not_found(
+        self, control_plane_handler, mock_coordinator, mock_http_handler
+    ):
         """Test unregistering non-existent agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.unregister_agent = AsyncMock(return_value=False)
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/nonexistent", {}, mock_http_handler
             )
-        
+
         assert result is not None
         assert result.status_code == 404
 
@@ -680,47 +720,55 @@ class TestControlPlaneHandlerIntegration:
     def test_full_agent_lifecycle(self, control_plane_handler, mock_coordinator, mock_http_handler):
         """Test full agent registration, heartbeat, unregistration lifecycle."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         # Step 1: Register agent
-        register_handler = create_auth_request_body({
-            "agent_id": "lifecycle-agent",
-            "capabilities": ["debate"],
-            "model": "claude-3",
-            "provider": "anthropic",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        register_handler = create_auth_request_body(
+            {
+                "agent_id": "lifecycle-agent",
+                "capabilities": ["debate"],
+                "model": "claude-3",
+                "provider": "anthropic",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents", {}, register_handler
             )
-        
+
         assert result is not None
         assert result.status_code == 201
-        
+
         # Step 2: Get agent
         result = control_plane_handler.handle(
             "/api/control-plane/agents/lifecycle-agent", {}, mock_http_handler
         )
         assert result is not None
-        
+
         # Step 3: Send heartbeat
         heartbeat_handler = create_auth_request_body({"status": "ready"})
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/lifecycle-agent/heartbeat", {}, heartbeat_handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("acknowledged") is True
-        
+
         # Step 4: Unregister agent
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/lifecycle-agent", {}, mock_http_handler
             )
-        
+
         assert result is not None
         body = json.loads(result.body)
         assert body.get("unregistered") is True
@@ -728,32 +776,40 @@ class TestControlPlaneHandlerIntegration:
     def test_full_task_lifecycle(self, control_plane_handler, mock_coordinator):
         """Test full task submission, claim, completion lifecycle."""
         ControlPlaneHandler.coordinator = mock_coordinator
-        
+
         # Step 1: Submit task
-        submit_handler = create_auth_request_body({
-            "task_type": "debate",
-            "payload": {"topic": "AI safety"},
-            "priority": "high",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        submit_handler = create_auth_request_body(
+            {
+                "task_type": "debate",
+                "payload": {"topic": "AI safety"},
+                "priority": "high",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks", {}, submit_handler
             )
-        
+
         assert result is not None
         assert result.status_code == 201
         body = json.loads(result.body)
         task_id = body.get("task_id")
         assert task_id is not None
-        
+
         # Step 2: Complete task
-        complete_handler = create_auth_request_body({
-            "result": {"consensus": "AI safety is important"},
-            "agent_id": "test-agent",
-        })
-        
-        with patch.object(control_plane_handler, 'require_auth_or_error', return_value=(MagicMock(), None)):
+        complete_handler = create_auth_request_body(
+            {
+                "result": {"consensus": "AI safety is important"},
+                "agent_id": "test-agent",
+            }
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+        ):
             result = control_plane_handler.handle_post(
                 f"/api/control-plane/tasks/{task_id}/complete", {}, complete_handler
             )

@@ -166,13 +166,13 @@ class MockKnowledgeMound(KnowledgeFederationMixin):
         result = MagicMock()
         items = []
         for i, req in enumerate(self._items):
-            if workspace_id and hasattr(req, 'workspace_id') and req.workspace_id != workspace_id:
+            if workspace_id and hasattr(req, "workspace_id") and req.workspace_id != workspace_id:
                 continue
             item = MagicMock()
             item.id = f"kn_{i}"
-            item.content = req.content if hasattr(req, 'content') else "Content"
+            item.content = req.content if hasattr(req, "content") else "Content"
             item.importance = 0.8
-            item.metadata = req.metadata if hasattr(req, 'metadata') else {}
+            item.metadata = req.metadata if hasattr(req, "metadata") else {}
             items.append(item)
         result.items = items[:limit]
         return result

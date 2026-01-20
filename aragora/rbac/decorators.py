@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, TypeVar, ParamSpec, Awaitable
+from typing import Any, Callable, TypeVar, ParamSpec
 
 from .checker import get_permission_checker, PermissionChecker
 from .models import AuthorizationContext, AuthorizationDecision
@@ -102,6 +102,7 @@ def require_permission(
         async def update_debate(context: AuthorizationContext, debate_id: str, ...):
             ...
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -118,6 +119,7 @@ def require_permission(
                 if resource_id is None:
                     # Try positional args - this is fragile but necessary
                     import inspect
+
                     sig = inspect.signature(func)
                     params = list(sig.parameters.keys())
                     if resource_id_param in params:
@@ -162,6 +164,7 @@ def require_permission(
 
         # Return appropriate wrapper based on function type
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
         return sync_wrapper  # type: ignore
@@ -255,6 +258,7 @@ def require_role(
             return await func(*args, **kwargs)  # type: ignore
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
         return sync_wrapper  # type: ignore
@@ -294,6 +298,7 @@ def require_org_access(
         async def org_action(context: AuthorizationContext, org_id: str, ...):
             ...
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -307,18 +312,14 @@ def require_org_access(
                 return func(*args, **kwargs)
 
             if org_id is None:
-                raise PermissionDeniedError(
-                    f"Organization ID required but not provided"
-                )
+                raise PermissionDeniedError("Organization ID required but not provided")
 
             # Check if user belongs to the organization
             if context.org_id != org_id:
                 # Allow if user is a platform admin (no org_id but has admin role)
                 if context.org_id is None and "owner" in context.roles:
                     return func(*args, **kwargs)
-                raise PermissionDeniedError(
-                    f"User does not have access to organization {org_id}"
-                )
+                raise PermissionDeniedError(f"User does not have access to organization {org_id}")
 
             return func(*args, **kwargs)
 
@@ -334,20 +335,17 @@ def require_org_access(
                 return await func(*args, **kwargs)  # type: ignore
 
             if org_id is None:
-                raise PermissionDeniedError(
-                    f"Organization ID required but not provided"
-                )
+                raise PermissionDeniedError("Organization ID required but not provided")
 
             if context.org_id != org_id:
                 if context.org_id is None and "owner" in context.roles:
                     return await func(*args, **kwargs)  # type: ignore
-                raise PermissionDeniedError(
-                    f"User does not have access to organization {org_id}"
-                )
+                raise PermissionDeniedError(f"User does not have access to organization {org_id}")
 
             return await func(*args, **kwargs)  # type: ignore
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
         return sync_wrapper  # type: ignore
@@ -370,6 +368,7 @@ def require_self_or_admin(
         async def update_user(context: AuthorizationContext, user_id: str, ...):
             ...
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -387,9 +386,7 @@ def require_self_or_admin(
             if context.has_any_role("owner", "admin"):
                 return func(*args, **kwargs)
 
-            raise PermissionDeniedError(
-                "Can only modify own data or requires admin role"
-            )
+            raise PermissionDeniedError("Can only modify own data or requires admin role")
 
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -405,11 +402,10 @@ def require_self_or_admin(
             if context.has_any_role("owner", "admin"):
                 return await func(*args, **kwargs)  # type: ignore
 
-            raise PermissionDeniedError(
-                "Can only modify own data or requires admin role"
-            )
+            raise PermissionDeniedError("Can only modify own data or requires admin role")
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
         return sync_wrapper  # type: ignore
@@ -443,6 +439,7 @@ def with_permission_context(
         async def create_debate(context: AuthorizationContext, request: Request):
             ...
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:

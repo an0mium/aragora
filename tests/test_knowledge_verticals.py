@@ -323,6 +323,7 @@ class TestHealthcareKnowledge:
         """Get healthcare vertical instance."""
         try:
             from aragora.knowledge.mound.verticals.healthcare import HealthcareKnowledge
+
             return HealthcareKnowledge()
         except ImportError:
             pytest.skip("Healthcare vertical not available")
@@ -384,6 +385,7 @@ class TestLegalKnowledge:
         """Get legal vertical instance."""
         try:
             from aragora.knowledge.mound.verticals.legal import LegalKnowledge
+
             return LegalKnowledge()
         except ImportError:
             pytest.skip("Legal vertical not available")
@@ -429,6 +431,7 @@ class TestAccountingKnowledge:
         """Get accounting vertical instance."""
         try:
             from aragora.knowledge.mound.verticals.accounting import AccountingKnowledge
+
             return AccountingKnowledge()
         except ImportError:
             pytest.skip("Accounting vertical not available")

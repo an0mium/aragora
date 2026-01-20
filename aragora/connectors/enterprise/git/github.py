@@ -32,17 +32,45 @@ logger = logging.getLogger(__name__)
 
 # File extensions to index
 CODE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".kt",
-    ".cpp", ".c", ".h", ".hpp", ".cs", ".rb", ".php", ".swift", ".scala",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".cpp",
+    ".c",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".scala",
 }
 DOC_EXTENSIONS = {".md", ".rst", ".txt", ".adoc"}
 CONFIG_EXTENSIONS = {".json", ".yaml", ".yml", ".toml", ".ini", ".env.example"}
 
 # Files to always include
 IMPORTANT_FILES = {
-    "README.md", "readme.md", "README.rst", "CHANGELOG.md", "CONTRIBUTING.md",
-    "LICENSE", "LICENSE.md", "package.json", "pyproject.toml", "Cargo.toml",
-    "go.mod", "requirements.txt", "setup.py", "Makefile", "Dockerfile",
+    "README.md",
+    "readme.md",
+    "README.rst",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "LICENSE.md",
+    "package.json",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "requirements.txt",
+    "setup.py",
+    "Makefile",
+    "Dockerfile",
 }
 
 # Max file size to index (1MB)
@@ -112,8 +140,17 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         self.include_discussions = include_discussions
 
         # File filtering
-        self.file_extensions = file_extensions or (CODE_EXTENSIONS | DOC_EXTENSIONS | CONFIG_EXTENSIONS)
-        self.exclude_paths = exclude_paths or ["node_modules/", "vendor/", ".git/", "__pycache__/", "dist/", "build/"]
+        self.file_extensions = file_extensions or (
+            CODE_EXTENSIONS | DOC_EXTENSIONS | CONFIG_EXTENSIONS
+        )
+        self.exclude_paths = exclude_paths or [
+            "node_modules/",
+            "vendor/",
+            ".git/",
+            "__pycache__/",
+            "dist/",
+            "build/",
+        ]
 
         # Cache
         self._file_cache: Dict[str, GitHubFile] = {}
@@ -133,6 +170,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             return self._gh_available
 
         import subprocess
+
         try:
             result = subprocess.run(
                 ["gh", "auth", "status"],
@@ -153,7 +191,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "gh", *args,
+                "gh",
+                *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -168,18 +207,27 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
     async def _get_latest_commit(self) -> Optional[str]:
         """Get the latest commit SHA on the branch."""
-        output = await self._run_gh([
-            "api", f"repos/{self.repo}/commits/{self.branch}",
-            "--jq", ".sha",
-        ])
+        output = await self._run_gh(
+            [
+                "api",
+                f"repos/{self.repo}/commits/{self.branch}",
+                "--jq",
+                ".sha",
+            ]
+        )
         return output.strip() if output else None
 
-    async def _get_commits_since(self, since_sha: Optional[str], limit: int = 100) -> List[GitHubCommit]:
+    async def _get_commits_since(
+        self, since_sha: Optional[str], limit: int = 100
+    ) -> List[GitHubCommit]:
         """Get commits since a specific SHA."""
         args = [
-            "api", f"repos/{self.repo}/commits",
-            "-f", f"sha={self.branch}",
-            "-f", f"per_page={limit}",
+            "api",
+            f"repos/{self.repo}/commits",
+            "-f",
+            f"sha={self.branch}",
+            "-f",
+            f"per_page={limit}",
         ]
 
         output = await self._run_gh(args)
@@ -199,24 +247,38 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             if since_sha and sha == since_sha:
                 break
 
-            commits.append(GitHubCommit(
-                sha=sha,
-                message=c.get("commit", {}).get("message", ""),
-                author=c.get("commit", {}).get("author", {}).get("name", "unknown"),
-                date=datetime.fromisoformat(
-                    c.get("commit", {}).get("author", {}).get("date", "").replace("Z", "+00:00")
-                ) if c.get("commit", {}).get("author", {}).get("date") else datetime.now(timezone.utc),
-            ))
+            commits.append(
+                GitHubCommit(
+                    sha=sha,
+                    message=c.get("commit", {}).get("message", ""),
+                    author=c.get("commit", {}).get("author", {}).get("name", "unknown"),
+                    date=(
+                        datetime.fromisoformat(
+                            c.get("commit", {})
+                            .get("author", {})
+                            .get("date", "")
+                            .replace("Z", "+00:00")
+                        )
+                        if c.get("commit", {}).get("author", {}).get("date")
+                        else datetime.now(timezone.utc)
+                    ),
+                )
+            )
 
         return commits
 
     async def _get_tree(self, sha: str) -> List[Dict[str, Any]]:
         """Get file tree for a commit."""
-        output = await self._run_gh([
-            "api", f"repos/{self.repo}/git/trees/{sha}",
-            "-f", "recursive=1",
-            "--jq", ".tree",
-        ])
+        output = await self._run_gh(
+            [
+                "api",
+                f"repos/{self.repo}/git/trees/{sha}",
+                "-f",
+                "recursive=1",
+                "--jq",
+                ".tree",
+            ]
+        )
         if not output:
             return []
 
@@ -227,16 +289,22 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
     async def _get_file_content(self, path: str) -> Optional[str]:
         """Get file content from the repository."""
-        output = await self._run_gh([
-            "api", f"repos/{self.repo}/contents/{path}",
-            "-f", f"ref={self.branch}",
-            "--jq", ".content",
-        ])
+        output = await self._run_gh(
+            [
+                "api",
+                f"repos/{self.repo}/contents/{path}",
+                "-f",
+                f"ref={self.branch}",
+                "--jq",
+                ".content",
+            ]
+        )
         if not output:
             return None
 
         # Decode base64 content
         import base64
+
         try:
             return base64.b64decode(output.strip()).decode("utf-8")
         except Exception as e:
@@ -264,13 +332,20 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
     async def _get_issues(self, state: str = "all", limit: int = 100) -> List[Dict[str, Any]]:
         """Get issues from the repository."""
-        output = await self._run_gh([
-            "issue", "list",
-            "--repo", self.repo,
-            "--state", state,
-            "--limit", str(limit),
-            "--json", "number,title,body,author,createdAt,url,state,labels",
-        ])
+        output = await self._run_gh(
+            [
+                "issue",
+                "list",
+                "--repo",
+                self.repo,
+                "--state",
+                state,
+                "--limit",
+                str(limit),
+                "--json",
+                "number,title,body,author,createdAt,url,state,labels",
+            ]
+        )
         if not output:
             return []
 
@@ -281,13 +356,20 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
     async def _get_prs(self, state: str = "all", limit: int = 100) -> List[Dict[str, Any]]:
         """Get PRs from the repository."""
-        output = await self._run_gh([
-            "pr", "list",
-            "--repo", self.repo,
-            "--state", state,
-            "--limit", str(limit),
-            "--json", "number,title,body,author,createdAt,url,state,mergedAt",
-        ])
+        output = await self._run_gh(
+            [
+                "pr",
+                "list",
+                "--repo",
+                self.repo,
+                "--state",
+                state,
+                "--limit",
+                str(limit),
+                "--json",
+                "number,title,body,author,createdAt,url,state,mergedAt",
+            ]
+        )
         if not output:
             return []
 
@@ -313,24 +395,28 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         elements = []
 
         # Extract class definitions
-        class_pattern = r'^class\s+(\w+)(?:\([^)]*\))?:'
+        class_pattern = r"^class\s+(\w+)(?:\([^)]*\))?:"
         for match in re.finditer(class_pattern, content, re.MULTILINE):
-            elements.append({
-                "type": "class",
-                "name": match.group(1),
-                "path": path,
-                "line": content[:match.start()].count('\n') + 1,
-            })
+            elements.append(
+                {
+                    "type": "class",
+                    "name": match.group(1),
+                    "path": path,
+                    "line": content[: match.start()].count("\n") + 1,
+                }
+            )
 
         # Extract function definitions
-        func_pattern = r'^(?:async\s+)?def\s+(\w+)\s*\([^)]*\)(?:\s*->\s*[^:]+)?:'
+        func_pattern = r"^(?:async\s+)?def\s+(\w+)\s*\([^)]*\)(?:\s*->\s*[^:]+)?:"
         for match in re.finditer(func_pattern, content, re.MULTILINE):
-            elements.append({
-                "type": "function",
-                "name": match.group(1),
-                "path": path,
-                "line": content[:match.start()].count('\n') + 1,
-            })
+            elements.append(
+                {
+                    "type": "function",
+                    "name": match.group(1),
+                    "path": path,
+                    "line": content[: match.start()].count("\n") + 1,
+                }
+            )
 
         return elements
 
@@ -339,28 +425,32 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         elements = []
 
         # Extract class definitions
-        class_pattern = r'(?:export\s+)?class\s+(\w+)'
+        class_pattern = r"(?:export\s+)?class\s+(\w+)"
         for match in re.finditer(class_pattern, content):
-            elements.append({
-                "type": "class",
-                "name": match.group(1),
-                "path": path,
-                "line": content[:match.start()].count('\n') + 1,
-            })
+            elements.append(
+                {
+                    "type": "class",
+                    "name": match.group(1),
+                    "path": path,
+                    "line": content[: match.start()].count("\n") + 1,
+                }
+            )
 
         # Extract function definitions
         func_patterns = [
-            r'(?:export\s+)?(?:async\s+)?function\s+(\w+)',  # Regular functions
-            r'(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>',  # Arrow functions
+            r"(?:export\s+)?(?:async\s+)?function\s+(\w+)",  # Regular functions
+            r"(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>",  # Arrow functions
         ]
         for pattern in func_patterns:
             for match in re.finditer(pattern, content):
-                elements.append({
-                    "type": "function",
-                    "name": match.group(1),
-                    "path": path,
-                    "line": content[:match.start()].count('\n') + 1,
-                })
+                elements.append(
+                    {
+                        "type": "function",
+                        "name": match.group(1),
+                        "path": path,
+                        "line": content[: match.start()].count("\n") + 1,
+                    }
+                )
 
         return elements
 
@@ -371,13 +461,13 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         if ext == ".py":
             # Python imports
-            import_pattern = r'^(?:from\s+([\w.]+)\s+)?import\s+([\w., ]+)'
+            import_pattern = r"^(?:from\s+([\w.]+)\s+)?import\s+([\w., ]+)"
             for match in re.finditer(import_pattern, content, re.MULTILINE):
                 if match.group(1):
-                    dependencies.append(match.group(1).split('.')[0])
+                    dependencies.append(match.group(1).split(".")[0])
                 else:
-                    for imp in match.group(2).split(','):
-                        dependencies.append(imp.strip().split('.')[0].split(' ')[0])
+                    for imp in match.group(2).split(","):
+                        dependencies.append(imp.strip().split(".")[0].split(" ")[0])
 
         elif ext in {".js", ".ts", ".jsx", ".tsx"}:
             # JavaScript/TypeScript imports
@@ -388,8 +478,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
             for pattern in import_patterns:
                 for match in re.finditer(pattern, content):
                     dep = match.group(1)
-                    if not dep.startswith('.'):
-                        dependencies.append(dep.split('/')[0])
+                    if not dep.startswith("."):
+                        dependencies.append(dep.split("/")[0])
 
         return list(set(dependencies))
 
@@ -489,9 +579,11 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                     title=f"Issue #{issue['number']}: {issue['title']}",
                     url=issue.get("url", ""),
                     author=issue.get("author", {}).get("login", "unknown"),
-                    created_at=datetime.fromisoformat(
-                        issue.get("createdAt", "").replace("Z", "+00:00")
-                    ) if issue.get("createdAt") else None,
+                    created_at=(
+                        datetime.fromisoformat(issue.get("createdAt", "").replace("Z", "+00:00"))
+                        if issue.get("createdAt")
+                        else None
+                    ),
                     domain="technical/issues",
                     confidence=0.7,
                     metadata={
@@ -513,9 +605,11 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                     title=f"PR #{pr['number']}: {pr['title']}",
                     url=pr.get("url", ""),
                     author=pr.get("author", {}).get("login", "unknown"),
-                    created_at=datetime.fromisoformat(
-                        pr.get("createdAt", "").replace("Z", "+00:00")
-                    ) if pr.get("createdAt") else None,
+                    created_at=(
+                        datetime.fromisoformat(pr.get("createdAt", "").replace("Z", "+00:00"))
+                        if pr.get("createdAt")
+                        else None
+                    ),
                     domain="technical/pull-requests",
                     confidence=0.75,
                     metadata={
@@ -573,7 +667,6 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
     def get_webhook_secret(self) -> Optional[str]:
         """Get GitHub webhook secret from credentials."""
         import asyncio
+
         loop = asyncio.get_event_loop()
-        return loop.run_until_complete(
-            self.credentials.get_credential("GITHUB_WEBHOOK_SECRET")
-        )
+        return loop.run_until_complete(self.credentials.get_credential("GITHUB_WEBHOOK_SECRET"))

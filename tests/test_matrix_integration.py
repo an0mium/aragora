@@ -209,7 +209,10 @@ class TestMatrixIntegrationBasic:
     def test_api_url(self, matrix_integration):
         """Test API URL building."""
         url = matrix_integration._api_url("/rooms/!room:test/send/m.room.message/txn123")
-        assert url == "https://matrix.example.org/_matrix/client/v3/rooms/!room:test/send/m.room.message/txn123"
+        assert (
+            url
+            == "https://matrix.example.org/_matrix/client/v3/rooms/!room:test/send/m.room.message/txn123"
+        )
 
     def test_get_headers(self, matrix_integration):
         """Test request headers include Bearer token."""
@@ -312,7 +315,7 @@ class TestMatrixHTMLEscaping:
     def test_escape_quotes(self, matrix_integration):
         """Test quotes are escaped."""
         result = matrix_integration._escape_html('He said "hello"')
-        assert result == 'He said &quot;hello&quot;'
+        assert result == "He said &quot;hello&quot;"
 
     def test_escape_script_tag(self, matrix_integration):
         """Test script tags are properly escaped."""
@@ -455,14 +458,18 @@ class TestMatrixDebateSummary:
     """Tests for post_debate_summary method."""
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_success(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_success(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test successful debate summary posting."""
         result = await matrix_integration.post_debate_summary(sample_debate_result)
         assert result is True
         mock_aiohttp_session.put.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_disabled(self, matrix_config, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_disabled(
+        self, matrix_config, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary not sent when disabled."""
         matrix_config.notify_on_debate_end = False
         integration = MatrixIntegration(matrix_config)
@@ -473,7 +480,9 @@ class TestMatrixDebateSummary:
         mock_aiohttp_session.put.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_question(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_question(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes the question."""
         await matrix_integration.post_debate_summary(sample_debate_result)
 
@@ -484,7 +493,9 @@ class TestMatrixDebateSummary:
         assert "machine learning" in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_answer(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_answer(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes the answer."""
         await matrix_integration.post_debate_summary(sample_debate_result)
 
@@ -494,7 +505,9 @@ class TestMatrixDebateSummary:
         assert "supervised and unsupervised" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_stats(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_stats(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes statistics."""
         await matrix_integration.post_debate_summary(sample_debate_result)
 
@@ -506,7 +519,9 @@ class TestMatrixDebateSummary:
         assert "Agents: 4" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_participants(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_participants(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes participating agents."""
         await matrix_integration.post_debate_summary(sample_debate_result)
 
@@ -517,7 +532,9 @@ class TestMatrixDebateSummary:
         assert "gpt-4" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_includes_link(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_includes_link(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes view link."""
         await matrix_integration.post_debate_summary(sample_debate_result)
 
@@ -528,7 +545,9 @@ class TestMatrixDebateSummary:
         assert sample_debate_result.debate_id in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_post_debate_summary_truncates_many_agents(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_post_debate_summary_truncates_many_agents(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that more than 5 agents shows '+X more'."""
         sample_debate_result.participating_agents = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"]
         await matrix_integration.post_debate_summary(sample_debate_result)
@@ -575,7 +594,9 @@ class TestMatrixConsensusAlert:
         mock_aiohttp_session.put.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_below_threshold(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_below_threshold(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test consensus alert not sent when confidence below threshold."""
         result = await matrix_integration.send_consensus_alert(
             debate_id="test-123",
@@ -586,7 +607,9 @@ class TestMatrixConsensusAlert:
         mock_aiohttp_session.put.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_at_threshold(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_at_threshold(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test consensus alert sent at exact threshold."""
         result = await matrix_integration.send_consensus_alert(
             debate_id="test-123",
@@ -596,7 +619,9 @@ class TestMatrixConsensusAlert:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_high_confidence_green(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_high_confidence_green(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test high confidence uses green color in HTML."""
         await matrix_integration.send_consensus_alert(
             debate_id="test-123",
@@ -610,7 +635,9 @@ class TestMatrixConsensusAlert:
         assert 'color="green"' in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_medium_confidence_orange(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_medium_confidence_orange(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test medium confidence uses orange color in HTML."""
         await matrix_integration.send_consensus_alert(
             debate_id="test-123",
@@ -624,7 +651,9 @@ class TestMatrixConsensusAlert:
         assert 'color="orange"' in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_includes_agents(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_includes_agents(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test consensus alert includes agent names."""
         await matrix_integration.send_consensus_alert(
             debate_id="test-123",
@@ -640,7 +669,9 @@ class TestMatrixConsensusAlert:
         assert "gpt-4" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_truncates_long_answer(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_truncates_long_answer(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test that long answers are truncated."""
         long_answer = "A" * 600
         await matrix_integration.send_consensus_alert(
@@ -730,7 +761,9 @@ class TestMatrixErrorAlert:
         assert "consensus" in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_escapes_html_in_error(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_error_alert_escapes_html_in_error(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test error message is HTML escaped."""
         await matrix_integration.send_error_alert(
             debate_id="test-123",
@@ -763,14 +796,18 @@ class TestMatrixLeaderboardUpdate:
         ]
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_success(self, matrix_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_success(
+        self, matrix_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test successful leaderboard update."""
         result = await matrix_integration.send_leaderboard_update(sample_rankings)
         assert result is True
         mock_aiohttp_session.put.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_disabled(self, matrix_config, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_disabled(
+        self, matrix_config, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard update not sent when disabled."""
         matrix_config.notify_on_leaderboard = False
         integration = MatrixIntegration(matrix_config)
@@ -781,7 +818,9 @@ class TestMatrixLeaderboardUpdate:
         mock_aiohttp_session.put.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_includes_rankings(self, matrix_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_includes_rankings(
+        self, matrix_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard includes ranking information."""
         await matrix_integration.send_leaderboard_update(sample_rankings)
 
@@ -793,7 +832,9 @@ class TestMatrixLeaderboardUpdate:
         assert "15W/5L" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_with_domain(self, matrix_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_with_domain(
+        self, matrix_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard update with domain filter."""
         await matrix_integration.send_leaderboard_update(sample_rankings, domain="math")
 
@@ -804,7 +845,9 @@ class TestMatrixLeaderboardUpdate:
         assert "math" in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_uses_ordered_list(self, matrix_integration, sample_rankings, mock_aiohttp_session):
+    async def test_send_leaderboard_update_uses_ordered_list(
+        self, matrix_integration, sample_rankings, mock_aiohttp_session
+    ):
         """Test leaderboard uses ordered list in HTML."""
         await matrix_integration.send_leaderboard_update(sample_rankings)
 
@@ -816,9 +859,13 @@ class TestMatrixLeaderboardUpdate:
         assert "</ol>" in payload["formatted_body"]
 
     @pytest.mark.asyncio
-    async def test_send_leaderboard_update_limits_to_10(self, matrix_integration, mock_aiohttp_session):
+    async def test_send_leaderboard_update_limits_to_10(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test leaderboard is limited to top 10."""
-        many_rankings = [{"name": f"agent{i}", "elo": 1500-i, "wins": 0, "losses": 0} for i in range(15)]
+        many_rankings = [
+            {"name": f"agent{i}", "elo": 1500 - i, "wins": 0, "losses": 0} for i in range(15)
+        ]
         await matrix_integration.send_leaderboard_update(many_rankings)
 
         call_args = mock_aiohttp_session.put.call_args
@@ -995,7 +1042,9 @@ class TestMatrixIntegrationE2E:
     """End-to-end style tests for Matrix integration."""
 
     @pytest.mark.asyncio
-    async def test_full_debate_workflow(self, matrix_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_full_debate_workflow(
+        self, matrix_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test a full debate notification workflow."""
         # 1. Post debate summary
         result = await matrix_integration.post_debate_summary(sample_debate_result)
@@ -1031,7 +1080,9 @@ class TestMatrixIntegrationE2E:
         assert "round_2" in payload["body"]
 
     @pytest.mark.asyncio
-    async def test_multiple_notifications_respect_rate_limit(self, matrix_integration, mock_aiohttp_session):
+    async def test_multiple_notifications_respect_rate_limit(
+        self, matrix_integration, mock_aiohttp_session
+    ):
         """Test that multiple notifications respect rate limiting."""
         matrix_integration.config.max_messages_per_minute = 3
 

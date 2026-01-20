@@ -20,7 +20,14 @@ class TestToolGroupFlags:
 
     def test_individual_flags(self):
         """Individual flags are non-zero and distinct."""
-        flags = [ToolGroup.READ, ToolGroup.EDIT, ToolGroup.COMMAND, ToolGroup.BROWSER, ToolGroup.MCP, ToolGroup.DEBATE]
+        flags = [
+            ToolGroup.READ,
+            ToolGroup.EDIT,
+            ToolGroup.COMMAND,
+            ToolGroup.BROWSER,
+            ToolGroup.MCP,
+            ToolGroup.DEBATE,
+        ]
         values = [f.value for f in flags]
         assert len(values) == len(set(values)), "All flags should have unique values"
         assert all(v != 0 for v in values), "All flags should be non-zero"

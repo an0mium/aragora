@@ -484,7 +484,8 @@ class AgentsHandler(BaseHandler):
             # Calculate subscriber health
             total_subs = len(stats)
             healthy_subs = sum(
-                1 for s in stats.values()
+                1
+                for s in stats.values()
                 if s.get("enabled") and s.get("circuit_breaker", {}).get("available", True)
             )
 
@@ -932,19 +933,23 @@ class AgentsHandler(BaseHandler):
 
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
-            return json_response({
-                "agent": agent,
-                "metadata": None,
-                "message": "Database not available",
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "metadata": None,
+                    "message": "Database not available",
+                }
+            )
 
         elo_path = get_db_path(DatabaseType.ELO, nomic_dir)
         if not elo_path.exists():
-            return json_response({
-                "agent": agent,
-                "metadata": None,
-                "message": "ELO database not found",
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "metadata": None,
+                    "message": "ELO database not found",
+                }
+            )
 
         try:
             conn = sqlite3.connect(elo_path)
@@ -962,11 +967,13 @@ class AgentsHandler(BaseHandler):
             conn.close()
 
             if not row:
-                return json_response({
-                    "agent": agent,
-                    "metadata": None,
-                    "message": "Agent metadata not found",
-                })
+                return json_response(
+                    {
+                        "agent": agent,
+                        "metadata": None,
+                        "message": "Agent metadata not found",
+                    }
+                )
 
             # Parse JSON fields
             specialties = []
@@ -982,26 +989,30 @@ class AgentsHandler(BaseHandler):
             except (json.JSONDecodeError, TypeError):
                 pass
 
-            return json_response({
-                "agent": agent,
-                "metadata": {
-                    "provider": row["provider"],
-                    "model_id": row["model_id"],
-                    "context_window": row["context_window"],
-                    "specialties": specialties,
-                    "strengths": strengths,
-                    "release_date": row["release_date"],
-                    "updated_at": row["updated_at"],
-                },
-            })
+            return json_response(
+                {
+                    "agent": agent,
+                    "metadata": {
+                        "provider": row["provider"],
+                        "model_id": row["model_id"],
+                        "context_window": row["context_window"],
+                        "specialties": specialties,
+                        "strengths": strengths,
+                        "release_date": row["release_date"],
+                        "updated_at": row["updated_at"],
+                    },
+                }
+            )
         except sqlite3.OperationalError as e:
             # Table may not exist yet
             if "no such table" in str(e):
-                return json_response({
-                    "agent": agent,
-                    "metadata": None,
-                    "message": "Agent metadata table not initialized. Run seed_agents.py to populate.",
-                })
+                return json_response(
+                    {
+                        "agent": agent,
+                        "metadata": None,
+                        "message": "Agent metadata table not initialized. Run seed_agents.py to populate.",
+                    }
+                )
             raise
 
     @handle_errors("agent introspect")

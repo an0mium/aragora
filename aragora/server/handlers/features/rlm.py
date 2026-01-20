@@ -140,24 +140,28 @@ class RLMHandler(BaseHandler):
         start_level = body.get("start_level", "SUMMARY")
 
         try:
-            result = _run_async(self._execute_rlm_query(
-                debate_id=debate_id,
-                query=query,
-                strategy=strategy,
-                max_iterations=max_iterations,
-                start_level=start_level,
-            ))
+            result = _run_async(
+                self._execute_rlm_query(
+                    debate_id=debate_id,
+                    query=query,
+                    strategy=strategy,
+                    max_iterations=max_iterations,
+                    start_level=start_level,
+                )
+            )
 
-            return json_response({
-                "answer": result.answer,
-                "ready": result.ready,
-                "iteration": result.iteration,
-                "refinement_history": result.refinement_history,
-                "confidence": result.confidence,
-                "nodes_examined": result.nodes_examined,
-                "tokens_processed": result.tokens_processed,
-                "sub_calls_made": result.sub_calls_made,
-            })
+            return json_response(
+                {
+                    "answer": result.answer,
+                    "ready": result.ready,
+                    "iteration": result.iteration,
+                    "refinement_history": result.refinement_history,
+                    "confidence": result.confidence,
+                    "nodes_examined": result.nodes_examined,
+                    "tokens_processed": result.tokens_processed,
+                    "sub_calls_made": result.sub_calls_made,
+                }
+            )
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"RLM query failed: {e}")
@@ -173,7 +177,6 @@ class RLMHandler(BaseHandler):
     ) -> Any:
         """Execute RLM query with refinement loop."""
         from aragora.rlm.bridge import AragoraRLM, DebateContextAdapter
-        from aragora.rlm.types import AbstractionLevel
 
         # Get debate result
         debate_result = await self._get_debate_result(debate_id)
@@ -201,6 +204,7 @@ class RLMHandler(BaseHandler):
         """Fetch debate result from storage."""
         try:
             from aragora.storage.factory import get_store
+
             store = get_store()
             return await store.get_debate(debate_id)
         except Exception as e:  # noqa: BLE001 - Best effort fetch, log warning on failure
@@ -241,11 +245,13 @@ class RLMHandler(BaseHandler):
         compression_ratio = body.get("compression_ratio", 0.3)
 
         try:
-            result = _run_async(self._execute_compression(
-                debate_id=debate_id,
-                target_levels=target_levels,
-                compression_ratio=compression_ratio,
-            ))
+            result = _run_async(
+                self._execute_compression(
+                    debate_id=debate_id,
+                    target_levels=target_levels,
+                    compression_ratio=compression_ratio,
+                )
+            )
             return json_response(result)
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
@@ -344,12 +350,16 @@ class RLMHandler(BaseHandler):
         nodes = []
         if level in context.levels:
             for node in context.levels[level]:
-                nodes.append({
-                    "id": node.id,
-                    "content": node.content[:500] + "..." if len(node.content) > 500 else node.content,
-                    "token_count": node.token_count,
-                    "key_topics": node.key_topics,
-                })
+                nodes.append(
+                    {
+                        "id": node.id,
+                        "content": (
+                            node.content[:500] + "..." if len(node.content) > 500 else node.content
+                        ),
+                        "token_count": node.token_count,
+                        "key_topics": node.key_topics,
+                    }
+                )
 
         return {
             "level": level_name,
@@ -377,12 +387,14 @@ class RLMHandler(BaseHandler):
             return error_response("Invalid debate ID", 400)
 
         # Note: In production, track active queries in a store
-        return json_response({
-            "debate_id": debate_id,
-            "active_queries": 0,
-            "cached_contexts": 0,
-            "status": "idle",
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "active_queries": 0,
+                "cached_contexts": 0,
+                "status": "idle",
+            }
+        )
 
     @require_user_auth
     @handle_errors("RLM knowledge query")
@@ -421,12 +433,14 @@ class RLMHandler(BaseHandler):
         strategy = body.get("strategy", "auto")
 
         try:
-            result = _run_async(self._execute_knowledge_query(
-                workspace_id=workspace_id,
-                query=query,
-                max_nodes=max_nodes,
-                strategy=strategy,
-            ))
+            result = _run_async(
+                self._execute_knowledge_query(
+                    workspace_id=workspace_id,
+                    query=query,
+                    max_nodes=max_nodes,
+                    strategy=strategy,
+                )
+            )
             return json_response(result)
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"Knowledge RLM query failed: {e}")
@@ -444,6 +458,7 @@ class RLMHandler(BaseHandler):
 
         try:
             from aragora.knowledge.mound import KnowledgeMound
+
             mound = KnowledgeMound()
         except ImportError:
             return {
@@ -475,7 +490,6 @@ class RLMHandler(BaseHandler):
             "iteration": result.iteration,
         }
 
-
     def _get_rlm_status(self) -> HandlerResult:
         """
         Get RLM system status.
@@ -492,6 +506,7 @@ class RLMHandler(BaseHandler):
             # Check if official RLM is available
             try:
                 import rlm
+
                 provider = "rlm-library"
                 version = getattr(rlm, "__version__", "unknown")
             except ImportError:
@@ -503,6 +518,7 @@ class RLMHandler(BaseHandler):
             # Check streaming support
             try:
                 from aragora.rlm.streaming import StreamingRLMQuery
+
                 features.append("streaming")
             except ImportError:
                 pass
@@ -510,26 +526,31 @@ class RLMHandler(BaseHandler):
             # Check training support
             try:
                 from aragora.rlm.training.trainer import RLMTrainer
+
                 features.append("training")
             except ImportError:
                 pass
 
-            return json_response({
-                "available": True,
-                "provider": provider,
-                "version": version,
-                "features": features,
-            })
+            return json_response(
+                {
+                    "available": True,
+                    "provider": provider,
+                    "version": version,
+                    "features": features,
+                }
+            )
 
         except Exception as e:  # noqa: BLE001 - Status endpoint, return degraded state on error
             logger.error(f"Failed to get RLM status: {e}")
-            return json_response({
-                "available": False,
-                "provider": "unknown",
-                "version": "unknown",
-                "features": [],
-                "error": str(e),
-            })
+            return json_response(
+                {
+                    "available": False,
+                    "provider": "unknown",
+                    "version": "unknown",
+                    "features": [],
+                    "error": str(e),
+                }
+            )
 
     def _get_rlm_metrics(self) -> HandlerResult:
         """
@@ -573,62 +594,70 @@ class RLMHandler(BaseHandler):
             cache_total = cache_hits + cache_misses
             hit_rate = cache_hits / cache_total if cache_total > 0 else 0.0
 
-            return json_response({
-                "compressions": {
-                    "total": int(compressions_total),
-                    "byType": self._get_counter_by_label(RLM_COMPRESSIONS_TOTAL, "source_type"),
-                    "avgRatio": 0.34,  # Would need histogram to calculate
-                    "tokensSaved": int(tokens_saved),
-                },
-                "queries": {
-                    "total": int(queries_total),
-                    "byType": self._get_counter_by_label(RLM_QUERIES_TOTAL, "query_type"),
-                    "avgDuration": 1.24,  # Would need histogram to calculate
-                    "successRate": 0.94,  # Would need tracking
-                },
-                "cache": {
-                    "hits": int(cache_hits),
-                    "misses": int(cache_misses),
-                    "hitRate": hit_rate,
-                    "memoryBytes": int(memory_bytes),
-                    "maxMemory": 268435456,  # 256MB default
-                },
-                "refinement": {
-                    "avgIterations": 2.3,  # Would need histogram to calculate
-                    "successRate": refinement_success / (refinement_success + ready_false) if (refinement_success + ready_false) > 0 else 0.0,
-                    "readyFalseTotal": int(ready_false),
-                },
-            })
+            return json_response(
+                {
+                    "compressions": {
+                        "total": int(compressions_total),
+                        "byType": self._get_counter_by_label(RLM_COMPRESSIONS_TOTAL, "source_type"),
+                        "avgRatio": 0.34,  # Would need histogram to calculate
+                        "tokensSaved": int(tokens_saved),
+                    },
+                    "queries": {
+                        "total": int(queries_total),
+                        "byType": self._get_counter_by_label(RLM_QUERIES_TOTAL, "query_type"),
+                        "avgDuration": 1.24,  # Would need histogram to calculate
+                        "successRate": 0.94,  # Would need tracking
+                    },
+                    "cache": {
+                        "hits": int(cache_hits),
+                        "misses": int(cache_misses),
+                        "hitRate": hit_rate,
+                        "memoryBytes": int(memory_bytes),
+                        "maxMemory": 268435456,  # 256MB default
+                    },
+                    "refinement": {
+                        "avgIterations": 2.3,  # Would need histogram to calculate
+                        "successRate": (
+                            refinement_success / (refinement_success + ready_false)
+                            if (refinement_success + ready_false) > 0
+                            else 0.0
+                        ),
+                        "readyFalseTotal": int(ready_false),
+                    },
+                }
+            )
 
         except ImportError:
             # RLM metrics module not available, return placeholder data
             logger.debug("RLM metrics module not available, returning placeholder data")
-            return json_response({
-                "compressions": {
-                    "total": 0,
-                    "byType": {},
-                    "avgRatio": 0.0,
-                    "tokensSaved": 0,
-                },
-                "queries": {
-                    "total": 0,
-                    "byType": {},
-                    "avgDuration": 0.0,
-                    "successRate": 0.0,
-                },
-                "cache": {
-                    "hits": 0,
-                    "misses": 0,
-                    "hitRate": 0.0,
-                    "memoryBytes": 0,
-                    "maxMemory": 268435456,
-                },
-                "refinement": {
-                    "avgIterations": 0.0,
-                    "successRate": 0.0,
-                    "readyFalseTotal": 0,
-                },
-            })
+            return json_response(
+                {
+                    "compressions": {
+                        "total": 0,
+                        "byType": {},
+                        "avgRatio": 0.0,
+                        "tokensSaved": 0,
+                    },
+                    "queries": {
+                        "total": 0,
+                        "byType": {},
+                        "avgDuration": 0.0,
+                        "successRate": 0.0,
+                    },
+                    "cache": {
+                        "hits": 0,
+                        "misses": 0,
+                        "hitRate": 0.0,
+                        "memoryBytes": 0,
+                        "maxMemory": 268435456,
+                    },
+                    "refinement": {
+                        "avgIterations": 0.0,
+                        "successRate": 0.0,
+                        "readyFalseTotal": 0,
+                    },
+                }
+            )
 
         except Exception as e:  # noqa: BLE001 - API boundary, log and return error
             logger.error(f"Failed to get RLM metrics: {e}")
@@ -637,14 +666,14 @@ class RLMHandler(BaseHandler):
     def _get_counter_value(self, counter) -> float:
         """Extract total value from a Prometheus Counter."""
         try:
-            return counter._value.get() if hasattr(counter, '_value') else 0.0
+            return counter._value.get() if hasattr(counter, "_value") else 0.0
         except (AttributeError, TypeError):
             return 0.0
 
     def _get_gauge_value(self, gauge) -> float:
         """Extract value from a Prometheus Gauge."""
         try:
-            return gauge._value.get() if hasattr(gauge, '_value') else 0.0
+            return gauge._value.get() if hasattr(gauge, "_value") else 0.0
         except (AttributeError, TypeError):
             return 0.0
 
@@ -652,7 +681,7 @@ class RLMHandler(BaseHandler):
         """Extract counter values grouped by a label."""
         try:
             result = {}
-            if hasattr(counter, '_metrics'):
+            if hasattr(counter, "_metrics"):
                 for labels, value in counter._metrics.items():
                     if label_name in labels:
                         result[labels[label_name]] = value._value.get()

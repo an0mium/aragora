@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 def _record_rlm_cache_hit() -> None:
     try:
         from aragora.observability.metrics import record_rlm_cache_hit
+
         record_rlm_cache_hit()
     except ImportError:
         pass
@@ -28,6 +29,7 @@ def _record_rlm_cache_hit() -> None:
 def _record_rlm_cache_miss() -> None:
     try:
         from aragora.observability.metrics import record_rlm_cache_miss
+
         record_rlm_cache_miss()
     except ImportError:
         pass

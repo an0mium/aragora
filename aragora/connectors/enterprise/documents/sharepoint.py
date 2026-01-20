@@ -34,11 +34,23 @@ logger = logging.getLogger(__name__)
 
 # File types to index
 INDEXABLE_EXTENSIONS = {
-    ".docx", ".doc", ".pdf", ".txt", ".md", ".rtf",
-    ".xlsx", ".xls", ".csv",
-    ".pptx", ".ppt",
-    ".html", ".htm",
-    ".json", ".xml", ".yaml", ".yml",
+    ".docx",
+    ".doc",
+    ".pdf",
+    ".txt",
+    ".md",
+    ".rtf",
+    ".xlsx",
+    ".xls",
+    ".csv",
+    ".pptx",
+    ".ppt",
+    ".html",
+    ".htm",
+    ".json",
+    ".xml",
+    ".yaml",
+    ".yml",
 }
 
 # Maximum file size to index (10MB)
@@ -244,14 +256,16 @@ class SharePointConnector(EnterpriseConnector):
             name=data.get("name", ""),
             display_name=data.get("displayName", ""),
             web_url=data.get("webUrl", ""),
-            created=datetime.fromisoformat(data["createdDateTime"].replace("Z", "+00:00"))
-            if data.get("createdDateTime")
-            else None,
-            last_modified=datetime.fromisoformat(
-                data["lastModifiedDateTime"].replace("Z", "+00:00")
-            )
-            if data.get("lastModifiedDateTime")
-            else None,
+            created=(
+                datetime.fromisoformat(data["createdDateTime"].replace("Z", "+00:00"))
+                if data.get("createdDateTime")
+                else None
+            ),
+            last_modified=(
+                datetime.fromisoformat(data["lastModifiedDateTime"].replace("Z", "+00:00"))
+                if data.get("lastModifiedDateTime")
+                else None
+            ),
         )
 
     async def _get_subsites(self, site_id: str) -> List[SharePointSite]:
@@ -356,16 +370,16 @@ class SharePointConnector(EnterpriseConnector):
                     modified_by=item.get("lastModifiedBy", {})
                     .get("user", {})
                     .get("displayName", ""),
-                    created_at=datetime.fromisoformat(
-                        item["createdDateTime"].replace("Z", "+00:00")
-                    )
-                    if item.get("createdDateTime")
-                    else None,
-                    modified_at=datetime.fromisoformat(
-                        item["lastModifiedDateTime"].replace("Z", "+00:00")
-                    )
-                    if item.get("lastModifiedDateTime")
-                    else None,
+                    created_at=(
+                        datetime.fromisoformat(item["createdDateTime"].replace("Z", "+00:00"))
+                        if item.get("createdDateTime")
+                        else None
+                    ),
+                    modified_at=(
+                        datetime.fromisoformat(item["lastModifiedDateTime"].replace("Z", "+00:00"))
+                        if item.get("lastModifiedDateTime")
+                        else None
+                    ),
                     etag=item.get("eTag", ""),
                 ), new_delta_token
 
@@ -586,7 +600,9 @@ class SharePointConnector(EnterpriseConnector):
                         content=content[:50000],
                         title=data.get("name", ""),
                         url=data.get("webUrl", ""),
-                        author=data.get("lastModifiedBy", {}).get("user", {}).get("displayName", ""),
+                        author=data.get("lastModifiedBy", {})
+                        .get("user", {})
+                        .get("displayName", ""),
                         created_at=data.get("createdDateTime"),
                         confidence=0.8,
                     )

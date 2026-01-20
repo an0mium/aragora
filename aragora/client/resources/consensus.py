@@ -358,7 +358,9 @@ class ConsensusAPI:
 
     async def get_contrarian_views_async(self, limit: int = 10) -> List[Dissent]:
         """Async version of get_contrarian_views."""
-        response = await self._client._get_async("/api/consensus/contrarian", params={"limit": limit})
+        response = await self._client._get_async(
+            "/api/consensus/contrarian", params={"limit": limit}
+        )
         views = response.get("views", [])
         return [Dissent.from_dict(v) for v in views]
 

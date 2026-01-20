@@ -90,10 +90,7 @@ class TestCreateVerifyClaimsCallback:
         mock_arena = MagicMock()
         callback = _create_verify_claims_callback(mock_arena)
 
-        claims = [
-            {"text": f"claim{i}", "type": "LOGICAL", "confidence": 0.8}
-            for i in range(10)
-        ]
+        claims = [{"text": f"claim{i}", "type": "LOGICAL", "confidence": 0.8} for i in range(10)]
 
         with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             mock_extract.return_value = claims
@@ -112,9 +109,7 @@ class TestCreateVerifyClaimsCallback:
 
         with patch("aragora.debate.arena_phases.fast_extract_claims") as mock_extract:
             # High confidence claim without Z3
-            mock_extract.return_value = [
-                {"text": "claim1", "type": "FACTUAL", "confidence": 0.7}
-            ]
+            mock_extract.return_value = [{"text": "claim1", "type": "FACTUAL", "confidence": 0.7}]
 
             result = await callback("text")
 
@@ -235,10 +230,13 @@ class TestInitPhases:
         mock_arena.protocol.enable_rhetorical_observer = True
 
         # Mock imports to fail
-        with patch.dict("sys.modules", {
-            "aragora.debate.trickster": None,
-            "aragora.debate.rhetorical_observer": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.debate.trickster": None,
+                "aragora.debate.rhetorical_observer": None,
+            },
+        ):
             # Should not raise
             init_phases(mock_arena)
 

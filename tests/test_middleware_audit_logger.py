@@ -667,9 +667,7 @@ class TestAuditActionDecorator:
         async def create_debate(debate_type: str, debate_id: str):
             return f"Created {debate_id}"
 
-        result = asyncio.run(
-            create_debate(debate_type="standard", debate_id="dbt-123")
-        )
+        result = asyncio.run(create_debate(debate_type="standard", debate_id="dbt-123"))
 
         events = memory_backend.query()
         assert events[0].resource == "standard"

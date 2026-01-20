@@ -10,7 +10,6 @@ and domain/capability-based agent filtering for optimal team composition.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
@@ -19,7 +18,6 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
     from aragora.debate.delegation import DelegationStrategy
     from aragora.debate.protocol import CircuitBreaker
-    from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
@@ -227,9 +225,7 @@ class TeamSelector:
                 )
                 return agents
             else:
-                logger.warning(
-                    f"No agents match domain '{domain}', returning empty list"
-                )
+                logger.warning(f"No agents match domain '{domain}', returning empty list")
                 return []
 
         logger.info(

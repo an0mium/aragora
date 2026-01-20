@@ -267,9 +267,7 @@ class TestComputeVoteWeights:
 
         processor = VoteProcessor()
 
-        with patch(
-            "aragora.debate.phases.vote_processor.WeightCalculator"
-        ) as mock_calc_class:
+        with patch("aragora.debate.phases.vote_processor.WeightCalculator") as mock_calc_class:
             mock_calc = MagicMock()
             mock_calc.compute_weights.return_value = {"agent1": 1.2, "agent2": 0.8}
             mock_calc_class.return_value = mock_calc
@@ -426,9 +424,7 @@ class TestNormalizeChoiceToAgent:
         proposals = {}
 
         processor = VoteProcessor()
-        result = processor.normalize_choice_to_agent(
-            "Proposal from claude", agents, proposals
-        )
+        result = processor.normalize_choice_to_agent("Proposal from claude", agents, proposals)
 
         assert result == "claude"
 
@@ -469,9 +465,7 @@ class TestApplyCalibrationToVotes:
         processor = VoteProcessor(calibration_tracker=calibration)
 
         # Patch at the source module where adjust_agent_confidence is defined
-        with patch(
-            "aragora.agents.calibration.adjust_agent_confidence"
-        ) as mock_adjust:
+        with patch("aragora.agents.calibration.adjust_agent_confidence") as mock_adjust:
             mock_adjust.return_value = 0.8  # Adjusted down
 
             adjusted = processor.apply_calibration_to_votes(votes, ctx)

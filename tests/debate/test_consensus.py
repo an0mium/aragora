@@ -666,6 +666,7 @@ class TestConsensusProof:
         json_str = proof.to_json()
 
         import json
+
         data = json.loads(json_str)
         assert data["proof_id"] == "proof_001"
         assert isinstance(json_str, str)

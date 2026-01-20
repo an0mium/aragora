@@ -105,9 +105,7 @@ class TestFederationPolicy:
     def test_policy_allows_operation_isolated(self):
         """Isolated mode blocks all operations."""
         policy = FederationPolicy(mode=FederationMode.ISOLATED)
-        assert not policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "ws1", "ws2"
-        )
+        assert not policy.allows_operation(OperationType.READ_KNOWLEDGE, "ws1", "ws2")
 
     def test_policy_allows_operation_readonly(self):
         """Readonly mode allows read operations only."""
@@ -132,14 +130,10 @@ class TestFederationPolicy:
         )
 
         # Blocked source
-        assert not policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "blocked-ws", "ws2"
-        )
+        assert not policy.allows_operation(OperationType.READ_KNOWLEDGE, "blocked-ws", "ws2")
 
         # Blocked target
-        assert not policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "ws1", "blocked-ws"
-        )
+        assert not policy.allows_operation(OperationType.READ_KNOWLEDGE, "ws1", "blocked-ws")
 
         # Non-blocked allowed
         assert policy.allows_operation(OperationType.READ_KNOWLEDGE, "ws1", "ws2")
@@ -153,19 +147,13 @@ class TestFederationPolicy:
         )
 
         # Both allowed
-        assert policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "allowed-src", "allowed-tgt"
-        )
+        assert policy.allows_operation(OperationType.READ_KNOWLEDGE, "allowed-src", "allowed-tgt")
 
         # Source not allowed
-        assert not policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "other-src", "allowed-tgt"
-        )
+        assert not policy.allows_operation(OperationType.READ_KNOWLEDGE, "other-src", "allowed-tgt")
 
         # Target not allowed
-        assert not policy.allows_operation(
-            OperationType.READ_KNOWLEDGE, "allowed-src", "other-tgt"
-        )
+        assert not policy.allows_operation(OperationType.READ_KNOWLEDGE, "allowed-src", "other-tgt")
 
     def test_policy_blocked_operations(self):
         """Blocked operations are denied."""
@@ -503,12 +491,8 @@ class TestCrossWorkspaceCoordinator:
     def test_list_consents(self):
         """All consents can be listed."""
         coordinator = CrossWorkspaceCoordinator()
-        coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.METADATA, set(), set(), "admin"
-        )
-        coordinator.grant_consent(
-            "ws2", "ws3", SharingScope.FULL, set(), set(), "admin"
-        )
+        coordinator.grant_consent("ws1", "ws2", SharingScope.METADATA, set(), set(), "admin")
+        coordinator.grant_consent("ws2", "ws3", SharingScope.FULL, set(), set(), "admin")
 
         all_consents = coordinator.list_consents()
         assert len(all_consents) == 2
@@ -516,12 +500,8 @@ class TestCrossWorkspaceCoordinator:
     def test_list_consents_by_workspace(self):
         """Consents can be filtered by workspace."""
         coordinator = CrossWorkspaceCoordinator()
-        coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.METADATA, set(), set(), "admin"
-        )
-        coordinator.grant_consent(
-            "ws2", "ws3", SharingScope.FULL, set(), set(), "admin"
-        )
+        coordinator.grant_consent("ws1", "ws2", SharingScope.METADATA, set(), set(), "admin")
+        coordinator.grant_consent("ws2", "ws3", SharingScope.FULL, set(), set(), "admin")
 
         ws1_consents = coordinator.list_consents("ws1")
         assert len(ws1_consents) == 1
@@ -617,8 +597,7 @@ class TestCrossWorkspaceCoordinator:
         coordinator.set_policy(policy)
 
         coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.FULL, set(),
-            {OperationType.READ_KNOWLEDGE}, "admin"
+            "ws1", "ws2", SharingScope.FULL, set(), {OperationType.READ_KNOWLEDGE}, "admin"
         )
 
         request = CrossWorkspaceRequest(
@@ -647,8 +626,7 @@ class TestCrossWorkspaceCoordinator:
         coordinator.set_policy(policy)
 
         coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.FULL, set(),
-            {OperationType.READ_KNOWLEDGE}, "admin"
+            "ws1", "ws2", SharingScope.FULL, set(), {OperationType.READ_KNOWLEDGE}, "admin"
         )
 
         def handler(req):
@@ -688,8 +666,7 @@ class TestCrossWorkspaceCoordinator:
         coordinator.set_policy(policy)
 
         coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.FULL, set(),
-            {OperationType.READ_KNOWLEDGE}, "admin"
+            "ws1", "ws2", SharingScope.FULL, set(), {OperationType.READ_KNOWLEDGE}, "admin"
         )
 
         def handler(req):
@@ -769,9 +746,7 @@ class TestCrossWorkspaceCoordinator:
         """Statistics are correctly computed."""
         coordinator = CrossWorkspaceCoordinator()
         coordinator.register_workspace(FederatedWorkspace(id="ws1", name="WS1"))
-        coordinator.grant_consent(
-            "ws1", "ws2", SharingScope.METADATA, set(), set(), "admin"
-        )
+        coordinator.grant_consent("ws1", "ws2", SharingScope.METADATA, set(), set(), "admin")
 
         stats = coordinator.get_stats()
 
@@ -801,6 +776,7 @@ class TestGlobalCoordinator:
         """get_coordinator returns a coordinator."""
         # Reset global state
         import aragora.coordination.cross_workspace as cw
+
         cw._coordinator = None
 
         coordinator = get_coordinator()
@@ -809,6 +785,7 @@ class TestGlobalCoordinator:
     def test_get_coordinator_returns_same_instance(self):
         """get_coordinator returns singleton."""
         import aragora.coordination.cross_workspace as cw
+
         cw._coordinator = None
 
         c1 = get_coordinator()

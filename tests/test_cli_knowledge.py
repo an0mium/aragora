@@ -48,9 +48,12 @@ class TestCmdFacts:
         )
 
         # Need to mock the import that happens inside cmd_facts
-        with patch.dict("sys.modules", {
-            "aragora.knowledge": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge": MagicMock(),
+            },
+        ):
             result = cmd_facts(args)
 
         assert result == 1
@@ -72,9 +75,12 @@ class TestCmdFacts:
             json=False,
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge": MagicMock(),
+            },
+        ):
             result = cmd_facts(args)
 
         assert result == 1
@@ -100,9 +106,12 @@ class TestCmdJobs:
         mock_knowledge.get_all_jobs = MagicMock(return_value=[])
         mock_knowledge.get_job_status = MagicMock(return_value=None)
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge": mock_knowledge,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge": mock_knowledge,
+            },
+        ):
             result = cmd_jobs(args)
 
         assert result == 1

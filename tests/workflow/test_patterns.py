@@ -179,7 +179,11 @@ class TestHiveMindPattern:
         )
 
         # Should have steps for agents plus merge and synthesis
-        agent_steps = [s for s in workflow.steps if "agent" in s.step_type or "claude" in s.id or "gpt4" in s.id]
+        agent_steps = [
+            s
+            for s in workflow.steps
+            if "agent" in s.step_type or "claude" in s.id or "gpt4" in s.id
+        ]
         assert len(agent_steps) >= 2
 
     def test_workflow_has_consensus_merge(self):
@@ -190,7 +194,9 @@ class TestHiveMindPattern:
             task="Test",
         )
 
-        merge_steps = [s for s in workflow.steps if "merge" in s.id.lower() or "consensus" in s.id.lower()]
+        merge_steps = [
+            s for s in workflow.steps if "merge" in s.id.lower() or "consensus" in s.id.lower()
+        ]
         assert len(merge_steps) >= 1
 
     def test_workflow_has_synthesis_step(self):
@@ -361,7 +367,9 @@ class TestMapReducePattern:
         )
 
         # Should have a split or map step
-        split_steps = [s for s in workflow.steps if "split" in s.id.lower() or "map" in s.id.lower()]
+        split_steps = [
+            s for s in workflow.steps if "split" in s.id.lower() or "map" in s.id.lower()
+        ]
         # At minimum, should have some steps for the map phase
         assert len(workflow.steps) >= 1
 
@@ -374,7 +382,9 @@ class TestMapReducePattern:
         )
 
         # Should have a reduce or aggregate step
-        reduce_steps = [s for s in workflow.steps if "reduce" in s.id.lower() or "aggregate" in s.id.lower()]
+        reduce_steps = [
+            s for s in workflow.steps if "reduce" in s.id.lower() or "aggregate" in s.id.lower()
+        ]
         assert len(reduce_steps) >= 1 or len(workflow.steps) >= 1
 
     def test_workflow_metadata(self):
@@ -416,7 +426,13 @@ class TestHierarchicalPattern:
         )
 
         # Should have a manager or coordinator step
-        manager_steps = [s for s in workflow.steps if "manager" in s.id.lower() or "coordinator" in s.id.lower() or "decompose" in s.id.lower()]
+        manager_steps = [
+            s
+            for s in workflow.steps
+            if "manager" in s.id.lower()
+            or "coordinator" in s.id.lower()
+            or "decompose" in s.id.lower()
+        ]
         assert len(manager_steps) >= 1 or len(workflow.steps) >= 1
 
     def test_workflow_metadata(self):
@@ -514,7 +530,10 @@ class TestDialecticPattern:
         all_text = " ".join(step_ids + step_names)
 
         # Should have dialectic-related steps
-        has_dialectic = any(term in all_text for term in ["thesis", "antithesis", "synthesis", "position", "counter"])
+        has_dialectic = any(
+            term in all_text
+            for term in ["thesis", "antithesis", "synthesis", "position", "counter"]
+        )
         assert has_dialectic or len(workflow.steps) >= 1
 
     def test_workflow_metadata(self):

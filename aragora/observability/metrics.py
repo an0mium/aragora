@@ -503,9 +503,9 @@ def _init_noop_metrics() -> None:
     RLM_SELECTION_RECOMMENDATIONS = NoOpMetric()
     CALIBRATION_COST_CALCULATIONS = NoOpMetric()
     BUDGET_FILTERING_EVENTS = NoOpMetric()
-    SLOW_DEBATES_TOTAL = NoOpMetric()
-    SLOW_ROUNDS_TOTAL = NoOpMetric()
-    DEBATE_ROUND_LATENCY = NoOpMetric()
+    NoOpMetric()
+    NoOpMetric()
+    NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -972,9 +972,7 @@ def record_performance_routing_decision(task_type: str, selected_agent: str) -> 
         selected_agent: Agent selected for the task
     """
     _init_metrics()
-    PERFORMANCE_ROUTING_DECISIONS.labels(
-        task_type=task_type, selected_agent=selected_agent
-    ).inc()
+    PERFORMANCE_ROUTING_DECISIONS.labels(task_type=task_type, selected_agent=selected_agent).inc()
 
 
 def record_performance_routing_latency(latency_seconds: float) -> None:
@@ -1004,9 +1002,7 @@ def record_analytics_selection_recommendation(recommendation_type: str) -> None:
         recommendation_type: Type of recommendation (boost, penalty, neutral)
     """
     _init_metrics()
-    ANALYTICS_SELECTION_RECOMMENDATIONS.labels(
-        recommendation_type=recommendation_type
-    ).inc()
+    ANALYTICS_SELECTION_RECOMMENDATIONS.labels(recommendation_type=recommendation_type).inc()
 
 
 def record_novelty_score_calculation(agent: str) -> None:

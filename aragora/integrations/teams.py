@@ -206,19 +206,23 @@ class TeamsIntegration:
         body = []
 
         # Question
-        body.append({
-            "type": "TextBlock",
-            "text": f"**Question:** {result.question}",
-            "wrap": True,
-        })
+        body.append(
+            {
+                "type": "TextBlock",
+                "text": f"**Question:** {result.question}",
+                "wrap": True,
+            }
+        )
 
         # Answer
         if result.answer:
-            body.append({
-                "type": "TextBlock",
-                "text": f"**Answer:** {result.answer}",
-                "wrap": True,
-            })
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**Answer:** {result.answer}",
+                    "wrap": True,
+                }
+            )
 
         # Statistics
         stats_text = f"Rounds: {result.total_rounds}"
@@ -227,25 +231,29 @@ class TeamsIntegration:
         if result.participating_agents:
             stats_text += f" | Agents: {len(result.participating_agents)}"
 
-        body.append({
-            "type": "TextBlock",
-            "text": stats_text,
-            "size": "Small",
-            "color": "Accent",
-        })
+        body.append(
+            {
+                "type": "TextBlock",
+                "text": stats_text,
+                "size": "Small",
+                "color": "Accent",
+            }
+        )
 
         # Agents column set
         if result.participating_agents:
             agent_list = ", ".join(result.participating_agents[:5])
             if len(result.participating_agents) > 5:
                 agent_list += f" +{len(result.participating_agents) - 5} more"
-            body.append({
-                "type": "TextBlock",
-                "text": f"*Participants: {agent_list}*",
-                "size": "Small",
-                "isSubtle": True,
-                "wrap": True,
-            })
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"*Participants: {agent_list}*",
+                    "size": "Small",
+                    "isSubtle": True,
+                    "wrap": True,
+                }
+            )
 
         card = AdaptiveCard(
             title=f"Debate Complete: {result.debate_id[:8]}",
@@ -310,12 +318,14 @@ class TeamsIntegration:
         ]
 
         if agents:
-            body.append({
-                "type": "TextBlock",
-                "text": f"*Agreement from: {', '.join(agents[:5])}*",
-                "size": "Small",
-                "isSubtle": True,
-            })
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"*Agreement from: {', '.join(agents[:5])}*",
+                    "size": "Small",
+                    "isSubtle": True,
+                }
+            )
 
         card = AdaptiveCard(
             title="Consensus Reached",
@@ -361,19 +371,23 @@ class TeamsIntegration:
         ]
 
         if phase:
-            body.append({
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"*Phase: {phase}*",
+                    "size": "Small",
+                    "isSubtle": True,
+                }
+            )
+
+        body.append(
+            {
                 "type": "TextBlock",
-                "text": f"*Phase: {phase}*",
+                "text": f"Debate ID: {debate_id}",
                 "size": "Small",
                 "isSubtle": True,
-            })
-
-        body.append({
-            "type": "TextBlock",
-            "text": f"Debate ID: {debate_id}",
-            "size": "Small",
-            "isSubtle": True,
-        })
+            }
+        )
 
         card = AdaptiveCard(
             title="Debate Error",
@@ -406,11 +420,13 @@ class TeamsIntegration:
         body = []
         for i, agent in enumerate(rankings[:10], 1):
             medal = {1: "1", 2: "2", 3: "3"}.get(i, str(i))
-            body.append({
-                "type": "TextBlock",
-                "text": f"{medal}. **{agent['name']}** - ELO: {agent.get('elo', 1500):.0f} ({agent.get('wins', 0)}W/{agent.get('losses', 0)}L)",
-                "spacing": "Small",
-            })
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"{medal}. **{agent['name']}** - ELO: {agent.get('elo', 1500):.0f} ({agent.get('wins', 0)}W/{agent.get('losses', 0)}L)",
+                    "spacing": "Small",
+                }
+            )
 
         card = AdaptiveCard(
             title=title,

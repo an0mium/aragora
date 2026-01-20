@@ -15,11 +15,10 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from aragora.bots.base import (
     BotChannel,
@@ -46,6 +45,7 @@ def _check_discord_available() -> tuple[bool, Optional[str]]:
     """Check if discord.py is available."""
     try:
         import discord
+
         return True, None
     except ImportError:
         return False, "discord.py is required. Install with: pip install discord.py"
@@ -144,7 +144,6 @@ class AragoraDiscordBot:
         args: str,
     ) -> None:
         """Handle a slash command."""
-        import discord
 
         # Create command context
         ctx = self._create_context_from_interaction(interaction, command, args)
@@ -199,7 +198,6 @@ class AragoraDiscordBot:
 
     async def _handle_mention(self, message: Any) -> None:
         """Handle @mentions of the bot."""
-        import discord
 
         # Remove mention from text
         text = message.content
@@ -209,7 +207,7 @@ class AragoraDiscordBot:
 
         if not text:
             await message.reply(
-                "Hi! I'm Aragora. Use `/aragora help` or `/debate \"topic\"` to get started."
+                'Hi! I\'m Aragora. Use `/aragora help` or `/debate "topic"` to get started.'
             )
             return
 

@@ -121,11 +121,13 @@ class TestCheckpointRecovery:
                 state["data"].append(f"result_{i}")
 
                 # Create checkpoint
-                checkpoints.append({
-                    "step": i,
-                    "state": state.copy(),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                checkpoints.append(
+                    {
+                        "step": i,
+                        "state": state.copy(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
                 await asyncio.sleep(0.05)
 
@@ -334,12 +336,14 @@ class TestLongRunningWorkflows:
         async def workflow_with_progress(total_steps: int) -> dict:
             for i in range(total_steps):
                 await asyncio.sleep(0.05)
-                progress_updates.append({
-                    "step": i + 1,
-                    "total": total_steps,
-                    "percent": ((i + 1) / total_steps) * 100,
-                    "timestamp": time.time(),
-                })
+                progress_updates.append(
+                    {
+                        "step": i + 1,
+                        "total": total_steps,
+                        "percent": ((i + 1) / total_steps) * 100,
+                        "timestamp": time.time(),
+                    }
+                )
 
             return {"status": "completed", "steps": total_steps}
 

@@ -543,7 +543,7 @@ class TestBaseHandler:
             [
                 (3, "agent_a", SAFE_AGENT_PATTERN),
                 (4, "agent_b", SAFE_AGENT_PATTERN),
-            ]
+            ],
         )
         assert err is None
         assert params["agent_a"] == "claude"
@@ -651,6 +651,7 @@ class TestRequireQuota:
 
     def test_quota_decorator_allows_request(self):
         """Test quota decorator allows request when under limit."""
+
         @require_quota()
         def handler_func(handler, user=None):
             return json_response({"success": True})
@@ -669,6 +670,7 @@ class TestRequireQuota:
 
     def test_quota_decorator_requires_auth(self):
         """Test quota decorator requires authentication."""
+
         @require_quota()
         def handler_func(handler, user=None):
             return json_response({"success": True})
@@ -771,6 +773,7 @@ class TestBaseHandlerIntegration:
 
     def test_paginated_handler_subclass(self):
         """Test creating a paginated handler subclass."""
+
         class MyPaginatedHandler(BaseHandler, PaginatedHandlerMixin):
             def handle(self, path, query_params, handler):
                 limit, offset = self.get_pagination(query_params)

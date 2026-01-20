@@ -84,7 +84,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="Command Injection",
-            pattern=r'(?:os\.system|subprocess\.(?:call|run|Popen)|shell=True)',
+            pattern=r"(?:os\.system|subprocess\.(?:call|run|Popen)|shell=True)",
             category="injection",
             severity="critical",
             cwe="CWE-78",
@@ -93,7 +93,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="XSS",
-            pattern=r'innerHTML\s*=|document\.write\s*\(|v-html\s*=|dangerouslySetInnerHTML',
+            pattern=r"innerHTML\s*=|document\.write\s*\(|v-html\s*=|dangerouslySetInnerHTML",
             category="xss",
             severity="high",
             cwe="CWE-79",
@@ -102,7 +102,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="Path Traversal",
-            pattern=r'(?:open|read|write|Path)\s*\([^)]*\.\./|\.\./',
+            pattern=r"(?:open|read|write|Path)\s*\([^)]*\.\./|\.\./",
             category="path_traversal",
             severity="high",
             cwe="CWE-22",
@@ -120,7 +120,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="Weak Cryptography",
-            pattern=r'(?:MD5|SHA1|DES|RC4|Blowfish)\s*\(|hashlib\.(?:md5|sha1)',
+            pattern=r"(?:MD5|SHA1|DES|RC4|Blowfish)\s*\(|hashlib\.(?:md5|sha1)",
             category="cryptography",
             severity="medium",
             cwe="CWE-327",
@@ -129,7 +129,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="Insecure Random",
-            pattern=r'\brandom\.(?:random|randint|choice|shuffle)\b',
+            pattern=r"\brandom\.(?:random|randint|choice|shuffle)\b",
             category="cryptography",
             severity="medium",
             cwe="CWE-330",
@@ -138,7 +138,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         VulnerabilityPattern(
             name="SSRF",
-            pattern=r'requests\.(?:get|post|put)\s*\([^)]*(?:url|host)',
+            pattern=r"requests\.(?:get|post|put)\s*\([^)]*(?:url|host)",
             category="ssrf",
             severity="high",
             cwe="CWE-918",
@@ -151,7 +151,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
     SECRET_PATTERNS = [
         SecretPattern(
             name="AWS Access Key",
-            pattern=r'(?:AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}',
+            pattern=r"(?:AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}",
             severity="critical",
             description="AWS access key ID detected",
         ),
@@ -163,7 +163,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         SecretPattern(
             name="GitHub Token",
-            pattern=r'gh[ps]_[A-Za-z0-9_]{36}|github_pat_[A-Za-z0-9_]{22,}',
+            pattern=r"gh[ps]_[A-Za-z0-9_]{36}|github_pat_[A-Za-z0-9_]{22,}",
             severity="critical",
             description="GitHub personal access token detected",
         ),
@@ -175,13 +175,13 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         ),
         SecretPattern(
             name="Private Key",
-            pattern=r'-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----',
+            pattern=r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
             severity="critical",
             description="Private key detected",
         ),
         SecretPattern(
             name="JWT Token",
-            pattern=r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+',
+            pattern=r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
             severity="high",
             description="JSON Web Token detected",
         ),
@@ -414,9 +414,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
         vuln_facts = [f for f in facts if f.category == "vulnerability"]
 
         for owasp_id, owasp_name in owasp_mapping.items():
-            related_facts = [
-                f for f in vuln_facts if f.metadata.get("category") == owasp_id
-            ]
+            related_facts = [f for f in vuln_facts if f.metadata.get("category") == owasp_id]
 
             if related_facts:
                 results.append(
@@ -463,8 +461,7 @@ class SoftwareKnowledge(BaseVerticalKnowledge):
                     findings=[f.content for f in cwe_facts],
                     evidence=[f.id for f in cwe_facts],
                     recommendations=[
-                        f.metadata.get("recommendation", "Review and fix")
-                        for f in cwe_facts
+                        f.metadata.get("recommendation", "Review and fix") for f in cwe_facts
                     ],
                     confidence=0.85,
                 )

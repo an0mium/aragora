@@ -5,6 +5,34 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2026-01-20
+
+### Changed
+
+- **Phase 24: Module Extractions** - Reduced large file sizes for maintainability:
+  - `prometheus.py` (1,460 → 994 lines): Extracted to `prometheus_nomic.py`, `prometheus_control_plane.py`, `prometheus_rlm.py`, `prometheus_knowledge.py`
+  - `feedback_phase.py` (1,628 → 1,191 lines): Extracted to `feedback_elo.py`, `feedback_persona.py`, `feedback_evolution.py`
+  - `bridge.py` (1,701 → 979 lines): Extracted to `debate_adapter.py`, `knowledge_adapter.py`, `hierarchy_cache.py`
+
+- **Strict Type Checking** - Expanded mypy strict mode to 29 modules (from 19):
+  - Added: `prometheus_nomic`, `prometheus_control_plane`, `prometheus_rlm`
+  - Added: `feedback_elo`, `feedback_persona`, `feedback_evolution`
+  - Added: `debate_adapter`, `knowledge_adapter`, `hierarchy_cache`, `rlm/types`
+
+### Fixed
+
+- Fixed undefined name errors (`AgentSpec`, `KnowledgeItem`, `DB_KNOWLEDGE_PATH`, `asyncio`)
+- Fixed circular imports in prometheus module re-exports
+- Fixed duplicate imports in `openai_compatible.py`
+- Fixed ambiguous variable name `l` → `label` in `email_priority.py`
+- Removed unused local variables in `backup/manager.py`
+- Updated import paths for metrics functions to use extracted submodules
+
+### Documentation
+
+- Updated `.github/workflows/lint.yml` to include 29 strict-checked modules
+- Added comments documenting intentional broad exception handlers with `# noqa: BLE001`
+
 ## [2.0.3] - 2026-01-20
 
 ### Added

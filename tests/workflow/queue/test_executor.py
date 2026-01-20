@@ -30,6 +30,7 @@ class TestStepExecutor:
 
     def test_register_handler(self, executor):
         """Test registering a step handler."""
+
         def handler(task):
             return TaskResult(success=True, output={"handled": True})
 
@@ -39,6 +40,7 @@ class TestStepExecutor:
     @pytest.mark.asyncio
     async def test_execute_with_handler(self, executor):
         """Test executing with a registered handler."""
+
         async def handler(task):
             return TaskResult(success=True, output={"step": task.step_id})
 
@@ -69,6 +71,7 @@ class TestStepExecutor:
     @pytest.mark.asyncio
     async def test_executor_stats(self, executor):
         """Test executor statistics tracking."""
+
         async def handler(task):
             await asyncio.sleep(0.01)
             return TaskResult(success=True)

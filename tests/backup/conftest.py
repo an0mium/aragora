@@ -38,6 +38,7 @@ def isolate_backup_tests(tmp_path):
     files on disk.
     """
     import os
+
     original_cwd = os.getcwd()
 
     yield tmp_path

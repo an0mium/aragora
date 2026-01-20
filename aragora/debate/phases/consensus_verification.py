@@ -272,7 +272,7 @@ class ConsensusVerifier:
                 if verified > 0 and disproven == 0:
                     # Proposal verified - boost confidence
                     # Multiply by 1.3 for each verified claim, cap at 0.99
-                    boost = 1.3 ** verified
+                    boost = 1.3**verified
                     vote.confidence = min(0.99, vote.confidence * boost)
                     logger.debug(
                         f"[verification] Boosted vote confidence for {voted_agent}: "
@@ -283,7 +283,7 @@ class ConsensusVerifier:
                 elif disproven > 0:
                     # Proposal disproven - reduce confidence
                     # Multiply by 0.3 for each disproven claim, floor at 0.01
-                    penalty = 0.3 ** disproven
+                    penalty = 0.3**disproven
                     vote.confidence = max(0.01, vote.confidence * penalty)
                     logger.debug(
                         f"[verification] Reduced vote confidence for {voted_agent}: "

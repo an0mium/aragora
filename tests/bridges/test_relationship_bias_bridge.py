@@ -51,9 +51,7 @@ class MockRelationshipTracker:
             MockRelationshipMetrics(agent_a=agent_a, agent_b=agent_b),
         )
 
-    def set_metrics(
-        self, agent_a: str, agent_b: str, metrics: MockRelationshipMetrics
-    ) -> None:
+    def set_metrics(self, agent_a: str, agent_b: str, metrics: MockRelationshipMetrics) -> None:
         """Set metrics for a pair."""
         if agent_a > agent_b:
             agent_a, agent_b = agent_b, agent_a
@@ -110,9 +108,7 @@ class TestRelationshipBiasBridge:
         tracker.set_metrics(
             "claude",
             "gpt-4",
-            MockRelationshipMetrics(
-                agent_a="claude", agent_b="gpt-4", debate_count=1
-            ),
+            MockRelationshipMetrics(agent_a="claude", agent_b="gpt-4", debate_count=1),
         )
 
         bridge = RelationshipBiasBridge(

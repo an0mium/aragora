@@ -361,26 +361,27 @@ class EnhancedKnowledgeItem(KnowledgeItem):
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         base_dict = super().to_dict()
-        base_dict.update({
-            "embedding_model": self.embedding_model,
-            "tenant_id": self.tenant_id,
-            "domain_path": self.domain_path,
-            "domain": self.domain,
-            "predecessor_ids": self.predecessor_ids,
-            "successor_id": self.successor_id,
-            "merged_from": self.merged_from,
-            "retrieval_count": self.retrieval_count,
-            "last_retrieved_at": (
-                self.last_retrieved_at.isoformat()
-                if self.last_retrieved_at else None
-            ),
-            "avg_retrieval_rank": self.avg_retrieval_rank,
-            # Visibility fields
-            "visibility": self.visibility.value,
-            "visibility_set_by": self.visibility_set_by,
-            "access_grants": [g.to_dict() for g in self.access_grants],
-            "is_discoverable": self.is_discoverable,
-        })
+        base_dict.update(
+            {
+                "embedding_model": self.embedding_model,
+                "tenant_id": self.tenant_id,
+                "domain_path": self.domain_path,
+                "domain": self.domain,
+                "predecessor_ids": self.predecessor_ids,
+                "successor_id": self.successor_id,
+                "merged_from": self.merged_from,
+                "retrieval_count": self.retrieval_count,
+                "last_retrieved_at": (
+                    self.last_retrieved_at.isoformat() if self.last_retrieved_at else None
+                ),
+                "avg_retrieval_rank": self.avg_retrieval_rank,
+                # Visibility fields
+                "visibility": self.visibility.value,
+                "visibility_set_by": self.visibility_set_by,
+                "access_grants": [g.to_dict() for g in self.access_grants],
+                "is_discoverable": self.is_discoverable,
+            }
+        )
         # Note: embedding intentionally excluded from dict to save space
         return base_dict
 

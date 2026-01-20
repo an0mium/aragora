@@ -74,11 +74,27 @@ def sample_messages():
     """Create sample message history."""
     return [
         MockMessage(agent="user", role="task", content="Implement a rate limiter", round=0),
-        MockMessage(agent="claude", role="proposer", content="I propose using token bucket algorithm", round=1),
-        MockMessage(agent="gpt4", role="critic", content="Consider sliding window instead", round=1),
-        MockMessage(agent="claude", role="defender", content="Token bucket is simpler to implement", round=2),
-        MockMessage(agent="gemini", role="proposer", content="We could combine both approaches", round=2),
-        MockMessage(agent="claude", role="synthesizer", content="Agreed, hybrid approach works best", round=3),
+        MockMessage(
+            agent="claude",
+            role="proposer",
+            content="I propose using token bucket algorithm",
+            round=1,
+        ),
+        MockMessage(
+            agent="gpt4", role="critic", content="Consider sliding window instead", round=1
+        ),
+        MockMessage(
+            agent="claude", role="defender", content="Token bucket is simpler to implement", round=2
+        ),
+        MockMessage(
+            agent="gemini", role="proposer", content="We could combine both approaches", round=2
+        ),
+        MockMessage(
+            agent="claude",
+            role="synthesizer",
+            content="Agreed, hybrid approach works best",
+            round=3,
+        ),
     ]
 
 
@@ -249,9 +265,7 @@ class TestRLMCognitiveLoadLimiter:
         patterns = "pattern1, pattern2"
         extra = "extra context"
 
-        total = limiter._calculate_total_chars(
-            sample_messages, sample_critiques, patterns, extra
-        )
+        total = limiter._calculate_total_chars(sample_messages, sample_critiques, patterns, extra)
 
         # Should sum all content
         expected = sum(len(m.content) for m in sample_messages)
@@ -358,9 +372,7 @@ class TestRLMCognitiveLoadLimiterAsync:
     @pytest.mark.asyncio
     async def test_compress_messages_async(self, limiter, sample_messages):
         """Test message compression."""
-        messages, levels = await limiter._compress_messages_async(
-            sample_messages, limiter.budget
-        )
+        messages, levels = await limiter._compress_messages_async(sample_messages, limiter.budget)
 
         # Should have compressed result
         assert len(messages) > 0
@@ -373,9 +385,7 @@ class TestRLMCognitiveLoadLimiterAsync:
     @pytest.mark.asyncio
     async def test_compress_critiques_async(self, limiter, sample_critiques):
         """Test critique compression."""
-        result = await limiter._compress_critiques_async(
-            sample_critiques, limiter.budget
-        )
+        result = await limiter._compress_critiques_async(sample_critiques, limiter.budget)
 
         # High severity should be kept
         assert len(result) > 0
@@ -617,8 +627,7 @@ class TestRealRLMIntegration:
     def test_limiter_rlm_backend_parameters(self):
         """Limiter accepts RLM backend parameters."""
         limiter = RLMCognitiveLoadLimiter(
-            rlm_backend="anthropic",
-            rlm_model="claude-3-5-sonnet-20241022"
+            rlm_backend="anthropic", rlm_model="claude-3-5-sonnet-20241022"
         )
         assert limiter._rlm_backend == "anthropic"
         assert limiter._rlm_model == "claude-3-5-sonnet-20241022"
@@ -626,9 +635,7 @@ class TestRealRLMIntegration:
     def test_for_stress_level_accepts_rlm_params(self):
         """for_stress_level accepts RLM backend parameters."""
         limiter = RLMCognitiveLoadLimiter.for_stress_level(
-            level="elevated",
-            rlm_backend="openrouter",
-            rlm_model="mistral-large"
+            level="elevated", rlm_backend="openrouter", rlm_model="mistral-large"
         )
         assert limiter._rlm_backend == "openrouter"
         assert limiter._rlm_model == "mistral-large"
@@ -636,9 +643,7 @@ class TestRealRLMIntegration:
     def test_create_rlm_limiter_accepts_backend_params(self):
         """create_rlm_limiter factory accepts RLM backend parameters."""
         limiter = create_rlm_limiter(
-            stress_level="nominal",
-            rlm_backend="anthropic",
-            rlm_model="claude-3-opus-20240229"
+            stress_level="nominal", rlm_backend="anthropic", rlm_model="claude-3-opus-20240229"
         )
         assert limiter._rlm_backend == "anthropic"
         assert limiter._rlm_model == "claude-3-opus-20240229"
@@ -663,9 +668,7 @@ class TestRealRLMIntegration:
 
         # Even without real RLM, should return a result
         result = await limiter.query_with_rlm(
-            query="token bucket",
-            messages=messages,
-            strategy="auto"
+            query="token bucket", messages=messages, strategy="auto"
         )
 
         assert isinstance(result, str)
@@ -702,15 +705,14 @@ class TestRealRLMIntegration:
         result = limiter._fallback_search("token approach", messages)
 
         # Should find messages containing query terms
-        assert "token" in result.lower() or "relevant" in result.lower() or "found" in result.lower()
+        assert (
+            "token" in result.lower() or "relevant" in result.lower() or "found" in result.lower()
+        )
 
     @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM library not installed")
     def test_real_rlm_initialization(self):
         """When RLM is installed, limiter initializes real RLM."""
-        limiter = RLMCognitiveLoadLimiter(
-            rlm_backend="openai",
-            rlm_model="gpt-4o"
-        )
+        limiter = RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-4o")
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
 
@@ -718,10 +720,7 @@ class TestRealRLMIntegration:
     @pytest.mark.asyncio
     async def test_real_rlm_query(self):
         """Real RLM query uses REPL-based approach."""
-        limiter = RLMCognitiveLoadLimiter(
-            rlm_backend="openai",
-            rlm_model="gpt-4o"
-        )
+        limiter = RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-4o")
 
         messages = [MockMessage(content="Test content " * 100, round=i) for i in range(10)]
 
@@ -877,7 +876,9 @@ class TestArenaRLMIntegration:
         critiques = [MockCritique(reasoning="B" * 200) for _ in range(5)]
 
         # Run async compression
-        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, critiques)
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(
+            messages, critiques
+        )
 
         # Should return lists (may or may not be compressed depending on threshold)
         assert isinstance(compressed_msgs, list)
@@ -904,7 +905,9 @@ class TestArenaRLMIntegration:
         messages = [MockMessage(content="Test", round=i) for i in range(5)]
         critiques = [MockCritique(reasoning="Critique") for _ in range(3)]
 
-        compressed_msgs, compressed_crits = await arena.compress_debate_messages(messages, critiques)
+        compressed_msgs, compressed_crits = await arena.compress_debate_messages(
+            messages, critiques
+        )
 
         # Without RLM, should return original messages unchanged
         assert compressed_msgs is messages

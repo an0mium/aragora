@@ -54,18 +54,23 @@ def _get_ml_component(name: str):
         try:
             if name == "router":
                 from aragora.ml import get_agent_router
+
                 _ml_components[name] = get_agent_router()
             elif name == "scorer":
                 from aragora.ml import get_quality_scorer
+
                 _ml_components[name] = get_quality_scorer()
             elif name == "predictor":
                 from aragora.ml import get_consensus_predictor
+
                 _ml_components[name] = get_consensus_predictor()
             elif name == "embeddings":
                 from aragora.ml import get_embedding_service
+
                 _ml_components[name] = get_embedding_service()
             elif name == "exporter":
                 from aragora.debate.ml_integration import get_training_exporter
+
                 _ml_components[name] = get_training_exporter()
         except ImportError as e:
             logger.warning(f"ML component {name} not available: {e}")
@@ -181,16 +186,16 @@ class MLHandler(BaseHandler):
                 constraints=constraints,
             )
 
-            return json_response({
-                "selected_agents": decision.selected_agents,
-                "task_type": decision.task_type.value,
-                "confidence": round(decision.confidence, 3),
-                "reasoning": decision.reasoning,
-                "agent_scores": {
-                    k: round(v, 3) for k, v in decision.agent_scores.items()
-                },
-                "diversity_score": round(decision.diversity_score, 3),
-            })
+            return json_response(
+                {
+                    "selected_agents": decision.selected_agents,
+                    "task_type": decision.task_type.value,
+                    "confidence": round(decision.confidence, 3),
+                    "reasoning": decision.reasoning,
+                    "agent_scores": {k: round(v, 3) for k, v in decision.agent_scores.items()},
+                    "diversity_score": round(decision.diversity_score, 3),
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML routing request: {e}")
@@ -233,16 +238,18 @@ class MLHandler(BaseHandler):
         try:
             score = scorer.score(text, context=context)
 
-            return json_response({
-                "overall": round(score.overall, 3),
-                "coherence": round(score.coherence, 3),
-                "completeness": round(score.completeness, 3),
-                "relevance": round(score.relevance, 3),
-                "clarity": round(score.clarity, 3),
-                "confidence": round(score.confidence, 3),
-                "is_high_quality": score.is_high_quality,
-                "needs_review": score.needs_review,
-            })
+            return json_response(
+                {
+                    "overall": round(score.overall, 3),
+                    "coherence": round(score.coherence, 3),
+                    "completeness": round(score.completeness, 3),
+                    "relevance": round(score.relevance, 3),
+                    "clarity": round(score.clarity, 3),
+                    "confidence": round(score.confidence, 3),
+                    "is_high_quality": score.is_high_quality,
+                    "needs_review": score.needs_review,
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML scoring request: {e}")
@@ -284,20 +291,22 @@ class MLHandler(BaseHandler):
         try:
             scores = scorer.score_batch(texts, contexts=contexts)
 
-            return json_response({
-                "scores": [
-                    {
-                        "overall": round(s.overall, 3),
-                        "coherence": round(s.coherence, 3),
-                        "completeness": round(s.completeness, 3),
-                        "relevance": round(s.relevance, 3),
-                        "clarity": round(s.clarity, 3),
-                        "confidence": round(s.confidence, 3),
-                        "is_high_quality": s.is_high_quality,
-                    }
-                    for s in scores
-                ]
-            })
+            return json_response(
+                {
+                    "scores": [
+                        {
+                            "overall": round(s.overall, 3),
+                            "coherence": round(s.coherence, 3),
+                            "completeness": round(s.completeness, 3),
+                            "relevance": round(s.relevance, 3),
+                            "clarity": round(s.clarity, 3),
+                            "confidence": round(s.confidence, 3),
+                            "is_high_quality": s.is_high_quality,
+                        }
+                        for s in scores
+                    ]
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML batch scoring request: {e}")
@@ -354,16 +363,18 @@ class MLHandler(BaseHandler):
                 total_rounds=total_rounds,
             )
 
-            return json_response({
-                "probability": round(prediction.probability, 3),
-                "confidence": round(prediction.confidence, 3),
-                "convergence_trend": prediction.convergence_trend,
-                "estimated_rounds": prediction.estimated_rounds,
-                "likely_consensus": prediction.likely_consensus,
-                "early_termination_safe": prediction.early_termination_safe,
-                "needs_intervention": prediction.needs_intervention,
-                "key_factors": prediction.key_factors,
-            })
+            return json_response(
+                {
+                    "probability": round(prediction.probability, 3),
+                    "confidence": round(prediction.confidence, 3),
+                    "convergence_trend": prediction.convergence_trend,
+                    "estimated_rounds": prediction.estimated_rounds,
+                    "likely_consensus": prediction.likely_consensus,
+                    "early_termination_safe": prediction.early_termination_safe,
+                    "needs_intervention": prediction.needs_intervention,
+                    "key_factors": prediction.key_factors,
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML consensus prediction request: {e}")
@@ -411,21 +422,23 @@ class MLHandler(BaseHandler):
 
             if output_format == "jsonl":
                 # Return as JSONL string
-                lines = [
-                    str(ex.to_dict()) for ex in training_data.examples
-                ]
-                return json_response({
-                    "examples": len(training_data),
-                    "format": "jsonl",
-                    "data": "\n".join(lines),
-                })
+                lines = [str(ex.to_dict()) for ex in training_data.examples]
+                return json_response(
+                    {
+                        "examples": len(training_data),
+                        "format": "jsonl",
+                        "data": "\n".join(lines),
+                    }
+                )
             else:
                 # Return as JSON array
-                return json_response({
-                    "examples": len(training_data),
-                    "format": "json",
-                    "data": [ex.to_dict() for ex in training_data.examples],
-                })
+                return json_response(
+                    {
+                        "examples": len(training_data),
+                        "format": "json",
+                        "data": [ex.to_dict() for ex in training_data.examples],
+                    }
+                )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML export request: {e}")
@@ -468,11 +481,13 @@ class MLHandler(BaseHandler):
                     return error_response("Maximum 100 texts per batch", 400)
                 result = embeddings.embed_batch(texts)
 
-            return json_response({
-                "embeddings": result,
-                "dimension": len(result[0]) if result else 0,
-                "count": len(result),
-            })
+            return json_response(
+                {
+                    "embeddings": result,
+                    "dimension": len(result[0]) if result else 0,
+                    "count": len(result),
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML embedding request: {e}")
@@ -525,17 +540,19 @@ class MLHandler(BaseHandler):
                 threshold=threshold,
             )
 
-            return json_response({
-                "results": [
-                    {
-                        "text": r.text,
-                        "score": round(r.score, 4),
-                        "index": r.index,
-                    }
-                    for r in results
-                ],
-                "count": len(results),
-            })
+            return json_response(
+                {
+                    "results": [
+                        {
+                            "text": r.text,
+                            "score": round(r.score, 4),
+                            "index": r.index,
+                        }
+                        for r in results
+                    ],
+                    "count": len(results),
+                }
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML search request: {e}")
@@ -561,7 +578,11 @@ class MLHandler(BaseHandler):
         if embeddings:
             models["embeddings"] = {
                 "model": embeddings.model_name,
-                "dimension": embeddings.dimension if hasattr(embeddings, "_dimension") and embeddings._dimension else "lazy",
+                "dimension": (
+                    embeddings.dimension
+                    if hasattr(embeddings, "_dimension") and embeddings._dimension
+                    else "lazy"
+                ),
             }
 
         # Check router capabilities
@@ -569,14 +590,24 @@ class MLHandler(BaseHandler):
         if router:
             models["routing"] = {
                 "registered_agents": len(router._capabilities),
-                "task_types": ["coding", "analysis", "creative", "reasoning", "research", "math", "general"],
+                "task_types": [
+                    "coding",
+                    "analysis",
+                    "creative",
+                    "reasoning",
+                    "research",
+                    "math",
+                    "general",
+                ],
             }
 
-        return json_response({
-            "capabilities": capabilities,
-            "models": models,
-            "version": "1.0.0",
-        })
+        return json_response(
+            {
+                "capabilities": capabilities,
+                "models": models,
+                "version": "1.0.0",
+            }
+        )
 
     def _handle_stats(self) -> HandlerResult:
         """Get ML module statistics."""
@@ -588,7 +619,8 @@ class MLHandler(BaseHandler):
             stats["routing"] = {
                 "registered_agents": len(router._capabilities),
                 "historical_records": sum(
-                    len(v) for agent_history in router._historical_performance.values()
+                    len(v)
+                    for agent_history in router._historical_performance.values()
                     for v in agent_history.values()
                 ),
             }
@@ -604,7 +636,9 @@ class MLHandler(BaseHandler):
                 "recall": round(calibration.get("recall", 0), 3),
             }
 
-        return json_response({
-            "stats": stats,
-            "status": "healthy" if stats else "limited",
-        })
+        return json_response(
+            {
+                "stats": stats,
+                "status": "healthy" if stats else "limited",
+            }
+        )

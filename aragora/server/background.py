@@ -284,7 +284,9 @@ def setup_default_tasks(
                 from aragora.persistence.db_config import DatabaseType, get_db_path
 
                 # Use provided path or default
-                db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None)
+                db_path = get_db_path(
+                    DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None
+                )
                 memory = ContinuumMemory(db_path=db_path)
 
             # Check memory pressure before cleanup
@@ -381,7 +383,9 @@ def setup_default_tasks(
                 from aragora.memory.continuum import ContinuumMemory
                 from aragora.persistence.db_config import DatabaseType, get_db_path
 
-                db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None)
+                db_path = get_db_path(
+                    DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None
+                )
                 memory = ContinuumMemory(db_path=db_path)
 
             result = memory.consolidate()
@@ -489,7 +493,10 @@ def setup_default_tasks(
                         logger.debug("Knowledge Mound not available, skipping staleness check")
                         # Record skipped metric
                         try:
-                            from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                            from aragora.server.prometheus_cross_pollination import (
+                                record_km_staleness_check,
+                            )
+
                             record_km_staleness_check(workspace_id, "skipped", 0)
                         except ImportError:
                             pass
@@ -526,7 +533,10 @@ def setup_default_tasks(
 
                     # Record completion metric
                     try:
-                        from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                        from aragora.server.prometheus_cross_pollination import (
+                            record_km_staleness_check,
+                        )
+
                         record_km_staleness_check(workspace_id, "completed", stale_count)
                     except ImportError:
                         pass
@@ -534,7 +544,10 @@ def setup_default_tasks(
                 except ImportError as e:
                     logger.debug("Knowledge Mound staleness check skipped: %s", e)
                     try:
-                        from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+                        from aragora.server.prometheus_cross_pollination import (
+                            record_km_staleness_check,
+                        )
+
                         record_km_staleness_check(workspace_id, "skipped", 0)
                     except ImportError:
                         pass
@@ -549,6 +562,7 @@ def setup_default_tasks(
             # Record failure metric
             try:
                 from aragora.server.prometheus_cross_pollination import record_km_staleness_check
+
                 record_km_staleness_check("default", "failed", 0)
             except ImportError:
                 pass

@@ -149,10 +149,12 @@ class DialecticPattern(WorkflowPattern):
         thesis_step.next_steps = ["antithesis"]
         antithesis_step.next_steps = ["synthesis"]
 
-        transitions.extend([
-            self._create_transition("thesis", "antithesis"),
-            self._create_transition("antithesis", "synthesis"),
-        ])
+        transitions.extend(
+            [
+                self._create_transition("thesis", "antithesis"),
+                self._create_transition("antithesis", "synthesis"),
+            ]
+        )
 
         # Optional: Meta-analysis step
         if self.include_meta_analysis:
@@ -274,4 +276,8 @@ Present your synthesis:"""
         "antithesis": "%s",
         "synthesis": "%s"
     }
-}""" % (self.thesis_agent, self.antithesis_agent, self.synthesis_agent)
+}""" % (
+            self.thesis_agent,
+            self.antithesis_agent,
+            self.synthesis_agent,
+        )

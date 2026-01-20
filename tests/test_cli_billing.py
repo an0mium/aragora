@@ -123,7 +123,7 @@ class TestApiRequest:
         monkeypatch.setenv("ARAGORA_API_TOKEN", "my-token")
 
         mock_response = MagicMock()
-        mock_response.read.return_value = b'{}'
+        mock_response.read.return_value = b"{}"
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -138,9 +138,7 @@ class TestApiRequest:
         """Raise RuntimeError on HTTP error."""
         import urllib.error
 
-        mock_error = urllib.error.HTTPError(
-            "http://test", 401, "Unauthorized", {}, None
-        )
+        mock_error = urllib.error.HTTPError("http://test", 401, "Unauthorized", {}, None)
         mock_error.read = MagicMock(return_value=b"Unauthorized")
         mock_urlopen.side_effect = mock_error
 
@@ -338,9 +336,7 @@ class TestCmdSubscribe:
         """Show checkout URL for subscription."""
         mock_args.plan = "pro"
         mock_args.open = False
-        mock_request.return_value = {
-            "checkout_url": "https://checkout.stripe.com/test"
-        }
+        mock_request.return_value = {"checkout_url": "https://checkout.stripe.com/test"}
 
         result = cmd_subscribe(mock_args)
 
@@ -354,9 +350,7 @@ class TestCmdSubscribe:
         """Open browser when --open flag set."""
         mock_args.plan = "pro"
         mock_args.open = True
-        mock_request.return_value = {
-            "checkout_url": "https://checkout.stripe.com/test"
-        }
+        mock_request.return_value = {"checkout_url": "https://checkout.stripe.com/test"}
 
         result = cmd_subscribe(mock_args)
 
@@ -396,9 +390,7 @@ class TestCmdPortal:
     def test_opens_portal(self, mock_browser, mock_request, mock_args, capsys):
         """Open billing portal in browser."""
         mock_args.no_open = False
-        mock_request.return_value = {
-            "url": "https://billing.stripe.com/portal"
-        }
+        mock_request.return_value = {"url": "https://billing.stripe.com/portal"}
 
         result = cmd_portal(mock_args)
 
@@ -411,9 +403,7 @@ class TestCmdPortal:
     def test_shows_url_without_opening(self, mock_request, mock_args, capsys):
         """Show URL without opening browser."""
         mock_args.no_open = True
-        mock_request.return_value = {
-            "url": "https://billing.stripe.com/portal"
-        }
+        mock_request.return_value = {"url": "https://billing.stripe.com/portal"}
 
         result = cmd_portal(mock_args)
 

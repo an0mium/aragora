@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         KnowledgeItem,
         MoundConfig,
-        VisibilityLevel,
     )
 
 logger = logging.getLogger(__name__)
@@ -239,7 +238,9 @@ class KnowledgeFederationMixin:
                         updated_at = (item.metadata or {}).get("updated_at")
                         if updated_at:
                             try:
-                                item_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+                                item_time = datetime.fromisoformat(
+                                    updated_at.replace("Z", "+00:00")
+                                )
                                 if item_time < since:
                                     continue
                             except (ValueError, TypeError):
@@ -262,9 +263,7 @@ class KnowledgeFederationMixin:
 
             duration_ms = (time.time() - start_time) * 1000
 
-            logger.info(
-                f"Synced {nodes_synced} items to region {region_id} in {duration_ms:.0f}ms"
-            )
+            logger.info(f"Synced {nodes_synced} items to region {region_id} in {duration_ms:.0f}ms")
 
             return SyncResult(
                 region_id=region_id,

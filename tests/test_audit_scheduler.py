@@ -1014,6 +1014,7 @@ class TestJobHistory:
 
             await scheduler._execute_job(job)
             import asyncio
+
             await asyncio.sleep(0.01)  # Small delay
             await scheduler._execute_job(job)
 
@@ -1102,6 +1103,7 @@ class TestSchedulerSingleton:
 
         # Reset singleton for test
         import aragora.scheduler.audit_scheduler as module
+
         module._scheduler = None
 
         s1 = get_scheduler()

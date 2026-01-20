@@ -67,10 +67,7 @@ class EmbeddingBackend(ABC):
         logger = logging.getLogger(__name__)
 
         # Use return_exceptions to prevent first failure from canceling others
-        results = await asyncio.gather(
-            *[self.embed(t) for t in texts],
-            return_exceptions=True
-        )
+        results = await asyncio.gather(*[self.embed(t) for t in texts], return_exceptions=True)
 
         # Process results, replacing exceptions with zero vectors
         embeddings = []

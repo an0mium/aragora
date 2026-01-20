@@ -52,9 +52,7 @@ def get_provider(
     provider_class = providers.get(name.lower())
     if not provider_class:
         available = ", ".join(providers.keys())
-        raise ValueError(
-            f"Unknown STT provider: {name}. Available providers: {available}"
-        )
+        raise ValueError(f"Unknown STT provider: {name}. Available providers: {available}")
 
     return provider_class(config=config)
 

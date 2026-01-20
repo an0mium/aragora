@@ -46,6 +46,7 @@ async def stream_server():
 async def connect_client(port: int, path: str = "/api/control-plane/stream"):
     """Connect a WebSocket client to the server."""
     import websockets
+
     uri = f"ws://127.0.0.1:{port}{path}"
     return await websockets.connect(uri)
 
@@ -289,12 +290,14 @@ class TestEventEmission:
         try:
             await receive_with_timeout(ws)
 
-            await stream_server.emit_scheduler_stats({
-                "pending_tasks": 5,
-                "running_tasks": 3,
-                "agents_idle": 2,
-                "agents_busy": 3,
-            })
+            await stream_server.emit_scheduler_stats(
+                {
+                    "pending_tasks": 5,
+                    "running_tasks": 3,
+                    "agents_idle": 2,
+                    "agents_busy": 3,
+                }
+            )
 
             message = await receive_with_timeout(ws)
             assert message["type"] == "scheduler_stats"

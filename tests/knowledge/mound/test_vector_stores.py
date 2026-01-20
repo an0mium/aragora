@@ -252,12 +252,10 @@ class TestInMemoryVectorStore:
     async def test_search_with_filter(self, memory_store, sample_embeddings):
         """Test search with metadata filter."""
         await memory_store.upsert(
-            "doc1", sample_embeddings["doc1"], "Document 1",
-            metadata={"category": "A"}
+            "doc1", sample_embeddings["doc1"], "Document 1", metadata={"category": "A"}
         )
         await memory_store.upsert(
-            "doc2", sample_embeddings["doc2"], "Document 2",
-            metadata={"category": "B"}
+            "doc2", sample_embeddings["doc2"], "Document 2", metadata={"category": "B"}
         )
 
         results = await memory_store.search(
@@ -274,12 +272,10 @@ class TestInMemoryVectorStore:
     async def test_search_with_namespace(self, memory_store, sample_embeddings):
         """Test search with namespace isolation."""
         await memory_store.upsert(
-            "doc1", sample_embeddings["doc1"], "Namespace A doc",
-            namespace="ns_a"
+            "doc1", sample_embeddings["doc1"], "Namespace A doc", namespace="ns_a"
         )
         await memory_store.upsert(
-            "doc2", sample_embeddings["doc2"], "Namespace B doc",
-            namespace="ns_b"
+            "doc2", sample_embeddings["doc2"], "Namespace B doc", namespace="ns_b"
         )
 
         # Search in namespace A
@@ -299,15 +295,9 @@ class TestInMemoryVectorStore:
     @pytest.mark.asyncio
     async def test_hybrid_search(self, memory_store, sample_embeddings):
         """Test hybrid search combining vector and keyword."""
-        await memory_store.upsert(
-            "doc1", sample_embeddings["doc1"], "python programming language"
-        )
-        await memory_store.upsert(
-            "doc2", sample_embeddings["doc2"], "java programming language"
-        )
-        await memory_store.upsert(
-            "doc3", sample_embeddings["doc3"], "cooking recipes"
-        )
+        await memory_store.upsert("doc1", sample_embeddings["doc1"], "python programming language")
+        await memory_store.upsert("doc2", sample_embeddings["doc2"], "java programming language")
+        await memory_store.upsert("doc3", sample_embeddings["doc3"], "cooking recipes")
 
         # Search with keyword "python" - should boost doc1
         results = await memory_store.hybrid_search(
@@ -340,12 +330,10 @@ class TestInMemoryVectorStore:
     async def test_delete_by_filter(self, memory_store, sample_embeddings):
         """Test deleting by filter."""
         await memory_store.upsert(
-            "doc1", sample_embeddings["doc1"], "Doc 1",
-            metadata={"delete_me": True}
+            "doc1", sample_embeddings["doc1"], "Doc 1", metadata={"delete_me": True}
         )
         await memory_store.upsert(
-            "doc2", sample_embeddings["doc2"], "Doc 2",
-            metadata={"delete_me": False}
+            "doc2", sample_embeddings["doc2"], "Doc 2", metadata={"delete_me": False}
         )
 
         deleted = await memory_store.delete_by_filter({"delete_me": True})
@@ -372,16 +360,13 @@ class TestInMemoryVectorStore:
     async def test_count_with_filter(self, memory_store, sample_embeddings):
         """Test counting with filter."""
         await memory_store.upsert(
-            "doc1", sample_embeddings["doc1"], "Doc 1",
-            metadata={"type": "A"}
+            "doc1", sample_embeddings["doc1"], "Doc 1", metadata={"type": "A"}
         )
         await memory_store.upsert(
-            "doc2", sample_embeddings["doc2"], "Doc 2",
-            metadata={"type": "B"}
+            "doc2", sample_embeddings["doc2"], "Doc 2", metadata={"type": "B"}
         )
         await memory_store.upsert(
-            "doc3", sample_embeddings["doc3"], "Doc 3",
-            metadata={"type": "A"}
+            "doc3", sample_embeddings["doc3"], "Doc 3", metadata={"type": "A"}
         )
 
         count_a = await memory_store.count(filters={"type": "A"})

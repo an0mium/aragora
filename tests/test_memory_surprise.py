@@ -49,16 +49,12 @@ class TestCalculateSurprise:
     def test_max_surprise_cap(self):
         """Surprise should be capped at max_surprise."""
         # With scale_factor=2.0 and deviation=0.8, raw would be 1.6
-        surprise = calculate_surprise(
-            actual=1.0, expected=0.2, scale_factor=2.0, max_surprise=1.0
-        )
+        surprise = calculate_surprise(actual=1.0, expected=0.2, scale_factor=2.0, max_surprise=1.0)
         assert surprise == 1.0
 
     def test_custom_max_surprise(self):
         """Custom max_surprise should be respected."""
-        surprise = calculate_surprise(
-            actual=1.0, expected=0.0, max_surprise=0.5
-        )
+        surprise = calculate_surprise(actual=1.0, expected=0.0, max_surprise=0.5)
         assert surprise == 0.5
 
 
@@ -91,9 +87,7 @@ class TestCalculateBaseRate:
     def test_prior_weight_effect(self):
         """Higher prior weight should bias toward prior more."""
         # With few observations, high prior_weight should pull toward prior
-        rate_weak = calculate_base_rate(
-            success_count=2, failure_count=0, prior=0.5, prior_weight=2
-        )
+        rate_weak = calculate_base_rate(success_count=2, failure_count=0, prior=0.5, prior_weight=2)
         rate_strong = calculate_base_rate(
             success_count=2, failure_count=0, prior=0.5, prior_weight=10
         )
@@ -280,9 +274,7 @@ class TestSurpriseScorer:
         """Should incorporate agent prediction error when provided."""
         scorer = SurpriseScorer()
         surprise_without = scorer.score_outcome("test1", is_success=True)
-        surprise_with = scorer.score_outcome(
-            "test2", is_success=True, agent_prediction_error=0.8
-        )
+        surprise_with = scorer.score_outcome("test2", is_success=True, agent_prediction_error=0.8)
         # With high agent error, surprise should be higher (all else equal)
         # Note: categories are different so base rates start the same
 

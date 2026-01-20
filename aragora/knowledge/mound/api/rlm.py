@@ -17,7 +17,14 @@ if TYPE_CHECKING:
 
 # Check for RLM availability
 try:
-    from aragora.rlm import get_rlm, RLMConfig, AbstractionLevel, RLMContext as _RLMContext, HAS_OFFICIAL_RLM
+    from aragora.rlm import (
+        get_rlm,
+        RLMConfig,
+        AbstractionLevel,
+        RLMContext as _RLMContext,
+        HAS_OFFICIAL_RLM,
+    )
+
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
@@ -104,10 +111,12 @@ class RLMOperationsMixin:
         # Build text content from knowledge items
         content_parts = []
         for item in items:
-            source = getattr(item, 'source', None) or getattr(item, 'source_type', None)
-            source_str = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
-            confidence = getattr(item, 'confidence', 0.0)
-            if hasattr(confidence, 'value'):
+            source = getattr(item, "source", None) or getattr(item, "source_type", None)
+            source_str = (
+                source.value if hasattr(source, "value") else str(source) if source else "unknown"
+            )
+            confidence = getattr(item, "confidence", 0.0)
+            if hasattr(confidence, "value"):
                 confidence_val = 0.5  # Default if it's an enum string
             elif isinstance(confidence, (int, float)):
                 confidence_val = confidence
@@ -155,7 +164,7 @@ class RLMOperationsMixin:
                     )
 
                 # Return the RLM context from the result
-                return result.context if hasattr(result, 'context') and result.context else None
+                return result.context if hasattr(result, "context") and result.context else None
 
             return None
 

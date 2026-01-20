@@ -48,9 +48,7 @@ class MockCheckpointAgent(Agent):
     def __init__(self, name: str, proposals: Optional[list[str]] = None):
         super().__init__(name=name, model="mock-checkpoint", role="proposer")
         self.agent_type = "mock"
-        self._proposals = proposals or [
-            f"Proposal {i} from {name}" for i in range(10)
-        ]
+        self._proposals = proposals or [f"Proposal {i} from {name}" for i in range(10)]
         self._idx = 0
         self.call_count = 0
 
@@ -63,9 +61,7 @@ class MockCheckpointAgent(Agent):
     async def generate_stream(self, prompt: str, context: list = None):
         yield await self.generate(prompt, context)
 
-    async def critique(
-        self, proposal: str, task: str, context: list = None
-    ) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list = None) -> Critique:
         return Critique(
             agent=self.name,
             target_agent="unknown",
@@ -153,9 +149,7 @@ class TestCheckpointCreation:
         assert checkpoint.status == CheckpointStatus.COMPLETE
 
     @pytest.mark.asyncio
-    async def test_checkpoint_store_persistence(
-        self, checkpoint_manager, mock_agents
-    ):
+    async def test_checkpoint_store_persistence(self, checkpoint_manager, mock_agents):
         """Checkpoints should be persisted and loadable."""
         debate_id = "test-persist-001"
         task = "Test persistence"
@@ -198,9 +192,7 @@ class TestCheckpointCreation:
         assert loaded.verify_integrity()
 
     @pytest.mark.asyncio
-    async def test_multiple_checkpoints_per_debate(
-        self, checkpoint_manager, mock_agents
-    ):
+    async def test_multiple_checkpoints_per_debate(self, checkpoint_manager, mock_agents):
         """Multiple checkpoints should be created for different rounds."""
         debate_id = "test-multi-001"
         task = "Multi-round debate"
@@ -229,9 +221,7 @@ class TestCheckpointCreation:
             checkpoints.append(cp)
 
         # List checkpoints for debate
-        listed = await checkpoint_manager.store.list_checkpoints(
-            debate_id=debate_id
-        )
+        listed = await checkpoint_manager.store.list_checkpoints(debate_id=debate_id)
 
         assert len(listed) == 3
         assert all(cp["debate_id"] == debate_id for cp in listed)
@@ -266,9 +256,7 @@ class TestCheckpointResume:
         ]
 
     @pytest.mark.asyncio
-    async def test_resume_restores_messages(
-        self, checkpoint_manager, mock_agents
-    ):
+    async def test_resume_restores_messages(self, checkpoint_manager, mock_agents):
         """Resuming should restore all messages from checkpoint."""
         debate_id = "test-resume-001"
         messages = [
@@ -320,9 +308,7 @@ class TestCheckpointResume:
         assert resumed.checkpoint.resume_count == 1
 
     @pytest.mark.asyncio
-    async def test_resume_restores_votes(
-        self, checkpoint_manager, mock_agents
-    ):
+    async def test_resume_restores_votes(self, checkpoint_manager, mock_agents):
         """Resuming should restore all votes from checkpoint."""
         debate_id = "test-resume-votes-001"
 
@@ -357,9 +343,7 @@ class TestCheckpointResume:
         )
 
         # Resume
-        resumed = await checkpoint_manager.resume_from_checkpoint(
-            checkpoint.checkpoint_id
-        )
+        resumed = await checkpoint_manager.resume_from_checkpoint(checkpoint.checkpoint_id)
 
         assert resumed is not None
         assert len(resumed.votes) == 2
@@ -367,9 +351,7 @@ class TestCheckpointResume:
         assert resumed.votes[1].confidence == 0.8
 
     @pytest.mark.asyncio
-    async def test_resume_updates_metadata(
-        self, checkpoint_manager, mock_agents
-    ):
+    async def test_resume_updates_metadata(self, checkpoint_manager, mock_agents):
         """Resume should update checkpoint metadata."""
         debate_id = "test-resume-meta-001"
 
@@ -427,9 +409,7 @@ class TestCheckpointResume:
         await checkpoint_manager.store.save(checkpoint)
 
         # Attempt resume should fail integrity check
-        resumed = await checkpoint_manager.resume_from_checkpoint(
-            "corrupt-test-001"
-        )
+        resumed = await checkpoint_manager.resume_from_checkpoint("corrupt-test-001")
 
         # Should return None due to integrity failure
         assert resumed is None
@@ -498,9 +478,7 @@ class TestCheckpointIntegration:
         )
 
         # Verify checkpoint was created
-        checkpoints = await checkpoint_manager.store.list_checkpoints(
-            debate_id="ops-test-001"
-        )
+        checkpoints = await checkpoint_manager.store.list_checkpoints(debate_id="ops-test-001")
         assert len(checkpoints) == 1
 
     @pytest.mark.asyncio
@@ -603,9 +581,7 @@ class TestCheckpointCleanup:
             )
 
         # Should only have max_checkpoints remaining
-        checkpoints = await checkpoint_manager.store.list_checkpoints(
-            debate_id=debate_id
-        )
+        checkpoints = await checkpoint_manager.store.list_checkpoints(debate_id=debate_id)
         assert len(checkpoints) <= 3  # max_checkpoints
 
     @pytest.mark.asyncio

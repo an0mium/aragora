@@ -179,7 +179,10 @@ def mock_mistral_response():
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": "This is a test response from Mistral."},
+                "message": {
+                    "role": "assistant",
+                    "content": "This is a test response from Mistral.",
+                },
                 "finish_reason": "stop",
             }
         ],
@@ -198,7 +201,10 @@ def mock_openrouter_response():
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": "This is a test response from DeepSeek."},
+                "message": {
+                    "role": "assistant",
+                    "content": "This is a test response from DeepSeek.",
+                },
                 "finish_reason": "stop",
             }
         ],

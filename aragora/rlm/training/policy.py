@@ -17,7 +17,7 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -134,9 +134,7 @@ class StrategyPolicy(Policy):
         self.exploration_rate = exploration_rate
 
         # Strategy selection weights (can be learned)
-        self._weights: dict[str, dict[str, float]] = {
-            strategy: {} for strategy in self.strategies
-        }
+        self._weights: dict[str, dict[str, float]] = {strategy: {} for strategy in self.strategies}
 
     def act(self, state: PolicyState) -> str:
         """Select strategy based on state."""
@@ -262,6 +260,7 @@ class RefinementPolicy(Policy):
 
         # Sigmoid-like probability based on confidence
         import math
+
         confidence = state.previous_confidence
         accept_prob = 1 / (1 + math.exp(-10 * (confidence - self.confidence_threshold)))
 

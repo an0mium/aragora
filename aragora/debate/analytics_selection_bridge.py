@@ -105,16 +105,12 @@ class AnalyticsSelectionBridge:
     """
 
     analytics_dashboard: Optional["AnalyticsDashboard"] = None
-    config: AnalyticsSelectionBridgeConfig = field(
-        default_factory=AnalyticsSelectionBridgeConfig
-    )
+    config: AnalyticsSelectionBridgeConfig = field(default_factory=AnalyticsSelectionBridgeConfig)
 
     # Cached metrics
     _metrics_cache: Dict[str, "AgentMetrics"] = field(default_factory=dict, repr=False)
     _cache_timestamp: Optional[datetime] = field(default=None, repr=False)
-    _domain_expertise_cache: Dict[str, DomainExpertise] = field(
-        default_factory=dict, repr=False
-    )
+    _domain_expertise_cache: Dict[str, DomainExpertise] = field(default_factory=dict, repr=False)
 
     async def refresh_metrics(self, workspace_id: Optional[str] = None) -> int:
         """Refresh agent metrics from dashboard.
@@ -164,8 +160,7 @@ class AnalyticsSelectionBridge:
 
         # Normalize to get domain scores
         domain_scores = {
-            domain: count / total_findings
-            for domain, count in metrics.finding_distribution.items()
+            domain: count / total_findings for domain, count in metrics.finding_distribution.items()
         }
 
         # Find primary domain
@@ -246,17 +241,17 @@ class AnalyticsSelectionBridge:
 
             # Also check for related domains
             for domain, score in expertise.domain_scores.items():
-                if target_domain.lower() in domain.lower() or domain.lower() in target_domain.lower():
+                if (
+                    target_domain.lower() in domain.lower()
+                    or domain.lower() in target_domain.lower()
+                ):
                     domain_score = max(domain_score, score * 0.8)  # 80% credit for partial match
 
             domain_component = domain_score * self.config.domain_expertise_weight
 
         # Compute total boost
         total_boost = (
-            precision_component
-            + agreement_component
-            + response_time_component
-            + domain_component
+            precision_component + agreement_component + response_time_component + domain_component
         )
 
         # Compute confidence based on data quantity
@@ -287,9 +282,7 @@ class AnalyticsSelectionBridge:
             Dict mapping agent names to SelectionBoost
         """
         return {
-            agent_name: self.compute_selection_boost(
-                agent_name, target_domain, time_sensitive
-            )
+            agent_name: self.compute_selection_boost(agent_name, target_domain, time_sensitive)
             for agent_name in self._metrics_cache.keys()
         }
 
@@ -346,9 +339,7 @@ class AnalyticsSelectionBridge:
             List of agent names sorted by response time (ascending)
         """
         # Filter out agents with no response time data
-        agents_with_times = [
-            m for m in self._metrics_cache.values() if m.avg_response_time_ms > 0
-        ]
+        agents_with_times = [m for m in self._metrics_cache.values() if m.avg_response_time_ms > 0]
 
         sorted_agents = sorted(agents_with_times, key=lambda m: m.avg_response_time_ms)
 

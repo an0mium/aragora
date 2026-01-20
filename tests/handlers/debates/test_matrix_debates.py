@@ -101,9 +101,7 @@ class TestMatrixDebatePostValidation:
     @pytest.mark.asyncio
     async def test_returns_404_for_wrong_path(self, matrix_handler, mock_http_handler):
         """Returns 404 for non-matrix POST paths."""
-        result = await matrix_handler.handle_post(
-            mock_http_handler, "/api/debates/other", {}
-        )
+        result = await matrix_handler.handle_post(mock_http_handler, "/api/debates/other", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -119,9 +117,7 @@ class TestMatrixDebatePostValidation:
         assert "task" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_string_task(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_string_task(self, matrix_handler, mock_http_handler):
         """Returns 400 when task is not a string."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -166,9 +162,7 @@ class TestMatrixDebateScenarioValidation:
     """Tests for scenario validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_array_scenarios(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_array_scenarios(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenarios is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -180,9 +174,7 @@ class TestMatrixDebateScenarioValidation:
         assert "array" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_empty_scenarios(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_empty_scenarios(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenarios is empty."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -194,9 +186,7 @@ class TestMatrixDebateScenarioValidation:
         assert "one scenario" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_scenarios(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_scenarios(self, matrix_handler, mock_http_handler):
         """Returns 400 when more than 10 scenarios provided."""
         scenarios = [{"name": f"scenario{i}"} for i in range(11)]
         result = await matrix_handler.handle_post(
@@ -209,9 +199,7 @@ class TestMatrixDebateScenarioValidation:
         assert "10 scenarios" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_dict_scenario(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_dict_scenario(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenario is not an object."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -226,9 +214,7 @@ class TestMatrixDebateScenarioValidation:
         assert "scenarios[0]" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_long_scenario_name(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_long_scenario_name(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenario name exceeds 100 chars."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -243,9 +229,7 @@ class TestMatrixDebateScenarioValidation:
         assert "100 chars" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_dict_parameters(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_dict_parameters(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenario parameters is not an object."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -260,9 +244,7 @@ class TestMatrixDebateScenarioValidation:
         assert "parameters" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_array_constraints(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_array_constraints(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenario constraints is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -277,9 +259,7 @@ class TestMatrixDebateScenarioValidation:
         assert "constraints" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_constraints(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_constraints(self, matrix_handler, mock_http_handler):
         """Returns 400 when scenario has more than 10 constraints."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -303,9 +283,7 @@ class TestMatrixDebateAgentValidation:
     """Tests for agent validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_array_agents(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_array_agents(self, matrix_handler, mock_http_handler):
         """Returns 400 when agents is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -321,9 +299,7 @@ class TestMatrixDebateAgentValidation:
         assert "array" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_agents(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_agents(self, matrix_handler, mock_http_handler):
         """Returns 400 when more than 10 agents provided."""
         agents = [f"agent{i}" for i in range(11)]
         result = await matrix_handler.handle_post(
@@ -340,9 +316,7 @@ class TestMatrixDebateAgentValidation:
         assert "10 agents" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_non_string_agent(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_non_string_agent(self, matrix_handler, mock_http_handler):
         """Returns 400 when agent name is not a string."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -358,9 +332,7 @@ class TestMatrixDebateAgentValidation:
         assert "agents[1]" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_long_agent_name(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_long_agent_name(self, matrix_handler, mock_http_handler):
         """Returns 400 when agent name exceeds 50 chars."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -385,9 +357,7 @@ class TestMatrixDebateRoundsValidation:
     """Tests for max_rounds validation."""
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_invalid_max_rounds(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_invalid_max_rounds(self, matrix_handler, mock_http_handler):
         """Returns 400 when max_rounds is not a number."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -403,9 +373,7 @@ class TestMatrixDebateRoundsValidation:
         assert "max_rounds" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_zero_max_rounds(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_zero_max_rounds(self, matrix_handler, mock_http_handler):
         """Returns 400 when max_rounds is less than 1."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -421,9 +389,7 @@ class TestMatrixDebateRoundsValidation:
         assert "at least 1" in data.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_returns_400_for_too_many_rounds(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_returns_400_for_too_many_rounds(self, matrix_handler, mock_http_handler):
         """Returns 400 when max_rounds exceeds 10."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
@@ -448,19 +414,13 @@ class TestMatrixDebateGetEndpoints:
     """Tests for GET endpoints."""
 
     @pytest.mark.asyncio
-    async def test_get_returns_404_for_base_path(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_returns_404_for_base_path(self, matrix_handler, mock_http_handler):
         """Returns 404 for GET on base matrix path."""
-        result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix", {}
-        )
+        result = await matrix_handler.handle_get(mock_http_handler, "/api/debates/matrix", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_503_without_storage(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_503_without_storage(self, matrix_handler, mock_http_handler):
         """Returns 503 when storage is not configured."""
         mock_http_handler.storage = None
         result = await matrix_handler.handle_get(
@@ -471,9 +431,7 @@ class TestMatrixDebateGetEndpoints:
         assert "storage" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_404_when_not_found(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_404_when_not_found(self, matrix_handler, mock_http_handler):
         """Returns 404 when matrix debate doesn't exist."""
         mock_storage = AsyncMock()
         mock_storage.get_matrix_debate = AsyncMock(return_value=None)
@@ -485,9 +443,7 @@ class TestMatrixDebateGetEndpoints:
         assert result.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_debate_returns_debate_data(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_debate_returns_debate_data(self, matrix_handler, mock_http_handler):
         """Returns debate data when found."""
         debate_data = {"id": "test-123", "task": "Test task", "scenarios": []}
         mock_storage = AsyncMock()
@@ -513,9 +469,7 @@ class TestMatrixDebateGetEndpoints:
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_scenarios_returns_scenario_data(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_scenarios_returns_scenario_data(self, matrix_handler, mock_http_handler):
         """Returns scenario data when found."""
         scenarios = [{"name": "scenario-1"}, {"name": "scenario-2"}]
         mock_storage = AsyncMock()
@@ -542,9 +496,7 @@ class TestMatrixDebateGetEndpoints:
         assert result.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_conclusions_returns_conclusion_data(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_conclusions_returns_conclusion_data(self, matrix_handler, mock_http_handler):
         """Returns conclusion data when found."""
         conclusions = {
             "universal": ["All scenarios agree"],
@@ -575,6 +527,7 @@ class TestMatrixDebateRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_after_multiple_requests(self, matrix_handler):
         """Returns 429 after exceeding rate limit."""
+
         # Mock the internal methods to avoid import errors during rate limit testing
         async def mock_run(*args, **kwargs):
             return MagicMock(
@@ -705,14 +658,13 @@ class TestMatrixDebateErrorHandling:
         async def mock_run_matrix_debate(handler, data):
             # Simulate the code path that checks for valid agents
             from aragora.server.handlers.debates.matrix_debates import error_response
+
             agents = await matrix_handler._load_agents(data.get("agents", []))
             if not agents:
                 return error_response("No valid agents found", 400)
             return MagicMock(status_code=200)
 
-        with patch.object(
-            matrix_handler, "_load_agents", new_callable=AsyncMock, return_value=[]
-        ):
+        with patch.object(matrix_handler, "_load_agents", new_callable=AsyncMock, return_value=[]):
             with patch.object(
                 matrix_handler, "_run_matrix_debate", side_effect=mock_run_matrix_debate
             ):
@@ -730,14 +682,10 @@ class TestMatrixDebateErrorHandling:
                 assert "no valid agents" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_get_debate_handles_storage_error(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_debate_handles_storage_error(self, matrix_handler, mock_http_handler):
         """Returns 500 on storage error when getting debate."""
         mock_storage = AsyncMock()
-        mock_storage.get_matrix_debate = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_matrix_debate = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
@@ -746,14 +694,10 @@ class TestMatrixDebateErrorHandling:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_get_scenarios_handles_storage_error(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_scenarios_handles_storage_error(self, matrix_handler, mock_http_handler):
         """Returns 500 on storage error when getting scenarios."""
         mock_storage = AsyncMock()
-        mock_storage.get_matrix_scenarios = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_matrix_scenarios = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
@@ -762,14 +706,10 @@ class TestMatrixDebateErrorHandling:
         assert result.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_get_conclusions_handles_storage_error(
-        self, matrix_handler, mock_http_handler
-    ):
+    async def test_get_conclusions_handles_storage_error(self, matrix_handler, mock_http_handler):
         """Returns 500 on storage error when getting conclusions."""
         mock_storage = AsyncMock()
-        mock_storage.get_matrix_conclusions = AsyncMock(
-            side_effect=RuntimeError("Database error")
-        )
+        mock_storage.get_matrix_conclusions = AsyncMock(side_effect=RuntimeError("Database error"))
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(

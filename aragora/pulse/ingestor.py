@@ -727,9 +727,7 @@ class GoogleTrendsIngestor(PulseIngestor):
                 )
                 topics.append(topic)
 
-        logger.info(
-            f"[google_trends] Fetched {len(topics)} real trending searches from Google"
-        )
+        logger.info(f"[google_trends] Fetched {len(topics)} real trending searches from Google")
         return topics
 
     def _categorize_topic(self, topic: str) -> str:
@@ -796,7 +794,10 @@ class ArxivIngestor(PulseIngestor):
                 import xml.etree.ElementTree as ET
 
                 root = ET.fromstring(response.text)
-                ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+                ns = {
+                    "atom": "http://www.w3.org/2005/Atom",
+                    "arxiv": "http://arxiv.org/schemas/atom",
+                }
 
                 topics = []
                 for entry in root.findall("atom:entry", ns)[:limit]:
@@ -807,17 +808,25 @@ class ArxivIngestor(PulseIngestor):
 
                     # Get primary category
                     primary_cat = entry.find("arxiv:primary_category", ns)
-                    category = primary_cat.get("term", "cs.AI") if primary_cat is not None else "cs.AI"
+                    category = (
+                        primary_cat.get("term", "cs.AI") if primary_cat is not None else "cs.AI"
+                    )
 
                     if title is not None:
                         topic = TrendingTopic(
                             platform="arxiv",
-                            topic=title.text.strip().replace("\n", " ") if title.text else "Untitled",
+                            topic=(
+                                title.text.strip().replace("\n", " ") if title.text else "Untitled"
+                            ),
                             volume=0,  # ArXiv doesn't provide engagement metrics
                             category=self._categorize_arxiv(category),
                             raw_data={
                                 "arxiv_id": arxiv_id.text if arxiv_id is not None else None,
-                                "summary": summary.text[:500] if summary is not None and summary.text else None,
+                                "summary": (
+                                    summary.text[:500]
+                                    if summary is not None and summary.text
+                                    else None
+                                ),
                                 "published": published.text if published is not None else None,
                                 "arxiv_category": category,
                             },
@@ -1028,7 +1037,11 @@ class ProductHuntIngestor(PulseIngestor):
                             category="product",
                             raw_data={
                                 "url": link.text if link is not None else None,
-                                "description": description.text[:200] if description is not None and description.text else None,
+                                "description": (
+                                    description.text[:200]
+                                    if description is not None and description.text
+                                    else None
+                                ),
                             },
                         )
                         topics.append(topic)
@@ -1043,7 +1056,8 @@ class ProductHuntIngestor(PulseIngestor):
 
         async def _fetch():
             async with httpx.AsyncClient(timeout=10.0) as client:
-                query = """
+                query = (
+                    """
                 query {
                     posts(first: %d, order: VOTES) {
                         edges {
@@ -1064,7 +1078,9 @@ class ProductHuntIngestor(PulseIngestor):
                         }
                     }
                 }
-                """ % limit
+                """
+                    % limit
+                )
 
                 headers = {
                     "Authorization": f"Bearer {self.api_key}",
@@ -1084,7 +1100,9 @@ class ProductHuntIngestor(PulseIngestor):
                 topics = []
                 for edge in posts[:limit]:
                     post = edge.get("node", {})
-                    post_topics = [t["node"]["name"] for t in post.get("topics", {}).get("edges", [])]
+                    post_topics = [
+                        t["node"]["name"] for t in post.get("topics", {}).get("edges", [])
+                    ]
 
                     topic = TrendingTopic(
                         platform="producthunt",
@@ -1174,7 +1192,9 @@ class SubstackIngestor(PulseIngestor):
                                     raw_data={
                                         "url": link.text if link is not None else None,
                                         "feed": feed_url,
-                                        "published": pub_date.text if pub_date is not None else None,
+                                        "published": (
+                                            pub_date.text if pub_date is not None else None
+                                        ),
                                     },
                                 )
                                 all_topics.append(topic)

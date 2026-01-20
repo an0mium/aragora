@@ -411,9 +411,7 @@ class TestArenaContextManagerIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_arena_async_context_manager_enter(
-        self, environment, mock_agents, protocol
-    ):
+    async def test_arena_async_context_manager_enter(self, environment, mock_agents, protocol):
         """Arena can be used as async context manager."""
         from aragora.debate.orchestrator import Arena
 
@@ -427,9 +425,7 @@ class TestArenaContextManagerIntegration:
             assert ctx is arena
 
     @pytest.mark.asyncio
-    async def test_arena_async_context_manager_cleanup(
-        self, environment, mock_agents, protocol
-    ):
+    async def test_arena_async_context_manager_cleanup(self, environment, mock_agents, protocol):
         """Arena cleans up on context manager exit."""
         from aragora.debate.orchestrator import Arena
 

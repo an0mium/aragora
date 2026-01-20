@@ -33,8 +33,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.outcome_tracker import OutcomeTracker, ConsensusOutcome
@@ -124,9 +123,7 @@ class OutcomeComplexityBridge:
     """
 
     outcome_tracker: Optional["OutcomeTracker"] = None
-    config: OutcomeComplexityBridgeConfig = field(
-        default_factory=OutcomeComplexityBridgeConfig
-    )
+    config: OutcomeComplexityBridgeConfig = field(default_factory=OutcomeComplexityBridgeConfig)
 
     # Internal state - stats per complexity level
     _complexity_stats: Dict[str, ComplexityStats] = field(
@@ -135,9 +132,7 @@ class OutcomeComplexityBridge:
     # Current timeout factor adjustments
     _factor_adjustments: Dict[str, float] = field(default_factory=dict, repr=False)
     # Task signal patterns that predict failure
-    _failure_signals: Dict[str, int] = field(
-        default_factory=lambda: defaultdict(int), repr=False
-    )
+    _failure_signals: Dict[str, int] = field(default_factory=lambda: defaultdict(int), repr=False)
 
     def __post_init__(self) -> None:
         """Initialize from outcome tracker history if available."""
@@ -167,9 +162,8 @@ class OutcomeComplexityBridge:
 
         stats.total_debates += 1
         stats.avg_rounds = (
-            (stats.avg_rounds * (stats.total_debates - 1) + outcome.rounds_completed)
-            / stats.total_debates
-        )
+            stats.avg_rounds * (stats.total_debates - 1) + outcome.rounds_completed
+        ) / stats.total_debates
 
         if outcome.implementation_succeeded:
             stats.successful_debates += 1
@@ -193,7 +187,6 @@ class OutcomeComplexityBridge:
         Returns:
             Complexity level string
         """
-        from aragora.core import TaskComplexity
         from aragora.debate.complexity_governor import classify_task_complexity
 
         # Use consensus text to classify complexity

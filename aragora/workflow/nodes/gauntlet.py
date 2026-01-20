@@ -57,16 +57,30 @@ class GauntletStep(BaseStep):
     """
 
     ATTACK_CATEGORIES = [
-        "prompt_injection", "jailbreak", "data_extraction",
-        "hallucination", "bias", "privacy", "safety",
+        "prompt_injection",
+        "jailbreak",
+        "data_extraction",
+        "hallucination",
+        "bias",
+        "privacy",
+        "safety",
     ]
 
     PROBE_CATEGORIES = [
-        "reasoning", "factuality", "consistency", "boundaries",
+        "reasoning",
+        "factuality",
+        "consistency",
+        "boundaries",
     ]
 
     COMPLIANCE_FRAMEWORKS = [
-        "gdpr", "hipaa", "soc2", "pci_dss", "nist_csf", "ai_act", "sox",
+        "gdpr",
+        "hipaa",
+        "soc2",
+        "pci_dss",
+        "nist_csf",
+        "ai_act",
+        "sox",
     ]
 
     SEVERITY_LEVELS = ["low", "medium", "high", "critical"]
@@ -130,11 +144,13 @@ class GauntletStep(BaseStep):
             # Build gauntlet configuration
             gauntlet_config = GauntletConfig(
                 attack_categories=[
-                    AttackCategory(cat) for cat in attack_categories
+                    AttackCategory(cat)
+                    for cat in attack_categories
                     if cat in [c.value for c in AttackCategory]
                 ],
                 probe_categories=[
-                    ProbeCategory(cat) for cat in probe_categories
+                    ProbeCategory(cat)
+                    for cat in probe_categories
                     if cat in [c.value for c in ProbeCategory]
                 ],
                 max_concurrent=parallel_attacks,
@@ -144,6 +160,7 @@ class GauntletStep(BaseStep):
             # Create agent factory for gauntlet
             def agent_factory(agent_type: str):
                 from aragora.agents import create_agent
+
                 return create_agent(agent_type)
 
             # Create runner
@@ -184,15 +201,16 @@ class GauntletStep(BaseStep):
                 finding_severity = getattr(finding, "severity", "low")
                 if isinstance(finding_severity, SeverityLevel):
                     finding_severity = finding_severity.value
-                if (
-                    self._highest_severity is None
-                    or severity_order.get(finding_severity, 0) > severity_order.get(self._highest_severity, 0)
-                ):
+                if self._highest_severity is None or severity_order.get(
+                    finding_severity, 0
+                ) > severity_order.get(self._highest_severity, 0):
                     self._highest_severity = finding_severity
 
             # Determine if validation passed
             threshold_idx = severity_order.get(severity_threshold, 1)
-            highest_idx = severity_order.get(self._highest_severity, 0) if self._highest_severity else 0
+            highest_idx = (
+                severity_order.get(self._highest_severity, 0) if self._highest_severity else 0
+            )
             passed = highest_idx < threshold_idx
 
             # Check if we should fail the workflow
@@ -219,10 +237,14 @@ class GauntletStep(BaseStep):
                     "total": result.probe_summary.total if result.probe_summary else 0,
                     "passed": result.probe_summary.passed if result.probe_summary else 0,
                 },
-                "compliance_results": [
-                    {"framework": r.get("framework"), "passed": r.get("passed")}
-                    for r in compliance_results
-                ] if compliance_results else [],
+                "compliance_results": (
+                    [
+                        {"framework": r.get("framework"), "passed": r.get("passed")}
+                        for r in compliance_results
+                    ]
+                    if compliance_results
+                    else []
+                ),
                 "findings": [
                     {
                         "id": getattr(f, "id", str(i)),
@@ -283,19 +305,23 @@ class GauntletStep(BaseStep):
                     persona = persona_class()
                     # Run compliance check
                     check_result = await persona.evaluate(input_content)
-                    results.append({
-                        "framework": framework,
-                        "passed": check_result.get("compliant", False),
-                        "findings": check_result.get("findings", []),
-                        "score": check_result.get("score", 0.0),
-                    })
+                    results.append(
+                        {
+                            "framework": framework,
+                            "passed": check_result.get("compliant", False),
+                            "findings": check_result.get("findings", []),
+                            "score": check_result.get("score", 0.0),
+                        }
+                    )
                 except Exception as e:
                     logger.error(f"Compliance check failed for {framework}: {e}")
-                    results.append({
-                        "framework": framework,
-                        "passed": False,
-                        "error": str(e),
-                    })
+                    results.append(
+                        {
+                            "framework": framework,
+                            "passed": False,
+                            "error": str(e),
+                        }
+                    )
 
         except ImportError as e:
             logger.warning(f"Compliance personas not available: {e}")

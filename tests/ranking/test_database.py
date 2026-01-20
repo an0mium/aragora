@@ -83,9 +83,7 @@ class TestEloDatabaseCreation:
 
         # Check tables exist by querying sqlite_master
         with db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = {row[0] for row in cursor.fetchall()}
 
         # Verify key tables exist

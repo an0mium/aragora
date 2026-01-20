@@ -65,11 +65,8 @@ class _DomainCache:
         # Evict oldest entries if at capacity
         if len(self._cache) >= self._max_size:
             # Remove oldest 10%
-            sorted_keys = sorted(
-                self._cache.keys(),
-                key=lambda k: self._cache[k][0]
-            )
-            for k in sorted_keys[:max(1, self._max_size // 10)]:
+            sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][0])
+            for k in sorted_keys[: max(1, self._max_size // 10)]:
                 del self._cache[k]
 
         key = self._make_key(text, top_n)
@@ -563,8 +560,16 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
 
         # Filter: require 2+ matches for technical domains to reduce false positives
         technical_domains = {
-            "security", "performance", "architecture", "testing", "api",
-            "database", "frontend", "devops", "debugging", "data_analysis"
+            "security",
+            "performance",
+            "architecture",
+            "testing",
+            "api",
+            "database",
+            "frontend",
+            "devops",
+            "debugging",
+            "data_analysis",
         }
         filtered_scores = {}
         for domain, score in scores.items():

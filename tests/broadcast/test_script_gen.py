@@ -25,9 +25,7 @@ class TestScriptSegment:
 
     def test_segment_with_voice_id(self):
         """Test segment with custom voice ID."""
-        segment = ScriptSegment(
-            speaker="narrator", text="Welcome", voice_id="voice-123"
-        )
+        segment = ScriptSegment(speaker="narrator", text="Welcome", voice_id="voice-123")
         assert segment.voice_id == "voice-123"
 
 
@@ -79,10 +77,7 @@ class TestExtractContentText:
 
     def test_dict_text_takes_priority(self):
         """Test 'text' key takes priority over 'content'."""
-        result = _extract_content_text({
-            "text": "Primary",
-            "content": "Secondary"
-        })
+        result = _extract_content_text({"text": "Primary", "content": "Secondary"})
         assert result == "Primary"
 
     def test_dict_without_known_keys(self):

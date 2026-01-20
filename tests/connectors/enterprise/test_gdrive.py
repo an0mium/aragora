@@ -35,11 +35,14 @@ from aragora.connectors.enterprise.documents.gdrive import (
 def mock_credentials():
     """Mock credential provider with OAuth2 credentials."""
     from tests.connectors.enterprise.conftest import MockCredentialProvider
-    return MockCredentialProvider({
-        "GDRIVE_CLIENT_ID": "test_client_id.apps.googleusercontent.com",
-        "GDRIVE_CLIENT_SECRET": "test_client_secret",
-        "GDRIVE_REFRESH_TOKEN": "test_refresh_token",
-    })
+
+    return MockCredentialProvider(
+        {
+            "GDRIVE_CLIENT_ID": "test_client_id.apps.googleusercontent.com",
+            "GDRIVE_CLIENT_SECRET": "test_client_secret",
+            "GDRIVE_REFRESH_TOKEN": "test_refresh_token",
+        }
+    )
 
 
 @pytest.fixture
@@ -183,6 +186,7 @@ class TestGoogleDriveConnectorInit:
     def test_source_type(self, gdrive_connector):
         """Test source type property."""
         from aragora.reasoning.provenance import SourceType
+
         assert gdrive_connector.source_type == SourceType.DOCUMENT
 
     def test_name_property(self, gdrive_connector):
@@ -255,6 +259,7 @@ class TestAccessToken:
     async def test_get_access_token_missing_credentials(self, tmp_path):
         """Test error when credentials are missing."""
         from tests.connectors.enterprise.conftest import MockCredentialProvider
+
         empty_credentials = MockCredentialProvider({})
 
         connector = GoogleDriveConnector(
@@ -421,7 +426,7 @@ class TestListFiles:
             "files": sample_drive_files,
             "nextPageToken": None,
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -446,7 +451,7 @@ class TestListFiles:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"files": [], "nextPageToken": None}
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -470,7 +475,7 @@ class TestListFiles:
             "files": [{"id": "file1", "name": "Test", "mimeType": "text/plain"}],
             "nextPageToken": "next_page_123",
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -502,7 +507,7 @@ class TestSharedDrives:
             "drives": sample_shared_drives,
             "nextPageToken": None,
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -548,7 +553,7 @@ class TestChangesApi:
             "changes": sample_changes,
             "newStartPageToken": "new_token_456",
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -572,7 +577,7 @@ class TestChangesApi:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"startPageToken": "initial_token_abc"}
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -881,7 +886,7 @@ class TestSearch:
                 }
             ]
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -903,7 +908,7 @@ class TestSearch:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"files": []}
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -957,7 +962,7 @@ class TestFetch:
 
         mock_response = MagicMock()
         mock_response.json.return_value = file_data
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -992,7 +997,7 @@ class TestFetch:
             "mimeType": "text/plain",
             "owners": [],
         }
-        mock_response.content = b'{}'
+        mock_response.content = b"{}"
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -1089,4 +1094,7 @@ class TestMimeTypeConstants:
         assert "text/plain" in SUPPORTED_MIMES
         assert "application/pdf" in SUPPORTED_MIMES
         assert "application/json" in SUPPORTED_MIMES
-        assert "application/vnd.openxmlformats-officedocument.wordprocessingml.document" in SUPPORTED_MIMES
+        assert (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            in SUPPORTED_MIMES
+        )

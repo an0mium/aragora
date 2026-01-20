@@ -107,16 +107,16 @@ class TestAgentLifecycle:
         assert agent.metadata["version"] == "1.0"
 
     @pytest.mark.asyncio
-    async def test_register_multiple_agents(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_register_multiple_agents(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test registering multiple agents with different capabilities."""
         agents = []
-        for i, (model, caps) in enumerate([
-            ("claude-3", ["debate", "critique"]),
-            ("gpt-4", ["code", "analysis"]),
-            ("gemini-pro", ["research", "summarize"]),
-        ]):
+        for i, (model, caps) in enumerate(
+            [
+                ("claude-3", ["debate", "critique"]),
+                ("gpt-4", ["code", "analysis"]),
+                ("gemini-pro", ["research", "summarize"]),
+            ]
+        ):
             agent = await coordinator.register_agent(
                 agent_id=f"agent-{i}",
                 capabilities=caps,
@@ -155,9 +155,7 @@ class TestAgentLifecycle:
         assert updated.last_heartbeat > initial_heartbeat
 
     @pytest.mark.asyncio
-    async def test_heartbeat_with_status_update(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_heartbeat_with_status_update(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test that heartbeat can update agent status."""
         await coordinator.register_agent(
             agent_id="status-agent",
@@ -178,17 +176,13 @@ class TestAgentLifecycle:
         assert agent.status == AgentStatus.BUSY
 
     @pytest.mark.asyncio
-    async def test_heartbeat_unknown_agent(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_heartbeat_unknown_agent(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test heartbeat for non-existent agent returns False."""
         success = await coordinator.heartbeat("non-existent-agent")
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_unregister_agent(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_unregister_agent(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test agent unregistration removes agent from registry."""
         await coordinator.register_agent(
             agent_id="to-unregister",
@@ -210,9 +204,7 @@ class TestAgentLifecycle:
         assert agent is None
 
     @pytest.mark.asyncio
-    async def test_unregister_unknown_agent(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_unregister_unknown_agent(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test unregistering non-existent agent returns False."""
         success = await coordinator.unregister_agent("non-existent")
         assert success is False
@@ -247,9 +239,7 @@ class TestTaskLifecycle:
         assert task.status == TaskStatus.PENDING
 
     @pytest.mark.asyncio
-    async def test_submit_task_with_priority(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_submit_task_with_priority(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test task submission with different priorities."""
         low_id = await coordinator.submit_task(
             task_type="analysis",
@@ -272,9 +262,7 @@ class TestTaskLifecycle:
         assert urgent_task.priority == TaskPriority.URGENT
 
     @pytest.mark.asyncio
-    async def test_complete_task_success(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_complete_task_success(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test completing a task successfully."""
         # Register an agent
         await coordinator.register_agent(
@@ -355,9 +343,7 @@ class TestTaskLifecycle:
         assert task.status == TaskStatus.CANCELLED
 
     @pytest.mark.asyncio
-    async def test_cancel_completed_task_fails(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_cancel_completed_task_fails(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test that cancelling a completed task fails."""
         await coordinator.register_agent(
             agent_id="worker-cancel",
@@ -384,9 +370,7 @@ class TestTaskLifecycle:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_get_unknown_task(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_get_unknown_task(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test getting non-existent task returns None."""
         task = await coordinator.get_task("non-existent-task-id")
         assert task is None
@@ -401,9 +385,7 @@ class TestTaskDistribution:
     """Tests for task claiming and distribution to agents."""
 
     @pytest.mark.asyncio
-    async def test_claim_task_by_capability(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_claim_task_by_capability(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test agent can claim task matching their capabilities."""
         # Register agents with different capabilities
         await coordinator.register_agent(
@@ -467,9 +449,7 @@ class TestTaskDistribution:
         assert task is None
 
     @pytest.mark.asyncio
-    async def test_priority_task_claimed_first(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_priority_task_claimed_first(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test that higher priority tasks are claimed first."""
         await coordinator.register_agent(
             agent_id="priority-agent",
@@ -631,9 +611,7 @@ class TestHealthMonitoring:
         assert health.value in ["healthy", "ok", "degraded"]
 
     @pytest.mark.asyncio
-    async def test_agent_health_tracking(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_agent_health_tracking(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test individual agent health tracking."""
         await coordinator.register_agent(
             agent_id="tracked-agent",
@@ -655,9 +633,7 @@ class TestHealthMonitoring:
         # assert health is not None  # Health data may not exist without probes
 
     @pytest.mark.asyncio
-    async def test_health_unknown_agent(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_health_unknown_agent(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test health query for unknown agent returns None."""
         health = coordinator.get_agent_health("unknown-agent")
         assert health is None
@@ -672,9 +648,7 @@ class TestStatistics:
     """Tests for control plane statistics."""
 
     @pytest.mark.asyncio
-    async def test_get_stats_empty(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_get_stats_empty(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test stats with no agents or tasks."""
         stats = await coordinator.get_stats()
 
@@ -688,9 +662,7 @@ class TestStatistics:
         assert "total_agents" in stats["registry"] or "available_agents" in stats["registry"]
 
     @pytest.mark.asyncio
-    async def test_get_stats_with_agents(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_get_stats_with_agents(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test stats reflect registered agents."""
         # Register agents
         await coordinator.register_agent(
@@ -719,9 +691,7 @@ class TestStatistics:
             assert registry_stats["available_agents"] == 2
 
     @pytest.mark.asyncio
-    async def test_get_stats_with_tasks(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_get_stats_with_tasks(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test stats reflect task counts."""
         await coordinator.register_agent(
             agent_id="task-stats-agent",
@@ -754,9 +724,7 @@ class TestErrorHandling:
     """Tests for error handling scenarios."""
 
     @pytest.mark.asyncio
-    async def test_complete_nonexistent_task(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_complete_nonexistent_task(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test completing a non-existent task fails gracefully."""
         success = await coordinator.complete_task(
             task_id="fake-task-id",
@@ -766,9 +734,7 @@ class TestErrorHandling:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_fail_nonexistent_task(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_fail_nonexistent_task(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test failing a non-existent task fails gracefully."""
         success = await coordinator.fail_task(
             task_id="fake-task-id",
@@ -778,9 +744,7 @@ class TestErrorHandling:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_duplicate_agent_registration(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_duplicate_agent_registration(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test registering same agent ID twice updates the agent."""
         agent1 = await coordinator.register_agent(
             agent_id="duplicate-agent",
@@ -812,9 +776,7 @@ class TestIntegrationWorkflows:
     """End-to-end integration workflow tests."""
 
     @pytest.mark.asyncio
-    async def test_complete_debate_workflow(
-        self, coordinator: ControlPlaneCoordinator
-    ) -> None:
+    async def test_complete_debate_workflow(self, coordinator: ControlPlaneCoordinator) -> None:
         """Test complete workflow: register, submit, claim, complete."""
         # 1. Register debate agents
         await coordinator.register_agent(

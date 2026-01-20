@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 # Check for RLM library (use factory for consistent initialization)
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
+
     HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
@@ -131,9 +132,7 @@ class DebateMemoryEntry:
             token_count=data.get("token_count", 0),
             access_count=data.get("access_count", 0),
             last_accessed=(
-                datetime.fromisoformat(data["last_accessed"])
-                if data.get("last_accessed")
-                else None
+                datetime.fromisoformat(data["last_accessed"]) if data.get("last_accessed") else None
             ),
         )
 
@@ -526,6 +525,7 @@ class CrossDebateMemory:
 
                 if result and result.context:
                     from aragora.rlm.types import AbstractionLevel
+
                     return result.context.get_at_level(AbstractionLevel.SUMMARY) or context[:2000]
             except Exception as e:
                 logger.warning(f"[CrossDebateMemory] HierarchicalCompressor failed: {e}")
@@ -665,6 +665,7 @@ class CrossDebateMemory:
 
                 # Create RLMContext object for AragoraRLM
                 from aragora.rlm.types import RLMContext
+
                 context = RLMContext(
                     original_content=context_str,
                     original_tokens=len(context_str) // 4,
@@ -713,7 +714,8 @@ class CrossDebateMemory:
 
         parts = []
         for entry in entries:
-            parts.append(f"""
+            parts.append(
+                f"""
 ## Debate: {entry.task}
 Date: {entry.timestamp.strftime('%Y-%m-%d')}
 Participants: {', '.join(entry.participants)}
@@ -727,7 +729,8 @@ Consensus: {'Yes' if entry.consensus_reached else 'No'}
 
 ### Context:
 {entry.compressed_context}
-""")
+"""
+            )
         return "\n---\n".join(parts)
 
     def _fallback_query(self, query: str, max_debates: int = 5) -> str:
@@ -755,11 +758,13 @@ Consensus: {'Yes' if entry.consensus_reached else 'No'}
         # Build response from top matches
         parts = [f"Found {len(relevant_entries[:max_debates])} relevant past debates:"]
         for _, entry in relevant_entries[:max_debates]:
-            parts.append(f"""
+            parts.append(
+                f"""
 **{entry.task}** ({entry.timestamp.strftime('%Y-%m-%d')})
 Consensus: {'Yes' if entry.consensus_reached else 'No'}
 Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
-""")
+"""
+            )
 
         return "\n".join(parts)
 
@@ -802,9 +807,7 @@ Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
                     entry.token_count = self._estimate_tokens(entry.compressed_context)
 
         # Enforce limits per tier
-        tier_counts: dict[MemoryTier, list[DebateMemoryEntry]] = {
-            tier: [] for tier in MemoryTier
-        }
+        tier_counts: dict[MemoryTier, list[DebateMemoryEntry]] = {tier: [] for tier in MemoryTier}
 
         for entry in self._entries.values():
             tier_counts[entry.tier].append(entry)
@@ -814,11 +817,14 @@ Key insight: {entry.key_insights[0] if entry.key_insights else 'N/A'}
             MemoryTier.HOT: self.config.max_hot_entries,
             MemoryTier.WARM: self.config.max_warm_entries,
             MemoryTier.COLD: self.config.max_cold_entries,
-            MemoryTier.ARCHIVE: self.config.max_entries - sum([
-                self.config.max_hot_entries,
-                self.config.max_warm_entries,
-                self.config.max_cold_entries,
-            ]),
+            MemoryTier.ARCHIVE: self.config.max_entries
+            - sum(
+                [
+                    self.config.max_hot_entries,
+                    self.config.max_warm_entries,
+                    self.config.max_cold_entries,
+                ]
+            ),
         }
 
         for tier, entries in tier_counts.items():

@@ -369,10 +369,7 @@ class ExecutorPool:
             return
 
         # Calculate utilization
-        busy_count = sum(
-            1 for e in self._executors.values()
-            if e.status == ExecutorStatus.BUSY
-        )
+        busy_count = sum(1 for e in self._executors.values() if e.status == ExecutorStatus.BUSY)
         utilization = busy_count / len(self._executors)
 
         # Scale up
@@ -399,10 +396,7 @@ class ExecutorPool:
     @property
     def busy_count(self) -> int:
         """Get number of busy executors."""
-        return sum(
-            1 for e in self._executors.values()
-            if e.status == ExecutorStatus.BUSY
-        )
+        return sum(1 for e in self._executors.values() if e.status == ExecutorStatus.BUSY)
 
     @property
     def utilization(self) -> float:

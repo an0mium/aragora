@@ -30,9 +30,7 @@ class TaskHandler:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[
-            Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]
-        ] = None,
+        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]] = None,
     ):
         self.capability = capability
         self.handler = handler
@@ -120,9 +118,7 @@ class A2AServer:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[
-            Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]
-        ] = None,
+        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[Dict[str, Any]]]] = None,
     ) -> None:
         """
         Register a task handler for a capability.
@@ -480,9 +476,7 @@ class A2AServer:
                 "/agents/{name}": {
                     "get": {
                         "summary": "Get agent by name",
-                        "parameters": [
-                            {"name": "name", "in": "path", "required": True}
-                        ],
+                        "parameters": [{"name": "name", "in": "path", "required": True}],
                         "responses": {
                             "200": {"description": "Agent card"},
                             "404": {"description": "Agent not found"},

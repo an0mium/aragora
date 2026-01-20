@@ -72,12 +72,8 @@ class TestCalibrationDatabaseConnection:
         with patch("aragora.ranking.calibration_database.DatabaseManager") as mock_dm:
             mock_manager = MagicMock()
             mock_conn = MagicMock()
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_manager, mock_conn
@@ -101,12 +97,8 @@ class TestCalibrationDatabaseTransaction:
         with patch("aragora.ranking.calibration_database.DatabaseManager") as mock_dm:
             mock_manager = MagicMock()
             mock_conn = MagicMock()
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_manager, mock_conn
@@ -154,12 +146,8 @@ class TestCalibrationDatabaseFetchOne:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.execute.return_value = mock_cursor
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_conn, mock_cursor
@@ -203,12 +191,8 @@ class TestCalibrationDatabaseFetchAll:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.execute.return_value = mock_cursor
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_conn, mock_cursor
@@ -250,12 +234,8 @@ class TestCalibrationDatabaseExecuteWrite:
         with patch("aragora.ranking.calibration_database.DatabaseManager") as mock_dm:
             mock_manager = MagicMock()
             mock_conn = MagicMock()
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_conn
@@ -278,12 +258,8 @@ class TestCalibrationDatabaseExecuteMany:
         with patch("aragora.ranking.calibration_database.DatabaseManager") as mock_dm:
             mock_manager = MagicMock()
             mock_conn = MagicMock()
-            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(
-                return_value=mock_conn
-            )
-            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(
-                return_value=None
-            )
+            mock_manager.fresh_connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_manager.fresh_connection.return_value.__exit__ = MagicMock(return_value=None)
             mock_dm.get_instance.return_value = mock_manager
             db = CalibrationDatabase("/tmp/test.db")
             yield db, mock_conn
@@ -295,6 +271,4 @@ class TestCalibrationDatabaseExecuteMany:
 
         db.executemany("INSERT INTO test VALUES (?)", params_list)
 
-        mock_conn.executemany.assert_called_with(
-            "INSERT INTO test VALUES (?)", params_list
-        )
+        mock_conn.executemany.assert_called_with("INSERT INTO test VALUES (?)", params_list)

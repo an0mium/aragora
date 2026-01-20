@@ -29,7 +29,7 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout="All tests passed",
@@ -51,7 +51,7 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=1,
                 stdout="FAILED test_example.py::test_func",
@@ -73,7 +73,7 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout="Success: no issues found",
@@ -94,7 +94,7 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=1,
                 stdout="aragora/core.py:10: error: Incompatible types",
@@ -183,7 +183,7 @@ class TestVerifyPhaseRollback:
             log_fn=MagicMock(),
         )
 
-        with patch('shutil.copytree') as mock_copy:
+        with patch("shutil.copytree") as mock_copy:
             backup_path = await phase.create_backup()
 
             mock_copy.assert_called_once()
@@ -202,8 +202,8 @@ class TestVerifyPhaseRollback:
         backup_path = mock_aragora_path / ".backup"
         backup_path.mkdir()
 
-        with patch('shutil.rmtree') as mock_rm:
-            with patch('shutil.copytree') as mock_copy:
+        with patch("shutil.rmtree") as mock_rm:
+            with patch("shutil.copytree") as mock_copy:
                 await phase.restore_from_backup(backup_path)
 
                 # Should remove current state and restore backup
@@ -214,7 +214,9 @@ class TestVerifyPhaseIntegration:
     """Integration tests for verify phase."""
 
     @pytest.mark.asyncio
-    async def test_full_verification_flow_success(self, mock_aragora_path, mock_verification_result):
+    async def test_full_verification_flow_success(
+        self, mock_aragora_path, mock_verification_result
+    ):
         """Should complete full verification flow on success."""
         from aragora.nomic.phases.verify import VerifyPhase
 
@@ -223,9 +225,9 @@ class TestVerifyPhaseIntegration:
             log_fn=MagicMock(),
         )
 
-        with patch.object(phase, 'run_tests', new_callable=AsyncMock) as mock_tests:
-            with patch.object(phase, 'run_type_check', new_callable=AsyncMock) as mock_mypy:
-                with patch.object(phase, 'run_lint', new_callable=AsyncMock) as mock_lint:
+        with patch.object(phase, "run_tests", new_callable=AsyncMock) as mock_tests:
+            with patch.object(phase, "run_type_check", new_callable=AsyncMock) as mock_mypy:
+                with patch.object(phase, "run_lint", new_callable=AsyncMock) as mock_lint:
                     mock_tests.return_value = {"passed": True, "failures": []}
                     mock_mypy.return_value = {"clean": True, "errors": []}
                     mock_lint.return_value = {"clean": True, "issues": []}
@@ -246,7 +248,7 @@ class TestVerifyPhaseIntegration:
             log_fn=MagicMock(),
         )
 
-        with patch.object(phase, 'run_tests', new_callable=AsyncMock) as mock_tests:
+        with patch.object(phase, "run_tests", new_callable=AsyncMock) as mock_tests:
             mock_tests.return_value = {
                 "passed": False,
                 "failures": ["test_example.py::test_func"],

@@ -29,9 +29,6 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import re
-import signal
-import sys
-import threading
 from dataclasses import dataclass
 from typing import Any, Match, Optional, Pattern, Union
 
@@ -93,7 +90,9 @@ class SecurityValidationResult:
     sanitized: Optional[str] = None
 
     @classmethod
-    def success(cls, value: Any = None, sanitized: Optional[str] = None) -> "SecurityValidationResult":
+    def success(
+        cls, value: Any = None, sanitized: Optional[str] = None
+    ) -> "SecurityValidationResult":
         """Create a successful validation result."""
         return cls(is_valid=True, value=value, sanitized=sanitized)
 
@@ -125,17 +124,13 @@ DANGEROUS_REGEX_PATTERNS = [
 _DANGEROUS_PATTERN_REGEX = re.compile(
     r"(?:"
     # Nested quantifiers: (a+)+, (a*)+, (a+)*, (a*)*
-    r"\([^)]*[+*]\)[+*]"
-    r"|"
+    r"\([^)]*[+*]\)[+*]" r"|"
     # Overlapping alternation with quantifier
-    r"\([^)]*\|[^)]*\)[+*]"
-    r"|"
+    r"\([^)]*\|[^)]*\)[+*]" r"|"
     # Multiple dots with quantifiers
-    r"\.+[+*]\.+[+*]"
-    r"|"
+    r"\.+[+*]\.+[+*]" r"|"
     # Backreference with quantifier after group with quantifier
-    r"\([^)]*[+*]\)[^)]*\\[0-9]"
-    r")",
+    r"\([^)]*[+*]\)[^)]*\\[0-9]" r")",
     re.IGNORECASE,
 )
 
@@ -172,7 +167,7 @@ def is_safe_regex_pattern(pattern: str) -> tuple[bool, Optional[str]]:
         return False, "Pattern contains constructs that may cause catastrophic backtracking (ReDoS)"
 
     # Check for excessive quantifier nesting depth
-    quantifier_chars = set("+*?")
+    set("+*?")
     depth = 0
     max_depth = 0
     for char in pattern:
@@ -521,10 +516,7 @@ def sanitize_user_input(
     # Strip control characters (keep newlines, tabs)
     if strip_control_chars:
         # Remove ASCII control chars except \t (9), \n (10), \r (13)
-        result = "".join(
-            char for char in result
-            if ord(char) >= 32 or char in "\t\n\r"
-        )
+        result = "".join(char for char in result if ord(char) >= 32 or char in "\t\n\r")
 
     # Normalize whitespace
     if normalize_whitespace:

@@ -42,7 +42,9 @@ class CultureOperationsMixin:
     def _handle_get_culture(self: CultureHandlerProtocol, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/culture - Get organization culture profile."""
 
-        workspace_id = get_bounded_string_param(query_params, "workspace_id", "default", max_length=100)
+        workspace_id = get_bounded_string_param(
+            query_params, "workspace_id", "default", max_length=100
+        )
 
         mound = self._get_mound()
         if not mound:
@@ -54,12 +56,17 @@ class CultureOperationsMixin:
             logger.error(f"Failed to get culture profile: {e}")
             return error_response(f"Failed to get culture profile: {e}", 500)
 
-        return json_response({
-            "workspace_id": culture.workspace_id,
-            "patterns": {k: v.to_dict() if hasattr(v, 'to_dict') else v for k, v in culture.patterns.items()},
-            "generated_at": culture.generated_at.isoformat() if culture.generated_at else None,
-            "total_observations": culture.total_observations,
-        })
+        return json_response(
+            {
+                "workspace_id": culture.workspace_id,
+                "patterns": {
+                    k: v.to_dict() if hasattr(v, "to_dict") else v
+                    for k, v in culture.patterns.items()
+                },
+                "generated_at": culture.generated_at.isoformat() if culture.generated_at else None,
+                "total_observations": culture.total_observations,
+            }
+        )
 
     @handle_errors("add culture document")
     def _handle_add_culture_document(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
@@ -112,12 +119,15 @@ class CultureOperationsMixin:
             logger.error(f"Failed to add culture document: {e}")
             return error_response(f"Failed to add culture document: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "document_type": document_type,
-            "workspace_id": workspace_id,
-            "message": "Culture document added successfully",
-        }, status=201)
+        return json_response(
+            {
+                "node_id": node_id,
+                "document_type": document_type,
+                "workspace_id": workspace_id,
+                "message": "Culture document added successfully",
+            },
+            status=201,
+        )
 
     @handle_errors("promote to culture")
     def _handle_promote_to_culture(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
@@ -144,11 +154,16 @@ class CultureOperationsMixin:
         try:
             from aragora.memory.tier_manager import MemoryTier
 
-            updated = _run_async(mound.update(node_id, {
-                "node_type": "culture",
-                "tier": MemoryTier.GLACIAL.value,
-                "promoted_to_culture": True,
-            }))
+            updated = _run_async(
+                mound.update(
+                    node_id,
+                    {
+                        "node_type": "culture",
+                        "tier": MemoryTier.GLACIAL.value,
+                        "promoted_to_culture": True,
+                    },
+                )
+            )
 
             if not updated:
                 return error_response(f"Node not found: {node_id}", 404)
@@ -157,8 +172,10 @@ class CultureOperationsMixin:
             logger.error(f"Failed to promote to culture: {e}")
             return error_response(f"Failed to promote to culture: {e}", 500)
 
-        return json_response({
-            "node_id": node_id,
-            "promoted": True,
-            "message": "Knowledge promoted to culture successfully",
-        })
+        return json_response(
+            {
+                "node_id": node_id,
+                "promoted": True,
+                "message": "Knowledge promoted to culture successfully",
+            }
+        )

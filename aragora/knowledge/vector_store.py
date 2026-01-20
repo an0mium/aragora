@@ -182,7 +182,9 @@ class KnowledgeVectorStore:
             # Ensure collection exists
             await self._ensure_collection()
             self._connected = True
-            logger.info(f"Connected to Weaviate at {self.config.url} for workspace {self.workspace_id}")
+            logger.info(
+                f"Connected to Weaviate at {self.config.url} for workspace {self.workspace_id}"
+            )
             return True
 
         except Exception as e:
@@ -256,17 +258,29 @@ class KnowledgeVectorStore:
         properties = {
             "node_id": node.id,
             "workspace_id": node.workspace_id or self.workspace_id,
-            "node_type": node.node_type if isinstance(node.node_type, str) else node.node_type.value if hasattr(node.node_type, 'value') else str(node.node_type),
+            "node_type": (
+                node.node_type
+                if isinstance(node.node_type, str)
+                else (
+                    node.node_type.value
+                    if hasattr(node.node_type, "value")
+                    else str(node.node_type)
+                )
+            ),
             "content": node.content,
             "confidence": node.confidence,
-            "tier": node.tier.value if hasattr(node.tier, 'value') else str(node.tier),
+            "tier": node.tier.value if hasattr(node.tier, "value") else str(node.tier),
             "supports_ids": ",".join(node.supports) if node.supports else "",
             "contradicts_ids": ",".join(node.contradicts) if node.contradicts else "",
             "derived_from_ids": ",".join(node.derived_from) if node.derived_from else "",
             "surprise_score": node.surprise_score,
             "update_count": node.update_count,
-            "validation_status": node.validation_status.value if hasattr(node.validation_status, 'value') else str(node.validation_status),
-            "created_at": node.created_at if hasattr(node, 'created_at') else "",
+            "validation_status": (
+                node.validation_status.value
+                if hasattr(node.validation_status, "value")
+                else str(node.validation_status)
+            ),
+            "created_at": node.created_at if hasattr(node, "created_at") else "",
         }
 
         uuid = self._collection.data.insert(
@@ -310,23 +324,39 @@ class KnowledgeVectorStore:
             batch_nodes = nodes[i : i + self.config.batch_size]
             batch_embeddings = embeddings[i : i + self.config.batch_size]
 
-            with track_vector_operation("index_batch", "weaviate"), \
-                 self._collection.batch.dynamic() as batch:
+            with (
+                track_vector_operation("index_batch", "weaviate"),
+                self._collection.batch.dynamic() as batch,
+            ):
                 for node, embedding in zip(batch_nodes, batch_embeddings):
                     properties = {
                         "node_id": node.id,
                         "workspace_id": node.workspace_id or self.workspace_id,
-                        "node_type": node.node_type if isinstance(node.node_type, str) else node.node_type.value if hasattr(node.node_type, 'value') else str(node.node_type),
+                        "node_type": (
+                            node.node_type
+                            if isinstance(node.node_type, str)
+                            else (
+                                node.node_type.value
+                                if hasattr(node.node_type, "value")
+                                else str(node.node_type)
+                            )
+                        ),
                         "content": node.content,
                         "confidence": node.confidence,
-                        "tier": node.tier.value if hasattr(node.tier, 'value') else str(node.tier),
+                        "tier": node.tier.value if hasattr(node.tier, "value") else str(node.tier),
                         "supports_ids": ",".join(node.supports) if node.supports else "",
                         "contradicts_ids": ",".join(node.contradicts) if node.contradicts else "",
-                        "derived_from_ids": ",".join(node.derived_from) if node.derived_from else "",
+                        "derived_from_ids": (
+                            ",".join(node.derived_from) if node.derived_from else ""
+                        ),
                         "surprise_score": node.surprise_score,
                         "update_count": node.update_count,
-                        "validation_status": node.validation_status.value if hasattr(node.validation_status, 'value') else str(node.validation_status),
-                        "created_at": node.created_at if hasattr(node, 'created_at') else "",
+                        "validation_status": (
+                            node.validation_status.value
+                            if hasattr(node.validation_status, "value")
+                            else str(node.validation_status)
+                        ),
+                        "created_at": node.created_at if hasattr(node, "created_at") else "",
                     }
 
                     uuid = batch.add_object(
@@ -437,7 +467,9 @@ class KnowledgeVectorStore:
                         metadata={
                             "surprise_score": obj.properties.get("surprise_score", 0.0),
                             "update_count": obj.properties.get("update_count", 1),
-                            "validation_status": obj.properties.get("validation_status", "unverified"),
+                            "validation_status": obj.properties.get(
+                                "validation_status", "unverified"
+                            ),
                         },
                     )
                 )
@@ -593,7 +625,9 @@ class KnowledgeVectorStore:
 
         return results
 
-    async def get_node(self, node_id: str, workspace_id: Optional[str] = None) -> Optional[KnowledgeSearchResult]:
+    async def get_node(
+        self, node_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[KnowledgeSearchResult]:
         """
         Get a specific node by ID.
 

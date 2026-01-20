@@ -110,16 +110,12 @@ class TestDataIsolationE2E:
 
         # Build query for tenant A
         with TenantContext(tenant_a.id):
-            query_a = isolation.apply_tenant_filter(
-                "SELECT * FROM facts WHERE type = 'knowledge'"
-            )
+            query_a = isolation.apply_tenant_filter("SELECT * FROM facts WHERE type = 'knowledge'")
             assert f"tenant_id = '{tenant_a.id}'" in query_a
 
         # Build query for tenant B
         with TenantContext(tenant_b.id):
-            query_b = isolation.apply_tenant_filter(
-                "SELECT * FROM facts WHERE type = 'knowledge'"
-            )
+            query_b = isolation.apply_tenant_filter("SELECT * FROM facts WHERE type = 'knowledge'")
             assert f"tenant_id = '{tenant_b.id}'" in query_b
 
     @pytest.mark.asyncio
@@ -160,6 +156,7 @@ class TestDataIsolationE2E:
         # Tenant A cannot see tenant B's debate
         with TenantContext(tenant_a.id):
             from aragora.debate.store import DebateStore
+
             store = DebateStore()
             with pytest.raises(Exception):  # Should fail or return None
                 await store.get_debate(debate_id_b)
@@ -184,9 +181,12 @@ class TestQuotaEnforcementE2E:
 
         # Configure low rate limit for testing
         manager = QuotaManager()
-        manager.configure_tenant(tenant_a.id, {
-            "api_requests_per_minute": 5,
-        })
+        manager.configure_tenant(
+            tenant_a.id,
+            {
+                "api_requests_per_minute": 5,
+            },
+        )
 
         with TenantContext(tenant_a.id):
             # First 5 requests should succeed
@@ -207,9 +207,12 @@ class TestQuotaEnforcementE2E:
         from aragora.tenancy.quotas import QuotaManager, QuotaExceeded
 
         manager = QuotaManager()
-        manager.configure_tenant(tenant_a.id, {
-            "storage_bytes": 1024,  # 1KB limit
-        })
+        manager.configure_tenant(
+            tenant_a.id,
+            {
+                "storage_bytes": 1024,  # 1KB limit
+            },
+        )
 
         with TenantContext(tenant_a.id):
             # First addition should succeed
@@ -232,16 +235,22 @@ class TestQuotaEnforcementE2E:
         manager = QuotaManager()
 
         # Enterprise tier (tenant A) has higher limits
-        manager.configure_tenant(tenant_a.id, {
-            "max_debate_rounds": 100,
-            "tier": "enterprise",
-        })
+        manager.configure_tenant(
+            tenant_a.id,
+            {
+                "max_debate_rounds": 100,
+                "tier": "enterprise",
+            },
+        )
 
         # Standard tier (tenant B) has lower limits
-        manager.configure_tenant(tenant_b.id, {
-            "max_debate_rounds": 10,
-            "tier": "standard",
-        })
+        manager.configure_tenant(
+            tenant_b.id,
+            {
+                "max_debate_rounds": 10,
+                "tier": "standard",
+            },
+        )
 
         with TenantContext(tenant_a.id):
             limit_a = await manager.get_limit("max_debate_rounds")
@@ -262,10 +271,13 @@ class TestQuotaEnforcementE2E:
         from aragora.tenancy.quotas import QuotaManager, QuotaExceeded
 
         manager = QuotaManager()
-        manager.configure_tenant(tenant_b.id, {
-            "max_connectors": 2,
-            "tier": "standard",
-        })
+        manager.configure_tenant(
+            tenant_b.id,
+            {
+                "max_connectors": 2,
+                "tier": "standard",
+            },
+        )
 
         with TenantContext(tenant_b.id):
             # Add 2 connectors
@@ -516,6 +528,7 @@ class TestTenantSecurityE2E:
             with TenantContext(tenant_a.id, audit_enabled=True):
                 # Perform some action
                 from aragora.knowledge.mound.facade import KnowledgeMound
+
                 mound = KnowledgeMound()
                 await mound.add_node(
                     title="Test",

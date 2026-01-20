@@ -338,17 +338,11 @@ class SemanticStore(SQLiteStore):
                 ),
             )
 
-    async def _find_by_hash(
-        self, content_hash: str, tenant_id: str
-    ) -> Optional[str]:
+    async def _find_by_hash(self, content_hash: str, tenant_id: str) -> Optional[str]:
         """Find existing entry by content hash."""
-        return await asyncio.to_thread(
-            self._sync_find_by_hash, content_hash, tenant_id
-        )
+        return await asyncio.to_thread(self._sync_find_by_hash, content_hash, tenant_id)
 
-    def _sync_find_by_hash(
-        self, content_hash: str, tenant_id: str
-    ) -> Optional[str]:
+    def _sync_find_by_hash(self, content_hash: str, tenant_id: str) -> Optional[str]:
         """Synchronous hash lookup."""
         row = self.fetch_one(
             "SELECT id FROM semantic_index WHERE content_hash = ? AND tenant_id = ?",
@@ -390,9 +384,7 @@ class SemanticStore(SQLiteStore):
             created_at=datetime.fromisoformat(row[9]),
             updated_at=datetime.fromisoformat(row[10]),
             retrieval_count=row[11] or 0,
-            last_retrieved_at=(
-                datetime.fromisoformat(row[12]) if row[12] else None
-            ),
+            last_retrieved_at=(datetime.fromisoformat(row[12]) if row[12] else None),
             avg_retrieval_rank=row[13] or 0.0,
             metadata=json.loads(row[14]) if row[14] else {},
         )
@@ -414,17 +406,11 @@ class SemanticStore(SQLiteStore):
             )
             return cursor.rowcount > 0
 
-    async def delete_entry(
-        self, km_id: str, archive: bool = True, reason: str = "manual"
-    ) -> bool:
+    async def delete_entry(self, km_id: str, archive: bool = True, reason: str = "manual") -> bool:
         """Delete a semantic index entry."""
-        return await asyncio.to_thread(
-            self._sync_delete_entry, km_id, archive, reason
-        )
+        return await asyncio.to_thread(self._sync_delete_entry, km_id, archive, reason)
 
-    def _sync_delete_entry(
-        self, km_id: str, archive: bool, reason: str
-    ) -> bool:
+    def _sync_delete_entry(self, km_id: str, archive: bool, reason: str) -> bool:
         """Synchronous delete with optional archiving."""
         with self.connection() as conn:
             if archive:
@@ -440,9 +426,7 @@ class SemanticStore(SQLiteStore):
                     """,
                     (datetime.now().isoformat(), reason, km_id),
                 )
-            cursor = conn.execute(
-                "DELETE FROM semantic_index WHERE id = ?", (km_id,)
-            )
+            cursor = conn.execute("DELETE FROM semantic_index WHERE id = ?", (km_id,))
             return cursor.rowcount > 0
 
     # =========================================================================
@@ -566,9 +550,7 @@ class SemanticStore(SQLiteStore):
             rank_position: Position in search results (0 = top)
             was_useful: Optional feedback on whether retrieval was useful
         """
-        await asyncio.to_thread(
-            self._sync_record_retrieval, km_id, rank_position
-        )
+        await asyncio.to_thread(self._sync_record_retrieval, km_id, rank_position)
 
     def _sync_record_retrieval(self, km_id: str, rank_position: int) -> None:
         """Synchronous retrieval recording."""
@@ -633,9 +615,7 @@ class SemanticStore(SQLiteStore):
             min_retrievals,
         )
 
-    def _sync_get_retrieval_patterns(
-        self, tenant_id: str, min_retrievals: int
-    ) -> dict:
+    def _sync_get_retrieval_patterns(self, tenant_id: str, min_retrievals: int) -> dict:
         """Synchronous pattern analysis."""
         # High retrieval items
         high_rows = self.fetch_all(
@@ -663,12 +643,9 @@ class SemanticStore(SQLiteStore):
 
         return {
             "high_retrieval_domains": [
-                {"domain": r[0], "count": r[1], "avg_rank": r[2]}
-                for r in high_rows
+                {"domain": r[0], "count": r[1], "avg_rank": r[2]} for r in high_rows
             ],
-            "low_retrieval_domains": [
-                {"domain": r[0], "count": r[1]} for r in low_rows
-            ],
+            "low_retrieval_domains": [{"domain": r[0], "count": r[1]} for r in low_rows],
         }
 
     # =========================================================================
@@ -737,9 +714,7 @@ class SemanticStore(SQLiteStore):
 
     async def get_stats(self, tenant_id: Optional[str] = None) -> dict:
         """Get statistics about the semantic index."""
-        return await asyncio.to_thread(
-            self._sync_get_stats, tenant_id or self._default_tenant_id
-        )
+        return await asyncio.to_thread(self._sync_get_stats, tenant_id or self._default_tenant_id)
 
     def _sync_get_stats(self, tenant_id: str) -> dict:
         """Synchronous stats retrieval."""

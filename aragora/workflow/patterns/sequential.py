@@ -126,10 +126,12 @@ class SequentialPattern(WorkflowPattern):
 
             # Create transition from previous step
             if prev_step_id:
-                transitions.append(self._create_transition(
-                    from_step=prev_step_id,
-                    to_step=step_id,
-                ))
+                transitions.append(
+                    self._create_transition(
+                        from_step=prev_step_id,
+                        to_step=step_id,
+                    )
+                )
                 # Also set next_steps for sequential fallback
                 for s in steps:
                     if s.id == prev_step_id:
@@ -153,10 +155,12 @@ class SequentialPattern(WorkflowPattern):
             steps.append(output_step)
 
             if prev_step_id:
-                transitions.append(self._create_transition(
-                    from_step=prev_step_id,
-                    to_step="output",
-                ))
+                transitions.append(
+                    self._create_transition(
+                        from_step=prev_step_id,
+                        to_step="output",
+                    )
+                )
                 for s in steps:
                     if s.id == prev_step_id:
                         s.next_steps = ["output"]

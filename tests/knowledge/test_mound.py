@@ -336,7 +336,9 @@ class TestKnowledgeMoundMetaStore:
         """Test querying nodes by tier."""
         store.save_node(KnowledgeNode(content="Fast", tier=MemoryTier.FAST, workspace_id="ws_test"))
         store.save_node(KnowledgeNode(content="Slow", tier=MemoryTier.SLOW, workspace_id="ws_test"))
-        store.save_node(KnowledgeNode(content="Glacial", tier=MemoryTier.GLACIAL, workspace_id="ws_test"))
+        store.save_node(
+            KnowledgeNode(content="Glacial", tier=MemoryTier.GLACIAL, workspace_id="ws_test")
+        )
 
         fast_nodes = store.query_nodes(workspace_id="ws_test", tier=MemoryTier.FAST)
         assert len(fast_nodes) == 1
@@ -359,27 +361,33 @@ class TestKnowledgeMoundMetaStore:
 
     def test_get_stats(self, store):
         """Test getting statistics."""
-        store.save_node(KnowledgeNode(
-            node_type="fact",
-            content="Fact 1",
-            confidence=0.8,
-            tier=MemoryTier.FAST,
-            workspace_id="ws_test",
-        ))
-        store.save_node(KnowledgeNode(
-            node_type="fact",
-            content="Fact 2",
-            confidence=0.9,
-            tier=MemoryTier.SLOW,
-            workspace_id="ws_test",
-        ))
-        store.save_node(KnowledgeNode(
-            node_type="claim",
-            content="Claim 1",
-            confidence=0.7,
-            tier=MemoryTier.SLOW,
-            workspace_id="ws_test",
-        ))
+        store.save_node(
+            KnowledgeNode(
+                node_type="fact",
+                content="Fact 1",
+                confidence=0.8,
+                tier=MemoryTier.FAST,
+                workspace_id="ws_test",
+            )
+        )
+        store.save_node(
+            KnowledgeNode(
+                node_type="fact",
+                content="Fact 2",
+                confidence=0.9,
+                tier=MemoryTier.SLOW,
+                workspace_id="ws_test",
+            )
+        )
+        store.save_node(
+            KnowledgeNode(
+                node_type="claim",
+                content="Claim 1",
+                confidence=0.7,
+                tier=MemoryTier.SLOW,
+                workspace_id="ws_test",
+            )
+        )
 
         stats = store.get_stats("ws_test")
 
@@ -458,18 +466,24 @@ class TestKnowledgeMound:
     @pytest.mark.asyncio
     async def test_query_semantic(self, mound):
         """Test semantic query."""
-        await mound.add_node(KnowledgeNode(
-            content="API keys should be stored securely",
-            topics=["security"],
-        ))
-        await mound.add_node(KnowledgeNode(
-            content="Use environment variables for secrets",
-            topics=["security"],
-        ))
-        await mound.add_node(KnowledgeNode(
-            content="The weather is nice today",
-            topics=["weather"],
-        ))
+        await mound.add_node(
+            KnowledgeNode(
+                content="API keys should be stored securely",
+                topics=["security"],
+            )
+        )
+        await mound.add_node(
+            KnowledgeNode(
+                content="Use environment variables for secrets",
+                topics=["security"],
+            )
+        )
+        await mound.add_node(
+            KnowledgeNode(
+                content="The weather is nice today",
+                topics=["weather"],
+            )
+        )
 
         # Query should return security-related nodes
         result = await mound.query_semantic("security best practices", limit=10)
@@ -509,18 +523,22 @@ class TestKnowledgeMound:
     @pytest.mark.asyncio
     async def test_query_nodes_filtered(self, mound):
         """Test filtered node queries."""
-        await mound.add_node(KnowledgeNode(
-            node_type="fact",
-            content="High confidence fact",
-            confidence=0.95,
-            tier=MemoryTier.FAST,
-        ))
-        await mound.add_node(KnowledgeNode(
-            node_type="claim",
-            content="Low confidence claim",
-            confidence=0.3,
-            tier=MemoryTier.SLOW,
-        ))
+        await mound.add_node(
+            KnowledgeNode(
+                node_type="fact",
+                content="High confidence fact",
+                confidence=0.95,
+                tier=MemoryTier.FAST,
+            )
+        )
+        await mound.add_node(
+            KnowledgeNode(
+                node_type="claim",
+                content="Low confidence claim",
+                confidence=0.3,
+                tier=MemoryTier.SLOW,
+            )
+        )
 
         # Filter by type
         facts = await mound.query_nodes(node_types=["fact"])

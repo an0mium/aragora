@@ -115,7 +115,7 @@ class TestStandardDebateE2E:
         for i, agent in enumerate(mock_agents):
             agent.name = f"agent_{i}"
             agent.generate = AsyncMock(return_value=f"Position {i}")
-            agent.critique = AsyncMock(return_value=f"Critique of position")
+            agent.critique = AsyncMock(return_value="Critique of position")
 
         arena = Arena(env, mock_agents, protocol)
         result = await arena.run()

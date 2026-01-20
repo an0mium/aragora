@@ -473,12 +473,20 @@ class TestConsensusMemory:
 
         # Store multiple with different verification status
         c1 = memory.store_consensus(
-            topic="T1", conclusion="C1", strength=ConsensusStrength.STRONG,
-            confidence=0.9, participating_agents=["a"], agreeing_agents=["a"],
+            topic="T1",
+            conclusion="C1",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.9,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
         )
         c2 = memory.store_consensus(
-            topic="T2", conclusion="C2", strength=ConsensusStrength.STRONG,
-            confidence=0.9, participating_agents=["a"], agreeing_agents=["a"],
+            topic="T2",
+            conclusion="C2",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.9,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
         )
 
         memory.store_verified_proof(c1.id, {"status": "verified", "is_verified": True})
@@ -531,18 +539,30 @@ class TestConsensusMemory:
 
         # Store debates in different domains
         memory.store_consensus(
-            topic="Security T1", conclusion="C1", strength=ConsensusStrength.STRONG,
-            confidence=0.9, participating_agents=["a"], agreeing_agents=["a"],
+            topic="Security T1",
+            conclusion="C1",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.9,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
             domain="security",
         )
         memory.store_consensus(
-            topic="Security T2", conclusion="C2", strength=ConsensusStrength.MODERATE,
-            confidence=0.7, participating_agents=["a"], agreeing_agents=["a"],
+            topic="Security T2",
+            conclusion="C2",
+            strength=ConsensusStrength.MODERATE,
+            confidence=0.7,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
             domain="security",
         )
         memory.store_consensus(
-            topic="Perf T1", conclusion="C3", strength=ConsensusStrength.STRONG,
-            confidence=0.8, participating_agents=["a"], agreeing_agents=["a"],
+            topic="Perf T1",
+            conclusion="C3",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.8,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
             domain="performance",
         )
 
@@ -558,13 +578,20 @@ class TestConsensusMemory:
 
         # Store some data
         c1 = memory.store_consensus(
-            topic="T1", conclusion="C1", strength=ConsensusStrength.STRONG,
-            confidence=0.9, participating_agents=["a", "b"], agreeing_agents=["a"],
+            topic="T1",
+            conclusion="C1",
+            strength=ConsensusStrength.STRONG,
+            confidence=0.9,
+            participating_agents=["a", "b"],
+            agreeing_agents=["a"],
             domain="security",
         )
         memory.store_dissent(
-            debate_id=c1.id, agent_id="b", dissent_type=DissentType.RISK_WARNING,
-            content="Risk", reasoning="Reason",
+            debate_id=c1.id,
+            agent_id="b",
+            dissent_type=DissentType.RISK_WARNING,
+            content="Risk",
+            reasoning="Reason",
         )
 
         stats = memory.get_statistics()
@@ -578,8 +605,12 @@ class TestConsensusMemory:
         memory = ConsensusMemory(str(temp_db))
 
         consensus = memory.store_consensus(
-            topic="Test", conclusion="Result", strength=ConsensusStrength.MODERATE,
-            confidence=0.7, participating_agents=["a"], agreeing_agents=["a"],
+            topic="Test",
+            conclusion="Result",
+            strength=ConsensusStrength.MODERATE,
+            confidence=0.7,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
         )
 
         cruxes = [
@@ -647,9 +678,7 @@ class TestDissentRetriever:
         """Test finding contrarian views."""
         retriever = DissentRetriever(memory_with_data)
 
-        contrarian = retriever.find_contrarian_views(
-            consensus_position="encryption is always good"
-        )
+        contrarian = retriever.find_contrarian_views(consensus_position="encryption is always good")
 
         # Should return list of dissents
         assert isinstance(contrarian, list)
@@ -693,8 +722,12 @@ class TestConsensusMemoryCleanup:
 
         # Store a record
         memory.store_consensus(
-            topic="Test", conclusion="Result", strength=ConsensusStrength.MODERATE,
-            confidence=0.7, participating_agents=["a"], agreeing_agents=["a"],
+            topic="Test",
+            conclusion="Result",
+            strength=ConsensusStrength.MODERATE,
+            confidence=0.7,
+            participating_agents=["a"],
+            agreeing_agents=["a"],
         )
 
         # Run cleanup (won't delete new records)

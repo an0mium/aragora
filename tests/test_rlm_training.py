@@ -208,6 +208,7 @@ class TestExperienceBuffer:
     def test_buffer_add_non_terminal_warning(self, caplog):
         """Test warning when adding non-terminal trajectory."""
         import logging
+
         buffer = ExperienceBuffer()
 
         trajectory = Trajectory(query="Test")  # Not finalized
@@ -290,11 +291,11 @@ class TestRewardConfig:
         """Test that default weights sum to 1.0."""
         config = RewardConfig()
         total = (
-            config.consensus_weight +
-            config.efficiency_weight +
-            config.confidence_weight +
-            config.iteration_penalty_weight +
-            config.quality_weight
+            config.consensus_weight
+            + config.efficiency_weight
+            + config.confidence_weight
+            + config.iteration_penalty_weight
+            + config.quality_weight
         )
         assert total == pytest.approx(1.0)
 
@@ -630,32 +631,38 @@ class TestRLMTrainingIntegration:
         )
 
         # Add steps
-        trajectory.add_step(Step(
-            action="strategy = 'grep'",
-            action_type="strategy",
-            observation="Switching to grep strategy",
-            tokens_examined=0,
-            sub_calls=0,
-            duration_seconds=0.1,
-        ))
+        trajectory.add_step(
+            Step(
+                action="strategy = 'grep'",
+                action_type="strategy",
+                observation="Switching to grep strategy",
+                tokens_examined=0,
+                sub_calls=0,
+                duration_seconds=0.1,
+            )
+        )
 
-        trajectory.add_step(Step(
-            action="search('feature X')",
-            action_type="code",
-            observation="Found 5 discussions about feature X",
-            tokens_examined=2000,
-            sub_calls=3,
-            duration_seconds=1.5,
-        ))
+        trajectory.add_step(
+            Step(
+                action="search('feature X')",
+                action_type="code",
+                observation="Found 5 discussions about feature X",
+                tokens_examined=2000,
+                sub_calls=3,
+                duration_seconds=1.5,
+            )
+        )
 
-        trajectory.add_step(Step(
-            action="answer = synthesize(results)",
-            action_type="final",
-            observation="Synthesized consensus from discussions",
-            tokens_examined=500,
-            sub_calls=1,
-            duration_seconds=2.0,
-        ))
+        trajectory.add_step(
+            Step(
+                action="answer = synthesize(results)",
+                action_type="final",
+                observation="Synthesized consensus from discussions",
+                tokens_examined=500,
+                sub_calls=1,
+                duration_seconds=2.0,
+            )
+        )
 
         # Finalize
         trajectory.finalize(

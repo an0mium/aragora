@@ -305,7 +305,9 @@ class TestWhatsAppRateLimiting:
     def test_blocks_over_per_day_limit(self, whatsapp_meta_integration):
         """Test messages blocked over per-day limit."""
         # Set up to exceed daily limit
-        whatsapp_meta_integration._message_count_day = whatsapp_meta_integration.config.max_messages_per_day
+        whatsapp_meta_integration._message_count_day = (
+            whatsapp_meta_integration.config.max_messages_per_day
+        )
 
         result = whatsapp_meta_integration._check_rate_limit()
         assert result is False
@@ -326,7 +328,9 @@ class TestWhatsAppRateLimiting:
     def test_per_day_resets_after_24_hours(self, whatsapp_meta_integration):
         """Test per-day counter resets after 24 hours."""
         # Set to daily limit
-        whatsapp_meta_integration._message_count_day = whatsapp_meta_integration.config.max_messages_per_day
+        whatsapp_meta_integration._message_count_day = (
+            whatsapp_meta_integration.config.max_messages_per_day
+        )
 
         # Simulate time passing
         whatsapp_meta_integration._last_day_reset = datetime.now() - timedelta(hours=25)
@@ -416,7 +420,9 @@ class TestWhatsAppMetaAPI:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_send_via_meta_connection_error(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_via_meta_connection_error(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test Meta API connection error handling."""
         mock_aiohttp_session.post.side_effect = aiohttp.ClientError("Connection failed")
 
@@ -440,7 +446,9 @@ class TestWhatsAppTwilioAPI:
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_via_twilio_url_format(self, whatsapp_twilio_integration, mock_aiohttp_session):
+    async def test_send_via_twilio_url_format(
+        self, whatsapp_twilio_integration, mock_aiohttp_session
+    ):
         """Test Twilio API URL format."""
         await whatsapp_twilio_integration._send_via_twilio("Test")
 
@@ -458,7 +466,9 @@ class TestWhatsAppTwilioAPI:
         call_args = mock_aiohttp_session.post.call_args
         data = call_args.kwargs["data"]
 
-        assert data["From"] == f"whatsapp:{whatsapp_twilio_integration.config.twilio_whatsapp_number}"
+        assert (
+            data["From"] == f"whatsapp:{whatsapp_twilio_integration.config.twilio_whatsapp_number}"
+        )
         assert data["To"] == f"whatsapp:{whatsapp_twilio_integration.config.recipient}"
         assert data["Body"] == "Hello World"
 
@@ -489,7 +499,9 @@ class TestWhatsAppTwilioAPI:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_send_via_twilio_api_error(self, whatsapp_twilio_integration, mock_aiohttp_session):
+    async def test_send_via_twilio_api_error(
+        self, whatsapp_twilio_integration, mock_aiohttp_session
+    ):
         """Test Twilio API error handling."""
         mock_response = AsyncMock()
         mock_response.status = 400
@@ -500,7 +512,9 @@ class TestWhatsAppTwilioAPI:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_send_via_twilio_connection_error(self, whatsapp_twilio_integration, mock_aiohttp_session):
+    async def test_send_via_twilio_connection_error(
+        self, whatsapp_twilio_integration, mock_aiohttp_session
+    ):
         """Test Twilio API connection error handling."""
         mock_aiohttp_session.post.side_effect = aiohttp.ClientError("Connection failed")
 
@@ -517,7 +531,9 @@ class TestWhatsAppSendMessage:
     """Tests for send_message method."""
 
     @pytest.mark.asyncio
-    async def test_send_message_routes_to_meta(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_message_routes_to_meta(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test send_message routes to Meta API."""
         result = await whatsapp_meta_integration.send_message("Test")
         assert result is True
@@ -527,7 +543,9 @@ class TestWhatsAppSendMessage:
         assert "graph.facebook.com" in url
 
     @pytest.mark.asyncio
-    async def test_send_message_routes_to_twilio(self, whatsapp_twilio_integration, mock_aiohttp_session):
+    async def test_send_message_routes_to_twilio(
+        self, whatsapp_twilio_integration, mock_aiohttp_session
+    ):
         """Test send_message routes to Twilio API."""
         result = await whatsapp_twilio_integration.send_message("Test")
         assert result is True
@@ -556,7 +574,9 @@ class TestWhatsAppSendMessage:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_send_message_truncates_long_messages(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_message_truncates_long_messages(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test that long messages are truncated to 4000 chars."""
         long_message = "A" * 5000
         await whatsapp_meta_integration.send_message(long_message)
@@ -569,7 +589,9 @@ class TestWhatsAppSendMessage:
         assert sent_message.endswith("...")
 
     @pytest.mark.asyncio
-    async def test_send_message_preserves_short_messages(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_message_preserves_short_messages(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test that short messages are not truncated."""
         short_message = "Short message"
         await whatsapp_meta_integration.send_message(short_message)
@@ -590,14 +612,18 @@ class TestWhatsAppDebateSummary:
     """Tests for send_debate_summary method."""
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_success(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_success(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test successful debate summary sending."""
         result = await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
         assert result is True
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_disabled(self, meta_config, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_disabled(
+        self, meta_config, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary not sent when disabled."""
         meta_config.notify_on_debate_end = False
         integration = WhatsAppIntegration(meta_config)
@@ -608,7 +634,9 @@ class TestWhatsAppDebateSummary:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_includes_header(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_includes_header(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes ARAGORA header."""
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
@@ -619,7 +647,9 @@ class TestWhatsAppDebateSummary:
         assert "ARAGORA DEBATE COMPLETE" in message
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_includes_question(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_includes_question(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes the question."""
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
@@ -630,7 +660,9 @@ class TestWhatsAppDebateSummary:
         assert "What is the meaning of life" in message
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_includes_answer(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_includes_answer(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes the answer."""
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
@@ -641,7 +673,9 @@ class TestWhatsAppDebateSummary:
         assert "42" in message
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_includes_stats(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_includes_stats(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes statistics."""
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
@@ -654,7 +688,9 @@ class TestWhatsAppDebateSummary:
         assert "Agents: 3" in message
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_includes_link(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_includes_link(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test debate summary includes view link."""
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
@@ -665,7 +701,9 @@ class TestWhatsAppDebateSummary:
         assert f"https://aragora.ai/debate/{sample_debate_result.debate_id}" in message
 
     @pytest.mark.asyncio
-    async def test_send_debate_summary_truncates_long_question(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_send_debate_summary_truncates_long_question(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test that long questions are truncated."""
         sample_debate_result.question = "A" * 300
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
@@ -688,7 +726,9 @@ class TestWhatsAppConsensusAlert:
     """Tests for send_consensus_alert method."""
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_success(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_success(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test successful consensus alert."""
         result = await whatsapp_meta_integration.send_consensus_alert(
             debate_id="test-123",
@@ -714,7 +754,9 @@ class TestWhatsAppConsensusAlert:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_below_threshold(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_below_threshold(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test consensus alert not sent when confidence below threshold."""
         result = await whatsapp_meta_integration.send_consensus_alert(
             debate_id="test-123",
@@ -725,7 +767,9 @@ class TestWhatsAppConsensusAlert:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_at_threshold(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_at_threshold(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test consensus alert sent at exact threshold."""
         result = await whatsapp_meta_integration.send_consensus_alert(
             debate_id="test-123",
@@ -736,7 +780,9 @@ class TestWhatsAppConsensusAlert:
         mock_aiohttp_session.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_includes_header(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_includes_header(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test consensus alert includes CONSENSUS REACHED header."""
         await whatsapp_meta_integration.send_consensus_alert(
             debate_id="test-123",
@@ -751,7 +797,9 @@ class TestWhatsAppConsensusAlert:
         assert "CONSENSUS REACHED" in message
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_includes_confidence(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_includes_confidence(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test consensus alert includes confidence percentage."""
         await whatsapp_meta_integration.send_consensus_alert(
             debate_id="test-123",
@@ -766,7 +814,9 @@ class TestWhatsAppConsensusAlert:
         assert "85%" in message
 
     @pytest.mark.asyncio
-    async def test_send_consensus_alert_truncates_long_answer(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_consensus_alert_truncates_long_answer(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test that long answers are truncated to 400 chars."""
         long_answer = "A" * 500
         await whatsapp_meta_integration.send_consensus_alert(
@@ -816,7 +866,9 @@ class TestWhatsAppErrorAlert:
         mock_aiohttp_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_includes_header(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_error_alert_includes_header(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test error alert includes ARAGORA ERROR header."""
         await whatsapp_meta_integration.send_error_alert(
             debate_id="test-123",
@@ -830,7 +882,9 @@ class TestWhatsAppErrorAlert:
         assert "ARAGORA ERROR" in message
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_includes_debate_id(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_error_alert_includes_debate_id(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test error alert includes debate ID."""
         await whatsapp_meta_integration.send_error_alert(
             debate_id="test-error-456",
@@ -844,7 +898,9 @@ class TestWhatsAppErrorAlert:
         assert "test-error-456" in message
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_includes_error_message(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_error_alert_includes_error_message(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test error alert includes error message."""
         await whatsapp_meta_integration.send_error_alert(
             debate_id="test-123",
@@ -858,7 +914,9 @@ class TestWhatsAppErrorAlert:
         assert "Connection timeout to agent" in message
 
     @pytest.mark.asyncio
-    async def test_send_error_alert_truncates_long_error(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_send_error_alert_truncates_long_error(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test that long error messages are truncated to 500 chars."""
         long_error = "E" * 600
         await whatsapp_meta_integration.send_error_alert(
@@ -949,7 +1007,9 @@ class TestWhatsAppIntegrationE2E:
     """End-to-end style tests for WhatsApp integration."""
 
     @pytest.mark.asyncio
-    async def test_full_debate_workflow_meta(self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_full_debate_workflow_meta(
+        self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test a full debate notification workflow via Meta API."""
         # 1. Post debate summary
         result = await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
@@ -967,7 +1027,9 @@ class TestWhatsAppIntegrationE2E:
         assert mock_aiohttp_session.post.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_full_debate_workflow_twilio(self, whatsapp_twilio_integration, sample_debate_result, mock_aiohttp_session):
+    async def test_full_debate_workflow_twilio(
+        self, whatsapp_twilio_integration, sample_debate_result, mock_aiohttp_session
+    ):
         """Test a full debate notification workflow via Twilio API."""
         # 1. Post debate summary
         result = await whatsapp_twilio_integration.send_debate_summary(sample_debate_result)
@@ -986,7 +1048,9 @@ class TestWhatsAppIntegrationE2E:
             assert "api.twilio.com" in call.args[0]
 
     @pytest.mark.asyncio
-    async def test_multiple_messages_rate_limiting(self, whatsapp_meta_integration, mock_aiohttp_session):
+    async def test_multiple_messages_rate_limiting(
+        self, whatsapp_meta_integration, mock_aiohttp_session
+    ):
         """Test that multiple messages respect rate limiting."""
         # Set a low per-minute limit
         whatsapp_meta_integration.config.max_messages_per_minute = 2

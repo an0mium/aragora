@@ -32,7 +32,15 @@ class TestNodeType:
 
     def test_all_values(self):
         """Test all node types are defined."""
-        expected = ["proposal", "critique", "evidence", "concession", "rebuttal", "vote", "consensus"]
+        expected = [
+            "proposal",
+            "critique",
+            "evidence",
+            "concession",
+            "rebuttal",
+            "vote",
+            "consensus",
+        ]
         assert all(NodeType(v) for v in expected)
 
     def test_value_access(self):

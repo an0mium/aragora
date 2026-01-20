@@ -64,6 +64,7 @@ __all__ = [
 def __getattr__(name: str) -> Any:
     if name == "DebateProtocol":
         from aragora.debate.protocol import DebateProtocol
+
         return DebateProtocol
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

@@ -53,17 +53,21 @@ class MockMemoryManager:
     def store_debate_outcome(
         self, result: Any, task: str, belief_cruxes: Optional[list[str]] = None
     ) -> None:
-        self.stored_outcomes.append({
-            "result": result,
-            "task": task,
-            "belief_cruxes": belief_cruxes,
-        })
+        self.stored_outcomes.append(
+            {
+                "result": result,
+                "task": task,
+                "belief_cruxes": belief_cruxes,
+            }
+        )
 
     def store_evidence(self, evidence_snippets: list, task: str) -> None:
-        self.stored_evidence.append({
-            "snippets": evidence_snippets,
-            "task": task,
-        })
+        self.stored_evidence.append(
+            {
+                "snippets": evidence_snippets,
+                "task": task,
+            }
+        )
 
     def track_retrieved_ids(self, ids: set, tiers: Optional[dict] = None) -> None:
         # Copy the sets/dicts to preserve values before cache clearing

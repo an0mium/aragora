@@ -314,7 +314,9 @@ class ChatWebhookRouter:
                 response_text = "Debate starting not configured"
 
         else:
-            response_text = f"Unknown command: {subcommand}\nUse /aragora help for available commands"
+            response_text = (
+                f"Unknown command: {subcommand}\nUse /aragora help for available commands"
+            )
 
         # Send response
         try:

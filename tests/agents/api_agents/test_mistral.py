@@ -291,7 +291,9 @@ class TestMistralErrorHandling:
                 await agent.generate("Test prompt")
 
     @pytest.mark.asyncio
-    async def test_handles_rate_limit_with_retry(self, mock_env_with_api_keys, mock_mistral_response):
+    async def test_handles_rate_limit_with_retry(
+        self, mock_env_with_api_keys, mock_mistral_response
+    ):
         """Should handle rate limits with retry."""
         from aragora.agents.api_agents.mistral import MistralAPIAgent
         from tests.agents.api_agents.conftest import MockClientSession, MockResponse
@@ -348,7 +350,9 @@ class TestCodestralGenerate:
 
         # Modify response for code content
         code_response = mock_mistral_response.copy()
-        code_response["choices"][0]["message"]["content"] = "```python\ndef hello():\n    print('Hello')\n```"
+        code_response["choices"][0]["message"][
+            "content"
+        ] = "```python\ndef hello():\n    print('Hello')\n```"
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = MagicMock()

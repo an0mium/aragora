@@ -30,9 +30,22 @@ SOFTWARE_CONFIG = VerticalConfig(
     display_name="Software Engineering Specialist",
     description="Expert in software development, code review, security, and architecture.",
     domain_keywords=[
-        "code", "software", "programming", "development", "engineering",
-        "bug", "security", "vulnerability", "api", "database", "testing",
-        "architecture", "design", "refactor", "performance", "debug",
+        "code",
+        "software",
+        "programming",
+        "development",
+        "engineering",
+        "bug",
+        "security",
+        "vulnerability",
+        "api",
+        "database",
+        "testing",
+        "architecture",
+        "design",
+        "refactor",
+        "performance",
+        "debug",
     ],
     expertise_areas=[
         "Code Review",
@@ -202,11 +215,17 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         for category, patterns in self.SECURITY_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, code, re.IGNORECASE):
-                    findings.append({
-                        "category": category,
-                        "pattern": pattern,
-                        "severity": "high" if category in ["sql_injection", "command_injection"] else "medium",
-                    })
+                    findings.append(
+                        {
+                            "category": category,
+                            "pattern": pattern,
+                            "severity": (
+                                "high"
+                                if category in ["sql_injection", "command_injection"]
+                                else "medium"
+                            ),
+                        }
+                    )
 
         return {
             "findings": findings,
@@ -258,34 +277,40 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         if "A03" in framework.rules or not framework.rules:
             for pattern in self.SECURITY_PATTERNS.get("sql_injection", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "OWASP",
-                        "rule": "A03:2021 - Injection",
-                        "severity": "high",
-                        "message": "Potential SQL injection vulnerability detected",
-                    })
+                    violations.append(
+                        {
+                            "framework": "OWASP",
+                            "rule": "A03:2021 - Injection",
+                            "severity": "high",
+                            "message": "Potential SQL injection vulnerability detected",
+                        }
+                    )
                     break
 
             for pattern in self.SECURITY_PATTERNS.get("command_injection", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "OWASP",
-                        "rule": "A03:2021 - Injection",
-                        "severity": "high",
-                        "message": "Potential command injection vulnerability detected",
-                    })
+                    violations.append(
+                        {
+                            "framework": "OWASP",
+                            "rule": "A03:2021 - Injection",
+                            "severity": "high",
+                            "message": "Potential command injection vulnerability detected",
+                        }
+                    )
                     break
 
         # A07: Identification and Authentication Failures
         if "A07" in framework.rules or not framework.rules:
             for pattern in self.SECURITY_PATTERNS.get("hardcoded_secrets", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "OWASP",
-                        "rule": "A07:2021 - Identification and Authentication Failures",
-                        "severity": "high",
-                        "message": "Hardcoded credentials detected",
-                    })
+                    violations.append(
+                        {
+                            "framework": "OWASP",
+                            "rule": "A07:2021 - Identification and Authentication Failures",
+                            "severity": "high",
+                            "message": "Hardcoded credentials detected",
+                        }
+                    )
                     break
 
         return violations
@@ -304,36 +329,42 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         if "CWE-89" in framework.rules or not framework.rules:
             for pattern in self.SECURITY_PATTERNS.get("sql_injection", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "CWE",
-                        "rule": "CWE-89: SQL Injection",
-                        "severity": "high",
-                        "message": "SQL injection vulnerability",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CWE",
+                            "rule": "CWE-89: SQL Injection",
+                            "severity": "high",
+                            "message": "SQL injection vulnerability",
+                        }
+                    )
                     break
 
         # CWE-78: OS Command Injection
         if "CWE-78" in framework.rules or not framework.rules:
             for pattern in self.SECURITY_PATTERNS.get("command_injection", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "CWE",
-                        "rule": "CWE-78: OS Command Injection",
-                        "severity": "high",
-                        "message": "Command injection vulnerability",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CWE",
+                            "rule": "CWE-78: OS Command Injection",
+                            "severity": "high",
+                            "message": "Command injection vulnerability",
+                        }
+                    )
                     break
 
         # CWE-79: XSS
         if "CWE-79" in framework.rules or not framework.rules:
             for pattern in self.SECURITY_PATTERNS.get("xss", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "CWE",
-                        "rule": "CWE-79: Cross-site Scripting",
-                        "severity": "medium",
-                        "message": "Potential XSS vulnerability",
-                    })
+                    violations.append(
+                        {
+                            "framework": "CWE",
+                            "rule": "CWE-79: Cross-site Scripting",
+                            "severity": "medium",
+                            "message": "Potential XSS vulnerability",
+                        }
+                    )
                     break
 
         return violations
@@ -351,7 +382,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         return Message(
             role="assistant",
             content=f"[Software Specialist Response for: {task}]\n\n"
-                    f"This would contain expert software engineering guidance.",
+            f"This would contain expert software engineering guidance.",
             agent=self.name,
         )
 

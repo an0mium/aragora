@@ -80,6 +80,7 @@ class MockHookManager:
         def unregister():
             if hook_type in self._handlers and handler in self._handlers[hook_type]:
                 self._handlers[hook_type].remove(handler)
+
         return unregister
 
     def fire(self, hook_type: str, *args, **kwargs) -> None:
@@ -364,6 +365,7 @@ class TestFullCrossPollinationFlow:
         def track_event(event_type):
             def handler(*args, **kwargs):
                 events_fired.append(event_type)
+
             return handler
 
         hook_manager.register("debate_start", track_event("debate_start"))
@@ -537,6 +539,7 @@ class TestCrossPollinationEventChain:
 
         def track_update(*args, **kwargs):
             systems_triggered.append("memory")
+
         mock_memory.update_entry = track_update
         mock_memory.promote_entry = Mock()
         mock_memory.demote_entry = Mock()

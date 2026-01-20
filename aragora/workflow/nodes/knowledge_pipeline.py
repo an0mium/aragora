@@ -144,10 +144,12 @@ class KnowledgePipelineStep(BaseStep):
                     self._documents_processed += result.get("documents", 0)
                 except Exception as e:
                     logger.error(f"Failed to process source '{source}': {e}")
-                    errors.append({
-                        "source": source,
-                        "error": str(e),
-                    })
+                    errors.append(
+                        {
+                            "source": source,
+                            "error": str(e),
+                        }
+                    )
 
             # Stop pipeline
             await self._pipeline.stop()
@@ -300,6 +302,7 @@ class KnowledgePipelineStep(BaseStep):
                 }
 
             import importlib
+
             module = importlib.import_module(connector_module)
             connector_class = getattr(module, f"{connector_type.title().replace('_', '')}Connector")
             connector = connector_class(config=connector_config)
@@ -337,10 +340,27 @@ class KnowledgePipelineStep(BaseStep):
     def _is_supported_file(self, file_path: Path) -> bool:
         """Check if file type is supported for processing."""
         supported_extensions = {
-            ".txt", ".md", ".rst", ".html", ".htm",
-            ".pdf", ".docx", ".doc", ".pptx", ".ppt",
-            ".py", ".js", ".ts", ".java", ".go", ".rs",
-            ".json", ".yaml", ".yml", ".xml", ".csv",
+            ".txt",
+            ".md",
+            ".rst",
+            ".html",
+            ".htm",
+            ".pdf",
+            ".docx",
+            ".doc",
+            ".pptx",
+            ".ppt",
+            ".py",
+            ".js",
+            ".ts",
+            ".java",
+            ".go",
+            ".rs",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".xml",
+            ".csv",
         }
         return file_path.suffix.lower() in supported_extensions
 

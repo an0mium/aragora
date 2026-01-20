@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 # Check for RLM availability (use factory for consistent initialization)
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
+
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
@@ -38,6 +39,7 @@ except ImportError:
 # Check for Knowledge Mound availability
 try:
     from aragora.knowledge.mound import KnowledgeMound
+
     HAS_KNOWLEDGE_MOUND = True
 except ImportError:
     HAS_KNOWLEDGE_MOUND = False
@@ -159,7 +161,9 @@ class ContextGatherer:
             if not self._rlm_compressor and get_compressor is not None:
                 try:
                     self._rlm_compressor = get_compressor()
-                    logger.debug("[rlm] ContextGatherer: HierarchicalCompressor fallback via factory")
+                    logger.debug(
+                        "[rlm] ContextGatherer: HierarchicalCompressor fallback via factory"
+                    )
                 except ImportError as e:
                     # Expected: compressor module not available
                     logger.debug(f"[rlm] Compressor module not available: {e}")
@@ -178,7 +182,9 @@ class ContextGatherer:
         if self._enable_knowledge_grounding and KnowledgeMound is not None:
             if not self._knowledge_mound:
                 try:
-                    self._knowledge_mound = KnowledgeMound(workspace_id=self._knowledge_workspace_id)
+                    self._knowledge_mound = KnowledgeMound(
+                        workspace_id=self._knowledge_workspace_id
+                    )
                     logger.info(
                         f"[knowledge] ContextGatherer: Knowledge Mound enabled "
                         f"(workspace={self._knowledge_workspace_id})"
@@ -189,7 +195,9 @@ class ContextGatherer:
                     self._enable_knowledge_grounding = False
                 except Exception as e:
                     # Unexpected error
-                    logger.warning(f"[knowledge] Unexpected error initializing Knowledge Mound: {e}")
+                    logger.warning(
+                        f"[knowledge] Unexpected error initializing Knowledge Mound: {e}"
+                    )
                     self._enable_knowledge_grounding = False
             else:
                 logger.info("[knowledge] ContextGatherer: Using provided Knowledge Mound instance")
@@ -200,6 +208,7 @@ class ContextGatherer:
         if self._enable_belief_guidance:
             try:
                 from aragora.debate.phases.belief_analysis import DebateBeliefAnalyzer
+
                 self._belief_analyzer = DebateBeliefAnalyzer()
                 logger.info("[belief] ContextGatherer: Belief guidance enabled for crux injection")
             except ImportError:
@@ -295,7 +304,12 @@ class ContextGatherer:
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
                 results = await asyncio.gather(
-                    evidence_task, trending_task, knowledge_task, belief_task, culture_task, return_exceptions=True
+                    evidence_task,
+                    trending_task,
+                    knowledge_task,
+                    belief_task,
+                    culture_task,
+                    return_exceptions=True,
                 )
             else:
                 # Still wait for trending, knowledge, belief, and culture even if Claude search succeeded
@@ -712,14 +726,18 @@ class ContextGatherer:
             insights = []
 
             for item in result.items:
-                source = getattr(item, 'source', None)
-                source_name = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
+                source = getattr(item, "source", None)
+                source_name = (
+                    source.value
+                    if hasattr(source, "value")
+                    else str(source) if source else "unknown"
+                )
                 content = item.content[:500] if item.content else ""
-                confidence = getattr(item, 'confidence', 0.5)
+                confidence = getattr(item, "confidence", 0.5)
 
-                if source_name in ('fact', 'fact_store'):
+                if source_name in ("fact", "fact_store"):
                     facts.append((content, confidence))
-                elif source_name in ('evidence', 'evidence_store'):
+                elif source_name in ("evidence", "evidence_store"):
                     evidence.append((content, confidence))
                 else:
                     insights.append((content, confidence, source_name))
@@ -821,16 +839,20 @@ class ContextGatherer:
                     confidence = crux.get("confidence", 0.5)
                     entropy = crux.get("entropy", 0.5)
 
-                    conf_label = "HIGH" if confidence > 0.7 else "MEDIUM" if confidence > 0.4 else "LOW"
+                    conf_label = (
+                        "HIGH" if confidence > 0.7 else "MEDIUM" if confidence > 0.4 else "LOW"
+                    )
                     contested = " (CONTESTED)" if entropy > 0.8 else ""
                     context_parts.append(f"{i}. [{conf_label}{contested}] {statement}")
 
                 if result.evidence_suggestions:
-                    context_parts.extend([
-                        "",
-                        "### Evidence Needed",
-                        "The following evidence would help resolve these cruxes:",
-                    ])
+                    context_parts.extend(
+                        [
+                            "",
+                            "### Evidence Needed",
+                            "The following evidence would help resolve these cruxes:",
+                        ]
+                    )
                     for suggestion in result.evidence_suggestions[:3]:
                         context_parts.append(f"- {suggestion}")
 
@@ -928,7 +950,9 @@ class ContextGatherer:
                 if not description:
                     continue
 
-                conf_label = "Strong" if confidence > 0.7 else "Moderate" if confidence > 0.4 else "Emerging"
+                conf_label = (
+                    "Strong" if confidence > 0.7 else "Moderate" if confidence > 0.4 else "Emerging"
+                )
                 context_parts.append(
                     f"- **{pattern_type.title()}** [{conf_label}, {applications} uses]: {description}"
                 )
@@ -997,14 +1021,17 @@ class ContextGatherer:
 
         # If RLM is not enabled, use simple truncation
         if not self._enable_rlm:
-            return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
+            return (
+                content[: max_chars - 30] + "... [truncated]"
+                if len(content) > max_chars
+                else content
+            )
 
         # PRIMARY: Try AragoraRLM (routes to TRUE RLM if available)
         if self._aragora_rlm:
             try:
                 logger.debug(
-                    "[rlm] Using AragoraRLM for compression "
-                    "(routes to TRUE RLM if available)"
+                    "[rlm] Using AragoraRLM for compression " "(routes to TRUE RLM if available)"
                 )
                 result = await asyncio.wait_for(
                     self._aragora_rlm.compress_and_query(
@@ -1021,7 +1048,11 @@ class ContextGatherer:
                         f"[rlm] Compressed {len(content)} -> {len(result.answer)} chars "
                         f"({len(result.answer)/len(content)*100:.0f}%) via {approach}"
                     )
-                    return result.answer[:max_chars] if len(result.answer) > max_chars else result.answer
+                    return (
+                        result.answer[:max_chars]
+                        if len(result.answer) > max_chars
+                        else result.answer
+                    )
 
             except asyncio.TimeoutError:
                 logger.debug("[rlm] AragoraRLM compression timed out")
@@ -1051,6 +1082,7 @@ class ContextGatherer:
                 # Get summary level (or abstract if summary is too long)
                 try:
                     from aragora.rlm.types import AbstractionLevel
+
                     summary = compression_result.context.get_at_level(AbstractionLevel.SUMMARY)
                     if summary and len(summary) > max_chars:
                         summary = compression_result.context.get_at_level(AbstractionLevel.ABSTRACT)
@@ -1075,7 +1107,9 @@ class ContextGatherer:
 
         # FINAL FALLBACK: Simple truncation
         logger.debug("[rlm] All RLM approaches failed, using simple truncation")
-        return content[:max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
+        return (
+            content[: max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
+        )
 
     def get_continuum_context(
         self,
@@ -1155,8 +1189,11 @@ class ContextGatherer:
             context_parts = ["[Previous learnings relevant to this debate:]"]
 
             # Format recent memories (fast/medium/slow)
-            recent_mems = [m for m in all_memories if getattr(m, "tier", None) and
-                          getattr(m, "tier").value != "glacial"]
+            recent_mems = [
+                m
+                for m in all_memories
+                if getattr(m, "tier", None) and getattr(m, "tier").value != "glacial"
+            ]
             for mem in recent_mems[:3]:
                 content = mem.content[:200] if hasattr(mem, "content") else str(mem)[:200]
                 tier = mem.tier.value if hasattr(mem, "tier") else "unknown"
@@ -1167,8 +1204,11 @@ class ContextGatherer:
                 context_parts.append(f"- [{tier}|{confidence}] {content}")
 
             # Format glacial insights separately (long-term patterns)
-            glacial_mems = [m for m in all_memories if getattr(m, "tier", None) and
-                           getattr(m, "tier").value == "glacial"]
+            glacial_mems = [
+                m
+                for m in all_memories
+                if getattr(m, "tier", None) and getattr(m, "tier").value == "glacial"
+            ]
             if glacial_mems:
                 context_parts.append("\n[Long-term patterns from previous sessions:]")
                 for mem in glacial_mems[:2]:

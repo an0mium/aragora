@@ -428,9 +428,7 @@ class TestHasAccessGrant:
         from aragora.knowledge.mound.api.query import QueryOperationsMixin
 
         mixin = QueryOperationsMixin()
-        grants = [
-            {"grantee_type": "user", "grantee_id": "user_1", "expires_at": None}
-        ]
+        grants = [{"grantee_type": "user", "grantee_id": "user_1", "expires_at": None}]
         assert mixin._has_access_grant(grants, "user_1", "ws_1", None) is True
         assert mixin._has_access_grant(grants, "user_2", "ws_1", None) is False
 
@@ -439,9 +437,7 @@ class TestHasAccessGrant:
         from aragora.knowledge.mound.api.query import QueryOperationsMixin
 
         mixin = QueryOperationsMixin()
-        grants = [
-            {"grantee_type": "workspace", "grantee_id": "ws_1", "expires_at": None}
-        ]
+        grants = [{"grantee_type": "workspace", "grantee_id": "ws_1", "expires_at": None}]
         assert mixin._has_access_grant(grants, "any_user", "ws_1", None) is True
         assert mixin._has_access_grant(grants, "any_user", "ws_2", None) is False
 
@@ -450,9 +446,7 @@ class TestHasAccessGrant:
         from aragora.knowledge.mound.api.query import QueryOperationsMixin
 
         mixin = QueryOperationsMixin()
-        grants = [
-            {"grantee_type": "organization", "grantee_id": "org_1", "expires_at": None}
-        ]
+        grants = [{"grantee_type": "organization", "grantee_id": "org_1", "expires_at": None}]
         assert mixin._has_access_grant(grants, "any_user", "any_ws", "org_1") is True
         assert mixin._has_access_grant(grants, "any_user", "any_ws", "org_2") is False
 
@@ -462,9 +456,7 @@ class TestHasAccessGrant:
 
         mixin = QueryOperationsMixin()
         expired_time = (datetime.now() - timedelta(days=1)).isoformat()
-        grants = [
-            {"grantee_type": "user", "grantee_id": "user_1", "expires_at": expired_time}
-        ]
+        grants = [{"grantee_type": "user", "grantee_id": "user_1", "expires_at": expired_time}]
         assert mixin._has_access_grant(grants, "user_1", "ws_1", None) is False
 
     def test_future_expiry_matches(self):
@@ -473,7 +465,5 @@ class TestHasAccessGrant:
 
         mixin = QueryOperationsMixin()
         future_time = (datetime.now() + timedelta(days=1)).isoformat()
-        grants = [
-            {"grantee_type": "user", "grantee_id": "user_1", "expires_at": future_time}
-        ]
+        grants = [{"grantee_type": "user", "grantee_id": "user_1", "expires_at": future_time}]
         assert mixin._has_access_grant(grants, "user_1", "ws_1", None) is True

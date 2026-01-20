@@ -433,11 +433,13 @@ class TestEventEmission:
         """Should emit scheduler stats event."""
         await stream_server._register_client(mock_websocket)
 
-        await stream_server.emit_scheduler_stats({
-            "pending_tasks": 5,
-            "running_tasks": 3,
-            "agents_idle": 2,
-        })
+        await stream_server.emit_scheduler_stats(
+            {
+                "pending_tasks": 5,
+                "running_tasks": 3,
+                "agents_idle": 2,
+            }
+        )
 
         sent_data = json.loads(mock_websocket.send.call_args[0][0])
         assert sent_data["type"] == "scheduler_stats"

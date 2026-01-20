@@ -190,7 +190,6 @@ class TestWorkflowCheckpoint:
 
     def test_create_checkpoint(self):
         """Test creating a checkpoint."""
-        from datetime import datetime
 
         checkpoint = WorkflowCheckpoint(
             id="cp_1",
@@ -244,7 +243,9 @@ class TestStepResult:
 class SimpleTestStep(BaseStep):
     """Simple step for testing."""
 
-    def __init__(self, name: str = "test", config: Dict[str, Any] = None, output_value: Any = "done"):
+    def __init__(
+        self, name: str = "test", config: Dict[str, Any] = None, output_value: Any = "done"
+    ):
         super().__init__(name, config)
         self._output_value = output_value
 
@@ -434,6 +435,7 @@ class TestWorkflowEngine:
     @pytest.mark.asyncio
     async def test_step_output_propagation(self, engine):
         """Test that step outputs are available to subsequent steps."""
+
         class ProducerStep(BaseStep):
             def __init__(self, name: str = "producer", config: Dict[str, Any] = None):
                 super().__init__(name, config)

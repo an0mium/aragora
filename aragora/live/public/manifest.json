@@ -1,7 +1,7 @@
 {
-  "name": "Aragora - AI Debate Platform",
+  "name": "Aragora - Multi Agent Decision Making",
   "short_name": "Aragora",
-  "description": "Multi-agent AI debate and validation platform",
+  "description": "Omnivorous Multi Agent Decision Making Engine - Collaborative decision making powered by diverse AI models",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

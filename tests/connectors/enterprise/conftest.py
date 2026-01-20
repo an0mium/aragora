@@ -43,13 +43,15 @@ class MockCredentialProvider:
 @pytest.fixture
 def mock_credentials() -> MockCredentialProvider:
     """Create mock credential provider."""
-    return MockCredentialProvider({
-        "MONGO_USER": "test_user",
-        "MONGO_PASSWORD": "test_password",
-        "SLACK_BOT_TOKEN": "xoxb-test-token-12345",
-        "NOTION_API_KEY": "secret_test_notion_key",
-        "CONFLUENCE_API_TOKEN": "test_confluence_token",
-    })
+    return MockCredentialProvider(
+        {
+            "MONGO_USER": "test_user",
+            "MONGO_PASSWORD": "test_password",
+            "SLACK_BOT_TOKEN": "xoxb-test-token-12345",
+            "NOTION_API_KEY": "secret_test_notion_key",
+            "CONFLUENCE_API_TOKEN": "test_confluence_token",
+        }
+    )
 
 
 # =============================================================================

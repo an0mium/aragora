@@ -293,34 +293,40 @@ async def execute_workflow(
     try:
         result = await _engine.execute(workflow, inputs, execution_id)
 
-        execution.update({
-            "status": "completed" if result.success else "failed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "outputs": result.final_output,
-            "steps": [s.__dict__ for s in result.steps],
-            "error": result.error,
-            "duration_ms": result.total_duration_ms,
-        })
+        execution.update(
+            {
+                "status": "completed" if result.success else "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "outputs": result.final_output,
+                "steps": [s.__dict__ for s in result.steps],
+                "error": result.error,
+                "duration_ms": result.total_duration_ms,
+            }
+        )
         store.save_execution(execution)
 
         return execution
 
     except (ValueError, KeyError, TypeError) as e:
         logger.warning(f"Invalid workflow configuration or inputs: {e}")
-        execution.update({
-            "status": "failed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "error": str(e),
-        })
+        execution.update(
+            {
+                "status": "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": str(e),
+            }
+        )
         store.save_execution(execution)
         raise
     except Exception as e:
         logger.exception(f"Unexpected workflow execution error: {e}")
-        execution.update({
-            "status": "failed",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "error": str(e),
-        })
+        execution.update(
+            {
+                "status": "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": str(e),
+            }
+        )
         store.save_execution(execution)
         raise
 
@@ -690,6 +696,7 @@ def _load_yaml_templates() -> None:
     """Load workflow templates from YAML files into persistent store."""
     try:
         from aragora.workflow.template_loader import load_templates
+
         store = _get_store()
         templates = load_templates()
         loaded = 0
@@ -730,12 +737,16 @@ class WorkflowHandlers:
         )
 
     @staticmethod
-    async def handle_get_workflow(workflow_id: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def handle_get_workflow(
+        workflow_id: str, params: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """GET /api/workflows/:id"""
         return await get_workflow(workflow_id, params.get("tenant_id", "default"))
 
     @staticmethod
-    async def handle_create_workflow(data: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_create_workflow(
+        data: Dict[str, Any], params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """POST /api/workflows"""
         return await create_workflow(
             data,
@@ -744,7 +755,9 @@ class WorkflowHandlers:
         )
 
     @staticmethod
-    async def handle_update_workflow(workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def handle_update_workflow(
+        workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """PUT /api/workflows/:id"""
         return await update_workflow(workflow_id, data, params.get("tenant_id", "default"))
 
@@ -754,7 +767,9 @@ class WorkflowHandlers:
         return await delete_workflow(workflow_id, params.get("tenant_id", "default"))
 
     @staticmethod
-    async def handle_execute_workflow(workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_execute_workflow(
+        workflow_id: str, data: Dict[str, Any], params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """POST /api/workflows/:id/execute"""
         return await execute_workflow(
             workflow_id,
@@ -779,7 +794,9 @@ class WorkflowHandlers:
         )
 
     @staticmethod
-    async def handle_resolve_approval(request_id: str, data: Dict[str, Any], params: Dict[str, Any]) -> bool:
+    async def handle_resolve_approval(
+        request_id: str, data: Dict[str, Any], params: Dict[str, Any]
+    ) -> bool:
         """POST /api/workflow-approvals/:id/resolve"""
         return await resolve_approval(
             request_id,
@@ -839,10 +856,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return (
-            path.startswith("/api/workflows") or
-            path.startswith("/api/workflow-templates") or
-            path.startswith("/api/workflow-approvals") or
-            path.startswith("/api/workflow-executions")
+            path.startswith("/api/workflows")
+            or path.startswith("/api/workflow-templates")
+            or path.startswith("/api/workflow-approvals")
+            or path.startswith("/api/workflow-executions")
         )
 
     def handle(
@@ -851,7 +868,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
-
 
         # GET /api/workflow-executions
         if path == "/api/workflow-executions":
@@ -898,7 +914,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
-
 
         # POST /api/workflows/{id}/execute
         if path.endswith("/execute"):
@@ -998,13 +1013,15 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle GET /api/workflows."""
         try:
             limit, offset = self.get_pagination(query_params)
-            result = _run_async(list_workflows(
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-                category=get_string_param(query_params, "category", None),
-                search=get_string_param(query_params, "search", None),
-                limit=limit,
-                offset=offset,
-            ))
+            result = _run_async(
+                list_workflows(
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    category=get_string_param(query_params, "category", None),
+                    search=get_string_param(query_params, "search", None),
+                    limit=limit,
+                    offset=offset,
+                )
+            )
             return json_response(result)
         except Exception as e:
             logger.exception(f"Failed to list workflows: {e}")
@@ -1013,10 +1030,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def _handle_get_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
         try:
-            result = _run_async(get_workflow(
-                workflow_id,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            result = _run_async(
+                get_workflow(
+                    workflow_id,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             if result:
                 return json_response(result)
             return error_response(f"Workflow not found: {workflow_id}", 404)
@@ -1027,11 +1046,13 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     def _handle_create_workflow(self, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows."""
         try:
-            result = _run_async(create_workflow(
-                body,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-                created_by=get_string_param(query_params, "user_id", ""),
-            ))
+            result = _run_async(
+                create_workflow(
+                    body,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    created_by=get_string_param(query_params, "user_id", ""),
+                )
+            )
             return json_response(result, status=201)
         except ValueError as e:
             return error_response(str(e), 400)
@@ -1039,14 +1060,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to create workflow: {e}")
             return error_response(safe_error_message(e, "create workflow"), 500)
 
-    def _handle_update_workflow(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
+    def _handle_update_workflow(
+        self, workflow_id: str, body: dict, query_params: dict
+    ) -> HandlerResult:
         """Handle PATCH /api/workflows/{id}."""
         try:
-            result = _run_async(update_workflow(
-                workflow_id,
-                body,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            result = _run_async(
+                update_workflow(
+                    workflow_id,
+                    body,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             if result:
                 return json_response(result)
             return error_response(f"Workflow not found: {workflow_id}", 404)
@@ -1058,13 +1083,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_delete_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
-        
 
         try:
-            deleted = _run_async(delete_workflow(
-                workflow_id,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            deleted = _run_async(
+                delete_workflow(
+                    workflow_id,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             if deleted:
                 return json_response({"deleted": True, "id": workflow_id})
             return error_response(f"Workflow not found: {workflow_id}", 404)
@@ -1074,14 +1100,15 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_execute(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
-        
 
         try:
-            result = _run_async(execute_workflow(
-                workflow_id,
-                inputs=body.get("inputs"),
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            result = _run_async(
+                execute_workflow(
+                    workflow_id,
+                    inputs=body.get("inputs"),
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             return json_response(result)
         except ValueError as e:
             return error_response(str(e), 404)
@@ -1091,13 +1118,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
-        
 
         try:
-            workflow_dict = _run_async(get_workflow(
-                workflow_id,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            workflow_dict = _run_async(
+                get_workflow(
+                    workflow_id,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             if not workflow_dict:
                 return error_response(f"Workflow not found: {workflow_id}", 404)
 
@@ -1112,25 +1140,29 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             while current and current not in visited:
                 step = workflow.get_step(current)
                 if step:
-                    plan.append({
-                        "step_id": step.id,
-                        "step_name": step.name,
-                        "step_type": step.step_type,
-                        "optional": step.optional,
-                        "timeout": step.timeout_seconds,
-                    })
+                    plan.append(
+                        {
+                            "step_id": step.id,
+                            "step_name": step.name,
+                            "step_type": step.step_type,
+                            "optional": step.optional,
+                            "timeout": step.timeout_seconds,
+                        }
+                    )
                     visited.add(current)
                     current = step.next_steps[0] if step.next_steps else None
                 else:
                     break
 
-            return json_response({
-                "workflow_id": workflow_id,
-                "is_valid": is_valid,
-                "validation_errors": errors,
-                "execution_plan": plan,
-                "estimated_steps": len(workflow.steps),
-            })
+            return json_response(
+                {
+                    "workflow_id": workflow_id,
+                    "is_valid": is_valid,
+                    "validation_errors": errors,
+                    "execution_plan": plan,
+                    "estimated_steps": len(workflow.steps),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Failed to simulate workflow: {e}")
@@ -1138,31 +1170,33 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_status(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
-        
 
         try:
             executions = _run_async(list_executions(workflow_id=workflow_id, limit=1))
             if executions:
                 return json_response(executions[0])
-            return json_response({
-                "workflow_id": workflow_id,
-                "status": "no_executions",
-                "message": "No executions found for this workflow",
-            })
+            return json_response(
+                {
+                    "workflow_id": workflow_id,
+                    "status": "no_executions",
+                    "message": "No executions found for this workflow",
+                }
+            )
         except Exception as e:
             logger.exception(f"Failed to get workflow status: {e}")
             return error_response(safe_error_message(e, "get workflow status"), 500)
 
     def _handle_get_versions(self, workflow_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
-        
 
         try:
-            versions = _run_async(get_workflow_versions(
-                workflow_id,
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-                limit=get_int_param(query_params, "limit", 20),
-            ))
+            versions = _run_async(
+                get_workflow_versions(
+                    workflow_id,
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    limit=get_int_param(query_params, "limit", 20),
+                )
+            )
             return json_response({"versions": versions, "workflow_id": workflow_id})
         except Exception as e:
             logger.exception(f"Failed to get workflow versions: {e}")
@@ -1170,12 +1204,13 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_list_templates(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
-        
 
         try:
-            templates = _run_async(list_templates(
-                category=get_string_param(query_params, "category", None),
-            ))
+            templates = _run_async(
+                list_templates(
+                    category=get_string_param(query_params, "category", None),
+                )
+            )
             return json_response({"templates": templates, "count": len(templates)})
         except Exception as e:
             logger.exception(f"Failed to list templates: {e}")
@@ -1183,13 +1218,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_list_approvals(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
-        
 
         try:
-            approvals = _run_async(list_pending_approvals(
-                workflow_id=get_string_param(query_params, "workflow_id", None),
-                tenant_id=get_string_param(query_params, "tenant_id", "default"),
-            ))
+            approvals = _run_async(
+                list_pending_approvals(
+                    workflow_id=get_string_param(query_params, "workflow_id", None),
+                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                )
+            )
             return json_response({"approvals": approvals, "count": len(approvals)})
         except Exception as e:
             logger.exception(f"Failed to list approvals: {e}")
@@ -1201,42 +1237,48 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         Returns all workflow executions across all workflows, filtered by status.
         Used by the runtime monitoring dashboard.
         """
-        
 
         try:
             status_filter = get_string_param(query_params, "status", None)
             workflow_id = get_string_param(query_params, "workflow_id", None)
             limit = get_int_param(query_params, "limit", 50)
 
-            executions = _run_async(list_executions(
-                workflow_id=workflow_id,
-                limit=limit,
-            ))
+            executions = _run_async(
+                list_executions(
+                    workflow_id=workflow_id,
+                    limit=limit,
+                )
+            )
 
             # Apply status filter if provided
             if status_filter:
                 executions = [e for e in executions if e.get("status") == status_filter]
 
-            return json_response({
-                "executions": executions,
-                "count": len(executions),
-            })
+            return json_response(
+                {
+                    "executions": executions,
+                    "count": len(executions),
+                }
+            )
         except Exception as e:
             logger.exception(f"Failed to list executions: {e}")
             return error_response(safe_error_message(e, "list workflow executions"), 500)
 
-    def _handle_resolve_approval(self, request_id: str, body: dict, query_params: dict) -> HandlerResult:
+    def _handle_resolve_approval(
+        self, request_id: str, body: dict, query_params: dict
+    ) -> HandlerResult:
         """Handle POST /api/workflow-approvals/{id}/resolve."""
-        
 
         try:
-            resolved = _run_async(resolve_approval(
-                request_id,
-                status=body.get("status", "approved"),
-                responder_id=get_string_param(query_params, "user_id", ""),
-                notes=body.get("notes", ""),
-                checklist_updates=body.get("checklist"),
-            ))
+            resolved = _run_async(
+                resolve_approval(
+                    request_id,
+                    status=body.get("status", "approved"),
+                    responder_id=get_string_param(query_params, "user_id", ""),
+                    notes=body.get("notes", ""),
+                    checklist_updates=body.get("checklist"),
+                )
+            )
             if resolved:
                 return json_response({"resolved": True, "request_id": request_id})
             return error_response(f"Approval request not found: {request_id}", 404)

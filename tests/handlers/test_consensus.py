@@ -113,7 +113,9 @@ class MockConsensusMemory:
     def get_statistics(self) -> dict:
         return self._statistics
 
-    def get_domain_consensus_history(self, domain: str, limit: int = 50) -> List[MockConsensusRecord]:
+    def get_domain_consensus_history(
+        self, domain: str, limit: int = 50
+    ) -> List[MockConsensusRecord]:
         return self._domain_history[:limit]
 
 

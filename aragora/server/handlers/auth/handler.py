@@ -619,10 +619,12 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"Password changed for user: {user.email}")
 
-        return json_response({
-            "message": "Password changed successfully",
-            "sessions_invalidated": True,
-        })
+        return json_response(
+            {
+                "message": "Password changed successfully",
+                "sessions_invalidated": True,
+            }
+        )
 
     @rate_limit(rpm=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
@@ -1141,10 +1143,12 @@ class AuthHandler(BaseHandler):
         # Sort by last activity (most recent first)
         session_list.sort(key=lambda s: s["last_activity"], reverse=True)
 
-        return json_response({
-            "sessions": session_list,
-            "total": len(session_list),
-        })
+        return json_response(
+            {
+                "sessions": session_list,
+                "total": len(session_list),
+            }
+        )
 
     @rate_limit(rpm=10, limiter_name="auth_revoke_session")
     @handle_errors("revoke session")
@@ -1196,15 +1200,15 @@ class AuthHandler(BaseHandler):
         # 2. Token expires naturally
         # For immediate revocation, users should use logout-all
 
-        logger.info(
-            f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}"
-        )
+        logger.info(f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}")
 
-        return json_response({
-            "success": True,
-            "message": "Session revoked successfully",
-            "session_id": session_id,
-        })
+        return json_response(
+            {
+                "success": True,
+                "message": "Session revoked successfully",
+                "session_id": session_id,
+            }
+        )
 
 
 __all__ = ["AuthHandler"]

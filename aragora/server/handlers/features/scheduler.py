@@ -18,7 +18,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from aragora.server.http_utils import run_async as _run_async
 

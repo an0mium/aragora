@@ -264,6 +264,7 @@ class TestRLMTrainingIntegration:
         """Reset collectors before each test."""
         reset_cross_subscriber_manager()
         from aragora.rlm.debate_integration import reset_debate_trajectory_collector
+
         reset_debate_trajectory_collector()
 
     def test_training_hook_collects_trajectories(self):
@@ -359,7 +360,7 @@ class TestRLMTrainingIntegration:
         stats = collector.get_stats()
         assert stats["total_debates"] == 3
         assert stats["successful_debates"] == 2
-        assert stats["success_rate"] == pytest.approx(2/3, rel=0.01)
+        assert stats["success_rate"] == pytest.approx(2 / 3, rel=0.01)
         assert stats["buffer_size"] == 3
 
     def test_arena_builder_enables_training_by_default(self):

@@ -1381,6 +1381,7 @@ def apply_persona_to_agent(agent, persona_name: str, manager: PersonaManager | N
         True if persona was applied, False if persona not found
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     persona: Persona | None = None

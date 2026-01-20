@@ -83,7 +83,9 @@ class StreamingMixin:
             # Prevent unbounded buffer growth (DoS protection)
             max_size = get_stream_buffer_size()
             if len(buffer) > max_size:
-                raise StreamingError(f"Streaming buffer exceeded maximum size ({max_size // (1024*1024)}MB limit)")
+                raise StreamingError(
+                    f"Streaming buffer exceeded maximum size ({max_size // (1024*1024)}MB limit)"
+                )
 
             # Process complete SSE lines
             while "\n" in buffer:

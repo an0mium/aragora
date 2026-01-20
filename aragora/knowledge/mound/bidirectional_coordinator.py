@@ -28,7 +28,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -329,7 +329,9 @@ class BidirectionalCoordinator:
                     timeout=self.config.timeout_seconds,
                 )
             else:
-                sync_result = method(km_items, min_confidence=self.config.min_confidence_for_reverse)
+                sync_result = method(
+                    km_items, min_confidence=self.config.min_confidence_for_reverse
+                )
 
             # Extract result details
             if isinstance(sync_result, dict):
@@ -384,22 +386,21 @@ class BidirectionalCoordinator:
 
         if self.config.parallel_sync:
             # Sync all adapters in parallel
-            tasks = [
-                self._sync_adapter_forward(reg)
-                for reg in enabled
-            ]
+            tasks = [self._sync_adapter_forward(reg) for reg in enabled]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Handle exceptions
             final_results = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    final_results.append(SyncResult(
-                        adapter_name=enabled[i].name,
-                        direction="forward",
-                        success=False,
-                        errors=[str(result)],
-                    ))
+                    final_results.append(
+                        SyncResult(
+                            adapter_name=enabled[i].name,
+                            direction="forward",
+                            success=False,
+                            errors=[str(result)],
+                        )
+                    )
                 else:
                     final_results.append(result)
             results = final_results
@@ -438,30 +439,26 @@ class BidirectionalCoordinator:
             return results
 
         # Get enabled adapters with reverse methods
-        enabled = [
-            r for r in self._adapters.values()
-            if r.enabled and r.reverse_method
-        ]
+        enabled = [r for r in self._adapters.values() if r.enabled and r.reverse_method]
         enabled.sort(key=lambda x: x.priority, reverse=True)
 
         if self.config.parallel_sync:
             # Sync all adapters in parallel
-            tasks = [
-                self._sync_adapter_reverse(reg, km_items)
-                for reg in enabled
-            ]
+            tasks = [self._sync_adapter_reverse(reg, km_items) for reg in enabled]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Handle exceptions
             final_results = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    final_results.append(SyncResult(
-                        adapter_name=enabled[i].name,
-                        direction="reverse",
-                        success=False,
-                        errors=[str(result)],
-                    ))
+                    final_results.append(
+                        SyncResult(
+                            adapter_name=enabled[i].name,
+                            direction="reverse",
+                            success=False,
+                            errors=[str(result)],
+                        )
+                    )
                 else:
                     final_results.append(result)
             results = final_results
@@ -510,9 +507,7 @@ class BidirectionalCoordinator:
         """
         async with self._sync_lock:
             if self._sync_in_progress:
-                return BidirectionalSyncReport(
-                    metadata={"error": "Sync already in progress"}
-                )
+                return BidirectionalSyncReport(metadata={"error": "Sync already in progress"})
 
             self._sync_in_progress = True
 
@@ -536,9 +531,8 @@ class BidirectionalCoordinator:
 
             # Aggregate stats
             report.total_adapters = len(self._adapters)
-            report.total_errors = (
-                sum(len(r.errors) for r in forward_results) +
-                sum(len(r.errors) for r in reverse_results)
+            report.total_errors = sum(len(r.errors) for r in forward_results) + sum(
+                len(r.errors) for r in reverse_results
             )
             self._total_errors += report.total_errors
 
@@ -557,7 +551,7 @@ class BidirectionalCoordinator:
         # Store in history
         self._sync_history.append(report)
         if len(self._sync_history) > self._max_history:
-            self._sync_history = self._sync_history[-self._max_history:]
+            self._sync_history = self._sync_history[-self._max_history :]
 
         logger.info(
             f"Bidirectional sync complete: "
@@ -592,8 +586,7 @@ class BidirectionalCoordinator:
             "total_adapters": len(self._adapters),
             "enabled_adapters": sum(1 for r in self._adapters.values() if r.enabled),
             "bidirectional_adapters": sum(
-                1 for r in self._adapters.values()
-                if r.enabled and r.reverse_method
+                1 for r in self._adapters.values() if r.enabled and r.reverse_method
             ),
             "sync_in_progress": self._sync_in_progress,
             "last_full_sync": self._last_full_sync,

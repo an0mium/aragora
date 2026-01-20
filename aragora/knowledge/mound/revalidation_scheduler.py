@@ -34,7 +34,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 if TYPE_CHECKING:
-    from aragora.control_plane.scheduler import TaskScheduler, TaskPriority
+    from aragora.control_plane.scheduler import TaskScheduler
     from aragora.knowledge.mound.facade import KnowledgeMound
 
 logger = logging.getLogger(__name__)
@@ -165,9 +165,8 @@ class RevalidationScheduler:
 
             # Filter out already-queued items
             items_to_revalidate = [
-                item for item in stale_items
-                if item.node_id not in self._pending_revalidations
-            ][:self._max_tasks_per_check]
+                item for item in stale_items if item.node_id not in self._pending_revalidations
+            ][: self._max_tasks_per_check]
 
             if not items_to_revalidate:
                 logger.debug("All stale items already have pending revalidations")
@@ -209,9 +208,9 @@ class RevalidationScheduler:
             Task ID if created, None otherwise
         """
         node_id = stale_item.node_id
-        staleness_score = getattr(stale_item, 'staleness_score', 0.5)
-        content_preview = getattr(stale_item, 'content_preview', '')[:200]
-        reasons = getattr(stale_item, 'reasons', [])
+        staleness_score = getattr(stale_item, "staleness_score", 0.5)
+        content_preview = getattr(stale_item, "content_preview", "")[:200]
+        reasons = getattr(stale_item, "reasons", [])
 
         # Determine priority based on staleness
         priority_str = "normal"
@@ -229,7 +228,7 @@ class RevalidationScheduler:
             "content_preview": content_preview,
             "reasons": reasons,
             "revalidation_method": self._revalidation_method,
-            "workspace_id": getattr(self._knowledge_mound, 'workspace_id', 'default'),
+            "workspace_id": getattr(self._knowledge_mound, "workspace_id", "default"),
         }
 
         # If we have a task scheduler, use it
@@ -331,7 +330,7 @@ async def handle_revalidation_task(
     """
     node_id = task_payload.get("node_id")
     method = task_payload.get("revalidation_method", "debate")
-    workspace_id = task_payload.get("workspace_id", "default")
+    task_payload.get("workspace_id", "default")
 
     if not node_id:
         return {"success": False, "error": "Missing node_id in payload"}
@@ -387,7 +386,7 @@ async def _revalidate_via_debate(
     Updates the knowledge mound with the revalidation result.
     """
     content_preview = payload.get("content_preview", "")
-    workspace_id = payload.get("workspace_id", "default")
+    payload.get("workspace_id", "default")
 
     try:
         # Import debate components

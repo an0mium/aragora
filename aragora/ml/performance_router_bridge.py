@@ -84,9 +84,7 @@ class PerformanceRouterBridge:
 
     performance_monitor: Optional["AgentPerformanceMonitor"] = None
     agent_router: Optional["AgentRouter"] = None
-    config: PerformanceRouterBridgeConfig = field(
-        default_factory=PerformanceRouterBridgeConfig
-    )
+    config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state
     _last_sync_counts: Dict[str, int] = field(default_factory=dict, repr=False)
@@ -144,15 +142,11 @@ class PerformanceRouterBridge:
         self._sync_history.append(result)
         self._call_count_since_sync = 0
 
-        logger.info(
-            f"performance_router_sync agents={agents_synced} records={records_added}"
-        )
+        logger.info(f"performance_router_sync agents={agents_synced} records={records_added}")
 
         return result
 
-    def _sync_agent_performance(
-        self, agent_name: str, stats: "AgentStats"
-    ) -> int:
+    def _sync_agent_performance(self, agent_name: str, stats: "AgentStats") -> int:
         """Sync a single agent's performance into the router.
 
         Args:
@@ -167,7 +161,6 @@ class PerformanceRouterBridge:
 
         # Determine task type from agent's typical usage
         # For now, use GENERAL as default - could be enhanced with task tracking
-        from aragora.ml.agent_router import TaskType
 
         task_type = self._infer_task_type(agent_name)
 
@@ -187,16 +180,12 @@ class PerformanceRouterBridge:
 
             # Record successes
             for _ in range(successes):
-                self.agent_router.record_performance(
-                    agent_name, task_type.value, success=True
-                )
+                self.agent_router.record_performance(agent_name, task_type.value, success=True)
                 records_added += 1
 
             # Record failures
             for _ in range(failures):
-                self.agent_router.record_performance(
-                    agent_name, task_type.value, success=False
-                )
+                self.agent_router.record_performance(agent_name, task_type.value, success=False)
                 records_added += 1
 
         # Also update agent capabilities based on telemetry
@@ -234,9 +223,7 @@ class PerformanceRouterBridge:
 
         return TaskType.GENERAL
 
-    def _update_agent_capabilities(
-        self, agent_name: str, stats: "AgentStats"
-    ) -> None:
+    def _update_agent_capabilities(self, agent_name: str, stats: "AgentStats") -> None:
         """Update router's agent capabilities based on telemetry.
 
         Args:
@@ -257,9 +244,7 @@ class PerformanceRouterBridge:
             else:  # >= 10s = slow
                 caps.speed_tier = 3
 
-        logger.debug(
-            f"Updated capabilities for {agent_name}: speed_tier={caps.speed_tier}"
-        )
+        logger.debug(f"Updated capabilities for {agent_name}: speed_tier={caps.speed_tier}")
 
     def compute_agent_score(self, agent_name: str) -> float:
         """Compute a composite performance score for an agent.
@@ -291,9 +276,7 @@ class PerformanceRouterBridge:
 
         # Consistency score based on variance
         if stats.max_duration_ms > 0 and stats.min_duration_ms < float("inf"):
-            variance_ratio = (
-                stats.max_duration_ms - stats.min_duration_ms
-            ) / stats.max_duration_ms
+            variance_ratio = (stats.max_duration_ms - stats.min_duration_ms) / stats.max_duration_ms
             consistency_score = 1 - min(1, variance_ratio)
         else:
             consistency_score = 0.5
@@ -325,9 +308,7 @@ class PerformanceRouterBridge:
     def enable_auto_sync(self) -> None:
         """Enable automatic syncing after N calls."""
         self._auto_sync_enabled = True
-        logger.info(
-            f"Auto-sync enabled (interval={self.config.auto_sync_interval})"
-        )
+        logger.info(f"Auto-sync enabled (interval={self.config.auto_sync_interval})")
 
     def disable_auto_sync(self) -> None:
         """Disable automatic syncing."""
@@ -370,9 +351,7 @@ class PerformanceRouterBridge:
             "auto_sync_enabled": self._auto_sync_enabled,
             "calls_since_sync": self._call_count_since_sync,
             "total_syncs": len(self._sync_history),
-            "last_sync": (
-                self._sync_history[-1].timestamp if self._sync_history else None
-            ),
+            "last_sync": (self._sync_history[-1].timestamp if self._sync_history else None),
             "agents_tracked": len(self._last_sync_counts),
         }
 

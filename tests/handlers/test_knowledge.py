@@ -51,16 +51,20 @@ def mock_handler():
 @pytest.fixture
 def mock_post_handler():
     """Create mock POST handler with body."""
+
     def _create(body: dict):
         return MockHandler(method="POST", body=body)
+
     return _create
 
 
 @pytest.fixture
 def mock_put_handler():
     """Create mock PUT handler with body."""
+
     def _create(body: dict):
         return MockHandler(method="PUT", body=body)
+
     return _create
 
 
@@ -73,6 +77,7 @@ def mock_delete_handler():
 @pytest.fixture
 def mock_fact():
     """Create a mock fact object."""
+
     class MockFact:
         def __init__(self, fact_id: str, statement: str):
             self.fact_id = fact_id
@@ -262,9 +267,7 @@ class TestGetFact:
 
     def test_get_fact_success(self, knowledge_handler, mock_handler):
         """Test getting a specific fact."""
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, mock_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -276,9 +279,7 @@ class TestGetFact:
         """Test getting a non-existent fact."""
         mock_fact_store.get_fact.return_value = None
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent", {}, mock_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/nonexistent", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -341,9 +342,7 @@ class TestUpdateFact:
         """Test that updating a fact requires authentication."""
         handler = mock_put_handler({"statement": "Updated fact"})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -359,9 +358,7 @@ class TestDeleteFact:
 
     def test_delete_fact_requires_auth(self, knowledge_handler, mock_delete_handler):
         """Test that deleting a fact requires authentication."""
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1", {}, mock_delete_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1", {}, mock_delete_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -377,18 +374,18 @@ class TestQuery:
 
     def test_query_success(self, knowledge_handler, mock_post_handler):
         """Test natural language query."""
-        handler = mock_post_handler({
-            "question": "What is the sky color?",
-            "workspace_id": "default",
-        })
+        handler = mock_post_handler(
+            {
+                "question": "What is the sky color?",
+                "workspace_id": "default",
+            }
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MagicMock(to_dict=lambda: {"answer": "blue", "confidence": 0.9}),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -400,31 +397,29 @@ class TestQuery:
         """Test query without question."""
         handler = mock_post_handler({})
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/query", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_query_with_options(self, knowledge_handler, mock_post_handler):
         """Test query with custom options."""
-        handler = mock_post_handler({
-            "question": "Test question",
-            "options": {
-                "max_chunks": 5,
-                "use_agents": True,
-                "include_citations": True,
-            },
-        })
+        handler = mock_post_handler(
+            {
+                "question": "Test question",
+                "options": {
+                    "max_chunks": 5,
+                    "use_agents": True,
+                    "include_citations": True,
+                },
+            }
+        )
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
             return_value=MagicMock(to_dict=lambda: {"answer": "test", "confidence": 0.9}),
         ):
-            result = knowledge_handler.handle(
-                "/api/knowledge/query", {}, handler
-            )
+            result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -446,9 +441,7 @@ class TestStats:
             "topics": 10,
         }
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/stats", {}, mock_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/stats", {}, mock_handler)
 
         assert result is not None
         # Note: _handle_stats may need fact_store.get_stats() to exist
@@ -458,9 +451,7 @@ class TestStats:
         """Test getting stats for specific workspace."""
         params = {"workspace_id": ["test-workspace"]}
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/stats", params, mock_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/stats", params, mock_handler)
 
         assert result is not None
 
@@ -494,9 +485,7 @@ class TestFactRoutes:
         """Test /api/knowledge/facts/:id/verify route parsing."""
         # Verify is POST
         handler = MockHandler(method="POST", body={})
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/verify", {}, handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/verify", {}, handler)
 
         # Will require auth or other validation
         assert result is not None
@@ -515,9 +504,7 @@ class TestFactRoutes:
         """Test /api/knowledge/facts/:id/relations route."""
         mock_fact_store.get_relations.return_value = []
 
-        result = knowledge_handler.handle(
-            "/api/knowledge/facts/fact-1/relations", {}, mock_handler
-        )
+        result = knowledge_handler.handle("/api/knowledge/facts/fact-1/relations", {}, mock_handler)
 
         assert result is not None
 
@@ -545,6 +532,7 @@ class TestFactStoreInitialization:
 
         # Should fall back to InMemoryFactStore
         from aragora.knowledge import InMemoryFactStore
+
         assert isinstance(store, InMemoryFactStore)
 
     def test_get_fact_store_caches_instance(self):
@@ -586,6 +574,7 @@ class TestQueryEngineInitialization:
 
         # Should be SimpleQueryEngine
         from aragora.knowledge import SimpleQueryEngine
+
         assert isinstance(engine, SimpleQueryEngine)
 
     def test_get_query_engine_caches_instance(self):

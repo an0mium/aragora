@@ -263,7 +263,9 @@ class TestMemoryManagerPatternFormatting:
     def test_format_patterns_limits_to_five(self):
         """_format_patterns_for_prompt limits to 5 patterns."""
         manager = MemoryManager()
-        patterns = [{"category": f"cat{i}", "pattern": f"pattern{i}", "occurrences": 1} for i in range(10)]
+        patterns = [
+            {"category": f"cat{i}", "pattern": f"pattern{i}", "occurrences": 1} for i in range(10)
+        ]
 
         result = manager._format_patterns_for_prompt(patterns)
 

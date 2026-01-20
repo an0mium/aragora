@@ -156,6 +156,7 @@ class RlmAdapter:
 
         # Generate pattern ID from markers
         import hashlib
+
         marker_str = ":".join(sorted(content_markers))
         pattern_hash = hashlib.sha256(marker_str.encode()).hexdigest()[:12]
         pattern_id = f"{self.PATTERN_PREFIX}{pattern_hash}"
@@ -168,13 +169,9 @@ class RlmAdapter:
             usage_count = existing.get("usage_count", 0) + 1
             # Update with weighted average of compression ratios
             compression_ratio = (
-                existing.get("compression_ratio", compression_ratio) * 0.7 +
-                compression_ratio * 0.3
+                existing.get("compression_ratio", compression_ratio) * 0.7 + compression_ratio * 0.3
             )
-            value_score = (
-                existing.get("value_score", value_score) * 0.7 +
-                value_score * 0.3
-            )
+            value_score = existing.get("value_score", value_score) * 0.7 + value_score * 0.3
 
         pattern_data = {
             "id": pattern_id,
@@ -234,10 +231,12 @@ class RlmAdapter:
 
             if overlap > 0:
                 relevance = overlap / max(len(marker_set), 1)
-                results.append({
-                    **pattern,
-                    "relevance": relevance,
-                })
+                results.append(
+                    {
+                        **pattern,
+                        "relevance": relevance,
+                    }
+                )
 
         # Sort by relevance * value_score
         results.sort(
@@ -302,13 +301,15 @@ class RlmAdapter:
             if content_type and priority_data.get("content_type") != content_type:
                 continue
 
-            results.append(ContentPriority(
-                content_id=priority_data["content_id"],
-                access_count=priority_data.get("access_count", 0),
-                last_accessed=priority_data.get("last_accessed", ""),
-                priority_score=priority_data.get("priority_score", 0.0),
-                content_type=priority_data.get("content_type", "general"),
-            ))
+            results.append(
+                ContentPriority(
+                    content_id=priority_data["content_id"],
+                    access_count=priority_data.get("access_count", 0),
+                    last_accessed=priority_data.get("last_accessed", ""),
+                    priority_score=priority_data.get("priority_score", 0.0),
+                    content_type=priority_data.get("content_type", "general"),
+                )
+            )
 
         # Sort by priority score descending
         results.sort(key=lambda x: x.priority_score, reverse=True)
@@ -351,7 +352,9 @@ class RlmAdapter:
         confidence = min(1.0, total_weight / 10)
 
         # Determine strategy based on patterns
-        strategy = "aggressive" if avg_ratio < 0.3 else "balanced" if avg_ratio < 0.6 else "conservative"
+        strategy = (
+            "aggressive" if avg_ratio < 0.3 else "balanced" if avg_ratio < 0.6 else "conservative"
+        )
 
         return {
             "recommended_ratio": avg_ratio,
@@ -375,12 +378,14 @@ class RlmAdapter:
             "successful_compressions": self._successful_compressions,
             "success_rate": (
                 self._successful_compressions / self._total_compressions
-                if self._total_compressions > 0 else 0.0
+                if self._total_compressions > 0
+                else 0.0
             ),
             "pattern_types": pattern_types,
             "avg_pattern_usage": (
                 sum(p.get("usage_count", 0) for p in self._patterns.values()) / len(self._patterns)
-                if self._patterns else 0.0
+                if self._patterns
+                else 0.0
             ),
         }
 
@@ -501,8 +506,16 @@ class RlmAdapter:
                     "content_type": metadata.get("content_type", "general"),
                     "content_markers": metadata.get("content_markers", []),
                     "usage_count": metadata.get("usage_count", 1),
-                    "created_at": node.created_at.isoformat() if node.created_at else datetime.utcnow().isoformat(),
-                    "updated_at": node.updated_at.isoformat() if node.updated_at else datetime.utcnow().isoformat(),
+                    "created_at": (
+                        node.created_at.isoformat()
+                        if node.created_at
+                        else datetime.utcnow().isoformat()
+                    ),
+                    "updated_at": (
+                        node.updated_at.isoformat()
+                        if node.updated_at
+                        else datetime.utcnow().isoformat()
+                    ),
                     "metadata": {},
                 }
 

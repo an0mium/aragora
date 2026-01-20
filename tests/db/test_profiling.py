@@ -339,6 +339,7 @@ class TestProfileFunction:
 
     def test_profile_function_sync(self):
         """Test profiling sync function."""
+
         @profile_function
         def test_func():
             profiler = QueryProfiler.current()
@@ -353,6 +354,7 @@ class TestProfileFunction:
     @pytest.mark.asyncio
     async def test_profile_function_async(self):
         """Test profiling async function."""
+
         @profile_function
         async def async_func():
             profiler = QueryProfiler.current()
@@ -483,8 +485,12 @@ class TestIndexRecommendations:
             conn = sqlite3.connect(str(db_path))
 
             # Create required tables
-            conn.execute("CREATE TABLE debates (id TEXT, created_at TEXT, status TEXT, task_hash TEXT)")
-            conn.execute("CREATE TABLE messages (id TEXT, debate_id TEXT, agent_id TEXT, round_num INT)")
+            conn.execute(
+                "CREATE TABLE debates (id TEXT, created_at TEXT, status TEXT, task_hash TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE messages (id TEXT, debate_id TEXT, agent_id TEXT, round_num INT)"
+            )
             conn.execute("CREATE TABLE votes (id TEXT, debate_id TEXT, agent_id TEXT)")
             conn.commit()
 

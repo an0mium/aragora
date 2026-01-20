@@ -442,7 +442,9 @@ class BeliefNetwork:
                 logger.warning(f"Failed to seed belief from KM: {e}")
 
         if seeded_count > 0:
-            logger.info(f"Seeded {seeded_count} beliefs from Knowledge Mound for topic: {topic[:50]}...")
+            logger.info(
+                f"Seeded {seeded_count} beliefs from Knowledge Mound for topic: {topic[:50]}..."
+            )
 
         return seeded_count
 
@@ -655,14 +657,16 @@ class BeliefNetwork:
             for node_id, node in self.nodes.items():
                 confidence = node.posterior.p_true
                 if confidence >= 0.8 or (1 - confidence) >= 0.8:
-                    high_confidence_beliefs.append({
-                        "node_id": node_id,
-                        "claim_id": node.claim_id,
-                        "claim_statement": node.claim_statement,
-                        "author": node.author,
-                        "confidence": confidence,
-                        "centrality": centralities.get(node_id, 0.0),
-                    })
+                    high_confidence_beliefs.append(
+                        {
+                            "node_id": node_id,
+                            "claim_id": node.claim_id,
+                            "claim_statement": node.claim_statement,
+                            "author": node.author,
+                            "confidence": confidence,
+                            "centrality": centralities.get(node_id, 0.0),
+                        }
+                    )
 
             event = StreamEvent(
                 type=StreamEventType.BELIEF_CONVERGED,

@@ -106,6 +106,7 @@ class TrainingHandler(BaseHandler):
 
         # Validate job_id
         from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
+
         is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
         if not is_valid:
             return error_response(err or "Invalid job ID", 400)
@@ -635,22 +636,26 @@ class TrainingHandler(BaseHandler):
 
             jobs = []
             for model in models:
-                jobs.append({
-                    "id": model.id,
-                    "vertical": model.vertical.value,
-                    "status": model.status.value,
-                    "base_model": model.base_model,
-                    "adapter_name": model.adapter_name,
-                    "created_at": model.created_at.isoformat() if model.created_at else None,
-                    "training_data_examples": model.training_data_examples,
-                })
+                jobs.append(
+                    {
+                        "id": model.id,
+                        "vertical": model.vertical.value,
+                        "status": model.status.value,
+                        "base_model": model.base_model,
+                        "adapter_name": model.adapter_name,
+                        "created_at": model.created_at.isoformat() if model.created_at else None,
+                        "training_data_examples": model.training_data_examples,
+                    }
+                )
 
-            return json_response({
-                "jobs": jobs,
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "jobs": jobs,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to list training jobs (invalid params): {e}")
@@ -672,6 +677,7 @@ class TrainingHandler(BaseHandler):
 
         try:
             import asyncio
+
             status = asyncio.get_event_loop().run_until_complete(
                 pipeline.get_training_status(job_id)
             )
@@ -698,6 +704,7 @@ class TrainingHandler(BaseHandler):
 
         try:
             from aragora.training.specialist_models import TrainingStatus
+
             pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)
             return json_response({"success": True, "job_id": job_id, "status": "cancelled"})
         except ValueError as e:
@@ -724,14 +731,17 @@ class TrainingHandler(BaseHandler):
 
         try:
             import asyncio
+
             examples = asyncio.get_event_loop().run_until_complete(
                 pipeline.export_training_data(job_id)
             )
-            return json_response({
-                "success": True,
-                "job_id": job_id,
-                "examples_exported": examples,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "job_id": job_id,
+                    "examples_exported": examples,
+                }
+            )
         except ValueError as e:
             return error_response(str(e), 404)
         except (KeyError, AttributeError) as e:
@@ -756,15 +766,18 @@ class TrainingHandler(BaseHandler):
 
         try:
             import asyncio
+
             training_job_id = asyncio.get_event_loop().run_until_complete(
                 pipeline.start_training(job_id)
             )
-            return json_response({
-                "success": True,
-                "job_id": job_id,
-                "training_job_id": training_job_id,
-                "status": "training",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "job_id": job_id,
+                    "training_job_id": training_job_id,
+                    "status": "training",
+                }
+            )
         except ValueError as e:
             return error_response(str(e), 400)
         except (KeyError, AttributeError) as e:
@@ -803,16 +816,19 @@ class TrainingHandler(BaseHandler):
             checkpoint_path = body.get("checkpoint_path", "")
 
             import asyncio
+
             asyncio.get_event_loop().run_until_complete(
                 pipeline.complete_training(job_id, final_loss, checkpoint_path)
             )
 
-            return json_response({
-                "success": True,
-                "job_id": job_id,
-                "status": "completed",
-                "final_loss": final_loss,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "job_id": job_id,
+                    "status": "completed",
+                    "final_loss": final_loss,
+                }
+            )
         except ValueError as e:
             return error_response(str(e), 404)
         except (KeyError, AttributeError) as e:
@@ -887,11 +903,15 @@ class TrainingHandler(BaseHandler):
 
             if data_dir.exists():
                 for f in data_dir.glob("*"):
-                    artifacts["files"].append({
-                        "name": f.name,
-                        "size_bytes": f.stat().st_size,
-                        "type": "sft" if "sft" in f.name else "dpo" if "dpo" in f.name else "other",
-                    })
+                    artifacts["files"].append(
+                        {
+                            "name": f.name,
+                            "size_bytes": f.stat().st_size,
+                            "type": (
+                                "sft" if "sft" in f.name else "dpo" if "dpo" in f.name else "other"
+                            ),
+                        }
+                    )
 
             return json_response(artifacts)
         except (KeyError, AttributeError) as e:

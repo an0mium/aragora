@@ -31,48 +31,58 @@ def mock_orchestrator():
     orchestrator = MagicMock()
 
     # Mock index_repository
-    orchestrator.index_repository = AsyncMock(return_value={
-        "repository_id": "repo-123",
-        "status": "completed",
-        "entities_indexed": 150,
-        "files_processed": 45,
-        "duration_seconds": 12.5,
-    })
+    orchestrator.index_repository = AsyncMock(
+        return_value={
+            "repository_id": "repo-123",
+            "status": "completed",
+            "entities_indexed": 150,
+            "files_processed": 45,
+            "duration_seconds": 12.5,
+        }
+    )
 
     # Mock incremental_update
-    orchestrator.incremental_update = AsyncMock(return_value={
-        "repository_id": "repo-123",
-        "status": "completed",
-        "entities_added": 5,
-        "entities_updated": 3,
-        "entities_removed": 1,
-    })
+    orchestrator.incremental_update = AsyncMock(
+        return_value={
+            "repository_id": "repo-123",
+            "status": "completed",
+            "entities_added": 5,
+            "entities_updated": 3,
+            "entities_removed": 1,
+        }
+    )
 
     # Mock get_status
-    orchestrator.get_status = AsyncMock(return_value={
-        "repository_id": "repo-123",
-        "status": "ready",
-        "last_indexed": "2026-01-18T10:00:00Z",
-        "entity_count": 150,
-        "file_count": 45,
-    })
+    orchestrator.get_status = AsyncMock(
+        return_value={
+            "repository_id": "repo-123",
+            "status": "ready",
+            "last_indexed": "2026-01-18T10:00:00Z",
+            "entity_count": 150,
+            "file_count": 45,
+        }
+    )
 
     # Mock list_entities
-    orchestrator.list_entities = AsyncMock(return_value=[
-        {"id": "entity-1", "name": "UserService", "type": "class", "file": "services/user.py"},
-        {"id": "entity-2", "name": "authenticate", "type": "function", "file": "auth/login.py"},
-    ])
+    orchestrator.list_entities = AsyncMock(
+        return_value=[
+            {"id": "entity-1", "name": "UserService", "type": "class", "file": "services/user.py"},
+            {"id": "entity-2", "name": "authenticate", "type": "function", "file": "auth/login.py"},
+        ]
+    )
 
     # Mock get_graph
-    orchestrator.get_graph = AsyncMock(return_value={
-        "nodes": [
-            {"id": "entity-1", "label": "UserService", "type": "class"},
-            {"id": "entity-2", "label": "authenticate", "type": "function"},
-        ],
-        "edges": [
-            {"source": "entity-1", "target": "entity-2", "type": "calls"},
-        ],
-    })
+    orchestrator.get_graph = AsyncMock(
+        return_value={
+            "nodes": [
+                {"id": "entity-1", "label": "UserService", "type": "class"},
+                {"id": "entity-2", "label": "authenticate", "type": "function"},
+            ],
+            "edges": [
+                {"source": "entity-1", "target": "entity-2", "type": "calls"},
+            ],
+        }
+    )
 
     # Mock delete_repository
     orchestrator.delete_repository = AsyncMock(return_value=True)
@@ -115,19 +125,22 @@ class TestIndexRepository:
     @pytest.mark.asyncio
     async def test_index_repository_success(self, repository_handler, mock_orchestrator):
         """Test successful repository indexing."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/index"
             mock_handler.headers = {"Content-Length": "100"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "path": "/path/to/repo",
-                "workspace_id": "default",
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "path": "/path/to/repo",
+                    "workspace_id": "default",
+                }
+            ).encode()
 
-            result = await repository_handler.handle(
-                "/api/repository/index", "POST", mock_handler
-            )
+            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
 
             assert result is not None
             body = json.loads(result.body)
@@ -137,16 +150,17 @@ class TestIndexRepository:
     @pytest.mark.asyncio
     async def test_index_repository_no_path(self, repository_handler):
         """Test index with missing path returns error."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=MagicMock()):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=MagicMock(),
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/index"
             mock_handler.headers = {"Content-Length": "2"}
             mock_handler.rfile.read.return_value = b"{}"
 
-            result = await repository_handler.handle(
-                "/api/repository/index", "POST", mock_handler
-            )
+            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
 
             assert result is not None
             body = json.loads(result.body)
@@ -159,15 +173,20 @@ class TestIncrementalUpdate:
     @pytest.mark.asyncio
     async def test_incremental_update_success(self, repository_handler, mock_orchestrator):
         """Test successful incremental update."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/incremental"
             mock_handler.headers = {"Content-Length": "100"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "repository_id": "repo-123",
-                "changed_files": ["src/new_file.py"],
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "repository_id": "repo-123",
+                    "changed_files": ["src/new_file.py"],
+                }
+            ).encode()
 
             result = await repository_handler.handle(
                 "/api/repository/incremental", "POST", mock_handler
@@ -184,8 +203,11 @@ class TestGetStatus:
     @pytest.mark.asyncio
     async def test_get_status_success(self, repository_handler, mock_orchestrator):
         """Test successful status retrieval."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/repo-123/status"
 
@@ -219,8 +241,11 @@ class TestListEntities:
     @pytest.mark.asyncio
     async def test_list_entities_success(self, repository_handler, mock_orchestrator):
         """Test successful entity listing."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/repo-123/entities"
 
@@ -235,8 +260,11 @@ class TestListEntities:
     @pytest.mark.asyncio
     async def test_list_entities_with_filters(self, repository_handler, mock_orchestrator):
         """Test entity listing with type filter."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/repo-123/entities?type=class&limit=10"
 
@@ -253,8 +281,11 @@ class TestGetGraph:
     @pytest.mark.asyncio
     async def test_get_graph_success(self, repository_handler, mock_orchestrator):
         """Test successful graph retrieval."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/repo-123/graph"
 
@@ -274,8 +305,11 @@ class TestDeleteRepository:
     @pytest.mark.asyncio
     async def test_delete_repository_success(self, repository_handler, mock_orchestrator):
         """Test successful repository deletion."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=mock_orchestrator):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=mock_orchestrator,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/repo-123"
 
@@ -294,18 +328,21 @@ class TestOrchestratorUnavailable:
     @pytest.mark.asyncio
     async def test_index_without_orchestrator(self, repository_handler):
         """Test index returns error when orchestrator unavailable."""
-        with patch('aragora.server.handlers.repository._get_orchestrator',
-                   new_callable=AsyncMock, return_value=None):
+        with patch(
+            "aragora.server.handlers.repository._get_orchestrator",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/repository/index"
             mock_handler.headers = {"Content-Length": "50"}
-            mock_handler.rfile.read.return_value = json.dumps({
-                "path": "/test/repo",
-            }).encode()
+            mock_handler.rfile.read.return_value = json.dumps(
+                {
+                    "path": "/test/repo",
+                }
+            ).encode()
 
-            result = await repository_handler.handle(
-                "/api/repository/index", "POST", mock_handler
-            )
+            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
 
             assert result is not None
             body = json.loads(result.body)

@@ -407,11 +407,7 @@ class ContinuumAdapter:
         weight = min(0.5, validation_count * 0.1)  # Max 50% weight
         utility_boost = cross_debate_utility * 0.1  # Up to 10% boost
 
-        new_importance = (
-            current_importance * (1 - weight) +
-            km_confidence * weight +
-            utility_boost
-        )
+        new_importance = current_importance * (1 - weight) + km_confidence * weight + utility_boost
         new_importance = min(1.0, max(0.0, new_importance))  # Clamp to [0, 1]
 
         # Determine if tier change is needed based on recommendation
@@ -720,9 +716,7 @@ class ContinuumAdapter:
                 stats["total_km_validated"] += 1
 
                 tier = entry.tier.value
-                stats["km_validated_by_tier"][tier] = (
-                    stats["km_validated_by_tier"].get(tier, 0) + 1
-                )
+                stats["km_validated_by_tier"][tier] = stats["km_validated_by_tier"].get(tier, 0) + 1
 
                 if entry.metadata.get("km_supported"):
                     stats["km_supported"] += 1

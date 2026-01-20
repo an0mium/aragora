@@ -60,14 +60,37 @@ class RepositoryCrawlerConfig(CrawlerConfig):
     extract_imports: bool = True
 
     # File handling
-    binary_extensions: List[str] = field(default_factory=lambda: [
-        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-        ".zip", ".tar", ".gz", ".rar",
-        ".exe", ".dll", ".so", ".dylib",
-        ".woff", ".woff2", ".ttf", ".eot",
-        ".mp3", ".mp4", ".wav", ".avi",
-    ])
+    binary_extensions: List[str] = field(
+        default_factory=lambda: [
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".ico",
+            ".svg",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".rar",
+            ".exe",
+            ".dll",
+            ".so",
+            ".dylib",
+            ".woff",
+            ".woff2",
+            ".ttf",
+            ".eot",
+            ".mp3",
+            ".mp4",
+            ".wav",
+            ".avi",
+        ]
+    )
 
 
 class RepositoryCrawler(BaseCrawler):
@@ -196,8 +219,8 @@ class RepositoryCrawler(BaseCrawler):
             self._stats.completed_at = datetime.utcnow()
             if self._stats.started_at:
                 self._stats.duration_ms = (
-                    (self._stats.completed_at - self._stats.started_at).total_seconds() * 1000
-                )
+                    self._stats.completed_at - self._stats.started_at
+                ).total_seconds() * 1000
 
     async def _ensure_repository(self, source: str) -> Optional[Path]:
         """
@@ -223,14 +246,21 @@ class RepositoryCrawler(BaseCrawler):
 
         # Create temp directory
         temp_dir = Path(tempfile.mkdtemp(prefix="aragora_crawl_"))
-        config = self.config if isinstance(self.config, RepositoryCrawlerConfig) else RepositoryCrawlerConfig()
+        config = (
+            self.config
+            if isinstance(self.config, RepositoryCrawlerConfig)
+            else RepositoryCrawlerConfig()
+        )
 
         try:
             # Clone with git
             cmd = [
-                "git", "clone",
-                "--depth", str(config.clone_depth),
-                "--branch", config.branch,
+                "git",
+                "clone",
+                "--depth",
+                str(config.clone_depth),
+                "--branch",
+                config.branch,
                 "--single-branch",
                 url,
                 str(temp_dir),
@@ -264,7 +294,11 @@ class RepositoryCrawler(BaseCrawler):
         rel_path: str,
     ) -> Optional[CrawlResult]:
         """Crawl a single file and extract content."""
-        config = self.config if isinstance(self.config, RepositoryCrawlerConfig) else RepositoryCrawlerConfig()
+        config = (
+            self.config
+            if isinstance(self.config, RepositoryCrawlerConfig)
+            else RepositoryCrawlerConfig()
+        )
         full_path = repo_path / rel_path
 
         # Skip binary files
@@ -315,7 +349,11 @@ class RepositoryCrawler(BaseCrawler):
             created_at=datetime.fromtimestamp(stat.st_ctime) if stat else None,
             modified_at=datetime.fromtimestamp(stat.st_mtime) if stat else None,
             metadata={
-                "repo": str(self._repo_info.remote_url or repo_path) if self._repo_info else str(repo_path),
+                "repo": (
+                    str(self._repo_info.remote_url or repo_path)
+                    if self._repo_info
+                    else str(repo_path)
+                ),
                 "branch": self._repo_info.branch if self._repo_info else "unknown",
             },
             language=language,

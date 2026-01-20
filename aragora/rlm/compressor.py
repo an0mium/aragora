@@ -16,8 +16,8 @@ import hashlib
 import logging
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Callable, Optional
 
 from .types import (
     AbstractionLevel,
@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CacheEntry:
     """Entry in the compression cache with TTL."""
+
     context: RLMContext
     created_at: float
     access_count: int = 0
@@ -129,6 +130,7 @@ def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
 @dataclass
 class ChunkInfo:
     """Information about a chunk for processing."""
+
     index: int
     content: str
     token_count: int
@@ -160,7 +162,6 @@ Content:
 {content}
 
 Detailed summary:""",
-
         AbstractionLevel.SUMMARY: """Summarize the following content into key points.
 Keep approximately 20% of the original length. Focus on main ideas and conclusions.
 
@@ -168,7 +169,6 @@ Content:
 {content}
 
 Key points summary:""",
-
         AbstractionLevel.ABSTRACT: """Provide a brief high-level abstract of the following content.
 Keep to 2-3 sentences maximum. Capture the essential theme and purpose.
 
@@ -176,7 +176,6 @@ Content:
 {content}
 
 Abstract:""",
-
         AbstractionLevel.METADATA: """Extract metadata tags from the following content.
 Return as a comma-separated list of key topics, entities, and themes.
 
@@ -197,7 +196,6 @@ Debate round:
 {content}
 
 Detailed summary:""",
-
         AbstractionLevel.SUMMARY: """Summarize the key points from this debate:
 - Main positions taken
 - Critical disagreements
@@ -207,7 +205,6 @@ Debate:
 {content}
 
 Summary:""",
-
         AbstractionLevel.ABSTRACT: """In 1-2 sentences, what was decided or concluded in this debate?
 
 Debate:
@@ -309,9 +306,7 @@ Conclusion:""",
 
         # Select prompts based on source type
         prompts = (
-            self.DEBATE_COMPRESSION_PROMPTS
-            if source_type == "debate"
-            else self.COMPRESSION_PROMPTS
+            self.DEBATE_COMPRESSION_PROMPTS if source_type == "debate" else self.COMPRESSION_PROMPTS
         )
 
         # Build higher abstraction levels
@@ -345,7 +340,9 @@ Conclusion:""",
 
                 level_tokens = sum(n.token_count for n in level_nodes)
                 compressed_tokens[level] = level_tokens
-                compression_ratios[level] = level_tokens / original_tokens if original_tokens > 0 else 0
+                compression_ratios[level] = (
+                    level_tokens / original_tokens if original_tokens > 0 else 0
+                )
 
                 previous_nodes = level_nodes
 
@@ -354,9 +351,7 @@ Conclusion:""",
         if AbstractionLevel.METADATA in context.levels:
             for node in context.levels[AbstractionLevel.METADATA]:
                 key_topics.extend(
-                    topic.strip()
-                    for topic in node.content.split(",")
-                    if topic.strip()
+                    topic.strip() for topic in node.content.split(",") if topic.strip()
                 )
 
         # Cache result (LRU with TTL)
@@ -454,10 +449,7 @@ Conclusion:""",
             AbstractionLevel.METADATA: len(source_nodes),  # All at once
         }.get(target_level, 5)
 
-        groups = [
-            source_nodes[i:i + group_size]
-            for i in range(0, len(source_nodes), group_size)
-        ]
+        groups = [source_nodes[i : i + group_size] for i in range(0, len(source_nodes), group_size)]
 
         new_nodes = []
         calls = 0
@@ -524,16 +516,14 @@ Conclusion:""",
 
             # Extract key topics if present in response
             if target_level == AbstractionLevel.METADATA:
-                node.key_topics = [
-                    t.strip() for t in response.split(",") if t.strip()
-                ]
+                node.key_topics = [t.strip() for t in response.split(",") if t.strip()]
 
             return node, 1
 
         except Exception as e:
             logger.error(f"Compression failed for group {group_index}: {e}")
             # Fallback to truncation
-            truncated = combined[:self.config.target_tokens * 4]
+            truncated = combined[: self.config.target_tokens * 4]
             node = AbstractionNode(
                 id=f"L{target_level.value}_{group_index}",
                 level=target_level,
@@ -597,13 +587,15 @@ Conclusion:""",
                         break
 
             chunk_content = content[i:end]
-            chunks.append(ChunkInfo(
-                index=chunk_idx,
-                content=chunk_content,
-                token_count=self._count_tokens(chunk_content),
-                start_char=i,
-                end_char=end,
-            ))
+            chunks.append(
+                ChunkInfo(
+                    index=chunk_idx,
+                    content=chunk_content,
+                    token_count=self._count_tokens(chunk_content),
+                    start_char=i,
+                    end_char=end,
+                )
+            )
 
             i = end - overlap if end < len(content) else end
             chunk_idx += 1

@@ -1032,7 +1032,7 @@ class ContinuumMemory(SQLiteStore):
                     SELECT id, metadata FROM continuum_memory
                     WHERE metadata LIKE ?
                     """,
-                    (f'%{node_id}%',),
+                    (f"%{node_id}%",),
                 )
 
                 rows = cursor.fetchall()
@@ -1655,7 +1655,9 @@ class ContinuumMemory(SQLiteStore):
             "newest_update": row[7],
             "top_tags": [{"tag": t, "count": c} for t, c in top_tags],
             "max_entries": self.hyperparams["max_entries_per_tier"]["glacial"],
-            "utilization": round((row[0] or 0) / self.hyperparams["max_entries_per_tier"]["glacial"], 3),
+            "utilization": round(
+                (row[0] or 0) / self.hyperparams["max_entries_per_tier"]["glacial"], 3
+            ),
         }
 
     # === Snapshot Methods for Checkpoint Integration ===
@@ -1696,7 +1698,7 @@ class ContinuumMemory(SQLiteStore):
             tiers = list(MemoryTier)
 
         tier_values = [t.value for t in tiers]
-        placeholders = ",".join("?" * len(tier_values))
+        ",".join("?" * len(tier_values))
 
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -1707,7 +1709,7 @@ class ContinuumMemory(SQLiteStore):
             for tier in tiers:
                 # Get entries for this tier, sorted by importance
                 cursor.execute(
-                    f"""
+                    """
                     SELECT id, tier, content, importance, surprise_score,
                            consolidation_score, update_count, success_count,
                            failure_count, created_at, updated_at, metadata,

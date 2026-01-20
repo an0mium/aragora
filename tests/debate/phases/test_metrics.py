@@ -353,9 +353,7 @@ class TestBuildRelationshipUpdates:
         participants = ["agent1", "agent2"]
         vote_choices = {}
 
-        updates = build_relationship_updates(
-            participants, vote_choices, winner="agent1"
-        )
+        updates = build_relationship_updates(participants, vote_choices, winner="agent1")
 
         assert updates[0]["a_win"] == 1
         assert updates[0]["b_win"] == 0

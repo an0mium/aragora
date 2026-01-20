@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 import socket
-from typing import Optional
 
 import aiohttp
 
@@ -106,7 +105,7 @@ class OllamaBackend(EmbeddingBackend):
             except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                 if attempt == self.config.max_retries - 1:
                     raise RuntimeError(f"Ollama API call failed after retries: {e}")
-                delay = self.config.base_delay * (2 ** attempt)
+                delay = self.config.base_delay * (2**attempt)
                 logger.warning(f"Ollama API call failed, retrying in {delay}s: {e}")
                 await asyncio.sleep(delay)
 

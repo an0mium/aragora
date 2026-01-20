@@ -28,8 +28,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from aragora.insights.extractor import DebateInsights, Insight, InsightType
-    from aragora.insights.flip_detector import FlipEvent, AgentConsistencyScore
+    from aragora.knowledge.unified.types import KnowledgeItem
+    from aragora.insights.extractor import DebateInsights, Insight
+    from aragora.insights.flip_detector import FlipEvent
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +209,9 @@ class InsightsAdapter:
         min_conf = min_confidence or self.MIN_INSIGHT_CONFIDENCE
 
         if insight.confidence < min_conf:
-            logger.debug(f"Insight {insight.id} below confidence threshold: {insight.confidence:.2f}")
+            logger.debug(
+                f"Insight {insight.id} below confidence threshold: {insight.confidence:.2f}"
+            )
             return None
 
         insight_id = f"{self.INSIGHT_PREFIX}{insight.id}"
@@ -216,7 +219,7 @@ class InsightsAdapter:
         insight_data = {
             "id": insight_id,
             "original_id": insight.id,
-            "type": insight.type.value if hasattr(insight.type, 'value') else str(insight.type),
+            "type": insight.type.value if hasattr(insight.type, "value") else str(insight.type),
             "title": insight.title,
             "description": insight.description,
             "confidence": insight.confidence,
@@ -355,10 +358,13 @@ class InsightsAdapter:
             The pattern ID if stored, None if below threshold
         """
         if occurrence_count < self.MIN_PATTERN_OCCURRENCES:
-            logger.debug(f"Pattern '{pattern_text[:50]}' below occurrence threshold: {occurrence_count}")
+            logger.debug(
+                f"Pattern '{pattern_text[:50]}' below occurrence threshold: {occurrence_count}"
+            )
             return None
 
         import hashlib
+
         pattern_hash = hashlib.sha256(f"{category}:{pattern_text}".encode()).hexdigest()[:12]
         pattern_id = f"{self.PATTERN_PREFIX}{pattern_hash}"
 
@@ -382,7 +388,9 @@ class InsightsAdapter:
 
         self._patterns[pattern_id] = pattern_data
 
-        logger.info(f"Stored pattern: {pattern_id} (occurrences={pattern_data['occurrence_count']})")
+        logger.info(
+            f"Stored pattern: {pattern_id} (occurrences={pattern_data['occurrence_count']})"
+        )
         return pattern_id
 
     def get_insight(self, insight_id: str) -> Optional[Dict[str, Any]]:
@@ -450,10 +458,12 @@ class InsightsAdapter:
             overlap = len(query_words & text_words)
             if overlap > 0:
                 relevance = overlap / max(len(query_words), 1)
-                results.append({
-                    **insight,
-                    "relevance_score": relevance,
-                })
+                results.append(
+                    {
+                        **insight,
+                        "relevance_score": relevance,
+                    }
+                )
 
         results.sort(
             key=lambda x: x["relevance_score"] * x["confidence"],
@@ -732,9 +742,7 @@ class InsightsAdapter:
             "debates_with_insights": len(self._debate_insights),
             "agents_with_flips": len(self._agent_flips),
             "domains_with_flips": len(self._domain_flips),
-            "insight_types": dict(
-                (t, len(ids)) for t, ids in self._type_insights.items()
-            ),
+            "insight_types": dict((t, len(ids)) for t, ids in self._type_insights.items()),
             "flip_types": flip_types,
             # Reverse flow stats
             "km_validations_applied": self._km_validations_applied,
@@ -786,12 +794,14 @@ class InsightsAdapter:
         if flip_id not in self._outcome_history:
             self._outcome_history[flip_id] = []
 
-        self._outcome_history[flip_id].append({
-            "debate_id": debate_id,
-            "was_accurate": was_accurate,
-            "confidence": confidence,
-            "recorded_at": datetime.utcnow().isoformat(),
-        })
+        self._outcome_history[flip_id].append(
+            {
+                "debate_id": debate_id,
+                "was_accurate": was_accurate,
+                "confidence": confidence,
+                "recorded_at": datetime.utcnow().isoformat(),
+            }
+        )
 
     async def update_flip_thresholds_from_km(
         self,
@@ -967,14 +977,10 @@ class InsightsAdapter:
 
         # Compute type distribution
         total_flips = sum(flip_type_counts.values()) or 1
-        flip_type_distribution = {
-            k: v / total_flips for k, v in flip_type_counts.items()
-        }
+        flip_type_distribution = {k: v / total_flips for k, v in flip_type_counts.items()}
 
         # Compute domain flip rates
-        domain_flip_rates = {
-            k: v / num_debates for k, v in domain_flip_counts.items()
-        }
+        domain_flip_rates = {k: v / num_debates for k, v in domain_flip_counts.items()}
 
         # Confidence based on sample size
         sample_confidence = min(flip_count / 20, 1.0)
@@ -1051,9 +1057,9 @@ class InsightsAdapter:
 
         # Determine if flip is expected
         is_expected = (
-            expected_type_rate >= 0.1 or  # Agent commonly has this flip type
-            pattern_match_count >= 2 or  # Multiple pattern matches
-            similarity_score >= 0.9  # Very high confidence detection
+            expected_type_rate >= 0.1  # Agent commonly has this flip type
+            or pattern_match_count >= 2  # Multiple pattern matches
+            or similarity_score >= 0.9  # Very high confidence detection
         )
 
         # Pattern match score
@@ -1188,11 +1194,14 @@ class InsightsAdapter:
         # Also update thresholds
         try:
             flip_items = [
-                item for item in km_items
+                item
+                for item in km_items
                 if item.get("metadata", {}).get("similarity_score") is not None
             ]
             if flip_items:
-                threshold_update = await self.update_flip_thresholds_from_km(flip_items, min_confidence)
+                threshold_update = await self.update_flip_thresholds_from_km(
+                    flip_items, min_confidence
+                )
                 result.threshold_updates.append(threshold_update)
         except Exception as e:
             errors.append(f"Error updating thresholds: {e}")

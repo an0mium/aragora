@@ -39,6 +39,7 @@ def get_scheduler() -> SyncScheduler:
 # Connector Management Handlers
 # =============================================================================
 
+
 async def handle_list_connectors(
     tenant_id: str = "default",
 ) -> Dict[str, Any]:
@@ -246,6 +247,7 @@ def _create_connector(connector_type: str, config: Dict[str, Any]):
 # Sync Operation Handlers
 # =============================================================================
 
+
 async def handle_trigger_sync(
     connector_id: str,
     full_sync: bool = False,
@@ -338,6 +340,7 @@ async def handle_get_sync_history(
 # Webhook Handlers
 # =============================================================================
 
+
 async def handle_webhook(
     connector_id: str,
     payload: Dict[str, Any],
@@ -365,6 +368,7 @@ async def handle_webhook(
 # =============================================================================
 # Scheduler Handlers
 # =============================================================================
+
 
 async def handle_start_scheduler() -> Dict[str, Any]:
     """
@@ -410,6 +414,7 @@ async def handle_get_scheduler_stats(
 # Template Handlers
 # =============================================================================
 
+
 async def handle_list_workflow_templates(
     category: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -454,6 +459,7 @@ async def handle_get_workflow_template(
 # =============================================================================
 # MongoDB Aggregation Handlers
 # =============================================================================
+
 
 async def handle_mongodb_aggregate(
     connector_id: str,
@@ -567,6 +573,7 @@ async def handle_mongodb_collections(
 # =============================================================================
 # Health Check
 # =============================================================================
+
 
 async def handle_connector_health() -> Dict[str, Any]:
     """

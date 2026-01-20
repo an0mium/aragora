@@ -54,11 +54,13 @@ class TestComputePairwiseMatrix:
 
     def test_orthogonal_embeddings(self):
         """Test with orthogonal embeddings."""
-        emb = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ])
+        emb = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         matrix = compute_pairwise_matrix(emb)
 
         # Diagonal should be 1
@@ -113,10 +115,12 @@ class TestComputeMinSimilarity:
 
     def test_orthogonal_embeddings(self):
         """Test with orthogonal embeddings."""
-        emb = np.array([
-            [1.0, 0.0],
-            [0.0, 1.0],
-        ])
+        emb = np.array(
+            [
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ]
+        )
         result = compute_min_similarity(emb)
         assert abs(result) < 0.001  # Orthogonal = 0 similarity
 
@@ -180,11 +184,13 @@ class TestClusterBySimilarity:
 
     def test_orthogonal_embeddings_no_cluster(self):
         """Test orthogonal embeddings don't cluster at high threshold."""
-        emb = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ])
+        emb = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         result = cluster_by_similarity(emb, threshold=0.9, min_cluster_size=2)
         # No clusters because orthogonal vectors have 0 similarity
         assert len(result) == 0

@@ -129,6 +129,7 @@ class ConsensusPredictor:
         if self._embedding_service is None and self.config.use_embeddings:
             try:
                 from aragora.ml.embeddings import get_embedding_service
+
                 self._embedding_service = get_embedding_service()
             except Exception as e:
                 logger.warning(f"Could not load embedding service: {e}")
@@ -140,6 +141,7 @@ class ConsensusPredictor:
         if self._quality_scorer is None:
             try:
                 from aragora.ml.quality_scorer import get_quality_scorer
+
                 self._quality_scorer = get_quality_scorer()
             except Exception as e:
                 logger.warning(f"Could not load quality scorer: {e}")
@@ -186,14 +188,30 @@ class ConsensusPredictor:
         text_lower = text.lower()
 
         agree_indicators = [
-            "i agree", "correct", "that's right", "exactly",
-            "good point", "well said", "i concur", "absolutely",
-            "building on", "in addition to", "furthermore",
+            "i agree",
+            "correct",
+            "that's right",
+            "exactly",
+            "good point",
+            "well said",
+            "i concur",
+            "absolutely",
+            "building on",
+            "in addition to",
+            "furthermore",
         ]
         disagree_indicators = [
-            "i disagree", "incorrect", "that's wrong", "however",
-            "on the contrary", "actually", "but", "not quite",
-            "i would argue", "the issue with", "problem with",
+            "i disagree",
+            "incorrect",
+            "that's wrong",
+            "however",
+            "on the contrary",
+            "actually",
+            "but",
+            "not quite",
+            "i would argue",
+            "the issue with",
+            "problem with",
         ]
 
         agree_count = sum(1 for phrase in agree_indicators if phrase in text_lower)
@@ -348,17 +366,15 @@ class ConsensusPredictor:
 
         # Combine scores
         probability = (
-            self.config.weight_semantic_similarity * semantic_sim +
-            self.config.weight_stance_alignment * stance_align +
-            self.config.weight_quality_variance * (1 - quality_var) +  # Invert variance
-            self.config.weight_historical * historical +
-            self.config.weight_round_progress * round_progress
+            self.config.weight_semantic_similarity * semantic_sim
+            + self.config.weight_stance_alignment * stance_align
+            + self.config.weight_quality_variance * (1 - quality_var)  # Invert variance
+            + self.config.weight_historical * historical
+            + self.config.weight_round_progress * round_progress
         )
 
         # Determine convergence trend
-        convergence_trend = self._estimate_convergence_trend(
-            semantic_sim, previous_similarities
-        )
+        convergence_trend = self._estimate_convergence_trend(semantic_sim, previous_similarities)
 
         # Adjust probability based on trend
         if convergence_trend == "converging":
@@ -458,17 +474,13 @@ class ConsensusPredictor:
         self._historical_outcomes[debate_id] = reached_consensus
 
         if prediction is not None:
-            self._prediction_accuracy.append(
-                (prediction.probability, reached_consensus)
-            )
+            self._prediction_accuracy.append((prediction.probability, reached_consensus))
 
             # Keep only recent history
             if len(self._prediction_accuracy) > 1000:
                 self._prediction_accuracy = self._prediction_accuracy[-1000:]
 
-        logger.debug(
-            f"Recorded outcome for {debate_id}: consensus={reached_consensus}"
-        )
+        logger.debug(f"Recorded outcome for {debate_id}: consensus={reached_consensus}")
 
     def get_calibration_stats(self) -> dict[str, float]:
         """Get calibration statistics.

@@ -235,9 +235,7 @@ class TestAuditReportGenerator:
 
     def test_filter_findings_by_severity(self):
         """Findings are filtered by severity."""
-        generator = AuditReportGenerator(
-            ReportConfig(min_severity="high")
-        )
+        generator = AuditReportGenerator(ReportConfig(min_severity="high"))
 
         findings = [
             create_mock_finding(severity="critical"),

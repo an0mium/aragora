@@ -245,7 +245,9 @@ class VoteWeightCalculator:
             try:
                 consistency_score = self._consistency_source(agent_name)
                 consistency_weight = 0.5 + (consistency_score * 0.5)
-                consistency_weight = 1.0 + (consistency_weight - 1.0) * self.config.consistency_contribution
+                consistency_weight = (
+                    1.0 + (consistency_weight - 1.0) * self.config.consistency_contribution
+                )
                 weight *= consistency_weight
             except Exception as e:
                 logger.debug(f"Consistency weight error for {agent_name}: {e}")
@@ -393,9 +395,7 @@ class VotingEngine:
             for other in list(unassigned):
                 # Skip contradictory choices (e.g., "Accept" vs "Reject")
                 if backend.is_contradictory(choice, other):
-                    logger.debug(
-                        f"vote_grouping_skip_contradiction: '{choice}' vs '{other}'"
-                    )
+                    logger.debug(f"vote_grouping_skip_contradiction: '{choice}' vs '{other}'")
                     continue
 
                 similarity = backend.compute_similarity(choice, other)
@@ -680,9 +680,7 @@ class VotingEngine:
             return {}
 
         # Count votes per choice
-        choice_counts = Counter(
-            v.choice for v in valid_votes if hasattr(v, "choice") and v.choice
-        )
+        choice_counts = Counter(v.choice for v in valid_votes if hasattr(v, "choice") and v.choice)
         total = sum(choice_counts.values())
 
         # Build detailed distribution

@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StrategyResult:
     """Result from a strategy execution."""
+
     answer: str
     confidence: float
     nodes_used: list[str]
@@ -161,12 +162,14 @@ class GrepStrategy(BaseStrategy):
                     if re.search(term, node.content, re.IGNORECASE):
                         # Found match
                         snippet = self._extract_snippet(node.content, term)
-                        matches.append({
-                            "node_id": node.id,
-                            "level": level.name,
-                            "term": term,
-                            "snippet": snippet,
-                        })
+                        matches.append(
+                            {
+                                "node_id": node.id,
+                                "level": level.name,
+                                "term": term,
+                                "snippet": snippet,
+                            }
+                        )
                         nodes_used.append(node.id)
                         examined_tokens += node.token_count
 
@@ -184,12 +187,14 @@ class GrepStrategy(BaseStrategy):
                     start = max(0, match.start() - 200)
                     end = min(len(context.original_content), match.end() + 200)
                     snippet = context.original_content[start:end]
-                    matches.append({
-                        "node_id": "original",
-                        "level": "FULL",
-                        "term": term,
-                        "snippet": f"...{snippet}...",
-                    })
+                    matches.append(
+                        {
+                            "node_id": "original",
+                            "level": "FULL",
+                            "term": term,
+                            "snippet": f"...{snippet}...",
+                        }
+                    )
                     if len(matches) >= 10:
                         break
 
@@ -216,14 +221,45 @@ class GrepStrategy(BaseStrategy):
         """Extract search terms from natural language query."""
         # Remove common question words
         stopwords = {
-            "what", "where", "when", "who", "why", "how", "is", "are", "was",
-            "were", "the", "a", "an", "of", "in", "to", "for", "with", "on",
-            "at", "by", "about", "does", "did", "do", "can", "could", "would",
-            "should", "this", "that", "these", "those", "it", "its",
+            "what",
+            "where",
+            "when",
+            "who",
+            "why",
+            "how",
+            "is",
+            "are",
+            "was",
+            "were",
+            "the",
+            "a",
+            "an",
+            "of",
+            "in",
+            "to",
+            "for",
+            "with",
+            "on",
+            "at",
+            "by",
+            "about",
+            "does",
+            "did",
+            "do",
+            "can",
+            "could",
+            "would",
+            "should",
+            "this",
+            "that",
+            "these",
+            "those",
+            "it",
+            "its",
         }
 
         # Tokenize and filter
-        words = re.findall(r'\b\w+\b', query.lower())
+        words = re.findall(r"\b\w+\b", query.lower())
         terms = [w for w in words if w not in stopwords and len(w) > 2]
 
         # Also extract quoted phrases
@@ -278,7 +314,11 @@ class PartitionMapStrategy(BaseStrategy):
         source_level = query.start_level
         if source_level not in context.levels:
             # Fall back to available levels
-            for level in [AbstractionLevel.SUMMARY, AbstractionLevel.DETAILED, AbstractionLevel.FULL]:
+            for level in [
+                AbstractionLevel.SUMMARY,
+                AbstractionLevel.DETAILED,
+                AbstractionLevel.FULL,
+            ]:
                 if level in context.levels:
                     source_level = level
                     break
@@ -288,7 +328,7 @@ class PartitionMapStrategy(BaseStrategy):
             # Use original content chunks
             chunk_size = self.config.target_tokens * 4
             chunks = [
-                context.original_content[i:i + chunk_size]
+                context.original_content[i : i + chunk_size]
                 for i in range(0, len(context.original_content), chunk_size)
             ]
         else:
@@ -312,7 +352,7 @@ Answer:"""
         if self.config.parallel_sub_calls:
             tasks = [
                 self._process_chunk(map_prompt.format(chunk=chunk), i)
-                for i, chunk in enumerate(chunks[:self.config.max_sub_calls])
+                for i, chunk in enumerate(chunks[: self.config.max_sub_calls])
             ]
             results = await asyncio.gather(*tasks)
             for result in results:
@@ -320,7 +360,7 @@ Answer:"""
                     partial_answers.append(result)
                     sub_calls += 1
         else:
-            for i, chunk in enumerate(chunks[:self.config.max_sub_calls]):
+            for i, chunk in enumerate(chunks[: self.config.max_sub_calls]):
                 result = await self._process_chunk(map_prompt.format(chunk=chunk), i)
                 if result:
                     partial_answers.append(result)
@@ -350,8 +390,8 @@ Combined answer:"""
             final_answer = "No relevant information found in the content."
 
         # Calculate stats
-        nodes_used = [node.id for node in nodes[:len(chunks)]] if nodes else []
-        examined_tokens = sum(len(c) // 4 for c in chunks[:self.config.max_sub_calls])
+        nodes_used = [node.id for node in nodes[: len(chunks)]] if nodes else []
+        examined_tokens = sum(len(c) // 4 for c in chunks[: self.config.max_sub_calls])
 
         return StrategyResult(
             answer=final_answer,
@@ -489,8 +529,7 @@ class HierarchicalStrategy(BaseStrategy):
 
         if AbstractionLevel.ABSTRACT in context.levels:
             abstract_content = "\n".join(
-                f"[{n.id}] {n.content}"
-                for n in context.levels[AbstractionLevel.ABSTRACT]
+                f"[{n.id}] {n.content}" for n in context.levels[AbstractionLevel.ABSTRACT]
             )
 
             identify_prompt = f"""Based on this overview, which sections are most relevant to the question?

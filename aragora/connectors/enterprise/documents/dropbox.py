@@ -12,13 +12,12 @@ Requires Dropbox OAuth2 app credentials.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional, Set
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -38,10 +37,35 @@ logger = logging.getLogger(__name__)
 
 # Supported file extensions for indexing
 SUPPORTED_EXTENSIONS: Set[str] = {
-    ".txt", ".md", ".json", ".xml", ".csv", ".yaml", ".yml",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".py", ".js", ".ts", ".java", ".go", ".rs", ".c", ".cpp", ".h",
-    ".html", ".css", ".sql", ".sh", ".rb", ".php",
+    ".txt",
+    ".md",
+    ".json",
+    ".xml",
+    ".csv",
+    ".yaml",
+    ".yml",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".py",
+    ".js",
+    ".ts",
+    ".java",
+    ".go",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
+    ".html",
+    ".css",
+    ".sql",
+    ".sh",
+    ".rb",
+    ".php",
 }
 
 
@@ -218,9 +242,9 @@ class DropboxConnector(EnterpriseConnector):
                 self._access_token = result["access_token"]
                 self._refresh_token = result.get("refresh_token")
                 expires_in = result.get("expires_in", 14400)
-                self._token_expires = datetime.now(timezone.utc).replace(
-                    tzinfo=None
-                ) + timedelta(seconds=expires_in)
+                self._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+                    seconds=expires_in
+                )
                 return True
             else:
                 error = await resp.text()
@@ -250,9 +274,9 @@ class DropboxConnector(EnterpriseConnector):
                 result = await resp.json()
                 self._access_token = result["access_token"]
                 expires_in = result.get("expires_in", 14400)
-                self._token_expires = datetime.now(timezone.utc).replace(
-                    tzinfo=None
-                ) + timedelta(seconds=expires_in)
+                self._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+                    seconds=expires_in
+                )
                 return True
             else:
                 error = await resp.text()
@@ -264,7 +288,10 @@ class DropboxConnector(EnterpriseConnector):
         if not self._access_token:
             raise ValueError("Not authenticated")
 
-        if self._token_expires and datetime.now(timezone.utc).replace(tzinfo=None) >= self._token_expires:
+        if (
+            self._token_expires
+            and datetime.now(timezone.utc).replace(tzinfo=None) >= self._token_expires
+        ):
             await self._refresh_access_token()
 
     async def _api_request(
@@ -299,12 +326,12 @@ class DropboxConnector(EnterpriseConnector):
                     )
                 elif resp.status == 429:
                     raise ConnectorRateLimitError(
-                        f"Dropbox rate limit exceeded",
+                        "Dropbox rate limit exceeded",
                         connector_name="dropbox",
                     )
                 elif resp.status == 404:
                     raise ConnectorNotFoundError(
-                        f"Dropbox resource not found",
+                        "Dropbox resource not found",
                         connector_name="dropbox",
                     )
                 else:
@@ -357,7 +384,7 @@ class DropboxConnector(EnterpriseConnector):
 
                 # Check extension filter
                 name = entry.get("name", "")
-                ext = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
+                "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
 
                 yield DropboxFile(
                     id=entry.get("id", ""),
@@ -456,7 +483,7 @@ class DropboxConnector(EnterpriseConnector):
                     )
                 elif resp.status == 429:
                     raise ConnectorRateLimitError(
-                        f"Dropbox download rate limited",
+                        "Dropbox download rate limited",
                         connector_name="dropbox",
                     )
                 elif resp.status == 404:

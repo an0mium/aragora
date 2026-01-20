@@ -521,7 +521,10 @@ KNOWLEDGE_ACCESS_GRANTS = Counter(
 KNOWLEDGE_SHARES = Counter(
     name="aragora_knowledge_shares_total",
     help="Number of knowledge sharing operations",
-    label_names=["action", "target_type"],  # action: share/accept/decline/revoke, target_type: workspace/user
+    label_names=[
+        "action",
+        "target_type",
+    ],  # action: share/accept/decline/revoke, target_type: workspace/user
 )
 
 KNOWLEDGE_SHARED_ITEMS = Gauge(
@@ -547,7 +550,11 @@ KNOWLEDGE_GLOBAL_QUERIES = Counter(
 KNOWLEDGE_FEDERATION_SYNCS = Counter(
     name="aragora_knowledge_federation_syncs_total",
     help="Number of federation sync operations",
-    label_names=["region_id", "direction", "status"],  # direction: push/pull, status: success/failed
+    label_names=[
+        "region_id",
+        "direction",
+        "status",
+    ],  # direction: push/pull, status: success/failed
 )
 
 KNOWLEDGE_FEDERATION_NODES = Counter(
@@ -658,9 +665,7 @@ def track_security_violation(violation_type: str) -> None:
 
 
 @contextmanager
-def track_vector_operation(
-    operation: str, store: str = "weaviate"
-) -> Generator[None, None, None]:
+def track_vector_operation(operation: str, store: str = "weaviate") -> Generator[None, None, None]:
     """Context manager to track vector store operation latency.
 
     Args:
@@ -696,9 +701,7 @@ def track_vector_operation(
         VECTOR_LATENCY.observe(duration, operation=operation, store=store)
         # Log slow queries (>500ms)
         if duration > 0.5:
-            logger.warning(
-                f"Slow vector operation: {operation} on {store} took {duration:.3f}s"
-            )
+            logger.warning(f"Slow vector operation: {operation} on {store} took {duration:.3f}s")
 
 
 def track_vector_search_results(
@@ -967,7 +970,9 @@ def track_federation_sync(
     except RuntimeError as e:
         # Runtime errors (async issues, state errors)
         ctx["status"] = "failed"
-        logger.warning("Federation sync runtime error for region %s (%s): %s", region_id, direction, e)
+        logger.warning(
+            "Federation sync runtime error for region %s (%s): %s", region_id, direction, e
+        )
         raise
     finally:
         duration = time.perf_counter() - start

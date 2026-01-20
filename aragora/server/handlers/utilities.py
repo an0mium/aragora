@@ -65,9 +65,7 @@ def get_host_header(
         default = _DEFAULT_HOST
     if handler is None:
         return default
-    return (
-        handler.headers.get("Host", default) if hasattr(handler, "headers") else default
-    )
+    return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
 
 def get_request_id(handler: Optional[Any]) -> Optional[str]:
@@ -86,9 +84,7 @@ def get_request_id(handler: Optional[Any]) -> Optional[str]:
 
     headers = handler.headers
     return (
-        headers.get("X-Request-ID")
-        or headers.get("X-Trace-ID")
-        or headers.get("X-Correlation-ID")
+        headers.get("X-Request-ID") or headers.get("X-Trace-ID") or headers.get("X-Correlation-ID")
     )
 
 

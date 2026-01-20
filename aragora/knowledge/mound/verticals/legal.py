@@ -67,84 +67,84 @@ class LegalKnowledge(BaseVerticalKnowledge):
     CLAUSE_PATTERNS = [
         ClausePattern(
             name="Termination Clause",
-            pattern=r'(?:terminat(?:e|ion)|cancel(?:lation)?|end(?:ing)?)\s+(?:of\s+)?(?:this\s+)?(?:agreement|contract)',
+            pattern=r"(?:terminat(?:e|ion)|cancel(?:lation)?|end(?:ing)?)\s+(?:of\s+)?(?:this\s+)?(?:agreement|contract)",
             category="termination",
             risk_level="high",
             description="Contract termination provisions",
         ),
         ClausePattern(
             name="Indemnification",
-            pattern=r'(?:indemnif(?:y|ication)|hold\s+harmless)',
+            pattern=r"(?:indemnif(?:y|ication)|hold\s+harmless)",
             category="liability",
             risk_level="high",
             description="Indemnification and hold harmless clauses",
         ),
         ClausePattern(
             name="Limitation of Liability",
-            pattern=r'(?:limit(?:ation)?\s+of\s+liability|consequential\s+damages|indirect\s+damages)',
+            pattern=r"(?:limit(?:ation)?\s+of\s+liability|consequential\s+damages|indirect\s+damages)",
             category="liability",
             risk_level="high",
             description="Liability limitation provisions",
         ),
         ClausePattern(
             name="Force Majeure",
-            pattern=r'(?:force\s+majeure|act\s+of\s+god|unforeseeable\s+circumstances)',
+            pattern=r"(?:force\s+majeure|act\s+of\s+god|unforeseeable\s+circumstances)",
             category="exception",
             risk_level="medium",
             description="Force majeure and unforeseeable events",
         ),
         ClausePattern(
             name="Confidentiality",
-            pattern=r'(?:confidential(?:ity)?|non-disclosure|proprietary\s+information)',
+            pattern=r"(?:confidential(?:ity)?|non-disclosure|proprietary\s+information)",
             category="obligation",
             risk_level="medium",
             description="Confidentiality and NDA provisions",
         ),
         ClausePattern(
             name="Assignment",
-            pattern=r'(?:assign(?:ment)?|transfer(?:ability)?)\s+(?:of\s+)?(?:rights|obligations)',
+            pattern=r"(?:assign(?:ment)?|transfer(?:ability)?)\s+(?:of\s+)?(?:rights|obligations)",
             category="right",
             risk_level="medium",
             description="Assignment and transfer provisions",
         ),
         ClausePattern(
             name="Warranty",
-            pattern=r'(?:warrant(?:y|ies)|guarantee|representation)',
+            pattern=r"(?:warrant(?:y|ies)|guarantee|representation)",
             category="obligation",
             risk_level="medium",
             description="Warranty and representation clauses",
         ),
         ClausePattern(
             name="Governing Law",
-            pattern=r'(?:govern(?:ing|ed)\s+(?:by\s+)?(?:the\s+)?law(?:s)?|jurisdiction|venue)',
+            pattern=r"(?:govern(?:ing|ed)\s+(?:by\s+)?(?:the\s+)?law(?:s)?|jurisdiction|venue)",
             category="procedural",
             risk_level="low",
             description="Choice of law and jurisdiction",
         ),
         ClausePattern(
             name="Payment Terms",
-            pattern=r'(?:payment\s+(?:term|due|schedule)|net\s+\d+|within\s+\d+\s+days)',
+            pattern=r"(?:payment\s+(?:term|due|schedule)|net\s+\d+|within\s+\d+\s+days)",
             category="obligation",
             risk_level="medium",
             description="Payment terms and schedules",
         ),
         ClausePattern(
             name="Intellectual Property",
-            pattern=r'(?:intellectual\s+property|patent|copyright|trademark|trade\s+secret)',
+            pattern=r"(?:intellectual\s+property|patent|copyright|trademark|trade\s+secret)",
             category="right",
             risk_level="high",
             description="IP rights and ownership",
         ),
         ClausePattern(
             name="Non-Compete",
-            pattern=r'(?:non-?compet(?:e|ition)|restrictive\s+covenant)',
+            pattern=r"(?:non-?compet(?:e|ition)|restrictive\s+covenant)",
             category="restriction",
             risk_level="high",
             description="Non-compete and restrictive covenants",
         ),
         ClausePattern(
             name="Arbitration",
-            pattern=r'(?:arbitrat(?:e|ion)|dispute\s+resolution|mediat(?:e|ion))',
+            pattern=r"(?:arbitrat(?:e|ion)|dispute\s+resolution|mediat(?:e|ion))",
             category="procedural",
             risk_level="medium",
             description="Alternative dispute resolution",
@@ -155,49 +155,49 @@ class LegalKnowledge(BaseVerticalKnowledge):
     COMPLIANCE_PATTERNS = [
         CompliancePattern(
             name="GDPR - Data Subject Rights",
-            pattern=r'(?:right\s+to\s+(?:access|erasure|rectification|portability)|data\s+subject\s+rights)',
+            pattern=r"(?:right\s+to\s+(?:access|erasure|rectification|portability)|data\s+subject\s+rights)",
             framework="GDPR",
             description="GDPR data subject rights",
         ),
         CompliancePattern(
             name="GDPR - Consent",
-            pattern=r'(?:explicit\s+consent|consent\s+(?:to|for)\s+processing|withdraw\s+consent)',
+            pattern=r"(?:explicit\s+consent|consent\s+(?:to|for)\s+processing|withdraw\s+consent)",
             framework="GDPR",
             description="GDPR consent requirements",
         ),
         CompliancePattern(
             name="GDPR - Data Protection Officer",
-            pattern=r'(?:data\s+protection\s+officer|DPO)',
+            pattern=r"(?:data\s+protection\s+officer|DPO)",
             framework="GDPR",
             description="GDPR DPO requirement",
         ),
         CompliancePattern(
             name="HIPAA - PHI",
-            pattern=r'(?:protected\s+health\s+information|PHI|medical\s+record)',
+            pattern=r"(?:protected\s+health\s+information|PHI|medical\s+record)",
             framework="HIPAA",
             description="HIPAA protected health information",
         ),
         CompliancePattern(
             name="HIPAA - Authorization",
-            pattern=r'(?:HIPAA\s+authorization|patient\s+authorization|disclosure\s+authorization)',
+            pattern=r"(?:HIPAA\s+authorization|patient\s+authorization|disclosure\s+authorization)",
             framework="HIPAA",
             description="HIPAA authorization requirements",
         ),
         CompliancePattern(
             name="SOX - Internal Controls",
-            pattern=r'(?:internal\s+control(?:s)?|financial\s+reporting|audit\s+committee)',
+            pattern=r"(?:internal\s+control(?:s)?|financial\s+reporting|audit\s+committee)",
             framework="SOX",
             description="SOX internal control requirements",
         ),
         CompliancePattern(
             name="SOX - Certification",
-            pattern=r'(?:CEO\s+certification|CFO\s+certification|management\s+certification)',
+            pattern=r"(?:CEO\s+certification|CFO\s+certification|management\s+certification)",
             framework="SOX",
             description="SOX certification requirements",
         ),
         CompliancePattern(
             name="PCI-DSS - Card Data",
-            pattern=r'(?:cardholder\s+data|payment\s+card|PCI|credit\s+card\s+(?:number|information))',
+            pattern=r"(?:cardholder\s+data|payment\s+card|PCI|credit\s+card\s+(?:number|information))",
             framework="PCI-DSS",
             description="PCI-DSS cardholder data",
         ),
@@ -205,12 +205,12 @@ class LegalKnowledge(BaseVerticalKnowledge):
 
     # Risk indicators
     RISK_PATTERNS = [
-        (r'(?:unlimited\s+liability|uncapped)', "high", "Unlimited liability exposure"),
-        (r'(?:automatic\s+renewal|evergreen)', "medium", "Automatic renewal clause"),
-        (r'(?:sole\s+discretion|absolute\s+discretion)', "high", "Unilateral discretion"),
-        (r'(?:irrevocable|perpetual\s+license)', "high", "Irrevocable rights"),
-        (r'(?:waive(?:s|r)?|release)', "medium", "Rights waiver"),
-        (r'(?:material\s+breach)', "medium", "Material breach provision"),
+        (r"(?:unlimited\s+liability|uncapped)", "high", "Unlimited liability exposure"),
+        (r"(?:automatic\s+renewal|evergreen)", "medium", "Automatic renewal clause"),
+        (r"(?:sole\s+discretion|absolute\s+discretion)", "high", "Unilateral discretion"),
+        (r"(?:irrevocable|perpetual\s+license)", "high", "Irrevocable rights"),
+        (r"(?:waive(?:s|r)?|release)", "medium", "Rights waiver"),
+        (r"(?:material\s+breach)", "medium", "Material breach provision"),
     ]
 
     @property
@@ -223,7 +223,9 @@ class LegalKnowledge(BaseVerticalKnowledge):
 
     @property
     def description(self) -> str:
-        return "Contract analysis, clause extraction, obligation tracking, and regulatory compliance"
+        return (
+            "Contract analysis, clause extraction, obligation tracking, and regulatory compliance"
+        )
 
     @property
     def capabilities(self) -> VerticalCapabilities:
@@ -393,9 +395,7 @@ class LegalKnowledge(BaseVerticalKnowledge):
 
         # Pattern: Multiple high-risk clauses
         clause_facts = by_category.get("clause", [])
-        high_risk_clauses = [
-            f for f in clause_facts if f.metadata.get("risk_level") == "high"
-        ]
+        high_risk_clauses = [f for f in clause_facts if f.metadata.get("risk_level") == "high"]
         if len(high_risk_clauses) >= 2:
             patterns.append(
                 PatternMatch(
@@ -413,9 +413,7 @@ class LegalKnowledge(BaseVerticalKnowledge):
         obligation_facts = [
             f for f in clause_facts if f.metadata.get("clause_category") == "obligation"
         ]
-        right_facts = [
-            f for f in clause_facts if f.metadata.get("clause_category") == "right"
-        ]
+        right_facts = [f for f in clause_facts if f.metadata.get("clause_category") == "right"]
         if len(obligation_facts) > len(right_facts) * 2:
             patterns.append(
                 PatternMatch(
@@ -476,15 +474,14 @@ class LegalKnowledge(BaseVerticalKnowledge):
         """Check GDPR compliance."""
         results = []
         gdpr_facts = [
-            f for f in facts
-            if f.category == "compliance" and f.metadata.get("framework") == "GDPR"
+            f for f in facts if f.category == "compliance" and f.metadata.get("framework") == "GDPR"
         ]
 
         # Check for required GDPR elements
         required_elements = {
-            "consent": r'consent',
-            "data_subject_rights": r'data\s+subject|right\s+to',
-            "dpo": r'data\s+protection\s+officer|DPO',
+            "consent": r"consent",
+            "data_subject_rights": r"data\s+subject|right\s+to",
+            "dpo": r"data\s+protection\s+officer|DPO",
         }
 
         for element, pattern in required_elements.items():
@@ -497,9 +494,15 @@ class LegalKnowledge(BaseVerticalKnowledge):
                     passed=found,
                     severity="high" if element == "consent" else "medium",
                     findings=[f"GDPR {element} {'found' if found else 'not found'}"],
-                    evidence=[f.id for f in gdpr_facts if re.search(pattern, f.content, re.IGNORECASE)],
+                    evidence=[
+                        f.id for f in gdpr_facts if re.search(pattern, f.content, re.IGNORECASE)
+                    ],
                     recommendations=[
-                        f"Review and document {element} requirements" if not found else "Requirements appear to be addressed"
+                        (
+                            f"Review and document {element} requirements"
+                            if not found
+                            else "Requirements appear to be addressed"
+                        )
                     ],
                     confidence=0.75 if found else 0.6,
                 )
@@ -514,7 +517,8 @@ class LegalKnowledge(BaseVerticalKnowledge):
         """Check HIPAA compliance."""
         results = []
         hipaa_facts = [
-            f for f in facts
+            f
+            for f in facts
             if f.category == "compliance" and f.metadata.get("framework") == "HIPAA"
         ]
 
@@ -542,8 +546,7 @@ class LegalKnowledge(BaseVerticalKnowledge):
         """Check SOX compliance."""
         results = []
         sox_facts = [
-            f for f in facts
-            if f.category == "compliance" and f.metadata.get("framework") == "SOX"
+            f for f in facts if f.category == "compliance" and f.metadata.get("framework") == "SOX"
         ]
 
         if sox_facts:
@@ -570,7 +573,8 @@ class LegalKnowledge(BaseVerticalKnowledge):
         """Check PCI-DSS compliance."""
         results = []
         pci_facts = [
-            f for f in facts
+            f
+            for f in facts
             if f.category == "compliance" and f.metadata.get("framework") == "PCI-DSS"
         ]
 
@@ -610,10 +614,9 @@ class LegalKnowledge(BaseVerticalKnowledge):
                     continue
 
                 # Check if same clause category (e.g., multiple liability clauses)
-                if (
-                    other.category == "clause" and
-                    fact.metadata.get("clause_category") == other.metadata.get("clause_category")
-                ):
+                if other.category == "clause" and fact.metadata.get(
+                    "clause_category"
+                ) == other.metadata.get("clause_category"):
                     references.append((other.id, "same_category", 0.7))
 
                 # Check if related compliance framework

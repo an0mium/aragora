@@ -1142,9 +1142,7 @@ class DissentRetriever:
 
         # Try to break at sentence boundary
         for i in range(len(truncated) - 1, int(max_chars * 0.5), -1):
-            if truncated[i] in ".!?" and (
-                i + 1 >= len(truncated) or truncated[i + 1] in " \n"
-            ):
+            if truncated[i] in ".!?" and (i + 1 >= len(truncated) or truncated[i + 1] in " \n"):
                 return text[: i + 1]
 
         # Break at word boundary
@@ -1247,7 +1245,7 @@ class DissentRetriever:
             for s in context["similar_debates"][:3]:
                 lines.append(f"- **{s['topic']}** ({s['strength']}, {s['similarity']:.0%} similar)")
                 # Use smart truncation that preserves sentence boundaries
-                conclusion = self._smart_truncate(s['conclusion'], 100)
+                conclusion = self._smart_truncate(s["conclusion"], 100)
                 lines.append(f"  Conclusion: {conclusion}")
                 if s["dissent_count"] > 0:
                     lines.append(f"  ⚠️ {s['dissent_count']} dissenting view(s)")
@@ -1257,7 +1255,7 @@ class DissentRetriever:
             lines.append("## Unaddressed Historical Concerns")
             for d in context["unacknowledged_dissents"][:3]:
                 # Use smart truncation that preserves sentence boundaries
-                content = self._smart_truncate(d['content'], 100)
+                content = self._smart_truncate(d["content"], 100)
                 lines.append(f"- [{d['dissent_type']}] {content}")
             lines.append("")
 

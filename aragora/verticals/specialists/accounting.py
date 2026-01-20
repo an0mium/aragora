@@ -31,10 +31,25 @@ ACCOUNTING_CONFIG = VerticalConfig(
     display_name="Accounting & Finance Specialist",
     description="Expert in financial analysis, audit, compliance, and accounting standards.",
     domain_keywords=[
-        "accounting", "finance", "audit", "tax", "financial", "revenue",
-        "expense", "balance sheet", "income statement", "cash flow",
-        "GAAP", "IFRS", "SOX", "internal control", "journal entry",
-        "depreciation", "amortization", "accrual", "reconciliation",
+        "accounting",
+        "finance",
+        "audit",
+        "tax",
+        "financial",
+        "revenue",
+        "expense",
+        "balance sheet",
+        "income statement",
+        "cash flow",
+        "GAAP",
+        "IFRS",
+        "SOX",
+        "internal control",
+        "journal entry",
+        "depreciation",
+        "amortization",
+        "accrual",
+        "reconciliation",
     ],
     expertise_areas=[
         "Financial Statement Analysis",
@@ -282,38 +297,46 @@ class AccountingSpecialist(VerticalSpecialistAgent):
 
         # Section 302 - CEO/CFO certifications
         if "section_302" in framework.rules or not framework.rules:
-            if re.search(r"financial\s+statement|quarterly\s+report|annual\s+report", content_lower):
+            if re.search(
+                r"financial\s+statement|quarterly\s+report|annual\s+report", content_lower
+            ):
                 if not re.search(r"certif(?:y|ication)|attest", content_lower):
-                    violations.append({
-                        "framework": "SOX",
-                        "rule": "Section 302 - Certification",
-                        "severity": "high",
-                        "message": "Financial statement without management certification reference",
-                    })
+                    violations.append(
+                        {
+                            "framework": "SOX",
+                            "rule": "Section 302 - Certification",
+                            "severity": "high",
+                            "message": "Financial statement without management certification reference",
+                        }
+                    )
 
         # Section 404 - Internal control assessment
         if "section_404" in framework.rules or not framework.rules:
             # Check for control deficiency indicators
             for pattern in self.FINANCIAL_PATTERNS.get("material_weakness", []):
                 if re.search(pattern, content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "SOX",
-                        "rule": "Section 404 - Internal Controls",
-                        "severity": "critical",
-                        "message": "Material weakness or control deficiency indicated",
-                    })
+                    violations.append(
+                        {
+                            "framework": "SOX",
+                            "rule": "Section 404 - Internal Controls",
+                            "severity": "critical",
+                            "message": "Material weakness or control deficiency indicated",
+                        }
+                    )
                     break
 
         # Section 802 - Record retention
         if "section_802" in framework.rules or not framework.rules:
             if re.search(r"destro(?:y|yed)|delet(?:e|ed)|shred", content_lower):
                 if re.search(r"audit|work\s*paper|financial\s+record", content_lower):
-                    violations.append({
-                        "framework": "SOX",
-                        "rule": "Section 802 - Record Retention",
-                        "severity": "critical",
-                        "message": "Potential destruction of audit-related records",
-                    })
+                    violations.append(
+                        {
+                            "framework": "SOX",
+                            "rule": "Section 802 - Record Retention",
+                            "severity": "critical",
+                            "message": "Potential destruction of audit-related records",
+                        }
+                    )
 
         return violations
 
@@ -329,24 +352,30 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         # Revenue recognition (ASC 606)
         if "revenue_recognition" in framework.rules or not framework.rules:
             if re.search(r"revenue|sales|income", content_lower):
-                if not re.search(r"recogni(?:ze|tion)|ASC\s*606|contract|performance\s+obligation", content_lower):
-                    violations.append({
-                        "framework": "GAAP",
-                        "rule": "ASC 606 - Revenue Recognition",
-                        "severity": "medium",
-                        "message": "Revenue discussed without clear recognition criteria",
-                    })
+                if not re.search(
+                    r"recogni(?:ze|tion)|ASC\s*606|contract|performance\s+obligation", content_lower
+                ):
+                    violations.append(
+                        {
+                            "framework": "GAAP",
+                            "rule": "ASC 606 - Revenue Recognition",
+                            "severity": "medium",
+                            "message": "Revenue discussed without clear recognition criteria",
+                        }
+                    )
 
         # Fair value measurement
         if "fair_value" in framework.rules or not framework.rules:
             if re.search(r"fair\s+value|market\s+value", content_lower):
                 if not re.search(r"level\s+[123]|observable|unobservable|input", content_lower):
-                    violations.append({
-                        "framework": "GAAP",
-                        "rule": "ASC 820 - Fair Value",
-                        "severity": "low",
-                        "message": "Fair value reference without hierarchy level indication",
-                    })
+                    violations.append(
+                        {
+                            "framework": "GAAP",
+                            "rule": "ASC 820 - Fair Value",
+                            "severity": "low",
+                            "message": "Fair value reference without hierarchy level indication",
+                        }
+                    )
 
         return violations
 
@@ -361,13 +390,19 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         # AS 2201 - ICFR Audit
         if "AS2201" in framework.rules or not framework.rules:
             if re.search(r"internal\s+control.*audit", content, re.IGNORECASE):
-                if not re.search(r"material\s+weakness|significant\s+deficiency|test.*control", content, re.IGNORECASE):
-                    violations.append({
-                        "framework": "PCAOB",
-                        "rule": "AS 2201 - ICFR Audit",
-                        "severity": "medium",
-                        "message": "Internal control audit without deficiency assessment",
-                    })
+                if not re.search(
+                    r"material\s+weakness|significant\s+deficiency|test.*control",
+                    content,
+                    re.IGNORECASE,
+                ):
+                    violations.append(
+                        {
+                            "framework": "PCAOB",
+                            "rule": "AS 2201 - ICFR Audit",
+                            "severity": "medium",
+                            "message": "Internal control audit without deficiency assessment",
+                        }
+                    )
 
         return violations
 
@@ -382,9 +417,9 @@ class AccountingSpecialist(VerticalSpecialistAgent):
         return Message(
             role="assistant",
             content=f"[Accounting Specialist Response for: {task}]\n\n"
-                    f"DISCLAIMER: This analysis is for informational purposes only "
-                    f"and does not constitute professional accounting advice.\n\n"
-                    f"This would contain expert financial analysis.",
+            f"DISCLAIMER: This analysis is for informational purposes only "
+            f"and does not constitute professional accounting advice.\n\n"
+            f"This would contain expert financial analysis.",
             agent=self.name,
         )
 
@@ -443,11 +478,21 @@ class AccountingSpecialist(VerticalSpecialistAgent):
             Review results with findings
         """
         control_elements = {
-            "segregation_of_duties": bool(re.search(r"segregat|separate\s+dut", control_description, re.IGNORECASE)),
-            "authorization": bool(re.search(r"authoriz|approv", control_description, re.IGNORECASE)),
-            "reconciliation": bool(re.search(r"reconcil|verify|match", control_description, re.IGNORECASE)),
-            "documentation": bool(re.search(r"document|record|log", control_description, re.IGNORECASE)),
-            "monitoring": bool(re.search(r"monitor|review|oversee", control_description, re.IGNORECASE)),
+            "segregation_of_duties": bool(
+                re.search(r"segregat|separate\s+dut", control_description, re.IGNORECASE)
+            ),
+            "authorization": bool(
+                re.search(r"authoriz|approv", control_description, re.IGNORECASE)
+            ),
+            "reconciliation": bool(
+                re.search(r"reconcil|verify|match", control_description, re.IGNORECASE)
+            ),
+            "documentation": bool(
+                re.search(r"document|record|log", control_description, re.IGNORECASE)
+            ),
+            "monitoring": bool(
+                re.search(r"monitor|review|oversee", control_description, re.IGNORECASE)
+            ),
         }
 
         missing_elements = [k for k, v in control_elements.items() if not v]

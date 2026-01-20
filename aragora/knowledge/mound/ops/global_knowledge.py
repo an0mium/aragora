@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
-from uuid import uuid4
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -55,7 +54,9 @@ class GlobalKnowledgeProtocol(Protocol):
         workspace_id: Optional[str] = None,
     ) -> "QueryResult": ...
 
-    async def get(self, node_id: str, workspace_id: Optional[str] = None) -> Optional["KnowledgeItem"]: ...
+    async def get(
+        self, node_id: str, workspace_id: Optional[str] = None
+    ) -> Optional["KnowledgeItem"]: ...
 
 
 class GlobalKnowledgeMixin:
@@ -206,9 +207,15 @@ class GlobalKnowledgeMixin:
 
         # Extract confidence - handle both enum and float
         confidence = item.confidence
-        if hasattr(confidence, 'value'):
+        if hasattr(confidence, "value"):
             # It's an enum like ConfidenceLevel
-            confidence_map = {"verified": 0.95, "high": 0.85, "medium": 0.7, "low": 0.5, "speculative": 0.3}
+            confidence_map = {
+                "verified": 0.95,
+                "high": 0.85,
+                "medium": 0.7,
+                "low": 0.5,
+                "speculative": 0.3,
+            }
             confidence = confidence_map.get(confidence.value, 0.7)
 
         # Get existing evidence from metadata

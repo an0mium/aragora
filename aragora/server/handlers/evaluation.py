@@ -111,18 +111,20 @@ class EvaluationHandler(BaseHandler):
         dimensions = []
         for dim in EvaluationDimension:
             rubric = DEFAULT_RUBRICS.get(dim) if DEFAULT_RUBRICS else None
-            dimensions.append({
-                "id": dim.value,
-                "name": dim.name.replace("_", " ").title(),
-                "description": rubric.description if rubric else "",
-                "rubric": {
-                    "score_1": rubric.score_1 if rubric else "",
-                    "score_2": rubric.score_2 if rubric else "",
-                    "score_3": rubric.score_3 if rubric else "",
-                    "score_4": rubric.score_4 if rubric else "",
-                    "score_5": rubric.score_5 if rubric else "",
-                },
-            })
+            dimensions.append(
+                {
+                    "id": dim.value,
+                    "name": dim.name.replace("_", " ").title(),
+                    "description": rubric.description if rubric else "",
+                    "rubric": {
+                        "score_1": rubric.score_1 if rubric else "",
+                        "score_2": rubric.score_2 if rubric else "",
+                        "score_3": rubric.score_3 if rubric else "",
+                        "score_4": rubric.score_4 if rubric else "",
+                        "score_5": rubric.score_5 if rubric else "",
+                    },
+                }
+            )
 
         return json_response({"dimensions": dimensions})
 
@@ -142,7 +144,9 @@ class EvaluationHandler(BaseHandler):
                 "id": "default",
                 "name": "Default",
                 "description": "Balanced evaluation across all dimensions",
-                "weights": {k.value: v for k, v in DEFAULT_WEIGHTS.items()} if DEFAULT_WEIGHTS else {},
+                "weights": (
+                    {k.value: v for k, v in DEFAULT_WEIGHTS.items()} if DEFAULT_WEIGHTS else {}
+                ),
             }
         ]
 
@@ -155,12 +159,14 @@ class EvaluationHandler(BaseHandler):
         }
 
         for profile_id, weights in WEIGHT_PROFILES.items():
-            profiles.append({
-                "id": profile_id,
-                "name": profile_id.replace("_", " ").title(),
-                "description": profile_descriptions.get(profile_id, ""),
-                "weights": {k.value: v for k, v in weights.items()},
-            })
+            profiles.append(
+                {
+                    "id": profile_id,
+                    "name": profile_id.replace("_", " ").title(),
+                    "description": profile_descriptions.get(profile_id, ""),
+                    "weights": {k.value: v for k, v in weights.items()},
+                }
+            )
 
         return json_response({"profiles": profiles})
 

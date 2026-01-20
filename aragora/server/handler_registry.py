@@ -587,7 +587,12 @@ class RouteIndex:
             "_transcription_handler": ["/api/transcription/", "/api/transcribe/"],
             "_uncertainty_handler": ["/api/uncertainty/"],
             "_verticals_handler": ["/api/verticals"],
-            "_workspace_handler": ["/api/workspaces", "/api/retention/", "/api/classify", "/api/audit/"],
+            "_workspace_handler": [
+                "/api/workspaces",
+                "/api/retention/",
+                "/api/classify",
+                "/api/audit/",
+            ],
         }
 
         for attr_name, _ in HANDLER_REGISTRY:

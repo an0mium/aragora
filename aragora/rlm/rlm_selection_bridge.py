@@ -112,8 +112,9 @@ class AgentRLMStats:
         cache_ratio = self.total_cache_hits / max(1, self.total_operations)
         cache_bonus = min(0.1, cache_ratio * 0.2)
 
-        return (fidelity_score * 0.3 + confidence_score * 0.3 +
-                sub_call_score * 0.3 + cache_bonus + 0.1)
+        return (
+            fidelity_score * 0.3 + confidence_score * 0.3 + sub_call_score * 0.3 + cache_bonus + 0.1
+        )
 
 
 @dataclass
@@ -152,9 +153,7 @@ class RLMSelectionBridge:
 
     rlm_bridge: Optional["RLMBridge"] = None
     selection_feedback: Optional["SelectionFeedbackLoop"] = None
-    config: RLMSelectionBridgeConfig = field(
-        default_factory=RLMSelectionBridgeConfig
-    )
+    config: RLMSelectionBridgeConfig = field(default_factory=RLMSelectionBridgeConfig)
 
     # Internal state
     _agent_stats: Dict[str, AgentRLMStats] = field(default_factory=dict, repr=False)
@@ -188,9 +187,7 @@ class RLMSelectionBridge:
                 compression_result.compression_ratio
             )
             stats.total_compression_ratio += avg_ratio
-            stats.avg_compression_ratio = (
-                stats.total_compression_ratio / stats.total_compressions
-            )
+            stats.avg_compression_ratio = stats.total_compression_ratio / stats.total_compressions
 
         stats.last_updated = datetime.now()
 
@@ -313,22 +310,19 @@ class RLMSelectionBridge:
             # High confidence = boost
             if stats.avg_confidence > 0.6:
                 confidence_boost = (
-                    (stats.avg_confidence - 0.6) / 0.4
-                    * self.config.query_boost_weight
+                    (stats.avg_confidence - 0.6) / 0.4 * self.config.query_boost_weight
                 )
                 adjustment += confidence_boost
 
             # Low sub-calls = efficiency boost
             if stats.avg_sub_calls_per_query < 5:
                 efficiency_boost = (
-                    (5 - stats.avg_sub_calls_per_query) / 5
-                    * self.config.query_boost_weight * 0.5
+                    (5 - stats.avg_sub_calls_per_query) / 5 * self.config.query_boost_weight * 0.5
                 )
                 adjustment += efficiency_boost
 
         # Apply bounds
-        return max(-self.config.low_fidelity_penalty,
-                   min(self.config.max_boost, adjustment))
+        return max(-self.config.low_fidelity_penalty, min(self.config.max_boost, adjustment))
 
     def get_compression_boost(self, agent_name: str) -> float:
         """Get the compression efficiency boost for an agent.
@@ -425,9 +419,7 @@ class RLMSelectionBridge:
             state = self.selection_feedback.get_agent_state(agent_name)
             if state:
                 current = self.selection_feedback.get_selection_adjustment(agent_name)
-                self.selection_feedback._selection_adjustments[agent_name] = (
-                    current + adjustment
-                )
+                self.selection_feedback._selection_adjustments[agent_name] = current + adjustment
                 updated += 1
 
         logger.info(f"rlm_selection_synced agents_updated={updated}")
@@ -462,15 +454,9 @@ class RLMSelectionBridge:
 
         return {
             "agents_tracked": len(self._agent_stats),
-            "total_operations": sum(
-                s.total_operations for s in self._agent_stats.values()
-            ),
-            "total_compressions": sum(
-                s.total_compressions for s in self._agent_stats.values()
-            ),
-            "total_queries": sum(
-                s.total_queries for s in self._agent_stats.values()
-            ),
+            "total_operations": sum(s.total_operations for s in self._agent_stats.values()),
+            "total_compressions": sum(s.total_compressions for s in self._agent_stats.values()),
+            "total_queries": sum(s.total_queries for s in self._agent_stats.values()),
             "efficient_agents": len(efficient_agents),
             "avg_adjustment": (
                 sum(self._rlm_adjustments.values()) / len(self._rlm_adjustments)

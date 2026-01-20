@@ -26,6 +26,7 @@ SKIP_QDRANT = "Qdrant not available (set QDRANT_URL env var)"
 try:
     import weaviate
     from weaviate.classes.config import Configure, Property, DataType
+
     WEAVIATE_AVAILABLE = bool(WEAVIATE_URL)
 except ImportError:
     WEAVIATE_AVAILABLE = False
@@ -34,6 +35,7 @@ except ImportError:
 try:
     from qdrant_client import QdrantClient
     from qdrant_client.models import Distance, VectorParams, PointStruct
+
     QDRANT_AVAILABLE = bool(QDRANT_URL)
 except ImportError:
     QDRANT_AVAILABLE = False
@@ -43,11 +45,12 @@ except ImportError:
 def generate_embedding(dim: int = 384, seed: int = 0) -> list[float]:
     """Generate a deterministic embedding for testing."""
     import hashlib
+
     h = hashlib.sha256(str(seed).encode()).hexdigest()
-    values = [int(h[i:i+2], 16) / 255.0 for i in range(0, min(len(h), dim * 2), 2)]
+    values = [int(h[i : i + 2], 16) / 255.0 for i in range(0, min(len(h), dim * 2), 2)]
     # Pad if needed
     while len(values) < dim:
-        values.extend(values[:dim - len(values)])
+        values.extend(values[: dim - len(values)])
     return values[:dim]
 
 
@@ -119,7 +122,10 @@ class TestWeaviateIntegration:
         topics = ["machine learning", "database systems", "network security", "cloud computing"]
         for i, topic in enumerate(topics):
             collection.data.insert(
-                properties={"content": f"A comprehensive guide to {topic}", "source": f"{topic}.md"},
+                properties={
+                    "content": f"A comprehensive guide to {topic}",
+                    "source": f"{topic}.md",
+                },
                 vector=generate_embedding(seed=i * 100),
             )
 
@@ -449,6 +455,5 @@ class TestMemoryVectorStore:
         )
 
         # Results should be from respective namespaces
-        assert all("Doc" in r.content and "B" not in r.content
-                   for r in results_a)
+        assert all("Doc" in r.content and "B" not in r.content for r in results_a)
         assert all("B" in r.content for r in results_b)

@@ -552,9 +552,7 @@ class TestAdvanceRound:
         )
 
         # Complete round 1
-        round1_matches = manager.get_matches(
-            tournament_id=tournament.tournament_id, round_num=1
-        )
+        round1_matches = manager.get_matches(tournament_id=tournament.tournament_id, round_num=1)
         for m in round1_matches:
             manager.record_match_result(match_id=m.match_id, winner=m.agent1)
 
@@ -563,9 +561,7 @@ class TestAdvanceRound:
         assert result is True
 
         # Should have round 2 matches now
-        round2_matches = manager.get_matches(
-            tournament_id=tournament.tournament_id, round_num=2
-        )
+        round2_matches = manager.get_matches(tournament_id=tournament.tournament_id, round_num=2)
         assert len(round2_matches) == 1
 
     def test_advance_incomplete_round_fails(self, manager):
@@ -724,9 +720,7 @@ class TestMatchFiltering:
         # Complete only one match
         manager.record_match_result(match_id=matches[0].match_id, winner=matches[0].agent1)
 
-        completed = manager.get_matches(
-            tournament_id=tournament.tournament_id, completed_only=True
-        )
+        completed = manager.get_matches(tournament_id=tournament.tournament_id, completed_only=True)
         assert len(completed) == 1
 
     def test_filter_by_round(self, manager):

@@ -30,9 +30,7 @@ class TestConfluenceConnectorInitialization:
         """Should detect Cloud instance from URL."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
-        connector = ConfluenceConnector(
-            base_url="https://mycompany.atlassian.net/wiki"
-        )
+        connector = ConfluenceConnector(base_url="https://mycompany.atlassian.net/wiki")
 
         assert connector.is_cloud is True
         assert "atlassian.net" in connector.base_url
@@ -41,9 +39,7 @@ class TestConfluenceConnectorInitialization:
         """Should detect Data Center instance from URL."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
-        connector = ConfluenceConnector(
-            base_url="https://confluence.mycompany.com"
-        )
+        connector = ConfluenceConnector(base_url="https://confluence.mycompany.com")
 
         assert connector.is_cloud is False
 
@@ -51,9 +47,7 @@ class TestConfluenceConnectorInitialization:
         """Should normalize URL to include /wiki."""
         from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector
 
-        connector = ConfluenceConnector(
-            base_url="https://mycompany.atlassian.net"
-        )
+        connector = ConfluenceConnector(base_url="https://mycompany.atlassian.net")
 
         assert connector.base_url.endswith("/wiki")
 
@@ -180,13 +174,25 @@ class TestConfluenceSpaceOperations:
 
         mock_response = {
             "results": [
-                {"id": "1", "key": "ENG", "name": "Engineering", "type": "global", "status": "current"},
-                {"id": "2", "key": "HR", "name": "Human Resources", "type": "global", "status": "current"},
+                {
+                    "id": "1",
+                    "key": "ENG",
+                    "name": "Engineering",
+                    "type": "global",
+                    "status": "current",
+                },
+                {
+                    "id": "2",
+                    "key": "HR",
+                    "name": "Human Resources",
+                    "type": "global",
+                    "status": "current",
+                },
             ],
             "_links": {},
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             spaces = await connector._get_spaces()
@@ -196,7 +202,10 @@ class TestConfluenceSpaceOperations:
     @pytest.mark.asyncio
     async def test_filter_spaces_by_key(self, mock_credentials):
         """Should filter spaces by configured keys."""
-        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector, ConfluenceSpace
+        from aragora.connectors.enterprise.collaboration.confluence import (
+            ConfluenceConnector,
+            ConfluenceSpace,
+        )
 
         connector = ConfluenceConnector(
             base_url="https://test.atlassian.net/wiki",
@@ -206,7 +215,9 @@ class TestConfluenceSpaceOperations:
 
         all_spaces = [
             ConfluenceSpace(id="1", key="ENG", name="Engineering", type="global", status="current"),
-            ConfluenceSpace(id="2", key="HR", name="Human Resources", type="global", status="current"),
+            ConfluenceSpace(
+                id="2", key="HR", name="Human Resources", type="global", status="current"
+            ),
         ]
 
         filtered = [s for s in all_spaces if connector.spaces is None or s.key in connector.spaces]
@@ -232,7 +243,7 @@ class TestConfluencePageOperations:
             "_links": {},  # No next link = end of pagination
         }
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = mock_response
 
             # Collect pages from async iterator
@@ -245,7 +256,10 @@ class TestConfluencePageOperations:
     @pytest.mark.asyncio
     async def test_exclude_pages_by_label(self, mock_credentials):
         """Should exclude pages with specified labels."""
-        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector, ConfluencePage
+        from aragora.connectors.enterprise.collaboration.confluence import (
+            ConfluenceConnector,
+            ConfluencePage,
+        )
 
         connector = ConfluenceConnector(
             base_url="https://test.atlassian.net/wiki",
@@ -254,9 +268,19 @@ class TestConfluencePageOperations:
         connector.credentials = mock_credentials
 
         pages = [
-            ConfluencePage(id="1", title="Public", space_key="ENG", status="current", labels=["public"]),
-            ConfluencePage(id="2", title="Draft", space_key="ENG", status="current", labels=["draft"]),
-            ConfluencePage(id="3", title="Private", space_key="ENG", status="current", labels=["private", "internal"]),
+            ConfluencePage(
+                id="1", title="Public", space_key="ENG", status="current", labels=["public"]
+            ),
+            ConfluencePage(
+                id="2", title="Draft", space_key="ENG", status="current", labels=["draft"]
+            ),
+            ConfluencePage(
+                id="3",
+                title="Private",
+                space_key="ENG",
+                status="current",
+                labels=["private", "internal"],
+            ),
         ]
 
         filtered = [p for p in pages if not any(l in connector.exclude_labels for l in p.labels)]
@@ -328,7 +352,10 @@ class TestConfluenceSyncItems:
     @pytest.mark.asyncio
     async def test_sync_items_yields_pages(self, mock_credentials):
         """Should yield sync items for pages."""
-        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector, ConfluenceSpace
+        from aragora.connectors.enterprise.collaboration.confluence import (
+            ConfluenceConnector,
+            ConfluenceSpace,
+        )
 
         connector = ConfluenceConnector(
             base_url="https://test.atlassian.net/wiki",
@@ -339,13 +366,15 @@ class TestConfluenceSyncItems:
         connector.credentials = mock_credentials
 
         # Mock _get_spaces to return a space
-        mock_spaces = [ConfluenceSpace(id="1", key="ENG", name="Engineering", type="global", status="current")]
+        mock_spaces = [
+            ConfluenceSpace(id="1", key="ENG", name="Engineering", type="global", status="current")
+        ]
 
         # Mock _api_request to return empty pages (simulating end of pagination)
-        with patch.object(connector, '_get_spaces', new_callable=AsyncMock) as mock_get_spaces:
+        with patch.object(connector, "_get_spaces", new_callable=AsyncMock) as mock_get_spaces:
             mock_get_spaces.return_value = mock_spaces
 
-            with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+            with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
                 mock_api.return_value = {"results": [], "_links": {}}
 
                 state = SyncState(connector_id="confluence_test")
@@ -359,7 +388,10 @@ class TestConfluenceSyncItems:
     @pytest.mark.asyncio
     async def test_sync_includes_metadata(self, mock_credentials):
         """Should include metadata in sync items."""
-        from aragora.connectors.enterprise.collaboration.confluence import ConfluenceConnector, ConfluencePage
+        from aragora.connectors.enterprise.collaboration.confluence import (
+            ConfluenceConnector,
+            ConfluencePage,
+        )
 
         connector = ConfluenceConnector(base_url="https://test.atlassian.net/wiki")
         connector.credentials = mock_credentials
@@ -391,7 +423,7 @@ class TestConfluenceIncrementalSync:
 
         last_sync = datetime(2024, 1, 15, tzinfo=timezone.utc)
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"results": [], "_links": {}}
 
             # _get_pages accepts modified_since parameter
@@ -414,7 +446,7 @@ class TestConfluenceErrorHandling:
         connector = ConfluenceConnector(base_url="https://test.atlassian.net/wiki")
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("API Error")
 
             try:
@@ -434,7 +466,7 @@ class TestConfluenceErrorHandling:
         )
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"results": [], "_links": {}}
 
             # _get_pages is an async iterator
@@ -452,7 +484,7 @@ class TestConfluenceErrorHandling:
         connector = ConfluenceConnector(base_url="https://test.atlassian.net/wiki")
         connector.credentials = mock_credentials
 
-        with patch.object(connector, '_api_request', new_callable=AsyncMock) as mock_api:
+        with patch.object(connector, "_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = Exception("403 Forbidden")
 
             try:

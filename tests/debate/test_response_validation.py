@@ -120,23 +120,23 @@ class TestAgentResponseSchema:
 
     def test_ready_signal_extraction_html(self):
         """Should extract ready signal from HTML comment."""
-        content = '''Analysis here.
-<!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->'''
+        content = """Analysis here.
+<!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->"""
         response = AgentResponseSchema(content=content, agent_name="claude")
         assert response.ready_signal.confidence == 0.85
         assert response.ready_signal.ready is True
 
     def test_ready_signal_extraction_json_block(self):
         """Should extract ready signal from JSON block."""
-        content = '''Analysis here.
-```ready_signal {"confidence": 0.9, "ready": true} ```'''
+        content = """Analysis here.
+```ready_signal {"confidence": 0.9, "ready": true} ```"""
         response = AgentResponseSchema(content=content, agent_name="claude")
         assert response.ready_signal.confidence == 0.9
         assert response.ready_signal.ready is True
 
     def test_ready_signal_extraction_inline(self):
         """Should extract ready signal from inline format."""
-        content = 'Analysis [READY: confidence=0.8, ready=true] done.'
+        content = "Analysis [READY: confidence=0.8, ready=true] done."
         response = AgentResponseSchema(content=content, agent_name="claude")
         assert response.ready_signal.confidence == 0.8
         assert response.ready_signal.ready is True
@@ -322,16 +322,16 @@ class TestEdgeCases:
 
     def test_malformed_ready_signal(self):
         """Should handle malformed ready signal gracefully."""
-        content = '<!-- READY_SIGNAL: {malformed json} -->'
+        content = "<!-- READY_SIGNAL: {malformed json} -->"
         result = validate_agent_response(content, agent_name="claude")
         assert result.is_valid  # Should still validate, just skip signal
         assert result.response.ready_signal.ready is False  # Default
 
     def test_multiple_ready_signals(self):
         """Should use first valid ready signal."""
-        content = '''<!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->
+        content = """<!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->
 Analysis here.
-<!-- READY_SIGNAL: {"confidence": 0.5, "ready": false} -->'''
+<!-- READY_SIGNAL: {"confidence": 0.5, "ready": false} -->"""
         result = validate_agent_response(content, agent_name="claude")
         assert result.is_valid
         assert result.response.ready_signal.confidence == 0.9

@@ -295,9 +295,7 @@ class EvaluationResult:
         return {
             "id": self.id,
             "response_id": self.response_id,
-            "dimension_scores": {
-                k.value: v.to_dict() for k, v in self.dimension_scores.items()
-            },
+            "dimension_scores": {k.value: v.to_dict() for k, v in self.dimension_scores.items()},
             "overall_score": self.overall_score,
             "overall_confidence": self.overall_confidence,
             "weights_used": self.weights_used,
@@ -398,9 +396,7 @@ class LLMJudge:
             self._weights = DEFAULT_WEIGHTS
 
         # Determine dimensions to evaluate
-        self._dimensions = (
-            self._config.dimensions or list(EvaluationDimension)
-        )
+        self._dimensions = self._config.dimensions or list(EvaluationDimension)
 
     async def evaluate(
         self,
@@ -555,10 +551,7 @@ class LLMJudge:
         reference: Optional[str] = None,
     ) -> str:
         """Build the evaluation prompt with rubrics."""
-        rubrics_text = "\n".join(
-            self._rubrics[dim].to_prompt()
-            for dim in self._dimensions
-        )
+        rubrics_text = "\n".join(self._rubrics[dim].to_prompt() for dim in self._dimensions)
 
         context_section = f"\n**Context:**\n{context}\n" if context else ""
         reference_section = f"\n**Reference Answer:**\n{reference}\n" if reference else ""
@@ -713,7 +706,9 @@ Provide your comparison:"""
 
         if json_match:
             try:
-                data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group())
+                data = json.loads(
+                    json_match.group(1) if json_match.lastindex else json_match.group()
+                )
                 dimension_data = data.get("dimension_scores", {})
 
                 for dim in self._dimensions:
@@ -783,7 +778,9 @@ Provide your comparison:"""
 
         if json_match:
             try:
-                data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group())
+                data = json.loads(
+                    json_match.group(1) if json_match.lastindex else json_match.group()
+                )
                 feedback["summary"] = data.get("summary", "")
                 feedback["strengths"] = data.get("strengths", [])
                 feedback["weaknesses"] = data.get("weaknesses", [])
@@ -809,7 +806,9 @@ Provide your comparison:"""
 
         if json_match:
             try:
-                data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group())
+                data = json.loads(
+                    json_match.group(1) if json_match.lastindex else json_match.group()
+                )
                 result["winner"] = data.get("winner", "tie")
                 result["confidence"] = float(data.get("confidence", 0.5))
                 result["dimension_preferences"] = data.get("dimension_preferences", {})
@@ -855,8 +854,8 @@ Provide your comparison:"""
                     total_conf = primary.confidence + secondary.confidence
                     if total_conf > 0:
                         avg_score = (
-                            primary.score * primary.confidence +
-                            secondary.score * secondary.confidence
+                            primary.score * primary.confidence
+                            + secondary.score * secondary.confidence
                         ) / total_conf
                         avg_conf = (primary.confidence + secondary.confidence) / 2
 

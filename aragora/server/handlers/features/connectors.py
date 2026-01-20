@@ -41,6 +41,7 @@ try:
         ConnectorConfig,
         SyncJob,
     )
+
     HAS_SYNC_STORE = True
 except ImportError:
     HAS_SYNC_STORE = False
@@ -232,7 +233,11 @@ class ConnectorsHandler(BaseHandler):
         # Add active sync info
         for connector in connectors:
             active_sync = next(
-                (s for s in _sync_jobs.values() if s["connector_id"] == connector["id"] and s["status"] == "running"),
+                (
+                    s
+                    for s in _sync_jobs.values()
+                    if s["connector_id"] == connector["id"] and s["status"] == "running"
+                ),
                 None,
             )
             if active_sync:
@@ -242,7 +247,9 @@ class ConnectorsHandler(BaseHandler):
         # Apply category filter (not handled by store)
         if category_filter:
             connectors = [
-                c for c in connectors if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter
+                c
+                for c in connectors
+                if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter
             ]
 
         return self._json_response(
@@ -250,7 +257,9 @@ class ConnectorsHandler(BaseHandler):
             {
                 "connectors": connectors,
                 "total": len(connectors),
-                "connected": sum(1 for c in connectors if c["status"] in ("connected", "syncing", "configured")),
+                "connected": sum(
+                    1 for c in connectors if c["status"] in ("connected", "syncing", "configured")
+                ),
                 "disconnected": sum(1 for c in connectors if c["status"] == "disconnected"),
                 "errors": sum(1 for c in connectors if c["status"] == "error"),
             },
@@ -416,7 +425,11 @@ class ConnectorsHandler(BaseHandler):
 
         # Check if already syncing
         active_sync = next(
-            (s for s in _sync_jobs.values() if s["connector_id"] == connector_id and s["status"] == "running"),
+            (
+                s
+                for s in _sync_jobs.values()
+                if s["connector_id"] == connector_id and s["status"] == "running"
+            ),
             None,
         )
         if active_sync:
@@ -482,7 +495,9 @@ class ConnectorsHandler(BaseHandler):
                 sync_job["status"] = "completed"
                 connector["status"] = "connected"
                 connector["last_sync"] = datetime.now(timezone.utc).isoformat()
-                connector["items_synced"] = connector.get("items_synced", 0) + sync_job["items_processed"]
+                connector["items_synced"] = (
+                    connector.get("items_synced", 0) + sync_job["items_processed"]
+                )
 
             sync_job["completed_at"] = datetime.now(timezone.utc).isoformat()
             duration = (
@@ -608,7 +623,9 @@ class ConnectorsHandler(BaseHandler):
                 for c in connector_configs
             ]
             total_items = sum(c.items_indexed for c in connector_configs)
-            connected = sum(1 for c in connector_configs if c.status in ("connected", "configured", "active"))
+            connected = sum(
+                1 for c in connector_configs if c.status in ("connected", "configured", "active")
+            )
             syncing = sum(1 for c in connector_configs if c.status == "active")
             errors = sum(1 for c in connector_configs if c.status == "error")
 
@@ -692,7 +709,7 @@ class ConnectorsHandler(BaseHandler):
 
     def _json_response(self, status: int, data: Any) -> Dict[str, Any]:
         """Create a JSON response."""
-        import json as json_module
+
         return {
             "status_code": status,
             "headers": {"Content-Type": "application/json"},

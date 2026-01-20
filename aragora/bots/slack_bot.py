@@ -16,7 +16,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from datetime import datetime
@@ -48,6 +47,7 @@ def _check_slack_available() -> tuple[bool, Optional[str]]:
     """Check if slack_bolt is available."""
     try:
         from slack_bolt.async_app import AsyncApp
+
         return True, None
     except ImportError:
         return False, "slack_bolt is required. Install with: pip install slack-bolt"
@@ -124,7 +124,9 @@ class AragoraSlackBot:
         """Register Slack slash commands."""
 
         @self._app.command("/aragora")
-        async def handle_aragora_command(ack: Callable, body: Dict[str, Any], respond: Callable) -> None:
+        async def handle_aragora_command(
+            ack: Callable, body: Dict[str, Any], respond: Callable
+        ) -> None:
             """Handle /aragora command."""
             await ack()
             text = body.get("text", "").strip()
@@ -134,21 +136,27 @@ class AragoraSlackBot:
             await self._handle_slash_command(body, command, args, respond)
 
         @self._app.command("/debate")
-        async def handle_debate_command(ack: Callable, body: Dict[str, Any], respond: Callable) -> None:
+        async def handle_debate_command(
+            ack: Callable, body: Dict[str, Any], respond: Callable
+        ) -> None:
             """Handle /debate command."""
             await ack()
             topic = body.get("text", "").strip()
             await self._handle_slash_command(body, "debate", topic, respond)
 
         @self._app.command("/gauntlet")
-        async def handle_gauntlet_command(ack: Callable, body: Dict[str, Any], respond: Callable) -> None:
+        async def handle_gauntlet_command(
+            ack: Callable, body: Dict[str, Any], respond: Callable
+        ) -> None:
             """Handle /gauntlet command."""
             await ack()
             statement = body.get("text", "").strip()
             await self._handle_slash_command(body, "gauntlet", statement, respond)
 
         @self._app.command("/aragora-status")
-        async def handle_status_command(ack: Callable, body: Dict[str, Any], respond: Callable) -> None:
+        async def handle_status_command(
+            ack: Callable, body: Dict[str, Any], respond: Callable
+        ) -> None:
             """Handle /aragora-status command."""
             await ack()
             await self._handle_slash_command(body, "status", "", respond)
@@ -212,11 +220,12 @@ class AragoraSlackBot:
 
         # Remove bot mention from text (handles both <@BOTID> and <@BOTID|botname>)
         import re
+
         text = re.sub(r"<@[A-Z0-9]+(?:\|[^>]+)?>", "", text).strip()
 
         if not text:
             await say(
-                "Hi! I'm Aragora. Use `/aragora help` or `/debate \"topic\"` to get started.",
+                'Hi! I\'m Aragora. Use `/aragora help` or `/debate "topic"` to get started.',
                 thread_ts=event.get("ts"),
             )
             return
@@ -352,12 +361,14 @@ class AragoraSlackBot:
                 },
             ]
             if "debate_id" in result.data:
-                blocks.append({
-                    "type": "context",
-                    "elements": [
-                        {"type": "mrkdwn", "text": f"Debate ID: `{result.data['debate_id']}`"}
-                    ],
-                })
+                blocks.append(
+                    {
+                        "type": "context",
+                        "elements": [
+                            {"type": "mrkdwn", "text": f"Debate ID: `{result.data['debate_id']}`"}
+                        ],
+                    }
+                )
             return blocks
 
         if command == "gauntlet" and result.data:
@@ -366,7 +377,11 @@ class AragoraSlackBot:
             blocks = [
                 {
                     "type": "header",
-                    "text": {"type": "plain_text", "text": f"Gauntlet Results {emoji}", "emoji": True},
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"Gauntlet Results {emoji}",
+                        "emoji": True,
+                    },
                 },
                 {
                     "type": "section",
@@ -374,12 +389,14 @@ class AragoraSlackBot:
                 },
             ]
             if "score" in result.data:
-                blocks.append({
-                    "type": "context",
-                    "elements": [
-                        {"type": "mrkdwn", "text": f"Score: *{result.data['score']:.1%}*"}
-                    ],
-                })
+                blocks.append(
+                    {
+                        "type": "context",
+                        "elements": [
+                            {"type": "mrkdwn", "text": f"Score: *{result.data['score']:.1%}*"}
+                        ],
+                    }
+                )
             return blocks
 
         if command == "help":

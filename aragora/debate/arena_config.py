@@ -160,7 +160,9 @@ class ArenaConfig:
     enable_cross_debate_memory: bool = True  # Inject institutional knowledge from past debates
 
     # Post-debate workflow automation
-    post_debate_workflow: Optional[Any] = None  # Workflow DAG to trigger after high-confidence debates
+    post_debate_workflow: Optional[Any] = (
+        None  # Workflow DAG to trigger after high-confidence debates
+    )
     enable_post_debate_workflow: bool = False  # Auto-trigger workflow after debates
     post_debate_workflow_threshold: float = 0.7  # Min confidence to trigger workflow
 
@@ -180,7 +182,9 @@ class ArenaConfig:
 
     # Debate checkpointing for resume support
     checkpoint_manager: Optional[Any] = None  # CheckpointManager for pause/resume
-    enable_checkpointing: bool = True  # Auto-create CheckpointManager if True (enables debate resume)
+    enable_checkpointing: bool = (
+        True  # Auto-create CheckpointManager if True (enables debate resume)
+    )
 
     # Performance telemetry
     performance_monitor: Optional[Any] = None  # AgentPerformanceMonitor
@@ -189,7 +193,9 @@ class ArenaConfig:
 
     # Agent selection (performance-based team formation)
     agent_selector: Optional[Any] = None  # AgentSelector for performance-based selection
-    use_performance_selection: bool = True  # Enable ELO/calibration-based agent selection (default: on)
+    use_performance_selection: bool = (
+        True  # Enable ELO/calibration-based agent selection (default: on)
+    )
 
     # Airlock resilience layer
     use_airlock: bool = False  # Wrap agents with AirlockProxy for timeout/fallback
@@ -226,17 +232,23 @@ class ArenaConfig:
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
 
     # RLM Cognitive Load Limiter (for long debates)
-    use_rlm_limiter: bool = True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
+    use_rlm_limiter: bool = (
+        True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
+    )
     rlm_limiter: Optional[Any] = None  # Pre-configured RLMCognitiveLoadLimiter
     rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
     rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail
-    rlm_summary_level: str = "SUMMARY"  # Abstraction level for older content (ABSTRACT, SUMMARY, DETAILED)
+    rlm_summary_level: str = (
+        "SUMMARY"  # Abstraction level for older content (ABSTRACT, SUMMARY, DETAILED)
+    )
     rlm_compression_round_threshold: int = 3  # Start auto-compression after this many rounds
 
     # Memory Coordination (cross-system atomic writes)
     enable_coordinated_writes: bool = True  # Use MemoryCoordinator for atomic multi-system writes
     memory_coordinator: Optional[Any] = None  # Pre-configured MemoryCoordinator
-    coordinator_parallel_writes: bool = False  # Execute memory writes in parallel (False = safer sequential)
+    coordinator_parallel_writes: bool = (
+        False  # Execute memory writes in parallel (False = safer sequential)
+    )
     coordinator_rollback_on_failure: bool = True  # Roll back successful writes if any fails
     coordinator_min_confidence_for_mound: float = 0.7  # Min confidence to write to KnowledgeMound
 
@@ -313,7 +325,9 @@ class ArenaConfig:
     # Detects echo chambers and adjusts voting weights
     enable_relationship_bias: bool = True  # Use relationships to detect/mitigate bias
     relationship_bias_bridge: Optional[Any] = None  # Pre-configured RelationshipBiasBridge
-    relationship_bias_alliance_threshold: float = 0.7  # Alliance score threshold for echo chamber risk
+    relationship_bias_alliance_threshold: float = (
+        0.7  # Alliance score threshold for echo chamber risk
+    )
     relationship_bias_agreement_threshold: float = 0.8  # Agreement rate for echo chamber detection
     relationship_bias_vote_penalty: float = 0.3  # Weight penalty for allied voter-votee pairs
     relationship_bias_min_debates: int = 5  # Min debates before considering relationship
@@ -398,8 +412,10 @@ class ArenaConfig:
     km_pulse_recommend_limit: int = 10  # Max topic recommendations per sync
 
     # Global bidirectional sync settings
+    enable_km_coordinator: bool = True  # Auto-create BidirectionalCoordinator if KM available
     km_sync_interval_seconds: int = 300  # Interval between bidirectional syncs (5 min)
     km_min_confidence_for_reverse: float = 0.7  # Min confidence for any reverse flow
+    km_parallel_sync: bool = True  # Run adapter syncs in parallel (faster, more resource intensive)
     km_bidirectional_coordinator: Optional[Any] = None  # Pre-configured BidirectionalCoordinator
 
     def __post_init__(self) -> None:

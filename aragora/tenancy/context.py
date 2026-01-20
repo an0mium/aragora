@@ -27,14 +27,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Context variable for current tenant
-_current_tenant: ContextVar[Optional["Tenant"]] = ContextVar(
-    "current_tenant", default=None
-)
+_current_tenant: ContextVar[Optional["Tenant"]] = ContextVar("current_tenant", default=None)
 
 # Context variable for tenant ID (lighter weight)
-_current_tenant_id: ContextVar[Optional[str]] = ContextVar(
-    "current_tenant_id", default=None
-)
+_current_tenant_id: ContextVar[Optional[str]] = ContextVar("current_tenant_id", default=None)
 
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
@@ -251,17 +247,13 @@ def tenant_required(func: F) -> F:
     @wraps(func)
     def wrapper(*args, **kwargs):
         if _current_tenant_id.get() is None:
-            raise TenantNotSetError(
-                f"Function {func.__name__} requires a tenant context"
-            )
+            raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
         return func(*args, **kwargs)
 
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         if _current_tenant_id.get() is None:
-            raise TenantNotSetError(
-                f"Function {func.__name__} requires a tenant context"
-            )
+            raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
         return await func(*args, **kwargs)
 
     if asyncio.iscoroutinefunction(func):
@@ -312,9 +304,7 @@ def verify_tenant(expected_tenant_id: str) -> None:
     if current is None:
         raise TenantNotSetError("No tenant set in current context")
     if current != expected_tenant_id:
-        raise TenantMismatchError(
-            f"Expected tenant {expected_tenant_id}, got {current}"
-        )
+        raise TenantMismatchError(f"Expected tenant {expected_tenant_id}, got {current}")
 
 
 class TenantContextStack:
@@ -359,9 +349,7 @@ class TenantContextStack:
 # Audit backend management
 # Used for tenant-aware audit logging
 
-_audit_backend: ContextVar[Optional[Any]] = ContextVar(
-    "audit_backend", default=None
-)
+_audit_backend: ContextVar[Optional[Any]] = ContextVar("audit_backend", default=None)
 
 
 def get_audit_backend() -> Optional[Any]:

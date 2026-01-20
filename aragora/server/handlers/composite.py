@@ -65,9 +65,7 @@ class CompositeHandler(BaseHandler):
         """Extract ID from path pattern."""
         return path[len(prefix) : -len(suffix)]
 
-    def _handle_full_context(
-        self, debate_id: str, query_params: Dict[str, str]
-    ) -> HandlerResult:
+    def _handle_full_context(self, debate_id: str, query_params: Dict[str, str]) -> HandlerResult:
         """
         Get full context for a debate including memory, knowledge, and belief data.
 
@@ -128,9 +126,7 @@ class CompositeHandler(BaseHandler):
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
 
-    def _handle_reliability(
-        self, agent_id: str, query_params: Dict[str, str]
-    ) -> HandlerResult:
+    def _handle_reliability(self, agent_id: str, query_params: Dict[str, str]) -> HandlerResult:
         """
         Get reliability metrics for an agent.
 
@@ -240,9 +236,7 @@ class CompositeHandler(BaseHandler):
                 logger.exception(f"Unexpected error fetching RLM metrics for {debate_id}: {e}")
 
             # Generate recommendations
-            analysis["recommendations"] = self._generate_compression_recommendations(
-                analysis
-            )
+            analysis["recommendations"] = self._generate_compression_recommendations(analysis)
 
             return HandlerResult(
                 status_code=200,
@@ -399,9 +393,7 @@ class CompositeHandler(BaseHandler):
         # This would integrate with the RLM handler
         return None
 
-    def _generate_compression_recommendations(
-        self, analysis: Dict[str, Any]
-    ) -> list[str]:
+    def _generate_compression_recommendations(self, analysis: Dict[str, Any]) -> list[str]:
         """Generate recommendations based on compression analysis."""
         recommendations = []
 
@@ -418,9 +410,7 @@ class CompositeHandler(BaseHandler):
 
         quality = analysis.get("quality", {})
         if quality.get("information_retained", 1.0) < 0.8:
-            recommendations.append(
-                "Reduce compression level to preserve more information"
-            )
+            recommendations.append("Reduce compression level to preserve more information")
 
         return recommendations
 

@@ -229,7 +229,9 @@ class TestValidateRedirectUrl:
         from aragora.server.handlers import oauth
         from aragora.server.handlers.oauth import _validate_redirect_url
 
-        with patch.object(oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])):
+        with patch.object(
+            oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
+        ):
             assert _validate_redirect_url("https://evil.com/callback") is False
 
     def test_allows_subdomain_of_allowed_host(self):
@@ -237,7 +239,9 @@ class TestValidateRedirectUrl:
         from aragora.server.handlers import oauth
         from aragora.server.handlers.oauth import _validate_redirect_url
 
-        with patch.object(oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])):
+        with patch.object(
+            oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
+        ):
             assert _validate_redirect_url("https://app.example.com/callback") is True
 
     def test_handles_invalid_url(self):
@@ -335,8 +339,12 @@ class TestHandleGoogleAuthStart:
 
         with (
             patch.object(oauth, "_get_google_client_id", return_value="test-client-id"),
-            patch.object(oauth, "_get_google_redirect_uri", return_value="http://localhost:8080/callback"),
-            patch.object(oauth, "_get_oauth_success_url", return_value="http://localhost:3000/success"),
+            patch.object(
+                oauth, "_get_google_redirect_uri", return_value="http://localhost:8080/callback"
+            ),
+            patch.object(
+                oauth, "_get_oauth_success_url", return_value="http://localhost:3000/success"
+            ),
             patch.object(oauth, "_validate_redirect_url", return_value=True),
             patch("aragora.server.handlers.oauth._generate_state", return_value="test-state"),
             patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth,

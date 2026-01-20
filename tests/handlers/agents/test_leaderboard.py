@@ -147,9 +147,7 @@ class TestLeaderboardView:
 
     def test_returns_none_for_unmatched_path(self, leaderboard_handler, mock_http_handler):
         """Returns None for paths that don't match."""
-        result = leaderboard_handler.handle(
-            "/api/other/endpoint", {}, mock_http_handler
-        )
+        result = leaderboard_handler.handle("/api/other/endpoint", {}, mock_http_handler)
         assert result is None
 
     def test_validates_domain_parameter(self, leaderboard_handler, mock_http_handler):
@@ -212,7 +210,11 @@ class TestLeaderboardView:
                             ):
                                 result = leaderboard_handler.handle(
                                     "/api/leaderboard-view",
-                                    {"limit": ["20"], "domain": ["technical"], "loop_id": ["loop-123"]},
+                                    {
+                                        "limit": ["20"],
+                                        "domain": ["technical"],
+                                        "loop_id": ["loop-123"],
+                                    },
                                     mock_http_handler,
                                 )
                                 assert result.status_code == 200
@@ -421,9 +423,7 @@ class TestFetchIntrospection:
 class TestLeaderboardRateLimiting:
     """Tests for rate limiting."""
 
-    def test_rate_limit_after_multiple_requests(
-        self, leaderboard_handler, mock_http_handler
-    ):
+    def test_rate_limit_after_multiple_requests(self, leaderboard_handler, mock_http_handler):
         """Returns 429 after exceeding rate limit."""
         # Mock all fetch methods to avoid actual data fetching
         with patch.object(

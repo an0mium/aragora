@@ -94,9 +94,7 @@ class OpenAIWhisperProvider(STTProvider):
                     response_format="verbose_json",
                     prompt=prompt,
                     timestamp_granularities=(
-                        ["word", "segment"]
-                        if self.config.include_word_timestamps
-                        else ["segment"]
+                        ["word", "segment"] if self.config.include_word_timestamps else ["segment"]
                     ),
                 )
         else:
@@ -107,9 +105,7 @@ class OpenAIWhisperProvider(STTProvider):
                 response_format="verbose_json",
                 prompt=prompt,
                 timestamp_granularities=(
-                    ["word", "segment"]
-                    if self.config.include_word_timestamps
-                    else ["segment"]
+                    ["word", "segment"] if self.config.include_word_timestamps else ["segment"]
                 ),
             )
 

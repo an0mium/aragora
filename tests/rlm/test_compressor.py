@@ -31,6 +31,7 @@ try:
         RLMQuery,
         RLMResult,
     )
+
     HAS_RLM = True
 except ImportError as e:
     print(f"RLM import error: {e}")
@@ -347,6 +348,7 @@ class TestHierarchicalCompressorInit:
 
     def test_with_agent_call(self):
         """Test compressor with agent callback."""
+
         def mock_call(prompt, model):
             return "mock response"
 
@@ -467,10 +469,14 @@ class TestChunkContent:
             # Most chunks should end with period+space or be the last chunk
             if chunk.end_char < len(content):
                 # Should end at a boundary
-                end_content = content[chunk.start_char:chunk.end_char]
-                assert end_content.endswith(". ") or end_content.endswith(".\n") or \
-                       end_content.endswith("\n") or end_content.endswith(" ") or \
-                       chunk.end_char == len(content), f"Chunk ended at: {end_content[-10:]}"
+                end_content = content[chunk.start_char : chunk.end_char]
+                assert (
+                    end_content.endswith(". ")
+                    or end_content.endswith(".\n")
+                    or end_content.endswith("\n")
+                    or end_content.endswith(" ")
+                    or chunk.end_char == len(content)
+                ), f"Chunk ended at: {end_content[-10:]}"
 
 
 @pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
@@ -485,12 +491,14 @@ class TestTruncationFallback:
     def test_truncation_detailed(self, compressor: HierarchicalCompressor):
         """Test truncation at DETAILED level (50%)."""
         content = "A" * 1000
-        source_nodes = [AbstractionNode(
-            id="L0_0",
-            level=AbstractionLevel.FULL,
-            content=content,
-            token_count=250,
-        )]
+        source_nodes = [
+            AbstractionNode(
+                id="L0_0",
+                level=AbstractionLevel.FULL,
+                content=content,
+                token_count=250,
+            )
+        ]
 
         context = RLMContext(
             original_content=content,
@@ -510,12 +518,14 @@ class TestTruncationFallback:
     def test_truncation_summary(self, compressor: HierarchicalCompressor):
         """Test truncation at SUMMARY level (20%)."""
         content = "B" * 1000
-        source_nodes = [AbstractionNode(
-            id="L0_0",
-            level=AbstractionLevel.FULL,
-            content=content,
-            token_count=250,
-        )]
+        source_nodes = [
+            AbstractionNode(
+                id="L0_0",
+                level=AbstractionLevel.FULL,
+                content=content,
+                token_count=250,
+            )
+        ]
 
         context = RLMContext(
             original_content=content,
@@ -535,12 +545,14 @@ class TestTruncationFallback:
     def test_truncation_abstract(self, compressor: HierarchicalCompressor):
         """Test truncation at ABSTRACT level (5%)."""
         content = "C" * 1000
-        source_nodes = [AbstractionNode(
-            id="L0_0",
-            level=AbstractionLevel.FULL,
-            content=content,
-            token_count=250,
-        )]
+        source_nodes = [
+            AbstractionNode(
+                id="L0_0",
+                level=AbstractionLevel.FULL,
+                content=content,
+                token_count=250,
+            )
+        ]
 
         context = RLMContext(
             original_content=content,
@@ -570,9 +582,11 @@ class TestCompress:
     @pytest.fixture
     def mock_agent_call(self):
         """Create mock agent call."""
+
         def agent_call(prompt: str, model: str) -> str:
             # Return compressed version
             return "Compressed summary of the content."
+
         return agent_call
 
     @pytest.fixture
@@ -627,6 +641,7 @@ class TestCompressDebateHistory:
     @pytest.fixture
     def compressor(self) -> HierarchicalCompressor:
         """Create compressor with mock agent."""
+
         def agent_call(prompt: str, model: str) -> str:
             return "Debate summary."
 
@@ -822,6 +837,7 @@ class TestCompressorIntegration:
     @pytest.mark.asyncio
     async def test_node_hierarchy_linking(self):
         """Test that parent-child relationships are set up correctly."""
+
         def agent_call(prompt: str, model: str) -> str:
             return "Compressed."
 
@@ -850,6 +866,7 @@ class TestCompressGroup:
     @pytest.mark.asyncio
     async def test_compress_group_success(self):
         """Test successful group compression."""
+
         def agent_call(prompt: str, model: str) -> str:
             return "Group summary"
 
@@ -874,7 +891,9 @@ class TestCompressGroup:
         context = RLMContext(original_content="", original_tokens=100)
 
         result, calls = await compressor._compress_group(
-            nodes, 0, AbstractionLevel.SUMMARY,
+            nodes,
+            0,
+            AbstractionLevel.SUMMARY,
             HierarchicalCompressor.COMPRESSION_PROMPTS[AbstractionLevel.SUMMARY],
             context,
         )
@@ -887,6 +906,7 @@ class TestCompressGroup:
     @pytest.mark.asyncio
     async def test_compress_group_failure_fallback(self):
         """Test group compression fallback on error."""
+
         def failing_agent(prompt: str, model: str) -> str:
             raise RuntimeError("API error")
 
@@ -905,7 +925,9 @@ class TestCompressGroup:
         context = RLMContext(original_content="", original_tokens=100)
 
         result, calls = await compressor._compress_group(
-            nodes, 0, AbstractionLevel.SUMMARY,
+            nodes,
+            0,
+            AbstractionLevel.SUMMARY,
             HierarchicalCompressor.COMPRESSION_PROMPTS[AbstractionLevel.SUMMARY],
             context,
         )

@@ -21,12 +21,13 @@ Usage:
     await whatsapp.send_debate_summary(debate_result)
 """
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Optional
 
 import aiohttp
 
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 class WhatsAppProvider(Enum):
     """WhatsApp API provider."""
+
     META = "meta"
     TWILIO = "twilio"
 
@@ -183,7 +185,9 @@ class WhatsAppIntegration:
     async def _send_via_meta(self, message: str) -> bool:
         """Send message via Meta WhatsApp Business API."""
         session = await self._get_session()
-        url = f"{self.META_API_BASE}/{self.config.api_version}/{self.config.phone_number_id}/messages"
+        url = (
+            f"{self.META_API_BASE}/{self.config.api_version}/{self.config.phone_number_id}/messages"
+        )
 
         payload = {
             "messaging_product": "whatsapp",
@@ -300,29 +304,31 @@ class WhatsAppIntegration:
         lines = [
             "ARAGORA DEBATE COMPLETE",
             "",
-            f"Question: {result.question[:200]}",
+            f"Question: {result.task[:200]}",
         ]
 
-        if result.answer:
-            answer_preview = result.answer[:500]
-            if len(result.answer) > 500:
+        if result.final_answer:
+            answer_preview = result.final_answer[:500]
+            if len(result.final_answer) > 500:
                 answer_preview += "..."
             lines.extend(["", f"Answer: {answer_preview}"])
 
         # Stats
-        stats = [f"Rounds: {result.total_rounds}"]
-        if result.consensus_confidence:
-            stats.append(f"Confidence: {result.consensus_confidence:.0%}")
-        if result.participating_agents:
-            stats.append(f"Agents: {len(result.participating_agents)}")
+        stats = [f"Rounds: {result.rounds_used}"]
+        if result.confidence:
+            stats.append(f"Confidence: {result.confidence:.0%}")
+        if result.participants:
+            stats.append(f"Agents: {len(result.participants)}")
 
         lines.extend(["", " | ".join(stats)])
 
         # Link
-        lines.extend([
-            "",
-            f"View: https://aragora.ai/debate/{result.debate_id}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"View: https://aragora.ai/debate/{result.debate_id}",
+            ]
+        )
 
         return await self.send_message("\n".join(lines))
 
@@ -381,12 +387,7 @@ class WhatsAppIntegration:
         if not self.config.notify_on_error:
             return False
 
-        message = (
-            f"ARAGORA ERROR\n"
-            f"\n"
-            f"Debate: {debate_id}\n"
-            f"Error: {error[:500]}"
-        )
+        message = f"ARAGORA ERROR\n" f"\n" f"Debate: {debate_id}\n" f"Error: {error[:500]}"
 
         return await self.send_message(message)
 

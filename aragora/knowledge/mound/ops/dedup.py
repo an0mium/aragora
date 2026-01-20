@@ -7,7 +7,7 @@ Provides similarity-based deduplication (beyond exact hash matching):
 - Dedup visibility/reporting
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 

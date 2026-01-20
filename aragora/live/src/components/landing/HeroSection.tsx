@@ -33,7 +33,7 @@ export function HeroSection({
       </h1>
 
       <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
-        Pit Claude, GPT, Gemini, Grok & DeepSeek against each other in adversarial reasoning
+        Harness Claude, GPT, Gemini, Grok & DeepSeek for collaborative decision making
       </p>
 
       {error && (
@@ -53,7 +53,7 @@ export function HeroSection({
         <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-            <span className="text-acid-green font-mono text-sm font-bold">STRESS-TEST IN PROGRESS</span>
+            <span className="text-acid-green font-mono text-sm font-bold">DECISION IN PROGRESS</span>
           </div>
           <p className="text-text font-mono text-sm truncate">{activeQuestion}</p>
           <p className="text-text-muted font-mono text-xs mt-2">

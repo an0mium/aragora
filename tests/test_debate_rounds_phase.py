@@ -935,9 +935,9 @@ class TestRLMReadySignal:
         """Should parse ready signal from HTML comment format."""
         from aragora.debate.phases.debate_rounds import parse_ready_signal
 
-        content = '''This is my final position on the matter.
+        content = """This is my final position on the matter.
 
-<!-- READY_SIGNAL: {"confidence": 0.92, "ready": true, "reasoning": "Fully refined"} -->'''
+<!-- READY_SIGNAL: {"confidence": 0.92, "ready": true, "reasoning": "Fully refined"} -->"""
 
         signal = parse_ready_signal("agent1", content, round_num=3)
 
@@ -951,9 +951,9 @@ class TestRLMReadySignal:
         """Should parse ready signal from JSON code block format."""
         from aragora.debate.phases.debate_rounds import parse_ready_signal
 
-        content = '''My analysis is complete.
+        content = """My analysis is complete.
 
-```ready_signal {"confidence": 0.85, "ready": true, "reasoning": "No further changes needed"}```'''
+```ready_signal {"confidence": 0.85, "ready": true, "reasoning": "No further changes needed"}```"""
 
         signal = parse_ready_signal("agent2", content, round_num=2)
 
@@ -964,7 +964,7 @@ class TestRLMReadySignal:
         """Should parse ready signal from inline marker format."""
         from aragora.debate.phases.debate_rounds import parse_ready_signal
 
-        content = 'Final answer provided. [READY: confidence=0.88, ready=true]'
+        content = "Final answer provided. [READY: confidence=0.88, ready=true]"
 
         signal = parse_ready_signal("agent3", content, round_num=4)
 
@@ -975,7 +975,7 @@ class TestRLMReadySignal:
         """Should detect ready signal from natural language markers."""
         from aragora.debate.phases.debate_rounds import parse_ready_signal
 
-        content = 'This is my final position. I believe no further refinement is needed.'
+        content = "This is my final position. I believe no further refinement is needed."
 
         signal = parse_ready_signal("agent1", content, round_num=5)
 
@@ -986,7 +986,7 @@ class TestRLMReadySignal:
         """Should return defaults when no ready signal found."""
         from aragora.debate.phases.debate_rounds import parse_ready_signal
 
-        content = 'This is my proposal but I want to keep iterating.'
+        content = "This is my proposal but I want to keep iterating."
 
         signal = parse_ready_signal("agent1", content, round_num=1)
 
@@ -1126,7 +1126,7 @@ class TestRLMReadyQuorumCheck:
                 "agent1": 'Position A <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
                 "agent2": 'Position B <!-- READY_SIGNAL: {"confidence": 0.85, "ready": true} -->',
                 "agent3": 'Position C <!-- READY_SIGNAL: {"confidence": 0.88, "ready": true} -->',
-                "agent4": 'Still iterating...',
+                "agent4": "Still iterating...",
             }
         )
 
@@ -1142,9 +1142,9 @@ class TestRLMReadyQuorumCheck:
         ctx = MockDebateContext(
             proposals={
                 "agent1": 'Position A <!-- READY_SIGNAL: {"confidence": 0.9, "ready": true} -->',
-                "agent2": 'Still working...',
-                "agent3": 'More iteration needed...',
-                "agent4": 'Not done yet...',
+                "agent2": "Still working...",
+                "agent3": "More iteration needed...",
+                "agent4": "Not done yet...",
             }
         )
 

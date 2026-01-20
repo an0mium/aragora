@@ -345,7 +345,10 @@ class TestGatherAll:
                     task_b_hash = gatherer._get_task_hash("task B")
                     assert task_a_hash in gatherer._research_context_cache
                     assert task_b_hash in gatherer._research_context_cache
-                    assert gatherer._research_context_cache[task_a_hash] != gatherer._research_context_cache[task_b_hash]
+                    assert (
+                        gatherer._research_context_cache[task_a_hash]
+                        != gatherer._research_context_cache[task_b_hash]
+                    )
 
     @pytest.mark.asyncio
     async def test_same_task_returns_cached_result(self):
@@ -360,7 +363,9 @@ class TestGatherAll:
 
         with patch.object(gatherer, "gather_aragora_context", AsyncMock(side_effect=mock_gather)):
             with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
-                with patch.object(gatherer, "gather_trending_context", AsyncMock(return_value=None)):
+                with patch.object(
+                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                ):
                     # Gather for same task twice
                     result1 = await gatherer.gather_all("identical task")
                     result2 = await gatherer.gather_all("identical task")
@@ -613,8 +618,12 @@ class TestKnowledgeMoundIntegration:
         # Mock other context sources to return None quickly
         with patch.object(gatherer, "_gather_claude_web_search", AsyncMock(return_value=None)):
             with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
-                with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
-                    with patch.object(gatherer, "gather_trending_context", AsyncMock(return_value=None)):
+                with patch.object(
+                    gatherer, "gather_evidence_context", AsyncMock(return_value=None)
+                ):
+                    with patch.object(
+                        gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                    ):
                         result = await gatherer.gather_all("test task", timeout=5.0)
 
         assert "KNOWLEDGE MOUND CONTEXT" in result

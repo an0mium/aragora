@@ -1016,9 +1016,7 @@ class WorkspaceHandler(BaseHandler):
 
         days = int(query_params.get("days", "30"))
         audit_log = self._get_audit_log()
-        entries = self._run_async(
-            audit_log.get_actor_history(actor_id=actor_id, days=days)
-        )
+        entries = self._run_async(audit_log.get_actor_history(actor_id=actor_id, days=days))
 
         return json_response(
             {

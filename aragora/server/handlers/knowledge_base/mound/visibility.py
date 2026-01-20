@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_access_grant, track_visibility_change
@@ -20,8 +20,6 @@ from aragora.server.metrics import track_access_grant, track_visibility_change
 from ...base import (
     HandlerResult,
     error_response,
-    get_bounded_string_param,
-    get_clamped_int_param,
     handle_errors,
     json_response,
 )
@@ -85,7 +83,7 @@ class VisibilityOperationsMixin:
         user_id = getattr(user, "id", None) or getattr(user, "user_id", "unknown")
 
         try:
-            result = _run_async(
+            _run_async(
                 mound.set_visibility(
                     item_id=node_id,
                     visibility=visibility,
@@ -108,18 +106,18 @@ class VisibilityOperationsMixin:
             workspace_id=workspace_id,
         )
 
-        return json_response({
-            "success": True,
-            "item_id": node_id,
-            "visibility": visibility.value,
-            "is_discoverable": is_discoverable,
-            "set_by": user_id,
-        })
+        return json_response(
+            {
+                "success": True,
+                "item_id": node_id,
+                "visibility": visibility.value,
+                "is_discoverable": is_discoverable,
+                "set_by": user_id,
+            }
+        )
 
     @handle_errors("get visibility")
-    def _handle_get_visibility(
-        self: VisibilityHandlerProtocol, node_id: str
-    ) -> HandlerResult:
+    def _handle_get_visibility(self: VisibilityHandlerProtocol, node_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/mound/nodes/:id/visibility - Get item visibility."""
         mound = self._get_mound()
         if not mound:
@@ -140,12 +138,14 @@ class VisibilityOperationsMixin:
         visibility_set_by = metadata.get("visibility_set_by")
         is_discoverable = metadata.get("is_discoverable", True)
 
-        return json_response({
-            "item_id": node_id,
-            "visibility": visibility,
-            "visibility_set_by": visibility_set_by,
-            "is_discoverable": is_discoverable,
-        })
+        return json_response(
+            {
+                "item_id": node_id,
+                "visibility": visibility,
+                "visibility_set_by": visibility_set_by,
+                "is_discoverable": is_discoverable,
+            }
+        )
 
     @handle_errors("grant access")
     def _handle_grant_access(
@@ -222,16 +222,23 @@ class VisibilityOperationsMixin:
             workspace_id=workspace_id,
         )
 
-        return json_response({
-            "success": True,
-            "grant": grant.to_dict() if hasattr(grant, "to_dict") else {
-                "item_id": node_id,
-                "grantee_type": grantee_type.value,
-                "grantee_id": grantee_id,
-                "permissions": permissions,
-                "granted_by": user_id,
+        return json_response(
+            {
+                "success": True,
+                "grant": (
+                    grant.to_dict()
+                    if hasattr(grant, "to_dict")
+                    else {
+                        "item_id": node_id,
+                        "grantee_type": grantee_type.value,
+                        "grantee_id": grantee_id,
+                        "permissions": permissions,
+                        "granted_by": user_id,
+                    }
+                ),
             },
-        }, status=201)
+            status=201,
+        )
 
     @handle_errors("revoke access")
     def _handle_revoke_access(
@@ -284,12 +291,14 @@ class VisibilityOperationsMixin:
             workspace_id=workspace_id,
         )
 
-        return json_response({
-            "success": True,
-            "item_id": node_id,
-            "grantee_id": grantee_id,
-            "revoked_by": user_id,
-        })
+        return json_response(
+            {
+                "success": True,
+                "item_id": node_id,
+                "grantee_id": grantee_id,
+                "revoked_by": user_id,
+            }
+        )
 
     @handle_errors("list access grants")
     def _handle_list_access_grants(
@@ -308,8 +317,10 @@ class VisibilityOperationsMixin:
             logger.error(f"Failed to list access grants: {e}")
             return error_response(f"Failed to list access grants: {e}", 500)
 
-        return json_response({
-            "item_id": node_id,
-            "grants": [g.to_dict() if hasattr(g, "to_dict") else g for g in grants],
-            "count": len(grants),
-        })
+        return json_response(
+            {
+                "item_id": node_id,
+                "grants": [g.to_dict() if hasattr(g, "to_dict") else g for g in grants],
+                "count": len(grants),
+            }
+        )

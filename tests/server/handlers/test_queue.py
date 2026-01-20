@@ -26,6 +26,7 @@ import pytest
 
 class MockJobStatus(Enum):
     """Mock job status enum."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -76,7 +77,7 @@ class MockQueue:
         self._status_tracker = MagicMock()
 
     async def enqueue(self, job, priority: int = 0) -> str:
-        job_id = getattr(job, 'id', f"job-{len(self.jobs)}")
+        job_id = getattr(job, "id", f"job-{len(self.jobs)}")
         self.jobs[job_id] = job
         return job_id
 
@@ -103,7 +104,9 @@ class MockQueue:
         }
 
 
-def create_mock_handler(method: str = "GET", body: Optional[Dict] = None, path: str = "/api/queue/jobs") -> MagicMock:
+def create_mock_handler(
+    method: str = "GET", body: Optional[Dict] = None, path: str = "/api/queue/jobs"
+) -> MagicMock:
     """Create a mock HTTP handler."""
     handler = MagicMock()
     handler.command = method
@@ -150,6 +153,7 @@ def disable_rate_limits():
         return True
 
     import sys
+
     if "aragora.server.handlers.utils.rate_limit" in sys.modules:
         rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
         original = {}
@@ -174,6 +178,7 @@ def mock_queue():
 def queue_handler():
     """Create queue handler instance."""
     from aragora.server.handlers.queue import QueueHandler
+
     return QueueHandler({})
 
 
@@ -235,9 +240,7 @@ class TestJobSubmission:
         mock_handler = create_mock_handler("POST", {"agents": ["claude"]})
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs", "POST", mock_handler
-            )
+            result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
 
             assert get_status(result) == 400
             body = get_body(result)
@@ -247,8 +250,7 @@ class TestJobSubmission:
     async def test_submit_creates_job(self, queue_handler, mock_queue):
         """Should create and enqueue a job."""
         mock_handler = create_mock_handler(
-            "POST",
-            {"question": "What is the meaning of life?", "rounds": 3}
+            "POST", {"question": "What is the meaning of life?", "rounds": 3}
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
@@ -256,9 +258,7 @@ class TestJobSubmission:
                 mock_job = MockJob()
                 mock_create.return_value = mock_job
 
-                result = await queue_handler.handle(
-                    "/api/queue/jobs", "POST", mock_handler
-                )
+                result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
 
                 assert get_status(result) == 202
                 body = get_body(result)
@@ -271,9 +271,7 @@ class TestJobSubmission:
         mock_handler = create_mock_handler("POST", {"question": "test?"})
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle(
-                "/api/queue/jobs", "POST", mock_handler
-            )
+            result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
 
             assert get_status(result) == 503
 
@@ -286,10 +284,12 @@ class TestJobListing:
         """Should return list of jobs."""
         mock_queue.jobs["job-1"] = MockJob(id="job-1")
         mock_queue.jobs["job-2"] = MockJob(id="job-2")
-        mock_queue._status_tracker.list_jobs = AsyncMock(return_value=[
-            MockJob(id="job-1"),
-            MockJob(id="job-2"),
-        ])
+        mock_queue._status_tracker.list_jobs = AsyncMock(
+            return_value=[
+                MockJob(id="job-1"),
+                MockJob(id="job-2"),
+            ]
+        )
         mock_queue._status_tracker.get_counts_by_status = AsyncMock(
             return_value={"pending": 2, "completed": 0}
         )
@@ -298,9 +298,7 @@ class TestJobListing:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle(
-                    "/api/queue/jobs", "GET", mock_handler
-                )
+                result = await queue_handler.handle("/api/queue/jobs", "GET", mock_handler)
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -313,9 +311,7 @@ class TestJobListing:
         mock_handler = create_mock_handler("GET")
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle(
-                "/api/queue/jobs", "GET", mock_handler
-            )
+            result = await queue_handler.handle("/api/queue/jobs", "GET", mock_handler)
 
             assert get_status(result) == 503
 
@@ -333,9 +329,7 @@ class TestJobRetrieval:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs/job-123", "GET"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/job-123", "GET")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -346,9 +340,7 @@ class TestJobRetrieval:
     async def test_get_job_not_found(self, queue_handler, mock_queue):
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs/nonexistent", "GET"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/nonexistent", "GET")
 
             assert get_status(result) == 404
 
@@ -367,9 +359,7 @@ class TestJobRetry:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle(
-                    "/api/queue/jobs/job-123/retry", "POST"
-                )
+                result = await queue_handler.handle("/api/queue/jobs/job-123/retry", "POST")
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -385,9 +375,7 @@ class TestJobRetry:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle(
-                    "/api/queue/jobs/job-123/retry", "POST"
-                )
+                result = await queue_handler.handle("/api/queue/jobs/job-123/retry", "POST")
 
                 assert get_status(result) == 400
 
@@ -396,9 +384,7 @@ class TestJobRetry:
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle(
-                    "/api/queue/jobs/nonexistent/retry", "POST"
-                )
+                result = await queue_handler.handle("/api/queue/jobs/nonexistent/retry", "POST")
 
                 assert get_status(result) == 404
 
@@ -415,9 +401,7 @@ class TestJobCancellation:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs/job-123", "DELETE"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/job-123", "DELETE")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -432,9 +416,7 @@ class TestJobCancellation:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs/job-123", "DELETE"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/job-123", "DELETE")
 
             assert get_status(result) == 400
 
@@ -442,9 +424,7 @@ class TestJobCancellation:
     async def test_cancel_not_found(self, queue_handler, mock_queue):
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle(
-                "/api/queue/jobs/nonexistent", "DELETE"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/nonexistent", "DELETE")
 
             assert get_status(result) == 404
 
@@ -461,9 +441,7 @@ class TestPathValidation:
         """
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             # Use a job_id with path traversal characters that matches route length
-            result = await queue_handler.handle(
-                "/api/queue/jobs/..passwd", "GET"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/..passwd", "GET")
 
             assert get_status(result) == 400
 
@@ -472,9 +450,7 @@ class TestPathValidation:
         """Should reject special characters in job ID."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             # Use a job_id with invalid characters that matches route length
-            result = await queue_handler.handle(
-                "/api/queue/jobs/job@invalid", "GET"
-            )
+            result = await queue_handler.handle("/api/queue/jobs/job@invalid", "GET")
 
             assert get_status(result) == 400
 
@@ -495,13 +471,15 @@ class TestWorkerStatus:
     @pytest.mark.asyncio
     async def test_workers_returns_list(self, queue_handler, mock_queue):
         """Should return worker list."""
-        mock_queue._redis.xinfo_groups = AsyncMock(return_value=[
-            {"name": "workers", "consumers": 2}
-        ])
-        mock_queue._redis.xinfo_consumers = AsyncMock(return_value=[
-            {"name": "worker-1", "pending": 1, "idle": 1000},
-            {"name": "worker-2", "pending": 0, "idle": 5000},
-        ])
+        mock_queue._redis.xinfo_groups = AsyncMock(
+            return_value=[{"name": "workers", "consumers": 2}]
+        )
+        mock_queue._redis.xinfo_consumers = AsyncMock(
+            return_value=[
+                {"name": "worker-1", "pending": 1, "idle": 1000},
+                {"name": "worker-2", "pending": 0, "idle": 5000},
+            ]
+        )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             result = await queue_handler.handle("/api/queue/workers", "GET")

@@ -156,9 +156,7 @@ class KnowledgeMoundMetaLearner:
                 return self._continuum.get_by_id(entry.source_id)
         return None
 
-    async def _record_continuum_access(
-        self, entry_id: str, was_useful: Optional[bool]
-    ) -> None:
+    async def _record_continuum_access(self, entry_id: str, was_useful: Optional[bool]) -> None:
         """Record access in ContinuumMemory for tier management."""
         if not self._continuum:
             return
@@ -206,9 +204,7 @@ class KnowledgeMoundMetaLearner:
         # Calculate average rank for high-retrieval items
         avg_rank = 0.0
         if high_domains:
-            avg_rank = sum(
-                d.get("avg_rank", 0) * d["count"] for d in high_domains
-            ) / max(total, 1)
+            avg_rank = sum(d.get("avg_rank", 0) * d["count"] for d in high_domains) / max(total, 1)
 
         return RetrievalMetrics(
             total_retrievals=total,
@@ -300,11 +296,13 @@ class KnowledgeMoundMetaLearner:
 
         # Record optimization
         self._last_optimization = datetime.now()
-        self._optimization_history.append({
-            "timestamp": self._last_optimization.isoformat(),
-            "recommendations": len(recommendations),
-            "metrics": tier_metrics,
-        })
+        self._optimization_history.append(
+            {
+                "timestamp": self._last_optimization.isoformat(),
+                "recommendations": len(recommendations),
+                "metrics": tier_metrics,
+            }
+        )
 
         return recommendations
 
@@ -370,14 +368,20 @@ class KnowledgeMoundMetaLearner:
         # If average retrievals are high, raise promotion threshold to be more selective
         if avg_retrievals > 10:
             new_promo = min(current_promo + 0.1, 0.9)
-            reasoning_parts.append(f"High avg retrievals ({avg_retrievals:.1f}), raising promotion bar")
+            reasoning_parts.append(
+                f"High avg retrievals ({avg_retrievals:.1f}), raising promotion bar"
+            )
         elif avg_retrievals < 2:
             new_promo = max(current_promo - 0.1, 0.4)
-            reasoning_parts.append(f"Low avg retrievals ({avg_retrievals:.1f}), lowering promotion bar")
+            reasoning_parts.append(
+                f"Low avg retrievals ({avg_retrievals:.1f}), lowering promotion bar"
+            )
         else:
             new_promo = current_promo
 
-        reasoning = "; ".join(reasoning_parts) if reasoning_parts else "No significant changes needed"
+        reasoning = (
+            "; ".join(reasoning_parts) if reasoning_parts else "No significant changes needed"
+        )
 
         return new_promo, new_demo, reasoning
 
@@ -400,12 +404,12 @@ class KnowledgeMoundMetaLearner:
         try:
             for rec in recommendations:
                 if rec.confidence >= 0.5:  # Only apply high-confidence recommendations
-                    self._continuum.hyperparams[
-                        f"{rec.tier}_promotion_threshold"
-                    ] = rec.recommended_promotion_threshold
-                    self._continuum.hyperparams[
-                        f"{rec.tier}_demotion_threshold"
-                    ] = rec.recommended_demotion_threshold
+                    self._continuum.hyperparams[f"{rec.tier}_promotion_threshold"] = (
+                        rec.recommended_promotion_threshold
+                    )
+                    self._continuum.hyperparams[f"{rec.tier}_demotion_threshold"] = (
+                        rec.recommended_demotion_threshold
+                    )
 
                     logger.info(
                         f"Applied tier optimization for {rec.tier}: "
@@ -475,9 +479,7 @@ class KnowledgeMoundMetaLearner:
                         batch[j]["embedding"],
                     )
                     if similarity >= similarity_threshold:
-                        all_candidates.append(
-                            (batch[i]["id"], batch[j]["id"], similarity)
-                        )
+                        all_candidates.append((batch[i]["id"], batch[j]["id"], similarity))
                         result.duplicates_found += 1
 
             offset += batch_size
@@ -488,25 +490,21 @@ class KnowledgeMoundMetaLearner:
                 merged = await self._merge_entries(source_id, target_id)
                 if merged:
                     result.items_merged += 1
-                    result.merge_details.append({
-                        "kept": source_id,
-                        "merged": target_id,
-                        "similarity": similarity,
-                    })
+                    result.merge_details.append(
+                        {
+                            "kept": source_id,
+                            "merged": target_id,
+                            "similarity": similarity,
+                        }
+                    )
 
         return result
 
-    async def _get_entries_batch(
-        self, offset: int, limit: int
-    ) -> List[Dict[str, Any]]:
+    async def _get_entries_batch(self, offset: int, limit: int) -> List[Dict[str, Any]]:
         """Get a batch of entries with embeddings."""
-        return await asyncio.to_thread(
-            self._sync_get_entries_batch, offset, limit
-        )
+        return await asyncio.to_thread(self._sync_get_entries_batch, offset, limit)
 
-    def _sync_get_entries_batch(
-        self, offset: int, limit: int
-    ) -> List[Dict[str, Any]]:
+    def _sync_get_entries_batch(self, offset: int, limit: int) -> List[Dict[str, Any]]:
         """Synchronous batch retrieval."""
         rows = self._semantic_store.fetch_all(
             """
@@ -528,9 +526,7 @@ class KnowledgeMoundMetaLearner:
             for row in rows
         ]
 
-    async def _merge_entries(
-        self, keep_id: str, merge_id: str
-    ) -> bool:
+    async def _merge_entries(self, keep_id: str, merge_id: str) -> bool:
         """Merge two entries, keeping the first one."""
         # Get both entries
         keep_entry = await self._semantic_store.get_entry(keep_id)
@@ -567,8 +563,7 @@ class KnowledgeMoundMetaLearner:
             },
             "optimization_history_count": len(self._optimization_history),
             "last_optimization": (
-                self._last_optimization.isoformat()
-                if self._last_optimization else None
+                self._last_optimization.isoformat() if self._last_optimization else None
             ),
             "continuum_connected": self._continuum is not None,
             "tenant_id": self._tenant_id,

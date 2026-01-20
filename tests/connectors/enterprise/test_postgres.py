@@ -26,7 +26,6 @@ from aragora.connectors.enterprise.database.postgres import (
 )
 
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -36,10 +35,13 @@ from aragora.connectors.enterprise.database.postgres import (
 def mock_credentials():
     """Mock credential provider with PostgreSQL credentials."""
     from tests.connectors.enterprise.conftest import MockCredentialProvider
-    return MockCredentialProvider({
-        "POSTGRES_USER": "test_user",
-        "POSTGRES_PASSWORD": "test_password",
-    })
+
+    return MockCredentialProvider(
+        {
+            "POSTGRES_USER": "test_user",
+            "POSTGRES_PASSWORD": "test_password",
+        }
+    )
 
 
 @pytest.fixture
@@ -105,8 +107,16 @@ def sample_columns():
         {"column_name": "id", "data_type": "integer", "is_nullable": "NO"},
         {"column_name": "username", "data_type": "character varying", "is_nullable": "NO"},
         {"column_name": "email", "data_type": "character varying", "is_nullable": "YES"},
-        {"column_name": "created_at", "data_type": "timestamp with time zone", "is_nullable": "YES"},
-        {"column_name": "updated_at", "data_type": "timestamp with time zone", "is_nullable": "YES"},
+        {
+            "column_name": "created_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+        },
+        {
+            "column_name": "updated_at",
+            "data_type": "timestamp with time zone",
+            "is_nullable": "YES",
+        },
     ]
 
 
@@ -166,6 +176,7 @@ class TestPostgreSQLConnectorInit:
     def test_source_type(self, postgres_connector):
         """Test source type property."""
         from aragora.reasoning.provenance import SourceType
+
         assert postgres_connector.source_type == SourceType.DATABASE
 
     def test_name_property(self, postgres_connector):
@@ -444,12 +455,14 @@ class TestSync:
 
         mock_conn = AsyncMock()
         # Return columns first, then rows
-        mock_conn.fetch = AsyncMock(side_effect=[
-            sample_columns,  # First call: get columns
-            sample_users_rows,  # Second call: get rows
-            sample_columns,  # Third call: get columns for second table
-            [],  # Fourth call: get rows (empty for second table)
-        ])
+        mock_conn.fetch = AsyncMock(
+            side_effect=[
+                sample_columns,  # First call: get columns
+                sample_users_rows,  # Second call: get rows
+                sample_columns,  # Third call: get columns for second table
+                [],  # Fourth call: get rows (empty for second table)
+            ]
+        )
 
         mock_pool = MagicMock()
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
@@ -470,12 +483,14 @@ class TestSync:
         state = SyncState(connector_id="postgres", status=SyncStatus.IDLE)
 
         mock_conn = AsyncMock()
-        mock_conn.fetch = AsyncMock(side_effect=[
-            sample_columns,
-            sample_users_rows[:1],  # Just one row
-            sample_columns,
-            [],
-        ])
+        mock_conn.fetch = AsyncMock(
+            side_effect=[
+                sample_columns,
+                sample_users_rows[:1],  # Just one row
+                sample_columns,
+                [],
+            ]
+        )
 
         mock_pool = MagicMock()
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
@@ -499,12 +514,14 @@ class TestSync:
         state = SyncState(connector_id="postgres", status=SyncStatus.IDLE)
 
         mock_conn = AsyncMock()
-        mock_conn.fetch = AsyncMock(side_effect=[
-            sample_columns,
-            Exception("Connection lost"),  # Error on first table
-            sample_columns,
-            [],  # Second table works
-        ])
+        mock_conn.fetch = AsyncMock(
+            side_effect=[
+                sample_columns,
+                Exception("Connection lost"),  # Error on first table
+                sample_columns,
+                [],  # Second table works
+            ]
+        )
 
         mock_pool = MagicMock()
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
@@ -531,9 +548,11 @@ class TestSearch:
     async def test_search_with_fts(self, postgres_connector):
         """Test search using full-text search."""
         mock_conn = AsyncMock()
-        mock_conn.fetch = AsyncMock(return_value=[
-            {"id": 1, "content": "matching content", "rank": 0.9},
-        ])
+        mock_conn.fetch = AsyncMock(
+            return_value=[
+                {"id": 1, "content": "matching content", "rank": 0.9},
+            ]
+        )
 
         mock_pool = MagicMock()
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn

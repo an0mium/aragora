@@ -35,6 +35,7 @@ from .analytics_dashboard import AnalyticsDashboardHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
+
 # Handler interfaces for type checking and contract definition
 from .interface import (
     HandlerInterface,
@@ -48,6 +49,7 @@ from .interface import (
     is_handler,
     is_authenticated_handler,
 )
+
 # Standalone utilities that don't require full server infrastructure
 from .utilities import (
     get_host_header,
@@ -80,6 +82,9 @@ from .cross_pollination import (
     CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
     CrossPollinationKMHandler,
+    CrossPollinationKMSyncHandler,
+    CrossPollinationKMStalenessHandler,
+    CrossPollinationKMCultureHandler,
 )
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
@@ -169,6 +174,9 @@ ALL_HANDLERS = [
     CrossPollinationMetricsHandler,
     CrossPollinationResetHandler,
     CrossPollinationKMHandler,
+    CrossPollinationKMSyncHandler,  # Manual KM adapter sync
+    CrossPollinationKMStalenessHandler,  # Manual staleness check
+    CrossPollinationKMCultureHandler,  # Culture patterns query
     ConsensusHandler,
     BeliefHandler,
     ControlPlaneHandler,  # Enterprise control plane API

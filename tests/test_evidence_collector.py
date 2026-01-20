@@ -877,9 +877,7 @@ class TestURLConsentGate:
         collector.add_connector("web", mock_web)
 
         # Task with explicit URL
-        pack = await collector.collect_evidence(
-            "Check https://github.com/test/repo for details"
-        )
+        pack = await collector.collect_evidence("Check https://github.com/test/repo for details")
 
         # URL should be blocked by consent gate
         # fetch_url should never be called because consent was denied
@@ -909,9 +907,7 @@ class TestURLConsentGate:
         collector.add_connector("web", mock_web)
 
         # Task with explicit URL from allowed domain
-        pack = await collector.collect_evidence(
-            "Check https://github.com/test/repo for details"
-        )
+        pack = await collector.collect_evidence("Check https://github.com/test/repo for details")
 
         # URL should be fetched because consent was granted
         assert mock_web.fetch_url.called

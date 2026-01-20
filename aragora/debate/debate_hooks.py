@@ -370,7 +370,9 @@ class DebateHooks:
                         if curve:
                             total_predictions = sum(b.count for b in curve)
                             total_correct = sum(b.count * b.actual for b in curve)
-                            accuracy = total_correct / total_predictions if total_predictions > 0 else 0
+                            accuracy = (
+                                total_correct / total_predictions if total_predictions > 0 else 0
+                            )
 
                             # Compute Brier score (average squared error)
                             brier = 0.0
@@ -389,7 +391,9 @@ class DebateHooks:
                     except (AttributeError, TypeError, ValueError) as e:
                         logger.debug(f"Calibration event emission failed for {agent_name}: {e}")
                     except Exception as e:
-                        logger.warning(f"Unexpected calibration event emission error for {agent_name}: {e}")
+                        logger.warning(
+                            f"Unexpected calibration event emission error for {agent_name}: {e}"
+                        )
 
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Calibration update error: {e}")

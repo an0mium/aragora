@@ -354,7 +354,10 @@ COMMON_SCHEMAS: dict[str, Any] = {
     "OAuthProvider": {
         "type": "object",
         "properties": {
-            "id": {"type": "string", "description": "Provider identifier (e.g., 'google', 'github')"},
+            "id": {
+                "type": "string",
+                "description": "Provider identifier (e.g., 'google', 'github')",
+            },
             "name": {"type": "string", "description": "Display name for the provider"},
         },
         "required": ["id", "name"],
@@ -421,7 +424,10 @@ COMMON_SCHEMAS: dict[str, Any] = {
     "RetentionPolicyList": {
         "type": "object",
         "properties": {
-            "policies": {"type": "array", "items": {"$ref": "#/components/schemas/RetentionPolicy"}},
+            "policies": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/RetentionPolicy"},
+            },
             "total": {"type": "integer"},
         },
     },
@@ -453,7 +459,10 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "version": {"type": "string"},
             "status": {"type": "string"},
             "steps": {"type": "array", "items": {"$ref": "#/components/schemas/StepDefinition"}},
-            "transitions": {"type": "array", "items": {"$ref": "#/components/schemas/TransitionRule"}},
+            "transitions": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/TransitionRule"},
+            },
             "created_at": {"type": "string", "format": "date-time"},
             "updated_at": {"type": "string", "format": "date-time"},
         },
@@ -471,7 +480,10 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "name": {"type": "string"},
             "description": {"type": "string"},
             "steps": {"type": "array", "items": {"$ref": "#/components/schemas/StepDefinition"}},
-            "transitions": {"type": "array", "items": {"$ref": "#/components/schemas/TransitionRule"}},
+            "transitions": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/TransitionRule"},
+            },
         },
     },
     "WorkflowTemplate": {
@@ -488,7 +500,10 @@ COMMON_SCHEMAS: dict[str, Any] = {
     "WorkflowTemplateList": {
         "type": "object",
         "properties": {
-            "templates": {"type": "array", "items": {"$ref": "#/components/schemas/WorkflowTemplate"}},
+            "templates": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/WorkflowTemplate"},
+            },
             "total": {"type": "integer"},
         },
     },

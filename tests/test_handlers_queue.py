@@ -21,6 +21,7 @@ from aragora.server.handlers.queue import QueueHandler, _get_queue
 
 class MockJobStatus(Enum):
     """Mock job status enum."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"

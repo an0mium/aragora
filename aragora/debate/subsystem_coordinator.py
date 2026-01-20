@@ -327,6 +327,19 @@ class SubsystemCoordinator:
         """Check if full KM bidirectional sync is available."""
         return self.has_knowledge_mound and self.has_km_coordinator
 
+    @property
+    def active_km_adapters_count(self) -> int:
+        """Count of active KM adapters registered with coordinator."""
+        adapters = [
+            self.km_continuum_adapter,
+            self.km_elo_adapter,
+            self.km_belief_adapter,
+            self.km_insights_adapter,
+            self.km_critique_adapter,
+            self.km_pulse_adapter,
+        ]
+        return sum(1 for a in adapters if a is not None)
+
     # =========================================================================
     # Auto-initialization methods
     # =========================================================================
@@ -662,19 +675,153 @@ class SubsystemCoordinator:
 
         BidirectionalCoordinator manages bidirectional data flow between
         the Knowledge Mound and connected subsystems (adapters).
+
+        The coordinator is configured with:
+        - sync_interval_seconds: How often to run bidirectional sync
+        - min_confidence_for_reverse: Minimum confidence for reverse flow
+        - parallel_sync: Whether to run adapter syncs in parallel
+
+        After initialization, adapters are registered if available.
         """
         try:
             from aragora.knowledge.mound.bidirectional_coordinator import (
                 BidirectionalCoordinator,
+                CoordinatorConfig,
             )
 
-            self.km_coordinator = BidirectionalCoordinator()
+            # Create configuration from SubsystemCoordinator fields
+            config = CoordinatorConfig(
+                sync_interval_seconds=self.km_sync_interval_seconds,
+                min_confidence_for_reverse=self.km_min_confidence_for_reverse,
+                parallel_sync=self.km_parallel_sync,
+            )
+
+            # Initialize coordinator with config and optional KM reference
+            self.km_coordinator = BidirectionalCoordinator(
+                config=config,
+                knowledge_mound=self.knowledge_mound,
+            )
+
+            # Register available adapters
+            self._register_km_adapters()
+
             logger.debug("Auto-initialized BidirectionalCoordinator for KM sync")
         except ImportError:
             logger.debug("BidirectionalCoordinator not available")
         except (TypeError, ValueError, RuntimeError) as e:
             logger.debug("BidirectionalCoordinator auto-init failed: %s", e)
             self._init_errors.append(f"BidirectionalCoordinator init failed: {e}")
+
+    def _register_km_adapters(self) -> None:
+        """Register available KM adapters with the BidirectionalCoordinator.
+
+        Adapters are registered in priority order:
+        1. ContinuumAdapter (highest impact on memory quality)
+        2. ELOAdapter (critical for agent selection)
+        3. BeliefAdapter (improves crux detection)
+        4. InsightsAdapter (improves consistency analysis)
+        5. CritiqueAdapter (boosts successful patterns)
+        6. PulseAdapter (improves topic scheduling)
+
+        Each adapter provides:
+        - forward_method: Source → KM sync
+        - reverse_method: KM → Source sync (optional)
+        """
+        if self.km_coordinator is None:
+            return
+
+        # Register pre-configured adapters or create them dynamically
+
+        # 1. Continuum adapter (memory tier management)
+        if self.km_continuum_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="continuum",
+                    adapter=self.km_continuum_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="update_continuum_from_km",
+                    priority=1,
+                )
+                logger.debug("Registered ContinuumAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("ContinuumAdapter registration failed: %s", e)
+
+        # 2. ELO adapter (ranking adjustments)
+        if self.km_elo_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="elo",
+                    adapter=self.km_elo_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="update_elo_from_km_patterns",
+                    priority=2,
+                )
+                logger.debug("Registered ELOAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("ELOAdapter registration failed: %s", e)
+
+        # 3. Belief adapter (belief network calibration)
+        if self.km_belief_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="belief",
+                    adapter=self.km_belief_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="update_belief_thresholds_from_km",
+                    priority=3,
+                )
+                logger.debug("Registered BeliefAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("BeliefAdapter registration failed: %s", e)
+
+        # 4. Insights adapter (flip detection thresholds)
+        if self.km_insights_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="insights",
+                    adapter=self.km_insights_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="update_flip_thresholds_from_km",
+                    priority=4,
+                )
+                logger.debug("Registered InsightsAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("InsightsAdapter registration failed: %s", e)
+
+        # 5. Critique adapter (pattern boosting)
+        if self.km_critique_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="critique",
+                    adapter=self.km_critique_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="boost_pattern_from_km",
+                    priority=5,
+                )
+                logger.debug("Registered CritiqueAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("CritiqueAdapter registration failed: %s", e)
+
+        # 6. Pulse adapter (topic scheduling feedback)
+        if self.km_pulse_adapter is not None:
+            try:
+                self.km_coordinator.register_adapter(
+                    name="pulse",
+                    adapter=self.km_pulse_adapter,
+                    forward_method="sync_to_km",
+                    reverse_method="sync_validations_from_km",
+                    priority=6,
+                )
+                logger.debug("Registered PulseAdapter with KM coordinator")
+            except Exception as e:
+                logger.debug("PulseAdapter registration failed: %s", e)
+
+        registered = (
+            self.km_coordinator.adapter_count
+            if hasattr(self.km_coordinator, "adapter_count")
+            else 0
+        )
+        logger.debug("Registered %d KM adapters with coordinator", registered)
 
     # =========================================================================
     # Lifecycle hooks
@@ -972,6 +1119,25 @@ class SubsystemCoordinator:
                 "rlm_selection": self.has_rlm_selection_bridge,
                 "calibration_cost": self.has_calibration_cost_bridge,
             },
+            "knowledge_mound": {
+                "available": self.has_knowledge_mound,
+                "coordinator_active": self.has_km_coordinator,
+                "bidirectional_enabled": self.has_km_bidirectional,
+                "adapters": {
+                    "continuum": self.km_continuum_adapter is not None,
+                    "elo": self.km_elo_adapter is not None,
+                    "belief": self.km_belief_adapter is not None,
+                    "insights": self.km_insights_adapter is not None,
+                    "critique": self.km_critique_adapter is not None,
+                    "pulse": self.km_pulse_adapter is not None,
+                },
+                "active_adapters_count": self.active_km_adapters_count,
+                "config": {
+                    "sync_interval_seconds": self.km_sync_interval_seconds,
+                    "min_confidence_for_reverse": self.km_min_confidence_for_reverse,
+                    "parallel_sync": self.km_parallel_sync,
+                },
+            },
             "active_bridges_count": self.active_bridges_count,
             "hook_handlers_registered": hook_count,
             "init_errors": self._init_errors,
@@ -1037,6 +1203,21 @@ class SubsystemConfig:
     cost_tracker: Optional[Any] = None
     calibration_cost_bridge: Optional[Any] = None
 
+    # Phase 10: Bidirectional Knowledge Mound Integration
+    enable_km_bidirectional: bool = True  # Master switch for bidirectional sync
+    enable_km_coordinator: bool = True  # Auto-create coordinator if KM available
+    knowledge_mound: Optional[Any] = None  # KnowledgeMound instance
+    km_coordinator: Optional[Any] = None  # BidirectionalCoordinator
+    km_continuum_adapter: Optional[Any] = None
+    km_elo_adapter: Optional[Any] = None
+    km_belief_adapter: Optional[Any] = None
+    km_insights_adapter: Optional[Any] = None
+    km_critique_adapter: Optional[Any] = None
+    km_pulse_adapter: Optional[Any] = None
+    km_sync_interval_seconds: int = 300  # 5 minutes
+    km_min_confidence_for_reverse: float = 0.7
+    km_parallel_sync: bool = True
+
     def create_coordinator(
         self,
         protocol: Optional["DebateProtocol"] = None,
@@ -1097,6 +1278,20 @@ class SubsystemConfig:
             cost_tracker=self.cost_tracker,
             calibration_cost_bridge=self.calibration_cost_bridge,
             enable_calibration_cost=self.enable_calibration_cost,
+            # Phase 10: Bidirectional Knowledge Mound
+            enable_km_bidirectional=self.enable_km_bidirectional,
+            enable_km_coordinator=self.enable_km_coordinator,
+            knowledge_mound=self.knowledge_mound,
+            km_coordinator=self.km_coordinator,
+            km_continuum_adapter=self.km_continuum_adapter,
+            km_elo_adapter=self.km_elo_adapter,
+            km_belief_adapter=self.km_belief_adapter,
+            km_insights_adapter=self.km_insights_adapter,
+            km_critique_adapter=self.km_critique_adapter,
+            km_pulse_adapter=self.km_pulse_adapter,
+            km_sync_interval_seconds=self.km_sync_interval_seconds,
+            km_min_confidence_for_reverse=self.km_min_confidence_for_reverse,
+            km_parallel_sync=self.km_parallel_sync,
         )
 
 

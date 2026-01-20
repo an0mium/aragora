@@ -28,7 +28,11 @@ from aragora.audit.audit_types.software import SoftwareAuditor
 
 # Enterprise vertical auditors
 from aragora.audit.audit_types.healthcare import HealthcareAuditor, PHIDetector
-from aragora.audit.audit_types.regulatory import RegulatoryAuditor, RegulatoryFramework, GDPRDataMapper
+from aragora.audit.audit_types.regulatory import (
+    RegulatoryAuditor,
+    RegulatoryFramework,
+    GDPRDataMapper,
+)
 from aragora.audit.audit_types.academic import AcademicAuditor, CitationExtractor, CitationStyle
 
 

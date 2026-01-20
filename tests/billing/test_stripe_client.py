@@ -205,9 +205,11 @@ class TestStripeFormEncoding:
     def test_encode_nested_data(self):
         """Test encoding nested objects."""
         client = StripeClient(api_key="sk_test_abc123")
-        result = client._encode_form_data({
-            "metadata": {"user_id": "123", "org_id": "456"},
-        })
+        result = client._encode_form_data(
+            {
+                "metadata": {"user_id": "123", "org_id": "456"},
+            }
+        )
 
         assert "metadata[user_id]=123" in result
         assert "metadata[org_id]=456" in result
@@ -215,9 +217,11 @@ class TestStripeFormEncoding:
     def test_encode_list_data(self):
         """Test encoding list values."""
         client = StripeClient(api_key="sk_test_abc123")
-        result = client._encode_form_data({
-            "items": [{"price": "price_123"}, {"price": "price_456"}],
-        })
+        result = client._encode_form_data(
+            {
+                "items": [{"price": "price_123"}, {"price": "price_456"}],
+            }
+        )
 
         assert "items[0][price]=price_123" in result
         assert "items[1][price]=price_456" in result
@@ -403,12 +407,14 @@ class TestStripeClientMockedRequests:
     def test_create_customer_success(self, mock_urlopen):
         """Test successful customer creation."""
         mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps({
-            "id": "cus_test123",
-            "email": "test@example.com",
-            "name": "Test User",
-            "metadata": {},
-        }).encode()
+        mock_response.read.return_value = json.dumps(
+            {
+                "id": "cus_test123",
+                "email": "test@example.com",
+                "name": "Test User",
+                "metadata": {},
+            }
+        ).encode()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
         mock_urlopen.return_value = mock_response
@@ -429,12 +435,14 @@ class TestStripeClientMockedRequests:
         from io import BytesIO
         from urllib.error import HTTPError
 
-        error_response = json.dumps({
-            "error": {
-                "message": "Invalid API Key",
-                "code": "api_key_invalid",
+        error_response = json.dumps(
+            {
+                "error": {
+                    "message": "Invalid API Key",
+                    "code": "api_key_invalid",
+                }
             }
-        }).encode()
+        ).encode()
 
         # HTTPError.read() returns bytes directly from fp
         http_error = HTTPError(
@@ -462,12 +470,14 @@ class TestStripeClientMockedRequests:
         from io import BytesIO
         from urllib.error import HTTPError
 
-        error_response = json.dumps({
-            "error": {
-                "message": "No such customer",
-                "code": "resource_missing",
+        error_response = json.dumps(
+            {
+                "error": {
+                    "message": "No such customer",
+                    "code": "resource_missing",
+                }
             }
-        }).encode()
+        ).encode()
 
         http_error = HTTPError(
             url="https://api.stripe.com/v1/customers/invalid",

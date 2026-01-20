@@ -200,7 +200,17 @@ class TestSTTProviderBase:
 
         provider = ConcreteProvider()
         assert provider.name == "concrete"
-        assert provider.supported_formats() == ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm", "ogg", "flac"]
+        assert provider.supported_formats() == [
+            "mp3",
+            "mp4",
+            "mpeg",
+            "mpga",
+            "m4a",
+            "wav",
+            "webm",
+            "ogg",
+            "flac",
+        ]
         assert provider.max_file_size_mb() == 25
 
     def test_default_config(self):
@@ -290,6 +300,7 @@ class TestOpenAIWhisperProvider:
 
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             os.environ.pop("OPENAI_API_KEY", None)
             provider = OpenAIWhisperProvider()
             available = await provider.is_available()
@@ -377,10 +388,13 @@ class TestTranscribeFunctions:
         """Test get_provider reads from environment."""
         from aragora.speech.transcribe import get_provider
 
-        with patch.dict("os.environ", {
-            "ARAGORA_STT_PROVIDER": "whisper",
-            "OPENAI_API_KEY": "test",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_STT_PROVIDER": "whisper",
+                "OPENAI_API_KEY": "test",
+            },
+        ):
             provider = get_provider()
 
         assert provider.name == "openai_whisper"
@@ -412,6 +426,7 @@ class TestTranscribeFunctions:
 
         with patch.dict("os.environ", {}, clear=True):
             import os
+
             os.environ.pop("OPENAI_API_KEY", None)
 
             with pytest.raises(RuntimeError) as exc_info:
@@ -477,12 +492,13 @@ class TestSpeechHandlerImports:
 
         # HandlerResult has status_code and body attributes
         import json
-        if hasattr(result, 'status_code'):
+
+        if hasattr(result, "status_code"):
             status = result.status_code
             body = result.body
-        elif hasattr(result, 'body'):
+        elif hasattr(result, "body"):
             body = result.body
-            status = getattr(result, 'status', 200)
+            status = getattr(result, "status", 200)
         else:
             # Tuple format fallback
             body, status, headers = result

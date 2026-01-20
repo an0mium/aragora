@@ -59,7 +59,7 @@ class DeprecationWarning:
     def to_header_value(self) -> str:
         """Format as Deprecation header value (RFC 8594)."""
         if self.sunset_date:
-            return f'@{int(datetime.combine(self.sunset_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())}'
+            return f"@{int(datetime.combine(self.sunset_date, datetime.min.time()).replace(tzinfo=timezone.utc).timestamp())}"
         return "true"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -148,7 +148,8 @@ class DeprecationRegistry:
     def get_critical_deprecations(self) -> List[DeprecationWarning]:
         """Get endpoints near sunset."""
         return [
-            w for w in self.entries.values()
+            w
+            for w in self.entries.values()
             if w.level in (DeprecationLevel.CRITICAL, DeprecationLevel.SUNSET)
         ]
 
@@ -280,6 +281,7 @@ def deprecated(
         def get_users(request):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         # Store deprecation info on function
         setattr(func, "_deprecated", True)

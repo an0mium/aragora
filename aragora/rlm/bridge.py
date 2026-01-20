@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 # Check if official RLM is available
 try:
     from rlm import RLM as OfficialRLM
+
     HAS_OFFICIAL_RLM = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
@@ -328,7 +329,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                 root_prompt=query,  # Small prompt visible to root LM
             )
 
-            elapsed = time_module.perf_counter() - start_time
+            time_module.perf_counter() - start_time
 
             # TRUE RLM succeeded
             self._last_query_used_true_rlm = True
@@ -633,13 +634,9 @@ Please provide an improved answer based on the feedback."""
             )
 
         if result.sub_calls_made == 0:
-            feedback_parts.append(
-                "Consider using RLM_M() to delegate complex sub-queries."
-            )
+            feedback_parts.append("Consider using RLM_M() to delegate complex sub-queries.")
 
-        feedback_parts.append(
-            f"Focus on answering: {original_query[:200]}"
-        )
+        feedback_parts.append(f"Focus on answering: {original_query[:200]}")
 
         return "\n".join(feedback_parts)
 
@@ -663,7 +660,7 @@ Please provide an improved answer based on the feedback."""
         Yields:
             RLMStreamEvent instances representing query progress
         """
-        start_time = time.perf_counter()
+        time.perf_counter()
 
         # Emit query start
         yield RLMStreamEvent(
@@ -693,7 +690,11 @@ Please provide an improved answer based on the feedback."""
                             query=query,
                             level=level,
                             node_id=node.id,
-                            content=node.content[:200] + "..." if len(node.content) > 200 else node.content,
+                            content=(
+                                node.content[:200] + "..."
+                                if len(node.content) > 200
+                                else node.content
+                            ),
                         )
 
             # Execute the actual query
@@ -932,7 +933,6 @@ Please provide an improved answer based on the feedback."""
                 error=str(e),
             )
             raise
-
 
 
 # Convenience function

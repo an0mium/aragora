@@ -1079,11 +1079,7 @@ class BaseHandler:
         roles = getattr(user, "roles", []) or []
         permissions = getattr(user, "permissions", []) or []
 
-        is_admin = (
-            "admin" in roles
-            or "admin" in permissions
-            or getattr(user, "is_admin", False)
-        )
+        is_admin = "admin" in roles or "admin" in permissions or getattr(user, "is_admin", False)
 
         if not is_admin:
             return None, error_response("Admin access required", 403)

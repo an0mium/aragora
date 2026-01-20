@@ -24,14 +24,13 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import os
 import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from aragora.transcription.whisper_backend import (
     TranscriptionResult,
@@ -171,8 +170,7 @@ class YouTubeFetcher:
             import yt_dlp
         except ImportError:
             raise RuntimeError(
-                "yt-dlp is required for YouTube transcription. "
-                "Install with: pip install yt-dlp"
+                "yt-dlp is required for YouTube transcription. " "Install with: pip install yt-dlp"
             )
 
         ydl_opts = {
@@ -234,16 +232,13 @@ class YouTubeFetcher:
         # Get video info to check duration
         info = await self.get_video_info(url)
         if info.duration > self.max_duration:
-            raise ValueError(
-                f"Video too long: {info.duration}s (max: {self.max_duration}s)"
-            )
+            raise ValueError(f"Video too long: {info.duration}s (max: {self.max_duration}s)")
 
         try:
             import yt_dlp
         except ImportError:
             raise RuntimeError(
-                "yt-dlp is required for YouTube transcription. "
-                "Install with: pip install yt-dlp"
+                "yt-dlp is required for YouTube transcription. " "Install with: pip install yt-dlp"
             )
 
         # Download audio
@@ -276,7 +271,9 @@ class YouTubeFetcher:
         if not cache_path.exists():
             raise RuntimeError(f"Download completed but audio file not found: {cache_path}")
 
-        logger.info(f"Downloaded audio: {cache_path} ({cache_path.stat().st_size / 1024 / 1024:.1f}MB)")
+        logger.info(
+            f"Downloaded audio: {cache_path} ({cache_path.stat().st_size / 1024 / 1024:.1f}MB)"
+        )
         return cache_path
 
     def clear_cache(self, video_id: Optional[str] = None) -> int:

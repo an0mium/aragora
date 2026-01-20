@@ -260,8 +260,7 @@ class TestDomainDetectorKeywords:
         detector = DomainDetector(use_llm=False)
 
         result = detector.detect(
-            "Security authentication API database testing performance optimization",
-            top_n=2
+            "Security authentication API database testing performance optimization", top_n=2
         )
 
         assert len(result) <= 2
@@ -270,9 +269,7 @@ class TestDomainDetectorKeywords:
         """Test that results are ordered by confidence."""
         detector = DomainDetector(use_llm=False)
 
-        result = detector.detect(
-            "Security vulnerability XSS attack authentication authorization"
-        )
+        result = detector.detect("Security vulnerability XSS attack authentication authorization")
 
         if len(result) > 1:
             confidences = [c for _, c in result]
@@ -452,7 +449,9 @@ class TestDomainDetectorEdgeCases:
         result_mixed = detector.detect("SQL Injection Vulnerability Security")
 
         # All should detect security
-        assert all("security" in [d for d, _ in r] for r in [result_lower, result_upper, result_mixed])
+        assert all(
+            "security" in [d for d, _ in r] for r in [result_lower, result_upper, result_mixed]
+        )
 
     def test_multi_word_keywords(self):
         """Test detection of multi-word keywords."""

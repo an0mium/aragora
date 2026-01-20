@@ -21,8 +21,9 @@ class MockMetaStore:
         """Save a node."""
         self._nodes[node.id] = node
         # Track content hash
-        if hasattr(node, 'content'):
+        if hasattr(node, "content"):
             import hashlib
+
             content_hash = hashlib.sha256(node.content.encode()).hexdigest()[:32]
             self._content_hashes[content_hash] = node.id
 
@@ -46,16 +47,19 @@ class MockMetaStore:
 
     def save_relationship(self, rel: Any) -> None:
         """Save a relationship."""
-        self._relationships.append({
-            "from_node_id": rel.from_node_id,
-            "to_node_id": rel.to_node_id,
-            "relationship_type": rel.relationship_type,
-        })
+        self._relationships.append(
+            {
+                "from_node_id": rel.from_node_id,
+                "to_node_id": rel.to_node_id,
+                "relationship_type": rel.relationship_type,
+            }
+        )
 
     def get_relationships(self, node_id: str) -> List[Any]:
         """Get relationships for a node."""
         return [
-            r for r in self._relationships
+            r
+            for r in self._relationships
             if r["from_node_id"] == node_id or r["to_node_id"] == node_id
         ]
 
@@ -196,8 +200,7 @@ class MockRedisCache:
     async def invalidate_queries(self, workspace_id: str) -> None:
         """Invalidate queries for workspace."""
         self._queries = {
-            k: v for k, v in self._queries.items()
-            if not k.startswith(f"{workspace_id}:")
+            k: v for k, v in self._queries.items() if not k.startswith(f"{workspace_id}:")
         }
 
     async def get_culture(self, workspace_id: str) -> Optional[Any]:

@@ -132,9 +132,7 @@ class FallbackMetrics:
     def record_handler_call(self, handler: str, status: str) -> None:
         if handler not in self.handler_calls:
             self.handler_calls[handler] = {}
-        self.handler_calls[handler][status] = (
-            self.handler_calls[handler].get(status, 0) + 1
-        )
+        self.handler_calls[handler][status] = self.handler_calls[handler].get(status, 0) + 1
 
     def record_handler_duration(self, handler: str, duration: float) -> None:
         if handler not in self.handler_durations:
@@ -182,9 +180,9 @@ class FallbackMetrics:
             self.km_adapter_sync_durations[adapter][direction].append(duration)
             # Keep only last 1000 samples
             if len(self.km_adapter_sync_durations[adapter][direction]) > 1000:
-                self.km_adapter_sync_durations[adapter][direction] = (
-                    self.km_adapter_sync_durations[adapter][direction][-1000:]
-                )
+                self.km_adapter_sync_durations[adapter][direction] = self.km_adapter_sync_durations[
+                    adapter
+                ][direction][-1000:]
 
     def record_km_staleness_check(self, workspace: str, status: str) -> None:
         if workspace not in self.km_staleness_checks:
@@ -205,7 +203,9 @@ class FallbackMetrics:
         lines.append("# HELP aragora_cross_pollination_events_total Total cross-pollination events")
         lines.append("# TYPE aragora_cross_pollination_events_total counter")
         for event_type, count in self.events_total.items():
-            lines.append(f'aragora_cross_pollination_events_total{{event_type="{event_type}"}} {count}')
+            lines.append(
+                f'aragora_cross_pollination_events_total{{event_type="{event_type}"}} {count}'
+            )
 
         lines.append("")
         lines.append("# HELP aragora_cross_pollination_handler_calls_total Total handler calls")
@@ -244,7 +244,9 @@ class FallbackMetrics:
 
         # KM Outbound Events
         lines.append("")
-        lines.append("# HELP aragora_km_outbound_events_total Events flowing OUT of Knowledge Mound")
+        lines.append(
+            "# HELP aragora_km_outbound_events_total Events flowing OUT of Knowledge Mound"
+        )
         lines.append("# TYPE aragora_km_outbound_events_total counter")
         for target, events in self.km_outbound_events.items():
             for event_type, count in events.items():
@@ -278,18 +280,14 @@ class FallbackMetrics:
         lines.append("# HELP aragora_km_stale_nodes_found Stale nodes found in last check")
         lines.append("# TYPE aragora_km_stale_nodes_found gauge")
         for workspace, count in self.km_stale_nodes_found.items():
-            lines.append(
-                f'aragora_km_stale_nodes_found{{workspace="{workspace}"}} {count}'
-            )
+            lines.append(f'aragora_km_stale_nodes_found{{workspace="{workspace}"}} {count}')
 
         # KM Nodes by Source
         lines.append("")
         lines.append("# HELP aragora_km_nodes_by_source Knowledge nodes by source type")
         lines.append("# TYPE aragora_km_nodes_by_source gauge")
         for source, count in self.km_nodes_by_source.items():
-            lines.append(
-                f'aragora_km_nodes_by_source{{source="{source}"}} {count}'
-            )
+            lines.append(f'aragora_km_nodes_by_source{{source="{source}"}} {count}')
 
         return "\n".join(lines)
 
@@ -365,6 +363,7 @@ def get_cross_pollination_metrics_text() -> str:
     if PROMETHEUS_AVAILABLE:
         # Use prometheus_client's generate_latest for full output
         from prometheus_client import REGISTRY, generate_latest
+
         return generate_latest(REGISTRY).decode("utf-8")
     else:
         return get_fallback_metrics().get_metrics_text()

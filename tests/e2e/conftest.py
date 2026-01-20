@@ -73,54 +73,86 @@ class TestClient:
 
     base_url: str
 
-    async def get(self, path: str, headers: Optional[Dict[str, str]] = None,
-                  params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def get(
+        self,
+        path: str,
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             url = f"{self.base_url}{path}"
             async with session.get(url, headers=headers, params=params) as response:
                 return {
                     "status": response.status,
                     "headers": dict(response.headers),
-                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "json": (
+                        await response.json()
+                        if response.content_type == "application/json"
+                        else None
+                    ),
                     "text": await response.text(),
                 }
 
-    async def post(self, path: str, json: Optional[Dict[str, Any]] = None,
-                   headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    async def post(
+        self,
+        path: str,
+        json: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             url = f"{self.base_url}{path}"
             async with session.post(url, json=json, headers=headers) as response:
                 return {
                     "status": response.status,
                     "headers": dict(response.headers),
-                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "json": (
+                        await response.json()
+                        if response.content_type == "application/json"
+                        else None
+                    ),
                     "text": await response.text(),
                 }
 
-    async def put(self, path: str, json: Optional[Dict[str, Any]] = None,
-                  headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    async def put(
+        self,
+        path: str,
+        json: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             url = f"{self.base_url}{path}"
             async with session.put(url, json=json, headers=headers) as response:
                 return {
                     "status": response.status,
                     "headers": dict(response.headers),
-                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "json": (
+                        await response.json()
+                        if response.content_type == "application/json"
+                        else None
+                    ),
                     "text": await response.text(),
                 }
 
     async def delete(self, path: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             url = f"{self.base_url}{path}"
             async with session.delete(url, headers=headers) as response:
                 return {
                     "status": response.status,
                     "headers": dict(response.headers),
-                    "json": await response.json() if response.content_type == "application/json" else None,
+                    "json": (
+                        await response.json()
+                        if response.content_type == "application/json"
+                        else None
+                    ),
                     "text": await response.text(),
                 }
 
@@ -218,7 +250,9 @@ def mock_slack_api():
 class MockAgentResponse:
     content: str
     model: str = "mock-model"
-    usage: Dict[str, int] = field(default_factory=lambda: {"prompt_tokens": 100, "completion_tokens": 50})
+    usage: Dict[str, int] = field(
+        default_factory=lambda: {"prompt_tokens": 100, "completion_tokens": 50}
+    )
 
 
 @pytest.fixture
@@ -229,7 +263,9 @@ def mock_llm_agents():
     This fixture provides standard mock responses when needed.
     """
     responses = [
-        MockAgentResponse(content="Thoughtful response to the debate topic.", model="claude-3-opus"),
+        MockAgentResponse(
+            content="Thoughtful response to the debate topic.", model="claude-3-opus"
+        ),
         MockAgentResponse(content="Counter-argument with evidence.", model="gpt-4"),
         MockAgentResponse(content="Finding common ground.", model="gemini-pro"),
     ]
@@ -261,8 +297,11 @@ class DebateSetup:
         return {
             "topic": self.topic,
             "agents": self.agents,
-            "protocol": {"type": self.protocol, "rounds": self.rounds,
-                        "consensus": {"type": "majority", "threshold": self.consensus_threshold}},
+            "protocol": {
+                "type": self.protocol,
+                "rounds": self.rounds,
+                "consensus": {"type": "majority", "threshold": self.consensus_threshold},
+            },
         }
 
 
@@ -313,6 +352,7 @@ def unique_id() -> str:
 @contextmanager
 def assert_timing(max_seconds: float):
     import time
+
     start = time.monotonic()
     yield
     elapsed = time.monotonic() - start

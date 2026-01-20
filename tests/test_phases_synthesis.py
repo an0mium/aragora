@@ -443,10 +443,13 @@ class TestMandatorySynthesisAsync:
         ):
             # Patch import to simulate LLM failure
             import sys
+
             original_modules = sys.modules.copy()
 
             # This will cause ImportError and trigger fallback
-            with patch.object(generator, "_combine_proposals_as_synthesis", return_value="Combined synthesis"):
+            with patch.object(
+                generator, "_combine_proposals_as_synthesis", return_value="Combined synthesis"
+            ):
                 # Simulate all LLM attempts failing by patching the imports
                 sys.modules["aragora.agents.api_agents.anthropic"] = None
                 try:

@@ -241,6 +241,7 @@ class DataIsolationManager:
         if self._rbac_enforcer is None:
             try:
                 from aragora.rbac import get_rbac_enforcer
+
                 self._rbac_enforcer = get_rbac_enforcer()
             except ImportError:
                 logger.debug("RBAC module not available")
@@ -282,6 +283,7 @@ class DataIsolationManager:
             try:
                 # Import here to avoid circular dependency
                 import asyncio
+
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     # Schedule for later if we're already in an async context
@@ -328,6 +330,7 @@ class DataIsolationManager:
         if rbac:
             try:
                 from aragora.rbac import Scope
+
                 await rbac.assign_role(
                     actor_id=created_by,
                     role_id="role_org_admin",
@@ -362,14 +365,11 @@ class DataIsolationManager:
         if rbac:
             try:
                 from aragora.rbac import Scope
-                assignments = await rbac.get_actor_roles(
-                    actor_id, scope=Scope.ORGANIZATION
-                )
+
+                assignments = await rbac.get_actor_roles(actor_id, scope=Scope.ORGANIZATION)
                 org_ids = {a.scope_id for a in assignments}
                 accessible = [
-                    self._organizations[oid]
-                    for oid in org_ids
-                    if oid in self._organizations
+                    self._organizations[oid] for oid in org_ids if oid in self._organizations
                 ]
             except Exception as e:
                 logger.debug(f"Could not get org assignments: {e}")

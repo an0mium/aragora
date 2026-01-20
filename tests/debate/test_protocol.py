@@ -227,9 +227,7 @@ class TestDebateProtocolGetRoundPhase:
 
     def test_get_phase_uses_custom_phases(self):
         """get_round_phase uses custom phases when provided."""
-        custom_phases = [
-            RoundPhase(0, "Custom", "Custom phase", "Custom focus", "Custom mode")
-        ]
+        custom_phases = [RoundPhase(0, "Custom", "Custom phase", "Custom focus", "Custom mode")]
         protocol = DebateProtocol(round_phases=custom_phases)
 
         phase = protocol.get_round_phase(0)

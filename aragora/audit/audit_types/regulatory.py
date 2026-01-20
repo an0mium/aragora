@@ -436,6 +436,7 @@ If no issues, respond with: []"""
 
             # Parse response
             import json
+
             json_match = re.search(r"\[[\s\S]*\]", response)
             if json_match:
                 try:

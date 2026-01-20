@@ -1223,9 +1223,7 @@ class BillingHandler(BaseHandler):
         customer_id = invoice.get("customer")
         subscription_id = invoice.get("subscription")
 
-        logger.info(
-            f"Invoice finalized: customer={customer_id}, subscription={subscription_id}"
-        )
+        logger.info(f"Invoice finalized: customer={customer_id}, subscription={subscription_id}")
 
         # Flush remainder usage for the org
         flushed_records = []

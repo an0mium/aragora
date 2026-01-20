@@ -110,9 +110,7 @@ class NoveltySelectionBridge:
 
     novelty_tracker: Optional["NoveltyTracker"] = None
     selection_feedback: Optional["SelectionFeedbackLoop"] = None
-    config: NoveltySelectionBridgeConfig = field(
-        default_factory=NoveltySelectionBridgeConfig
-    )
+    config: NoveltySelectionBridgeConfig = field(default_factory=NoveltySelectionBridgeConfig)
 
     # Internal state
     _agent_stats: Dict[str, AgentNoveltyStats] = field(default_factory=dict, repr=False)
@@ -210,9 +208,8 @@ class NoveltySelectionBridge:
         # Bonus for consistently high novelty
         if stats.avg_novelty > self.config.high_novelty_threshold:
             bonus = (
-                (stats.avg_novelty - self.config.high_novelty_threshold)
-                * self.config.high_novelty_bonus_weight
-            )
+                stats.avg_novelty - self.config.high_novelty_threshold
+            ) * self.config.high_novelty_bonus_weight
             bonus = min(bonus, self.config.max_bonus)
             adjustment += bonus
 
@@ -326,9 +323,7 @@ class NoveltySelectionBridge:
             state = self.selection_feedback.get_agent_state(agent_name)
             if state:
                 # Store in feedback loop's adjustment dict
-                self.selection_feedback._selection_adjustments[agent_name] = (
-                    current + adjustment
-                )
+                self.selection_feedback._selection_adjustments[agent_name] = current + adjustment
                 updated += 1
 
         logger.info(f"novelty_selection_synced agents_updated={updated}")
@@ -360,9 +355,7 @@ class NoveltySelectionBridge:
         """
         for stats in self._agent_stats.values():
             stats.total_novelty_score *= self.config.decay_factor
-            stats.low_novelty_rounds = int(
-                stats.low_novelty_rounds * self.config.decay_factor
-            )
+            stats.low_novelty_rounds = int(stats.low_novelty_rounds * self.config.decay_factor)
             stats.total_rounds = int(stats.total_rounds * self.config.decay_factor)
 
             # Recompute adjustment
@@ -385,12 +378,9 @@ class NoveltySelectionBridge:
             "agents_tracked": len(self._agent_stats),
             "low_novelty_agents": len(low_novelty_agents),
             "high_novelty_agents": len(high_novelty_agents),
-            "total_rounds_recorded": sum(
-                s.total_rounds for s in self._agent_stats.values()
-            ),
+            "total_rounds_recorded": sum(s.total_rounds for s in self._agent_stats.values()),
             "avg_adjustment": (
-                sum(self._novelty_adjustments.values())
-                / len(self._novelty_adjustments)
+                sum(self._novelty_adjustments.values()) / len(self._novelty_adjustments)
                 if self._novelty_adjustments
                 else 0.0
             ),

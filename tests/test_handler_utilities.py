@@ -219,6 +219,7 @@ class TestGetAgentName:
 
     def test_extracts_name_from_object_with_name(self):
         """Test object with name attribute."""
+
         @dataclass
         class Agent:
             name: str
@@ -228,6 +229,7 @@ class TestGetAgentName:
 
     def test_extracts_name_from_object_with_agent_name(self):
         """Test object with agent_name attribute."""
+
         @dataclass
         class Agent:
             agent_name: str
@@ -242,6 +244,7 @@ class TestGetAgentName:
 
     def test_returns_none_for_object_without_name(self):
         """Test object without name attributes."""
+
         @dataclass
         class NotAnAgent:
             value: str
@@ -268,6 +271,7 @@ class TestAgentToDict:
 
     def test_extracts_standard_fields_from_object(self):
         """Test extracting ELO fields from object."""
+
         @dataclass
         class Agent:
             name: str
@@ -291,6 +295,7 @@ class TestAgentToDict:
 
     def test_uses_defaults_for_missing_attributes(self):
         """Test default values for missing attributes."""
+
         @dataclass
         class MinimalAgent:
             name: str
@@ -303,6 +308,7 @@ class TestAgentToDict:
 
     def test_exclude_name_when_include_name_false(self):
         """Test excluding name fields."""
+
         @dataclass
         class Agent:
             name: str
@@ -314,6 +320,7 @@ class TestAgentToDict:
 
     def test_uses_games_attribute_fallback(self):
         """Test games_played vs games attribute fallback."""
+
         @dataclass
         class AgentWithGames:
             name: str
@@ -338,6 +345,7 @@ class TestNormalizeAgentNames:
 
     def test_extracts_names_from_objects(self):
         """Test extracting names from objects."""
+
         @dataclass
         class Agent:
             name: str
@@ -361,6 +369,7 @@ class TestNormalizeAgentNames:
 
     def test_handles_mixed_input_types(self):
         """Test mixed strings, dicts, and objects."""
+
         @dataclass
         class Agent:
             name: str

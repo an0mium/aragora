@@ -43,7 +43,9 @@ _subprocess_semaphore = asyncio.Semaphore(_MAX_CLI_SUBPROCESSES)
 # Maximum prompt size to pass as CLI argument (avoids E2BIG error)
 # Prompts larger than this should be passed via stdin where supported
 # Configurable via ARAGORA_MAX_CLI_PROMPT_CHARS environment variable
-MAX_CLI_PROMPT_CHARS = int(os.environ.get("ARAGORA_MAX_CLI_PROMPT_CHARS", "100000"))  # 100KB default
+MAX_CLI_PROMPT_CHARS = int(
+    os.environ.get("ARAGORA_MAX_CLI_PROMPT_CHARS", "100000")
+)  # 100KB default
 
 # Re-export constants for backward compatibility
 __all__ = [

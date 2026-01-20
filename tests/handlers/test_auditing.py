@@ -381,9 +381,7 @@ class TestAuditAgentFactory:
     def test_create_single_agent_unavailable(self):
         """Test agent creation when debate module unavailable."""
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", False):
-            agent, error = AuditAgentFactory.create_single_agent(
-                "anthropic-api", "test-agent"
-            )
+            agent, error = AuditAgentFactory.create_single_agent("anthropic-api", "test-agent")
 
             assert agent is None
             assert error is not None
@@ -455,9 +453,7 @@ class TestGetAttackTypes:
         with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
             from aragora.modes.redteam import AttackType
 
-            result = auditing_handler.handle(
-                "/api/redteam/attack-types", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
             body = parse_body(result)
 
             assert result.status_code == 200
@@ -470,9 +466,7 @@ class TestGetAttackTypes:
         mock_handler = MockHandler(command="GET")
 
         with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
-            result = auditing_handler.handle(
-                "/api/redteam/attack-types", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
 
             assert result.status_code == 503
 
@@ -497,9 +491,7 @@ class TestCapabilityProbe:
             # Member role lacks admin:audit permission
             mock_extract.return_value = self.make_auth_context("user_1", "member")
 
-            result = auditing_handler.handle(
-                "/api/debates/capability-probe", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
 
             assert result.status_code == 403
 
@@ -511,9 +503,7 @@ class TestCapabilityProbe:
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", False):
                 mock_extract.return_value = self.make_auth_context()
 
-                result = auditing_handler.handle(
-                    "/api/debates/capability-probe", {}, mock_handler
-                )
+                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
 
                 assert result.status_code == 503
                 assert "not available" in parse_body(result)["error"]
@@ -527,9 +517,7 @@ class TestCapabilityProbe:
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
                 mock_extract.return_value = self.make_auth_context()
 
-                result = auditing_handler.handle(
-                    "/api/debates/capability-probe", {}, mock_handler
-                )
+                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
 
                 assert result.status_code == 400
 
@@ -545,7 +533,9 @@ class TestCapabilityProbe:
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-                with patch("aragora.server.handlers.auditing.AuditAgentFactory.create_single_agent") as mock_create:
+                with patch(
+                    "aragora.server.handlers.auditing.AuditAgentFactory.create_single_agent"
+                ) as mock_create:
                     with patch("aragora.server.handlers.auditing.run_async") as mock_run:
                         from aragora.modes.prober import ProbeType
 
@@ -584,9 +574,7 @@ class TestDeepAudit:
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = self.make_auth_context("user_1", "member")
 
-            result = auditing_handler.handle(
-                "/api/debates/deep-audit", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
 
             assert result.status_code == 403
 
@@ -599,9 +587,7 @@ class TestDeepAudit:
                 mock_extract.return_value = self.make_auth_context()
 
                 # This will trigger ImportError
-                result = auditing_handler.handle(
-                    "/api/debates/deep-audit", {}, mock_handler
-                )
+                result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
 
                 assert result.status_code == 503
 
@@ -613,14 +599,15 @@ class TestDeepAudit:
             mock_extract.return_value = self.make_auth_context()
 
             # Mock the module import
-            with patch("aragora.server.handlers.auditing.AuditingHandler._run_deep_audit") as mock_run:
+            with patch(
+                "aragora.server.handlers.auditing.AuditingHandler._run_deep_audit"
+            ) as mock_run:
                 # Set up the mock to simulate the validation failure
                 from aragora.server.handlers.base import error_response
+
                 mock_run.return_value = error_response("Missing required field: task", 400)
 
-                result = auditing_handler.handle(
-                    "/api/debates/deep-audit", {}, mock_handler
-                )
+                result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
 
                 assert result.status_code == 400
 
@@ -799,9 +786,7 @@ class TestUnauthorized:
             mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-                result = auditing_handler.handle(
-                    "/api/debates/capability-probe", {}, mock_handler
-                )
+                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
 
                 assert result.status_code == 401
 
@@ -812,9 +797,7 @@ class TestUnauthorized:
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
-            result = auditing_handler.handle(
-                "/api/debates/deep-audit", {}, mock_handler
-            )
+            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
 
             assert result.status_code == 401
 

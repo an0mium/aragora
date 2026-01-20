@@ -162,6 +162,7 @@ class TestSearchHandlerImports:
             validate_search_query_redos_safe,
             MAX_SEARCH_QUERY_LENGTH,
         )
+
         # If we get here without ImportError, the imports exist
         assert callable(validate_search_query_redos_safe)
         assert isinstance(MAX_SEARCH_QUERY_LENGTH, int)
@@ -169,11 +170,13 @@ class TestSearchHandlerImports:
     def test_search_mixin_exists(self):
         """Test that SearchOperationsMixin exists."""
         from aragora.server.handlers.debates.search import SearchOperationsMixin
+
         assert SearchOperationsMixin is not None
 
     def test_search_method_exists(self):
         """Test that _search_debates method exists on mixin."""
         from aragora.server.handlers.debates.search import SearchOperationsMixin
+
         assert hasattr(SearchOperationsMixin, "_search_debates")
 
 
@@ -194,6 +197,7 @@ class TestSecurityModuleIntegration:
             MAX_SEARCH_QUERY_LENGTH,
             REGEX_TIMEOUT_SECONDS,
         )
+
         assert callable(validate_search_query_redos_safe)
         assert callable(execute_regex_with_timeout)
         assert callable(execute_regex_finditer_with_timeout)

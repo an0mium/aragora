@@ -13,7 +13,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
     HandlerResult,
@@ -72,31 +71,33 @@ class DedupOperationsMixin:
                 limit=limit,
             )
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "similarity_threshold": similarity_threshold,
-                "clusters_found": len(clusters),
-                "clusters": [
-                    {
-                        "cluster_id": c.cluster_id,
-                        "primary_node_id": c.primary_node_id,
-                        "duplicate_count": len(c.duplicates),
-                        "avg_similarity": c.avg_similarity,
-                        "recommended_action": c.recommended_action,
-                        "duplicates": [
-                            {
-                                "node_id": d.node_id,
-                                "similarity": d.similarity,
-                                "content_preview": d.content_preview,
-                                "tier": d.tier,
-                                "confidence": d.confidence,
-                            }
-                            for d in c.duplicates
-                        ],
-                    }
-                    for c in clusters
-                ],
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "similarity_threshold": similarity_threshold,
+                    "clusters_found": len(clusters),
+                    "clusters": [
+                        {
+                            "cluster_id": c.cluster_id,
+                            "primary_node_id": c.primary_node_id,
+                            "duplicate_count": len(c.duplicates),
+                            "avg_similarity": c.avg_similarity,
+                            "recommended_action": c.recommended_action,
+                            "duplicates": [
+                                {
+                                    "node_id": d.node_id,
+                                    "similarity": d.similarity,
+                                    "content_preview": d.content_preview,
+                                    "tier": d.tier,
+                                    "confidence": d.confidence,
+                                }
+                                for d in c.duplicates
+                            ],
+                        }
+                        for c in clusters
+                    ],
+                }
+            )
         except Exception as e:
             logger.error(f"Error finding duplicates: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -131,14 +132,16 @@ class DedupOperationsMixin:
                 similarity_threshold=similarity_threshold,
             )
 
-            return json_response({
-                "workspace_id": report.workspace_id,
-                "generated_at": report.generated_at.isoformat(),
-                "total_nodes_analyzed": report.total_nodes_analyzed,
-                "duplicate_clusters_found": report.duplicate_clusters_found,
-                "estimated_reduction_percent": report.estimated_reduction_percent,
-                "cluster_count": len(report.clusters),
-            })
+            return json_response(
+                {
+                    "workspace_id": report.workspace_id,
+                    "generated_at": report.generated_at.isoformat(),
+                    "total_nodes_analyzed": report.total_nodes_analyzed,
+                    "duplicate_clusters_found": report.duplicate_clusters_found,
+                    "estimated_reduction_percent": report.estimated_reduction_percent,
+                    "cluster_count": len(report.clusters),
+                }
+            )
         except Exception as e:
             logger.error(f"Error generating dedup report: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -186,13 +189,15 @@ class DedupOperationsMixin:
                 archive=archive,
             )
 
-            return json_response({
-                "success": True,
-                "kept_node_id": result.kept_node_id,
-                "merged_node_ids": result.merged_node_ids,
-                "archived_count": result.archived_count,
-                "updated_relationships": result.updated_relationships,
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "kept_node_id": result.kept_node_id,
+                    "merged_node_ids": result.merged_node_ids,
+                    "archived_count": result.archived_count,
+                    "updated_relationships": result.updated_relationships,
+                }
+            )
         except Exception as e:
             logger.error(f"Error merging duplicates: {e}")
             return error_response(safe_error_message(e), status=500)
@@ -232,13 +237,15 @@ class DedupOperationsMixin:
                 dry_run=dry_run,
             )
 
-            return json_response({
-                "workspace_id": workspace_id,
-                "dry_run": result.get("dry_run", dry_run),
-                "duplicates_found": result.get("duplicates_found", 0),
-                "merges_performed": result.get("merges_performed", 0),
-                "details": result.get("details", []),
-            })
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "dry_run": result.get("dry_run", dry_run),
+                    "duplicates_found": result.get("duplicates_found", 0),
+                    "merges_performed": result.get("merges_performed", 0),
+                    "details": result.get("details", []),
+                }
+            )
         except Exception as e:
             logger.error(f"Error in auto-merge: {e}")
             return error_response(safe_error_message(e), status=500)

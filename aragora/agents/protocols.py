@@ -22,7 +22,7 @@ Protocols defined:
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
-from typing import Any, Optional, Protocol, Union, runtime_checkable
+from typing import Optional, Protocol, Union, runtime_checkable
 
 from aragora.core import Critique, Message
 

@@ -207,9 +207,7 @@ class TestAnalyticsPhaseRelationships:
     @pytest.fixture
     def phase_with_relationships(self, relationship_callback):
         """Create AnalyticsPhase with relationship callback."""
-        return AnalyticsPhase(
-            update_agent_relationships=relationship_callback
-        )
+        return AnalyticsPhase(update_agent_relationships=relationship_callback)
 
     def test_relationship_callback_configured(
         self, phase_with_relationships, relationship_callback
@@ -231,9 +229,7 @@ class TestAnalyticsPhaseVerification:
         """Create AnalyticsPhase with verification callback."""
         return AnalyticsPhase(verify_claims_formally=verify_callback)
 
-    def test_verification_callback_configured(
-        self, phase_with_verification, verify_callback
-    ):
+    def test_verification_callback_configured(self, phase_with_verification, verify_callback):
         """Verification callback is properly configured."""
         assert phase_with_verification._verify_claims_formally == verify_callback
 
@@ -284,22 +280,20 @@ class TestAnalyticsPhaseDisagreementReporting:
     @pytest.fixture
     def disagreement_callback(self):
         """Create mock disagreement callback."""
-        return MagicMock(return_value={
-            "main_points": ["point1", "point2"],
-            "dissenters": ["agent2"],
-            "strength": "moderate",
-        })
+        return MagicMock(
+            return_value={
+                "main_points": ["point1", "point2"],
+                "dissenters": ["agent2"],
+                "strength": "moderate",
+            }
+        )
 
     @pytest.fixture
     def phase_with_disagreement(self, disagreement_callback):
         """Create AnalyticsPhase with disagreement callback."""
-        return AnalyticsPhase(
-            generate_disagreement_report=disagreement_callback
-        )
+        return AnalyticsPhase(generate_disagreement_report=disagreement_callback)
 
-    def test_disagreement_callback_configured(
-        self, phase_with_disagreement, disagreement_callback
-    ):
+    def test_disagreement_callback_configured(self, phase_with_disagreement, disagreement_callback):
         """Disagreement callback is properly configured."""
         assert phase_with_disagreement._generate_disagreement_report == disagreement_callback
 
@@ -310,18 +304,18 @@ class TestAnalyticsPhaseGroundedVerdict:
     @pytest.fixture
     def verdict_callback(self):
         """Create mock verdict callback."""
-        return MagicMock(return_value={
-            "verdict": "approved",
-            "grounds": ["evidence1", "evidence2"],
-            "confidence": 0.9,
-        })
+        return MagicMock(
+            return_value={
+                "verdict": "approved",
+                "grounds": ["evidence1", "evidence2"],
+                "confidence": 0.9,
+            }
+        )
 
     @pytest.fixture
     def phase_with_verdict(self, verdict_callback):
         """Create AnalyticsPhase with verdict callback."""
-        return AnalyticsPhase(
-            create_grounded_verdict=verdict_callback
-        )
+        return AnalyticsPhase(create_grounded_verdict=verdict_callback)
 
     def test_verdict_callback_configured(self, phase_with_verdict, verdict_callback):
         """Verdict callback is properly configured."""
@@ -449,16 +443,17 @@ class TestUncertaintyEstimator:
 
     def test_get_uncertainty_estimator_returns_none_on_import_error(self):
         """Uncertainty estimator returns None if import fails."""
-        with patch.dict('sys.modules', {'aragora.uncertainty.estimator': None}):
+        with patch.dict("sys.modules", {"aragora.uncertainty.estimator": None}):
             # Reset the global
             import aragora.debate.phases.analytics_phase as module
+
             module._uncertainty_estimator = None
 
             # This might still work if the module is cached elsewhere
             # Just test that the function is callable
             result = get_uncertainty_estimator()
             # Result depends on whether the module is available
-            assert result is None or hasattr(result, '__call__') or hasattr(result, 'estimate')
+            assert result is None or hasattr(result, "__call__") or hasattr(result, "estimate")
 
 
 class TestAnalyticsPhaseSpectatorNotification:

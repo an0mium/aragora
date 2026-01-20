@@ -431,12 +431,14 @@ class CritiqueAdapter:
         if pattern_id not in self._pattern_usage:
             self._pattern_usage[pattern_id] = []
 
-        self._pattern_usage[pattern_id].append({
-            "debate_id": debate_id,
-            "was_successful": was_successful,
-            "confidence": confidence,
-            "recorded_at": datetime.utcnow().isoformat(),
-        })
+        self._pattern_usage[pattern_id].append(
+            {
+                "debate_id": debate_id,
+                "was_successful": was_successful,
+                "confidence": confidence,
+                "recorded_at": datetime.utcnow().isoformat(),
+            }
+        )
 
     async def validate_pattern_from_km(
         self,
@@ -603,7 +605,9 @@ class CritiqueAdapter:
             meta = item.get("metadata", {})
 
             # Check if this agent contributed
-            if meta.get("agent_name") == agent_name or agent_name in meta.get("agents_involved", []):
+            if meta.get("agent_name") == agent_name or agent_name in meta.get(
+                "agents_involved", []
+            ):
                 pattern_contributions += 1
 
                 if "outcome_success" in meta:
@@ -747,7 +751,10 @@ class CritiqueAdapter:
 
                 validation = await self.validate_pattern_from_km(pattern_id, cross_refs)
 
-                if validation.km_confidence >= min_confidence and validation.recommendation == "boost":
+                if (
+                    validation.km_confidence >= min_confidence
+                    and validation.recommendation == "boost"
+                ):
                     boost = await self.apply_pattern_boost(validation)
                     if boost.was_applied:
                         result.patterns_boosted += 1

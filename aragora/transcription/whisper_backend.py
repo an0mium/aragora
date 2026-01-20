@@ -23,11 +23,9 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -163,11 +161,8 @@ class TranscriptionConfig:
             whisper_model=os.getenv("ARAGORA_WHISPER_MODEL", DEFAULT_MODEL),
             whisper_device=os.getenv("ARAGORA_WHISPER_DEVICE", "auto"),
             language=os.getenv("ARAGORA_WHISPER_LANGUAGE"),
-            enable_timestamps=os.getenv("ARAGORA_WHISPER_TIMESTAMPS", "true").lower()
-            == "true",
-            enable_word_timestamps=os.getenv(
-                "ARAGORA_WHISPER_WORD_TIMESTAMPS", "false"
-            ).lower()
+            enable_timestamps=os.getenv("ARAGORA_WHISPER_TIMESTAMPS", "true").lower() == "true",
+            enable_word_timestamps=os.getenv("ARAGORA_WHISPER_WORD_TIMESTAMPS", "false").lower()
             == "true",
         )
 
@@ -214,9 +209,7 @@ class TranscriptionBackend(ABC):
 
         suffix = path.suffix.lower()
         if suffix not in ALL_MEDIA_FORMATS:
-            raise ValueError(
-                f"Unsupported format: {suffix}. Supported: {ALL_MEDIA_FORMATS}"
-            )
+            raise ValueError(f"Unsupported format: {suffix}. Supported: {ALL_MEDIA_FORMATS}")
 
         size_mb = path.stat().st_size / (1024 * 1024)
         if size_mb > self.config.max_file_size_mb:
@@ -244,7 +237,9 @@ class OpenAIWhisperBackend(TranscriptionBackend):
         # Validate API key is available
         api_key = self.config.openai_api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable or config.openai_api_key required")
+            raise ValueError(
+                "OPENAI_API_KEY environment variable or config.openai_api_key required"
+            )
 
     @property
     def model(self) -> str:
@@ -297,9 +292,7 @@ class OpenAIWhisperBackend(TranscriptionBackend):
                 language=lang,
                 response_format="verbose_json",
                 timestamp_granularities=(
-                    ["segment", "word"]
-                    if self.config.enable_word_timestamps
-                    else ["segment"]
+                    ["segment", "word"] if self.config.enable_word_timestamps else ["segment"]
                 ),
             )
 
@@ -377,9 +370,7 @@ class FasterWhisperBackend(TranscriptionBackend):
             if compute_type == "auto":
                 compute_type = "float16" if device == "cuda" else "int8"
 
-            logger.info(
-                f"Loading faster-whisper model: {self.config.whisper_model} on {device}"
-            )
+            logger.info(f"Loading faster-whisper model: {self.config.whisper_model} on {device}")
             self._model = WhisperModel(
                 self.config.whisper_model,
                 device=device,
@@ -640,12 +631,16 @@ def get_transcription_backend(
         # If normalized to None (e.g., "auto"), fall through to auto-selection
         if normalized_name is not None:
             if normalized_name not in _BACKENDS:
-                raise ValueError(f"Unknown backend: {normalized_name}. Available: {list(_BACKENDS.keys())}")
+                raise ValueError(
+                    f"Unknown backend: {normalized_name}. Available: {list(_BACKENDS.keys())}"
+                )
 
             backend_cls = _BACKENDS[normalized_name]
             backend = backend_cls(config)
             if not backend.is_available():
-                raise RuntimeError(f"Backend '{normalized_name}' is not available. Check dependencies/config.")
+                raise RuntimeError(
+                    f"Backend '{normalized_name}' is not available. Check dependencies/config."
+                )
             return backend
 
     # Auto-select first available backend from priority list

@@ -39,9 +39,7 @@ class TestSuggestionCluster:
 
     def test_empty_user_ids(self):
         """Test with empty user_ids."""
-        cluster = SuggestionCluster(
-            representative="Test", count=1, user_ids=[]
-        )
+        cluster = SuggestionCluster(representative="Test", count=1, user_ids=[])
         assert cluster.user_ids == []
 
 
@@ -178,8 +176,7 @@ class TestClusterSuggestions:
     def test_max_clusters_limit(self):
         """Test max_clusters limits output."""
         suggestions = [
-            {"suggestion": f"Unique idea number {i}", "user_id": f"user{i}"}
-            for i in range(10)
+            {"suggestion": f"Unique idea number {i}", "user_id": f"user{i}"} for i in range(10)
         ]
         result = cluster_suggestions(suggestions, max_clusters=3)
         assert len(result) <= 3
@@ -206,18 +203,13 @@ class TestClusterSuggestions:
 
     def test_truncates_user_ids(self):
         """Test user_ids are truncated to 8 characters."""
-        suggestions = [
-            {"suggestion": "Test", "user_id": "very_long_user_id_12345"}
-        ]
+        suggestions = [{"suggestion": "Test", "user_id": "very_long_user_id_12345"}]
         result = cluster_suggestions(suggestions)
         assert len(result[0].user_ids[0]) <= 8
 
     def test_caps_at_50_suggestions(self):
         """Test input is capped at 50 suggestions for performance."""
-        suggestions = [
-            {"suggestion": f"Idea {i}", "user_id": f"user{i}"}
-            for i in range(100)
-        ]
+        suggestions = [{"suggestion": f"Idea {i}", "user_id": f"user{i}"} for i in range(100)]
         result = cluster_suggestions(suggestions, max_clusters=100)
         # Even with max_clusters=100, only first 50 are processed
         total_count = sum(c.count for c in result)
@@ -272,10 +264,7 @@ class TestFormatForPrompt:
 
     def test_limits_to_top_3(self):
         """Test only top 3 clusters are included."""
-        clusters = [
-            SuggestionCluster(f"Idea {i}", count=i, user_ids=[])
-            for i in range(5)
-        ]
+        clusters = [SuggestionCluster(f"Idea {i}", count=i, user_ids=[]) for i in range(5)]
         result = format_for_prompt(clusters)
 
         # Only first 3 should appear

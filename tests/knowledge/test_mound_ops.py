@@ -67,12 +67,14 @@ class TestKnowledgeMoundOperations:
     async def test_fetch_knowledge_context_success(self):
         """Should format and return knowledge context."""
         mock_mound = MagicMock()
-        mock_mound.query_semantic = AsyncMock(return_value=MagicMock(
-            items=[
-                MagicMock(source="debate", confidence=0.85, content="Test knowledge 1"),
-                MagicMock(source="document", confidence=0.90, content="Test knowledge 2"),
-            ]
-        ))
+        mock_mound.query_semantic = AsyncMock(
+            return_value=MagicMock(
+                items=[
+                    MagicMock(source="debate", confidence=0.85, content="Test knowledge 1"),
+                    MagicMock(source="document", confidence=0.90, content="Test knowledge 2"),
+                ]
+            )
+        )
 
         ops = KnowledgeMoundOperations(knowledge_mound=mock_mound)
         result = await ops.fetch_knowledge_context("test task", limit=5)
@@ -208,10 +210,12 @@ class TestStalenessOperationsMixin:
         """Should query staleness detector."""
         host = MockStalenessHost()
         host._staleness_detector = MagicMock()
-        host._staleness_detector.get_stale_nodes = AsyncMock(return_value=[
-            MagicMock(node_id="kn_1", staleness_score=0.8),
-            MagicMock(node_id="kn_2", staleness_score=0.6),
-        ])
+        host._staleness_detector.get_stale_nodes = AsyncMock(
+            return_value=[
+                MagicMock(node_id="kn_1", staleness_score=0.8),
+                MagicMock(node_id="kn_2", staleness_score=0.6),
+            ]
+        )
 
         result = await host.get_stale_knowledge(threshold=0.5, limit=50)
 
@@ -354,9 +358,7 @@ class TestCultureOperationsMixin:
         result = await host.recommend_agents("code_review")
 
         assert result == ["anthropic-api", "openai-api"]
-        host._culture_accumulator.recommend_agents.assert_called_once_with(
-            "code_review", "ws_test"
-        )
+        host._culture_accumulator.recommend_agents.assert_called_once_with("code_review", "ws_test")
 
 
 # =============================================================================

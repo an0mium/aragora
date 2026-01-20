@@ -111,12 +111,8 @@ class TestEloAdapterPatternAnalysis:
     async def test_analyze_success_contributor(self, adapter):
         """Test detection of success contributor pattern."""
         km_items = [
-            {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}}
-            for i in range(5)
-        ] + [
-            {"metadata": {"debate_id": f"d{i+5}"}}
-            for i in range(2)
-        ]
+            {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}} for i in range(5)
+        ] + [{"metadata": {"debate_id": f"d{i+5}"}} for i in range(2)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",
@@ -133,12 +129,8 @@ class TestEloAdapterPatternAnalysis:
     async def test_analyze_contradiction_source(self, adapter):
         """Test detection of contradiction source pattern."""
         km_items = [
-            {"metadata": {"was_contradicted": True, "debate_id": f"d{i}"}}
-            for i in range(4)
-        ] + [
-            {"metadata": {"debate_id": f"d{i+4}"}}
-            for i in range(6)
-        ]
+            {"metadata": {"was_contradicted": True, "debate_id": f"d{i}"}} for i in range(4)
+        ] + [{"metadata": {"debate_id": f"d{i+4}"}} for i in range(6)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "grok",
@@ -154,12 +146,8 @@ class TestEloAdapterPatternAnalysis:
     async def test_analyze_domain_expert(self, adapter):
         """Test detection of domain expert pattern."""
         km_items = [
-            {"metadata": {"domain": "security", "debate_id": f"d{i}"}}
-            for i in range(8)
-        ] + [
-            {"metadata": {"domain": "testing", "debate_id": f"d{i+8}"}}
-            for i in range(3)
-        ]
+            {"metadata": {"domain": "security", "debate_id": f"d{i}"}} for i in range(8)
+        ] + [{"metadata": {"domain": "testing", "debate_id": f"d{i+8}"}} for i in range(3)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "gemini",
@@ -178,12 +166,8 @@ class TestEloAdapterPatternAnalysis:
     async def test_analyze_crux_resolver(self, adapter):
         """Test detection of crux resolver pattern."""
         km_items = [
-            {"metadata": {"crux_resolved": True, "debate_id": f"d{i}"}}
-            for i in range(4)
-        ] + [
-            {"metadata": {"key_insight": True, "debate_id": f"d{i+4}"}}
-            for i in range(2)
-        ]
+            {"metadata": {"crux_resolved": True, "debate_id": f"d{i}"}} for i in range(4)
+        ] + [{"metadata": {"key_insight": True, "debate_id": f"d{i+4}"}} for i in range(2)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",
@@ -210,12 +194,8 @@ class TestEloAdapterPatternAnalysis:
         """Test that low confidence patterns are filtered."""
         # Only 2 successes out of 10 - too low for pattern
         km_items = [
-            {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}}
-            for i in range(2)
-        ] + [
-            {"metadata": {"debate_id": f"d{i+2}"}}
-            for i in range(8)
-        ]
+            {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}} for i in range(2)
+        ] + [{"metadata": {"debate_id": f"d{i+2}"}} for i in range(8)]
 
         patterns = await adapter.analyze_km_patterns_for_agent(
             "claude",
@@ -269,13 +249,23 @@ class TestEloAdapterAdjustments:
         """Test adjustment with multiple patterns."""
         patterns = [
             KMEloPattern(
-                "claude", "success_contributor", 0.85, 8,
+                "claude",
+                "success_contributor",
+                0.85,
+                8,
             ),
             KMEloPattern(
-                "claude", "domain_expert", 0.9, 12, domain="security",
+                "claude",
+                "domain_expert",
+                0.9,
+                12,
+                domain="security",
             ),
             KMEloPattern(
-                "claude", "crux_resolver", 0.8, 4,
+                "claude",
+                "crux_resolver",
+                0.8,
+                4,
             ),
         ]
 
@@ -469,10 +459,7 @@ class TestEloAdapterStats:
     @pytest.mark.asyncio
     async def test_get_reverse_flow_stats_with_data(self, adapter):
         """Test stats after analyzing patterns."""
-        km_items = [
-            {"metadata": {"outcome_success": True, "debate_id": f"d{i}"}}
-            for i in range(5)
-        ]
+        km_items = [{"metadata": {"outcome_success": True, "debate_id": f"d{i}"}} for i in range(5)]
 
         await adapter.analyze_km_patterns_for_agent(
             "claude",

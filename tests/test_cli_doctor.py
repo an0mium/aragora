@@ -88,6 +88,7 @@ class TestDoctorCommand:
         with patch.dict("sys.modules", {"pydantic": object()}):
             # Remove aiohttp from modules to simulate missing
             import sys as _sys
+
             aiohttp_backup = _sys.modules.get("aiohttp")
             if "aiohttp" in _sys.modules:
                 del _sys.modules["aiohttp"]

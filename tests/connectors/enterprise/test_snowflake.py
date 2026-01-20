@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Connector Initialization Tests
 # ============================================================================
 
+
 class TestSnowflakeConnectorInit:
     """Tests for SnowflakeConnector initialization."""
 
@@ -109,6 +110,7 @@ class TestSnowflakeConnectorInit:
 # Connection Parameter Tests
 # ============================================================================
 
+
 class TestSnowflakeConnectionParams:
     """Tests for connection parameter building."""
 
@@ -124,10 +126,13 @@ class TestSnowflakeConnectionParams:
             role="ANALYST",
         )
 
-        with patch.dict("os.environ", {
-            "SNOWFLAKE_USER": "testuser",
-            "SNOWFLAKE_PASSWORD": "testpass",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "SNOWFLAKE_USER": "testuser",
+                "SNOWFLAKE_PASSWORD": "testpass",
+            },
+        ):
             params = connector._get_connection_params()
 
         assert params["account"] == "org-account"
@@ -148,10 +153,13 @@ class TestSnowflakeConnectionParams:
             database="DB",
         )
 
-        with patch.dict("os.environ", {
-            "SNOWFLAKE_USER": "testuser",
-            "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "SNOWFLAKE_USER": "testuser",
+                "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
+            },
+        ):
             params = connector._get_connection_params()
 
         assert params["authenticator"] == "externalbrowser"
@@ -181,10 +189,14 @@ class TestSnowflakeConnectionParams:
             database="DB",
         )
 
-        with patch.dict("os.environ", {
-            "SNOWFLAKE_USER": "testuser",
-            # No password, key, or authenticator
-        }, clear=True):
+        with patch.dict(
+            "os.environ",
+            {
+                "SNOWFLAKE_USER": "testuser",
+                # No password, key, or authenticator
+            },
+            clear=True,
+        ):
             with pytest.raises(ValueError, match="credentials not configured"):
                 connector._get_connection_params()
 
@@ -193,6 +205,7 @@ class TestSnowflakeConnectionParams:
 # Domain Inference Tests
 # ============================================================================
 
+
 class TestSnowflakeDomainInference:
     """Tests for domain inference from table names."""
 
@@ -200,9 +213,7 @@ class TestSnowflakeDomainInference:
         """Test user-related tables get correct domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("USERS") == "operational/users"
         assert connector._infer_domain("USER_ACCOUNTS") == "operational/users"
@@ -212,9 +223,7 @@ class TestSnowflakeDomainInference:
         """Test financial tables get correct domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("ORDERS") == "financial/transactions"
         assert connector._infer_domain("PAYMENTS") == "financial/transactions"
@@ -224,9 +233,7 @@ class TestSnowflakeDomainInference:
         """Test product tables get correct domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("PRODUCTS") == "operational/products"
         assert connector._infer_domain("INVENTORY") == "operational/products"
@@ -236,9 +243,7 @@ class TestSnowflakeDomainInference:
         """Test analytics tables get correct domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("METRICS") == "analytics/metrics"
         assert connector._infer_domain("DAILY_STATS") == "analytics/metrics"
@@ -249,9 +254,7 @@ class TestSnowflakeDomainInference:
         """Test log tables get correct domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("AUDIT_LOGS") == "operational/logs"
         assert connector._infer_domain("EVENT_LOG") == "operational/logs"
@@ -260,9 +263,7 @@ class TestSnowflakeDomainInference:
         """Test unknown tables get default domain."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         assert connector._infer_domain("RANDOM_TABLE") == "general/database"
         assert connector._infer_domain("XYZ") == "general/database"
@@ -272,6 +273,7 @@ class TestSnowflakeDomainInference:
 # Row to Content Tests
 # ============================================================================
 
+
 class TestSnowflakeRowToContent:
     """Tests for converting rows to text content."""
 
@@ -279,9 +281,7 @@ class TestSnowflakeRowToContent:
         """Test converting simple row to content."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         row = {
             "ID": 123,
@@ -299,9 +299,7 @@ class TestSnowflakeRowToContent:
         """Test converting row with datetime values."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         now = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         row = {
@@ -317,9 +315,7 @@ class TestSnowflakeRowToContent:
         """Test converting row with nested dict."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         row = {
             "ID": 1,
@@ -334,9 +330,7 @@ class TestSnowflakeRowToContent:
         """Test converting row with column filter."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         row = {
             "ID": 1,
@@ -354,9 +348,7 @@ class TestSnowflakeRowToContent:
         """Test row with None values are skipped."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         row = {
             "ID": 1,
@@ -375,6 +367,7 @@ class TestSnowflakeRowToContent:
 # Timestamp Column Detection Tests
 # ============================================================================
 
+
 class TestSnowflakeTimestampColumn:
     """Tests for timestamp column detection."""
 
@@ -383,7 +376,9 @@ class TestSnowflakeTimestampColumn:
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
         connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB",
+            account="org",
+            warehouse="WH",
+            database="DB",
             timestamp_column="MODIFIED_TS",
         )
 
@@ -399,9 +394,7 @@ class TestSnowflakeTimestampColumn:
         """Test auto-detection of updated_at column."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         columns = [
             {"COLUMN_NAME": "ID", "DATA_TYPE": "NUMBER"},
@@ -415,9 +408,7 @@ class TestSnowflakeTimestampColumn:
         """Test auto-detection of modified_at column."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         columns = [
             {"COLUMN_NAME": "ID", "DATA_TYPE": "NUMBER"},
@@ -431,9 +422,7 @@ class TestSnowflakeTimestampColumn:
         """Test when no timestamp column is found."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         columns = [
             {"COLUMN_NAME": "ID", "DATA_TYPE": "NUMBER"},
@@ -448,6 +437,7 @@ class TestSnowflakeTimestampColumn:
 # Query Execution Tests (Mocked)
 # ============================================================================
 
+
 class TestSnowflakeQueryExecution:
     """Tests for query execution."""
 
@@ -456,14 +446,14 @@ class TestSnowflakeQueryExecution:
         """Test async query execution via thread pool."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         # Mock _execute_query
-        connector._execute_query = MagicMock(return_value=[
-            {"ID": 1, "NAME": "Test"},
-        ])
+        connector._execute_query = MagicMock(
+            return_value=[
+                {"ID": 1, "NAME": "Test"},
+            ]
+        )
 
         result = await connector._async_query("SELECT * FROM TEST")
 
@@ -474,6 +464,7 @@ class TestSnowflakeQueryExecution:
 # ============================================================================
 # Table Discovery Tests (Mocked)
 # ============================================================================
+
 
 class TestSnowflakeTableDiscovery:
     """Tests for table discovery."""
@@ -488,10 +479,12 @@ class TestSnowflakeTableDiscovery:
         )
 
         # Mock _async_query
-        connector._async_query = AsyncMock(return_value=[
-            {"TABLE_NAME": "CUSTOMERS"},
-            {"TABLE_NAME": "ORDERS"},
-        ])
+        connector._async_query = AsyncMock(
+            return_value=[
+                {"TABLE_NAME": "CUSTOMERS"},
+                {"TABLE_NAME": "ORDERS"},
+            ]
+        )
 
         tables = await connector._discover_tables()
 
@@ -508,10 +501,12 @@ class TestSnowflakeTableDiscovery:
         )
 
         # Mock _async_query
-        connector._async_query = AsyncMock(return_value=[
-            {"COLUMN_NAME": "ID", "DATA_TYPE": "NUMBER", "IS_NULLABLE": "NO"},
-            {"COLUMN_NAME": "NAME", "DATA_TYPE": "VARCHAR", "IS_NULLABLE": "YES"},
-        ])
+        connector._async_query = AsyncMock(
+            return_value=[
+                {"COLUMN_NAME": "ID", "DATA_TYPE": "NUMBER", "IS_NULLABLE": "NO"},
+                {"COLUMN_NAME": "NAME", "DATA_TYPE": "VARCHAR", "IS_NULLABLE": "YES"},
+            ]
+        )
 
         columns = await connector._get_table_columns("CUSTOMERS")
 
@@ -523,6 +518,7 @@ class TestSnowflakeTableDiscovery:
 # ============================================================================
 # Time Travel Tests (Mocked)
 # ============================================================================
+
 
 class TestSnowflakeTimeTravel:
     """Tests for time travel queries."""
@@ -557,6 +553,7 @@ class TestSnowflakeTimeTravel:
 # Table Stats Tests (Mocked)
 # ============================================================================
 
+
 class TestSnowflakeTableStats:
     """Tests for table statistics."""
 
@@ -570,9 +567,11 @@ class TestSnowflakeTableStats:
         )
 
         # Mock _async_query
-        connector._async_query = AsyncMock(return_value=[
-            {"row_count": 1000, "max_id": 1050},
-        ])
+        connector._async_query = AsyncMock(
+            return_value=[
+                {"row_count": 1000, "max_id": 1050},
+            ]
+        )
 
         stats = await connector.get_table_stats("CUSTOMERS")
 
@@ -601,6 +600,7 @@ class TestSnowflakeTableStats:
 # Webhook Tests
 # ============================================================================
 
+
 class TestSnowflakeWebhooks:
     """Tests for webhook handling."""
 
@@ -609,9 +609,7 @@ class TestSnowflakeWebhooks:
         """Test webhook with table and operation triggers sync."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         # Mock sync
         connector.sync = AsyncMock()
@@ -629,9 +627,7 @@ class TestSnowflakeWebhooks:
         """Test webhook without table returns False."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         payload = {"status": "ok"}
 
@@ -643,6 +639,7 @@ class TestSnowflakeWebhooks:
 # Fetch Tests
 # ============================================================================
 
+
 class TestSnowflakeFetch:
     """Tests for fetch functionality."""
 
@@ -651,9 +648,7 @@ class TestSnowflakeFetch:
         """Test fetch with invalid evidence ID."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         result = await connector.fetch("invalid-id")
         assert result is None
@@ -663,9 +658,7 @@ class TestSnowflakeFetch:
         """Test fetch with wrong account in ID."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         result = await connector.fetch("sf:other-org:DB:TABLE:hash123")
         assert result is None
@@ -675,6 +668,7 @@ class TestSnowflakeFetch:
 # Close/Cleanup Tests
 # ============================================================================
 
+
 class TestSnowflakeCleanup:
     """Tests for resource cleanup."""
 
@@ -683,9 +677,7 @@ class TestSnowflakeCleanup:
         """Test closing connector releases resources."""
         from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
 
-        connector = SnowflakeConnector(
-            account="org", warehouse="WH", database="DB"
-        )
+        connector = SnowflakeConnector(account="org", warehouse="WH", database="DB")
 
         # Mock connection
         mock_conn = MagicMock()
@@ -700,6 +692,7 @@ class TestSnowflakeCleanup:
 # ============================================================================
 # Module Export Tests
 # ============================================================================
+
 
 class TestSnowflakeExports:
     """Tests for module exports."""

@@ -45,11 +45,7 @@ def list_presets() -> List[str]:
     Returns:
         List of preset names (without .yaml extension)
     """
-    return [
-        f.stem
-        for f in PRESETS_DIR.glob("*.yaml")
-        if not f.name.startswith("_")
-    ]
+    return [f.stem for f in PRESETS_DIR.glob("*.yaml") if not f.name.startswith("_")]
 
 
 def load_preset(
@@ -77,8 +73,7 @@ def load_preset(
     if not preset_file.exists():
         available = list_presets()
         raise FileNotFoundError(
-            f"Preset '{preset_name}' not found. "
-            f"Available presets: {available}"
+            f"Preset '{preset_name}' not found. " f"Available presets: {available}"
         )
 
     # Load YAML

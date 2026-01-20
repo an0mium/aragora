@@ -100,25 +100,19 @@ class TestConnectorExceptions:
 
     def test_api_error_5xx(self):
         """Test ConnectorAPIError with 5xx status (retryable)."""
-        error = ConnectorAPIError(
-            "Server error", connector_name="api", status_code=503
-        )
+        error = ConnectorAPIError("Server error", connector_name="api", status_code=503)
         assert error.is_retryable is True
         assert error.status_code == 503
 
     def test_api_error_4xx(self):
         """Test ConnectorAPIError with 4xx status (not retryable)."""
-        error = ConnectorAPIError(
-            "Bad request", connector_name="api", status_code=400
-        )
+        error = ConnectorAPIError("Bad request", connector_name="api", status_code=400)
         assert error.is_retryable is False
         assert error.status_code == 400
 
     def test_validation_error(self):
         """Test ConnectorValidationError."""
-        error = ConnectorValidationError(
-            "Invalid parameter", connector_name="api", field="query"
-        )
+        error = ConnectorValidationError("Invalid parameter", connector_name="api", field="query")
         assert error.is_retryable is False
         assert error.field == "query"
 
@@ -132,9 +126,7 @@ class TestConnectorExceptions:
 
     def test_quota_error(self):
         """Test ConnectorQuotaError."""
-        error = ConnectorQuotaError(
-            "Quota exhausted", connector_name="api", quota_reset=3600.0
-        )
+        error = ConnectorQuotaError("Quota exhausted", connector_name="api", quota_reset=3600.0)
         assert error.is_retryable is False
         assert error.quota_reset == 3600.0
         assert error.retry_after == 3600.0
@@ -329,6 +321,7 @@ class TestRetryMechanism:
     @pytest.mark.asyncio
     async def test_request_with_retry_success(self, connector):
         """Test successful request returns result."""
+
         async def successful_request():
             return {"data": "result"}
 
@@ -338,6 +331,7 @@ class TestRetryMechanism:
     @pytest.mark.asyncio
     async def test_request_with_retry_httpx_not_available(self, connector):
         """Test fallback when httpx not available."""
+
         async def request():
             return "result"
 
@@ -424,9 +418,7 @@ class TestRetryChaosScenarios:
                 response = MagicMock()
                 response.status_code = 429
                 response.headers = {"Retry-After": "0.001"}
-                raise httpx.HTTPStatusError(
-                    "rate limit", request=MagicMock(), response=response
-                )
+                raise httpx.HTTPStatusError("rate limit", request=MagicMock(), response=response)
             return {"success": True}
 
         result = await connector._request_with_retry(rate_limit_then_success, "test")
@@ -463,9 +455,7 @@ class TestRetryChaosScenarios:
         async def client_error():
             response = MagicMock()
             response.status_code = 400
-            raise httpx.HTTPStatusError(
-                "bad request", request=MagicMock(), response=response
-            )
+            raise httpx.HTTPStatusError("bad request", request=MagicMock(), response=response)
 
         with pytest.raises(ConnectorAPIError) as exc_info:
             await connector._request_with_retry(client_error, "test")
@@ -509,9 +499,7 @@ class TestCacheUnderChaos:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=cache_operations, args=(i,)) for i in range(5)
-        ]
+        threads = [threading.Thread(target=cache_operations, args=(i,)) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:

@@ -333,8 +333,12 @@ class TaskResult:
             output=data.get("output"),
             output_type=data.get("output_type", "text"),
             structured_output=data.get("structured_output"),
-            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None,
-            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            started_at=(
+                datetime.fromisoformat(data["started_at"]) if data.get("started_at") else None
+            ),
+            completed_at=(
+                datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
+            ),
             tokens_used=data.get("tokens_used", 0),
             intermediate_results=data.get("intermediate_results", []),
             subtasks=data.get("subtasks", []),

@@ -240,24 +240,28 @@ theorem test : True := by
         translator = DeepSeekProverTranslator(api_key="test_key")
 
         mock_response = {
-            "choices": [{
-                "message": {
-                    "content": """```lean
+            "choices": [
+                {
+                    "message": {
+                        "content": """```lean
 import Mathlib.Tactic
 
 theorem test : True := trivial
 ```"""
+                    }
                 }
-            }]
+            ]
         }
 
         with patch("aiohttp.ClientSession") as mock_session:
             mock_context = MagicMock()
             mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(return_value=MagicMock(
-                status=200,
-                json=AsyncMock(return_value=mock_response),
-            ))
+            mock_post.__aenter__ = AsyncMock(
+                return_value=MagicMock(
+                    status=200,
+                    json=AsyncMock(return_value=mock_response),
+                )
+            )
             mock_post.__aexit__ = AsyncMock()
             mock_context.post = MagicMock(return_value=mock_post)
             mock_context.__aenter__ = AsyncMock(return_value=mock_context)
@@ -277,10 +281,12 @@ theorem test : True := trivial
         with patch("aiohttp.ClientSession") as mock_session:
             mock_context = MagicMock()
             mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(return_value=MagicMock(
-                status=500,
-                text=AsyncMock(return_value="Internal Server Error"),
-            ))
+            mock_post.__aenter__ = AsyncMock(
+                return_value=MagicMock(
+                    status=500,
+                    text=AsyncMock(return_value="Internal Server Error"),
+                )
+            )
             mock_post.__aexit__ = AsyncMock()
             mock_context.post = MagicMock(return_value=mock_post)
             mock_context.__aenter__ = AsyncMock(return_value=mock_context)
@@ -324,20 +330,24 @@ theorem test : True := trivial
         translator = DeepSeekProverTranslator(api_key="test_key")
 
         mock_response = {
-            "choices": [{
-                "message": {
-                    "content": "-- UNTRANSLATABLE: This claim cannot be expressed formally"
+            "choices": [
+                {
+                    "message": {
+                        "content": "-- UNTRANSLATABLE: This claim cannot be expressed formally"
+                    }
                 }
-            }]
+            ]
         }
 
         with patch("aiohttp.ClientSession") as mock_session:
             mock_context = MagicMock()
             mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(return_value=MagicMock(
-                status=200,
-                json=AsyncMock(return_value=mock_response),
-            ))
+            mock_post.__aenter__ = AsyncMock(
+                return_value=MagicMock(
+                    status=200,
+                    json=AsyncMock(return_value=mock_response),
+                )
+            )
             mock_post.__aexit__ = AsyncMock()
             mock_context.post = MagicMock(return_value=mock_post)
             mock_context.__aenter__ = AsyncMock(return_value=mock_context)
@@ -371,21 +381,17 @@ theorem test : True := trivial
         """Test batch translation."""
         translator = DeepSeekProverTranslator(api_key="test_key")
 
-        mock_response = {
-            "choices": [{
-                "message": {
-                    "content": "theorem test : True := trivial"
-                }
-            }]
-        }
+        mock_response = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
 
         with patch("aiohttp.ClientSession") as mock_session:
             mock_context = MagicMock()
             mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(return_value=MagicMock(
-                status=200,
-                json=AsyncMock(return_value=mock_response),
-            ))
+            mock_post.__aenter__ = AsyncMock(
+                return_value=MagicMock(
+                    status=200,
+                    json=AsyncMock(return_value=mock_response),
+                )
+            )
             mock_post.__aexit__ = AsyncMock()
             mock_context.post = MagicMock(return_value=mock_post)
             mock_context.__aenter__ = AsyncMock(return_value=mock_context)
@@ -412,21 +418,17 @@ class TestTranslateToLean:
     @pytest.mark.asyncio
     async def test_translate_to_lean_with_key(self):
         """Test convenience function with API key."""
-        mock_response = {
-            "choices": [{
-                "message": {
-                    "content": "theorem test : True := trivial"
-                }
-            }]
-        }
+        mock_response = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
 
         with patch("aiohttp.ClientSession") as mock_session:
             mock_context = MagicMock()
             mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(return_value=MagicMock(
-                status=200,
-                json=AsyncMock(return_value=mock_response),
-            ))
+            mock_post.__aenter__ = AsyncMock(
+                return_value=MagicMock(
+                    status=200,
+                    json=AsyncMock(return_value=mock_response),
+                )
+            )
             mock_post.__aexit__ = AsyncMock()
             mock_context.post = MagicMock(return_value=mock_post)
             mock_context.__aenter__ = AsyncMock(return_value=mock_context)

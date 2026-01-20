@@ -206,18 +206,23 @@ class TestPulseAdapterQualityThresholds:
         # Create items with low quality but high success
         km_items = []
         for i in range(15):
-            km_items.append({
-                "metadata": {
-                    "category": "tech",
-                    "quality_score": 0.45,  # Low quality bucket
-                    "outcome_success": True,  # But successful
+            km_items.append(
+                {
+                    "metadata": {
+                        "category": "tech",
+                        "quality_score": 0.45,  # Low quality bucket
+                        "outcome_success": True,  # But successful
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_quality_thresholds_from_km(km_items)
 
         # Should recommend lowering threshold
-        assert update.new_min_quality < update.old_min_quality or update.recommendation in ["keep", "lower_threshold"]
+        assert update.new_min_quality < update.old_min_quality or update.recommendation in [
+            "keep",
+            "lower_threshold",
+        ]
 
     @pytest.mark.asyncio
     async def test_threshold_update_raise_threshold(self, adapter):
@@ -225,13 +230,15 @@ class TestPulseAdapterQualityThresholds:
         # Create items with low quality and low success
         km_items = []
         for i in range(15):
-            km_items.append({
-                "metadata": {
-                    "category": "tech",
-                    "quality_score": 0.45,  # Low quality bucket
-                    "outcome_success": i < 3,  # Only 20% success
+            km_items.append(
+                {
+                    "metadata": {
+                        "category": "tech",
+                        "quality_score": 0.45,  # Low quality bucket
+                        "outcome_success": i < 3,  # Only 20% success
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_quality_thresholds_from_km(km_items)
 
@@ -244,13 +251,15 @@ class TestPulseAdapterQualityThresholds:
         # Create items with high success rate for science
         km_items = []
         for i in range(10):
-            km_items.append({
-                "metadata": {
-                    "category": "science",
-                    "quality_score": 0.7,
-                    "outcome_success": True,
+            km_items.append(
+                {
+                    "metadata": {
+                        "category": "science",
+                        "quality_score": 0.7,
+                        "outcome_success": True,
+                    }
                 }
-            })
+            )
 
         update = await adapter.update_quality_thresholds_from_km(km_items)
 
@@ -282,13 +291,15 @@ class TestPulseAdapterTopicCoverage:
         """Test coverage for well-covered topic."""
         km_items = []
         for i in range(12):
-            km_items.append({
-                "metadata": {
-                    "outcome_success": True,
-                    "confidence": 0.8,
-                    "rounds_used": 3,
+            km_items.append(
+                {
+                    "metadata": {
+                        "outcome_success": True,
+                        "confidence": 0.8,
+                        "rounds_used": 3,
+                    }
                 }
-            })
+            )
 
         coverage = await adapter.get_km_topic_coverage("Popular topic", km_items)
 
@@ -302,12 +313,14 @@ class TestPulseAdapterTopicCoverage:
         """Test partial coverage with low consensus."""
         km_items = []
         for i in range(6):
-            km_items.append({
-                "metadata": {
-                    "outcome_success": i < 2,  # Low consensus
-                    "confidence": 0.5,
+            km_items.append(
+                {
+                    "metadata": {
+                        "outcome_success": i < 2,  # Low consensus
+                        "confidence": 0.5,
+                    }
                 }
-            })
+            )
 
         coverage = await adapter.get_km_topic_coverage("Contentious topic", km_items)
 
@@ -501,14 +514,16 @@ class TestPulseAdapterBatchSync:
         # Create KM items
         km_items = []
         for topic_id in topic_ids:
-            km_items.append({
-                "metadata": {
-                    "topic_id": topic_id,
-                    "outcome_success": True,
-                    "category": "tech",
-                    "quality_score": 0.7,
+            km_items.append(
+                {
+                    "metadata": {
+                        "topic_id": topic_id,
+                        "outcome_success": True,
+                        "category": "tech",
+                        "quality_score": 0.7,
+                    }
                 }
-            })
+            )
 
         result = await adapter.sync_validations_from_km(km_items, min_confidence=0.5)
 
@@ -634,13 +649,15 @@ class TestPulseAdapterIntegration:
         # Create extensive outcome data
         km_items = []
         for i in range(20):
-            km_items.append({
-                "metadata": {
-                    "category": "tech",
-                    "quality_score": 0.55,  # Medium quality
-                    "outcome_success": True,  # High success
+            km_items.append(
+                {
+                    "metadata": {
+                        "category": "tech",
+                        "quality_score": 0.55,  # Medium quality
+                        "outcome_success": True,  # High success
+                    }
                 }
-            })
+            )
 
         # Update thresholds
         update = await adapter.update_quality_thresholds_from_km(km_items)

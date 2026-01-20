@@ -499,10 +499,12 @@ class TestFineTuning:
         from aragora.ml import TrainingData, TrainingExample
 
         data = TrainingData()
-        data.add(TrainingExample(
-            instruction="Test",
-            output="Output",
-        ))
+        data.add(
+            TrainingExample(
+                instruction="Test",
+                output="Output",
+            )
+        )
 
         assert len(data) == 1
 
@@ -633,8 +635,10 @@ class TestMLModuleIntegration:
 
         # 4. Create training data
         data = TrainingData()
-        data.add(TrainingExample(
-            instruction="Implement error handling",
-            output="Use structured error handling with proper logging...",
-        ))
+        data.add(
+            TrainingExample(
+                instruction="Implement error handling",
+                output="Use structured error handling with proper logging...",
+            )
+        )
         assert len(data) == 1

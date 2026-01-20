@@ -546,15 +546,11 @@ class QdrantVectorStore(BaseVectorStore):
         conditions = []
 
         if namespace:
-            conditions.append(
-                FieldCondition(key="namespace", match=MatchValue(value=namespace))
-            )
+            conditions.append(FieldCondition(key="namespace", match=MatchValue(value=namespace)))
 
         if filters:
             for key, value in filters.items():
-                conditions.append(
-                    FieldCondition(key=key, match=MatchValue(value=value))
-                )
+                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
 
         if not conditions:
             return None

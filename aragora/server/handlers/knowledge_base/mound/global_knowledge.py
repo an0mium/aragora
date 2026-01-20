@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.metrics import track_global_fact, track_global_query
@@ -104,13 +104,16 @@ class GlobalKnowledgeOperationsMixin:
             logger.error(f"Failed to store verified fact: {e}")
             return error_response(f"Failed to store verified fact: {e}", 500)
 
-        return json_response({
-            "success": True,
-            "node_id": node_id,
-            "content": content,
-            "source": source,
-            "verified_by": user_id,
-        }, status=201)
+        return json_response(
+            {
+                "success": True,
+                "node_id": node_id,
+                "content": content,
+                "source": source,
+                "verified_by": user_id,
+            },
+            status=201,
+        )
 
     @handle_errors("query global knowledge")
     def _handle_query_global(
@@ -143,18 +146,24 @@ class GlobalKnowledgeOperationsMixin:
             logger.error(f"Failed to query global knowledge: {e}")
             return error_response(f"Failed to query global knowledge: {e}", 500)
 
-        return json_response({
-            "items": [
-                item.to_dict() if hasattr(item, "to_dict") else {
-                    "id": getattr(item, "id", "unknown"),
-                    "content": getattr(item, "content", ""),
-                    "importance": getattr(item, "importance", 0.5),
-                }
-                for item in items
-            ],
-            "count": len(items),
-            "query": query,
-        })
+        return json_response(
+            {
+                "items": [
+                    (
+                        item.to_dict()
+                        if hasattr(item, "to_dict")
+                        else {
+                            "id": getattr(item, "id", "unknown"),
+                            "content": getattr(item, "content", ""),
+                            "importance": getattr(item, "importance", 0.5),
+                        }
+                    )
+                    for item in items
+                ],
+                "count": len(items),
+                "query": query,
+            }
+        )
 
     @handle_errors("promote to global")
     def _handle_promote_to_global(
@@ -208,13 +217,16 @@ class GlobalKnowledgeOperationsMixin:
             logger.error(f"Failed to promote to global: {e}")
             return error_response(f"Failed to promote to global: {e}", 500)
 
-        return json_response({
-            "success": True,
-            "global_id": global_id,
-            "original_id": item_id,
-            "promoted_by": user_id,
-            "reason": reason,
-        }, status=201)
+        return json_response(
+            {
+                "success": True,
+                "global_id": global_id,
+                "original_id": item_id,
+                "promoted_by": user_id,
+                "reason": reason,
+            },
+            status=201,
+        )
 
     @handle_errors("get system facts")
     def _handle_get_system_facts(
@@ -236,21 +248,27 @@ class GlobalKnowledgeOperationsMixin:
             logger.error(f"Failed to get system facts: {e}")
             return error_response(f"Failed to get system facts: {e}", 500)
 
-        paginated_facts = facts[offset:offset + limit]
+        paginated_facts = facts[offset : offset + limit]
 
-        return json_response({
-            "facts": [
-                fact.to_dict() if hasattr(fact, "to_dict") else {
-                    "id": getattr(fact, "id", "unknown"),
-                    "content": getattr(fact, "content", ""),
-                }
-                for fact in paginated_facts
-            ],
-            "count": len(paginated_facts),
-            "total": len(facts),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "facts": [
+                    (
+                        fact.to_dict()
+                        if hasattr(fact, "to_dict")
+                        else {
+                            "id": getattr(fact, "id", "unknown"),
+                            "content": getattr(fact, "content", ""),
+                        }
+                    )
+                    for fact in paginated_facts
+                ],
+                "count": len(paginated_facts),
+                "total": len(facts),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("get system workspace id")
     def _handle_get_system_workspace_id(
@@ -267,6 +285,8 @@ class GlobalKnowledgeOperationsMixin:
             logger.error(f"Failed to get system workspace ID: {e}")
             return error_response(f"Failed to get system workspace ID: {e}", 500)
 
-        return json_response({
-            "system_workspace_id": workspace_id,
-        })
+        return json_response(
+            {
+                "system_workspace_id": workspace_id,
+            }
+        )

@@ -438,7 +438,9 @@ class _InMemoryRedis:
     async def expire(self, key: str, seconds: int) -> None:
         pass  # No-op for in-memory
 
-    async def hset(self, key: str, field: str = None, value: str = None, mapping: dict = None) -> None:
+    async def hset(
+        self, key: str, field: str = None, value: str = None, mapping: dict = None
+    ) -> None:
         if key not in self._hashes:
             self._hashes[key] = {}
         if mapping:

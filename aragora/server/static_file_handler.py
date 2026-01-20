@@ -113,9 +113,7 @@ class StaticFileHandler:
                 return content_type
         return "text/html"
 
-    def serve_file(
-        self, filename: str
-    ) -> Optional[Tuple[int, dict, bytes]]:
+    def serve_file(self, filename: str) -> Optional[Tuple[int, dict, bytes]]:
         """Serve a static file with security protections.
 
         Args:

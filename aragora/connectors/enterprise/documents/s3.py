@@ -28,8 +28,19 @@ logger = logging.getLogger(__name__)
 
 # Supported document extensions
 DOCUMENT_EXTENSIONS = {
-    ".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv",
-    ".pdf", ".docx", ".doc", ".pptx", ".xlsx",
+    ".txt",
+    ".md",
+    ".rst",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".csv",
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".pptx",
+    ".xlsx",
 }
 
 # Max file size to process (50MB)
@@ -168,9 +179,11 @@ class S3Connector(EnterpriseConnector):
         """Extract text from PDF content."""
         try:
             import io
+
             # Try pypdf first (lighter weight)
             try:
                 from pypdf import PdfReader
+
                 reader = PdfReader(io.BytesIO(content))
                 text_parts = []
                 for page in reader.pages[:50]:  # Limit to 50 pages
@@ -184,6 +197,7 @@ class S3Connector(EnterpriseConnector):
             # Fallback to PyPDF2
             try:
                 import PyPDF2
+
                 reader = PyPDF2.PdfReader(io.BytesIO(content))
                 text_parts = []
                 for page in reader.pages[:50]:
@@ -291,7 +305,11 @@ class S3Connector(EnterpriseConnector):
                             source_id=f"s3://{self.bucket}/{key}",
                             title=Path(key).name,
                             url=f"s3://{self.bucket}/{key}",
-                            updated_at=last_modified.replace(tzinfo=timezone.utc) if last_modified.tzinfo is None else last_modified,
+                            updated_at=(
+                                last_modified.replace(tzinfo=timezone.utc)
+                                if last_modified.tzinfo is None
+                                else last_modified
+                            ),
                             domain=domain,
                             confidence=0.75,
                             metadata={

@@ -387,9 +387,7 @@ class TestKnowledgeHandlerCreateFact:
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
-        mock_store.add_fact.return_value = MockFact(
-            id="new-fact", statement="New statement"
-        )
+        mock_store.add_fact.return_value = MockFact(id="new-fact", statement="New statement")
         handler._fact_store = mock_store
 
         with patch.object(handler, "require_auth_or_error") as mock_auth:

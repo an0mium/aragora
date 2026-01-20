@@ -111,10 +111,12 @@ class MockEvidenceStore:
         if debate_id:
             if debate_id not in self._debate_evidence:
                 self._debate_evidence[debate_id] = []
-            self._debate_evidence[debate_id].append({
-                **self._evidence[evidence_id],
-                "round": round_number,
-            })
+            self._debate_evidence[debate_id].append(
+                {
+                    **self._evidence[evidence_id],
+                    "round": round_number,
+                }
+            )
         return evidence_id
 
     def save_evidence_pack(self, pack, debate_id: str, round_number: Optional[int] = None) -> list:
@@ -185,6 +187,7 @@ class MockEvidenceCollector:
 def reset_rate_limiters():
     """Reset rate limiters before each test."""
     from aragora.server.handlers.features import evidence
+
     # Reset the rate limiter state (uses _buckets internally)
     evidence._evidence_read_limiter._buckets.clear()
     evidence._evidence_write_limiter._buckets.clear()
@@ -350,9 +353,7 @@ class TestGetDebateEvidence:
         )
 
         mock_handler = MockHandler()
-        result = evidence_handler.handle(
-            "/api/evidence/debate/debate_123", {}, mock_handler
-        )
+        result = evidence_handler.handle("/api/evidence/debate/debate_123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -429,9 +430,7 @@ class TestSearchEvidence:
         )
 
         mock_handler = MockHandler(body={"query": "machine"})
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -442,9 +441,7 @@ class TestSearchEvidence:
     def test_search_empty_query_rejected(self, evidence_handler):
         """Test rejection of empty search query."""
         mock_handler = MockHandler(body={"query": ""})
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -454,9 +451,7 @@ class TestSearchEvidence:
     def test_search_missing_query_rejected(self, evidence_handler):
         """Test rejection of missing search query."""
         mock_handler = MockHandler(body={})
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -478,14 +473,14 @@ class TestSearchEvidence:
             reliability_score=0.3,
         )
 
-        mock_handler = MockHandler(body={
-            "query": "content",
-            "source": "wikipedia",
-            "min_reliability": 0.5,
-        })
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
+        mock_handler = MockHandler(
+            body={
+                "query": "content",
+                "source": "wikipedia",
+                "min_reliability": 0.5,
+            }
         )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         body = parse_body(result)
@@ -497,9 +492,7 @@ class TestSearchEvidence:
         # Create a very long query that should be rejected
         long_query = "a" * 1001  # MAX_SEARCH_QUERY_LENGTH is typically 1000
         mock_handler = MockHandler(body={"query": long_query})
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -509,9 +502,7 @@ class TestSearchEvidence:
         # Patterns with nested quantifiers are flagged as dangerous
         malicious_query = "(a+)+" * 10  # Nested quantifier pattern
         mock_handler = MockHandler(body={"query": malicious_query})
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         # Should either reject (400) or sanitize the input
@@ -524,9 +515,7 @@ class TestCollectEvidence:
     def test_collect_evidence(self, evidence_handler):
         """Test evidence collection."""
         mock_handler = MockHandler(body={"task": "What is machine learning?"})
-        result = evidence_handler.handle_post(
-            "/api/evidence/collect", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -537,23 +526,21 @@ class TestCollectEvidence:
     def test_collect_empty_task_rejected(self, evidence_handler):
         """Test rejection of empty task."""
         mock_handler = MockHandler(body={"task": ""})
-        result = evidence_handler.handle_post(
-            "/api/evidence/collect", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
 
     def test_collect_with_debate_association(self, evidence_handler, evidence_store):
         """Test evidence collection with debate association."""
-        mock_handler = MockHandler(body={
-            "task": "What is machine learning?",
-            "debate_id": "debate_123",
-            "round": 1,
-        })
-        result = evidence_handler.handle_post(
-            "/api/evidence/collect", {}, mock_handler
+        mock_handler = MockHandler(
+            body={
+                "task": "What is machine learning?",
+                "debate_id": "debate_123",
+                "round": 1,
+            }
         )
+        result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
 
         assert result is not None
         body = parse_body(result)
@@ -573,13 +560,13 @@ class TestAssociateEvidence:
             snippet="Content 1",
         )
 
-        mock_handler = MockHandler(body={
-            "evidence_ids": ["ev_1"],
-            "round": 1,
-        })
-        result = evidence_handler.handle_post(
-            "/api/evidence/debate/debate_123", {}, mock_handler
+        mock_handler = MockHandler(
+            body={
+                "evidence_ids": ["ev_1"],
+                "round": 1,
+            }
         )
+        result = evidence_handler.handle_post("/api/evidence/debate/debate_123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -590,9 +577,7 @@ class TestAssociateEvidence:
     def test_associate_empty_ids_rejected(self, evidence_handler):
         """Test rejection of empty evidence_ids."""
         mock_handler = MockHandler(body={"evidence_ids": []})
-        result = evidence_handler.handle_post(
-            "/api/evidence/debate/debate_123", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/debate/debate_123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -616,9 +601,7 @@ class TestDeleteEvidence:
         )
 
         mock_handler = MockHandler()
-        result = evidence_handler.handle_delete(
-            "/api/evidence/ev_123", {}, mock_handler
-        )
+        result = evidence_handler.handle_delete("/api/evidence/ev_123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -628,9 +611,7 @@ class TestDeleteEvidence:
     def test_delete_nonexistent_evidence(self, evidence_handler):
         """Test 404 for deleting nonexistent evidence."""
         mock_handler = MockHandler()
-        result = evidence_handler.handle_delete(
-            "/api/evidence/nonexistent", {}, mock_handler
-        )
+        result = evidence_handler.handle_delete("/api/evidence/nonexistent", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -675,9 +656,7 @@ class TestErrorHandling:
         mock_handler = MockHandler()
         mock_handler.rfile.read.return_value = b"not json"
 
-        result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, mock_handler
-        )
+        result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -686,9 +665,7 @@ class TestErrorHandling:
         """Test rejection of path traversal attempts."""
         mock_handler = MockHandler()
         # Path traversal attempts with extra slashes don't match valid routes
-        result = evidence_handler.handle(
-            "/api/evidence/../../etc/passwd", {}, mock_handler
-        )
+        result = evidence_handler.handle("/api/evidence/../../etc/passwd", {}, mock_handler)
 
         # Handler may return None for paths it can't handle, or 400 for invalid IDs
         assert result is None or result.status_code == 400
@@ -705,20 +682,18 @@ class TestIntegration:
     def test_collect_then_search_workflow(self, evidence_handler, evidence_store):
         """Test collecting evidence then searching for it."""
         # First collect evidence
-        collect_handler = MockHandler(body={
-            "task": "machine learning algorithms",
-            "debate_id": "debate_ml",
-        })
-        collect_result = evidence_handler.handle_post(
-            "/api/evidence/collect", {}, collect_handler
+        collect_handler = MockHandler(
+            body={
+                "task": "machine learning algorithms",
+                "debate_id": "debate_ml",
+            }
         )
+        collect_result = evidence_handler.handle_post("/api/evidence/collect", {}, collect_handler)
         assert collect_result.status_code == 200
 
         # Then search for it
         search_handler = MockHandler(body={"query": "test"})
-        search_result = evidence_handler.handle_post(
-            "/api/evidence/search", {}, search_handler
-        )
+        search_result = evidence_handler.handle_post("/api/evidence/search", {}, search_handler)
         assert search_result.status_code == 200
 
     def test_full_crud_workflow(self, evidence_handler, evidence_store):
@@ -733,19 +708,13 @@ class TestIntegration:
 
         # Read
         mock_handler = MockHandler()
-        read_result = evidence_handler.handle(
-            "/api/evidence/ev_crud", {}, mock_handler
-        )
+        read_result = evidence_handler.handle("/api/evidence/ev_crud", {}, mock_handler)
         assert read_result.status_code == 200
 
         # Delete
-        delete_result = evidence_handler.handle_delete(
-            "/api/evidence/ev_crud", {}, mock_handler
-        )
+        delete_result = evidence_handler.handle_delete("/api/evidence/ev_crud", {}, mock_handler)
         assert delete_result.status_code == 200
 
         # Verify deleted
-        verify_result = evidence_handler.handle(
-            "/api/evidence/ev_crud", {}, mock_handler
-        )
+        verify_result = evidence_handler.handle("/api/evidence/ev_crud", {}, mock_handler)
         assert verify_result.status_code == 404

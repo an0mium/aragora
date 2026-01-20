@@ -44,8 +44,9 @@ def reset_rate_limiter():
     """Reset rate limiter before each test."""
     try:
         from aragora.server.handlers.introspection import _introspection_limiter
+
         # RateLimiter uses _buckets (dict of timestamp lists)
-        if hasattr(_introspection_limiter, '_buckets'):
+        if hasattr(_introspection_limiter, "_buckets"):
             _introspection_limiter._buckets.clear()
     except ImportError:
         pass
@@ -152,7 +153,9 @@ class TestIntrospectionHandlerAllEndpoint:
 class TestIntrospectionHandlerLeaderboardEndpoint:
     """Tests for GET /api/introspection/leaderboard endpoint."""
 
-    def test_leaderboard_returns_503_when_unavailable(self, introspection_handler, mock_http_handler):
+    def test_leaderboard_returns_503_when_unavailable(
+        self, introspection_handler, mock_http_handler
+    ):
         """Leaderboard endpoint returns 503 when introspection unavailable."""
         with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = introspection_handler.handle(

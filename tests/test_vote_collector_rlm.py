@@ -28,6 +28,7 @@ from aragora.debate.phases.vote_collector import (
 @dataclass
 class MockVote:
     """Mock vote for testing."""
+
     choice: str
     confidence: float = 0.8
     reasoning: str = "Test reasoning"
@@ -36,18 +37,21 @@ class MockVote:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str
 
 
 @dataclass
 class MockEnvironment:
     """Mock environment for testing."""
+
     task: str = "Test task"
 
 
 @dataclass
 class MockResult:
     """Mock result for testing."""
+
     id: str = "test-123"
     rounds_used: int = 3
 
@@ -165,7 +169,10 @@ class TestCheckClearMajority:
         # 5 of 6 votes (83%), 4 for A, 1 for B
         # A has 4 votes > 50% of 6 agents, lead is 3 >= 6*0.2=1.2
         votes = [
-            MockVote("A"), MockVote("A"), MockVote("A"), MockVote("A"),
+            MockVote("A"),
+            MockVote("A"),
+            MockVote("A"),
+            MockVote("A"),
             MockVote("B"),
         ]
         has_majority, leader = collector._check_clear_majority(votes, 6)
@@ -292,8 +299,7 @@ class TestCollectVotesWithRLMTermination:
 
         # Check for rlm_early_termination notification
         rlm_calls = [
-            call for call in notify_fn.call_args_list
-            if call[0][0] == "rlm_early_termination"
+            call for call in notify_fn.call_args_list if call[0][0] == "rlm_early_termination"
         ]
         assert len(rlm_calls) >= 1
 

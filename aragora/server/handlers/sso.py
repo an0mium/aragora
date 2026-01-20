@@ -254,17 +254,20 @@ class SSOHandler(BaseHandler):
         except ConfigurationError as e:
             logger.warning(f"SSO login configuration error: {e}")
             return self._format_response(
-                handler, error_response(safe_error_message(e, "SSO login"), 503, code="SSO_CONFIG_ERROR")
+                handler,
+                error_response(safe_error_message(e, "SSO login"), 503, code="SSO_CONFIG_ERROR"),
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid SSO login request data: {e}")
             return self._format_response(
-                handler, error_response(safe_error_message(e, "SSO login"), 400, code="SSO_INVALID_REQUEST")
+                handler,
+                error_response(safe_error_message(e, "SSO login"), 400, code="SSO_INVALID_REQUEST"),
             )
         except Exception as e:
             logger.exception(f"Unexpected SSO login error: {e}")
             return self._format_response(
-                handler, error_response(safe_error_message(e, "SSO login"), 500, code="SSO_LOGIN_ERROR")
+                handler,
+                error_response(safe_error_message(e, "SSO login"), 500, code="SSO_LOGIN_ERROR"),
             )
 
     @rate_limit(rpm=10)
@@ -382,12 +385,16 @@ class SSOHandler(BaseHandler):
         except ConfigurationError as e:
             logger.warning(f"SSO callback configuration error: {e}")
             return self._format_response(
-                handler, error_response(safe_error_message(e, "SSO callback"), 503, code="SSO_CONFIG_ERROR")
+                handler,
+                error_response(safe_error_message(e, "SSO callback"), 503, code="SSO_CONFIG_ERROR"),
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid SSO callback data: {e}")
             return self._format_response(
-                handler, error_response(safe_error_message(e, "authentication"), 400, code="SSO_INVALID_DATA")
+                handler,
+                error_response(
+                    safe_error_message(e, "authentication"), 400, code="SSO_INVALID_DATA"
+                ),
             )
         except Exception as e:
             logger.exception(f"Unexpected SSO callback error: {e}")
@@ -416,7 +423,10 @@ class SSOHandler(BaseHandler):
                 )
 
             return self._format_response(
-                handler, error_response(safe_error_message(e, "authentication"), 401, code="SSO_AUTH_FAILED")
+                handler,
+                error_response(
+                    safe_error_message(e, "authentication"), 401, code="SSO_AUTH_FAILED"
+                ),
             )
 
     @rate_limit(rpm=10)
@@ -566,7 +576,9 @@ class SSOHandler(BaseHandler):
             logger.warning(f"Data error generating SSO metadata: {e}")
             return self._format_response(
                 handler,
-                error_response(f"Invalid metadata configuration: {e}", 400, code="METADATA_CONFIG_ERROR"),
+                error_response(
+                    f"Invalid metadata configuration: {e}", 400, code="METADATA_CONFIG_ERROR"
+                ),
             )
         except Exception as e:
             logger.exception(f"Unexpected metadata generation error: {e}")

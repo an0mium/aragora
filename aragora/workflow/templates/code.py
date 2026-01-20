@@ -49,7 +49,11 @@ SECURITY_AUDIT_TEMPLATE: Dict[str, Any] = {
             "name": "OWASP Top 10 Review",
             "description": "Multi-agent review against OWASP Top 10",
             "config": {
-                "agents": ["code_security_specialist", "security_engineer", "architecture_reviewer"],
+                "agents": [
+                    "code_security_specialist",
+                    "security_engineer",
+                    "architecture_reviewer",
+                ],
                 "rounds": 3,
                 "topic_template": "Review code against OWASP Top 10: {scan_results}",
             },
@@ -396,7 +400,11 @@ CODE_QUALITY_TEMPLATE: Dict[str, Any] = {
             "name": "Generate Improvements",
             "description": "Generate specific improvement suggestions",
             "config": {
-                "agents": ["code_quality_reviewer", "architecture_reviewer", "performance_engineer"],
+                "agents": [
+                    "code_quality_reviewer",
+                    "architecture_reviewer",
+                    "performance_engineer",
+                ],
                 "topic_template": "Suggest improvements for: {quality_issues}",
             },
         },

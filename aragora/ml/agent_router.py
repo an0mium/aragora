@@ -227,6 +227,7 @@ class AgentRouter:
         if self._embedding_service is None and self.config.use_embeddings:
             try:
                 from aragora.ml.embeddings import get_embedding_service
+
                 self._embedding_service = get_embedding_service()
             except Exception as e:
                 logger.warning(f"Could not load embedding service: {e}")
@@ -477,10 +478,10 @@ class AgentRouter:
 
             # Weighted combination
             score = (
-                self.config.weight_task_match * task_match +
-                self.config.weight_historical * historical +
-                self.config.weight_elo * elo +
-                self.config.weight_cost * cost
+                self.config.weight_task_match * task_match
+                + self.config.weight_historical * historical
+                + self.config.weight_elo * elo
+                + self.config.weight_cost * cost
             )
 
             # Apply constraints
@@ -497,11 +498,7 @@ class AgentRouter:
             agent_scores[agent_id] = score
 
         # Select top agents
-        sorted_agents = sorted(
-            agent_scores.keys(),
-            key=lambda x: agent_scores[x],
-            reverse=True
-        )
+        sorted_agents = sorted(agent_scores.keys(), key=lambda x: agent_scores[x], reverse=True)
 
         # Optimize for diversity if enabled
         selected: list[str] = []
@@ -523,7 +520,9 @@ class AgentRouter:
 
         # Add diversity bonus to overall score
         avg_score = np.mean([agent_scores[a] for a in selected]) if selected else 0.0
-        final_confidence = (avg_score + self.config.weight_diversity * diversity_score) * type_confidence
+        final_confidence = (
+            avg_score + self.config.weight_diversity * diversity_score
+        ) * type_confidence
 
         # Build reasoning
         reasoning = []
@@ -565,9 +564,7 @@ class AgentRouter:
         if len(history) > 500:
             self._historical_performance[agent_id][task_type] = history[-500:]
 
-        logger.debug(
-            f"Recorded performance: {agent_id} on {task_type} = {success}"
-        )
+        logger.debug(f"Recorded performance: {agent_id} on {task_type} = {success}")
 
     def update_elo(
         self,
@@ -607,13 +604,15 @@ class AgentRouter:
         }
 
         if caps:
-            stats.update({
-                "elo_rating": caps.elo_rating,
-                "strengths": [s.value for s in caps.strengths],
-                "weaknesses": [w.value for w in caps.weaknesses],
-                "cost_tier": caps.cost_tier,
-                "speed_tier": caps.speed_tier,
-            })
+            stats.update(
+                {
+                    "elo_rating": caps.elo_rating,
+                    "strengths": [s.value for s in caps.strengths],
+                    "weaknesses": [w.value for w in caps.weaknesses],
+                    "cost_tier": caps.cost_tier,
+                    "speed_tier": caps.speed_tier,
+                }
+            )
 
         if history:
             total_tasks = sum(len(v) for v in history.values())

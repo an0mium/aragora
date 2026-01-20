@@ -57,6 +57,7 @@ async def _get_queue() -> Optional[Any]:
 
         try:
             from aragora.queue import create_redis_queue
+
             _queue_instance = await create_redis_queue()
             return _queue_instance
         except ImportError:
@@ -96,6 +97,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         if handler:
             query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
             from urllib.parse import parse_qs
+
             query_params = parse_qs(query_str)
 
         # GET /api/queue/stats
@@ -148,27 +150,32 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         """Get queue statistics."""
         queue = await _get_queue()
         if queue is None:
-            return json_response({
-                "error": "Queue not available",
-                "message": "Redis queue is not configured or unavailable",
-                "stats": {
-                    "pending": 0,
-                    "processing": 0,
-                    "completed": 0,
-                    "failed": 0,
-                    "cancelled": 0,
-                    "retrying": 0,
-                    "stream_length": 0,
-                    "pending_in_group": 0,
+            return json_response(
+                {
+                    "error": "Queue not available",
+                    "message": "Redis queue is not configured or unavailable",
+                    "stats": {
+                        "pending": 0,
+                        "processing": 0,
+                        "completed": 0,
+                        "failed": 0,
+                        "cancelled": 0,
+                        "retrying": 0,
+                        "stream_length": 0,
+                        "pending_in_group": 0,
+                    },
                 },
-            }, status=503)
+                status=503,
+            )
 
         try:
             stats = await queue.get_queue_stats()
-            return json_response({
-                "stats": stats,
-                "timestamp": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "stats": stats,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to get queue stats due to connection error: {e}")
             return error_response(safe_error_message(e, "get queue stats"), 503)
@@ -184,11 +191,14 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         """
         queue = await _get_queue()
         if queue is None:
-            return json_response({
-                "workers": [],
-                "total": 0,
-                "message": "Queue not available",
-            }, status=503)
+            return json_response(
+                {
+                    "workers": [],
+                    "total": 0,
+                    "message": "Queue not available",
+                },
+                status=503,
+            )
 
         try:
             # Workers are tracked via consumer group in Redis
@@ -202,41 +212,48 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     # Get consumers in this group
                     try:
                         consumers = await redis_client.xinfo_consumers(
-                            queue.stream_key,
-                            group.get("name", "")
+                            queue.stream_key, group.get("name", "")
                         )
                         for consumer in consumers:
                             if isinstance(consumer, dict):
-                                workers.append({
-                                    "worker_id": consumer.get("name", "unknown"),
-                                    "group": group.get("name", "unknown"),
-                                    "pending": consumer.get("pending", 0),
-                                    "idle_ms": consumer.get("idle", 0),
-                                })
+                                workers.append(
+                                    {
+                                        "worker_id": consumer.get("name", "unknown"),
+                                        "group": group.get("name", "unknown"),
+                                        "pending": consumer.get("pending", 0),
+                                        "idle_ms": consumer.get("idle", 0),
+                                    }
+                                )
                     except (ConnectionError, OSError, TimeoutError) as ce:
                         logger.debug(f"Could not get consumers due to connection error: {ce}")
                     except Exception as ce:
                         logger.warning(f"Unexpected error getting consumers: {ce}")
 
-            return json_response({
-                "workers": workers,
-                "total": len(workers),
-                "timestamp": datetime.now().isoformat(),
-            })
+            return json_response(
+                {
+                    "workers": workers,
+                    "total": len(workers),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to get worker status due to connection error: {e}")
-            return json_response({
-                "workers": [],
-                "total": 0,
-                "error": str(e),
-            })
+            return json_response(
+                {
+                    "workers": [],
+                    "total": 0,
+                    "error": str(e),
+                }
+            )
         except Exception as e:
             logger.exception(f"Unexpected error getting worker status: {e}")
-            return json_response({
-                "workers": [],
-                "total": 0,
-                "error": "Internal error",
-            })
+            return json_response(
+                {
+                    "workers": [],
+                    "total": 0,
+                    "error": "Internal error",
+                }
+            )
 
     async def _submit_job(self, handler: Any) -> HandlerResult:
         """Submit a new job to the queue."""
@@ -276,11 +293,14 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             # Enqueue
             job_id = await queue.enqueue(job, priority=data.get("priority", 0))
 
-            return json_response({
-                "job_id": job_id,
-                "status": "pending",
-                "message": "Job submitted successfully",
-            }, status=202)
+            return json_response(
+                {
+                    "job_id": job_id,
+                    "status": "pending",
+                    "message": "Job submitted successfully",
+                },
+                status=202,
+            )
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid job submission data: {e}")
@@ -296,11 +316,14 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         """List jobs with optional filtering."""
         queue = await _get_queue()
         if queue is None:
-            return json_response({
-                "jobs": [],
-                "total": 0,
-                "message": "Queue not available",
-            }, status=503)
+            return json_response(
+                {
+                    "jobs": [],
+                    "total": 0,
+                    "message": "Queue not available",
+                },
+                status=503,
+            )
 
         try:
             from aragora.queue import JobStatus
@@ -318,7 +341,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     return error_response(
                         f"Invalid status: {status_filter}. "
                         f"Valid values: {[s.value for s in JobStatus]}",
-                        400
+                        400,
                     )
 
             # Get jobs from status tracker
@@ -328,7 +351,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
             # Apply offset
-            jobs = jobs[offset:offset + limit]
+            jobs = jobs[offset : offset + limit]
 
             # Format response
             jobs_data = [
@@ -338,11 +361,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     "created_at": datetime.fromtimestamp(job.created_at).isoformat(),
                     "started_at": (
                         datetime.fromtimestamp(job.started_at).isoformat()
-                        if job.started_at else None
+                        if job.started_at
+                        else None
                     ),
                     "completed_at": (
                         datetime.fromtimestamp(job.completed_at).isoformat()
-                        if job.completed_at else None
+                        if job.completed_at
+                        else None
                     ),
                     "attempts": job.attempts,
                     "max_attempts": job.max_attempts,
@@ -350,7 +375,8 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     "error": job.error,
                     "worker_id": job.worker_id,
                     "metadata": {
-                        k: v for k, v in job.metadata.items()
+                        k: v
+                        for k, v in job.metadata.items()
                         if not k.startswith("_")  # Hide internal fields
                     },
                 }
@@ -361,13 +387,15 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             counts = await queue._status_tracker.get_counts_by_status()
             total = sum(counts.values())
 
-            return json_response({
-                "jobs": jobs_data,
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "counts_by_status": counts,
-            })
+            return json_response(
+                {
+                    "jobs": jobs_data,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "counts_by_status": counts,
+                }
+            )
 
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to list jobs due to connection error: {e}")
@@ -387,30 +415,31 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             if job is None:
                 return error_response(f"Job not found: {job_id}", 404)
 
-            return json_response({
-                "job_id": job.id,
-                "status": job.status.value,
-                "created_at": datetime.fromtimestamp(job.created_at).isoformat(),
-                "started_at": (
-                    datetime.fromtimestamp(job.started_at).isoformat()
-                    if job.started_at else None
-                ),
-                "completed_at": (
-                    datetime.fromtimestamp(job.completed_at).isoformat()
-                    if job.completed_at else None
-                ),
-                "attempts": job.attempts,
-                "max_attempts": job.max_attempts,
-                "priority": job.priority,
-                "error": job.error,
-                "worker_id": job.worker_id,
-                "payload": job.payload,
-                "metadata": {
-                    k: v for k, v in job.metadata.items()
-                    if not k.startswith("_")
-                },
-                "result": job.metadata.get("result"),
-            })
+            return json_response(
+                {
+                    "job_id": job.id,
+                    "status": job.status.value,
+                    "created_at": datetime.fromtimestamp(job.created_at).isoformat(),
+                    "started_at": (
+                        datetime.fromtimestamp(job.started_at).isoformat()
+                        if job.started_at
+                        else None
+                    ),
+                    "completed_at": (
+                        datetime.fromtimestamp(job.completed_at).isoformat()
+                        if job.completed_at
+                        else None
+                    ),
+                    "attempts": job.attempts,
+                    "max_attempts": job.max_attempts,
+                    "priority": job.priority,
+                    "error": job.error,
+                    "worker_id": job.worker_id,
+                    "payload": job.payload,
+                    "metadata": {k: v for k, v in job.metadata.items() if not k.startswith("_")},
+                    "result": job.metadata.get("result"),
+                }
+            )
 
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to get job {job_id} due to connection error: {e}")
@@ -438,7 +467,7 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                 return error_response(
                     f"Cannot retry job with status: {job.status.value}. "
                     "Only failed or cancelled jobs can be retried.",
-                    400
+                    400,
                 )
 
             # Reset job for retry
@@ -452,11 +481,13 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
             # Re-enqueue
             await queue.enqueue(job, priority=job.priority)
 
-            return json_response({
-                "job_id": job_id,
-                "status": "pending",
-                "message": "Job queued for retry",
-            })
+            return json_response(
+                {
+                    "job_id": job_id,
+                    "status": "pending",
+                    "message": "Job queued for retry",
+                }
+            )
 
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to retry job {job_id} due to connection error: {e}")
@@ -482,14 +513,16 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
                     return error_response(
                         f"Cannot cancel job with status: {job.status.value}. "
                         "Only pending or retrying jobs can be cancelled.",
-                        400
+                        400,
                     )
 
-            return json_response({
-                "job_id": job_id,
-                "status": "cancelled",
-                "message": "Job cancelled successfully",
-            })
+            return json_response(
+                {
+                    "job_id": job_id,
+                    "status": "cancelled",
+                    "message": "Job cancelled successfully",
+                }
+            )
 
         except (ConnectionError, OSError, TimeoutError) as e:
             logger.error(f"Failed to cancel job {job_id} due to connection error: {e}")

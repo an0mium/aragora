@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.bots.base import (
     BotChannel,
@@ -47,6 +47,7 @@ def _check_botframework_available() -> tuple[bool, Optional[str]]:
     try:
         from botbuilder.core import TurnContext
         from botbuilder.schema import Activity
+
         return True, None
     except ImportError:
         return False, (
@@ -138,7 +139,7 @@ class AragoraTeamsBot:
 
         if not text:
             await turn_context.send_activity(
-                "Hi! I'm Aragora. Try `/aragora help` or `/aragora debate \"topic\"` "
+                'Hi! I\'m Aragora. Try `/aragora help` or `/aragora debate "topic"` '
                 "to get started."
             )
             return
@@ -209,7 +210,7 @@ class AragoraTeamsBot:
                 await turn_context.send_activity(
                     "Hello! I'm Aragora, a multi-agent debate system. "
                     "Use `/aragora help` to see available commands, or try "
-                    "`/aragora debate \"your topic\"` to start a debate."
+                    '`/aragora debate "your topic"` to start a debate.'
                 )
 
     async def _handle_vote(
@@ -229,6 +230,7 @@ class AragoraTeamsBot:
             # Record vote
             try:
                 from aragora.server.storage import get_debates_db
+
                 db = get_debates_db()
                 if db and hasattr(db, "record_vote"):
                     db.record_vote(
@@ -264,7 +266,11 @@ class AragoraTeamsBot:
 
         channel = BotChannel(
             id=activity.channel_id or activity.conversation.id or "unknown",
-            name=activity.channel_data.get("channel", {}).get("name") if activity.channel_data else None,
+            name=(
+                activity.channel_data.get("channel", {}).get("name")
+                if activity.channel_data
+                else None
+            ),
             is_dm=activity.conversation.conversation_type == "personal",
             platform=Platform.TEAMS,
         )
@@ -287,8 +293,16 @@ class AragoraTeamsBot:
             raw_args=args,
             metadata={
                 "api_base": self.config.api_base,
-                "tenant_id": activity.channel_data.get("tenant", {}).get("id") if activity.channel_data else None,
-                "team_id": activity.channel_data.get("team", {}).get("id") if activity.channel_data else None,
+                "tenant_id": (
+                    activity.channel_data.get("tenant", {}).get("id")
+                    if activity.channel_data
+                    else None
+                ),
+                "team_id": (
+                    activity.channel_data.get("team", {}).get("id")
+                    if activity.channel_data
+                    else None
+                ),
             },
         )
 

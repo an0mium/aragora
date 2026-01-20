@@ -412,7 +412,9 @@ class PolicyStore(SQLiteStore):
             conn.execute("DELETE FROM policies WHERE id = ?", (policy_id,))
         return True
 
-    def toggle_policy(self, policy_id: str, enabled: bool, changed_by: Optional[str] = None) -> bool:
+    def toggle_policy(
+        self, policy_id: str, enabled: bool, changed_by: Optional[str] = None
+    ) -> bool:
         """Toggle policy enabled status."""
         result = self.update_policy(policy_id, {"enabled": enabled}, changed_by)
         return result is not None

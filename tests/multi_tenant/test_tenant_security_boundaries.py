@@ -79,7 +79,7 @@ class TestSQLInjectionPrevention:
             "' OR '1'='1",
             "'; DROP TABLE debates; --",
             "tenant_123'; DELETE FROM users; --",
-            "\" OR \"\"=\"",
+            '" OR ""="',
             "tenant_id=1 UNION SELECT * FROM secrets--",
         ]
 
@@ -122,9 +122,7 @@ class TestSQLInjectionPrevention:
         """Verify table alias doesn't enable SQL injection."""
         with TenantContext(tenant_id="tenant_123"):
             base_sql = "SELECT d.* FROM debates d JOIN users u ON d.user_id = u.id"
-            modified_sql, params = isolation.filter_sql(
-                base_sql, "debates", table_alias="d"
-            )
+            modified_sql, params = isolation.filter_sql(base_sql, "debates", table_alias="d")
 
             # Should use alias correctly
             assert "d.tenant_id = :tenant_id" in modified_sql
@@ -448,8 +446,7 @@ class TestContextLeakage:
                 errors.append(str(e))
 
         threads = [
-            threading.Thread(target=thread_func, args=(f"tenant_thread_{i}",))
-            for i in range(5)
+            threading.Thread(target=thread_func, args=(f"tenant_thread_{i}",)) for i in range(5)
         ]
 
         for t in threads:
@@ -511,9 +508,7 @@ class TestIsolationValidation:
         with TenantContext(tenant_id="tenant_custom"):
             resource = {"org_id": "tenant_custom", "data": "secret"}
             # Use custom field name
-            assert strict_isolation.validate_ownership(
-                resource, tenant_field="org_id"
-            ) is True
+            assert strict_isolation.validate_ownership(resource, tenant_field="org_id") is True
 
     def test_missing_tenant_field_raises_error(self, strict_isolation):
         """Test that missing tenant field is detected."""
@@ -559,9 +554,7 @@ class TestNamespacing:
         """Test extracting tenant from namespaced key."""
         # Note: separator is "_", so only splits on first occurrence
         # Use a tenant ID without underscores for clean extraction
-        tenant_id, key = isolation_with_namespacing.extract_tenant_from_key(
-            "tenantns_my_key"
-        )
+        tenant_id, key = isolation_with_namespacing.extract_tenant_from_key("tenantns_my_key")
         assert tenant_id == "tenantns"
         assert key == "my_key"
 

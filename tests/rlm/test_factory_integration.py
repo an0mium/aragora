@@ -24,7 +24,7 @@ class TestRLMFactory:
         rlm = get_rlm(force_new=True)
 
         assert rlm is not None
-        assert hasattr(rlm, 'compress_and_query')
+        assert hasattr(rlm, "compress_and_query")
 
     def test_get_rlm_singleton_behavior(self):
         """get_rlm() should return the same instance by default."""
@@ -64,7 +64,7 @@ class TestRLMFactory:
         compressor = get_compressor()
 
         assert compressor is not None
-        assert hasattr(compressor, 'compress')
+        assert hasattr(compressor, "compress")
 
 
 class TestRLMResult:
@@ -82,8 +82,8 @@ class TestRLMResult:
             used_compression_fallback=True,
         )
 
-        assert hasattr(result, 'used_true_rlm')
-        assert hasattr(result, 'used_compression_fallback')
+        assert hasattr(result, "used_true_rlm")
+        assert hasattr(result, "used_compression_fallback")
         assert result.used_true_rlm is False
         assert result.used_compression_fallback is True
 
@@ -105,8 +105,8 @@ class TestCompressAndQuery:
         )
 
         # Should have tracking flags
-        assert hasattr(result, 'used_true_rlm')
-        assert hasattr(result, 'used_compression_fallback')
+        assert hasattr(result, "used_true_rlm")
+        assert hasattr(result, "used_compression_fallback")
         # At least one should be True
         assert result.used_true_rlm or result.used_compression_fallback
 
@@ -139,12 +139,12 @@ class TestFallbackBehavior:
         rlm = get_rlm(force_new=True)
 
         # Should have compression capability regardless of official RLM
-        assert hasattr(rlm, 'compress_and_query')
+        assert hasattr(rlm, "compress_and_query")
 
         # If official RLM is not available, the compression fallback should work
         if not HAS_OFFICIAL_RLM:
             # Fallback mode
-            assert hasattr(rlm, '_compressor')
+            assert hasattr(rlm, "_compressor")
 
 
 class TestConsumerIntegration:
@@ -157,7 +157,7 @@ class TestConsumerIntegration:
 
         manager = RLMContextManager()
         # Should have _get_rlm method that uses factory
-        assert hasattr(manager, '_get_rlm')
+        assert hasattr(manager, "_get_rlm")
 
     def test_context_init_uses_factory(self):
         """context_init.py should use get_rlm from factory."""
@@ -166,7 +166,7 @@ class TestConsumerIntegration:
         # Create initializer with RLM enabled
         initializer = ContextInitializer(enable_rlm_compression=True)
         # Should have _rlm attribute (may be None if RLM not available)
-        assert hasattr(initializer, '_rlm')
+        assert hasattr(initializer, "_rlm")
 
     def test_rlm_handler_uses_factory(self):
         """server/handlers/rlm.py should use factory methods."""
@@ -175,8 +175,8 @@ class TestConsumerIntegration:
         handler = RLMContextHandler({})
 
         # Should have _get_compressor and _get_rlm methods
-        assert hasattr(handler, '_get_compressor')
-        assert hasattr(handler, '_get_rlm')
+        assert hasattr(handler, "_get_compressor")
+        assert hasattr(handler, "_get_rlm")
 
 
 class TestConfigPropagation:
@@ -211,7 +211,7 @@ class TestConfigPropagation:
         compressor = get_compressor(config=custom_config)
 
         assert compressor is not None
-        assert hasattr(compressor, 'config')
+        assert hasattr(compressor, "config")
 
 
 class TestTrueRLMRouting:
@@ -300,7 +300,7 @@ class TestTrueRLMRouting:
         reset_singleton()
 
         # Capture log output
-        with patch('aragora.rlm.factory.logger') as mock_logger:
+        with patch("aragora.rlm.factory.logger") as mock_logger:
             rlm = get_rlm(force_new=True)
 
             # Should have logged info about which RLM type is being used
@@ -320,12 +320,13 @@ class TestTrueRLMRouting:
         )
 
         # Result should have both tracking flags
-        assert hasattr(result, 'used_true_rlm')
-        assert hasattr(result, 'used_compression_fallback')
+        assert hasattr(result, "used_true_rlm")
+        assert hasattr(result, "used_compression_fallback")
 
         # Exactly one should be True (they're mutually exclusive)
-        assert result.used_true_rlm != result.used_compression_fallback or \
-               (not result.used_true_rlm and not result.used_compression_fallback)
+        assert result.used_true_rlm != result.used_compression_fallback or (
+            not result.used_true_rlm and not result.used_compression_fallback
+        )
 
 
 class TestMockedOfficialRLM:
@@ -338,12 +339,14 @@ class TestMockedOfficialRLM:
 
         # Create a mock that simulates TRUE RLM being available
         mock_true_rlm = MagicMock()
-        mock_true_rlm.query = AsyncMock(return_value=RLMResult(
-            answer="TRUE RLM answer",
-            confidence=0.95,
-            used_true_rlm=True,
-            used_compression_fallback=False,
-        ))
+        mock_true_rlm.query = AsyncMock(
+            return_value=RLMResult(
+                answer="TRUE RLM answer",
+                confidence=0.95,
+                used_true_rlm=True,
+                used_compression_fallback=False,
+            )
+        )
 
         # Verify the mock behaves correctly
         result = await mock_true_rlm.query("test query", MagicMock())
@@ -370,7 +373,7 @@ class TestMockedOfficialRLM:
 
         # Should get a valid result regardless of TRUE RLM availability
         assert result is not None
-        assert hasattr(result, 'answer')
+        assert hasattr(result, "answer")
 
 
 class TestUpdatedConsumerModules:
@@ -384,7 +387,7 @@ class TestUpdatedConsumerModules:
         gatherer = ContextGatherer(enable_rlm_compression=True)
 
         # Should have _aragora_rlm attribute (may be None if RLM not available)
-        assert hasattr(gatherer, '_aragora_rlm')
+        assert hasattr(gatherer, "_aragora_rlm")
 
         # If RLM is available, should be initialized via factory
         if HAS_RLM:
@@ -399,7 +402,7 @@ class TestUpdatedConsumerModules:
         limiter = RLMCognitiveLoadLimiter()
 
         # Should have _aragora_rlm attribute
-        assert hasattr(limiter, '_aragora_rlm')
+        assert hasattr(limiter, "_aragora_rlm")
 
     def test_cross_debate_memory_uses_factory(self):
         """CrossDebateMemory should use get_rlm from factory."""
@@ -409,10 +412,10 @@ class TestUpdatedConsumerModules:
         memory = CrossDebateMemory()
 
         # Should have has_real_rlm property
-        assert hasattr(memory, 'has_real_rlm')
+        assert hasattr(memory, "has_real_rlm")
 
         # Should have _get_rlm method
-        assert hasattr(memory, '_get_rlm')
+        assert hasattr(memory, "_get_rlm")
 
     def test_prompt_builder_rlm_availability(self):
         """PromptBuilder should correctly detect RLM availability."""
@@ -484,10 +487,7 @@ class TestMetricsExport:
         """MetricsSnapshot should convert to dictionary."""
         from aragora.rlm import MetricsSnapshot
 
-        snapshot = MetricsSnapshot(
-            timestamp=1234567890.0,
-            metrics={"test_metric": 42}
-        )
+        snapshot = MetricsSnapshot(timestamp=1234567890.0, metrics={"test_metric": 42})
 
         data = snapshot.to_dict()
         assert data["timestamp"] == 1234567890.0

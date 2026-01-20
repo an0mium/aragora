@@ -194,7 +194,10 @@ class TestVerifyOutcome:
         while hasattr(original, "__wrapped__"):
             original = original.__wrapped__
 
-        with patch("aragora.agents.truth_grounding.PositionTracker", side_effect=ImportError("not available")):
+        with patch(
+            "aragora.agents.truth_grounding.PositionTracker",
+            side_effect=ImportError("not available"),
+        ):
             # Module import fails
             result = original(fork_handler, mock_handler, "test-123")
             assert result.status_code in [503, 500]
@@ -211,9 +214,7 @@ class TestVerifyOutcome:
 
         result = original(fork_handler, mock_handler, "test-123")
         assert result.status_code == 200
-        mock_tracker.record_verification.assert_called_once_with(
-            "test-123", True, "manual"
-        )
+        mock_tracker.record_verification.assert_called_once_with("test-123", True, "manual")
 
 
 # =============================================================================

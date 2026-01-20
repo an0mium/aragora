@@ -29,10 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 # Default database path
-DEFAULT_DB_PATH = Path(os.getenv(
-    "ARAGORA_WORKFLOW_DB",
-    Path.home() / ".aragora" / "workflows.db"
-))
+DEFAULT_DB_PATH = Path(os.getenv("ARAGORA_WORKFLOW_DB", Path.home() / ".aragora" / "workflows.db"))
 
 
 # Schema definition
@@ -141,6 +138,7 @@ class PersistentWorkflowStore:
     def _get_conn(self):
         """Get a database connection."""
         import sqlite3
+
         conn = sqlite3.connect(str(self._db_path))
         conn.row_factory = sqlite3.Row
         return conn
@@ -172,7 +170,8 @@ class PersistentWorkflowStore:
             tags_json = json.dumps(workflow.tags or [])
 
             if exists:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE workflows SET
                         name = ?,
                         description = ?,
@@ -184,40 +183,53 @@ class PersistentWorkflowStore:
                         is_enabled = ?,
                         updated_at = ?
                     WHERE id = ?
-                """, (
-                    workflow.name,
-                    workflow.description,
-                    workflow.category.value if hasattr(workflow.category, 'value') else str(workflow.category),
-                    workflow.version,
-                    definition_json,
-                    tags_json,
-                    1 if workflow.is_template else 0,
-                    1 if getattr(workflow, 'is_enabled', True) else 0,
-                    now,
-                    workflow.id,
-                ))
+                """,
+                    (
+                        workflow.name,
+                        workflow.description,
+                        (
+                            workflow.category.value
+                            if hasattr(workflow.category, "value")
+                            else str(workflow.category)
+                        ),
+                        workflow.version,
+                        definition_json,
+                        tags_json,
+                        1 if workflow.is_template else 0,
+                        1 if getattr(workflow, "is_enabled", True) else 0,
+                        now,
+                        workflow.id,
+                    ),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO workflows (
                         id, tenant_id, name, description, category, version,
                         definition, tags, is_template, is_enabled, created_by,
                         created_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    workflow.id,
-                    getattr(workflow, 'tenant_id', 'default'),
-                    workflow.name,
-                    workflow.description,
-                    workflow.category.value if hasattr(workflow.category, 'value') else str(workflow.category),
-                    workflow.version,
-                    definition_json,
-                    tags_json,
-                    1 if workflow.is_template else 0,
-                    1 if getattr(workflow, 'is_enabled', True) else 0,
-                    getattr(workflow, 'created_by', ''),
-                    workflow.created_at.isoformat() if workflow.created_at else now,
-                    now,
-                ))
+                """,
+                    (
+                        workflow.id,
+                        getattr(workflow, "tenant_id", "default"),
+                        workflow.name,
+                        workflow.description,
+                        (
+                            workflow.category.value
+                            if hasattr(workflow.category, "value")
+                            else str(workflow.category)
+                        ),
+                        workflow.version,
+                        definition_json,
+                        tags_json,
+                        1 if workflow.is_template else 0,
+                        1 if getattr(workflow, "is_enabled", True) else 0,
+                        getattr(workflow, "created_by", ""),
+                        workflow.created_at.isoformat() if workflow.created_at else now,
+                        now,
+                    ),
+                )
 
             conn.commit()
             logger.debug(f"Saved workflow {workflow.id}")
@@ -225,7 +237,9 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
-    def get_workflow(self, workflow_id: str, tenant_id: str = "default") -> Optional[WorkflowDefinition]:
+    def get_workflow(
+        self, workflow_id: str, tenant_id: str = "default"
+    ) -> Optional[WorkflowDefinition]:
         """
         Get a workflow by ID.
 
@@ -239,14 +253,17 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT definition FROM workflows
                 WHERE id = ? AND tenant_id = ?
-            """, (workflow_id, tenant_id))
+            """,
+                (workflow_id, tenant_id),
+            )
 
             row = cursor.fetchone()
             if row:
-                data = json.loads(row['definition'])
+                data = json.loads(row["definition"])
                 return WorkflowDefinition.from_dict(data)
             return None
 
@@ -300,7 +317,7 @@ class PersistentWorkflowStore:
 
             workflows = []
             for row in cursor.fetchall():
-                data = json.loads(row['definition'])
+                data = json.loads(row["definition"])
                 workflow = WorkflowDefinition.from_dict(data)
 
                 # Filter by tags if specified
@@ -329,10 +346,13 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 DELETE FROM workflows
                 WHERE id = ? AND tenant_id = ?
-            """, (workflow_id, tenant_id))
+            """,
+                (workflow_id, tenant_id),
+            )
 
             deleted = cursor.rowcount > 0
             conn.commit()
@@ -359,17 +379,20 @@ class PersistentWorkflowStore:
             definition_json = json.dumps(data)
             now = datetime.now(timezone.utc).isoformat()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO workflow_versions (
                     workflow_id, version, definition, created_by, created_at
                 ) VALUES (?, ?, ?, ?, ?)
-            """, (
-                workflow.id,
-                workflow.version,
-                definition_json,
-                getattr(workflow, 'created_by', ''),
-                now,
-            ))
+            """,
+                (
+                    workflow.id,
+                    workflow.version,
+                    definition_json,
+                    getattr(workflow, "created_by", ""),
+                    now,
+                ),
+            )
 
             conn.commit()
 
@@ -386,23 +409,28 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT version, created_by, created_at, definition
                 FROM workflow_versions
                 WHERE workflow_id = ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (workflow_id, limit))
+            """,
+                (workflow_id, limit),
+            )
 
             versions = []
             for row in cursor.fetchall():
-                data = json.loads(row['definition'])
-                versions.append({
-                    "version": row['version'],
-                    "created_by": row['created_by'],
-                    "created_at": row['created_at'],
-                    "step_count": len(data.get('steps', [])),
-                })
+                data = json.loads(row["definition"])
+                versions.append(
+                    {
+                        "version": row["version"],
+                        "created_by": row["created_by"],
+                        "created_at": row["created_at"],
+                        "step_count": len(data.get("steps", [])),
+                    }
+                )
 
             return versions
 
@@ -418,14 +446,17 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT definition FROM workflow_versions
                 WHERE workflow_id = ? AND version = ?
-            """, (workflow_id, version))
+            """,
+                (workflow_id, version),
+            )
 
             row = cursor.fetchone()
             if row:
-                data = json.loads(row['definition'])
+                data = json.loads(row["definition"])
                 return WorkflowDefinition.from_dict(data)
             return None
 
@@ -447,21 +478,28 @@ class PersistentWorkflowStore:
             definition_json = json.dumps(data)
             tags_json = json.dumps(template.tags or [])
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO workflow_templates (
                     id, name, description, category, definition, tags,
                     created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                template.id,
-                template.name,
-                template.description,
-                template.category.value if hasattr(template.category, 'value') else str(template.category),
-                definition_json,
-                tags_json,
-                now,
-                now,
-            ))
+            """,
+                (
+                    template.id,
+                    template.name,
+                    template.description,
+                    (
+                        template.category.value
+                        if hasattr(template.category, "value")
+                        else str(template.category)
+                    ),
+                    definition_json,
+                    tags_json,
+                    now,
+                    now,
+                ),
+            )
 
             conn.commit()
 
@@ -473,14 +511,17 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT definition FROM workflow_templates
                 WHERE id = ?
-            """, (template_id,))
+            """,
+                (template_id,),
+            )
 
             row = cursor.fetchone()
             if row:
-                data = json.loads(row['definition'])
+                data = json.loads(row["definition"])
                 return WorkflowDefinition.from_dict(data)
             return None
 
@@ -512,7 +553,7 @@ class PersistentWorkflowStore:
 
             templates = []
             for row in cursor.fetchall():
-                data = json.loads(row['definition'])
+                data = json.loads(row["definition"])
                 template = WorkflowDefinition.from_dict(data)
 
                 if tags and not any(t in (template.tags or []) for t in tags):
@@ -530,11 +571,14 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE workflow_templates
                 SET usage_count = usage_count + 1
                 WHERE id = ?
-            """, (template_id,))
+            """,
+                (template_id,),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -549,24 +593,27 @@ class PersistentWorkflowStore:
         try:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO workflow_executions (
                     id, workflow_id, tenant_id, status, inputs, outputs,
                     steps, error, started_at, completed_at, duration_ms
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                execution['id'],
-                execution.get('workflow_id'),
-                execution.get('tenant_id', 'default'),
-                execution.get('status', 'pending'),
-                json.dumps(execution.get('inputs', {})),
-                json.dumps(execution.get('outputs', {})),
-                json.dumps(execution.get('steps', [])),
-                execution.get('error'),
-                execution.get('started_at'),
-                execution.get('completed_at'),
-                execution.get('duration_ms'),
-            ))
+            """,
+                (
+                    execution["id"],
+                    execution.get("workflow_id"),
+                    execution.get("tenant_id", "default"),
+                    execution.get("status", "pending"),
+                    json.dumps(execution.get("inputs", {})),
+                    json.dumps(execution.get("outputs", {})),
+                    json.dumps(execution.get("steps", [])),
+                    execution.get("error"),
+                    execution.get("started_at"),
+                    execution.get("completed_at"),
+                    execution.get("duration_ms"),
+                ),
+            )
 
             conn.commit()
 
@@ -578,25 +625,28 @@ class PersistentWorkflowStore:
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM workflow_executions
                 WHERE id = ?
-            """, (execution_id,))
+            """,
+                (execution_id,),
+            )
 
             row = cursor.fetchone()
             if row:
                 return {
-                    'id': row['id'],
-                    'workflow_id': row['workflow_id'],
-                    'tenant_id': row['tenant_id'],
-                    'status': row['status'],
-                    'inputs': json.loads(row['inputs'] or '{}'),
-                    'outputs': json.loads(row['outputs'] or '{}'),
-                    'steps': json.loads(row['steps'] or '[]'),
-                    'error': row['error'],
-                    'started_at': row['started_at'],
-                    'completed_at': row['completed_at'],
-                    'duration_ms': row['duration_ms'],
+                    "id": row["id"],
+                    "workflow_id": row["workflow_id"],
+                    "tenant_id": row["tenant_id"],
+                    "status": row["status"],
+                    "inputs": json.loads(row["inputs"] or "{}"),
+                    "outputs": json.loads(row["outputs"] or "{}"),
+                    "steps": json.loads(row["steps"] or "[]"),
+                    "error": row["error"],
+                    "started_at": row["started_at"],
+                    "completed_at": row["completed_at"],
+                    "duration_ms": row["duration_ms"],
                 }
             return None
 
@@ -642,19 +692,21 @@ class PersistentWorkflowStore:
 
             executions = []
             for row in cursor.fetchall():
-                executions.append({
-                    'id': row['id'],
-                    'workflow_id': row['workflow_id'],
-                    'tenant_id': row['tenant_id'],
-                    'status': row['status'],
-                    'inputs': json.loads(row['inputs'] or '{}'),
-                    'outputs': json.loads(row['outputs'] or '{}'),
-                    'steps': json.loads(row['steps'] or '[]'),
-                    'error': row['error'],
-                    'started_at': row['started_at'],
-                    'completed_at': row['completed_at'],
-                    'duration_ms': row['duration_ms'],
-                })
+                executions.append(
+                    {
+                        "id": row["id"],
+                        "workflow_id": row["workflow_id"],
+                        "tenant_id": row["tenant_id"],
+                        "status": row["status"],
+                        "inputs": json.loads(row["inputs"] or "{}"),
+                        "outputs": json.loads(row["outputs"] or "{}"),
+                        "steps": json.loads(row["steps"] or "[]"),
+                        "error": row["error"],
+                        "started_at": row["started_at"],
+                        "completed_at": row["completed_at"],
+                        "duration_ms": row["duration_ms"],
+                    }
+                )
 
             return executions, total
 

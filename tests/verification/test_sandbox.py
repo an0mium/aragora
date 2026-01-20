@@ -158,6 +158,7 @@ class TestProofSandboxExecution:
     async def test_execute_z3_code(self):
         """Should execute Z3 SMT code."""
         import shutil
+
         if not shutil.which("z3"):
             pytest.skip("Z3 not installed")
 
@@ -192,6 +193,7 @@ class TestProofSandboxExecution:
     async def test_execute_lean_not_installed(self):
         """Should handle Lean not being installed."""
         import shutil
+
         if shutil.which("lean"):
             pytest.skip("Lean is installed, skipping not-installed test")
 
@@ -203,6 +205,7 @@ class TestProofSandboxExecution:
     async def test_execute_z3_not_installed(self):
         """Should handle Z3 not being installed."""
         import shutil
+
         if shutil.which("z3"):
             pytest.skip("Z3 is installed, skipping not-installed test")
 
@@ -218,6 +221,7 @@ class TestRunSandboxed:
     async def test_run_sandboxed_z3(self):
         """Should run Z3 code in sandbox."""
         import shutil
+
         if not shutil.which("z3"):
             pytest.skip("Z3 not installed")
 

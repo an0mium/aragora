@@ -259,7 +259,6 @@ class TestReDoSProtectionIntegration:
 
     def test_performance_under_load(self):
         """Test that validation performs well under load."""
-        import time
 
         queries = ["test query " + str(i) for i in range(100)]
 

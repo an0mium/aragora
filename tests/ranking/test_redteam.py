@@ -289,7 +289,9 @@ class TestRedTeamIntegratorGetVulnerabilitySummary:
 
         assert summary.redteam_sessions == 3
         # Note: most recent is first in the list (we reverse to process chronologically)
-        assert summary.last_session == "redteam_rt_001"  # Earliest session becomes last_session in reversed iteration
+        assert (
+            summary.last_session == "redteam_rt_001"
+        )  # Earliest session becomes last_session in reversed iteration
 
     def test_no_redteam_entries(self):
         """Test summary with history but no red team entries."""

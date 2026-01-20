@@ -102,9 +102,7 @@ class TestServiceNowConnectorInit:
 
     def test_init_with_defaults(self):
         """Test initialization with default values."""
-        connector = ServiceNowConnector(
-            instance_url="https://example.service-now.com"
-        )
+        connector = ServiceNowConnector(instance_url="https://example.service-now.com")
 
         assert connector.instance_url == "https://example.service-now.com"
         assert connector.tables == ["incident", "problem", "change_request"]
@@ -131,9 +129,7 @@ class TestServiceNowConnectorInit:
 
     def test_init_normalizes_url(self):
         """Test that trailing slash is removed from URL."""
-        connector = ServiceNowConnector(
-            instance_url="https://example.service-now.com/"
-        )
+        connector = ServiceNowConnector(instance_url="https://example.service-now.com/")
 
         assert connector.instance_url == "https://example.service-now.com"
 
@@ -300,9 +296,7 @@ class TestServiceNowSearch:
             assert "[INC0001234] Test incident" in results[0].title
 
     @pytest.mark.asyncio
-    async def test_search_specific_table(
-        self, servicenow_connector, mock_incident_response
-    ):
+    async def test_search_specific_table(self, servicenow_connector, mock_incident_response):
         """Test searching a specific table."""
         with patch.object(
             servicenow_connector,
@@ -310,9 +304,7 @@ class TestServiceNowSearch:
             new_callable=AsyncMock,
             return_value=mock_incident_response,
         ):
-            results = await servicenow_connector.search(
-                "test", limit=10, table="incident"
-            )
+            results = await servicenow_connector.search("test", limit=10, table="incident")
 
             assert len(results) == 2
 
@@ -374,9 +366,7 @@ class TestServiceNowWebhook:
     @pytest.mark.asyncio
     async def test_handle_webhook(self, servicenow_connector):
         """Test webhook handling."""
-        with patch.object(
-            servicenow_connector, "sync", new_callable=AsyncMock
-        ) as mock_sync:
+        with patch.object(servicenow_connector, "sync", new_callable=AsyncMock) as mock_sync:
             payload = {
                 "table_name": "incident",
                 "sys_id": "abc123",

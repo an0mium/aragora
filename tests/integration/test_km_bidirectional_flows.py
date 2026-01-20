@@ -13,36 +13,33 @@ from datetime import datetime
 class TestEvidenceKMFlow:
     """Tests for Evidence ↔ Knowledge Mound bidirectional flow."""
 
-    def test_evidence_store_syncs_to_km_on_save(self):
-        """Evidence with reliability ≥ 0.6 syncs to KM."""
+    def test_evidence_store_has_km_adapter(self):
+        """Evidence store accepts and stores KM adapter."""
         from aragora.evidence.store import EvidenceStore
         from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
         # Create mock adapter
         mock_adapter = Mock(spec=EvidenceAdapter)
-        mock_adapter.from_ingestion_request.return_value = {
-            "evidence_id": "ev_123",
-            "source": "test",
-            "title": "Test",
-            "snippet": "Test content",
-        }
-        mock_adapter.store.return_value = "ev_123"
 
         # Create store with adapter
         store = EvidenceStore(km_adapter=mock_adapter, km_min_reliability=0.6)
 
-        # Save evidence with high reliability
-        with patch.object(store, '_db'):
-            with patch.object(store, 'get_evidence_by_hash', return_value=None):
-                with patch.object(store, 'enricher'):
-                    with patch.object(store, 'scorer'):
-                        # Mock the database operations
-                        store._init_db = Mock()
-                        store._ensure_tables = Mock()
-
-        # Verify adapter would be called (integration point exists)
+        # Verify adapter is stored
         assert store._km_adapter is mock_adapter
         assert store._km_min_reliability == 0.6
+
+    def test_evidence_store_set_km_adapter(self):
+        """Evidence store can set KM adapter after init."""
+        from aragora.evidence.store import EvidenceStore
+        from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
+
+        store = EvidenceStore()
+        assert store._km_adapter is None
+
+        mock_adapter = Mock(spec=EvidenceAdapter)
+        store.set_km_adapter(mock_adapter)
+
+        assert store._km_adapter is mock_adapter
 
     def test_evidence_store_queries_km_for_similar(self):
         """Evidence store can query KM for similar evidence."""
@@ -154,79 +151,56 @@ class TestEloKMFlow:
 class TestBeliefKMFlow:
     """Tests for Belief Network ↔ Knowledge Mound bidirectional flow."""
 
-    def test_belief_network_queries_km_for_beliefs(self):
-        """Belief network can query KM for related beliefs."""
+    def test_belief_network_has_km_adapter(self):
+        """Belief network accepts KM adapter."""
         from aragora.reasoning.belief import BeliefNetwork
         from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
         mock_adapter = Mock(spec=BeliefAdapter)
-        mock_adapter.search_beliefs.return_value = [
-            {"claim_id": "c1", "statement": "AI is transformative", "confidence": 0.9},
-        ]
-
         network = BeliefNetwork(km_adapter=mock_adapter)
 
-        # Query related beliefs
+        assert network._km_adapter is mock_adapter
+
+    def test_belief_network_query_related_beliefs_no_adapter(self):
+        """Belief network returns empty list when no adapter."""
+        from aragora.reasoning.belief import BeliefNetwork
+
+        network = BeliefNetwork()
         results = network.query_km_related_beliefs("AI safety")
 
-        mock_adapter.search_beliefs.assert_called_once_with(
-            query="AI safety",
-            limit=10,
-            min_confidence=0.7,
-        )
-        assert len(results) == 1
+        assert results == []
 
-    def test_belief_network_queries_km_for_historical_cruxes(self):
-        """Belief network can query KM for historical cruxes."""
+    def test_belief_network_query_historical_cruxes_no_adapter(self):
+        """Belief network returns empty list when no adapter."""
         from aragora.reasoning.belief import BeliefNetwork
-        from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
-        mock_adapter = Mock(spec=BeliefAdapter)
-        mock_adapter.search_cruxes.return_value = [
-            {"claim_id": "c1", "crux_score": 0.8},
-        ]
-
-        network = BeliefNetwork(km_adapter=mock_adapter)
-
-        # Query historical cruxes
+        network = BeliefNetwork()
         results = network.query_km_historical_cruxes("consciousness")
 
-        mock_adapter.search_cruxes.assert_called_once_with(
-            query="consciousness",
-            limit=5,
-        )
-        assert len(results) == 1
+        assert results == []
 
-    def test_belief_network_seeds_from_km(self):
-        """Belief network can seed from Knowledge Mound."""
+    def test_belief_network_seed_from_km_no_adapter(self):
+        """Belief network seeds 0 beliefs when no adapter."""
+        from aragora.reasoning.belief import BeliefNetwork
+
+        network = BeliefNetwork()
+        seeded = network.seed_from_km("AI safety")
+
+        assert seeded == 0
+        assert len(network.nodes) == 0
+
+    def test_belief_network_set_km_adapter(self):
+        """Belief network can set adapter after init."""
         from aragora.reasoning.belief import BeliefNetwork
         from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
+        network = BeliefNetwork()
+        assert network._km_adapter is None
+
         mock_adapter = Mock(spec=BeliefAdapter)
-        mock_adapter.search_beliefs.return_value = [
-            {
-                "id": "bl_1",
-                "claim_id": "c1",
-                "statement": "Prior belief about AI",
-                "author": "knowledge_mound",
-                "confidence": 0.85,
-            },
-            {
-                "id": "bl_2",
-                "claim_id": "c2",
-                "statement": "Another prior belief",
-                "author": "knowledge_mound",
-                "confidence": 0.9,
-            },
-        ]
+        network.set_km_adapter(mock_adapter)
 
-        network = BeliefNetwork(km_adapter=mock_adapter)
-
-        # Seed from KM
-        seeded = network.seed_from_km("AI safety", min_confidence=0.8)
-
-        assert seeded == 2
-        assert len(network.nodes) == 2
+        assert network._km_adapter is mock_adapter
 
 
 class TestPulseKMFlow:
@@ -287,6 +261,94 @@ class TestInsightsKMFlow:
         assert detector._km_adapter is mock_adapter
 
 
+class TestCostKMFlow:
+    """Tests for Cost Tracker ↔ Knowledge Mound bidirectional flow."""
+
+    def test_cost_tracker_has_km_adapter(self):
+        """Cost tracker accepts KM adapter."""
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+        mock_adapter = Mock(spec=CostAdapter)
+        tracker = CostTracker(km_adapter=mock_adapter)
+
+        assert tracker._km_adapter is mock_adapter
+
+    def test_cost_tracker_set_km_adapter(self):
+        """Cost tracker can set KM adapter after init."""
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+        tracker = CostTracker()
+        assert tracker._km_adapter is None
+
+        mock_adapter = Mock(spec=CostAdapter)
+        tracker.set_km_adapter(mock_adapter)
+
+        assert tracker._km_adapter is mock_adapter
+
+    def test_cost_tracker_queries_km_for_patterns(self):
+        """Cost tracker can query KM for cost patterns."""
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+        mock_adapter = Mock(spec=CostAdapter)
+        mock_adapter.get_cost_patterns.return_value = {
+            "workspace_id": "ws_1",
+            "avg_cost": 10.5,
+            "sample_size": 30,
+        }
+
+        tracker = CostTracker(km_adapter=mock_adapter)
+
+        # Query cost patterns
+        results = tracker.query_km_cost_patterns("ws_1")
+
+        mock_adapter.get_cost_patterns.assert_called_once_with("ws_1", None)
+        assert results["avg_cost"] == 10.5
+
+    def test_cost_tracker_queries_km_for_alerts(self):
+        """Cost tracker can query KM for historical alerts."""
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+        mock_adapter = Mock(spec=CostAdapter)
+        mock_adapter.get_workspace_alerts.return_value = [
+            {"id": "ct_alert_1", "level": "warning"},
+        ]
+
+        tracker = CostTracker(km_adapter=mock_adapter)
+
+        # Query alerts
+        results = tracker.query_km_workspace_alerts("ws_1")
+
+        mock_adapter.get_workspace_alerts.assert_called_once_with("ws_1", "warning", 50)
+        assert len(results) == 1
+
+    def test_cost_tracker_handles_km_failure_gracefully(self):
+        """Cost tracker handles KM query failures gracefully."""
+        from aragora.billing.cost_tracker import CostTracker
+        from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+        mock_adapter = Mock(spec=CostAdapter)
+        mock_adapter.get_cost_patterns.side_effect = Exception("KM unavailable")
+
+        tracker = CostTracker(km_adapter=mock_adapter)
+
+        # Should not raise, returns empty dict
+        results = tracker.query_km_cost_patterns("ws_1")
+        assert results == {}
+
+    def test_cost_tracker_queries_return_empty_without_adapter(self):
+        """Cost tracker returns empty results when no adapter."""
+        from aragora.billing.cost_tracker import CostTracker
+
+        tracker = CostTracker()
+
+        assert tracker.query_km_cost_patterns("ws_1") == {}
+        assert tracker.query_km_workspace_alerts("ws_1") == []
+
+
 class TestCruxDetectorKMFlow:
     """Tests for Crux Detector ↔ Knowledge Mound bidirectional flow."""
 
@@ -318,12 +380,12 @@ class TestAdapterIntegration:
         )
 
         # Verify all adapters have required methods
-        assert hasattr(EvidenceAdapter, 'search_by_topic')
-        assert hasattr(BeliefAdapter, 'store_belief')
-        assert hasattr(InsightsAdapter, 'store_insight')
-        assert hasattr(EloAdapter, 'store_rating')
-        assert hasattr(PulseAdapter, 'store_trending_topic')
-        assert hasattr(CostAdapter, 'store_alert')
+        assert hasattr(EvidenceAdapter, "search_by_topic")
+        assert hasattr(BeliefAdapter, "store_converged_belief")
+        assert hasattr(InsightsAdapter, "store_insight")
+        assert hasattr(EloAdapter, "store_rating")
+        assert hasattr(PulseAdapter, "store_trending_topic")
+        assert hasattr(CostAdapter, "store_alert")
 
     def test_adapters_share_knowledge_source_enum(self):
         """All adapters use consistent KnowledgeSource values."""

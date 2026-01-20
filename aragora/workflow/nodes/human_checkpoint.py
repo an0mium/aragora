@@ -72,7 +72,13 @@ class ApprovalRequest:
             "title": self.title,
             "description": self.description,
             "checklist": [
-                {"id": c.id, "label": c.label, "required": c.required, "checked": c.checked, "notes": c.notes}
+                {
+                    "id": c.id,
+                    "label": c.label,
+                    "required": c.required,
+                    "checked": c.checked,
+                    "notes": c.notes,
+                }
                 for c in self.checklist
             ],
             "status": self.status.value,

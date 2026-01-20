@@ -45,9 +45,7 @@ class MockAgent:
         """Generate a response."""
         return f"Response to: {prompt[:50]}"
 
-    async def critique(
-        self, proposal: str, task: str, context: Optional[list] = None
-    ) -> dict:
+    async def critique(self, proposal: str, task: str, context: Optional[list] = None) -> dict:
         """Critique a proposal."""
         return {
             "agent": self.name,
@@ -515,7 +513,7 @@ class TestAirlockProxySanitization:
         agent = MockAgent()
 
         async def array_in_text(prompt: str, context=None) -> str:
-            return 'The list is: [1, 2, 3] as requested.'
+            return "The list is: [1, 2, 3] as requested."
 
         agent.generate = array_in_text
 
@@ -680,6 +678,7 @@ class TestAirlockProxyEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_response_sanitization(self, mock_agent):
         """Test sanitization handles empty response."""
+
         async def empty_response(prompt: str, context=None) -> str:
             return ""
 
@@ -720,9 +719,7 @@ class TestAirlockProxyEdgeCases:
     @pytest.mark.asyncio
     async def test_timeout_raises_when_fallback_disabled(self, slow_agent):
         """Test timeout raises when fallback disabled."""
-        config = AirlockConfig(
-            generate_timeout=0.1, max_retries=0, fallback_on_timeout=False
-        )
+        config = AirlockConfig(generate_timeout=0.1, max_retries=0, fallback_on_timeout=False)
         proxy = AirlockProxy(slow_agent, config)
 
         with pytest.raises(asyncio.TimeoutError):

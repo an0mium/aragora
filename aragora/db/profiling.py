@@ -307,7 +307,9 @@ def instrument_sqlite_connection(conn: sqlite3.Connection) -> sqlite3.Connection
             result = original_executemany(query, params_list)
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
-                profiler.record(f"{query} (x{len(params_list)})", (), duration_ms, result.rowcount or 0)
+                profiler.record(
+                    f"{query} (x{len(params_list)})", (), duration_ms, result.rowcount or 0
+                )
             return result
         except (sqlite3.Error, ValueError) as e:
             duration_ms = (time.perf_counter() - start) * 1000

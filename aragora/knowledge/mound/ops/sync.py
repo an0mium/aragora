@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         IngestionRequest,
-        KnowledgeSource,
         MoundConfig,
         SyncResult,
     )
@@ -180,7 +179,7 @@ class SyncOperationsMixin:
         try:
             # Get recent consensus records from the store
             # ConsensusMemory stores records in SQLite, we query directly
-            if hasattr(consensus, '_store') and consensus._store:
+            if hasattr(consensus, "_store") and consensus._store:
                 with consensus._store.connection() as conn:
                     cursor = conn.execute(
                         """
@@ -209,6 +208,7 @@ class SyncOperationsMixin:
 
                         # Parse JSON fields
                         from aragora.utils.json_helpers import safe_json_loads
+
                         tags = safe_json_loads(tags_json, [])
                         metadata = safe_json_loads(metadata_json, {})
 
@@ -299,7 +299,7 @@ class SyncOperationsMixin:
 
         try:
             # FactStore has query_facts method
-            if hasattr(facts, 'query_facts'):
+            if hasattr(facts, "query_facts"):
                 all_facts = facts.query_facts(
                     query="",
                     workspace_id=self.workspace_id,
@@ -319,7 +319,11 @@ class SyncOperationsMixin:
                             topics=fact.topics,
                             metadata={
                                 "fact_id": fact.id,
-                                "validation_status": fact.validation_status.value if hasattr(fact.validation_status, 'value') else str(fact.validation_status),
+                                "validation_status": (
+                                    fact.validation_status.value
+                                    if hasattr(fact.validation_status, "value")
+                                    else str(fact.validation_status)
+                                ),
                                 "evidence_ids": fact.evidence_ids,
                                 "source_documents": fact.source_documents,
                             },
@@ -387,7 +391,7 @@ class SyncOperationsMixin:
 
         try:
             # EvidenceStore has search method
-            if hasattr(evidence, 'search'):
+            if hasattr(evidence, "search"):
                 all_evidence = evidence.search("", limit=10000)
 
                 for ev in all_evidence:
@@ -396,14 +400,14 @@ class SyncOperationsMixin:
                             content=ev.content,
                             workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.EVIDENCE,
-                            debate_id=getattr(ev, 'debate_id', None),
-                            agent_id=getattr(ev, 'agent_id', None),
+                            debate_id=getattr(ev, "debate_id", None),
+                            agent_id=getattr(ev, "agent_id", None),
                             node_type="evidence",
-                            confidence=getattr(ev, 'quality_score', 0.5),
+                            confidence=getattr(ev, "quality_score", 0.5),
                             tier="medium",
                             metadata={
                                 "evidence_id": ev.id,
-                                "source_url": getattr(ev, 'source_url', None),
+                                "source_url": getattr(ev, "source_url", None),
                             },
                         )
 
@@ -469,12 +473,12 @@ class SyncOperationsMixin:
 
         try:
             # CritiqueStore has search_patterns method
-            if hasattr(critique, 'search_patterns'):
+            if hasattr(critique, "search_patterns"):
                 patterns = critique.search_patterns("", limit=10000)
 
                 for pattern in patterns:
                     try:
-                        content = getattr(pattern, 'pattern', '') or getattr(pattern, 'content', '')
+                        content = getattr(pattern, "pattern", "") or getattr(pattern, "content", "")
                         if not content:
                             nodes_skipped += 1
                             continue
@@ -483,13 +487,13 @@ class SyncOperationsMixin:
                             content=content,
                             workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.CRITIQUE,
-                            agent_id=getattr(pattern, 'agent_name', None),
+                            agent_id=getattr(pattern, "agent_name", None),
                             node_type="critique",
-                            confidence=getattr(pattern, 'success_rate', 0.5),
+                            confidence=getattr(pattern, "success_rate", 0.5),
                             tier="slow",
                             metadata={
                                 "pattern_id": pattern.id,
-                                "success_count": getattr(pattern, 'success_count', 0),
+                                "success_count": getattr(pattern, "success_count", 0),
                             },
                         )
 
@@ -526,7 +530,6 @@ class SyncOperationsMixin:
         Returns a dict mapping source name to SyncResult.
         Only syncs from sources that have been connected.
         """
-        from aragora.knowledge.mound.types import SyncResult
 
         self._ensure_initialized()
         results: Dict[str, SyncResult] = {}
@@ -628,8 +631,9 @@ class SyncOperationsMixin:
             # Filter by since if provided
             if since_dt:
                 entries = [
-                    e for e in entries
-                    if hasattr(e, 'updated_at') and e.updated_at >= since_dt.isoformat()
+                    e
+                    for e in entries
+                    if hasattr(e, "updated_at") and e.updated_at >= since_dt.isoformat()
                 ]
 
             for entry in entries:
@@ -739,7 +743,7 @@ class SyncOperationsMixin:
             query += " ORDER BY timestamp DESC LIMIT ?"
             params.append(limit)
 
-            if hasattr(self._consensus, '_store') and self._consensus._store:
+            if hasattr(self._consensus, "_store") and self._consensus._store:
                 with self._consensus._store.connection() as conn:
                     cursor = conn.execute(query, params)
                     rows = cursor.fetchall()
@@ -854,7 +858,7 @@ class SyncOperationsMixin:
         errors: List[str] = []
 
         try:
-            if hasattr(self._facts, 'query_facts'):
+            if hasattr(self._facts, "query_facts"):
                 all_facts = self._facts.query_facts(
                     query="",
                     workspace_id=ws_id,
@@ -877,7 +881,7 @@ class SyncOperationsMixin:
                                 "fact_id": fact.id,
                                 "validation_status": (
                                     fact.validation_status.value
-                                    if hasattr(fact.validation_status, 'value')
+                                    if hasattr(fact.validation_status, "value")
                                     else str(fact.validation_status)
                                 ),
                                 "evidence_ids": fact.evidence_ids,

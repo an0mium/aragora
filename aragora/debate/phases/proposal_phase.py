@@ -331,7 +331,9 @@ class ProposalPhase:
 
         # New grounded position system
         if self._record_grounded_position:
-            self._record_grounded_position(agent.name, proposal, debate_id, 0, calibrated_confidence)
+            self._record_grounded_position(
+                agent.name, proposal, debate_id, 0, calibrated_confidence
+            )
 
     def _get_calibrated_confidence(
         self, agent_name: str, raw_confidence: float, ctx: "DebateContextType"

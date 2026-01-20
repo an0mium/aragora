@@ -49,9 +49,7 @@ class KnowledgeMoundOperations:
         self.enable_ingestion = enable_ingestion
         self._notify_callback = notify_callback
 
-    async def fetch_knowledge_context(
-        self, task: str, limit: int = 10
-    ) -> Optional[str]:
+    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
 
         Queries the unified knowledge superstructure for semantically related
@@ -117,7 +115,9 @@ class KnowledgeMoundOperations:
         # Only ingest high-quality outcomes (consensus with strong confidence)
         # Use 0.85 threshold to ensure knowledge mound contains reliable conclusions
         if not result.final_answer or result.confidence < 0.85:
-            logger.debug("  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.85)")
+            logger.debug(
+                "  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.85)"
+            )
             return
 
         try:

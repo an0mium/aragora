@@ -2,7 +2,7 @@
 
 Tests cover:
 - FormalProofStatus enum values
-- FormalLanguage enum values  
+- FormalLanguage enum values
 - FormalProofResult dataclass
 - FormalVerificationBackend protocol
 - LeanBackend implementation

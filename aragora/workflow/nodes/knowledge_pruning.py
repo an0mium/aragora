@@ -187,7 +187,7 @@ class KnowledgeDedupStep(BaseStep):
         similarity_threshold = config.get("similarity_threshold", 0.95)
         auto_merge = config.get("auto_merge", False)
         dry_run = config.get("dry_run", True)
-        max_clusters = config.get("max_clusters", 50)
+        config.get("max_clusters", 50)
 
         try:
             from aragora.knowledge.mound import KnowledgeMound
@@ -300,8 +300,7 @@ class ConfidenceDecayStep(BaseStep):
             )
 
             logger.info(
-                f"Confidence decay applied to '{workspace_id}': "
-                f"{items_decayed} items decayed"
+                f"Confidence decay applied to '{workspace_id}': " f"{items_decayed} items decayed"
             )
 
             return {
@@ -330,6 +329,7 @@ def _register_pruning_handlers():
         """Handler for pruning tasks."""
         step = KnowledgePruningStep("prune_task", context)
         from aragora.workflow.step import WorkflowContext
+
         wf_context = WorkflowContext(workflow_id="task_handler")
         return await step.execute(wf_context)
 
@@ -337,6 +337,7 @@ def _register_pruning_handlers():
         """Handler for dedup tasks."""
         step = KnowledgeDedupStep("dedup_task", context)
         from aragora.workflow.step import WorkflowContext
+
         wf_context = WorkflowContext(workflow_id="task_handler")
         return await step.execute(wf_context)
 
@@ -344,6 +345,7 @@ def _register_pruning_handlers():
         """Handler for confidence decay tasks."""
         step = ConfidenceDecayStep("decay_task", context)
         from aragora.workflow.step import WorkflowContext
+
         wf_context = WorkflowContext(workflow_id="task_handler")
         return await step.execute(wf_context)
 

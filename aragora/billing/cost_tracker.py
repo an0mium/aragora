@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 from uuid import uuid4
 
 from aragora.billing.usage import (
@@ -27,6 +27,9 @@ from aragora.billing.usage import (
     UsageTracker,
     calculate_token_cost,
 )
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -191,8 +194,12 @@ class Budget:
             "org_id": self.org_id,
             "monthly_limit_usd": str(self.monthly_limit_usd) if self.monthly_limit_usd else None,
             "daily_limit_usd": str(self.daily_limit_usd) if self.daily_limit_usd else None,
-            "per_debate_limit_usd": str(self.per_debate_limit_usd) if self.per_debate_limit_usd else None,
-            "per_agent_limit_usd": str(self.per_agent_limit_usd) if self.per_agent_limit_usd else None,
+            "per_debate_limit_usd": (
+                str(self.per_debate_limit_usd) if self.per_debate_limit_usd else None
+            ),
+            "per_agent_limit_usd": (
+                str(self.per_agent_limit_usd) if self.per_agent_limit_usd else None
+            ),
             "current_monthly_spend": str(self.current_monthly_spend),
             "current_daily_spend": str(self.current_daily_spend),
             "alert_level": self.check_alert_level().value if self.check_alert_level() else None,
@@ -278,8 +285,12 @@ class CostReport:
             "avg_latency_ms": self.avg_latency_ms,
             "top_debates_by_cost": self.top_debates_by_cost,
             "top_agents_by_cost": self.top_agents_by_cost,
-            "projected_monthly_cost": str(self.projected_monthly_cost) if self.projected_monthly_cost else None,
-            "projected_daily_rate": str(self.projected_daily_rate) if self.projected_daily_rate else None,
+            "projected_monthly_cost": (
+                str(self.projected_monthly_cost) if self.projected_monthly_cost else None
+            ),
+            "projected_daily_rate": (
+                str(self.projected_daily_rate) if self.projected_daily_rate else None
+            ),
         }
 
 
@@ -292,19 +303,25 @@ class CostTracker:
 
     Provides comprehensive cost monitoring with budget management,
     alerting, and detailed reporting.
+
+    Supports optional Knowledge Mound integration via CostAdapter for
+    persisting budget alerts and cost anomalies to organizational memory.
     """
 
     def __init__(
         self,
         usage_tracker: Optional[UsageTracker] = None,
+        km_adapter: Optional["CostAdapter"] = None,
     ):
         """
         Initialize cost tracker.
 
         Args:
             usage_tracker: Optional UsageTracker for persistence
+            km_adapter: Optional CostAdapter for Knowledge Mound integration
         """
         self._usage_tracker = usage_tracker
+        self._km_adapter = km_adapter
 
         # In-memory tracking for real-time updates
         self._usage_buffer: List[TokenUsage] = []
@@ -439,16 +456,20 @@ class CostTracker:
             return
 
         # Create unique key to avoid duplicate alerts
-        alert_key = f"{budget.id}:{alert_level.value}:{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+        alert_key = (
+            f"{budget.id}:{alert_level.value}:{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+        )
         if alert_key in self._sent_alerts:
             return
 
         self._sent_alerts.add(alert_key)
 
         # Calculate percentage
-        percentage = float(
-            (budget.current_monthly_spend / budget.monthly_limit_usd) * 100
-        ) if budget.monthly_limit_usd else 0
+        percentage = (
+            float((budget.current_monthly_spend / budget.monthly_limit_usd) * 100)
+            if budget.monthly_limit_usd
+            else 0
+        )
 
         alert = BudgetAlert(
             budget_id=budget.id,
@@ -467,6 +488,13 @@ class CostTracker:
                 callback(alert)
             except Exception as e:
                 logger.error(f"Alert callback failed: {e}")
+
+        # Store to Knowledge Mound if adapter configured
+        if self._km_adapter:
+            try:
+                self._km_adapter.store_alert(alert)
+            except Exception as e:
+                logger.error(f"Failed to store alert to KM: {e}")
 
         logger.warning(f"budget_alert {alert.message}")
 
@@ -496,6 +524,15 @@ class CostTracker:
             return self._budgets.get(self._org_budgets[org_id])
         return None
 
+    def set_km_adapter(self, adapter: "CostAdapter") -> None:
+        """
+        Set Knowledge Mound adapter for alert/anomaly persistence.
+
+        Args:
+            adapter: CostAdapter instance for KM integration
+        """
+        self._km_adapter = adapter
+
     def add_alert_callback(self, callback: AlertCallback) -> None:
         """Register a callback for budget alerts."""
         self._alert_callbacks.append(callback)
@@ -522,12 +559,8 @@ class CostTracker:
             "total_tokens_in": stats.get("tokens_in", 0),
             "total_tokens_out": stats.get("tokens_out", 0),
             "total_api_calls": stats.get("api_calls", 0),
-            "cost_by_agent": {
-                k: str(v) for k, v in stats.get("by_agent", {}).items()
-            },
-            "cost_by_model": {
-                k: str(v) for k, v in stats.get("by_model", {}).items()
-            },
+            "cost_by_agent": {k: str(v) for k, v in stats.get("by_agent", {}).items()},
+            "cost_by_model": {k: str(v) for k, v in stats.get("by_model", {}).items()},
         }
 
     async def generate_report(
@@ -614,9 +647,7 @@ class CostTracker:
                 key=lambda x: x[1],
                 reverse=True,
             )[:10]
-            report.top_agents_by_cost = [
-                {"agent": k, "cost_usd": str(v)} for k, v in sorted_agents
-            ]
+            report.top_agents_by_cost = [{"agent": k, "cost_usd": str(v)} for k, v in sorted_agents]
 
         return report
 
@@ -689,6 +720,99 @@ class CostTracker:
             "total_tokens_out": total_tokens_out,
             "cost_by_agent": {k: str(v) for k, v in by_agent.items()},
         }
+
+    def query_km_cost_patterns(
+        self,
+        workspace_id: str,
+        agent_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Query Knowledge Mound for historical cost patterns.
+
+        Args:
+            workspace_id: Workspace to get patterns for
+            agent_id: Optional agent filter
+
+        Returns:
+            Cost pattern dict with averages, stddev, etc.
+        """
+        if not self._km_adapter:
+            return {}
+
+        try:
+            return self._km_adapter.get_cost_patterns(workspace_id, agent_id)
+        except Exception as e:
+            logger.error(f"Failed to query KM cost patterns: {e}")
+            return {}
+
+    def query_km_workspace_alerts(
+        self,
+        workspace_id: str,
+        min_level: str = "warning",
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Query Knowledge Mound for historical budget alerts.
+
+        Args:
+            workspace_id: Workspace to get alerts for
+            min_level: Minimum alert level
+            limit: Maximum results
+
+        Returns:
+            List of historical alerts
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            return self._km_adapter.get_workspace_alerts(workspace_id, min_level, limit)
+        except Exception as e:
+            logger.error(f"Failed to query KM alerts: {e}")
+            return []
+
+    async def detect_and_store_anomalies(
+        self,
+        workspace_id: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Detect cost anomalies and store them to Knowledge Mound.
+
+        Compares current workspace stats against historical patterns
+        to identify unusual cost spikes.
+
+        Args:
+            workspace_id: Workspace to check
+
+        Returns:
+            List of detected anomalies
+        """
+        if not self._km_adapter:
+            return []
+
+        stats = self._workspace_stats.get(workspace_id)
+        if not stats:
+            return []
+
+        try:
+            anomalies = self._km_adapter.detect_anomalies(
+                workspace_id=workspace_id,
+                current_cost=float(stats.get("total_cost", 0)),
+                current_tokens=stats.get("tokens_in", 0) + stats.get("tokens_out", 0),
+                current_calls=stats.get("api_calls", 0),
+            )
+
+            # Store detected anomalies
+            stored = []
+            for anomaly in anomalies:
+                anomaly_id = self._km_adapter.store_anomaly(anomaly)
+                if anomaly_id:
+                    stored.append(anomaly.to_dict())
+
+            return stored
+        except Exception as e:
+            logger.error(f"Failed to detect/store anomalies: {e}")
+            return []
 
     def reset_daily_budgets(self) -> None:
         """Reset daily budget counters (called at midnight)."""

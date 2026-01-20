@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-from typing import Optional
 
 import aiohttp
 
@@ -88,7 +87,7 @@ class OpenAIBackend(EmbeddingBackend):
                     ) as response:
                         if response.status == 429:
                             # Rate limited - retry with backoff
-                            delay = self.config.base_delay * (2 ** attempt)
+                            delay = self.config.base_delay * (2**attempt)
                             logger.warning(f"OpenAI rate limited, retrying in {delay}s")
                             await asyncio.sleep(delay)
                             continue
@@ -102,14 +101,13 @@ class OpenAIBackend(EmbeddingBackend):
                         data = await response.json()
                         # Sort by index to maintain order
                         return [
-                            d["embedding"]
-                            for d in sorted(data["data"], key=lambda x: x["index"])
+                            d["embedding"] for d in sorted(data["data"], key=lambda x: x["index"])
                         ]
 
             except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                 if attempt == self.config.max_retries - 1:
                     raise RuntimeError(f"OpenAI API call failed after retries: {e}")
-                delay = self.config.base_delay * (2 ** attempt)
+                delay = self.config.base_delay * (2**attempt)
                 logger.warning(f"OpenAI API call failed, retrying in {delay}s: {e}")
                 await asyncio.sleep(delay)
 

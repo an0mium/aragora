@@ -39,7 +39,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
-    Any,
     Awaitable,
     Callable,
     Generic,
@@ -49,9 +48,7 @@ from typing import (
 
 from aragora.rlm.batch import (
     BatchConfig,
-    BatchItemResult,
     BatchItemStatus,
-    BatchResult,
     llm_batch,
     llm_batch_detailed,
 )
@@ -178,7 +175,6 @@ async def batch_with_agents(
         )
 
     # Build wrapper that tracks agent info
-    agent_results: dict[str, Any] = {}
 
     async def process_with_tracking(agent: "Agent") -> tuple[str, R]:
         """Wrap process_fn to track agent info and apply stagger."""
@@ -195,6 +191,7 @@ async def batch_with_agents(
     # Early stop condition
     early_stop_fn = None
     if cfg.min_required is not None:
+
         def early_stop_fn(results: list) -> bool:
             return len(results) >= cfg.min_required
 
@@ -312,6 +309,7 @@ async def batch_generate_critiques(
     # Early stop when enough critiques collected
     early_stop_fn = None
     if cfg.min_required is not None:
+
         def early_stop_fn(results: list) -> bool:
             return len(results) >= cfg.min_required
 
@@ -390,7 +388,7 @@ async def batch_collect_votes(
         # Count votes by choice
         vote_counts: dict[str, int] = {}
         for vote in votes:
-            if hasattr(vote, 'choice') and vote.choice:
+            if hasattr(vote, "choice") and vote.choice:
                 vote_counts[vote.choice] = vote_counts.get(vote.choice, 0) + 1
 
         if not vote_counts:

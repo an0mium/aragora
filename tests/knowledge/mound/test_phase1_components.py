@@ -253,9 +253,7 @@ class TestDomainTaxonomy:
         assert "technical" in domain
 
         # Test healthcare classification
-        domain = await taxonomy.classify(
-            "Patient diagnosis shows improved treatment outcomes"
-        )
+        domain = await taxonomy.classify("Patient diagnosis shows improved treatment outcomes")
         assert "healthcare" in domain
 
     @pytest.mark.asyncio

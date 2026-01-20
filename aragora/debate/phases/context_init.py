@@ -31,6 +31,7 @@ _KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 # Check for RLM availability (prefer factory for TRUE RLM support)
 try:
     from aragora.rlm import get_rlm, RLMConfig, RLMContext as _RLMContext, HAS_OFFICIAL_RLM
+
     HAS_RLM = True
 except ImportError:
     HAS_RLM = False
@@ -84,7 +85,9 @@ class ContextInitializer:
         # RLM (Recursive Language Models) for context compression
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
-        rlm_agent_call: Optional[Callable[[str, str], str]] = None,  # Agent callback for compression
+        rlm_agent_call: Optional[
+            Callable[[str, str], str]
+        ] = None,  # Agent callback for compression
         # Callbacks for orchestrator methods
         fetch_historical_context: Optional[Callable] = None,
         format_patterns_for_prompt: Optional[Callable] = None,
@@ -645,9 +648,7 @@ class ContextInitializer:
                 crux_text = crux[:300] + "..." if len(crux) > 300 else crux
                 crux_context += f"\n{i}. {crux_text}"
 
-            crux_context += (
-                "\n\nConsider addressing these points explicitly in your arguments."
-            )
+            crux_context += "\n\nConsider addressing these points explicitly in your arguments."
 
             # Inject into context
             if ctx.env.context:
@@ -913,9 +914,7 @@ class ContextInitializer:
                         "(model wrote code to examine content)"
                     )
                 elif compression_result.used_compression_fallback:
-                    logger.info(
-                        "[rlm] Context compressed using compression fallback"
-                    )
+                    logger.info("[rlm] Context compressed using compression fallback")
 
                 # Calculate compression stats
                 compressed_tokens = len(compression_result.answer) // 4
@@ -934,7 +933,7 @@ class ContextInitializer:
                         ctx.env.context = (
                             "## COMPRESSED CONTEXT (full context available on request)\n\n"
                             + compression_result.answer
-                    )
+                        )
                     logger.info("[rlm] Replaced context with summary level")
 
         except asyncio.TimeoutError:

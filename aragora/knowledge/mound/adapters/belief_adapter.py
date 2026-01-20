@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.reasoning.belief import BeliefNetwork, BeliefNode, CruxClaim
 
 logger = logging.getLogger(__name__)
@@ -205,8 +206,11 @@ class BeliefAdapter:
             The belief ID if stored, None if below threshold
         """
         # Check confidence threshold
-        confidence = node.posterior.p_true if hasattr(node.posterior, 'p_true') else 0.5
-        if confidence < self.MIN_BELIEF_CONFIDENCE and (1 - confidence) < self.MIN_BELIEF_CONFIDENCE:
+        confidence = node.posterior.p_true if hasattr(node.posterior, "p_true") else 0.5
+        if (
+            confidence < self.MIN_BELIEF_CONFIDENCE
+            and (1 - confidence) < self.MIN_BELIEF_CONFIDENCE
+        ):
             logger.debug(f"Belief {node.node_id} below confidence threshold: {confidence:.2f}")
             return None
 
@@ -220,15 +224,15 @@ class BeliefAdapter:
             "claim_statement": node.claim_statement,
             "author": node.author,
             "confidence": confidence,
-            "prior_confidence": node.prior.p_true if hasattr(node.prior, 'p_true') else 0.5,
-            "status": node.status.value if hasattr(node.status, 'value') else str(node.status),
+            "prior_confidence": node.prior.p_true if hasattr(node.prior, "p_true") else 0.5,
+            "status": node.status.value if hasattr(node.status, "value") else str(node.status),
             "centrality": node.centrality,
             "update_count": node.update_count,
             "debate_id": debate_id,
             "parent_ids": node.parent_ids,
             "child_ids": node.child_ids,
             "created_at": datetime.utcnow().isoformat(),
-            "metadata": node.metadata if hasattr(node, 'metadata') else {},
+            "metadata": node.metadata if hasattr(node, "metadata") else {},
         }
 
         self._beliefs[belief_id] = belief_data
@@ -263,7 +267,7 @@ class BeliefAdapter:
         stored_ids = []
 
         for node in self._network.nodes.values():
-            confidence = node.posterior.p_true if hasattr(node.posterior, 'p_true') else 0.5
+            confidence = node.posterior.p_true if hasattr(node.posterior, "p_true") else 0.5
             # Store if confidence is high in either direction
             if confidence >= min_conf or (1 - confidence) >= min_conf:
                 belief_id = self.store_converged_belief(node)
@@ -323,7 +327,7 @@ class BeliefAdapter:
                 self._debate_cruxes[debate_id] = []
             self._debate_cruxes[debate_id].append(crux_id)
 
-        for topic in (topics or []):
+        for topic in topics or []:
             topic_lower = topic.lower()
             if topic_lower not in self._topic_cruxes:
                 self._topic_cruxes[topic_lower] = []
@@ -445,10 +449,12 @@ class BeliefAdapter:
             overlap = len(query_words & statement_words)
             if overlap > 0:
                 relevance = overlap / max(len(query_words), 1)
-                results.append({
-                    **crux,
-                    "relevance_score": relevance,
-                })
+                results.append(
+                    {
+                        **crux,
+                        "relevance_score": relevance,
+                    }
+                )
 
         # Sort by relevance * crux_score
         results.sort(
@@ -701,12 +707,14 @@ class BeliefAdapter:
         if belief_id not in self._outcome_history:
             self._outcome_history[belief_id] = []
 
-        self._outcome_history[belief_id].append({
-            "debate_id": debate_id,
-            "was_successful": was_successful,
-            "confidence": confidence,
-            "recorded_at": datetime.utcnow().isoformat(),
-        })
+        self._outcome_history[belief_id].append(
+            {
+                "debate_id": debate_id,
+                "was_successful": was_successful,
+                "confidence": confidence,
+                "recorded_at": datetime.utcnow().isoformat(),
+            }
+        )
 
     async def update_belief_thresholds_from_km(
         self,
@@ -799,7 +807,9 @@ class BeliefAdapter:
             # Use lowest threshold that still gives good success rate
             new_belief_threshold = min(valid_rates.keys())
             if new_belief_threshold != old_belief_threshold:
-                recommendation = "decrease" if new_belief_threshold < old_belief_threshold else "increase"
+                recommendation = (
+                    "decrease" if new_belief_threshold < old_belief_threshold else "increase"
+                )
                 adjustments_made += 1
 
         # Find optimal crux threshold

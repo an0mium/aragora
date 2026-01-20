@@ -114,21 +114,20 @@ class TrainingExample:
                     f"### Response:\n{self.output}"
                 )
             else:
-                return (
-                    f"### Instruction:\n{self.instruction}\n\n"
-                    f"### Response:\n{self.output}"
-                )
+                return f"### Instruction:\n{self.instruction}\n\n" f"### Response:\n{self.output}"
 
         elif template == "chatml":
             messages = [
                 {"role": "system", "content": f"You are a {self.vertical} specialist."},
-                {"role": "user", "content": f"{self.instruction}\n\n{self.input}" if self.input else self.instruction},
+                {
+                    "role": "user",
+                    "content": (
+                        f"{self.instruction}\n\n{self.input}" if self.input else self.instruction
+                    ),
+                },
                 {"role": "assistant", "content": self.output},
             ]
-            return "\n".join(
-                f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>"
-                for m in messages
-            )
+            return "\n".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>" for m in messages)
 
         elif template == "llama":
             return (
@@ -338,7 +337,9 @@ class VerticalFineTuningPipeline:
             final_answer: Consensus or final answer
         """
         # Create instruction from debate topic
-        instruction = f"As a {self.config.vertical_id} specialist, analyze and provide guidance on: {topic}"
+        instruction = (
+            f"As a {self.config.vertical_id} specialist, analyze and provide guidance on: {topic}"
+        )
 
         # Build context from key messages
         key_insights = []
@@ -463,14 +464,10 @@ class VerticalFineTuningPipeline:
             logger.info("Starting training...")
 
             # Train
-            train_result = self._trainer.train(
-                resume_from_checkpoint=resume_from_checkpoint
-            )
+            train_result = self._trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
             # Save final model
-            self._trainer.save_model(
-                os.path.join(self.config.output_dir, self.config.adapter_name)
-            )
+            self._trainer.save_model(os.path.join(self.config.output_dir, self.config.adapter_name))
 
             # Save training metrics
             metrics = train_result.metrics

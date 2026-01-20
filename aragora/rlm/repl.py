@@ -17,11 +17,9 @@ import ast
 import io
 import logging
 import re
-import signal
 import threading
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass, field
-from functools import wraps
 from typing import Any, Callable, Optional
 
 from .types import AbstractionLevel, RLMConfig, RLMContext, RLMResult
@@ -53,9 +51,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
     """
     # Check pattern length
     if len(pattern) > MAX_REGEX_PATTERN_LENGTH:
-        raise SecurityError(
-            f"Regex pattern too long: {len(pattern)} > {MAX_REGEX_PATTERN_LENGTH}"
-        )
+        raise SecurityError(f"Regex pattern too long: {len(pattern)} > {MAX_REGEX_PATTERN_LENGTH}")
 
     # Check for potentially catastrophic patterns
     # These patterns can cause exponential backtracking
@@ -64,20 +60,18 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
         r"\(.*\*\)\+",  # (a*)+
         r"\(.*\*\)\*",  # (a*)*
         r"\(.*\?\)\+",  # (a?)+
-        r"\.{3,}\*",    # ...* (many dots followed by star)
+        r"\.{3,}\*",  # ...* (many dots followed by star)
     ]
     for dangerous in dangerous_patterns:
         if re.search(dangerous, pattern):
-            raise SecurityError(f"Regex pattern may cause catastrophic backtracking")
+            raise SecurityError("Regex pattern may cause catastrophic backtracking")
 
     # Count groups
     try:
         compiled = re.compile(pattern, flags)
         if compiled.groups > MAX_REGEX_GROUPS:
-            raise SecurityError(
-                f"Too many regex groups: {compiled.groups} > {MAX_REGEX_GROUPS}"
-            )
-    except re.error as e:
+            raise SecurityError(f"Too many regex groups: {compiled.groups} > {MAX_REGEX_GROUPS}")
+    except re.error:
         return []  # Invalid pattern
 
     # Execute with timeout using threading
@@ -113,12 +107,28 @@ def _contains_blocked_dunder(value: str) -> bool:
     This catches both direct strings and concatenation results.
     """
     blocked = {
-        "__globals__", "__builtins__", "__code__", "__closure__",
-        "__class__", "__bases__", "__subclasses__", "__mro__",
-        "__dict__", "__module__", "__name__", "__qualname__",
-        "__func__", "__self__", "__wrapped__", "__annotations__",
-        "__init_subclass__", "__reduce__", "__reduce_ex__",
-        "__getattribute__", "__setattr__", "__delattr__",
+        "__globals__",
+        "__builtins__",
+        "__code__",
+        "__closure__",
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__mro__",
+        "__dict__",
+        "__module__",
+        "__name__",
+        "__qualname__",
+        "__func__",
+        "__self__",
+        "__wrapped__",
+        "__annotations__",
+        "__init_subclass__",
+        "__reduce__",
+        "__reduce_ex__",
+        "__getattribute__",
+        "__setattr__",
+        "__delattr__",
     }
     value_lower = value.lower()
     return any(b in value_lower for b in blocked)
@@ -260,14 +270,32 @@ class RLMEnvironment:
     }
 
     # Dangerous names that should never appear in code (even as strings)
-    BLOCKED_DUNDER_NAMES = frozenset({
-        "__globals__", "__builtins__", "__code__", "__closure__",
-        "__class__", "__bases__", "__subclasses__", "__mro__",
-        "__dict__", "__module__", "__name__", "__qualname__",
-        "__func__", "__self__", "__wrapped__", "__annotations__",
-        "__init_subclass__", "__reduce__", "__reduce_ex__",
-        "__getattribute__", "__setattr__", "__delattr__",
-    })
+    BLOCKED_DUNDER_NAMES = frozenset(
+        {
+            "__globals__",
+            "__builtins__",
+            "__code__",
+            "__closure__",
+            "__class__",
+            "__bases__",
+            "__subclasses__",
+            "__mro__",
+            "__dict__",
+            "__module__",
+            "__name__",
+            "__qualname__",
+            "__func__",
+            "__self__",
+            "__wrapped__",
+            "__annotations__",
+            "__init_subclass__",
+            "__reduce__",
+            "__reduce_ex__",
+            "__getattribute__",
+            "__setattr__",
+            "__delattr__",
+        }
+    )
 
     def __init__(
         self,
@@ -379,12 +407,14 @@ class RLMEnvironment:
         if search_level in self.context.levels:
             for node in self.context.levels[search_level]:
                 if query.lower() in node.content.lower():
-                    results.append({
-                        "id": node.id,
-                        "level": node.level.name,
-                        "snippet": self._extract_snippet(node.content, query),
-                        "topics": node.key_topics,
-                    })
+                    results.append(
+                        {
+                            "id": node.id,
+                            "level": node.level.name,
+                            "snippet": self._extract_snippet(node.content, query),
+                            "topics": node.key_topics,
+                        }
+                    )
         return results[:10]  # Limit results
 
     def _grep(self, pattern: str, content: Optional[str] = None) -> list[str]:
@@ -409,20 +439,24 @@ class RLMEnvironment:
         for i, line in enumerate(lines):
             if re.match(heading_pattern, line, re.MULTILINE):
                 if current_heading:
-                    sections.append({
-                        "heading": current_heading,
-                        "start_line": current_start,
-                        "end_line": i - 1,
-                    })
+                    sections.append(
+                        {
+                            "heading": current_heading,
+                            "start_line": current_start,
+                            "end_line": i - 1,
+                        }
+                    )
                 current_heading = line.strip()
                 current_start = i
 
         if current_heading:
-            sections.append({
-                "heading": current_heading,
-                "start_line": current_start,
-                "end_line": len(lines) - 1,
-            })
+            sections.append(
+                {
+                    "heading": current_heading,
+                    "start_line": current_start,
+                    "end_line": len(lines) - 1,
+                }
+            )
 
         return sections
 
@@ -458,7 +492,7 @@ class RLMEnvironment:
             response = self.agent_call(
                 self.config.sub_model,
                 query,
-                context_snippet[:self.config.target_tokens * 4],  # Rough char limit
+                context_snippet[: self.config.target_tokens * 4],  # Rough char limit
             )
             call_record["response_length"] = len(response)
             return response
@@ -531,7 +565,7 @@ class RLMEnvironment:
 
     def _split_chunks(self, text: str, chunk_size: int = 1000) -> list[str]:
         """Split text into chunks."""
-        return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+        return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
 
     def _count_tokens(self, text: str) -> int:
         """Estimate token count (rough approximation)."""
@@ -604,7 +638,10 @@ class RLMEnvironment:
 
         # Truncate output if too long
         if len(output) > self.MAX_OUTPUT_CHARS:
-            output = output[:self.MAX_OUTPUT_CHARS] + f"\n[Output truncated, {len(output) - self.MAX_OUTPUT_CHARS} more chars]"
+            output = (
+                output[: self.MAX_OUTPUT_CHARS]
+                + f"\n[Output truncated, {len(output) - self.MAX_OUTPUT_CHARS} more chars]"
+            )
 
         # Record in history
         self.state.history.append((code, output))
@@ -636,14 +673,10 @@ class RLMEnvironment:
             if isinstance(value, str):
                 if _contains_blocked_dunder(value):
                     del self.state.namespace[key]
-                    raise SecurityError(
-                        f"String variable '{key}' contains blocked dunder pattern"
-                    )
+                    raise SecurityError(f"String variable '{key}' contains blocked dunder pattern")
                 if len(value) > MAX_NAMESPACE_VALUE_SIZE:
                     del self.state.namespace[key]
-                    raise SecurityError(
-                        f"String variable '{key}' exceeds size limit"
-                    )
+                    raise SecurityError(f"String variable '{key}' exceeds size limit")
 
             # Check list/dict sizes
             elif isinstance(value, (list, dict, set)):
@@ -651,9 +684,7 @@ class RLMEnvironment:
                     size = len(str(value))
                     if size > MAX_NAMESPACE_VALUE_SIZE:
                         del self.state.namespace[key]
-                        raise SecurityError(
-                            f"Collection variable '{key}' exceeds size limit"
-                        )
+                        raise SecurityError(f"Collection variable '{key}' exceeds size limit")
                 except (TypeError, RecursionError) as e:
                     logger.debug(f"Could not check collection size: {e}")
                     pass  # Can't check size, allow it
@@ -669,13 +700,32 @@ class RLMEnvironment:
         - String literals containing dunder names passed to functions
         """
         # Dangerous function names that can escape the sandbox
-        DANGEROUS_FUNCS = frozenset({
-            "eval", "exec", "compile", "open", "__import__",
-            "getattr", "setattr", "delattr", "hasattr",
-            "callable", "vars", "dir", "globals", "locals",
-            "breakpoint", "input", "memoryview", "object",
-            "classmethod", "staticmethod", "property", "super",
-        })
+        DANGEROUS_FUNCS = frozenset(
+            {
+                "eval",
+                "exec",
+                "compile",
+                "open",
+                "__import__",
+                "getattr",
+                "setattr",
+                "delattr",
+                "hasattr",
+                "callable",
+                "vars",
+                "dir",
+                "globals",
+                "locals",
+                "breakpoint",
+                "input",
+                "memoryview",
+                "object",
+                "classmethod",
+                "staticmethod",
+                "property",
+                "super",
+            }
+        )
 
         for node in ast.walk(tree):
             # Block imports (except re)
@@ -708,17 +758,13 @@ class RLMEnvironment:
                 value_lower = node.value.lower()
                 for blocked in self.BLOCKED_DUNDER_NAMES:
                     if blocked in value_lower:
-                        raise SecurityError(
-                            f"String literal contains blocked name: {blocked}"
-                        )
+                        raise SecurityError(f"String literal contains blocked name: {blocked}")
 
             # Block subscript access with dangerous string keys
             if isinstance(node, ast.Subscript):
                 if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
                     if node.slice.value in self.BLOCKED_DUNDER_NAMES:
-                        raise SecurityError(
-                            f"Subscript access to blocked name: {node.slice.value}"
-                        )
+                        raise SecurityError(f"Subscript access to blocked name: {node.slice.value}")
 
             # Block f-strings that might construct dangerous names
             if isinstance(node, ast.JoinedStr):
@@ -854,4 +900,5 @@ FINAL("The authentication system uses JWT tokens...")
 
 class SecurityError(Exception):
     """Raised when code attempts unsafe operations."""
+
     pass

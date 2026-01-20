@@ -23,6 +23,7 @@ SKIP_REASON = "Redis not available (set REDIS_URL env var)"
 
 try:
     import redis.asyncio as aioredis
+
     REDIS_AVAILABLE = bool(REDIS_URL)
 except ImportError:
     REDIS_AVAILABLE = False
@@ -97,10 +98,13 @@ class TestAgentRegistryRedis:
         # Register multiple agents
         for i in range(5):
             agent_id = f"{test_prefix}agent:{i}"
-            await redis_client.hset(agent_id, mapping={
-                "name": f"agent-{i}",
-                "status": "available" if i % 2 == 0 else "busy",
-            })
+            await redis_client.hset(
+                agent_id,
+                mapping={
+                    "name": f"agent-{i}",
+                    "status": "available" if i % 2 == 0 else "busy",
+                },
+            )
             await redis_client.sadd(f"{test_prefix}agents:all", agent_id)
 
         # Discover all agents
@@ -167,12 +171,15 @@ class TestTaskDistributionRedis:
         queue_key = f"{test_prefix}tasks:priority"
 
         # Add tasks with priorities (lower score = higher priority)
-        await redis_client.zadd(queue_key, {
-            "critical-task": 0,
-            "high-task": 1,
-            "normal-task": 2,
-            "low-task": 3,
-        })
+        await redis_client.zadd(
+            queue_key,
+            {
+                "critical-task": 0,
+                "high-task": 1,
+                "normal-task": 2,
+                "low-task": 3,
+            },
+        )
 
         # Get highest priority task
         result = await redis_client.zrange(queue_key, 0, 0)
@@ -252,24 +259,18 @@ class TestFailoverBehavior:
         lock_key = f"{test_prefix}lock:resource"
 
         # Acquire lock with TTL
-        acquired = await redis_client.set(
-            lock_key, "owner-1", nx=True, ex=10
-        )
+        acquired = await redis_client.set(lock_key, "owner-1", nx=True, ex=10)
         assert acquired is True
 
         # Cannot acquire again
-        acquired = await redis_client.set(
-            lock_key, "owner-2", nx=True, ex=10
-        )
+        acquired = await redis_client.set(lock_key, "owner-2", nx=True, ex=10)
         assert acquired is None
 
         # Release lock
         await redis_client.delete(lock_key)
 
         # Now can acquire
-        acquired = await redis_client.set(
-            lock_key, "owner-2", nx=True, ex=10
-        )
+        acquired = await redis_client.set(lock_key, "owner-2", nx=True, ex=10)
         assert acquired is True
 
 

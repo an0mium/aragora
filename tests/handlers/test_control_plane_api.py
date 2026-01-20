@@ -26,6 +26,7 @@ class TestControlPlaneHandlerRouting:
     def handler_class(self):
         """Get the handler class."""
         from aragora.server.handlers.control_plane import ControlPlaneHandler
+
         return ControlPlaneHandler
 
     @pytest.fixture
@@ -73,8 +74,10 @@ class TestFeaturesControlPlaneHandler:
     def handler(self):
         """Create features handler."""
         from aragora.server.handlers.features.control_plane import ControlPlaneHandler
+
         # Clear global state before each test
         from aragora.server.handlers.features import control_plane
+
         control_plane._agents.clear()
         control_plane._task_queue.clear()
         return ControlPlaneHandler(server_context={})
@@ -176,16 +179,20 @@ class TestFeaturesControlPlaneHandler:
     async def test_resume_paused_agent(self, handler):
         """Test resuming a paused agent."""
         # Get agents
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/agents",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/agents",
+            )
+        )
 
         # Pause
-        await handler.handle_request(self.create_request(
-            method="POST",
-            path="/api/control-plane/agents/agent-gemini-scanner/pause",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="POST",
+                path="/api/control-plane/agents/agent-gemini-scanner/pause",
+            )
+        )
 
         # Resume
         request = self.create_request(
@@ -214,10 +221,12 @@ class TestFeaturesControlPlaneHandler:
     async def test_resume_not_paused(self, handler):
         """Test resuming an agent that's not paused."""
         # Get agents (populates with active agents)
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/agents",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/agents",
+            )
+        )
 
         # Try to resume active agent
         request = self.create_request(
@@ -244,10 +253,12 @@ class TestFeaturesControlPlaneHandler:
     async def test_get_agent_by_id(self, handler):
         """Test getting a specific agent."""
         # Populate agents
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/agents",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/agents",
+            )
+        )
 
         # Get specific agent
         request = self.create_request(
@@ -264,10 +275,12 @@ class TestFeaturesControlPlaneHandler:
     async def test_get_agent_metrics(self, handler):
         """Test getting agent metrics."""
         # Populate agents
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/agents",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/agents",
+            )
+        )
 
         # Get metrics
         request = self.create_request(
@@ -285,16 +298,20 @@ class TestFeaturesControlPlaneHandler:
     async def test_filter_agents_by_status(self, handler):
         """Test filtering agents by status."""
         # Populate agents
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/agents",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/agents",
+            )
+        )
 
         # Pause an agent
-        await handler.handle_request(self.create_request(
-            method="POST",
-            path="/api/control-plane/agents/agent-gemini-scanner/pause",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="POST",
+                path="/api/control-plane/agents/agent-gemini-scanner/pause",
+            )
+        )
 
         # Filter for paused
         request = self.create_request(
@@ -613,6 +630,7 @@ class TestQueuePrioritization:
         """Create features handler with queue."""
         from aragora.server.handlers.features.control_plane import ControlPlaneHandler
         from aragora.server.handlers.features import control_plane
+
         control_plane._agents.clear()
         control_plane._task_queue.clear()
         return ControlPlaneHandler(server_context={})
@@ -631,13 +649,16 @@ class TestQueuePrioritization:
     async def test_prioritize_task(self, handler):
         """Test changing task priority."""
         # Populate queue
-        await handler.handle_request(self.create_request(
-            method="GET",
-            path="/api/control-plane/queue",
-        ))
+        await handler.handle_request(
+            self.create_request(
+                method="GET",
+                path="/api/control-plane/queue",
+            )
+        )
 
         # Get a task ID from the queue
         from aragora.server.handlers.features import control_plane
+
         if control_plane._task_queue:
             task_id = control_plane._task_queue[0]["id"]
 

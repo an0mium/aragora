@@ -94,10 +94,9 @@ class ModelProfile:
 
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Estimate cost for a request."""
-        return (
-            (input_tokens / 1000) * self.cost_input_per_1k
-            + (output_tokens / 1000) * self.cost_output_per_1k
-        )
+        return (input_tokens / 1000) * self.cost_input_per_1k + (
+            output_tokens / 1000
+        ) * self.cost_output_per_1k
 
 
 # Model profiles for major providers
@@ -448,15 +447,13 @@ class SpecialistModelSelector:
         """
         excluded = set(excluded_models or [])
         candidates = [
-            m for m in self._available_models
-            if m not in excluded and m in self._profiles
+            m for m in self._available_models if m not in excluded and m in self._profiles
         ]
 
         # Filter by context length
         if context_length > 0:
             candidates = [
-                m for m in candidates
-                if self._profiles[m].max_context_tokens >= context_length
+                m for m in candidates if self._profiles[m].max_context_tokens >= context_length
             ]
 
         if not candidates:
@@ -485,13 +482,13 @@ class SpecialistModelSelector:
             if cost_sensitive:
                 # Penalize expensive models
                 cost_factor = profile.cost_output_per_1k / 0.015  # Normalize to Claude
-                score *= (1.0 / (1.0 + cost_factor * 0.3))
+                score *= 1.0 / (1.0 + cost_factor * 0.3)
 
             # Adjust for latency sensitivity
             if latency_sensitive:
                 # Penalize slow models
                 latency_factor = profile.avg_latency_ms / 1000.0  # Normalize
-                score *= (1.0 / (1.0 + latency_factor * 0.2))
+                score *= 1.0 / (1.0 + latency_factor * 0.2)
 
             # Boost reliability
             score *= profile.reliability_score
@@ -593,8 +590,7 @@ class SpecialistModelSelector:
                 "provider": profile.provider,
                 "total_score": profile.get_total_score(weights),
                 "capabilities": {
-                    cap.value: profile.get_capability_score(cap)
-                    for cap in ModelCapability
+                    cap.value: profile.get_capability_score(cap) for cap in ModelCapability
                 },
                 "max_context": profile.max_context_tokens,
                 "cost_per_1k_avg": (profile.cost_input_per_1k + profile.cost_output_per_1k) / 2,

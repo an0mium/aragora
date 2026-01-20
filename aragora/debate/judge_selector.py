@@ -1031,8 +1031,7 @@ class JudgePanel:
             JudgingResult with votes informed by deliberation
         """
         logger.info(
-            f"judge_deliberation_start judges={len(self.judges)} "
-            f"rounds={deliberation_rounds}"
+            f"judge_deliberation_start judges={len(self.judges)} " f"rounds={deliberation_rounds}"
         )
 
         # Step 1: Collect initial assessments
@@ -1054,14 +1053,17 @@ class JudgePanel:
         # Step 2: Run deliberation rounds
         for round_num in range(deliberation_rounds):
             assessments = await self._run_deliberation_round(
-                assessments, proposals, task, context, generate_fn,
-                round_num, build_deliberation_prompt
+                assessments,
+                proposals,
+                task,
+                context,
+                generate_fn,
+                round_num,
+                build_deliberation_prompt,
             )
 
         # Step 3: Collect final votes based on deliberation
-        await self._collect_final_votes(
-            assessments, proposals, task, context, generate_fn
-        )
+        await self._collect_final_votes(assessments, proposals, task, context, generate_fn)
 
         # Return aggregated result
         return self.get_result()
@@ -1100,8 +1102,10 @@ class JudgePanel:
             try:
                 response = await generate_fn(judge, prompt, context)
                 # Parse assessment (simple extraction)
-                recommendation = "approve" if "approve" in response.lower() else (
-                    "reject" if "reject" in response.lower() else "abstain"
+                recommendation = (
+                    "approve"
+                    if "approve" in response.lower()
+                    else ("reject" if "reject" in response.lower() else "abstain")
                 )
                 return judge.name, {
                     "judge": judge.name,
@@ -1159,9 +1163,7 @@ class JudgePanel:
         async def deliberate(judge: "Agent"):
             try:
                 # Build deliberation prompt with other judges' assessments
-                other_assessments = {
-                    k: v for k, v in assessments.items() if k != judge.name
-                }
+                other_assessments = {k: v for k, v in assessments.items() if k != judge.name}
 
                 if build_prompt:
                     prompt = build_prompt(
@@ -1178,8 +1180,10 @@ class JudgePanel:
                 response = await generate_fn(judge, prompt, context)
 
                 # Update recommendation based on deliberation
-                recommendation = "approve" if "approve" in response.lower() else (
-                    "reject" if "reject" in response.lower() else "abstain"
+                recommendation = (
+                    "approve"
+                    if "approve" in response.lower()
+                    else ("reject" if "reject" in response.lower() else "abstain")
                 )
 
                 # Check for confidence indicators
@@ -1254,8 +1258,7 @@ class JudgePanel:
     def _default_assessment_prompt(self, proposals: dict[str, str], task: str) -> str:
         """Build default assessment prompt."""
         proposal_text = "\n\n".join(
-            f"**{name}**: {text[:300]}..."
-            for name, text in proposals.items()
+            f"**{name}**: {text[:300]}..." for name, text in proposals.items()
         )
 
         return f"""You are a judge evaluating debate proposals.

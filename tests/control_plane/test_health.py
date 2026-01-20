@@ -135,7 +135,11 @@ class TestHealthMonitor:
         check = monitor.get_agent_health("agent-1")
         assert check is not None
         # Exception causes degraded or unhealthy status with error message
-        assert check.status in (HealthStatus.CRITICAL, HealthStatus.DEGRADED, HealthStatus.UNHEALTHY)
+        assert check.status in (
+            HealthStatus.CRITICAL,
+            HealthStatus.DEGRADED,
+            HealthStatus.UNHEALTHY,
+        )
         assert check.error is not None
         assert "Connection error" in check.error
 

@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.pulse.ingestor import TrendingTopic, TrendingTopicOutcome
     from aragora.pulse.store import ScheduledDebateRecord
 
@@ -198,6 +199,7 @@ class PulseAdapter:
         """
         # Volume scoring: log scale, max 1000000
         import math
+
         volume_score = min(1.0, math.log10(max(1, volume)) / 6)
 
         # Category bonus
@@ -235,6 +237,7 @@ class PulseAdapter:
             return None
 
         import hashlib
+
         topic_hash = hashlib.sha256(topic.topic.lower().encode()).hexdigest()[:16]
         topic_id = f"{self.ID_PREFIX}topic_{topic_hash}"
 
@@ -319,6 +322,7 @@ class PulseAdapter:
             The outcome ID
         """
         import hashlib
+
         topic_hash = hashlib.sha256(outcome.topic.lower().encode()).hexdigest()[:16]
         outcome_id = f"{self.ID_PREFIX}outcome_{outcome.debate_id}"
 
@@ -415,11 +419,13 @@ class PulseAdapter:
             debate_words = set(debate.get("topic_text", "").lower().split())
             overlap = len(query_words & debate_words)
             if overlap >= 2:  # At least 2 words in common
-                results.append({
-                    **debate,
-                    "match_type": "similar",
-                    "overlap_count": overlap,
-                })
+                results.append(
+                    {
+                        **debate,
+                        "match_type": "similar",
+                        "overlap_count": overlap,
+                    }
+                )
 
         # Sort by created_at descending
         results.sort(key=lambda x: x.get("created_at", 0), reverse=True)
@@ -676,15 +682,17 @@ class PulseAdapter:
         """
         self._init_reverse_flow_state()
 
-        self._outcome_history.append({
-            "topic_id": topic_id,
-            "debate_id": debate_id,
-            "outcome_success": outcome_success,
-            "confidence": confidence,
-            "rounds_used": rounds_used,
-            "category": category,
-            "timestamp": time.time(),
-        })
+        self._outcome_history.append(
+            {
+                "topic_id": topic_id,
+                "debate_id": debate_id,
+                "outcome_success": outcome_success,
+                "confidence": confidence,
+                "rounds_used": rounds_used,
+                "category": category,
+                "timestamp": time.time(),
+            }
+        )
 
     async def update_quality_thresholds_from_km(
         self,
@@ -842,6 +850,7 @@ class PulseAdapter:
         self._init_reverse_flow_state()
 
         import hashlib
+
         topic_hash = hashlib.sha256(topic_text.lower().encode()).hexdigest()[:16]
 
         if not km_items:
@@ -939,10 +948,7 @@ class PulseAdapter:
         self._init_reverse_flow_state()
 
         # Get internal outcome history for this topic
-        internal_outcomes = [
-            o for o in self._outcome_history
-            if o.get("topic_id") == topic_id
-        ]
+        internal_outcomes = [o for o in self._outcome_history if o.get("topic_id") == topic_id]
 
         # Combine with KM cross-refs
         all_outcomes = []

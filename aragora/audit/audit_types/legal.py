@@ -34,6 +34,7 @@ class RequiredClauseDict(TypedDict):
     description: str
     recommendation: str
 
+
 logger = logging.getLogger(__name__)
 
 
