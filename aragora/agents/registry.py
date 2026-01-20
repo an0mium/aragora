@@ -15,7 +15,7 @@ agents should implement a reset() method to clear state between uses.
 from __future__ import annotations
 
 __all__ = [
-    "AgentSpec",
+    "RegistrySpec",
     "AgentRegistry",
     "register_all_agents",
 ]
@@ -64,8 +64,12 @@ def _run_async_in_thread(coro):
 
 
 @dataclass(frozen=True)
-class AgentSpec:
-    """Specification for a registered agent type."""
+class RegistrySpec:
+    """Specification for a registered agent type in the factory registry.
+
+    Note: This is different from AgentSpec in aragora.agents.spec which is used
+    for parsing user-provided agent specification strings (provider|model|persona|role).
+    """
 
     name: str
     agent_class: type
@@ -100,7 +104,7 @@ class AgentRegistry:
         available = AgentRegistry.list_all()
     """
 
-    _registry: dict[str, AgentSpec] = {}
+    _registry: dict[str, RegistrySpec] = {}
 
     @classmethod
     def register(
@@ -133,7 +137,7 @@ class AgentRegistry:
         """
 
         def decorator(agent_cls: type[T]) -> type[T]:
-            spec = AgentSpec(
+            spec = RegistrySpec(
                 name=type_name,
                 agent_class=agent_cls,
                 default_model=default_model,
@@ -260,7 +264,7 @@ class AgentRegistry:
         return model_type in cls._registry
 
     @classmethod
-    def get_spec(cls, model_type: str) -> AgentSpec | None:
+    def get_spec(cls, model_type: str) -> RegistrySpec | None:
         """Get the spec for a registered agent type."""
         return cls._registry.get(model_type)
 

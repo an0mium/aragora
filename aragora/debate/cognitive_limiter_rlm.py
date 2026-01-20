@@ -158,7 +158,6 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         self._compression_cache: dict[str, CompressionResult] = {}
 
         # Real RLM integration - use factory for consistent initialization
-        self._rlm_backend = rlm_backend
         self._rlm_model = rlm_model
         self._aragora_rlm: Optional[Any] = None
         self._debate_adapter: Optional[Any] = None

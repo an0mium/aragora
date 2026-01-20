@@ -60,17 +60,16 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Optiona
 
 
 def parse_agents(agents_str: str) -> list[tuple[str, str | None]]:
-    """Parse agent string like 'codex,claude:critic,openai'."""
-    agents: list[tuple[str, str | None]] = []
-    for spec in agents_str.split(","):
-        spec = spec.strip()
-        if ":" in spec:
-            agent_type, role = spec.split(":", 1)
-        else:
-            agent_type = spec
-            role = None
-        agents.append((agent_type, role))
-    return agents
+    """Parse agent string using unified AgentSpec.
+
+    Supports both new pipe format (provider|model|persona|role) and
+    legacy colon format (provider:persona). Returns tuples of (provider, role)
+    for backward compatibility with existing code.
+    """
+    from aragora.agents.spec import AgentSpec
+
+    specs = AgentSpec.parse_list(agents_str)
+    return [(spec.provider, spec.role) for spec in specs]
 
 
 async def run_debate(

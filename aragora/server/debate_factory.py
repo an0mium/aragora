@@ -34,23 +34,8 @@ if TYPE_CHECKING:
     from aragora.server.stream.emitter import SyncEventEmitter
 
 
-@dataclass
-class AgentSpec:
-    """Specification for an agent to create."""
-
-    agent_type: str
-    role: Optional[str] = None
-    name: Optional[str] = None
-
-    def __post_init__(self):
-        """Validate agent type."""
-        if self.agent_type.lower() not in ALLOWED_AGENT_TYPES:
-            raise ValueError(
-                f"Invalid agent type: {self.agent_type}. "
-                f"Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
-            )
-        if self.name is None:
-            self.name = f"{self.agent_type}_{self.role or 'proposer'}"
+# Import the unified AgentSpec from agents.spec
+from aragora.agents.spec import AgentSpec
 
 
 @dataclass
@@ -89,31 +74,32 @@ class DebateConfig:
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
 
+        Supports both new pipe-delimited format (provider|model|persona|role)
+        and legacy colon format (provider:persona).
+
         Returns:
             List of AgentSpec objects
 
         Raises:
-            ValueError: If agent count exceeds maximum
+            ValueError: If agent count exceeds maximum or minimum
         """
         # Handle both string and list formats
         if isinstance(self.agents_str, list):
-            agent_list = [s.strip() if isinstance(s, str) else str(s) for s in self.agents_str if s]
+            # Join list items into comma-separated string
+            agents_str = ",".join(
+                s.strip() if isinstance(s, str) else str(s) for s in self.agents_str if s
+            )
         else:
-            agent_list = [s.strip() for s in self.agents_str.split(",") if s.strip()]
+            agents_str = self.agents_str
 
-        if len(agent_list) > MAX_AGENTS_PER_DEBATE:
+        # Use unified AgentSpec.parse_list for parsing
+        specs = AgentSpec.parse_list(agents_str)
+
+        # Validate count
+        if len(specs) > MAX_AGENTS_PER_DEBATE:
             raise ValueError(f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}")
-        if len(agent_list) < 2:
+        if len(specs) < 2:
             raise ValueError("At least 2 agents required for a debate")
-
-        specs = []
-        for spec_str in agent_list:
-            if ":" in spec_str:
-                agent_type, role = spec_str.split(":", 1)
-            else:
-                agent_type = spec_str
-                role = None
-            specs.append(AgentSpec(agent_type=agent_type.strip(), role=role))
 
         return specs
 
@@ -205,30 +191,30 @@ class DebateFactory:
             role = spec.role or "proposer"
             try:
                 agent = create_agent(
-                    model_type=spec.agent_type,  # type: ignore[arg-type]
+                    model_type=spec.provider,  # type: ignore[arg-type]
                     name=spec.name,
                     role=role,
                 )
 
                 # Validate API key for API-based agents
                 if hasattr(agent, "api_key") and not agent.api_key:
-                    raise ValueError(f"Missing API key for {spec.agent_type}")
+                    raise ValueError(f"Missing API key for {spec.provider}")
 
                 # Apply streaming wrapper if provided
                 if stream_wrapper is not None:
                     agent = stream_wrapper(agent, self.stream_emitter, debate_id)
 
                 result.agents.append(agent)
-                logger.debug(f"Created agent {spec.agent_type} successfully")
+                logger.debug(f"Created agent {spec.provider} successfully")
 
             except Exception as e:
-                error_msg = f"Failed to create agent {spec.agent_type}: {e}"
+                error_msg = f"Failed to create agent {spec.provider}: {e}"
                 logger.error(error_msg)
-                result.failed.append((spec.agent_type, str(e)))
+                result.failed.append((spec.provider, str(e)))
 
                 # Emit error event if emitter available
                 if self.stream_emitter and debate_id:
-                    self._emit_agent_error(spec.agent_type, str(e), debate_id)
+                    self._emit_agent_error(spec.provider, str(e), debate_id)
 
         return result
 

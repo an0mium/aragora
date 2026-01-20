@@ -3,15 +3,15 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.agents.registry import AgentRegistry, AgentSpec, register_all_agents
+from aragora.agents.registry import AgentRegistry, RegistrySpec, register_all_agents
 
 
-class TestAgentSpec:
-    """Tests for AgentSpec dataclass."""
+class TestRegistrySpec:
+    """Tests for RegistrySpec dataclass."""
 
-    def test_agent_spec_creation(self):
-        """AgentSpec is created with required fields."""
-        spec = AgentSpec(
+    def test_registry_spec_creation(self):
+        """RegistrySpec is created with required fields."""
+        spec = RegistrySpec(
             name="test",
             agent_class=MagicMock,
             default_model="test-model",
@@ -28,9 +28,9 @@ class TestAgentSpec:
         assert spec.description is None
         assert spec.accepts_api_key is False
 
-    def test_agent_spec_with_description(self):
-        """AgentSpec supports optional description."""
-        spec = AgentSpec(
+    def test_registry_spec_with_description(self):
+        """RegistrySpec supports optional description."""
+        spec = RegistrySpec(
             name="test",
             agent_class=MagicMock,
             default_model="model",

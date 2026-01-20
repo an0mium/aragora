@@ -196,30 +196,19 @@ def execute_debate_thread(
                 _active_debates[debate_id]["completed_at"] = time.time()
             return
 
-        agent_specs = []
-        for spec in agent_list:
-            spec = spec.strip()
-            if ":" in spec:
-                agent_type, role = spec.split(":", 1)
-            else:
-                agent_type = spec
-                role = None
-            # Validate agent type against allowlist
-            if agent_type.lower() not in ALLOWED_AGENT_TYPES:
-                raise ValueError(
-                    f"Invalid agent type: {agent_type}. Allowed: {', '.join(sorted(ALLOWED_AGENT_TYPES))}"
-                )
-            agent_specs.append((agent_type, role))
+        # Parse agent specs using unified AgentSpec (validates provider against allowlist)
+        from aragora.agents.spec import AgentSpec
+
+        agent_specs = AgentSpec.parse_list(agents_str)
 
         # Create agents with streaming support
         # All agents are proposers for full participation in all rounds
         agents: list[Agent] = []
-        for i, (agent_type, role) in enumerate(agent_specs):
-            if role is None:
-                role = "proposer"  # All agents propose and participate fully
+        for spec in agent_specs:
+            role = spec.role or "proposer"  # All agents propose and participate fully
             agent = create_agent(
-                model_type=cast("AgentType", agent_type),
-                name=f"{agent_type}_{role}",
+                model_type=cast("AgentType", spec.provider),
+                name=spec.name,
                 role=role,
             )
             # Wrap agent for token streaming if supported

@@ -124,11 +124,12 @@ class UsageSyncService:
         self._load_sync_state()
 
     def _init_sync_db(self) -> None:
-        """Initialize the sync watermark table."""
+        """Initialize the sync watermark and sync records tables."""
         # Ensure parent directory exists
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         with sqlite3.connect(self._db_path) as conn:
+            # Watermarks table (existing)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS usage_sync_watermarks (
                     org_id TEXT NOT NULL,
@@ -139,6 +140,32 @@ class UsageSyncService:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (org_id, period_start)
                 )
+            """)
+
+            # Sync records table for two-phase commit (prevents double-billing on restart)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS usage_sync_records (
+                    id TEXT PRIMARY KEY,
+                    org_id TEXT NOT NULL,
+                    sync_type TEXT NOT NULL,
+                    period_start TEXT NOT NULL,
+                    quantity_reported INTEGER NOT NULL,
+                    cumulative_total INTEGER NOT NULL,
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    stripe_record_id TEXT,
+                    created_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    error TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sync_records_status
+                ON usage_sync_records (status)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sync_records_org_period
+                ON usage_sync_records (org_id, period_start)
             """)
             conn.commit()
 
@@ -167,8 +194,230 @@ class UsageSyncService:
                         f"Loaded sync watermarks for {len(rows)} orgs "
                         f"(period: {period_start})"
                     )
+
+            # Reconcile any pending syncs from previous process (crash recovery)
+            self._reconcile_pending_syncs()
+
         except sqlite3.Error as e:
             logger.warning(f"Failed to load sync state from database: {e}")
+
+    def _get_idempotency_key(
+        self, org_id: str, sync_type: str, cumulative_total: int
+    ) -> str:
+        """Generate content-based idempotency key for Stripe.
+
+        Unlike timestamp-based keys, this key is stable for the same usage amount
+        within a billing period, preventing duplicate reports after restart.
+        """
+        period_start = self._get_billing_period_start().isoformat()
+        return f"{org_id}-{sync_type}-{period_start}-{cumulative_total}"
+
+    def _record_pending_sync(
+        self,
+        org_id: str,
+        sync_type: str,
+        quantity: int,
+        cumulative_total: int,
+        idempotency_key: str,
+    ) -> str:
+        """Record a pending sync operation BEFORE calling Stripe (phase 1).
+
+        Returns the record ID for later completion or failure marking.
+        """
+        record_id = str(uuid4())
+        period_start = self._get_billing_period_start().isoformat()
+        created_at = datetime.utcnow().isoformat()
+
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO usage_sync_records
+                    (id, org_id, sync_type, period_start, quantity_reported,
+                     cumulative_total, idempotency_key, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+                    """,
+                    (
+                        record_id,
+                        org_id,
+                        sync_type,
+                        period_start,
+                        quantity,
+                        cumulative_total,
+                        idempotency_key,
+                        created_at,
+                    ),
+                )
+                conn.commit()
+        except sqlite3.IntegrityError:
+            # Idempotency key already exists - this is a duplicate attempt
+            # Find and return existing record ID
+            with sqlite3.connect(self._db_path) as conn:
+                row = conn.execute(
+                    "SELECT id FROM usage_sync_records WHERE idempotency_key = ?",
+                    (idempotency_key,),
+                ).fetchone()
+                if row:
+                    return row[0]
+            raise
+
+        return record_id
+
+    def _complete_sync(
+        self,
+        record_id: str,
+        stripe_record_id: Optional[str],
+        org_id: str,
+        sync_type: str,
+        cumulative_total: int,
+    ) -> None:
+        """Mark a sync operation as completed and update watermark (phase 2)."""
+        completed_at = datetime.utcnow().isoformat()
+
+        with sqlite3.connect(self._db_path) as conn:
+            # Mark record as completed
+            conn.execute(
+                """
+                UPDATE usage_sync_records
+                SET status = 'completed', stripe_record_id = ?, completed_at = ?
+                WHERE id = ?
+                """,
+                (stripe_record_id, completed_at, record_id),
+            )
+
+            # Update watermark atomically
+            if sync_type == "tokens_input":
+                self._synced_tokens_in[org_id] = cumulative_total
+            elif sync_type == "tokens_output":
+                self._synced_tokens_out[org_id] = cumulative_total
+            elif sync_type == "debates":
+                self._synced_debates[org_id] = cumulative_total
+
+            conn.commit()
+
+        # Persist watermarks
+        self._save_sync_state(org_id)
+
+    def _fail_sync(self, record_id: str, error: str) -> None:
+        """Mark a sync operation as failed."""
+        completed_at = datetime.utcnow().isoformat()
+
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute(
+                    """
+                    UPDATE usage_sync_records
+                    SET status = 'failed', error = ?, completed_at = ?
+                    WHERE id = ?
+                    """,
+                    (error, completed_at, record_id),
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Failed to mark sync record {record_id} as failed: {e}")
+
+    def _reconcile_pending_syncs(self) -> None:
+        """Reconcile pending syncs from a crashed process on startup.
+
+        Uses Stripe's idempotency behavior to safely verify pending syncs:
+        - Re-attempts the usage report with the same idempotency key
+        - If original call succeeded, Stripe returns the same response (no duplicate)
+        - If original call never reached Stripe, creates the record now
+        - Either way, we can safely mark as completed
+
+        For each pending sync:
+        - Get org's billing config to find subscription_item_id
+        - Re-attempt with same idempotency key (safe due to Stripe idempotency)
+        - Mark as completed or failed based on result
+        """
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                pending = conn.execute(
+                    """
+                    SELECT id, org_id, sync_type, quantity_reported, cumulative_total, idempotency_key
+                    FROM usage_sync_records
+                    WHERE status = 'pending'
+                    """
+                ).fetchall()
+
+            if not pending:
+                return
+
+            logger.info(f"Reconciling {len(pending)} pending sync records from previous run")
+
+            for record_id, org_id, sync_type, quantity, cumulative_total, idempotency_key in pending:
+                try:
+                    # Get org's billing config
+                    config = self._get_billing_config(org_id)
+                    if not config:
+                        logger.warning(
+                            f"No billing config for org {org_id}, marking sync {record_id} as failed"
+                        )
+                        self._fail_sync(record_id, "No billing config found for organization")
+                        continue
+
+                    # Get subscription item ID for this sync type
+                    item_id = self._get_subscription_item_id(config, sync_type)
+                    if not item_id:
+                        logger.warning(
+                            f"No subscription item for {sync_type} in org {org_id}, "
+                            f"marking sync {record_id} as failed"
+                        )
+                        self._fail_sync(record_id, f"No subscription item for {sync_type}")
+                        continue
+
+                    # Re-attempt with same idempotency key (safe - Stripe returns same response)
+                    logger.info(
+                        f"Verifying pending sync {record_id} for org {org_id} "
+                        f"({sync_type}) via Stripe idempotency re-attempt"
+                    )
+
+                    usage_record = self.stripe_client.report_usage(
+                        subscription_item_id=item_id,
+                        quantity=quantity,
+                        idempotency_key=idempotency_key,
+                    )
+
+                    # If we got here, either original succeeded or we just created it
+                    # Either way, mark as completed
+                    self._complete_sync(
+                        record_id=record_id,
+                        stripe_record_id=usage_record.id,
+                        org_id=org_id,
+                        sync_type=sync_type,
+                        cumulative_total=cumulative_total,
+                    )
+                    logger.info(
+                        f"Reconciled pending sync {record_id}: "
+                        f"stripe_id={usage_record.id}, org={org_id}, type={sync_type}"
+                    )
+
+                except StripeAPIError as e:
+                    logger.error(
+                        f"Failed to reconcile sync {record_id} for org {org_id}: {e}"
+                    )
+                    self._fail_sync(record_id, f"Stripe verification failed: {e}")
+
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error reconciling sync {record_id}: {e}"
+                    )
+                    self._fail_sync(record_id, f"Reconciliation error: {e}")
+
+        except sqlite3.Error as e:
+            logger.error(f"Failed to reconcile pending syncs: {e}")
+
+    def _get_subscription_item_id(
+        self, config: OrgBillingConfig, sync_type: str
+    ) -> Optional[str]:
+        """Get the subscription item ID for a sync type."""
+        if sync_type == "tokens_input":
+            return config.tokens_input_item_id
+        elif sync_type == "tokens_output":
+            return config.tokens_output_item_id
+        elif sync_type == "debates":
+            return config.debates_item_id
+        return None
 
     def _save_sync_state(self, org_id: str) -> None:
         """Persist sync watermarks for an organization after successful sync."""
@@ -330,10 +579,10 @@ class UsageSyncService:
                 subscription_item_id=config.tokens_input_item_id,
                 quantity=delta_tokens_in // 1000,  # Report per 1K tokens
                 sync_type="tokens_input",
+                cumulative_total=summary.total_tokens_in,
             )
             records.append(record)
-            if record.success:
-                self._synced_tokens_in[org_id] = summary.total_tokens_in
+            # Note: watermark update now handled by two-phase commit in _report_usage
 
         # Report output tokens
         if delta_tokens_out >= self.MIN_TOKENS_THRESHOLD and config.tokens_output_item_id:
@@ -342,10 +591,10 @@ class UsageSyncService:
                 subscription_item_id=config.tokens_output_item_id,
                 quantity=delta_tokens_out // 1000,  # Report per 1K tokens
                 sync_type="tokens_output",
+                cumulative_total=summary.total_tokens_out,
             )
             records.append(record)
-            if record.success:
-                self._synced_tokens_out[org_id] = summary.total_tokens_out
+            # Note: watermark update now handled by two-phase commit in _report_usage
 
         # Report debate overages (only for tiers with limits)
         tier_limits = TIER_LIMITS.get(config.tier)
@@ -363,17 +612,16 @@ class UsageSyncService:
                         subscription_item_id=config.debates_item_id,
                         quantity=delta_overage,
                         sync_type="debates",
+                        cumulative_total=summary.total_debates,
                     )
                     records.append(record)
-                    if record.success:
-                        self._synced_debates[org_id] = summary.total_debates
+                    # Note: watermark update now handled by two-phase commit in _report_usage
 
         # Update last sync time
         self._last_sync[org_id] = datetime.utcnow()
 
-        # Persist sync watermarks to database (survives restarts)
-        if any(r.success for r in records):
-            self._save_sync_state(org_id)
+        # Note: sync watermarks are now persisted atomically in _complete_sync
+        # (two-phase commit ensures crash safety)
 
         # Store records in history
         for record in records:
@@ -387,15 +635,17 @@ class UsageSyncService:
         subscription_item_id: str,
         quantity: int,
         sync_type: str,
+        cumulative_total: int,
     ) -> UsageSyncRecord:
         """
-        Report usage to Stripe.
+        Report usage to Stripe using two-phase commit for crash safety.
 
         Args:
             config: Organization billing config
             subscription_item_id: Stripe subscription item ID
-            quantity: Usage quantity to report
+            quantity: Usage quantity to report (delta)
             sync_type: Type of usage being synced
+            cumulative_total: Total usage after this sync (for idempotency)
 
         Returns:
             Sync record with result
@@ -407,22 +657,58 @@ class UsageSyncService:
             quantity=quantity,
         )
 
-        try:
-            # Generate idempotency key to prevent duplicate reports
-            idempotency_key = f"{config.org_id}-{sync_type}-{int(time.time())}"
+        # Phase 1: Generate content-based idempotency key and record pending sync
+        idempotency_key = self._get_idempotency_key(
+            config.org_id, sync_type, cumulative_total
+        )
 
+        try:
+            # Record pending sync BEFORE calling Stripe
+            pending_record_id = self._record_pending_sync(
+                org_id=config.org_id,
+                sync_type=sync_type,
+                quantity=quantity,
+                cumulative_total=cumulative_total,
+                idempotency_key=idempotency_key,
+            )
+        except sqlite3.IntegrityError:
+            # Idempotency key already exists - this was already synced
+            logger.info(
+                f"Skipping duplicate sync for {sync_type} (org={config.org_id}, "
+                f"total={cumulative_total})"
+            )
+            record.success = True
+            record.error = "Already synced (idempotency key exists)"
+            return record
+
+        try:
+            # Phase 2: Call Stripe
             usage_record = self.stripe_client.report_usage(
                 subscription_item_id=subscription_item_id,
                 quantity=quantity,
                 idempotency_key=idempotency_key,
             )
 
+            # Phase 3: Mark completed and update watermark atomically
+            self._complete_sync(
+                record_id=pending_record_id,
+                stripe_record_id=usage_record.id,
+                org_id=config.org_id,
+                sync_type=sync_type,
+                cumulative_total=cumulative_total,
+            )
+
             record.stripe_record_id = usage_record.id
             record.success = True
 
-            logger.info(f"Reported {sync_type} usage for org {config.org_id}: quantity={quantity}")
+            logger.info(
+                f"Reported {sync_type} usage for org {config.org_id}: "
+                f"quantity={quantity}, total={cumulative_total}"
+            )
 
         except StripeAPIError as e:
+            # Mark sync as failed
+            self._fail_sync(pending_record_id, str(e))
             record.success = False
             record.error = str(e)
             logger.error(f"Failed to report {sync_type} usage for org {config.org_id}: {e}")

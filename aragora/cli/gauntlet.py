@@ -14,18 +14,17 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def parse_agents(agents_str: str) -> list[tuple[str, str]]:
-    """Parse agent string like 'codex,claude:critic,openai'."""
-    agents = []
-    for spec in agents_str.split(","):
-        spec = spec.strip()
-        if ":" in spec:
-            agent_type, role = spec.split(":", 1)
-        else:
-            agent_type = spec
-            role = None
-        agents.append((agent_type, role))
-    return agents
+def parse_agents(agents_str: str) -> list[tuple[str, str | None]]:
+    """Parse agent string using unified AgentSpec.
+
+    Supports both new pipe format (provider|model|persona|role) and
+    legacy colon format (provider:persona). Returns tuples of (provider, role)
+    for backward compatibility with existing code.
+    """
+    from aragora.agents.spec import AgentSpec
+
+    specs = AgentSpec.parse_list(agents_str)
+    return [(spec.provider, spec.role) for spec in specs]
 
 
 # API key environment variable mapping for error messages

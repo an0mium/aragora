@@ -17,6 +17,12 @@ from aragora.agents.personas import DEFAULT_PERSONAS, EXPERTISE_DOMAINS
 if TYPE_CHECKING:
     import anthropic
 
+# Use AsyncAnthropic for non-blocking API calls
+try:
+    from anthropic import AsyncAnthropic
+except ImportError:
+    AsyncAnthropic = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 # Question categories with associated expertise domains
@@ -193,22 +199,22 @@ class QuestionClassification:
 class QuestionClassifier:
     """Classifies questions and assigns appropriate debate personas."""
 
-    def __init__(self, client: Optional["anthropic.Anthropic"] = None):
+    def __init__(self, client: Optional["anthropic.AsyncAnthropic"] = None):
         """Initialize the classifier.
 
         Args:
-            client: Optional Anthropic client. If not provided, will be
+            client: Optional AsyncAnthropic client. If not provided, will be
                     created when needed using ANTHROPIC_API_KEY.
         """
         self._client = client
 
     @property
-    def client(self) -> "anthropic.Anthropic":
-        """Get or create the Anthropic client."""
+    def client(self) -> "anthropic.AsyncAnthropic":
+        """Get or create the AsyncAnthropic client."""
         if self._client is None:
-            import anthropic
-
-            self._client = anthropic.Anthropic()
+            if AsyncAnthropic is None:
+                raise ImportError("anthropic package required for AsyncAnthropic client")
+            self._client = AsyncAnthropic()
         return self._client
 
     def classify_simple(self, question: str) -> QuestionClassification:
@@ -255,11 +261,11 @@ class QuestionClassifier:
             reasoning=f"Keyword matching: {category_scores}",
         )
 
-    def classify(self, question: str) -> QuestionClassification:
+    async def classify(self, question: str) -> QuestionClassification:
         """Full classification using Claude for analysis.
 
         This provides more accurate persona recommendations but requires
-        an API call.
+        an API call. Uses AsyncAnthropic for non-blocking operation.
         """
         # Get list of available personas
         available_personas = list(DEFAULT_PERSONAS.keys())
@@ -290,7 +296,7 @@ Guidelines:
 - Prefer personas whose expertise aligns with the question domain"""
 
         try:
-            response = self.client.messages.create(
+            response = await self.client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}],
@@ -393,7 +399,7 @@ Guidelines:
         return ",".join(spec.to_string() for spec in specs)
 
 
-def classify_and_assign_agents(
+async def classify_and_assign_agents(
     question: str, use_llm: bool = True
 ) -> tuple[str, QuestionClassification]:
     """Convenience function to classify question and get agent string.
@@ -408,7 +414,7 @@ def classify_and_assign_agents(
     classifier = QuestionClassifier()
 
     if use_llm:
-        classification = classifier.classify(question)
+        classification = await classifier.classify(question)
     else:
         classification = classifier.classify_simple(question)
 
