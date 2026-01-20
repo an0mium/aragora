@@ -1,0 +1,812 @@
+"""
+Unified Decision Request Schema and Router.
+
+Provides a single entry point for all decision-making requests across
+Aragora, normalizing inputs from HTTP, WebSocket, chat, voice, and email
+channels before routing to the appropriate decision engine.
+
+Usage:
+    from aragora.core.decision import DecisionRequest, DecisionRouter
+
+    # Create a unified request
+    request = DecisionRequest(
+        content="Should we use microservices?",
+        decision_type=DecisionType.DEBATE,
+        source=InputSource.SLACK,
+        response_channel=ResponseChannel(platform="slack", channel_id="C123"),
+    )
+
+    # Route to appropriate engine
+    router = DecisionRouter()
+    result = await router.route(request)
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Union
+
+logger = logging.getLogger(__name__)
+
+
+class DecisionType(str, Enum):
+    """Types of decision-making processes available."""
+
+    DEBATE = "debate"  # Multi-agent debate with consensus
+    WORKFLOW = "workflow"  # DAG-based workflow execution
+    GAUNTLET = "gauntlet"  # Adversarial validation pipeline
+    QUICK = "quick"  # Fast single-agent response
+    AUTO = "auto"  # Auto-detect based on content
+
+
+class InputSource(str, Enum):
+    """Source channel for the decision request."""
+
+    # Chat platforms
+    SLACK = "slack"
+    DISCORD = "discord"
+    TEAMS = "teams"
+    GOOGLE_CHAT = "google_chat"
+    TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
+
+    # Direct interfaces
+    HTTP_API = "http_api"
+    WEBSOCKET = "websocket"
+    CLI = "cli"
+
+    # Voice
+    VOICE = "voice"
+    VOICE_SLACK = "voice_slack"
+    VOICE_TELEGRAM = "voice_telegram"
+    VOICE_WHATSAPP = "voice_whatsapp"
+
+    # Email
+    EMAIL = "email"
+    GMAIL = "gmail"
+
+    # Enterprise integrations
+    JIRA = "jira"
+    GITHUB = "github"
+    SERVICENOW = "servicenow"
+
+    # Event streams
+    KAFKA = "kafka"
+    RABBITMQ = "rabbitmq"
+    WEBHOOK = "webhook"
+
+    # Internal
+    WORKFLOW = "workflow"  # Triggered by another workflow
+    SCHEDULED = "scheduled"  # Scheduled task
+    INTERNAL = "internal"  # System-generated
+
+
+class Priority(str, Enum):
+    """Request priority levels."""
+
+    CRITICAL = "critical"  # Immediate processing
+    HIGH = "high"  # Fast-track queue
+    NORMAL = "normal"  # Standard processing
+    LOW = "low"  # Background processing
+    BATCH = "batch"  # Batch with similar requests
+
+
+@dataclass
+class ResponseChannel:
+    """
+    Where to send the decision result.
+
+    Supports multiple output channels for the same request.
+    """
+
+    platform: str  # slack, discord, http, websocket, email, webhook
+    channel_id: Optional[str] = None  # Slack channel, Discord channel, etc.
+    user_id: Optional[str] = None  # Direct message to user
+    thread_id: Optional[str] = None  # Reply in thread
+    webhook_url: Optional[str] = None  # Webhook callback URL
+    email_address: Optional[str] = None  # Email recipient
+    response_format: str = "full"  # full, summary, notification
+    include_reasoning: bool = True  # Include chain-of-thought
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "platform": self.platform,
+            "channel_id": self.channel_id,
+            "user_id": self.user_id,
+            "thread_id": self.thread_id,
+            "webhook_url": self.webhook_url,
+            "email_address": self.email_address,
+            "response_format": self.response_format,
+            "include_reasoning": self.include_reasoning,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ResponseChannel":
+        """Create from dictionary."""
+        return cls(
+            platform=data.get("platform", "http"),
+            channel_id=data.get("channel_id"),
+            user_id=data.get("user_id"),
+            thread_id=data.get("thread_id"),
+            webhook_url=data.get("webhook_url"),
+            email_address=data.get("email_address"),
+            response_format=data.get("response_format", "full"),
+            include_reasoning=data.get("include_reasoning", True),
+        )
+
+
+@dataclass
+class RequestContext:
+    """
+    Context and metadata for the decision request.
+
+    Provides audit trail and correlation capabilities.
+    """
+
+    # Correlation
+    correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    parent_request_id: Optional[str] = None  # If spawned from another request
+    session_id: Optional[str] = None  # User session
+
+    # User info
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_roles: List[str] = field(default_factory=list)
+
+    # Tenant/workspace
+    tenant_id: Optional[str] = None
+    workspace_id: Optional[str] = None
+
+    # Timing
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    deadline: Optional[datetime] = None  # Hard deadline for response
+
+    # Additional context
+    tags: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "correlation_id": self.correlation_id,
+            "parent_request_id": self.parent_request_id,
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "user_email": self.user_email,
+            "user_roles": self.user_roles,
+            "tenant_id": self.tenant_id,
+            "workspace_id": self.workspace_id,
+            "created_at": self.created_at.isoformat(),
+            "deadline": self.deadline.isoformat() if self.deadline else None,
+            "tags": self.tags,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RequestContext":
+        """Create from dictionary."""
+        created_at = data.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+
+        deadline = data.get("deadline")
+        if isinstance(deadline, str):
+            deadline = datetime.fromisoformat(deadline)
+
+        return cls(
+            correlation_id=data.get("correlation_id", str(uuid.uuid4())),
+            parent_request_id=data.get("parent_request_id"),
+            session_id=data.get("session_id"),
+            user_id=data.get("user_id"),
+            user_name=data.get("user_name"),
+            user_email=data.get("user_email"),
+            user_roles=data.get("user_roles", []),
+            tenant_id=data.get("tenant_id"),
+            workspace_id=data.get("workspace_id"),
+            created_at=created_at or datetime.utcnow(),
+            deadline=deadline,
+            tags=data.get("tags", []),
+            metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass
+class DecisionConfig:
+    """
+    Configuration for the decision-making process.
+
+    Unified configuration that maps to specific engine configs.
+    """
+
+    # Common settings
+    timeout_seconds: int = 300
+    max_agents: int = 3
+    agents: List[str] = field(default_factory=lambda: ["anthropic-api", "openai-api"])
+
+    # Debate-specific (mapped to DebateProtocol)
+    rounds: int = 3
+    consensus: str = "majority"  # majority, unanimous, judge, weighted
+    enable_calibration: bool = True
+    early_stopping: bool = True
+
+    # Workflow-specific (mapped to WorkflowConfig)
+    workflow_id: Optional[str] = None
+    workflow_inputs: Dict[str, Any] = field(default_factory=dict)
+    stop_on_failure: bool = True
+    enable_checkpointing: bool = True
+
+    # Gauntlet-specific (mapped to GauntletConfig)
+    enable_adversarial: bool = False
+    enable_formal_verification: bool = False
+    robustness_threshold: float = 0.6
+    attack_categories: List[str] = field(default_factory=list)
+
+    # Knowledge integration
+    use_knowledge_mound: bool = True
+    include_evidence: bool = True
+    evidence_sources: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "timeout_seconds": self.timeout_seconds,
+            "max_agents": self.max_agents,
+            "agents": self.agents,
+            "rounds": self.rounds,
+            "consensus": self.consensus,
+            "enable_calibration": self.enable_calibration,
+            "early_stopping": self.early_stopping,
+            "workflow_id": self.workflow_id,
+            "workflow_inputs": self.workflow_inputs,
+            "stop_on_failure": self.stop_on_failure,
+            "enable_checkpointing": self.enable_checkpointing,
+            "enable_adversarial": self.enable_adversarial,
+            "enable_formal_verification": self.enable_formal_verification,
+            "robustness_threshold": self.robustness_threshold,
+            "attack_categories": self.attack_categories,
+            "use_knowledge_mound": self.use_knowledge_mound,
+            "include_evidence": self.include_evidence,
+            "evidence_sources": self.evidence_sources,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DecisionConfig":
+        """Create from dictionary."""
+        return cls(
+            timeout_seconds=data.get("timeout_seconds", 300),
+            max_agents=data.get("max_agents", 3),
+            agents=data.get("agents", ["anthropic-api", "openai-api"]),
+            rounds=data.get("rounds", 3),
+            consensus=data.get("consensus", "majority"),
+            enable_calibration=data.get("enable_calibration", True),
+            early_stopping=data.get("early_stopping", True),
+            workflow_id=data.get("workflow_id"),
+            workflow_inputs=data.get("workflow_inputs", {}),
+            stop_on_failure=data.get("stop_on_failure", True),
+            enable_checkpointing=data.get("enable_checkpointing", True),
+            enable_adversarial=data.get("enable_adversarial", False),
+            enable_formal_verification=data.get("enable_formal_verification", False),
+            robustness_threshold=data.get("robustness_threshold", 0.6),
+            attack_categories=data.get("attack_categories", []),
+            use_knowledge_mound=data.get("use_knowledge_mound", True),
+            include_evidence=data.get("include_evidence", True),
+            evidence_sources=data.get("evidence_sources", []),
+        )
+
+
+@dataclass
+class DecisionRequest:
+    """
+    Unified decision request that normalizes input from all channels.
+
+    This is the canonical request format for Aragora's decision-making
+    capabilities, accepting input from HTTP, WebSocket, chat platforms,
+    voice, email, and enterprise integrations.
+    """
+
+    # Core content
+    content: str  # The question, topic, or input text
+    decision_type: DecisionType = DecisionType.AUTO
+
+    # Source and routing
+    source: InputSource = InputSource.HTTP_API
+    response_channels: List[ResponseChannel] = field(default_factory=list)
+
+    # Request context
+    context: RequestContext = field(default_factory=RequestContext)
+
+    # Configuration
+    config: DecisionConfig = field(default_factory=DecisionConfig)
+
+    # Priority
+    priority: Priority = Priority.NORMAL
+
+    # Additional input data
+    attachments: List[Dict[str, Any]] = field(default_factory=list)
+    evidence: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Request ID
+    request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    def __post_init__(self):
+        """Validate and normalize the request."""
+        # Ensure content is not empty
+        if not self.content or not self.content.strip():
+            raise ValueError("Decision request content cannot be empty")
+
+        # Ensure at least one response channel
+        if not self.response_channels:
+            self.response_channels = [
+                ResponseChannel(platform=self.source.value)
+            ]
+
+        # Auto-detect decision type if needed
+        if self.decision_type == DecisionType.AUTO:
+            self.decision_type = self._detect_decision_type()
+
+    def _detect_decision_type(self) -> DecisionType:
+        """Auto-detect the appropriate decision type based on content."""
+        content_lower = self.content.lower()
+
+        # Check for workflow triggers
+        if self.config.workflow_id:
+            return DecisionType.WORKFLOW
+
+        # Check for gauntlet triggers
+        gauntlet_keywords = ["validate", "stress test", "probe", "attack", "security"]
+        if any(kw in content_lower for kw in gauntlet_keywords):
+            return DecisionType.GAUNTLET
+
+        # Check for quick response triggers
+        quick_keywords = ["quick", "fast", "simple", "brief"]
+        if any(kw in content_lower for kw in quick_keywords):
+            return DecisionType.QUICK
+
+        # Default to debate for complex questions
+        return DecisionType.DEBATE
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "request_id": self.request_id,
+            "content": self.content,
+            "decision_type": self.decision_type.value,
+            "source": self.source.value,
+            "response_channels": [rc.to_dict() for rc in self.response_channels],
+            "context": self.context.to_dict(),
+            "config": self.config.to_dict(),
+            "priority": self.priority.value,
+            "attachments": self.attachments,
+            "evidence": self.evidence,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DecisionRequest":
+        """Create from dictionary."""
+        return cls(
+            request_id=data.get("request_id", str(uuid.uuid4())),
+            content=data.get("content", ""),
+            decision_type=DecisionType(data.get("decision_type", "auto")),
+            source=InputSource(data.get("source", "http_api")),
+            response_channels=[
+                ResponseChannel.from_dict(rc)
+                for rc in data.get("response_channels", [])
+            ],
+            context=RequestContext.from_dict(data.get("context", {})),
+            config=DecisionConfig.from_dict(data.get("config", {})),
+            priority=Priority(data.get("priority", "normal")),
+            attachments=data.get("attachments", []),
+            evidence=data.get("evidence", []),
+        )
+
+    @classmethod
+    def from_chat_message(
+        cls,
+        message: str,
+        platform: str,
+        channel_id: str,
+        user_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        **kwargs,
+    ) -> "DecisionRequest":
+        """Create from a chat platform message."""
+        source = InputSource(platform.lower())
+
+        response_channel = ResponseChannel(
+            platform=platform,
+            channel_id=channel_id,
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+
+        context = RequestContext(
+            user_id=user_id,
+            metadata=kwargs,
+        )
+
+        return cls(
+            content=message,
+            source=source,
+            response_channels=[response_channel],
+            context=context,
+        )
+
+    @classmethod
+    def from_http(
+        cls,
+        body: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> "DecisionRequest":
+        """Create from HTTP API request body."""
+        # Extract correlation ID from headers if present
+        correlation_id = None
+        if headers:
+            correlation_id = headers.get("X-Correlation-ID") or headers.get("X-Request-ID")
+
+        # Handle both new unified format and legacy debate format
+        if "content" in body:
+            request = cls.from_dict(body)
+        else:
+            # Legacy format: {question, agents, rounds, consensus, ...}
+            request = cls(
+                content=body.get("question") or body.get("task") or body.get("input_text", ""),
+                decision_type=DecisionType(body.get("decision_type", "debate")),
+                source=InputSource.HTTP_API,
+                config=DecisionConfig(
+                    agents=body.get("agents", ["anthropic-api", "openai-api"]),
+                    rounds=body.get("rounds", 3),
+                    consensus=body.get("consensus", "majority"),
+                    timeout_seconds=body.get("timeout", 300),
+                ),
+            )
+
+        if correlation_id:
+            request.context.correlation_id = correlation_id
+
+        return request
+
+    @classmethod
+    def from_voice(
+        cls,
+        transcription: str,
+        platform: str,
+        channel_id: str,
+        audio_duration: Optional[float] = None,
+        **kwargs,
+    ) -> "DecisionRequest":
+        """Create from a voice message transcription."""
+        source_map = {
+            "slack": InputSource.VOICE_SLACK,
+            "telegram": InputSource.VOICE_TELEGRAM,
+            "whatsapp": InputSource.VOICE_WHATSAPP,
+        }
+        source = source_map.get(platform.lower(), InputSource.VOICE)
+
+        context = RequestContext(
+            metadata={
+                "audio_duration": audio_duration,
+                "transcription_source": "whisper",
+                **kwargs,
+            }
+        )
+
+        return cls(
+            content=transcription,
+            source=source,
+            response_channels=[
+                ResponseChannel(platform=platform, channel_id=channel_id)
+            ],
+            context=context,
+        )
+
+
+@dataclass
+class DecisionResult:
+    """
+    Unified decision result returned by all decision engines.
+    """
+
+    request_id: str
+    decision_type: DecisionType
+
+    # Core result
+    answer: str
+    confidence: float  # 0-1
+    consensus_reached: bool
+
+    # Detailed results
+    reasoning: Optional[str] = None
+    evidence_used: List[Dict[str, Any]] = field(default_factory=list)
+    agent_contributions: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Metadata
+    duration_seconds: float = 0.0
+    completed_at: datetime = field(default_factory=datetime.utcnow)
+
+    # Engine-specific results
+    debate_result: Optional[Any] = None  # DebateResult
+    workflow_result: Optional[Any] = None  # WorkflowResult
+    gauntlet_result: Optional[Any] = None  # GauntletResult
+
+    # Status
+    success: bool = True
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "request_id": self.request_id,
+            "decision_type": self.decision_type.value,
+            "answer": self.answer,
+            "confidence": self.confidence,
+            "consensus_reached": self.consensus_reached,
+            "reasoning": self.reasoning,
+            "evidence_used": self.evidence_used,
+            "agent_contributions": self.agent_contributions,
+            "duration_seconds": self.duration_seconds,
+            "completed_at": self.completed_at.isoformat(),
+            "success": self.success,
+            "error": self.error,
+        }
+
+
+class DecisionRouter:
+    """
+    Routes decision requests to the appropriate engine.
+
+    Provides a unified entry point for all decision-making requests,
+    handling routing, validation, and response delivery.
+    """
+
+    def __init__(
+        self,
+        debate_engine: Optional[Any] = None,
+        workflow_engine: Optional[Any] = None,
+        gauntlet_engine: Optional[Any] = None,
+    ):
+        """
+        Initialize the router.
+
+        Args:
+            debate_engine: Arena instance or factory
+            workflow_engine: WorkflowEngine instance or factory
+            gauntlet_engine: GauntletOrchestrator instance or factory
+        """
+        self._debate_engine = debate_engine
+        self._workflow_engine = workflow_engine
+        self._gauntlet_engine = gauntlet_engine
+        self._response_handlers: Dict[str, Callable] = {}
+
+    def register_response_handler(
+        self,
+        platform: str,
+        handler: Callable[[DecisionResult, ResponseChannel], None],
+    ) -> None:
+        """Register a handler for delivering responses to a platform."""
+        self._response_handlers[platform.lower()] = handler
+
+    async def route(self, request: DecisionRequest) -> DecisionResult:
+        """
+        Route a decision request to the appropriate engine.
+
+        Args:
+            request: Unified decision request
+
+        Returns:
+            DecisionResult with the outcome
+        """
+        logger.info(
+            f"Routing decision request {request.request_id} "
+            f"(type={request.decision_type.value}, source={request.source.value})"
+        )
+
+        start_time = datetime.utcnow()
+
+        try:
+            if request.decision_type == DecisionType.DEBATE:
+                result = await self._route_to_debate(request)
+            elif request.decision_type == DecisionType.WORKFLOW:
+                result = await self._route_to_workflow(request)
+            elif request.decision_type == DecisionType.GAUNTLET:
+                result = await self._route_to_gauntlet(request)
+            elif request.decision_type == DecisionType.QUICK:
+                result = await self._route_to_quick(request)
+            else:
+                raise ValueError(f"Unknown decision type: {request.decision_type}")
+
+            # Calculate duration
+            result.duration_seconds = (datetime.utcnow() - start_time).total_seconds()
+
+            # Deliver responses
+            await self._deliver_responses(request, result)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Decision routing failed: {e}", exc_info=True)
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=request.decision_type,
+                answer="",
+                confidence=0.0,
+                consensus_reached=False,
+                success=False,
+                error=str(e),
+                duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
+            )
+
+    async def _route_to_debate(self, request: DecisionRequest) -> DecisionResult:
+        """Route to debate engine."""
+        if self._debate_engine is None:
+            # Lazy load
+            from aragora.debate import Arena
+            self._debate_engine = Arena
+
+        # Convert to debate format
+        from aragora.core_types import Environment
+        from aragora.debate.protocol import DebateProtocol
+
+        env = Environment(task=request.content)
+        protocol = DebateProtocol(
+            rounds=request.config.rounds,
+            consensus=request.config.consensus,
+            enable_calibration=request.config.enable_calibration,
+            early_stopping=request.config.early_stopping,
+            timeout_seconds=request.config.timeout_seconds,
+        )
+
+        # Create arena and run
+        arena = self._debate_engine(
+            environment=env,
+            protocol=protocol,
+            agent_names=request.config.agents,
+        )
+
+        debate_result = await arena.run()
+
+        return DecisionResult(
+            request_id=request.request_id,
+            decision_type=DecisionType.DEBATE,
+            answer=debate_result.final_answer or "",
+            confidence=debate_result.confidence if hasattr(debate_result, "confidence") else 0.8,
+            consensus_reached=debate_result.consensus_reached,
+            reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
+            debate_result=debate_result,
+        )
+
+    async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
+        """Route to workflow engine."""
+        if self._workflow_engine is None:
+            from aragora.workflow.engine import get_workflow_engine
+            self._workflow_engine = get_workflow_engine()
+
+        # Get or create workflow definition
+        workflow_id = request.config.workflow_id
+        if not workflow_id:
+            raise ValueError("Workflow ID required for workflow decision type")
+
+        # Load workflow definition
+        definition = await self._workflow_engine.get_definition(workflow_id)
+        if not definition:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        # Execute
+        workflow_result = await self._workflow_engine.execute(
+            definition=definition,
+            inputs={
+                "content": request.content,
+                **request.config.workflow_inputs,
+            },
+        )
+
+        # Extract answer from workflow outputs
+        answer = workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+
+        return DecisionResult(
+            request_id=request.request_id,
+            decision_type=DecisionType.WORKFLOW,
+            answer=str(answer),
+            confidence=0.9 if workflow_result.success else 0.0,
+            consensus_reached=workflow_result.success,
+            workflow_result=workflow_result,
+        )
+
+    async def _route_to_gauntlet(self, request: DecisionRequest) -> DecisionResult:
+        """Route to gauntlet engine."""
+        if self._gauntlet_engine is None:
+            from aragora.gauntlet.orchestrator import GauntletOrchestrator
+            self._gauntlet_engine = GauntletOrchestrator()
+
+        from aragora.gauntlet.config import GauntletConfig
+
+        config = GauntletConfig(
+            agents=request.config.agents,
+            enable_adversarial_probing=request.config.enable_adversarial,
+            enable_formal_verification=request.config.enable_formal_verification,
+            robustness_threshold=request.config.robustness_threshold,
+            timeout_seconds=request.config.timeout_seconds,
+        )
+
+        gauntlet_result = await self._gauntlet_engine.run(
+            input_text=request.content,
+            config=config,
+        )
+
+        return DecisionResult(
+            request_id=request.request_id,
+            decision_type=DecisionType.GAUNTLET,
+            answer=gauntlet_result.verdict_summary or "",
+            confidence=gauntlet_result.confidence,
+            consensus_reached=gauntlet_result.passed,
+            gauntlet_result=gauntlet_result,
+        )
+
+    async def _route_to_quick(self, request: DecisionRequest) -> DecisionResult:
+        """Route to quick single-agent response."""
+        # Use first configured agent for quick response
+        agent_name = request.config.agents[0] if request.config.agents else "anthropic-api"
+
+        try:
+            from aragora.agents import get_agent
+            agent = get_agent(agent_name)
+
+            response = await agent.generate(request.content)
+
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=DecisionType.QUICK,
+                answer=response,
+                confidence=0.7,  # Single agent = moderate confidence
+                consensus_reached=True,
+                agent_contributions=[{"agent": agent_name, "response": response}],
+            )
+        except Exception as e:
+            logger.error(f"Quick response failed: {e}")
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=DecisionType.QUICK,
+                answer="",
+                confidence=0.0,
+                consensus_reached=False,
+                success=False,
+                error=str(e),
+            )
+
+    async def _deliver_responses(
+        self,
+        request: DecisionRequest,
+        result: DecisionResult,
+    ) -> None:
+        """Deliver result to all response channels."""
+        for channel in request.response_channels:
+            handler = self._response_handlers.get(channel.platform)
+            if handler:
+                try:
+                    await handler(result, channel)
+                except Exception as e:
+                    logger.error(f"Failed to deliver to {channel.platform}: {e}")
+
+
+# Singleton router instance
+_router: Optional[DecisionRouter] = None
+
+
+def get_decision_router() -> DecisionRouter:
+    """Get or create the global decision router."""
+    global _router
+    if _router is None:
+        _router = DecisionRouter()
+    return _router
+
+
+def reset_decision_router() -> None:
+    """Reset the global decision router (for testing)."""
+    global _router
+    _router = None

@@ -1,7 +1,7 @@
 """Core utilities and shared services for Aragora.
 
 This package re-exports core types from aragora.core_types and adds
-additional utilities like the unified embedding service.
+additional utilities like the unified embedding service and decision router.
 
 Core types (from aragora/core_types.py):
     - Message, Critique, Vote, DebateResult, Environment, Agent
@@ -11,6 +11,11 @@ Core types (from aragora/core_types.py):
 Embeddings (from aragora.core.embeddings):
     - UnifiedEmbeddingService, get_embedding_service
     - EmbeddingConfig, EmbeddingResult, EmbeddingBackend
+
+Decision (from aragora.core.decision):
+    - DecisionRequest, DecisionResult, DecisionRouter
+    - DecisionType, InputSource, Priority
+    - ResponseChannel, RequestContext, DecisionConfig
 """
 
 from typing import Any
@@ -38,6 +43,20 @@ from aragora.core.embeddings import (
     get_embedding_service,
 )
 
+# Import decision routing
+from aragora.core.decision import (
+    DecisionConfig,
+    DecisionRequest,
+    DecisionResult,
+    DecisionRouter,
+    DecisionType,
+    InputSource,
+    Priority,
+    RequestContext,
+    ResponseChannel,
+    get_decision_router,
+)
+
 __all__ = [
     # Core types
     "AgentRole",
@@ -57,6 +76,17 @@ __all__ = [
     "EmbeddingResult",
     "UnifiedEmbeddingService",
     "get_embedding_service",
+    # Decision routing
+    "DecisionConfig",
+    "DecisionRequest",
+    "DecisionResult",
+    "DecisionRouter",
+    "DecisionType",
+    "InputSource",
+    "Priority",
+    "RequestContext",
+    "ResponseChannel",
+    "get_decision_router",
 ]
 
 
