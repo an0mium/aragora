@@ -71,6 +71,9 @@ class PostDebatePattern(WorkflowPattern):
 
     pattern_type = PatternType.CUSTOM
 
+    # Type annotation for config (overrides base class dict type)
+    post_config: PostDebateConfig
+
     def __init__(
         self,
         name: str = "Post-Debate Workflow",
@@ -80,7 +83,7 @@ class PostDebatePattern(WorkflowPattern):
         **kwargs,
     ):
         super().__init__(name, agents or ["claude"], task, **kwargs)
-        self.config = config or PostDebateConfig()
+        self.post_config = config or PostDebateConfig()
 
     def create_workflow(self) -> WorkflowDefinition:
         """Create a post-debate workflow definition."""
@@ -94,7 +97,7 @@ class PostDebatePattern(WorkflowPattern):
 
         # Step 1: Extract Knowledge (if enabled)
         current_x = 100
-        if self.config.extract_facts:
+        if self.post_config.extract_facts:
             extract_step = StepDefinition(
                 id="extract_knowledge",
                 name="Extract Knowledge",
@@ -114,7 +117,7 @@ class PostDebatePattern(WorkflowPattern):
             steps.append(extract_step)
 
             # Transition to next step
-            next_step = "store_consensus" if self.config.store_consensus else "generate_summary"
+            next_step = "store_consensus" if self.post_config.store_consensus else "generate_summary"
             transitions.append(
                 TransitionRule(
                     id=f"tr_{uuid4().hex[:8]}",
@@ -127,7 +130,7 @@ class PostDebatePattern(WorkflowPattern):
             current_x += step_width
 
         # Step 2: Store in Knowledge Mound (if enabled)
-        if self.config.store_consensus:
+        if self.post_config.store_consensus:
             store_step = StepDefinition(
                 id="store_consensus",
                 name="Store in Knowledge Mound",
@@ -135,7 +138,7 @@ class PostDebatePattern(WorkflowPattern):
                 config={
                     "handler": "store_debate_consensus",
                     "args": {
-                        "workspace_id": self.config.workspace_id or "default",
+                        "workspace_id": self.post_config.workspace_id or "default",
                         "include_provenance": True,
                     },
                 },
@@ -147,7 +150,7 @@ class PostDebatePattern(WorkflowPattern):
             steps.append(store_step)
 
             # Transition to next step
-            next_step = "generate_summary" if self.config.generate_summary else "complete"
+            next_step = "generate_summary" if self.post_config.generate_summary else "complete"
             transitions.append(
                 TransitionRule(
                     id=f"tr_{uuid4().hex[:8]}",
@@ -160,7 +163,7 @@ class PostDebatePattern(WorkflowPattern):
             current_x += step_width
 
         # Step 3: Generate Summary (if enabled)
-        if self.config.generate_summary:
+        if self.post_config.generate_summary:
             summary_step = StepDefinition(
                 id="generate_summary",
                 name="Generate Summary",
@@ -182,7 +185,7 @@ class PostDebatePattern(WorkflowPattern):
             steps.append(summary_step)
 
             # Transition to complete or notify
-            next_step = "notify" if self.config.notify_webhook else "complete"
+            next_step = "notify" if self.post_config.notify_webhook else "complete"
             transitions.append(
                 TransitionRule(
                     id=f"tr_{uuid4().hex[:8]}",
@@ -195,7 +198,7 @@ class PostDebatePattern(WorkflowPattern):
             current_x += step_width
 
         # Step 4: Notify (if webhook configured)
-        if self.config.notify_webhook:
+        if self.post_config.notify_webhook:
             notify_step = StepDefinition(
                 id="notify",
                 name="Notify Stakeholders",
@@ -203,7 +206,7 @@ class PostDebatePattern(WorkflowPattern):
                 config={
                     "handler": "webhook_notify",
                     "args": {
-                        "url": self.config.notify_webhook,
+                        "url": self.post_config.notify_webhook,
                         "include_summary": True,
                     },
                 },
@@ -240,11 +243,11 @@ class PostDebatePattern(WorkflowPattern):
         steps.append(complete_step)
 
         # Determine entry step
-        if self.config.extract_facts:
+        if self.post_config.extract_facts:
             entry_step = "extract_knowledge"
-        elif self.config.store_consensus:
+        elif self.post_config.store_consensus:
             entry_step = "store_consensus"
-        elif self.config.generate_summary:
+        elif self.post_config.generate_summary:
             entry_step = "generate_summary"
         else:
             entry_step = "complete"

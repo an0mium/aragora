@@ -21,12 +21,12 @@ Usage:
 import ast
 import logging
 import operator
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 # Safe binary operators
-_SAFE_BINOPS = {
+_SAFE_BINOPS: dict[type[ast.operator], Callable[[Any, Any], Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -42,7 +42,7 @@ _SAFE_BINOPS = {
 }
 
 # Safe unary operators
-_SAFE_UNARYOPS = {
+_SAFE_UNARYOPS: dict[type[ast.unaryop], Callable[[Any], Any]] = {
     ast.UAdd: operator.pos,
     ast.USub: operator.neg,
     ast.Not: operator.not_,
@@ -50,7 +50,7 @@ _SAFE_UNARYOPS = {
 }
 
 # Safe comparison operators
-_SAFE_CMPOPS = {
+_SAFE_CMPOPS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
     ast.Eq: operator.eq,
     ast.NotEq: operator.ne,
     ast.Lt: operator.lt,
