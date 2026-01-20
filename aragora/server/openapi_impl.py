@@ -78,6 +78,13 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "OAuth", "description": "OAuth authentication flows"},
             {"name": "Audit", "description": "Audit logging and compliance"},
             {"name": "Workspace", "description": "Workspace management"},
+            {"name": "Workflow Templates", "description": "Pre-built workflow templates"},
+            {"name": "Patterns", "description": "Workflow pattern management"},
+            {"name": "Gauntlet", "description": "Decision receipts and risk heatmaps"},
+            {"name": "Explainability", "description": "Decision explanations and provenance"},
+            {"name": "Cross-Pollination", "description": "Cross-debate knowledge sharing"},
+            {"name": "Knowledge Mound", "description": "Knowledge extraction and retrieval"},
+            {"name": "Checkpoints", "description": "Debate checkpoint management"},
         ],
         "paths": ALL_ENDPOINTS,
         "components": {
