@@ -16,9 +16,11 @@ import json
 import logging
 import sqlite3
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List
 
-from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.serialization import SerializableMixin
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
@@ -124,7 +126,9 @@ class MetaLearner(SQLiteStore):
         );
     """
 
-    def __init__(self, db_path: str = DB_MEMORY_PATH):
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.state = self._load_state()
         self.metrics_history: List[LearningMetrics] = []

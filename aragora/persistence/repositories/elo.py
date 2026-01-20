@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from aragora.config import (
-    DB_ELO_PATH,
     DB_TIMEOUT_SECONDS,
     ELO_INITIAL_RATING,
 )
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.utils.cache import TTLCache
 
 from .base import BaseRepository
@@ -135,16 +135,18 @@ class EloRepository(BaseRepository[RatingEntity]):
 
     def __init__(
         self,
-        db_path: str | Path = DB_ELO_PATH,
+        db_path: str | Path | None = None,
         timeout: float = DB_TIMEOUT_SECONDS,
     ) -> None:
         """
         Initialize the ELO repository.
 
         Args:
-            db_path: Path to the SQLite database file.
+            db_path: Path to the SQLite database file. Defaults to get_db_path(DatabaseType.ELO).
             timeout: Connection timeout in seconds.
         """
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.ELO)
         super().__init__(db_path, timeout)
 
     @property

@@ -14,6 +14,7 @@ import sqlite3
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -279,11 +280,11 @@ def setup_default_tasks(
             if _shared_memory is not None:
                 memory = _shared_memory
             else:
-                from aragora.config import DB_MEMORY_PATH
                 from aragora.memory.continuum import ContinuumMemory
+                from aragora.persistence.db_config import DatabaseType, get_db_path
 
                 # Use provided path or default
-                db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
+                db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None)
                 memory = ContinuumMemory(db_path=db_path)
 
             # Check memory pressure before cleanup
@@ -377,10 +378,10 @@ def setup_default_tasks(
             if _shared_memory is not None:
                 memory = _shared_memory
             else:
-                from aragora.config import DB_MEMORY_PATH
                 from aragora.memory.continuum import ContinuumMemory
+                from aragora.persistence.db_config import DatabaseType, get_db_path
 
-                db_path = nomic_dir + "/continuum_memory.db" if nomic_dir else DB_MEMORY_PATH
+                db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY, nomic_dir=Path(nomic_dir) if nomic_dir else None)
                 memory = ContinuumMemory(db_path=db_path)
 
             result = memory.consolidate()

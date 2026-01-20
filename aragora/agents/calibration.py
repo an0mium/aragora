@@ -30,9 +30,11 @@ __all__ = [
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
-from aragora.config import DB_CALIBRATION_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 
 # Schema version for CalibrationTracker migrations
@@ -344,7 +346,9 @@ class CalibrationTracker(SQLiteStore):
         """,
     }
 
-    def __init__(self, db_path: str = DB_CALIBRATION_PATH):
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CALIBRATION)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self._ensure_temperature_params_table()
 

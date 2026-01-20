@@ -11,10 +11,12 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
-from aragora.config import DB_INSIGHTS_PATH, resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.insights.extractor import DebateInsights, Insight, InsightType
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.storage.schema import SchemaManager
 from aragora.utils.json_helpers import safe_json_loads
@@ -147,8 +149,10 @@ class InsightStore(SQLiteStore):
     SCHEMA_VERSION = INSIGHT_STORE_SCHEMA_VERSION
     INITIAL_SCHEMA = INSIGHT_INITIAL_SCHEMA
 
-    def __init__(self, db_path: str = DB_INSIGHTS_PATH):
-        super().__init__(resolve_db_path(db_path))
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.INSIGHTS)
+        super().__init__(resolve_db_path(str(db_path)))
 
     def register_migrations(self, manager: SchemaManager) -> None:
         """Register InsightStore schema migrations."""

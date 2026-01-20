@@ -383,11 +383,11 @@ class StreamAPIHandlersMixin:
             )
 
         try:
-            from aragora.config import DB_PERSONAS_PATH
             from aragora.insights.flip_detector import FlipDetector
+            from aragora.persistence.db_config import DatabaseType, get_db_path
 
-            db_path = self.nomic_dir / DB_PERSONAS_PATH if self.nomic_dir else DB_PERSONAS_PATH
-            detector = FlipDetector(db_path=str(db_path))
+            db_path = get_db_path(DatabaseType.PERSONAS, nomic_dir=self.nomic_dir)
+            detector = FlipDetector(db_path=db_path)
 
             score = detector.get_agent_consistency(agent_name)
 

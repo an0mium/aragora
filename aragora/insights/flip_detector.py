@@ -17,8 +17,8 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Optional
 
-from aragora.config import DB_PERSONAS_PATH
 from aragora.insights.database import InsightsDatabase
+from aragora.persistence.db_config import DatabaseType, get_db_path
 
 
 @dataclass
@@ -120,11 +120,13 @@ class FlipDetector:
 
     def __init__(
         self,
-        db_path: str = DB_PERSONAS_PATH,
+        db_path: str | Path | None = None,
         similarity_threshold: float = 0.6,
     ):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.PERSONAS)
         self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
+        self.db = InsightsDatabase(str(db_path))
         self.similarity_threshold = similarity_threshold
         self._init_tables()
 

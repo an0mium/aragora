@@ -17,9 +17,10 @@ __all__ = [
 
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
-from aragora.config import DB_ELO_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.ranking.relationships import (
     AgentRelationship,
     RelationshipTracker as BaseRelationshipTracker,
@@ -39,13 +40,15 @@ class RelationshipTracker(BaseRelationshipTracker):
     - get_influence_network() for influence analysis
     """
 
-    def __init__(self, elo_db_path: str = DB_ELO_PATH):
+    def __init__(self, elo_db_path: str | Path | None = None):
         """
         Initialize the relationship tracker.
 
         Args:
-            elo_db_path: Path to the ELO database file.
+            elo_db_path: Path to the ELO database file. Defaults to get_db_path(DatabaseType.ELO).
         """
+        if elo_db_path is None:
+            elo_db_path = get_db_path(DatabaseType.ELO)
         super().__init__(elo_db_path)
         self._ensure_tables()
 

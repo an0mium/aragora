@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-from aragora.config import DB_MEMORY_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.memory.tier_manager import (
     DEFAULT_TIER_CONFIGS,
     MemoryTier,
@@ -310,12 +310,14 @@ class ContinuumMemory(SQLiteStore):
 
     def __init__(
         self,
-        db_path: str = DB_MEMORY_PATH,
+        db_path: str | Path | None = None,
         tier_manager: Optional[TierManager] = None,
         event_emitter: Optional["EventEmitterProtocol"] = None,
         storage_path: Optional[str] = None,
         base_dir: Optional[str] = None,
     ):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         resolved_path: str | Path = db_path
         base_path = storage_path or base_dir
         if base_path:

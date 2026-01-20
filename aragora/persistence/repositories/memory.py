@@ -15,9 +15,10 @@ import logging
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from aragora.config import DB_MEMORY_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 
 from .base import BaseRepository
 
@@ -126,12 +127,14 @@ class MemoryRepository(BaseRepository[MemoryEntity]):
             repo.mark_reflected("claude")
     """
 
-    def __init__(self, db_path: str = DB_MEMORY_PATH) -> None:
+    def __init__(self, db_path: str | Path | None = None) -> None:
         """Initialize the memory repository.
 
         Args:
-            db_path: Path to the memory database file.
+            db_path: Path to the memory database file. Defaults to get_db_path(DatabaseType.CONTINUUM_MEMORY).
         """
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         super().__init__(db_path)
 
     @property

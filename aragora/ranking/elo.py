@@ -28,12 +28,12 @@ from aragora.config import (
     CACHE_TTL_LB_STATS,
     CACHE_TTL_LEADERBOARD,
     CACHE_TTL_RECENT_MATCHES,
-    DB_ELO_PATH,
     ELO_CALIBRATION_MIN_COUNT,
     ELO_INITIAL_RATING,
     ELO_K_FACTOR,
     resolve_db_path,
 )
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.ranking.calibration_engine import CalibrationEngine, DomainCalibrationEngine
 from aragora.ranking.database import EloDatabase
 from aragora.ranking.elo_core import (
@@ -239,9 +239,11 @@ class EloSystem:
     _calibration_cache: TTLCache[list] = TTLCache(maxsize=20, ttl_seconds=CACHE_TTL_CALIBRATION_LB)
 
     def __init__(
-        self, db_path: str = DB_ELO_PATH, event_emitter: Optional["EventEmitterProtocol"] = None
+        self, db_path: str | Path | None = None, event_emitter: Optional["EventEmitterProtocol"] = None
     ):
-        resolved_path = resolve_db_path(db_path)
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.ELO)
+        resolved_path = resolve_db_path(str(db_path))
         self.db_path = Path(resolved_path)
         self._db = EloDatabase(resolved_path)
         self.event_emitter = event_emitter  # For emitting ELO update events

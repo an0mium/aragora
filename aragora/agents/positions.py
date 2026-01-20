@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator, Literal
 
-from aragora.config import DB_PERSONAS_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.insights.database import InsightsDatabase
 
 logger = logging.getLogger(__name__)
@@ -156,9 +156,11 @@ class PositionLedger:
     Integrates with PersonaManager's database for unified agent data.
     """
 
-    def __init__(self, db_path: str = DB_PERSONAS_PATH):
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.PERSONAS)
         self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
+        self.db = InsightsDatabase(str(db_path))
         self._init_tables()
 
     @contextmanager

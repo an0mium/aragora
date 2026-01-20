@@ -33,7 +33,7 @@ from aragora.agents.personas import (
     Persona,
     PersonaManager,
 )
-from aragora.config import DB_LAB_PATH
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.insights.database import InsightsDatabase
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -125,11 +125,13 @@ class PersonaLaboratory:
     def __init__(
         self,
         persona_manager: PersonaManager,
-        db_path: str = DB_LAB_PATH,
+        db_path: str | Path | None = None,
     ):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.LABORATORY)
         self.persona_manager = persona_manager
         self.db_path = Path(db_path)
-        self.db = InsightsDatabase(db_path)
+        self.db = InsightsDatabase(str(db_path))
 
     # =========================================================================
     # A/B Experiments

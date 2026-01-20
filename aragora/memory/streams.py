@@ -14,10 +14,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
 
-from aragora.config import DB_MEMORY_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import ConfigurationError
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.async_utils import run_async
 from aragora.utils.cache_registry import register_lru_cache
@@ -170,9 +172,11 @@ class MemoryStream(SQLiteStore):
 
     def __init__(
         self,
-        db_path: str = DB_MEMORY_PATH,
+        db_path: str | Path | None = None,
         embedding_provider: Optional["EmbeddingProvider"] = None,
     ):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.embedding_provider = embedding_provider
         # Register provider with ServiceRegistry for cached embedding function

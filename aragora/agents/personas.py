@@ -21,9 +21,11 @@ __all__ = [
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from aragora.config import DB_PERSONAS_PATH, DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
 
@@ -182,7 +184,9 @@ class PersonaManager(SQLiteStore):
         );
     """
 
-    def __init__(self, db_path: str = DB_PERSONAS_PATH):
+    def __init__(self, db_path: str | Path | None = None):
+        if db_path is None:
+            db_path = get_db_path(DatabaseType.PERSONAS)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
     def get_persona(self, agent_name: str) -> Persona | None:
