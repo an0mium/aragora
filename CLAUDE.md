@@ -13,12 +13,16 @@ Context for Claude Code when working with the Aragora codebase.
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
-| RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `compressor.py` |
+| RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
+| Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
+| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `teams.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 
 ## Project Overview
 
 Aragora is a multi-agent debate framework where heterogeneous AI agents discuss, critique, and improve each other's responses. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+
+**Codebase Scale:** 1000+ Python modules | 34,400+ tests | 117 debate modules | 65 HTTP handlers + 15 WebSocket streams | 24+ enterprise connectors
 
 ## Architecture
 
@@ -169,14 +173,30 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Trickster - hollow consensus detection via `enable_trickster`
 - SecurityBarrier - telemetry redaction
 - Graph/Matrix debate APIs
-- RLM (Recursive Language Models) - context compression via factory (`get_rlm()`, `get_compressor()`)
+- RLM (Recursive Language Models) - REPL-based programmatic context access (NOT compression)
 - Belief Network - claim provenance tracking
 - Workflow Engine - DAG-based automation
+
+**Enterprise (production-ready):**
+- Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management
+- Multi-Tenancy - Tenant isolation, resource quotas, usage metering
+- Security - AES-256-GCM encryption, rate limiting, circuit breakers
+- Compliance - SOC 2 controls, GDPR support, audit trails
+- Observability - Prometheus metrics, Grafana dashboards, OpenTelemetry tracing
 
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
 - Evidence collection - functional but limited connectors
 - Knowledge Mound - experimental (Phase A1)
-- Control Plane - enterprise features (Phase 0)
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.
+
+## Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `docs/COMMERCIAL_OVERVIEW.md` | Commercial positioning, 85% readiness assessment |
+| `docs/ENTERPRISE_FEATURES.md` | Enterprise capabilities reference |
+| `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (100+ features) |
+| `docs/STATUS.md` | Detailed feature implementation status |
+| `docs/API_REFERENCE.md` | REST API documentation |

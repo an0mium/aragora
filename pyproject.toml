@@ -125,7 +125,8 @@ rlm = [
     # Official RLM library from arXiv:2512.24601 (MIT license)
     # Enables recursive language models for infinite context processing
     # Source: https://github.com/alexzhang13/rlm
-    "rlm>=0.1.0",
+    # Install: pip install git+https://github.com/alexzhang13/rlm.git
+    "rlm @ git+https://github.com/alexzhang13/rlm.git",
 ]
 control-plane = [
     "redis>=5.0.0,<6.0",

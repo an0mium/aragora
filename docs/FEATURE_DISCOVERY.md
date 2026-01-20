@@ -1,6 +1,13 @@
 # Aragora Feature Discovery Guide
 
-Complete catalog of Aragora's 67+ features organized by use case.
+Complete catalog of Aragora's **100+ features** organized by use case.
+
+**Codebase Statistics:**
+- 1000+ Python modules across 50+ directories
+- 34,400+ tests with exceptional coverage
+- 117 debate modules with 9-round structured protocol
+- 65 HTTP handlers + 15 WebSocket streams
+- 85% commercially ready (see [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md))
 
 ## Quick Access Reference
 
@@ -137,6 +144,46 @@ These are always visible in the dashboard header:
 | Proof Visualizer | `ProofVisualizerPanel` | Proof visualization |
 | Settings | `SettingsPanel` | Application settings |
 
+### 8. Enterprise Features (Production-Ready)
+
+| Feature | Component/Location | Status |
+|---------|-------------------|--------|
+| **Authentication** | | |
+| OIDC SSO | `aragora/auth/oidc.py` | Ready |
+| SAML SSO | `aragora/auth/saml.py` | Ready |
+| MFA (TOTP/HOTP) | `aragora/auth/mfa.py` | Ready |
+| API Key Management | `aragora/auth/api_keys.py` | Ready |
+| Session Management | `aragora/auth/session.py` | Ready |
+| Account Lockout | `aragora/auth/lockout.py` | Ready |
+| **Multi-Tenancy** | | |
+| Tenant Isolation | `aragora/tenancy/isolation.py` | Ready |
+| Resource Quotas | `aragora/tenancy/quotas.py` | Ready |
+| Usage Metering | `aragora/billing/metering.py` | Ready |
+| **Security** | | |
+| Encryption (AES-256-GCM) | `aragora/security/encryption.py` | Ready |
+| Input Validation | `aragora/server/validation/` | Ready |
+| Rate Limiting | `aragora/server/middleware/rate_limiter.py` | Ready |
+| Circuit Breaker | `aragora/resilience.py` | Ready |
+| **Compliance** | | |
+| Audit Trail | `aragora/audit/` | Ready |
+| SOC 2 Documentation | `docs/COMPLIANCE.md` | Ready |
+| GDPR Support | `aragora/privacy/`, `docs/GDPR.md` | Ready |
+| Data Classification | `docs/DATA_CLASSIFICATION.md` | Ready |
+| **Observability** | | |
+| Prometheus Metrics | `aragora/observability/metrics.py` | Ready |
+| Grafana Dashboards | `deploy/grafana/` | Ready |
+| OpenTelemetry Tracing | `aragora/observability/tracing.py` | Ready |
+| Structured Logging | `aragora/observability/logging.py` | Ready |
+| SLO Framework | `aragora/observability/slo.py` | Ready |
+| **Connectors (24+)** | | |
+| Slack | `aragora/connectors/chat/slack.py` | Ready |
+| Discord | `aragora/connectors/chat/discord.py` | Ready |
+| Teams | `aragora/connectors/chat/teams.py` | Ready |
+| GitHub | `aragora/connectors/enterprise/git/github.py` | Ready |
+| SharePoint/Confluence | `aragora/connectors/enterprise/` | Ready |
+
+See [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for complete enterprise documentation.
+
 ---
 
 ## Feature Flags
@@ -161,7 +208,7 @@ export ARAGORA_FEATURES=pulse,calibration,tournaments,evolution,plugins,laborato
 
 ---
 
-## REST API Endpoints (106+ endpoints)
+## REST API Endpoints (275+ endpoints via 65 handlers)
 
 ### Core Debate API
 ```
