@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (12:00 UTC)*
+*Last updated: January 20, 2026 (18:00 UTC)*
 
 ## Current Release
 
@@ -119,13 +119,25 @@
 - Entropy bonuses, temporal discounting, margin-based rewards
 
 #### Recent Changes (2026-01-20)
-- **Knowledge Mound Phase 3** - Deduplication and pruning operations:
-  - `aragora/knowledge/mound/ops/dedup.py` - Find/merge duplicate knowledge items
-  - `aragora/knowledge/mound/ops/pruning.py` - Archive/delete stale items with policies
-  - HTTP handlers: dedup.py, pruning.py in `handlers/knowledge_base/mound/`
-  - 24 new tests in `tests/knowledge/test_dedup_pruning.py`
-  - Prometheus metrics for Knowledge Mound Phase 2 in `prometheus_knowledge.py`
-  - Fixed Control Plane prometheus import issues
+- **Knowledge Mound Complete** - All phases (1-3) fully implemented:
+  - Phase 1: Core storage, semantic search, graph relationships, culture accumulation
+  - Phase 2: Visibility levels, access grants, sharing, global knowledge, federation
+  - Phase 3: Deduplication (find/merge duplicates), pruning (archive/delete stale)
+  - 525 tests passing in `tests/knowledge/mound/`
+  - 73 feature tests for visibility, sharing, global knowledge, federation
+  - Full HTTP API coverage with 15+ endpoints
+  - React hooks: useVisibility, useSharing, useFederation, useGlobalKnowledge, useDedup, usePruning
+  - UI components: ShareDialog, FederationStatus, VisibilitySelector, DedupTab, PruningTab
+  - Prometheus metrics for all operations
+- **Bidirectional KM Adapters** - Reverse flow from KM to source systems:
+  - Critique adapter: KMPatternBoost, KMReputationAdjustment, KMPatternValidation
+  - Insights adapter: KMFlipThresholdUpdate, KMAgentFlipBaseline, KMFlipValidation
+  - ELO adapter: KMRatingAdjustment, KMCalibrationUpdate
+  - Belief adapter: KMBeliefReinforcement, KMClaimValidation
+- **Control Plane Multi-Tenancy** - Workspace isolation enforcement:
+  - `aragora/control_plane/multi_tenancy.py` - TenantEnforcer, TenantContext
+  - Quota enforcement (max agents, concurrent tasks, rate limits)
+  - Context variable-based tenant scoping with `with_tenant` decorator
 - **Test Performance Fix** - Added `fast_convergence_backend` autouse fixture:
   - By default, tests use Jaccard backend (fast) instead of SentenceTransformer (slow)
   - Tests marked `@pytest.mark.slow` still use real ML models
@@ -381,7 +393,7 @@ else:
 
 **Knowledge Mound** (STABLE - Production Ready)
 - `aragora/knowledge/mound/` - Unified enterprise knowledge storage
-- **170 tests passing**, 7 skipped (optional deps)
+- **525 tests passing**, 7 skipped (optional deps)
 - SemanticStore with mandatory embeddings for semantic search
 - KnowledgeGraphStore for relationship tracking and lineage
 - DomainTaxonomy for hierarchical organization
@@ -393,14 +405,16 @@ else:
 - **Federation**: Multi-region sync with push/pull/bidirectional modes
 - **Deduplication** (PHASE 3): Find/merge duplicate knowledge items
 - **Pruning** (PHASE 3): Archive/delete stale items with policy-based automation
-- React hooks: `useVisibility`, `useSharing`, `useFederation`, `useGlobalKnowledge`
+- **Bidirectional Adapters**: ELO, Insights, Critique, Belief, Evidence adapters with reverse flows
+- React hooks: `useVisibility`, `useSharing`, `useFederation`, `useGlobalKnowledge`, `useDedup`, `usePruning`
+- UI components: ShareDialog, FederationStatus, VisibilitySelector, DedupTab, PruningTab
 - TypeScript types: `aragora/live/src/types/knowledge.ts` (50+ type definitions)
 - Backend handlers: visibility.py, sharing.py, global_knowledge.py, federation.py, dedup.py, pruning.py
-- Integration tests: 47 tests covering visibility, sharing, global knowledge, federation, dedup, pruning
+- Integration tests: 73+ tests covering visibility, sharing, global knowledge, federation, dedup, pruning
+- Prometheus metrics: visibility changes, access grants, shares, federation syncs, region status
 - Staleness detection with automatic revalidation scheduling
 - Culture accumulation for organizational learning
 - Multi-backend support (SQLite, PostgreSQL, Redis)
-- **381 tests passing** across facade, core, adapters, and integration
 
 **API Versioning** (NEW)
 - `aragora/server/versioning/` - URL prefix versioning
