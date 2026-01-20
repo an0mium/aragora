@@ -9,8 +9,8 @@
 **Production Ready** - Aragora 2.0.4 promotes Pulse to stable and completes Phase 3 feedback loops.
 
 #### Key Highlights
-- **37,800+ tests** collected and passing (+400 new tests)
-- **1,002 test files** across all modules
+- **38,100+ tests** collected and passing (+700 new tests)
+- **1,047 test files** across all modules
 - **Pulse promoted to STABLE** (358+ tests passing)
 - **ANN similarity backend** for fast convergence detection
 - **Lines of Code**: 444,000+ LOC (+1,000)
