@@ -494,7 +494,16 @@ async def handle_gmail_status(
                 user_info = await connector.get_user_info()
                 result["email"] = user_info.get("emailAddress")
                 result["messages_total"] = user_info.get("messagesTotal")
-            except Exception:
+            except (KeyError, AttributeError) as e:
+                logger.debug(f"Failed to extract user info fields: {e}")
+                result["authenticated"] = False
+                result["error"] = "Token expired or invalid"
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning(f"Network error checking Gmail status: {e}")
+                result["authenticated"] = False
+                result["error"] = "Token expired or invalid"
+            except Exception as e:
+                logger.warning(f"Unexpected error checking Gmail status: {e}")
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
 

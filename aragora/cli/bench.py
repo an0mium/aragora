@@ -106,8 +106,13 @@ async def benchmark_agent(
                     result.token_counts.append(usage.get("total_tokens", 0))
 
         except asyncio.TimeoutError:
+            print(f"  Iteration {i + 1}: Timeout")
             result.errors += 1
-        except Exception:  # noqa: BLE001 - Any error counts as benchmark failure
+        except (ConnectionError, RuntimeError) as e:
+            print(f"  Iteration {i + 1}: Agent error - {e}")
+            result.errors += 1
+        except Exception as e:
+            print(f"  Iteration {i + 1}: Unexpected error - {e}")
             result.errors += 1
 
     result.success_rate = (iterations - result.errors) / iterations

@@ -71,7 +71,23 @@ class VerificationHistoryEntry:
 
 
 # In-memory history storage (OrderedDict for FIFO eviction)
+# Used as cache, backed by GovernanceStore for persistence
 _verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict()
+
+# Lazy-loaded governance store
+_governance_store = None
+
+
+def _get_governance_store():
+    """Get or create governance store for persistence."""
+    global _governance_store
+    if _governance_store is None:
+        try:
+            from aragora.storage.governance_store import get_governance_store
+            _governance_store = get_governance_store()
+        except ImportError:
+            logger.debug("GovernanceStore not available, using in-memory only")
+    return _governance_store
 
 
 def _generate_verification_id(claim: str, timestamp: float) -> str:
@@ -101,11 +117,30 @@ def _add_to_history(
         proof_tree=proof_tree,
     )
 
+    # Add to in-memory cache
     _verification_history[entry_id] = entry
 
     # Evict old entries if over limit
     while len(_verification_history) > MAX_HISTORY_SIZE:
         _verification_history.popitem(last=False)
+
+    # Persist to GovernanceStore
+    store = _get_governance_store()
+    if store:
+        try:
+            store.save_verification(
+                verification_id=entry_id,
+                claim=claim,
+                context=context,
+                result=result,
+                verified_by="formal_verification",
+                claim_type=claim_type,
+                confidence=result.get("confidence", 0.0) if isinstance(result, dict) else 0.0,
+                proof_tree=proof_tree,
+            )
+            logger.debug(f"Persisted verification {entry_id} to GovernanceStore")
+        except Exception as e:
+            logger.warning(f"Failed to persist verification to GovernanceStore: {e}")
 
     return entry_id
 
@@ -571,7 +606,44 @@ class FormalVerificationHandler(BaseHandler):
         offset = get_clamped_int_param(query_params, "offset", 0, 0, 10000)
         status_filter = query_params.get("status", [""])[0] if query_params.get("status") else None
 
-        # Get all entries in reverse chronological order
+        # Try to get from GovernanceStore first (authoritative)
+        store = _get_governance_store()
+        if store:
+            try:
+                records = store.list_verifications(limit=limit + offset + 50)
+                all_entries = []
+                for rec in records:
+                    entry = VerificationHistoryEntry(
+                        id=rec.verification_id,
+                        claim=rec.claim,
+                        claim_type=rec.claim_type,
+                        context=rec.context,
+                        result=rec.to_dict().get("result", {}),
+                        timestamp=rec.timestamp.timestamp() if hasattr(rec.timestamp, 'timestamp') else time.time(),
+                        proof_tree=rec.to_dict().get("proof_tree"),
+                    )
+                    all_entries.append(entry)
+
+                # Apply status filter
+                if status_filter:
+                    all_entries = [e for e in all_entries if e.result.get("status") == status_filter]
+
+                total = len(all_entries)
+                paginated = all_entries[offset : offset + limit]
+
+                return json_response(
+                    {
+                        "entries": [e.to_dict() for e in paginated],
+                        "total": total,
+                        "limit": limit,
+                        "offset": offset,
+                        "source": "persistent",
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to load from GovernanceStore, falling back to in-memory: {e}")
+
+        # Fallback to in-memory cache
         all_entries = list(reversed(_verification_history.values()))
 
         # Apply status filter
@@ -589,6 +661,7 @@ class FormalVerificationHandler(BaseHandler):
                 "total": total,
                 "limit": limit,
                 "offset": offset,
+                "source": "in_memory",
             }
         )
 
@@ -624,7 +697,30 @@ class FormalVerificationHandler(BaseHandler):
         if not entry_id:
             return error_response("Entry ID required", 400)
 
+        # Try in-memory cache first
         entry = _verification_history.get(entry_id)
+
+        # If not in memory, try GovernanceStore
+        if not entry:
+            store = _get_governance_store()
+            if store:
+                try:
+                    rec = store.get_verification(entry_id)
+                    if rec:
+                        entry = VerificationHistoryEntry(
+                            id=rec.verification_id,
+                            claim=rec.claim,
+                            claim_type=rec.claim_type,
+                            context=rec.context,
+                            result=rec.to_dict().get("result", {}),
+                            timestamp=rec.timestamp.timestamp() if hasattr(rec.timestamp, 'timestamp') else time.time(),
+                            proof_tree=rec.to_dict().get("proof_tree"),
+                        )
+                        # Cache in memory for future lookups
+                        _verification_history[entry_id] = entry
+                except Exception as e:
+                    logger.warning(f"Failed to load verification from store: {e}")
+
         if not entry:
             return error_response(f"Entry not found: {entry_id}", 404)
 

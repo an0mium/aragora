@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `RLMStreamingMixin` provides `query_stream()`, `query_with_refinement_stream()`, `compress_stream()`
   - `AragoraRLM` now inherits from `RLMStreamingMixin` for cleaner separation of concerns
 
+- **Client Module Refactoring** - Reduced `client.py` (1,101 → 694 lines):
+  - Extracted `GauntletAPI` to `resources/gauntlet.py`
+  - Extracted `GraphDebatesAPI` to `resources/graph_debates.py`
+  - Extracted `MatrixDebatesAPI` to `resources/matrix_debates.py`
+  - Extracted `ReplayAPI` to `resources/replay.py`
+
 ### Added
 
 - **New Prometheus Metrics** for observability:

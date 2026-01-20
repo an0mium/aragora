@@ -180,7 +180,7 @@ class EmbeddingRelevanceScorer:
         except ImportError:
             logger.debug("Embedding provider not available, using keyword fallback")
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError) as e:
             logger.warning(f"Failed to initialize embedding provider: {e}")
             return False
 
@@ -259,8 +259,8 @@ class EmbeddingRelevanceScorer:
                     sim = cosine_similarity(self._query_embedding, self._cache[content_key])
                     # Normalize from [-1, 1] to [0, 1]
                     return (sim + 1) / 2
-                except Exception:
-                    pass
+                except (ImportError, ValueError, TypeError, ZeroDivisionError) as e:
+                    logger.debug(f"Cosine similarity failed in sync score: {e}")
 
         # Fallback to keyword matching
         return self._keyword_score(item, query)
@@ -311,7 +311,7 @@ class EmbeddingRelevanceScorer:
             sim = cosine_similarity(self._query_embedding, content_embedding)
             # Normalize from [-1, 1] to [0, 1]
             return (sim + 1) / 2
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, ZeroDivisionError) as e:
             logger.debug(f"Cosine similarity failed: {e}")
             return self._keyword_score(item, query)
 
@@ -538,7 +538,7 @@ class FederatedQueryAggregator:
             set_km_active_adapters(len([r for r in self._adapters.values() if r.enabled]))
         except ImportError:
             pass
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to record Prometheus metrics: {e}")
 
     async def _query_parallel(
@@ -562,7 +562,11 @@ class FederatedQueryAggregator:
                 results[source] = (items, None)
             except asyncio.TimeoutError:
                 results[source] = ([], f"Timeout after {self._timeout_seconds}s")
+            except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
+                logger.debug(f"Query to {source.value} failed with expected error: {e}")
+                results[source] = ([], str(e))
             except Exception as e:
+                logger.warning(f"Query to {source.value} failed with unexpected error: {e}")
                 results[source] = ([], str(e))
 
         return results
@@ -580,7 +584,11 @@ class FederatedQueryAggregator:
             try:
                 items = await self._query_single(source, query, limit, **kwargs)
                 results[source] = (items, None)
+            except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
+                logger.debug(f"Sequential query to {source.value} failed with expected error: {e}")
+                results[source] = ([], str(e))
             except Exception as e:
+                logger.warning(f"Sequential query to {source.value} failed with unexpected error: {e}")
                 results[source] = ([], str(e))
 
         return results

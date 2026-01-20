@@ -685,8 +685,8 @@ class VoiceStreamHandler:
             # Clean up temp file
             try:
                 audio_path.unlink()
-            except Exception:
-                pass
+            except OSError as e:
+                logger.debug(f"[Voice] Failed to cleanup temp file: {e}")
 
         except Exception as e:
             logger.error(f"[Voice] TTS synthesis failed: {e}")

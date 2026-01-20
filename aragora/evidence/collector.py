@@ -298,8 +298,13 @@ class EvidenceCollector:
             settings = get_settings()
             self._url_fetch_all_enabled = settings.evidence.url_fetch_all_enabled
             additional_domains = settings.evidence.additional_allowed_domains
-        except Exception:  # noqa: BLE001 - Settings may not be available
-            # Fallback if settings not available
+        except (ImportError, AttributeError, KeyError) as e:
+            # Expected errors: module not installed, missing attribute, or config key
+            logger.debug(f"Settings not available for evidence collector, using defaults: {e}")
+            self._url_fetch_all_enabled = False
+            additional_domains = []
+        except Exception as e:
+            logger.warning(f"Unexpected error loading evidence settings, using defaults: {e}")
             self._url_fetch_all_enabled = False
             additional_domains = []
 

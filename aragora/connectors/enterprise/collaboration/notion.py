@@ -361,10 +361,16 @@ class NotionConnector(EnterpriseConnector):
     def _parse_page(self, data: Dict[str, Any]) -> NotionPage:
         """Parse page data into NotionPage."""
         # Extract title from properties
+        # Notion API can return properties with or without "type" field
         title = ""
         properties = data.get("properties", {})
         for prop_name, prop_value in properties.items():
-            if prop_value.get("type") == "title":
+            # Check for explicit type field or infer from structure
+            is_title_prop = (
+                prop_value.get("type") == "title"
+                or (prop_name.lower() == "title" and "title" in prop_value)
+            )
+            if is_title_prop:
                 title_parts = prop_value.get("title", [])
                 title = self._rich_text_to_string(title_parts)
                 break

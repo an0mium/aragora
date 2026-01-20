@@ -44,6 +44,33 @@ from aragora.storage.backends import (
 logger = logging.getLogger(__name__)
 
 
+def _record_governance_verification(verification_type: str, result: str) -> None:
+    """Record governance verification metric if available."""
+    try:
+        from aragora.observability.metrics import record_governance_verification
+        record_governance_verification(verification_type, result)
+    except ImportError:
+        pass
+
+
+def _record_governance_decision(decision_type: str, outcome: str) -> None:
+    """Record governance decision metric if available."""
+    try:
+        from aragora.observability.metrics import record_governance_decision
+        record_governance_decision(decision_type, outcome)
+    except ImportError:
+        pass
+
+
+def _record_governance_approval(approval_type: str, status: str) -> None:
+    """Record governance approval metric if available."""
+    try:
+        from aragora.observability.metrics import record_governance_approval
+        record_governance_approval(approval_type, status)
+    except ImportError:
+        pass
+
+
 @dataclass
 class ApprovalRecord:
     """Persistent approval request record."""
@@ -360,6 +387,10 @@ class GovernanceStore:
             ),
         )
 
+        # Record metrics
+        approval_type = "nomic" if "nomic" in title.lower() else "change"
+        _record_governance_approval(approval_type, status)
+
         logger.debug(f"Saved approval: {approval_id}")
         return approval_id
 
@@ -584,6 +615,11 @@ class GovernanceStore:
             ),
         )
 
+        # Record metrics
+        verification_type = claim_type or "formal"
+        verification_result = "valid" if result.get("valid", False) else "invalid"
+        _record_governance_verification(verification_type, verification_result)
+
         logger.debug(f"Saved verification: {verification_id}")
         return verification_id
 
@@ -744,6 +780,11 @@ class GovernanceStore:
                 json.dumps(metadata or {}),
             ),
         )
+
+        # Record metrics
+        decision_type = "auto"  # Could be expanded based on metadata
+        outcome = "approved" if consensus_reached else "rejected"
+        _record_governance_decision(decision_type, outcome)
 
         logger.debug(f"Saved decision: {decision_id}")
         return decision_id

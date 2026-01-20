@@ -308,8 +308,8 @@ class TTSBridge:
             # Clean up temp file
             try:
                 audio_path.unlink()
-            except Exception:
-                pass
+            except (OSError, PermissionError) as e:
+                logger.debug(f"Failed to clean up temp audio file {audio_path}: {e}")
 
             return response.success
         except Exception as e:

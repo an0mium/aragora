@@ -61,9 +61,12 @@ class AnalyticsHandler(BaseHandler):
             user, err = self.require_auth_or_error(handler)
             if not err and user:
                 user_id = user.get("sub") or user.get("user_id") or user.get("id")
-        except Exception:
-            # Auth not required for analytics
-            pass
+        except (KeyError, AttributeError, TypeError) as e:
+            # Auth not required for analytics - user data extraction failed
+            logger.debug(f"Optional auth extraction failed: {e}")
+        except Exception as e:
+            # Auth not required for analytics - unexpected error
+            logger.debug(f"Optional auth check failed: {e}")
 
         workspace_id = query_params.get("workspace_id")
 

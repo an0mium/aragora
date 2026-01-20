@@ -390,6 +390,91 @@ def shutdown_dispatcher(wait: bool = True) -> None:
 
 
 # =============================================================================
+# Receipt Delivery Helpers
+# =============================================================================
+
+
+def dispatch_receipt_ready(
+    gauntlet_id: str,
+    receipt_id: str,
+    verdict: str,
+    confidence: float,
+    formats_available: list = None,
+) -> None:
+    """
+    Dispatch a receipt_ready event when a gauntlet receipt is generated.
+
+    Args:
+        gauntlet_id: The gauntlet run ID
+        receipt_id: The receipt ID
+        verdict: The verdict (PASS, FAIL, INCONCLUSIVE)
+        confidence: Confidence score
+        formats_available: List of available export formats
+    """
+    dispatch_event(
+        "receipt_ready",
+        {
+            "gauntlet_id": gauntlet_id,
+            "receipt_id": receipt_id,
+            "verdict": verdict,
+            "confidence": confidence,
+            "formats_available": formats_available or ["json", "sarif", "csv", "pdf"],
+            "receipt_url": f"/api/v1/gauntlet/{gauntlet_id}/receipt",
+        },
+    )
+
+
+def dispatch_receipt_exported(
+    gauntlet_id: str,
+    receipt_id: str,
+    format: str,
+    size_bytes: int = 0,
+) -> None:
+    """
+    Dispatch a receipt_exported event when a receipt is exported.
+
+    Args:
+        gauntlet_id: The gauntlet run ID
+        receipt_id: The receipt ID
+        format: Export format used (json, sarif, csv, pdf)
+        size_bytes: Size of the exported data
+    """
+    dispatch_event(
+        "receipt_exported",
+        {
+            "gauntlet_id": gauntlet_id,
+            "receipt_id": receipt_id,
+            "format": format,
+            "size_bytes": size_bytes,
+        },
+    )
+
+
+def dispatch_explanation_ready(
+    debate_id: str,
+    confidence: float,
+    consensus_reached: bool,
+) -> None:
+    """
+    Dispatch an explanation_ready event when a decision explanation is available.
+
+    Args:
+        debate_id: The debate ID
+        confidence: Confidence score
+        consensus_reached: Whether consensus was reached
+    """
+    dispatch_event(
+        "explanation_ready",
+        {
+            "debate_id": debate_id,
+            "confidence": confidence,
+            "consensus_reached": consensus_reached,
+            "explanation_url": f"/api/v1/debates/{debate_id}/explanation",
+        },
+    )
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -401,4 +486,8 @@ __all__ = [
     "dispatch_webhook_with_retry",
     "shutdown_dispatcher",
     "DeliveryResult",
+    # Receipt delivery helpers
+    "dispatch_receipt_ready",
+    "dispatch_receipt_exported",
+    "dispatch_explanation_ready",
 ]

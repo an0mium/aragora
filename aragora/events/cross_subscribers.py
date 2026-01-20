@@ -1669,8 +1669,13 @@ class CrossSubscriberManager:
         """
         Consensus reached → Ingest consensus content to Knowledge Mound.
 
-        After debate consensus, store the consensus conclusion and key claims
-        as knowledge nodes for organizational learning.
+        After debate consensus, store the consensus conclusion, key claims,
+        and dissenting views as knowledge nodes for organizational learning.
+
+        Enhanced features:
+        - Dissent tracking: Store dissenting views as separate nodes linked to consensus
+        - Evolution tracking: Detect similar prior consensus and create supersedes links
+        - Linking: Connect consensus to claims, evidence, and related knowledge
         """
         if not self._is_km_handler_enabled("consensus_to_mound"):
             return
@@ -1687,11 +1692,27 @@ class CrossSubscriberManager:
         confidence = data.get("confidence", 0.5)
         strength = data.get("strength", "moderate")
         key_claims = data.get("key_claims", [])
+        supporting_evidence = data.get("supporting_evidence", [])
+        domain = data.get("domain", "general")
+        tags = data.get("tags", [])
+
+        # Dissent data
+        dissents = data.get("dissents", [])
+        dissenting_agents = data.get("dissenting_agents", [])
+        dissent_ids = data.get("dissent_ids", [])
+
+        # Evolution data
+        supersedes = data.get("supersedes", None)
+        agreeing_agents = data.get("agreeing_agents", [])
+        participating_agents = data.get("participating_agents", [])
 
         if not topic and not conclusion:
             return
 
-        logger.info(f"Ingesting consensus from debate {debate_id} to Knowledge Mound")
+        logger.info(
+            f"Ingesting consensus from debate {debate_id} to Knowledge Mound "
+            f"(dissents={len(dissents)}, evolution={supersedes is not None})"
+        )
 
         # Record KM inbound metric
         record_km_inbound_event("consensus", event.type.value)
@@ -1719,10 +1740,48 @@ class CrossSubscriberManager:
             }
             tier = strength_to_tier.get(strength, "slow")
 
-            # Create ingestion request for the consensus
+            # Calculate agreement ratio
+            agreement_ratio = (
+                len(agreeing_agents) / len(participating_agents)
+                if participating_agents
+                else 0.0
+            )
+
             import asyncio
 
-            async def ingest_consensus():
+            async def ingest_consensus_with_enhancements():
+                # ============================================================
+                # EVOLUTION TRACKING: Check for similar prior consensus
+                # ============================================================
+                supersedes_node_id = None
+                if supersedes:
+                    # Direct supersedes reference provided
+                    supersedes_node_id = f"cs_{supersedes}"
+                else:
+                    # Search for similar prior consensus on same topic
+                    try:
+                        similar_results = await mound.search(
+                            query=topic,
+                            node_types=["consensus"],
+                            limit=3,
+                            min_score=0.85,  # High threshold for "same topic"
+                        )
+                        if similar_results:
+                            # Found similar prior consensus - this new one supersedes it
+                            prior = similar_results[0]
+                            prior_debate_id = prior.metadata.get("debate_id", "")
+                            if prior_debate_id != debate_id:
+                                supersedes_node_id = prior.id
+                                logger.info(
+                                    f"Consensus {debate_id} supersedes prior "
+                                    f"consensus {prior_debate_id} on topic '{topic[:50]}...'"
+                                )
+                    except Exception as e:
+                        logger.debug(f"Evolution tracking search failed: {e}")
+
+                # ============================================================
+                # MAIN CONSENSUS INGESTION
+                # ============================================================
                 request = IngestionRequest(
                     content=content,
                     workspace_id=mound.workspace_id,
@@ -1731,23 +1790,110 @@ class CrossSubscriberManager:
                     node_type="consensus",
                     confidence=confidence,
                     tier=tier,
+                    supersedes=supersedes_node_id,
                     metadata={
                         "debate_id": debate_id,
                         "strength": strength,
                         "topic": topic,
                         "conclusion": conclusion,
+                        "domain": domain,
+                        "tags": tags,
                         "key_claims_count": len(key_claims),
+                        "dissent_count": len(dissents),
+                        "agreement_ratio": agreement_ratio,
+                        "agreeing_agents": agreeing_agents,
+                        "dissenting_agents": dissenting_agents,
+                        "participating_agents": participating_agents,
+                        "has_dissent": len(dissents) > 0 or len(dissenting_agents) > 0,
                         "ingested_at": datetime.now().isoformat(),
                     },
                 )
 
                 result = await mound.store(request)
+                consensus_node_id = result.node_id
+
                 logger.debug(
-                    f"Ingested consensus {debate_id}: node_id={result.node_id}, "
-                    f"deduplicated={result.deduplicated}"
+                    f"Ingested consensus {debate_id}: node_id={consensus_node_id}, "
+                    f"deduplicated={result.deduplicated}, supersedes={supersedes_node_id}"
                 )
 
-                # Also ingest key claims as separate nodes
+                # ============================================================
+                # DISSENT TRACKING: Store dissenting views
+                # ============================================================
+                dissent_node_ids = []
+                for i, dissent in enumerate(dissents[:10]):  # Limit to 10 dissents
+                    if isinstance(dissent, dict):
+                        dissent_content = dissent.get("content", "")
+                        dissent_type = dissent.get("type", dissent.get("dissent_type", "alternative_approach"))
+                        dissent_agent = dissent.get("agent_id", dissent.get("agent", "unknown"))
+                        dissent_reasoning = dissent.get("reasoning", "")
+                        dissent_confidence = dissent.get("confidence", 0.5)
+                        acknowledged = dissent.get("acknowledged", False)
+                        rebuttal = dissent.get("rebuttal", "")
+                    elif isinstance(dissent, str):
+                        dissent_content = dissent
+                        dissent_type = "alternative_approach"
+                        dissent_agent = dissenting_agents[i] if i < len(dissenting_agents) else "unknown"
+                        dissent_reasoning = ""
+                        dissent_confidence = 0.5
+                        acknowledged = False
+                        rebuttal = ""
+                    else:
+                        continue
+
+                    if not dissent_content.strip():
+                        continue
+
+                    # Determine dissent importance based on type
+                    dissent_importance = 0.5
+                    if dissent_type == "risk_warning":
+                        dissent_importance = 0.7  # Risk warnings are valuable
+                    elif dissent_type == "fundamental_disagreement":
+                        dissent_importance = 0.6  # Strong dissent worth preserving
+                    elif dissent_type == "edge_case_concern":
+                        dissent_importance = 0.55  # Edge cases inform future debates
+
+                    dissent_request = IngestionRequest(
+                        content=f"[DISSENT from {dissent_agent}] {dissent_content}",
+                        workspace_id=mound.workspace_id,
+                        source_type=KnowledgeSource.CONSENSUS,
+                        debate_id=debate_id,
+                        node_type="dissent",
+                        confidence=dissent_confidence,
+                        tier="medium",  # Dissents may be reconsidered
+                        derived_from=[consensus_node_id] if consensus_node_id else None,
+                        metadata={
+                            "debate_id": debate_id,
+                            "dissent_type": dissent_type,
+                            "agent_id": dissent_agent,
+                            "reasoning": dissent_reasoning,
+                            "acknowledged": acknowledged,
+                            "rebuttal": rebuttal,
+                            "parent_consensus_id": consensus_node_id,
+                            "dissent_index": i,
+                            "topic": topic,
+                            "is_risk_warning": dissent_type == "risk_warning",
+                        },
+                    )
+
+                    dissent_result = await mound.store(dissent_request)
+                    if dissent_result.node_id:
+                        dissent_node_ids.append(dissent_result.node_id)
+                        logger.debug(
+                            f"Stored dissent from {dissent_agent}: "
+                            f"type={dissent_type}, node_id={dissent_result.node_id}"
+                        )
+
+                if dissent_node_ids:
+                    logger.info(
+                        f"Stored {len(dissent_node_ids)} dissenting views "
+                        f"for consensus {debate_id}"
+                    )
+
+                # ============================================================
+                # CLAIM LINKING: Store key claims linked to consensus
+                # ============================================================
+                claim_node_ids = []
                 for i, claim in enumerate(key_claims[:10]):  # Limit to 10 claims
                     if isinstance(claim, str) and claim.strip():
                         claim_request = IngestionRequest(
@@ -1758,25 +1904,74 @@ class CrossSubscriberManager:
                             node_type="claim",
                             confidence=confidence * 0.9,  # Slightly lower than main consensus
                             tier=tier,
-                            derived_from=[result.node_id] if result.node_id else None,
+                            derived_from=[consensus_node_id] if consensus_node_id else None,
                             metadata={
                                 "debate_id": debate_id,
                                 "claim_index": i,
-                                "parent_consensus_id": result.node_id,
+                                "parent_consensus_id": consensus_node_id,
+                                "domain": domain,
                             },
                         )
-                        await mound.store(claim_request)
+                        claim_result = await mound.store(claim_request)
+                        if claim_result.node_id:
+                            claim_node_ids.append(claim_result.node_id)
+
+                # ============================================================
+                # EVIDENCE LINKING: Store supporting evidence references
+                # ============================================================
+                for i, evidence in enumerate(supporting_evidence[:5]):  # Limit evidence
+                    if isinstance(evidence, str) and evidence.strip():
+                        evidence_request = IngestionRequest(
+                            content=evidence,
+                            workspace_id=mound.workspace_id,
+                            source_type=KnowledgeSource.CONSENSUS,
+                            debate_id=debate_id,
+                            node_type="evidence",
+                            confidence=confidence * 0.85,
+                            tier=tier,
+                            derived_from=[consensus_node_id] if consensus_node_id else None,
+                            metadata={
+                                "debate_id": debate_id,
+                                "evidence_index": i,
+                                "parent_consensus_id": consensus_node_id,
+                                "supports_conclusion": True,
+                            },
+                        )
+                        await mound.store(evidence_request)
+
+                # ============================================================
+                # UPDATE SUPERSEDED NODE (if applicable)
+                # ============================================================
+                if supersedes_node_id and hasattr(mound, "update_metadata"):
+                    try:
+                        await mound.update_metadata(
+                            node_id=supersedes_node_id,
+                            updates={"superseded_by": consensus_node_id},
+                        )
+                        logger.debug(
+                            f"Marked {supersedes_node_id} as superseded by {consensus_node_id}"
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to update superseded node: {e}")
+
+                # Log summary
+                logger.info(
+                    f"Consensus ingestion complete for debate {debate_id}: "
+                    f"consensus={consensus_node_id}, claims={len(claim_node_ids)}, "
+                    f"dissents={len(dissent_node_ids)}, "
+                    f"supersedes={'yes' if supersedes_node_id else 'no'}"
+                )
 
             # Run async ingestion
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    asyncio.create_task(ingest_consensus())
+                    asyncio.create_task(ingest_consensus_with_enhancements())
                 else:
-                    loop.run_until_complete(ingest_consensus())
+                    loop.run_until_complete(ingest_consensus_with_enhancements())
             except RuntimeError:
                 # No event loop, create one
-                asyncio.run(ingest_consensus())
+                asyncio.run(ingest_consensus_with_enhancements())
 
         except ImportError as e:
             logger.debug(f"Consensus→KM ingestion import failed: {e}")

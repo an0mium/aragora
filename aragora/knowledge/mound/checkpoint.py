@@ -355,8 +355,10 @@ class KMCheckpointStore:
             try:
                 await self._restore_node(node_dict)
                 nodes_restored += 1
-            except Exception as e:
-                errors.append(f"Failed to restore node {node_dict.get('id')}: {e}")
+            except (KeyError, TypeError, ValueError) as e:
+                errors.append(f"Failed to restore node {node_dict.get('id')} (data error): {e}")
+            except (OSError, ConnectionError, RuntimeError) as e:
+                errors.append(f"Failed to restore node {node_dict.get('id')} (storage error): {e}")
 
         # Restore relationships
         relationships_restored = 0
@@ -364,8 +366,10 @@ class KMCheckpointStore:
             try:
                 await self._restore_relationship(rel_dict)
                 relationships_restored += 1
-            except Exception as e:
-                errors.append(f"Failed to restore relationship: {e}")
+            except (KeyError, TypeError, ValueError) as e:
+                errors.append(f"Failed to restore relationship (data error): {e}")
+            except (OSError, ConnectionError, RuntimeError) as e:
+                errors.append(f"Failed to restore relationship (storage error): {e}")
 
         # Restore culture patterns
         culture_restored = False
@@ -373,22 +377,25 @@ class KMCheckpointStore:
             try:
                 await self._restore_culture(content_dict["culture_patterns"])
                 culture_restored = True
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore culture patterns: {e}")
+                logger.warning(f"Culture pattern restore failed: {e}")
 
         # Restore staleness state
         if metadata.includes_staleness and content_dict.get("staleness_state"):
             try:
                 await self._restore_staleness(content_dict["staleness_state"])
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore staleness state: {e}")
+                logger.warning(f"Staleness state restore failed: {e}")
 
         # Restore vectors if requested and present
         if restore_vectors and metadata.includes_vectors and content_dict.get("vector_embeddings"):
             try:
                 await self._restore_vectors(content_dict["vector_embeddings"])
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 errors.append(f"Failed to restore vectors: {e}")
+                logger.warning(f"Vector restore failed: {e}")
 
         duration_ms = int((time.time() - start_time) * 1000)
 
@@ -551,8 +558,8 @@ class KMCheckpointStore:
         if hasattr(self.mound, "_culture_accumulator") and self.mound._culture_accumulator:
             try:
                 return self.mound._culture_accumulator.export_state()
-            except Exception:
-                pass
+            except (AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"Culture export skipped due to error: {e}")
         return {}
 
     async def _export_staleness(self) -> Dict[str, Any]:
@@ -560,8 +567,8 @@ class KMCheckpointStore:
         if hasattr(self.mound, "_staleness_detector") and self.mound._staleness_detector:
             try:
                 return self.mound._staleness_detector.export_state()
-            except Exception:
-                pass
+            except (AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"Staleness export skipped due to error: {e}")
         return {}
 
     async def _export_vectors(self) -> Dict[str, List[float]]:
@@ -571,8 +578,8 @@ class KMCheckpointStore:
         if hasattr(self.mound, "_semantic_store") and self.mound._semantic_store:
             try:
                 vectors = self.mound._semantic_store.export_embeddings()
-            except Exception:
-                pass
+            except (AttributeError, TypeError, ValueError, OSError) as e:
+                logger.debug(f"Vector export skipped due to error: {e}")
 
         return vectors
 

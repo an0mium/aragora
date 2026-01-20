@@ -104,6 +104,11 @@ __all__ = [
     "SenderStats",
     "SenderReputation",
     "create_sender_history_service",
+    # Cost Optimization
+    "CostOptimizedPrioritizer",
+    "CostConfig",
+    "UsageStats",
+    "create_cost_optimized_prioritizer",
 ]
 
 # Email Prioritization Service
@@ -130,4 +135,12 @@ from .sender_history import (
     SenderStats,
     SenderReputation,
     create_sender_history_service,
+)
+
+# Cost Optimization Service
+from .email_cost_optimizer import (
+    CostOptimizedPrioritizer,
+    CostConfig,
+    UsageStats,
+    create_cost_optimized_prioritizer,
 )

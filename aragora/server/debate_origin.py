@@ -173,8 +173,8 @@ def mark_result_sent(debate_id: str) -> None:
         # Update Redis if available
         try:
             _store_origin_redis(origin)
-        except Exception:
-            pass
+        except (ImportError, ConnectionError, TimeoutError) as e:
+            logger.debug(f"Redis update skipped: {e}")
 
 
 async def route_debate_result(
@@ -688,8 +688,8 @@ async def _send_telegram_voice(origin: DebateOrigin, result: Dict[str, Any]) -> 
         # Cleanup temp file
         try:
             Path(audio_path).unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Failed to cleanup temp file: {e}")
 
 
 async def _send_whatsapp_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
@@ -756,8 +756,8 @@ async def _send_whatsapp_voice(origin: DebateOrigin, result: Dict[str, Any]) -> 
     finally:
         try:
             Path(audio_path).unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Failed to cleanup temp file: {e}")
 
 
 async def _send_discord_voice(origin: DebateOrigin, result: Dict[str, Any]) -> bool:
@@ -800,8 +800,8 @@ async def _send_discord_voice(origin: DebateOrigin, result: Dict[str, Any]) -> b
     finally:
         try:
             Path(audio_path).unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Failed to cleanup temp file: {e}")
 
 
 def _format_result_message(

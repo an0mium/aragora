@@ -223,8 +223,9 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 source_filter=source_filter,
                 min_reliability=min_reliability,
             )
-        except Exception:  # noqa: BLE001 - FTS might not support * wildcard
-            # Fallback to empty results when search fails
+        except (ValueError, KeyError, RuntimeError) as e:
+            # FTS might not support * wildcard - fallback to empty results
+            logger.debug(f"Evidence search with wildcard failed, returning empty: {e}")
             results = []
 
         return self.paginated_response(

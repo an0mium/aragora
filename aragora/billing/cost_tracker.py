@@ -847,7 +847,14 @@ def get_cost_tracker() -> CostTracker:
     if _cost_tracker is None:
         try:
             usage_tracker = UsageTracker()
-        except Exception:  # noqa: BLE001 - Optional dependency, graceful degradation
+        except (ImportError, ModuleNotFoundError) as e:
+            logger.debug(f"UsageTracker dependency not available: {e}")
+            usage_tracker = None
+        except (RuntimeError, ConnectionError) as e:
+            logger.warning(f"UsageTracker initialization failed: {e}")
+            usage_tracker = None
+        except Exception as e:
+            logger.exception(f"Unexpected error creating UsageTracker: {e}")
             usage_tracker = None
         _cost_tracker = CostTracker(usage_tracker=usage_tracker)
     return _cost_tracker

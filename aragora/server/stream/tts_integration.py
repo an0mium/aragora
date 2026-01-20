@@ -236,8 +236,8 @@ class TTSIntegration:
             # Cleanup temp file
             try:
                 audio_path.unlink()
-            except Exception:
-                pass
+            except OSError as e:
+                logger.debug(f"[TTS Integration] Failed to cleanup temp file: {e}")
 
             # Record metrics
             synthesis_duration = time.perf_counter() - synthesis_start

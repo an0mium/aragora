@@ -644,5 +644,230 @@ class SlackConnector(EnterpriseConnector):
 
         return False
 
+    # =========================================================================
+    # Methods for CrossChannelContextService Integration
+    # =========================================================================
+
+    async def get_user_presence(self, user_id: str) -> Dict[str, Any]:
+        """
+        Get user presence/status.
+
+        Args:
+            user_id: Slack user ID
+
+        Returns:
+            Dict with presence info: {"presence": "active"|"away", "online": bool}
+        """
+        try:
+            data = await self._api_request(
+                "users.getPresence",
+                params={"user": user_id},
+            )
+            return {
+                "presence": data.get("presence", "away"),
+                "online": data.get("online", False),
+                "auto_away": data.get("auto_away", False),
+                "manual_away": data.get("manual_away", False),
+                "connection_count": data.get("connection_count", 0),
+            }
+        except Exception as e:
+            logger.debug(f"[{self.name}] Failed to get presence for {user_id}: {e}")
+            return {"presence": "away", "online": False}
+
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Look up a Slack user by email address.
+
+        Args:
+            email: Email address to look up
+
+        Returns:
+            User dict with id, name, real_name, etc. or None if not found
+        """
+        try:
+            data = await self._api_request(
+                "users.lookupByEmail",
+                params={"email": email},
+            )
+            user_data = data.get("user", {})
+            return {
+                "id": user_data.get("id", ""),
+                "name": user_data.get("name", ""),
+                "real_name": user_data.get("real_name", ""),
+                "display_name": user_data.get("profile", {}).get("display_name", ""),
+                "email": user_data.get("profile", {}).get("email", ""),
+                "is_bot": user_data.get("is_bot", False),
+                "team_id": user_data.get("team_id", ""),
+                "tz": user_data.get("tz", ""),
+            }
+        except RuntimeError as e:
+            # Slack returns error if user not found
+            if "users_not_found" in str(e):
+                return None
+            logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
+            return None
+        except Exception as e:
+            logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
+            return None
+
+    async def search_messages(
+        self,
+        query: str,
+        count: int = 20,
+        sort: str = "timestamp",
+        sort_dir: str = "desc",
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for messages matching a query.
+
+        Args:
+            query: Search query (supports Slack search operators)
+            count: Maximum number of results
+            sort: Sort field (timestamp or score)
+            sort_dir: Sort direction (asc or desc)
+
+        Returns:
+            List of message dicts with text, channel, ts, user, etc.
+        """
+        try:
+            data = await self._api_request(
+                "search.messages",
+                params={
+                    "query": query,
+                    "count": min(count, 100),
+                    "sort": sort,
+                    "sort_dir": sort_dir,
+                },
+            )
+
+            messages = []
+            for match in data.get("messages", {}).get("matches", []):
+                messages.append({
+                    "text": match.get("text", ""),
+                    "channel": match.get("channel", {}).get("id", ""),
+                    "channel_name": match.get("channel", {}).get("name", ""),
+                    "ts": match.get("ts", ""),
+                    "user": match.get("user", ""),
+                    "username": match.get("username", ""),
+                    "permalink": match.get("permalink", ""),
+                    "team": match.get("team", ""),
+                    "type": match.get("type", "message"),
+                })
+
+            return messages
+
+        except Exception as e:
+            logger.debug(f"[{self.name}] Message search failed: {e}")
+            return []
+
+    async def authenticate(self, token: Optional[str] = None) -> bool:
+        """
+        Authenticate with Slack using a bot token.
+
+        Args:
+            token: Slack bot token (if not set via credentials)
+
+        Returns:
+            True if authentication successful
+        """
+        if token:
+            # Store token for later use
+            await self.credentials.set_credential("SLACK_BOT_TOKEN", token)
+
+        try:
+            # Test authentication
+            data = await self._api_request("auth.test")
+            logger.info(
+                f"[{self.name}] Authenticated as {data.get('user')} "
+                f"in workspace {data.get('team')}"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"[{self.name}] Authentication failed: {e}")
+            return False
+
+    async def get_channels_for_user(
+        self,
+        user_id: str,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get channels that a user is a member of.
+
+        Args:
+            user_id: Slack user ID
+            limit: Maximum number of channels to return
+
+        Returns:
+            List of channel dicts
+        """
+        try:
+            data = await self._api_request(
+                "users.conversations",
+                params={
+                    "user": user_id,
+                    "limit": limit,
+                    "exclude_archived": True,
+                },
+            )
+
+            channels = []
+            for channel in data.get("channels", []):
+                channels.append({
+                    "id": channel.get("id", ""),
+                    "name": channel.get("name", ""),
+                    "is_private": channel.get("is_private", False),
+                    "is_member": channel.get("is_member", True),
+                })
+
+            return channels
+
+        except Exception as e:
+            logger.debug(f"[{self.name}] Failed to get channels for user {user_id}: {e}")
+            return []
+
+    async def post_message(
+        self,
+        channel: str,
+        text: str,
+        thread_ts: Optional[str] = None,
+        blocks: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[str]:
+        """
+        Post a message to a channel.
+
+        Args:
+            channel: Channel ID or name
+            text: Message text
+            thread_ts: Thread timestamp to reply in
+            blocks: Optional Block Kit blocks
+
+        Returns:
+            Message timestamp if successful, None otherwise
+        """
+        try:
+            params: Dict[str, Any] = {
+                "channel": channel,
+                "text": text,
+            }
+
+            if thread_ts:
+                params["thread_ts"] = thread_ts
+
+            if blocks:
+                params["blocks"] = blocks
+
+            data = await self._api_request(
+                "chat.postMessage",
+                method="POST",
+                json_data=params,
+            )
+
+            return data.get("ts")
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Failed to post message: {e}")
+            return None
+
 
 __all__ = ["SlackConnector", "SlackChannel", "SlackMessage", "SlackUser"]

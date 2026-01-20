@@ -268,7 +268,9 @@ class DocumentBatchHandler(BaseHandler):
                     text = content.decode("utf-8", errors="ignore")
                     tokens = counter.count(text)
                     estimated_chunks += max(1, tokens // chunk_size)
-                except Exception:  # noqa: BLE001 - Token counting fallback
+                except (ValueError, TypeError, UnicodeDecodeError) as e:
+                    # Token counting fallback - use estimate of 1 chunk
+                    logger.debug(f"Token counting failed, using fallback: {e}")
                     estimated_chunks += 1
 
             # Queue knowledge processing if enabled

@@ -32,6 +32,34 @@ from typing import Any, Dict, List, Literal, Optional, cast
 
 logger = logging.getLogger(__name__)
 
+
+def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
+    """Record user mapping operation metric if available."""
+    try:
+        from aragora.observability.metrics import record_user_mapping_operation
+        record_user_mapping_operation(operation, platform, found)
+    except ImportError:
+        pass
+
+
+def _record_user_mapping_cache_hit(platform: str) -> None:
+    """Record user mapping cache hit metric if available."""
+    try:
+        from aragora.observability.metrics import record_user_mapping_cache_hit
+        record_user_mapping_cache_hit(platform)
+    except ImportError:
+        pass
+
+
+def _record_user_mapping_cache_miss(platform: str) -> None:
+    """Record user mapping cache miss metric if available."""
+    try:
+        from aragora.observability.metrics import record_user_mapping_cache_miss
+        record_user_mapping_cache_miss(platform)
+    except ImportError:
+        pass
+
+
 # =============================================================================
 # Integration Types and Models
 # =============================================================================
@@ -548,6 +576,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             ),
         )
         conn.commit()
+        _record_user_mapping_operation("save", mapping.platform, True)
         logger.debug(f"Saved user mapping: {mapping.email} -> {mapping.platform}")
 
     async def delete_user_mapping(
@@ -559,7 +588,9 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             (user_id, platform, email),
         )
         conn.commit()
-        return cursor.rowcount > 0
+        deleted = cursor.rowcount > 0
+        _record_user_mapping_operation("delete", platform, deleted)
+        return deleted
 
     async def list_user_mappings(
         self, platform: Optional[str] = None, user_id: str = "default"
@@ -662,8 +693,10 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             try:
                 key = self._redis_key(integration_type, user_id)
                 redis.setex(key, self.REDIS_TTL, config.to_json())
-            except Exception:
-                pass  # Best effort cache population
+            except (ConnectionError, TimeoutError) as e:
+                logger.debug(f"Redis cache population failed (connection issue): {e}")
+            except Exception as e:
+                logger.debug(f"Redis cache population failed: {e}")
 
         return config
 
@@ -689,8 +722,10 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             try:
                 key = self._redis_key(integration_type, user_id)
                 redis.delete(key)
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError) as e:
+                logger.debug(f"Redis cache delete failed (connection issue): {e}")
+            except Exception as e:
+                logger.debug(f"Redis cache delete failed: {e}")
 
         return await self._sqlite.delete(integration_type, user_id)
 
@@ -715,20 +750,26 @@ class RedisIntegrationStore(IntegrationStoreBackend):
                 key = self._mapping_redis_key(email, platform, user_id)
                 data = redis.get(key)
                 if data:
+                    _record_user_mapping_cache_hit(platform)
+                    _record_user_mapping_operation("get", platform, True)
                     return UserIdMapping.from_json(data)
             except Exception as e:
                 logger.debug(f"Redis mapping get failed: {e}")
 
-        # Fall back to SQLite
+        # Fall back to SQLite (cache miss)
+        _record_user_mapping_cache_miss(platform)
         mapping = await self._sqlite.get_user_mapping(email, platform, user_id)
+        _record_user_mapping_operation("get", platform, mapping is not None)
 
         # Populate Redis cache if found
         if mapping and redis:
             try:
                 key = self._mapping_redis_key(email, platform, user_id)
                 redis.setex(key, self.REDIS_TTL, mapping.to_json())
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError) as e:
+                logger.debug(f"Redis mapping cache population failed (connection issue): {e}")
+            except Exception as e:
+                logger.debug(f"Redis mapping cache population failed: {e}")
 
         return mapping
 
@@ -755,8 +796,10 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             try:
                 key = self._mapping_redis_key(email, platform, user_id)
                 redis.delete(key)
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError) as e:
+                logger.debug(f"Redis mapping delete failed (connection issue): {e}")
+            except Exception as e:
+                logger.debug(f"Redis mapping delete failed: {e}")
 
         return await self._sqlite.delete_user_mapping(email, platform, user_id)
 

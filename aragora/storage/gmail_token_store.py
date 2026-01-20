@@ -506,8 +506,8 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                 redis.setex(
                     self._token_key(user_id), self.REDIS_TTL, state.to_json()
                 )
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Redis cache population failed (expected): {e}")
 
         return state
 
@@ -530,8 +530,8 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         if redis:
             try:
                 redis.delete(self._token_key(user_id))
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Redis cache deletion failed (expected): {e}")
 
         return await self._sqlite.delete(user_id)
 
@@ -547,8 +547,8 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                 if data:
                     job_data = json.loads(data)
                     return SyncJobState(**job_data)
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError, OSError, json.JSONDecodeError, TypeError) as e:
+                logger.debug(f"Redis sync job get failed, falling back to SQLite: {e}")
 
         return await self._sqlite.get_sync_job(user_id)
 
@@ -565,16 +565,16 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                     3600,  # 1 hour TTL for jobs
                     json.dumps(job.to_dict()),
                 )
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError, OSError, TypeError) as e:
+                logger.debug(f"Redis sync job cache update failed: {e}")
 
     async def delete_sync_job(self, user_id: str) -> bool:
         redis = self._get_redis()
         if redis:
             try:
                 redis.delete(self._job_key(user_id))
-            except Exception:
-                pass
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Redis sync job deletion failed (expected): {e}")
 
         return await self._sqlite.delete_sync_job(user_id)
 

@@ -243,8 +243,13 @@ async def compress_and_query(
             _metrics.compression_fallback_calls += 1
 
         return result
-    except Exception:  # noqa: BLE001 - Track all failures before re-raising
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, OSError) as e:
         _metrics.failed_queries += 1
+        logger.warning(f"RLM compress_and_query failed with expected error: {e}")
+        raise
+    except Exception as e:
+        _metrics.failed_queries += 1
+        logger.exception(f"RLM compress_and_query failed with unexpected error: {e}")
         raise
 
 

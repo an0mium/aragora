@@ -30,10 +30,13 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, ClassVar, Dict, Type, TypeVar, get_type_hints
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="SerializableMixin")
 
@@ -284,7 +287,9 @@ def dict_to_dataclass(cls: Type[T], data: Dict[str, Any]) -> T:
 
     try:
         hints = get_type_hints(cls)
-    except Exception:  # noqa: BLE001 - Type hints may fail on complex generics
+    except (NameError, AttributeError, TypeError) as e:
+        # Forward references, missing imports, or complex generics can cause these errors
+        logger.debug(f"Failed to get type hints for {cls.__name__}: {type(e).__name__}: {e}")
         hints = {}
 
     kwargs: Dict[str, Any] = {}

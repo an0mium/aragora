@@ -123,8 +123,9 @@ async def handle_auth_callback(
                         or user_info.get("name")
                         or user_info.get("email", "")
                     )
-                except Exception:  # noqa: BLE001 - Optional user info enrichment
-                    pass
+                except (KeyError, AttributeError, TypeError) as e:
+                    # Optional user info enrichment - non-critical
+                    logger.debug(f"Could not get user info for {provider}: {e}")
 
             return True
     except Exception as e:

@@ -586,7 +586,14 @@ async def create_context_service(
     try:
         from aragora.storage.integration_store import get_integration_store
         integration_store = get_integration_store()
-    except Exception:
+    except (ImportError, ModuleNotFoundError) as e:
+        logger.debug(f"Integration store module not available: {e}")
+        integration_store = None
+    except (RuntimeError, ConnectionError) as e:
+        logger.warning(f"Integration store unavailable: {e}")
+        integration_store = None
+    except Exception as e:
+        logger.exception(f"Unexpected error getting integration store: {e}")
         integration_store = None
 
     service = CrossChannelContextService(

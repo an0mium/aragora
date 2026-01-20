@@ -46,6 +46,33 @@ from aragora.workflow.queue.task import (
 logger = logging.getLogger(__name__)
 
 
+def _record_metrics(operation: str, success: bool, latency: float) -> None:
+    """Record task queue metrics if available."""
+    try:
+        from aragora.observability.metrics import record_task_queue_operation
+        record_task_queue_operation(operation, success, latency)
+    except ImportError:
+        pass
+
+
+def _record_recovery(original_status: str, count: int = 1) -> None:
+    """Record recovery metrics if available."""
+    try:
+        from aragora.observability.metrics import record_task_queue_recovery
+        record_task_queue_recovery(original_status, count)
+    except ImportError:
+        pass
+
+
+def _record_cleanup(count: int) -> None:
+    """Record cleanup metrics if available."""
+    try:
+        from aragora.observability.metrics import record_task_queue_cleanup
+        record_task_queue_cleanup(count)
+    except ImportError:
+        pass
+
+
 # Schema for task persistence
 TASK_QUEUE_SCHEMA = """
 -- Queued tasks table
@@ -145,11 +172,21 @@ class PersistentTaskQueue(TaskQueue):
         Returns:
             Task ID
         """
-        # Persist to database first
-        self._persist_task(task)
+        import time as _time
+        start = _time.perf_counter()
+        success = True
+        try:
+            # Persist to database first
+            self._persist_task(task)
 
-        # Then enqueue in memory
-        return await super().enqueue(task)
+            # Then enqueue in memory
+            return await super().enqueue(task)
+        except Exception:
+            success = False
+            raise
+        finally:
+            latency = _time.perf_counter() - start
+            _record_metrics("enqueue", success, latency)
 
     async def enqueue_many(self, tasks: List[WorkflowTask]) -> List[str]:
         """Enqueue multiple tasks with persistence."""
@@ -285,8 +322,10 @@ class PersistentTaskQueue(TaskQueue):
             rows = cursor.fetchall()
 
             recovered = 0
+            recovery_counts: Dict[str, int] = {}
             for row in rows:
                 task = self._row_to_task(row)
+                original_status = task.status.value
 
                 # Reset running tasks to ready
                 if task.status == TaskStatus.RUNNING:
@@ -298,6 +337,11 @@ class PersistentTaskQueue(TaskQueue):
                 # Re-enqueue in memory (bypass _persist_task since already in DB)
                 await super().enqueue(task)
                 recovered += 1
+                recovery_counts[original_status] = recovery_counts.get(original_status, 0) + 1
+
+            # Record recovery metrics
+            for status, count in recovery_counts.items():
+                _record_recovery(status, count)
 
             logger.info(f"Recovered {recovered} tasks from persistent storage")
             return recovered
@@ -454,6 +498,7 @@ class PersistentTaskQueue(TaskQueue):
 
             if deleted > 0:
                 logger.info(f"Cleaned up {deleted} completed tasks")
+                _record_cleanup(deleted)
 
             return deleted
 

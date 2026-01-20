@@ -688,8 +688,11 @@ class BeliefNetwork:
 
         except ImportError:
             pass  # Events module not available
-        except Exception:  # noqa: BLE001 - Event emission is non-critical, don't fail belief propagation
-            pass
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.debug(f"Event emission skipped due to expected error: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error during event emission: {e}")
+            # Event emission is non-critical, don't fail belief propagation
 
     def _send_messages(self, factor: Factor) -> None:
         """Send messages from factor to connected nodes."""

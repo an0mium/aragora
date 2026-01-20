@@ -258,7 +258,14 @@ class RedisLockoutBackend(LockoutBackend):
         try:
             self._client.ping()
             return True
-        except Exception:  # noqa: BLE001 - Redis availability check
+        except (ConnectionError, TimeoutError, OSError) as e:
+            # Expected Redis connection issues
+            logger.debug(f"Redis ping failed (connection issue): {e}")
+            self._available = False
+            return False
+        except Exception as e:
+            # Unexpected errors during availability check
+            logger.warning(f"Redis availability check failed unexpectedly: {e}")
             self._available = False
             return False
 

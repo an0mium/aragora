@@ -760,7 +760,12 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                         # Create a temporary service instance
                         history_service = SenderHistoryService()
                         await history_service.initialize()
-                except Exception:
+                except (ImportError, KeyError, AttributeError) as e:
+                    logger.debug(f"Service registry unavailable, creating temporary instance: {e}")
+                    history_service = SenderHistoryService()
+                    await history_service.initialize()
+                except Exception as e:
+                    logger.warning(f"Unexpected error getting history service: {e}")
                     history_service = SenderHistoryService()
                     await history_service.initialize()
 

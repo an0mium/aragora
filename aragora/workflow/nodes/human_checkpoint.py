@@ -413,8 +413,10 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
         # No running loop, run synchronously in new loop
         try:
             asyncio.run(_send())
-        except Exception:
-            pass  # Best effort
+        except (RuntimeError, asyncio.CancelledError) as e:
+            logger.debug(f"Resolution notification send failed (event loop): {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error sending resolution notification: {e}")
 
 
 def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalRequest]:

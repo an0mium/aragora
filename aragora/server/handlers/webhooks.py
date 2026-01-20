@@ -57,6 +57,8 @@ WEBHOOK_EVENTS: Set[str] = {
     # Gauntlet
     "gauntlet_complete",
     "gauntlet_verdict",
+    "receipt_ready",  # Receipt is ready for export
+    "receipt_exported",  # Receipt has been exported
     # Graph debates
     "graph_branch_created",
     "graph_branch_merged",
@@ -74,6 +76,8 @@ WEBHOOK_EVENTS: Set[str] = {
     "evidence_found",
     "agent_calibration_changed",
     "agent_fallback_triggered",
+    # Explainability
+    "explanation_ready",  # Decision explanation is available
 }
 
 

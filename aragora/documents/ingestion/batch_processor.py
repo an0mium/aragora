@@ -473,8 +473,10 @@ class BatchProcessor:
                     if job.on_error:
                         try:
                             job.on_error(job, e)
-                        except Exception:  # noqa: BLE001 - Callback errors should not propagate
-                            pass
+                        except (TypeError, ValueError, AttributeError) as callback_err:
+                            logger.debug(f"Job {job_id} error callback raised expected error: {callback_err}")
+                        except Exception as callback_err:
+                            logger.warning(f"Job {job_id} error callback raised unexpected error: {callback_err}")
                 finally:
                     self._active_workers -= 1
                     self._queue.task_done()

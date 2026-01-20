@@ -79,7 +79,12 @@ class TTSHelper:
             self._get_backend()
             self._available = True
             return True
-        except Exception:
+        except (ImportError, RuntimeError) as e:
+            logger.debug(f"TTS backend not available: {e}")
+            self._available = False
+            return False
+        except Exception as e:
+            logger.exception(f"Unexpected error checking TTS availability: {e}")
             self._available = False
             return False
 
@@ -172,8 +177,8 @@ class TTSHelper:
             # Clean up temp file
             try:
                 Path(audio_path).unlink()
-            except Exception:
-                pass
+            except (OSError, PermissionError) as e:
+                logger.debug(f"Could not remove temp TTS file {audio_path}: {e}")
 
             logger.info(f"TTS synthesized: {len(text)} chars -> {len(audio_bytes)} bytes")
             return result

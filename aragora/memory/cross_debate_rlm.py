@@ -180,8 +180,22 @@ class CrossDebateConfig:
                 logging.getLogger(__name__).debug(
                     f"CrossDebateConfig: Using default storage_path: {self.storage_path}"
                 )
-            except Exception:  # noqa: BLE001 - Graceful degradation for path resolution
-                # If we can't get nomic_dir, disable persistence
+            except (OSError, PermissionError, FileNotFoundError) as e:
+                # Expected errors: path resolution, permission, or missing directory
+                logging.getLogger(__name__).warning(
+                    f"CrossDebateConfig: Could not determine default storage path: {e}"
+                )
+                warnings.warn(
+                    "CrossDebateConfig: persist_to_disk=True but no storage_path and "
+                    "couldn't determine default path. Disabling disk persistence.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                self.persist_to_disk = False
+            except Exception as e:
+                logging.getLogger(__name__).exception(
+                    f"CrossDebateConfig: Unexpected error determining storage path: {e}"
+                )
                 warnings.warn(
                     "CrossDebateConfig: persist_to_disk=True but no storage_path and "
                     "couldn't determine default path. Disabling disk persistence.",

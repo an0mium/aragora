@@ -659,8 +659,10 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
         if self._redis_client:
             try:
                 self._redis_client.close()
-            except Exception:
-                pass
+            except (ConnectionError, OSError) as e:
+                logger.debug(f"Redis close failed (connection already closed): {e}")
+            except Exception as e:
+                logger.debug(f"Redis close failed: {e}")
 
 
 def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
