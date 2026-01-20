@@ -244,7 +244,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Incremental update failed: {e}")
-            return error_response(f"Update failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "incremental update"), 500)
 
     async def _batch_index(self, body: Dict[str, Any]) -> HandlerResult:
         """Index multiple repositories in batch."""
@@ -279,7 +279,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Batch indexing failed: {e}")
-            return error_response(f"Batch indexing failed: {str(e)}", 500)
+            return error_response(safe_error_message(e, "batch indexing"), 500)
 
     async def _get_status(self, repo_id: str) -> HandlerResult:
         """Get indexing status for a repository."""
@@ -360,7 +360,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to get entities: {e}")
-            return error_response(f"Failed to get entities: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get entities"), 500)
 
     async def _get_graph(
         self, repo_id: str, query_params: Dict[str, Any]
@@ -413,7 +413,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to get graph: {e}")
-            return error_response(f"Failed to get graph: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get graph"), 500)
 
     async def _get_repository(self, repo_id: str) -> HandlerResult:
         """Get repository information."""
@@ -431,7 +431,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to get repository: {e}")
-            return error_response(f"Failed to get repository: {str(e)}", 500)
+            return error_response(safe_error_message(e, "get repository"), 500)
 
     async def _remove_repository(
         self, repo_id: str, body: Dict[str, Any]
@@ -457,4 +457,4 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         except Exception as e:
             logger.error(f"Failed to remove repository: {e}")
-            return error_response(f"Failed to remove repository: {str(e)}", 500)
+            return error_response(safe_error_message(e, "remove repository"), 500)

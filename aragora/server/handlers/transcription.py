@@ -481,7 +481,7 @@ class TranscriptionHandler(BaseHandler):
 
         except RuntimeError as e:
             # yt-dlp not installed or other runtime issues
-            return error_response(str(e), 503)
+            return error_response(safe_error_message(e, "transcription service"), 503)
         except ValueError as e:
             # Invalid URL
             return error_response(str(e), 400)

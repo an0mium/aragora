@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,7 +203,7 @@ class TeamsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Teams message error: {e}", exc_info=True)
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response(safe_error_message(e, "teams message"), 500)
 
 
 __all__ = ["TeamsHandler"]
