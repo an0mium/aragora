@@ -28,28 +28,65 @@ interface SyncStatus {
   job_error?: string;
 }
 
+interface PrioritizationConfig {
+  vip_senders: string[];
+  tier_1_threshold: number;
+  tier_2_threshold: number;
+  enable_slack_context: boolean;
+  enable_calendar_context: boolean;
+}
+
 export default function InboxPage() {
   const { config: backendConfig } = useBackend();
   const { user, tokens } = useAuth();
   const [status, setStatus] = useState<GmailStatus | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [priConfig, setPriConfig] = useState<PrioritizationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [newVip, setNewVip] = useState('');
 
   // Use user ID or default
   const userId = user?.id || 'default';
 
   const fetchStatus = useCallback(async () => {
     try {
+      // Try new email API first
       const response = await fetch(
-        `${backendConfig.api}/api/gmail/status?user_id=${userId}`,
+        `${backendConfig.api}/api/email/config?user_id=${userId}`,
         {
           headers: { Authorization: `Bearer ${tokens?.access_token || ''}` },
         }
       );
       if (response.ok) {
         const data = await response.json();
-        setStatus(data);
+        setStatus({
+          connected: data.gmail_connected || false,
+          configured: true,
+          email_address: data.email_address,
+          indexed_count: data.indexed_count,
+          last_sync: data.last_sync,
+        });
+        setPriConfig({
+          vip_senders: data.vip_senders || [],
+          tier_1_threshold: data.tier_1_threshold || 0.8,
+          tier_2_threshold: data.tier_2_threshold || 0.5,
+          enable_slack_context: data.enable_slack_context || false,
+          enable_calendar_context: data.enable_calendar_context || false,
+        });
+      } else {
+        // Fallback to legacy Gmail status endpoint
+        const legacyResponse = await fetch(
+          `${backendConfig.api}/api/gmail/status?user_id=${userId}`,
+          {
+            headers: { Authorization: `Bearer ${tokens?.access_token || ''}` },
+          }
+        );
+        if (legacyResponse.ok) {
+          const data = await legacyResponse.json();
+          setStatus(data);
+        }
       }
     } catch (err) {
       setError('Failed to fetch Gmail status');
@@ -91,7 +128,8 @@ export default function InboxPage() {
 
   const handleConnect = useCallback(async () => {
     try {
-      const response = await fetch(`${backendConfig.api}/api/gmail/connect`, {
+      // Use new email API OAuth endpoint
+      const response = await fetch(`${backendConfig.api}/api/email/gmail/oauth-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +147,26 @@ export default function InboxPage() {
         // Redirect to OAuth URL
         window.location.href = data.url;
       } else {
-        setError('Failed to start connection');
+        // Fallback to legacy endpoint
+        const legacyResponse = await fetch(`${backendConfig.api}/api/gmail/connect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokens?.access_token || ''}`,
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            redirect_uri: `${window.location.origin}/inbox/callback`,
+            state: userId,
+          }),
+        });
+
+        if (legacyResponse.ok) {
+          const data = await legacyResponse.json();
+          window.location.href = data.url;
+        } else {
+          setError('Failed to start connection');
+        }
       }
     } catch (err) {
       setError('Failed to connect to Gmail');
@@ -160,6 +217,58 @@ export default function InboxPage() {
     }
   }, [backendConfig.api, userId, tokens?.access_token, fetchSyncStatus]);
 
+  const handleAddVip = useCallback(async () => {
+    if (!newVip.trim()) return;
+    try {
+      const response = await fetch(`${backendConfig.api}/api/email/vip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          sender_email: newVip.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setPriConfig(prev => prev ? {
+          ...prev,
+          vip_senders: [...prev.vip_senders, newVip.trim()],
+        } : null);
+        setNewVip('');
+      }
+    } catch (err) {
+      setError('Failed to add VIP sender');
+    }
+  }, [backendConfig.api, userId, tokens?.access_token, newVip]);
+
+  const handleRemoveVip = useCallback(async (senderEmail: string) => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/email/vip`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          sender_email: senderEmail,
+        }),
+      });
+
+      if (response.ok) {
+        setPriConfig(prev => prev ? {
+          ...prev,
+          vip_senders: prev.vip_senders.filter(s => s !== senderEmail),
+        } : null);
+      }
+    } catch (err) {
+      setError('Failed to remove VIP sender');
+    }
+  }, [backendConfig.api, userId, tokens?.access_token]);
+
   return (
     <div className="min-h-screen bg-background">
       <Scanlines />
@@ -171,9 +280,21 @@ export default function InboxPage() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} SMART INBOX</span>
+            <span className="text-muted font-mono text-sm">{'//'} AI SMART INBOX</span>
           </div>
           <div className="flex items-center gap-3">
+            {status?.connected && (
+              <button
+                onClick={() => setShowConfig(!showConfig)}
+                className={`px-3 py-1 text-xs font-mono border rounded ${
+                  showConfig
+                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    : 'bg-transparent border-acid-green/40 text-acid-green hover:bg-acid-green/10'
+                }`}
+              >
+                ⚙ Config
+              </button>
+            )}
             <BackendSelector />
             <ThemeToggle />
           </div>
@@ -202,6 +323,70 @@ export default function InboxPage() {
             onDisconnect={handleDisconnect}
           />
         </PanelErrorBoundary>
+
+        {/* Prioritization Config Panel */}
+        {showConfig && priConfig && (
+          <div className="mt-4 border border-acid-green/30 bg-surface/50 p-4 rounded">
+            <h3 className="text-acid-green font-mono text-sm mb-4">Prioritization Settings</h3>
+
+            {/* VIP Senders */}
+            <div className="mb-4">
+              <label className="text-text-muted text-xs font-mono block mb-2">
+                VIP Senders (always prioritized)
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="email"
+                  value={newVip}
+                  onChange={(e) => setNewVip(e.target.value)}
+                  placeholder="email@example.com"
+                  className="flex-1 px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm rounded focus:outline-none focus:border-acid-green"
+                />
+                <button
+                  onClick={handleAddVip}
+                  className="px-4 py-2 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 rounded"
+                >
+                  Add
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {priConfig.vip_senders.map((sender) => (
+                  <span
+                    key={sender}
+                    className="px-2 py-1 text-xs bg-acid-green/10 border border-acid-green/30 rounded text-acid-green flex items-center gap-2"
+                  >
+                    {sender}
+                    <button
+                      onClick={() => handleRemoveVip(sender)}
+                      className="hover:text-acid-red"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {priConfig.vip_senders.length === 0 && (
+                  <span className="text-text-muted text-xs">No VIP senders configured</span>
+                )}
+              </div>
+            </div>
+
+            {/* Context Integration Status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 border border-acid-green/20 rounded">
+                <span className="text-text-muted text-xs font-mono">Slack Context</span>
+                <div className={`text-sm font-mono mt-1 ${priConfig.enable_slack_context ? 'text-acid-green' : 'text-text-muted'}`}>
+                  {priConfig.enable_slack_context ? '✓ Enabled' : '○ Disabled'}
+                </div>
+              </div>
+              <div className="p-3 border border-acid-green/20 rounded">
+                <span className="text-text-muted text-xs font-mono">Calendar Context</span>
+                <div className={`text-sm font-mono mt-1 ${priConfig.enable_calendar_context ? 'text-acid-green' : 'text-text-muted'}`}>
+                  {priConfig.enable_calendar_context ? '✓ Enabled' : '○ Disabled'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sync Progress */}
         {status?.connected && syncStatus && (
@@ -251,10 +436,28 @@ export default function InboxPage() {
               Connect Your Gmail
             </h2>
             <p className="text-muted font-mono text-sm mb-6 max-w-md mx-auto">
-              Connect your Gmail account to get AI-powered email prioritization,
-              smart search, and natural language Q&A over your inbox.
+              Connect your Gmail account to get AI-powered email prioritization
+              with our 3-tier scoring system. Critical emails float to the top,
+              newsletters and bulk mail sink to the bottom.
             </p>
-            {status?.configured ? (
+            <div className="flex flex-wrap justify-center gap-4 mb-6 text-xs font-mono">
+              <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-red-400">
+                🔴 Critical - Needs immediate attention
+              </div>
+              <div className="px-3 py-2 bg-orange-500/10 border border-orange-500/30 rounded text-orange-400">
+                🟠 High - Important, respond today
+              </div>
+              <div className="px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
+                🟡 Medium - Standard priority
+              </div>
+              <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400">
+                🔵 Low - Can wait
+              </div>
+              <div className="px-3 py-2 bg-gray-500/10 border border-gray-500/30 rounded text-gray-400">
+                ⚪ Defer - Newsletters, bulk mail
+              </div>
+            </div>
+            {status?.configured !== false ? (
               <button
                 onClick={handleConnect}
                 className="btn btn-primary px-8 py-3"
@@ -273,10 +476,15 @@ export default function InboxPage() {
 
       <footer className="border-t border-border bg-surface/50 py-4 mt-8">
         <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-mono">
-          <span>ARAGORA SMART INBOX</span>
-          <Link href="/documents" className="hover:text-accent">
-            DOCUMENTS
-          </Link>
+          <span>ARAGORA AI SMART INBOX</span>
+          <div className="flex gap-4">
+            <Link href="/documents" className="hover:text-accent">
+              DOCUMENTS
+            </Link>
+            <Link href="/connectors" className="hover:text-accent">
+              CONNECTORS
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
