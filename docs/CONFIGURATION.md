@@ -144,6 +144,36 @@ Required for multi-instance deployments and distributed rate limiting.
 | `ARAGORA_REDIS_CLUSTER_NODES` | - | Cluster node addresses |
 | `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | `true` | Read from replicas |
 
+### Distributed State (Horizontal Scaling)
+
+For multi-instance deployments where debate state needs to be shared across servers.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ARAGORA_STATE_BACKEND` | `memory` | Backend: `memory` (single instance) or `redis` (multi-instance) |
+| `ARAGORA_REDIS_URL` | `redis://localhost:6379` | Redis URL for state storage |
+| `ARAGORA_INSTANCE_ID` | `instance-{pid}` | Unique instance identifier for event deduplication |
+
+**When to use Redis state:**
+- Running multiple server instances behind a load balancer
+- Need debate continuation after server restart
+- Cross-instance WebSocket event broadcasting
+
+**Example multi-instance setup:**
+```bash
+# Instance 1
+ARAGORA_STATE_BACKEND=redis
+ARAGORA_REDIS_URL=redis://redis-server:6379
+ARAGORA_INSTANCE_ID=server-1
+ARAGORA_PORT=8081
+
+# Instance 2
+ARAGORA_STATE_BACKEND=redis
+ARAGORA_REDIS_URL=redis://redis-server:6379
+ARAGORA_INSTANCE_ID=server-2
+ARAGORA_PORT=8082
+```
+
 ---
 
 ## 5. Authentication & Security

@@ -1349,6 +1349,11 @@ Production deployment:
 
     create_rlm_parser(subparsers)
 
+    # Template command (workflow template management)
+    from aragora.cli.template import create_template_parser
+
+    create_template_parser(subparsers)
+
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(
         "memory",
