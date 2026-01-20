@@ -595,6 +595,189 @@ class EvidenceStore(SQLiteStore):
                 "unique_debates": unique_debates,
             }
 
+    def cleanup_expired_evidence(
+        self,
+        retention_days: int = 90,
+        batch_size: int = 1000,
+        preserve_high_reliability: bool = True,
+        reliability_threshold: float = 0.8,
+    ) -> Dict[str, Any]:
+        """Clean up expired evidence based on retention policy.
+
+        Removes evidence older than retention_days that is not linked to
+        any active debates and optionally preserves high-reliability evidence.
+
+        Args:
+            retention_days: Number of days to retain evidence (default: 90)
+            batch_size: Maximum records to delete per batch (default: 1000)
+            preserve_high_reliability: Keep high-reliability evidence (default: True)
+            reliability_threshold: Reliability score threshold (default: 0.8)
+
+        Returns:
+            Dictionary with cleanup statistics:
+            - deleted_count: Number of evidence records deleted
+            - preserved_count: Number preserved due to reliability
+            - linked_count: Number preserved due to debate links
+            - duration_ms: Cleanup duration in milliseconds
+        """
+        import time
+
+        start_time = time.time()
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Calculate cutoff date
+            cutoff_query = f"datetime('now', '-{retention_days} days')"
+
+            # Find expired evidence not linked to any debate
+            # Optionally preserve high-reliability evidence
+            if preserve_high_reliability:
+                find_expired_query = f"""
+                    SELECT e.id FROM evidence e
+                    WHERE e.created_at < {cutoff_query}
+                    AND e.reliability_score < ?
+                    AND NOT EXISTS (
+                        SELECT 1 FROM debate_evidence de WHERE de.evidence_id = e.id
+                    )
+                    LIMIT ?
+                """
+                cursor.execute(find_expired_query, (reliability_threshold, batch_size))
+            else:
+                find_expired_query = f"""
+                    SELECT e.id FROM evidence e
+                    WHERE e.created_at < {cutoff_query}
+                    AND NOT EXISTS (
+                        SELECT 1 FROM debate_evidence de WHERE de.evidence_id = e.id
+                    )
+                    LIMIT ?
+                """
+                cursor.execute(find_expired_query, (batch_size,))
+
+            expired_ids = [row[0] for row in cursor.fetchall()]
+
+            if not expired_ids:
+                return {
+                    "deleted_count": 0,
+                    "preserved_count": 0,
+                    "linked_count": 0,
+                    "duration_ms": (time.time() - start_time) * 1000,
+                }
+
+            # Delete from FTS index first
+            placeholders = ",".join("?" * len(expired_ids))
+            cursor.execute(
+                f"DELETE FROM evidence_fts WHERE evidence_id IN ({placeholders})",
+                expired_ids,
+            )
+
+            # Delete the evidence records
+            cursor.execute(
+                f"DELETE FROM evidence WHERE id IN ({placeholders})",
+                expired_ids,
+            )
+            deleted_count = cursor.rowcount
+
+            # Count preserved due to high reliability
+            if preserve_high_reliability:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) FROM evidence
+                    WHERE created_at < {cutoff_query}
+                    AND reliability_score >= ?
+                """,
+                    (reliability_threshold,),
+                )
+                preserved_count = cursor.fetchone()[0]
+            else:
+                preserved_count = 0
+
+            # Count linked (preserved due to debate association)
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT e.id) FROM evidence e
+                INNER JOIN debate_evidence de ON de.evidence_id = e.id
+                WHERE e.created_at < {cutoff_query}
+            """
+            )
+            linked_count = cursor.fetchone()[0]
+
+            conn.commit()
+
+            duration_ms = (time.time() - start_time) * 1000
+            logger.info(
+                f"Evidence cleanup: deleted={deleted_count}, "
+                f"preserved_high_reliability={preserved_count}, "
+                f"preserved_linked={linked_count}, duration={duration_ms:.1f}ms"
+            )
+
+            return {
+                "deleted_count": deleted_count,
+                "preserved_count": preserved_count,
+                "linked_count": linked_count,
+                "duration_ms": duration_ms,
+            }
+
+    def get_retention_statistics(self, retention_days: int = 90) -> Dict[str, Any]:
+        """Get statistics about evidence that would be affected by retention policy.
+
+        Args:
+            retention_days: Retention period to analyze
+
+        Returns:
+            Dictionary with retention statistics
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+            cutoff_query = f"datetime('now', '-{retention_days} days')"
+
+            # Total expired
+            cursor.execute(
+                f"SELECT COUNT(*) FROM evidence WHERE created_at < {cutoff_query}"
+            )
+            total_expired = cursor.fetchone()[0]
+
+            # Expired but linked
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT e.id) FROM evidence e
+                INNER JOIN debate_evidence de ON de.evidence_id = e.id
+                WHERE e.created_at < {cutoff_query}
+            """
+            )
+            expired_linked = cursor.fetchone()[0]
+
+            # Expired with high reliability
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) FROM evidence
+                WHERE created_at < {cutoff_query}
+                AND reliability_score >= 0.8
+            """
+            )
+            expired_high_reliability = cursor.fetchone()[0]
+
+            # Deletable (expired, not linked, low reliability)
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) FROM evidence e
+                WHERE e.created_at < {cutoff_query}
+                AND e.reliability_score < 0.8
+                AND NOT EXISTS (
+                    SELECT 1 FROM debate_evidence de WHERE de.evidence_id = e.id
+                )
+            """
+            )
+            deletable = cursor.fetchone()[0]
+
+            return {
+                "retention_days": retention_days,
+                "total_expired": total_expired,
+                "expired_linked": expired_linked,
+                "expired_high_reliability": expired_high_reliability,
+                "deletable": deletable,
+            }
+
     def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
         """Convert a database row to dictionary."""
         data = dict(row)
