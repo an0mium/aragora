@@ -14,6 +14,9 @@ How Aragora's adversarial validation approach compares to alternatives for revie
 | **Heterogeneous models** | Yes (required) | Optional | N/A | N/A |
 | **Dissent tracking** | Yes | No | Informal | No |
 | **Real-time streaming** | Yes | Limited | N/A | No |
+| **Transaction rollback** | Yes (cross-system) | No | N/A | N/A |
+| **ELO agent ranking** | Built-in | No | N/A | N/A |
+| **Self-improvement** | Nomic Loop | No | N/A | N/A |
 
 ## Detailed Analysis
 
@@ -111,6 +114,75 @@ Aragora requires multiple different AI models to participate in debates:
 - **Why it matters:** Single-model reviews have correlated blind spots. Different models catch different issues.
 - **Supported models:** Claude (Anthropic), GPT-4 (OpenAI), Gemini (Google), Mistral, and others via OpenRouter
 - **Consensus detection:** Formal agreement tracking across models with configurable thresholds
+
+### Transaction-Safe Memory Coordination (Unique)
+
+Aragora provides atomic writes across multiple memory systems with automatic rollback:
+
+| System | Write Method | Rollback Method |
+|--------|-------------|-----------------|
+| Continuum | `store_pattern()` | `delete(archive=True)` |
+| Consensus | `store_consensus()` | `delete_consensus(cascade=True)` |
+| Critique | `store_result()` | `delete_debate(cascade=True)` |
+| Knowledge Mound | `ingest_outcome()` | `delete_item()` |
+
+```python
+from aragora.memory.coordinator import MemoryCoordinator, CoordinatorOptions
+
+coordinator = MemoryCoordinator(
+    continuum_memory=continuum,
+    consensus_memory=consensus,
+    critique_store=critique,
+    knowledge_mound=mound,
+)
+
+# If any write fails, all previous writes are rolled back
+tx = await coordinator.commit_debate_outcome(
+    context,
+    options=CoordinatorOptions(rollback_on_failure=True),
+)
+
+if tx.partial_failure:
+    print(f"Rolled back: {tx.rolled_back}")
+```
+
+Monitor via API:
+```bash
+curl http://localhost:8080/api/memory/coordinator/metrics
+# Returns: success_rate, rollbacks_performed, memory_systems status
+```
+
+### ELO-Based Agent Selection (Unique)
+
+Track agent performance across debates with skill-based ranking:
+
+```python
+from aragora.ranking.elo import EloRankingSystem
+
+elo = EloRankingSystem()
+elo.record_outcome(debate_id="d-123", winner="claude", loser="gpt-4")
+
+# Rankings influence team selection for future debates
+rankings = elo.get_rankings()  # {"claude": 1520, "gpt-4": 1480, ...}
+```
+
+### Nomic Loop Self-Improvement (Unique)
+
+Autonomous cycle where agents debate, design, implement, and verify improvements:
+
+```bash
+python scripts/nomic_loop.py --cycles 3
+```
+
+| Phase | Description |
+|-------|-------------|
+| Context | Gather codebase understanding |
+| Debate | Agents propose improvements |
+| Design | Architecture planning |
+| Implement | Code generation |
+| Verify | Tests and verification |
+
+No other framework includes autonomous self-improvement capabilities.
 
 ## Pricing Comparison
 
