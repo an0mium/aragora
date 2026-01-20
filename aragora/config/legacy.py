@@ -523,8 +523,31 @@ _DB_PATH_DEFAULTS = {
     "DB_CULTURE_PATH": ("ARAGORA_DB_CULTURE", "culture.db"),
 }
 
-# Keep constants for backwards compatibility but with deprecation on import
-# New code should use get_db_path("elo"), get_db_path("memory"), etc.
+# =============================================================================
+# DEPRECATED DATABASE PATH CONSTANTS
+# =============================================================================
+# These constants are DEPRECATED as of January 2026.
+# Use the new API from aragora.persistence.db_config instead:
+#
+#   from aragora.persistence.db_config import DatabaseType, get_db_path
+#
+#   db_path = get_db_path(DatabaseType.ELO)           # Instead of DB_ELO_PATH
+#   db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)  # Instead of DB_MEMORY_PATH
+#   db_path = get_db_path(DatabaseType.INSIGHTS)      # Instead of DB_INSIGHTS_PATH
+#   db_path = get_db_path(DatabaseType.CONSENSUS_MEMORY)  # Instead of DB_CONSENSUS_PATH
+#   db_path = get_db_path(DatabaseType.CALIBRATION)   # Instead of DB_CALIBRATION_PATH
+#   db_path = get_db_path(DatabaseType.LABORATORY)    # Instead of DB_LAB_PATH
+#   db_path = get_db_path(DatabaseType.PERSONAS)      # Instead of DB_PERSONAS_PATH
+#   db_path = get_db_path(DatabaseType.POSITIONS)     # Instead of DB_POSITIONS_PATH
+#   db_path = get_db_path(DatabaseType.GENESIS)       # Instead of DB_GENESIS_PATH
+#   db_path = get_db_path(DatabaseType.KNOWLEDGE)     # Instead of DB_KNOWLEDGE_PATH
+#
+# The new API provides:
+#   - Proper Path objects instead of strings
+#   - Automatic nomic_dir resolution
+#   - Support for consolidated database mode
+#   - Type safety with DatabaseType enum
+# =============================================================================
 DB_ELO_PATH = _env_str("ARAGORA_DB_ELO", "agent_elo.db")
 DB_MEMORY_PATH = _env_str("ARAGORA_DB_MEMORY", "continuum.db")
 DB_INSIGHTS_PATH = _env_str("ARAGORA_DB_INSIGHTS", "aragora_insights.db")
