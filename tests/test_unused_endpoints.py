@@ -139,13 +139,13 @@ class TestEvidenceEndpoints:
 
     def test_evidence_handler_exists(self):
         """Verify EvidenceHandler can be imported."""
-        from aragora.server.handlers.evidence import EvidenceHandler
+        from aragora.server.handlers.features.evidence import EvidenceHandler
 
         assert EvidenceHandler is not None
 
     def test_evidence_routes(self, handler_ctx):
         """Verify evidence routes are handled."""
-        from aragora.server.handlers.evidence import EvidenceHandler
+        from aragora.server.handlers.features.evidence import EvidenceHandler
 
         handler = EvidenceHandler(handler_ctx)
 
@@ -160,7 +160,7 @@ class TestEvidenceEndpoints:
 
     def test_evidence_search_is_post_endpoint(self, handler_ctx):
         """Test evidence search is available as POST endpoint."""
-        from aragora.server.handlers.evidence import EvidenceHandler
+        from aragora.server.handlers.features.evidence import EvidenceHandler
 
         handler = EvidenceHandler(handler_ctx)
 

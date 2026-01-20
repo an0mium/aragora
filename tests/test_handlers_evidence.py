@@ -173,35 +173,35 @@ def clear_rate_limiters():
 class TestCanHandle:
     """Tests for route matching."""
 
-    def test_can_handle_evidence_root(self):
+    def test_can_handle_evidence_root(self, evidence_handler):
         """Test handler matches /api/evidence."""
-        assert EvidenceHandler.can_handle("/api/evidence")
+        assert evidence_handler.can_handle("/api/evidence")
 
-    def test_can_handle_evidence_id(self):
+    def test_can_handle_evidence_id(self, evidence_handler):
         """Test handler matches /api/evidence/:id."""
-        assert EvidenceHandler.can_handle("/api/evidence/ev-123")
+        assert evidence_handler.can_handle("/api/evidence/ev-123")
 
-    def test_can_handle_evidence_search(self):
+    def test_can_handle_evidence_search(self, evidence_handler):
         """Test handler matches /api/evidence/search."""
-        assert EvidenceHandler.can_handle("/api/evidence/search")
+        assert evidence_handler.can_handle("/api/evidence/search")
 
-    def test_can_handle_evidence_collect(self):
+    def test_can_handle_evidence_collect(self, evidence_handler):
         """Test handler matches /api/evidence/collect."""
-        assert EvidenceHandler.can_handle("/api/evidence/collect")
+        assert evidence_handler.can_handle("/api/evidence/collect")
 
-    def test_can_handle_evidence_debate(self):
+    def test_can_handle_evidence_debate(self, evidence_handler):
         """Test handler matches /api/evidence/debate/:id."""
-        assert EvidenceHandler.can_handle("/api/evidence/debate/debate-123")
+        assert evidence_handler.can_handle("/api/evidence/debate/debate-123")
 
-    def test_can_handle_evidence_statistics(self):
+    def test_can_handle_evidence_statistics(self, evidence_handler):
         """Test handler matches /api/evidence/statistics."""
-        assert EvidenceHandler.can_handle("/api/evidence/statistics")
+        assert evidence_handler.can_handle("/api/evidence/statistics")
 
-    def test_cannot_handle_other_routes(self):
+    def test_cannot_handle_other_routes(self, evidence_handler):
         """Test handler does not match unrelated routes."""
-        assert not EvidenceHandler.can_handle("/api/debates")
-        assert not EvidenceHandler.can_handle("/api/agents")
-        assert not EvidenceHandler.can_handle("/api/auth/login")
+        assert not evidence_handler.can_handle("/api/debates")
+        assert not evidence_handler.can_handle("/api/agents")
+        assert not evidence_handler.can_handle("/api/auth/login")
 
 
 # ============================================================================

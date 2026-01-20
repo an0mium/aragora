@@ -2,6 +2,99 @@
 
 ---
 
+# v2.0.6 - Stability Release
+
+**Release Date:** January 20, 2026
+**Version:** 2.0.6
+**Codename:** Pulse Ascension
+
+---
+
+## Overview
+
+Aragora 2.0.6 promotes Pulse (trending topics) to stable status, fixes all deprecated asyncio patterns, and adds bidirectional Knowledge Mound adapters. This release focuses on stability, test quality, and cross-pollination completion.
+
+---
+
+## What's New
+
+### Pulse Promotion to Stable
+
+Pulse is now production-ready with 358+ tests passing:
+
+| Component | Tests | Status |
+|-----------|-------|--------|
+| Quality Filtering | 45+ | ✅ Stable |
+| Freshness Scoring | 30+ | ✅ Stable |
+| Source Weighting | 25+ | ✅ Stable |
+| Ingestors (HN/Reddit/Twitter) | 80+ | ✅ Stable |
+| Scheduler | 40+ | ✅ Stable |
+| Store | 50+ | ✅ Stable |
+
+```python
+from aragora.pulse.ingestor import PulseManager
+
+manager = PulseManager(
+    enable_hackernews=True,
+    enable_reddit=True,
+    quality_threshold=0.6,
+)
+
+topics = await manager.get_trending_topics(limit=5)
+```
+
+### ANN Similarity Backend
+
+Fast approximate nearest neighbor search for convergence detection:
+
+- FAISS index integration for large-scale similarity
+- 26 ANN-specific tests
+- Configurable via `ARAGORA_CONVERGENCE_BACKEND=ann`
+
+### Asyncio Modernization
+
+Fixed 34 deprecated `get_event_loop().run_until_complete()` patterns across 11 test files. All tests now use `asyncio.run()`.
+
+### Bidirectional Knowledge Adapters
+
+New adapters with reverse data flows:
+
+- `BidirectionalCoordinator` - Manages two-way data sync
+- Pulse adapter with bidirectional support
+- Tests for adapter persistence and coordination
+
+### Cross-Pollination Benchmarks
+
+New benchmark suite measuring cross-pollination performance:
+
+- Weight calculation: <0.5ms per call
+- ELO lookups: <1ms per call
+- Cache operations: <0.01ms per call
+- Calibration records: <10ms per call
+
+---
+
+## Test Improvements
+
+- Fixed role rotation test (role_matching priority issue)
+- Fixed feedback phase test (delegated objects pattern)
+- Added fast Jaccard backend for test performance
+- 38,100+ tests across 1,047 files
+
+---
+
+## Breaking Changes
+
+None.
+
+---
+
+## Upgrade Notes
+
+No special upgrade steps required. The release is backwards compatible.
+
+---
+
 # v2.0.3 - Cross-Functional Integration
 
 **Release Date:** January 20, 2026
