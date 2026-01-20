@@ -1,0 +1,23 @@
+{
+  "id": "cp_fa3d8a42bdae",
+  "workflow_id": "wf_d77beacb145c",
+  "definition_id": "decision-test",
+  "current_step": "input",
+  "completed_steps": [
+    "input"
+  ],
+  "step_outputs": {
+    "input": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:57:36.202776+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_d77beacb145c_20260120_125736"
+}

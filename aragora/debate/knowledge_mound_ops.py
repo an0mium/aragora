@@ -9,11 +9,13 @@ Handles the integration between debate orchestration and the Knowledge Mound:
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
     from aragora.knowledge.mound.types import KnowledgeMound
+    from aragora.knowledge.mound.metrics import KMMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ class KnowledgeMoundOperations:
         enable_retrieval: bool = True,
         enable_ingestion: bool = True,
         notify_callback: Optional[NotifyCallback] = None,
+        metrics: Optional["KMMetrics"] = None,
     ):
         """Initialize Knowledge Mound operations.
 
@@ -43,11 +46,13 @@ class KnowledgeMoundOperations:
             enable_retrieval: Whether to enable knowledge retrieval
             enable_ingestion: Whether to enable outcome ingestion
             notify_callback: Optional callback for spectator/dashboard notifications
+            metrics: Optional KMMetrics instance for observability
         """
         self.knowledge_mound = knowledge_mound
         self.enable_retrieval = enable_retrieval
         self.enable_ingestion = enable_ingestion
         self._notify_callback = notify_callback
+        self._metrics = metrics
 
     async def fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch relevant knowledge from Knowledge Mound for debate context.
@@ -64,6 +69,10 @@ class KnowledgeMoundOperations:
         """
         if not self.knowledge_mound or not self.enable_retrieval:
             return None
+
+        start_time = time.time()
+        success = True
+        error_msg = None
 
         try:
             # Query mound for semantically related knowledge
@@ -92,8 +101,27 @@ class KnowledgeMoundOperations:
             return "\n".join(lines)
 
         except Exception as e:
+            success = False
+            error_msg = str(e)
             logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
             return None
+
+        finally:
+            # Record metrics if available
+            if self._metrics:
+                latency_ms = (time.time() - start_time) * 1000
+                try:
+                    from aragora.knowledge.mound.metrics import OperationType
+
+                    self._metrics.record(
+                        OperationType.QUERY,
+                        latency_ms,
+                        success=success,
+                        error=error_msg,
+                        metadata={"operation": "fetch_knowledge_context"},
+                    )
+                except ImportError:
+                    pass
 
     async def ingest_debate_outcome(
         self,
@@ -119,6 +147,10 @@ class KnowledgeMoundOperations:
                 "  [knowledge_mound] Skipping low-confidence debate outcome (need >= 0.85)"
             )
             return
+
+        start_time = time.time()
+        success = False
+        error_msg = None
 
         try:
             from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
@@ -167,4 +199,22 @@ class KnowledgeMoundOperations:
                     )
 
         except Exception as e:
+            error_msg = str(e)
             logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
+
+        finally:
+            # Record metrics if available
+            if self._metrics:
+                latency_ms = (time.time() - start_time) * 1000
+                try:
+                    from aragora.knowledge.mound.metrics import OperationType
+
+                    self._metrics.record(
+                        OperationType.STORE,
+                        latency_ms,
+                        success=success,
+                        error=error_msg,
+                        metadata={"operation": "ingest_debate_outcome"},
+                    )
+                except ImportError:
+                    pass

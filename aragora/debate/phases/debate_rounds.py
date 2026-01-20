@@ -20,6 +20,10 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.performance_monitor import get_debate_monitor
+from aragora.debate.phases.convergence_tracker import (
+    ConvergenceResult,
+    DebateConvergenceTracker,
+)
 from aragora.debate.phases.ready_signal import (
     CollectiveReadiness,
     parse_ready_signal,
@@ -198,9 +202,17 @@ class DebateRoundsPhase:
         # Internal state
         self._partial_messages: list["Message"] = []
         self._partial_critiques: list["Critique"] = []
-        self._previous_round_responses: dict[str, str] = {}
-        # RLM ready signal tracking
-        self._collective_readiness = CollectiveReadiness()
+
+        # Convergence tracker handles convergence, novelty, and RLM ready signals
+        self._convergence_tracker = DebateConvergenceTracker(
+            convergence_detector=convergence_detector,
+            novelty_tracker=novelty_tracker,
+            trickster=trickster,
+            hooks=self.hooks,
+            event_emitter=event_emitter,
+            notify_spectator=notify_spectator,
+            inject_challenge=inject_challenge,
+        )
 
     def _emit_heartbeat(self, phase: str, status: str = "alive") -> None:
         """Emit heartbeat to indicate debate is still running.
@@ -313,7 +325,7 @@ class DebateRoundsPhase:
 
         # Track novelty for initial proposals (round 0 baseline)
         if self.novelty_tracker and proposals:
-            self._track_novelty(ctx, round_num=0)
+            self._convergence_tracker.track_novelty(ctx, round_num=0)
 
         # Get performance monitor for round tracking
         perf_monitor = get_debate_monitor()
@@ -405,7 +417,7 @@ class DebateRoundsPhase:
             await self._revision_phase(ctx, critics, round_num)
 
             # Track novelty of revised proposals
-            self._track_novelty(ctx, round_num)
+            self._convergence_tracker.track_novelty(ctx, round_num)
 
             result.rounds_used = round_num
 
@@ -432,7 +444,8 @@ class DebateRoundsPhase:
             self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
 
             # Convergence detection
-            should_break = self._check_convergence(ctx, round_num)
+            convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
+            should_break = convergence_result.converged and not convergence_result.blocked_by_trickster
 
             # Record round duration for slow debate detection
             _round_duration = time.time() - _round_start_time
@@ -869,273 +882,6 @@ class DebateRoundsPhase:
             loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
             self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
 
-    def _check_convergence(self, ctx: "DebateContext", round_num: int) -> bool:
-        """Check for convergence and return True if should break."""
-        if not self.convergence_detector:
-            return False
-
-        current_responses = dict(ctx.proposals)
-
-        if not self._previous_round_responses:
-            self._previous_round_responses = current_responses
-            return False
-
-        convergence = self.convergence_detector.check_convergence(
-            current_responses, self._previous_round_responses, round_num
-        )
-
-        self._previous_round_responses = current_responses
-
-        if not convergence:
-            return False
-
-        result = ctx.result
-        result.convergence_status = convergence.status
-        result.convergence_similarity = convergence.avg_similarity
-        result.per_agent_similarity = convergence.per_agent_similarity
-
-        logger.info(
-            f"convergence_check status={convergence.status} "
-            f"similarity={convergence.avg_similarity:.0%}"
-        )
-
-        # Notify spectator
-        if self._notify_spectator:
-            self._notify_spectator(
-                "convergence",
-                details=f"{convergence.status}",
-                metric=convergence.avg_similarity,
-            )
-
-        # Emit convergence event
-        if "on_convergence_check" in self.hooks:
-            self.hooks["on_convergence_check"](
-                status=convergence.status,
-                similarity=convergence.avg_similarity,
-                per_agent=convergence.per_agent_similarity,
-                round_num=round_num,
-            )
-
-        # Check for hollow consensus using trickster
-        if self.trickster and convergence.avg_similarity > 0.5:
-            intervention = self.trickster.check_and_intervene(
-                responses=current_responses,
-                convergence_similarity=convergence.avg_similarity,
-                round_num=round_num,
-            )
-            if intervention:
-                logger.info(
-                    f"trickster_intervention round={round_num} "
-                    f"type={intervention.intervention_type.value} "
-                    f"targets={intervention.target_agents}"
-                )
-                # Notify spectator about hollow consensus
-                if self._notify_spectator:
-                    self._notify_spectator(
-                        "hollow_consensus",
-                        details="Evidence quality challenge triggered",
-                        metric=intervention.priority,
-                        agent="trickster",
-                    )
-
-                # Emit trickster events via EventEmitter for WebSocket clients
-                if self.event_emitter:
-                    # Emit hollow_consensus event
-                    self.event_emitter.emit_sync(
-                        event_type="hollow_consensus",
-                        debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
-                        confidence=intervention.priority,
-                        indicators=list(intervention.evidence_gaps.keys())[:5],
-                        recommendation=intervention.challenge_text[:200],
-                    )
-                    # Emit trickster_intervention event
-                    self.event_emitter.emit_sync(
-                        event_type="trickster_intervention",
-                        debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
-                        intervention_type=intervention.intervention_type.value,
-                        challenge=intervention.challenge_text,
-                        target_claim=", ".join(intervention.target_agents),
-                        round=round_num,
-                    )
-
-                # Call hooks for WebSocket broadcasting via arena_hooks
-                if "on_hollow_consensus" in self.hooks:
-                    self.hooks["on_hollow_consensus"](
-                        confidence=intervention.priority,
-                        indicators=list(intervention.evidence_gaps.keys())[:5],
-                        recommendation=intervention.challenge_text[:200],
-                    )
-                if "on_trickster_intervention" in self.hooks:
-                    self.hooks["on_trickster_intervention"](
-                        intervention_type=intervention.intervention_type.value,
-                        targets=intervention.target_agents,
-                        challenge=intervention.challenge_text,
-                        round_num=round_num,
-                    )
-                # Inject challenge into context for next round
-                if self._inject_challenge:
-                    self._inject_challenge(intervention.challenge_text, ctx)
-                # Don't declare convergence if hollow - continue debate
-                if intervention.priority > 0.5:
-                    logger.info(f"hollow_consensus_blocked round={round_num}")
-                    return False
-
-        if convergence.converged:
-            logger.info(f"debate_converged round={round_num}")
-            return True
-
-        return False
-
-    def _track_novelty(self, ctx: "DebateContext", round_num: int) -> None:
-        """
-        Track novelty of current proposals compared to prior proposals.
-
-        Updates context with novelty scores and triggers trickster intervention
-        if proposals are too similar to previous rounds.
-        """
-        if not self.novelty_tracker:
-            return
-
-        current_proposals = dict(ctx.proposals)
-        if not current_proposals:
-            return
-
-        # Compute novelty against prior proposals
-        novelty_result = self.novelty_tracker.compute_novelty(current_proposals, round_num)
-
-        # Update context with novelty scores
-        for agent, novelty in novelty_result.per_agent_novelty.items():
-            if agent not in ctx.per_agent_novelty:
-                ctx.per_agent_novelty[agent] = []
-            ctx.per_agent_novelty[agent].append(novelty)
-
-        ctx.avg_novelty = novelty_result.avg_novelty
-        ctx.low_novelty_agents = novelty_result.low_novelty_agents
-
-        # Add to history for future comparisons
-        self.novelty_tracker.add_to_history(current_proposals)
-
-        # Log novelty status
-        logger.info(
-            f"novelty_check round={round_num} avg={novelty_result.avg_novelty:.2f} "
-            f"min={novelty_result.min_novelty:.2f} low_novelty={novelty_result.low_novelty_agents}"
-        )
-
-        # Notify spectator about novelty
-        if self._notify_spectator:
-            self._notify_spectator(
-                "novelty",
-                details=f"Avg novelty: {novelty_result.avg_novelty:.0%}",
-                metric=novelty_result.avg_novelty,
-            )
-
-        # Emit novelty event
-        if "on_novelty_check" in self.hooks:
-            self.hooks["on_novelty_check"](
-                avg_novelty=novelty_result.avg_novelty,
-                per_agent=novelty_result.per_agent_novelty,
-                low_novelty_agents=novelty_result.low_novelty_agents,
-                round_num=round_num,
-            )
-
-        # Check for low novelty and trigger trickster intervention
-        if novelty_result.has_low_novelty() and self.trickster:
-            # Use trickster to generate novelty challenge
-
-            if hasattr(self.trickster, "create_novelty_challenge"):
-                intervention = self.trickster.create_novelty_challenge(
-                    low_novelty_agents=novelty_result.low_novelty_agents,
-                    novelty_scores=novelty_result.per_agent_novelty,
-                    round_num=round_num,
-                )
-                if intervention:
-                    logger.info(
-                        f"novelty_challenge round={round_num} targets={intervention.target_agents}"
-                    )
-                    # Notify spectator
-                    if self._notify_spectator:
-                        self._notify_spectator(
-                            "low_novelty",
-                            details="Proposals too similar to prior rounds",
-                            metric=novelty_result.min_novelty,
-                            agent="trickster",
-                        )
-
-                    # Emit trickster intervention via EventEmitter for WebSocket
-                    if self.event_emitter:
-                        self.event_emitter.emit_sync(
-                            event_type="trickster_intervention",
-                            debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
-                            intervention_type=intervention.intervention_type.value,
-                            challenge=intervention.challenge_text,
-                            target_claim=", ".join(intervention.target_agents),
-                            round=round_num,
-                        )
-
-                    # Also call legacy hook if registered
-                    if "on_trickster_intervention" in self.hooks:
-                        self.hooks["on_trickster_intervention"](
-                            intervention_type=intervention.intervention_type.value,
-                            targets=intervention.target_agents,
-                            challenge=intervention.challenge_text,
-                            round_num=round_num,
-                        )
-                    # Inject challenge into context for next round
-                    if self._inject_challenge:
-                        self._inject_challenge(intervention.challenge_text, ctx)
-
-    def _check_rlm_ready_quorum(self, ctx: "DebateContext", round_num: int) -> bool:
-        """
-        Check if RLM ready signal quorum has been reached.
-
-        Implements the RLM "answer ready" pattern where agents can signal
-        when they've reached their final position with high confidence.
-
-        Args:
-            ctx: The DebateContext with proposals
-            round_num: Current round number
-
-        Returns:
-            True if quorum of agents are ready to terminate
-        """
-        # Parse ready signals from current proposals
-        for agent_name, proposal in ctx.proposals.items():
-            signal = parse_ready_signal(agent_name, proposal, round_num)
-            self._collective_readiness.update(signal)
-
-        # Check if quorum reached
-        if self._collective_readiness.has_quorum():
-            ready_agents = [
-                s.agent for s in self._collective_readiness.signals.values() if s.should_terminate()
-            ]
-            logger.info(
-                f"rlm_ready_quorum_reached round={round_num} "
-                f"ready={len(ready_agents)}/{self._collective_readiness.total_count} "
-                f"avg_confidence={self._collective_readiness.avg_confidence:.2f}"
-            )
-
-            # Notify spectator
-            if self._notify_spectator:
-                self._notify_spectator(
-                    "rlm_ready",
-                    details=f"Agent quorum ready ({len(ready_agents)} agents)",
-                    metric=self._collective_readiness.avg_confidence,
-                    agent="system",
-                )
-
-            # Emit hook for WebSocket clients
-            if "on_rlm_ready_quorum" in self.hooks:
-                self.hooks["on_rlm_ready_quorum"](
-                    round_num=round_num,
-                    ready_agents=ready_agents,
-                    total_agents=self._collective_readiness.total_count,
-                    avg_confidence=self._collective_readiness.avg_confidence,
-                )
-
-            return True
-
-        return False
-
     async def _should_terminate(self, ctx: "DebateContext", round_num: int) -> bool:
         """Check if debate should terminate early.
 
@@ -1144,7 +890,7 @@ class DebateRoundsPhase:
         """
         # RLM ready signal check (agents self-signal readiness)
         # This is the most responsive - agents explicitly say "I'm done"
-        if self._check_rlm_ready_quorum(ctx, round_num):
+        if self._convergence_tracker.check_rlm_ready_quorum(ctx, round_num):
             logger.info(f"debate_terminate_rlm_ready round={round_num}")
             return True
 

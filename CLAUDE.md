@@ -8,15 +8,18 @@ Context for Claude Code when working with the Aragora codebase.
 |------|-------|-----------|
 | Debate engine | `aragora/debate/` | `orchestrator.py`, `consensus.py` |
 | Agents | `aragora/agents/` | `cli_agents.py`, `api_agents/` |
-| Server | `aragora/server/` | `unified_server.py`, `handlers/` |
+| Server | `aragora/server/` | `unified_server.py`, `handlers/`, `startup.py` |
 | Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py` |
 | Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
 | Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/` |
 | RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
-| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `ops/` |
+| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/adapters/factory.py` |
 | Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
-| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/` |
+| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/`, `enterprise/streaming/` |
+| Streaming | `aragora/connectors/enterprise/streaming/` | `kafka.py`, `rabbitmq.py` |
+| Chat routing | `aragora/server/` | `debate_origin.py`, `result_router.py` |
+| TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
 | Control Plane | `aragora/control_plane/` | `leader.py`, `registry.py`, `scheduler.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
@@ -26,7 +29,7 @@ Context for Claude Code when working with the Aragora codebase.
 
 Aragora is an **omnivorous multi-agent decision making engine** where diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—collaborate through structured debate to reach well-reasoned conclusions. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 1000+ Python modules | 37,800+ tests | 117 debate modules | 65 HTTP handlers + 15 WebSocket streams | 24+ enterprise connectors
+**Codebase Scale:** 1000+ Python modules | 38,100+ tests | 117 debate modules | 65 HTTP handlers + 15 WebSocket streams | 26+ enterprise connectors
 
 ## Architecture
 
@@ -57,12 +60,23 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
+│       └── adapters/       # KM adapters (9 total)
+│           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
-│   └── chat/               # Telegram, WhatsApp connectors
+│   ├── chat/               # Telegram, WhatsApp connectors
+│   └── enterprise/
+│       └── streaming/      # Event stream ingestion
+│           ├── kafka.py    # Apache Kafka consumer
+│           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
 │   ├── unified_server.py   # Main server (~275 endpoints)
+│   ├── startup.py          # Server startup sequence
+│   ├── debate_origin.py    # Bidirectional chat result routing
 │   ├── handlers/           # HTTP endpoint handlers (119 modules)
+│   │   └── social/         # Chat platform handlers (Telegram, WhatsApp)
 │   └── stream/             # WebSocket streaming (14 modules)
+│       ├── tts_integration.py  # TTS for voice/chat
+│       └── voice_stream.py     # Voice session management
 ├── ranking/          # Agent skill tracking
 │   └── elo.py              # ELO ratings and calibration
 ├── resilience.py     # CircuitBreaker for agent failure handling
@@ -207,6 +221,10 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Post-debate workflows - automated processing via `enable_post_debate_workflow`
 - Chat connectors - Telegram, WhatsApp integration for debate interfaces
 - Leader election - distributed coordination via `aragora.control_plane.leader`
+- Streaming connectors - Kafka and RabbitMQ for enterprise event ingestion
+- Bidirectional chat routing - `debate_origin.py` routes results to originating platform
+- Adapter factory - auto-create KM adapters from Arena subsystems
+- TTS integration - voice synthesis for debates and chat channels
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management

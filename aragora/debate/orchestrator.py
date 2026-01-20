@@ -734,11 +734,23 @@ class Arena:
 
     def _init_knowledge_ops(self) -> None:
         """Initialize KnowledgeMoundOperations for knowledge retrieval and ingestion."""
+        # Initialize KM metrics for observability
+        self._km_metrics = None
+        if self.knowledge_mound:
+            try:
+                from aragora.knowledge.mound.metrics import KMMetrics
+
+                self._km_metrics = KMMetrics()
+                logger.debug("[knowledge_mound] KMMetrics initialized for observability")
+            except ImportError:
+                pass
+
         self._knowledge_ops = KnowledgeMoundOperations(
             knowledge_mound=self.knowledge_mound,
             enable_retrieval=self.enable_knowledge_retrieval,
             enable_ingestion=self.enable_knowledge_ingestion,
             notify_callback=self._knowledge_notify_callback,
+            metrics=self._km_metrics,
         )
 
         # Initialize KnowledgeBridgeHub for unified bridge access
@@ -768,6 +780,52 @@ class Arena:
                 )
             except ImportError as e:
                 logger.debug(f"[knowledge_mound] RevalidationScheduler unavailable: {e}")
+
+        # Initialize KM adapter factory and coordinator for bidirectional sync
+        self._km_coordinator = None
+        self._km_adapters = {}
+        if self.knowledge_mound:
+            try:
+                from aragora.knowledge.mound.adapters import AdapterFactory
+                from aragora.knowledge.mound.bidirectional_coordinator import (
+                    BidirectionalCoordinator,
+                )
+
+                # Create coordinator
+                self._km_coordinator = BidirectionalCoordinator()
+
+                # Create adapters from available subsystems
+                factory = AdapterFactory(
+                    event_callback=self._knowledge_notify_callback,
+                )
+
+                self._km_adapters = factory.create_from_subsystems(
+                    continuum_memory=self.continuum_memory,
+                    consensus_memory=self.consensus_memory,
+                    elo_system=self.elo_system,
+                    cost_tracker=getattr(self, "cost_tracker", None),
+                    insight_store=self.insight_store,
+                    flip_detector=self.flip_detector,
+                    evidence_store=getattr(self, "evidence_store", None),
+                    pulse_manager=getattr(self, "pulse_manager", None),
+                    memory=self.memory,
+                )
+
+                # Register adapters with coordinator
+                if self._km_adapters:
+                    registered = factory.register_with_coordinator(
+                        self._km_coordinator, self._km_adapters
+                    )
+                    logger.info(
+                        "[knowledge_mound] AdapterFactory created %d adapters, "
+                        "registered %d with coordinator",
+                        len(self._km_adapters),
+                        registered,
+                    )
+            except ImportError as e:
+                logger.debug(f"[knowledge_mound] AdapterFactory unavailable: {e}")
+            except Exception as e:
+                logger.warning(f"[knowledge_mound] Failed to initialize adapters: {e}")
 
     def _knowledge_notify_callback(self, event_type: str, data: dict) -> None:
         """Callback for knowledge mound notifications."""

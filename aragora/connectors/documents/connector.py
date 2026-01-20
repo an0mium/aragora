@@ -11,12 +11,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from aragora.connectors.base import Connector
+from aragora.connectors.base import Connector, Evidence
 from aragora.connectors.documents.parser import (
     DocumentFormat,
     DocumentParser,
     ParsedDocument,
 )
+from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -44,22 +45,22 @@ class DocumentConnector(Connector):
         self,
         max_pages: int = 100,
         extract_tables: bool = True,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200,
+        extract_metadata: bool = True,
+        max_content_size: int = 500_000,
     ):
         """Initialize the document connector.
 
         Args:
             max_pages: Maximum pages to parse per document
             extract_tables: Whether to extract tables from documents
-            chunk_size: Size of text chunks for search
-            chunk_overlap: Overlap between chunks
+            extract_metadata: Whether to extract document metadata
+            max_content_size: Maximum content size in bytes
         """
         self.parser = DocumentParser(
             max_pages=max_pages,
             extract_tables=extract_tables,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
+            extract_metadata=extract_metadata,
+            max_content_size=max_content_size,
         )
         self._parsed_docs: Dict[str, ParsedDocument] = {}
         self._reliability_scores: Dict[str, float] = {
@@ -80,6 +81,72 @@ class DocumentConnector(Connector):
     def name(self) -> str:
         """Connector name."""
         return "documents"
+
+    @property
+    def source_type(self) -> SourceType:
+        """The source type for this connector."""
+        return SourceType.DOCUMENT
+
+    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+        """Fetch a specific piece of evidence by ID.
+
+        Args:
+            evidence_id: Unique identifier (format: doc_id_chunk_N or doc_id_table_N)
+
+        Returns:
+            Evidence object or None if not found
+        """
+        # Parse evidence ID to get document and chunk/table info
+        parts = evidence_id.rsplit("_", 2)
+        if len(parts) < 3:
+            return None
+
+        doc_id = parts[0]
+        evidence_type = parts[1]  # "chunk" or "table"
+        index = int(parts[2]) if parts[2].isdigit() else 0
+
+        doc = self._parsed_docs.get(doc_id)
+        if doc is None:
+            return None
+
+        if evidence_type == "chunk" and index < len(doc.chunks):
+            chunk = doc.chunks[index]
+            return Evidence(
+                id=evidence_id,
+                content=chunk.content,
+                source=self.name,
+                reliability_score=self._get_reliability(doc.format),
+                metadata={
+                    "document_id": doc_id,
+                    "chunk_index": index,
+                    "page": chunk.page,
+                    "format": doc.format.value if doc.format else "unknown",
+                },
+            )
+        elif evidence_type == "table" and index < len(doc.tables):
+            table = doc.tables[index]
+            # Handle both DocumentTable and raw list formats
+            if hasattr(table, "to_markdown"):
+                content = table.to_markdown()
+            else:
+                content = str(table)
+            return Evidence(
+                id=evidence_id,
+                content=content,
+                source=self.name,
+                reliability_score=self._get_reliability(doc.format),
+                metadata={
+                    "document_id": doc_id,
+                    "table_index": index,
+                    "format": doc.format.value if doc.format else "unknown",
+                },
+            )
+
+        return None
+
+    def _get_reliability(self, format: DocumentFormat) -> float:
+        """Get reliability score for a document format."""
+        return self._reliability_scores.get(format.value if format else "unknown", 0.5)
 
     async def connect(self) -> bool:
         """Connect to document sources (always succeeds)."""

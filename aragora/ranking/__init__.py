@@ -29,6 +29,12 @@ from aragora.ranking.tournaments import (
     TournamentMatch,
     TournamentStanding,
 )
+from aragora.ranking.km_elo_bridge import (
+    KMEloBridge,
+    KMEloBridgeConfig,
+    KMEloBridgeSyncResult,
+    create_km_elo_bridge,
+)
 
 __all__ = [
     # Core ELO
@@ -54,4 +60,9 @@ __all__ = [
     "Tournament",
     "TournamentMatch",
     "TournamentStanding",
+    # Knowledge Mound Bridge
+    "KMEloBridge",
+    "KMEloBridgeConfig",
+    "KMEloBridgeSyncResult",
+    "create_km_elo_bridge",
 ]

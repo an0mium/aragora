@@ -11,7 +11,7 @@ or redundant knowledge items:
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMoundCore
@@ -108,6 +108,9 @@ class PruneHistory:
 
 class PruningOperationsMixin:
     """Mixin providing pruning operations for Knowledge Mound."""
+
+    # Type stubs for mixin - actual implementation provided by composed class
+    _store: Any  # KnowledgeMoundMetaStore or compatible store
 
     async def get_prunable_items(
         self: "KnowledgeMoundCore",
@@ -259,7 +262,7 @@ class PruningOperationsMixin:
                 errors.append(f"Failed to prune {node_id}: {e!s}")
 
         # Record history
-        await self._record_prune_history(
+        await self._record_prune_history(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             action=action,
             item_ids=pruned_ids,
@@ -313,7 +316,7 @@ class PruningOperationsMixin:
             )
 
         # Find prunable items
-        prunable = await self.get_prunable_items(
+        prunable = await self.get_prunable_items(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             staleness_threshold=policy.staleness_threshold,
             min_age_days=policy.min_age_days,
@@ -340,7 +343,7 @@ class PruningOperationsMixin:
             )
 
         # Execute pruning
-        return await self.prune_items(
+        return await self.prune_items(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             item_ids=[p.node_id for p in prunable],
             action=policy.action,

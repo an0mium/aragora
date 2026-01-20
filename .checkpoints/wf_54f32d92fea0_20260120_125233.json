@@ -1,0 +1,23 @@
+{
+  "id": "cp_02ea3508d4dd",
+  "workflow_id": "wf_54f32d92fea0",
+  "definition_id": "task-delay-test",
+  "current_step": "delay-step",
+  "completed_steps": [
+    "delay-step"
+  ],
+  "step_outputs": {
+    "delay-step": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:52:33.848686+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_54f32d92fea0_20260120_125233"
+}

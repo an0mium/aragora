@@ -302,7 +302,18 @@ class BaseConnector(ABC):
             logger.warning("httpx not available for retry wrapper")
             return await request_func()
 
+        # Lazy import metrics
+        try:
+            from aragora.connectors.metrics import (
+                record_sync_error,
+                record_rate_limit,
+            )
+            metrics_available = True
+        except ImportError:
+            metrics_available = False
+
         last_error: Optional[Exception] = None
+        connector_type = self.name.lower().replace(" ", "_")
 
         for attempt in range(self._max_retries + 1):
             try:
@@ -316,6 +327,8 @@ class BaseConnector(ABC):
                 logger.warning(
                     f"[{self.name}] {operation} timeout (attempt {attempt + 1}/{self._max_retries + 1})"
                 )
+                if metrics_available:
+                    record_sync_error(connector_type, "timeout")
 
             except (httpx.ConnectError, httpx.NetworkError) as e:
                 last_error = ConnectorNetworkError(
@@ -325,6 +338,8 @@ class BaseConnector(ABC):
                 logger.warning(
                     f"[{self.name}] {operation} network error (attempt {attempt + 1}/{self._max_retries + 1}): {e}"
                 )
+                if metrics_available:
+                    record_sync_error(connector_type, "network")
 
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
@@ -346,6 +361,8 @@ class BaseConnector(ABC):
                     logger.warning(
                         f"[{self.name}] {operation} rate limited (attempt {attempt + 1}/{self._max_retries + 1})"
                     )
+                    if metrics_available:
+                        record_rate_limit(connector_type)
 
                     # Use Retry-After delay if provided, otherwise use exponential backoff
                     if retry_after is not None and attempt < self._max_retries:
@@ -366,6 +383,8 @@ class BaseConnector(ABC):
                     logger.warning(
                         f"[{self.name}] {operation} server error {status} (attempt {attempt + 1}/{self._max_retries + 1})"
                     )
+                    if metrics_available:
+                        record_sync_error(connector_type, f"http_{status}")
 
                 else:
                     # 4xx errors (except 429) - not retryable

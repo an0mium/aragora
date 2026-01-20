@@ -58,6 +58,14 @@ from aragora.core.decision import (
     get_decision_router,
 )
 
+# Import decision cache
+from aragora.core.decision_cache import (
+    CacheConfig,
+    DecisionCache,
+    get_decision_cache,
+    reset_decision_cache,
+)
+
 __all__ = [
     # Core types
     "AgentRole",
@@ -89,6 +97,11 @@ __all__ = [
     "ResponseChannel",
     "ResponseFormat",
     "get_decision_router",
+    # Decision cache
+    "CacheConfig",
+    "DecisionCache",
+    "get_decision_cache",
+    "reset_decision_cache",
 ]
 
 

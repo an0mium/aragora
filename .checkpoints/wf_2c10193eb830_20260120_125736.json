@@ -1,0 +1,33 @@
+{
+  "id": "cp_5da6fe39fcc8",
+  "workflow_id": "wf_2c10193eb830",
+  "definition_id": "many-steps",
+  "current_step": "step2",
+  "completed_steps": [
+    "step0",
+    "step2",
+    "step1"
+  ],
+  "step_outputs": {
+    "step0": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "step1": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "step2": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:57:36.210604+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_2c10193eb830_20260120_125736"
+}

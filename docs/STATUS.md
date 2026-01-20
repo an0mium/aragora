@@ -1,8 +1,75 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (18:00 UTC)*
+*Last updated: January 20, 2026 (21:00 UTC)*
 
 ## Current Release
+
+### v2.0.7 - Enterprise Streaming & Chat Integration (January 2026)
+
+**Production Ready** - Aragora 2.0.7 adds enterprise streaming connectors (Kafka/RabbitMQ), bidirectional chat result routing, and adapter factory for automated KM integration.
+
+#### Key Highlights
+- **38,100+ tests** collected and passing
+- **1,047 test files** across all modules
+- **Enterprise streaming** - Kafka and RabbitMQ connectors
+- **Bidirectional chat** - Results routed back to originating platform
+- **Adapter factory** - Auto-create KM adapters from Arena subsystems
+- **Lines of Code**: 446,000+ LOC (+2,000)
+- **0 production blockers**
+- **98 fully integrated features** (+1 streaming)
+
+#### What's New in 2.0.7
+
+**Enterprise Streaming Connectors** (NEW)
+- `aragora/connectors/enterprise/streaming/kafka.py` - Apache Kafka consumer
+  - Consumer group management for horizontal scaling
+  - Offset tracking for reliable delivery
+  - JSON, Avro, Protobuf deserialization
+  - Schema registry integration (optional)
+- `aragora/connectors/enterprise/streaming/rabbitmq.py` - RabbitMQ connector
+  - Exchange and queue binding management
+  - Manual acknowledgment for reliability
+  - Dead letter queue handling
+  - Publish support for bidirectional messaging
+- Both connectors produce `SyncItem` for direct Knowledge Mound ingestion
+
+**Bidirectional Chat Result Routing** (NEW)
+- `aragora/server/debate_origin.py` - Track debate origins for result routing
+  - Register origin: `register_debate_origin(debate_id, platform, channel_id, user_id)`
+  - Route results: `await route_debate_result(debate_id, result)`
+  - Supported platforms: Telegram, WhatsApp, Slack, Discord, Teams, Email
+  - Redis backend for HA deployments, in-memory fallback
+  - 24-hour TTL with automatic cleanup
+- `aragora/server/result_router.py` - Hook-based routing system
+- Result formatting: Markdown for Telegram/Slack/Discord, plaintext for WhatsApp, HTML for Email, Adaptive Cards for Teams
+- 19 tests in `tests/test_debate_origin.py`
+
+**Adapter Factory for Knowledge Mound** (NEW)
+- `aragora/knowledge/mound/adapters/factory.py` - Auto-create adapters
+  - Creates adapters from Arena subsystems automatically
+  - Dependency checking with graceful fallback
+  - Event callback integration for WebSocket events
+  - 9 adapter specs: continuum, consensus, critique, evidence, belief, insights, elo, pulse, cost
+- Usage: `factory.create_from_subsystems(elo_system=..., continuum_memory=...)`
+- ArenaConfig integration: `factory.create_from_arena_config(config)`
+- 16 tests in `tests/knowledge/mound/test_adapter_factory.py`
+
+**TTS Integration for Voice & Chat** (NEW)
+- `aragora/server/stream/tts_integration.py` - Event-driven TTS synthesis
+  - Subscribes to `agent_message` events on EventBus
+  - Auto-synthesizes for active voice sessions
+  - Rate limiting to prevent audio overlap
+  - Chat synthesis: `await tts.synthesize_for_chat(text, "telegram", channel_id)`
+- Wired into server startup sequence (`init_tts_integration()`)
+- Graceful degradation when TTS backends unavailable
+
+**Enhanced Social Handlers** (ENHANCED)
+- `aragora/server/handlers/social/tts_helper.py` - TTS utilities for chat handlers
+- `aragora/server/handlers/social/whatsapp.py` - Enhanced WhatsApp handler
+- `aragora/server/handlers/social/telegram.py` - Enhanced with TTS support
+- Voice note responses for Telegram and WhatsApp
+
+---
 
 ### v2.0.6 - Stability Release (January 2026)
 

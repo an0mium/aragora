@@ -74,8 +74,12 @@ from aragora.observability.tracing import (
     trace_consensus_check,
     trace_debate,
     trace_debate_phase,
+    trace_decision,
+    trace_decision_engine,
+    trace_decision_routing,
     trace_handler,
     trace_memory_operation,
+    trace_response_delivery,
 )
 from aragora.observability.tracing import (
     shutdown as shutdown_tracing,
@@ -130,6 +134,10 @@ __all__ = [
     "trace_debate_phase",
     "trace_consensus_check",
     "trace_memory_operation",
+    "trace_decision",
+    "trace_decision_routing",
+    "trace_decision_engine",
+    "trace_response_delivery",
     "add_span_attributes",
     "record_exception",
     "shutdown_tracing",

@@ -1,0 +1,28 @@
+{
+  "id": "cp_9ede4d433e54",
+  "workflow_id": "wf_5fe9692935f1",
+  "definition_id": "transition-test",
+  "current_step": "end",
+  "completed_steps": [
+    "end",
+    "start"
+  ],
+  "step_outputs": {
+    "start": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "end": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:38:05.169288+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_5fe9692935f1_20260120_123805"
+}

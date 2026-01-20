@@ -1,0 +1,33 @@
+{
+  "id": "cp_f3e20afa7e90",
+  "workflow_id": "wf_3310dcc43442",
+  "definition_id": "sequential-test",
+  "current_step": "step3",
+  "completed_steps": [
+    "step2",
+    "step1",
+    "step3"
+  ],
+  "step_outputs": {
+    "step1": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "step2": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "step3": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:57:35.897821+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_3310dcc43442_20260120_125735"
+}

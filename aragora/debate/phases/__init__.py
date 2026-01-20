@@ -28,6 +28,10 @@ from aragora.debate.phases.belief_analysis import (
     DebateBeliefAnalyzer,
 )
 from aragora.debate.phases.consensus_phase import ConsensusPhase
+from aragora.debate.phases.convergence_tracker import (
+    ConvergenceResult,
+    DebateConvergenceTracker,
+)
 from aragora.debate.phases.consensus_storage import ConsensusStorage
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.context_init import ContextInitializer
@@ -76,6 +80,8 @@ __all__ = [
     "ProposalPhase",
     "DebateRoundsPhase",
     "ConsensusPhase",
+    "ConvergenceResult",
+    "DebateConvergenceTracker",
     "ConsensusStorage",
     "AnalyticsPhase",
     "FeedbackPhase",

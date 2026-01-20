@@ -1,0 +1,28 @@
+{
+  "id": "cp_e19e27209622",
+  "workflow_id": "wf_cb2403f7e3aa",
+  "definition_id": "multi-step-test",
+  "current_step": "step2",
+  "completed_steps": [
+    "step1",
+    "step2"
+  ],
+  "step_outputs": {
+    "step1": {
+      "success": false,
+      "error": "Handler not found: "
+    },
+    "step2": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:52:33.853028+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_cb2403f7e3aa_20260120_125233"
+}

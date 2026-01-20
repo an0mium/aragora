@@ -1,0 +1,26 @@
+{
+  "id": "cp_706766ef18c8",
+  "workflow_id": "wf_96d195acfbdc",
+  "definition_id": "input-test",
+  "current_step": "use-input",
+  "completed_steps": [
+    "use-input"
+  ],
+  "step_outputs": {
+    "use-input": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {
+      "test_value": 42,
+      "test_string": "hello"
+    },
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:57:35.904238+00:00",
+  "checksum": "322672af5c79998d",
+  "checkpoint_id": "wf_96d195acfbdc_20260120_125735"
+}

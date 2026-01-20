@@ -77,14 +77,53 @@ class DocumentChunk:
 
 
 @dataclass
+class DocumentTable:
+    """A table extracted from a document."""
+
+    data: List[List[str]]  # 2D array of cell values
+    headers: Optional[List[str]] = None  # Column headers if detected
+    page: Optional[int] = None  # Page number where table was found
+    caption: Optional[str] = None  # Table caption if available
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def rows(self) -> int:
+        """Number of rows in the table."""
+        return len(self.data)
+
+    @property
+    def cols(self) -> int:
+        """Number of columns in the table."""
+        return len(self.data[0]) if self.data else 0
+
+    def to_markdown(self) -> str:
+        """Convert table to markdown format."""
+        if not self.data:
+            return ""
+
+        lines = []
+        headers = self.headers or self.data[0]
+        lines.append("| " + " | ".join(str(h) for h in headers) + " |")
+        lines.append("| " + " | ".join("---" for _ in headers) + " |")
+
+        start_row = 0 if self.headers else 1
+        for row in self.data[start_row:]:
+            lines.append("| " + " | ".join(str(cell) for cell in row) + " |")
+
+        return "\n".join(lines)
+
+
+@dataclass
 class ParsedDocument:
     """Result of parsing a document."""
 
     content: str  # Full text content
     chunks: List[DocumentChunk] = field(default_factory=list)
     format: DocumentFormat = DocumentFormat.UNKNOWN
+    filename: Optional[str] = None  # Original filename
+    title: Optional[str] = None  # Document title if extracted
     metadata: Dict[str, Any] = field(default_factory=dict)
-    tables: List[List[List[str]]] = field(default_factory=list)  # List of tables
+    tables: List[Union[DocumentTable, List[List[str]]]] = field(default_factory=list)
     pages: int = 0
     word_count: int = 0
     errors: List[str] = field(default_factory=list)

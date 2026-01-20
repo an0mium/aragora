@@ -1,0 +1,25 @@
+{
+  "id": "cp_e7fe81db51d4",
+  "workflow_id": "wf_2b494ef6f63b",
+  "definition_id": "wf_input",
+  "current_step": "s1",
+  "completed_steps": [
+    "s1"
+  ],
+  "step_outputs": {
+    "s1": {
+      "processed": "test query"
+    }
+  },
+  "context_state": {
+    "inputs": {
+      "query": "test query",
+      "limit": 10
+    },
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:38:04.840869+00:00",
+  "checksum": "668bac1f25a84737",
+  "checkpoint_id": "wf_2b494ef6f63b_20260120_123804"
+}

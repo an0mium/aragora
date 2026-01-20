@@ -1,0 +1,24 @@
+{
+  "id": "cp_527ccd95ff13",
+  "workflow_id": "wf_d67a4500a9ae",
+  "definition_id": "wf_test",
+  "current_step": "s1",
+  "completed_steps": [
+    "s1"
+  ],
+  "step_outputs": {
+    "s1": {
+      "result": "done"
+    }
+  },
+  "context_state": {
+    "inputs": {
+      "test": "value"
+    },
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:37:52.179184+00:00",
+  "checksum": "aa7d7946213be5c5",
+  "checkpoint_id": "wf_d67a4500a9ae_20260120_123752"
+}

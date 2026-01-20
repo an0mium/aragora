@@ -9,7 +9,7 @@ Provides similarity-based deduplication (beyond exact hash matching):
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMoundCore
@@ -62,6 +62,9 @@ class DedupReport:
 
 class DedupOperationsMixin:
     """Mixin providing deduplication operations for Knowledge Mound."""
+
+    # Type stubs for mixin - actual implementation provided by composed class
+    _store: Any  # KnowledgeMoundMetaStore or compatible store
 
     async def find_duplicates(
         self: "KnowledgeMoundCore",
@@ -172,7 +175,7 @@ class DedupOperationsMixin:
         Returns:
             Comprehensive dedup report
         """
-        clusters = await self.find_duplicates(
+        clusters = await self.find_duplicates(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             similarity_threshold=similarity_threshold,
             limit=500,
@@ -216,7 +219,7 @@ class DedupOperationsMixin:
             Result of the merge operation
         """
         # Find the cluster
-        clusters = await self.find_duplicates(
+        clusters = await self.find_duplicates(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             similarity_threshold=0.8,  # Lower threshold to find the cluster
             limit=500,

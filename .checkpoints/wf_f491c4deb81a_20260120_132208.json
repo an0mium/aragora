@@ -1,0 +1,30 @@
+{
+  "id": "cp_347950482120",
+  "workflow_id": "wf_f491c4deb81a",
+  "definition_id": "wf_seq",
+  "current_step": "s3",
+  "completed_steps": [
+    "s1",
+    "s3",
+    "s2"
+  ],
+  "step_outputs": {
+    "s1": {
+      "order": 1
+    },
+    "s2": {
+      "order": 2
+    },
+    "s3": {
+      "order": 3
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T19:22:08.393295+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_f491c4deb81a_20260120_132208"
+}

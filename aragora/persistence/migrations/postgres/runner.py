@@ -1,0 +1,487 @@
+"""
+PostgreSQL Migration Runner for Aragora.
+
+Provides async migration support for PostgreSQL databases.
+
+Usage:
+    from aragora.persistence.migrations.postgres import PostgresMigrationRunner
+
+    runner = PostgresMigrationRunner()
+    await runner.migrate()  # Run pending migrations
+    await runner.status()   # Check migration status
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+logger = logging.getLogger(__name__)
+
+# Optional asyncpg import
+try:
+    import asyncpg
+    from asyncpg import Connection, Pool
+
+    ASYNCPG_AVAILABLE = True
+except ImportError:
+    asyncpg = None
+    Pool = Any
+    Connection = Any
+    ASYNCPG_AVAILABLE = False
+
+
+@dataclass
+class MigrationRecord:
+    """Record of an applied migration."""
+
+    version: int
+    name: str
+    applied_at: datetime
+    checksum: Optional[str] = None
+
+
+class PostgresMigrationRunner:
+    """
+    Async PostgreSQL migration runner.
+
+    Discovers and applies migrations in order, tracking applied migrations
+    in a _migrations table.
+    """
+
+    MIGRATIONS_TABLE = "_migrations"
+    MIGRATIONS_DIR = Path(__file__).parent
+
+    def __init__(
+        self,
+        pool: Optional["Pool"] = None,
+        dsn: Optional[str] = None,
+    ):
+        """
+        Initialize the migration runner.
+
+        Args:
+            pool: Existing asyncpg pool to use
+            dsn: PostgreSQL DSN (if pool not provided)
+        """
+        self._pool = pool
+        self._dsn = dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get(
+            "DATABASE_URL"
+        )
+        self._migrations: dict[int, Callable] = {}
+
+    async def _get_pool(self) -> "Pool":
+        """Get or create connection pool."""
+        if not ASYNCPG_AVAILABLE:
+            raise RuntimeError(
+                "PostgreSQL migrations require 'asyncpg' package. "
+                "Install with: pip install aragora[postgres]"
+            )
+
+        if self._pool is not None:
+            return self._pool
+
+        if not self._dsn:
+            raise RuntimeError(
+                "PostgreSQL DSN not configured. Set ARAGORA_POSTGRES_DSN or pass dsn parameter."
+            )
+
+        self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+        return self._pool
+
+    async def _ensure_migrations_table(self, conn: "Connection") -> None:
+        """Create migrations tracking table if it doesn't exist."""
+        await conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {self.MIGRATIONS_TABLE} (
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TIMESTAMPTZ DEFAULT NOW(),
+                checksum TEXT
+            )
+        """
+        )
+
+    async def _get_applied_versions(self, conn: "Connection") -> set[int]:
+        """Get set of applied migration versions."""
+        rows = await conn.fetch(f"SELECT version FROM {self.MIGRATIONS_TABLE}")
+        return {row["version"] for row in rows}
+
+    async def _record_migration(
+        self, conn: "Connection", version: int, name: str, checksum: Optional[str] = None
+    ) -> None:
+        """Record that a migration was applied."""
+        await conn.execute(
+            f"""
+            INSERT INTO {self.MIGRATIONS_TABLE} (version, name, checksum)
+            VALUES ($1, $2, $3)
+        """,
+            version,
+            name,
+            checksum,
+        )
+
+    def register_migration(
+        self, version: int, name: str, up_sql: str, down_sql: Optional[str] = None
+    ) -> None:
+        """
+        Register a migration.
+
+        Args:
+            version: Migration version number
+            name: Human-readable name
+            up_sql: SQL to apply migration
+            down_sql: SQL to reverse migration (optional)
+        """
+
+        async def migrate(conn: "Connection") -> None:
+            await conn.execute(up_sql)
+
+        self._migrations[version] = (name, migrate, down_sql)
+
+    async def migrate(self) -> int:
+        """
+        Run all pending migrations.
+
+        Returns:
+            Number of migrations applied
+        """
+        pool = await self._get_pool()
+        applied_count = 0
+
+        async with pool.acquire() as conn:
+            await self._ensure_migrations_table(conn)
+            applied = await self._get_applied_versions(conn)
+
+            # Get pending migrations in order
+            pending = sorted(v for v in self._migrations.keys() if v not in applied)
+
+            for version in pending:
+                name, migrate_fn, _ = self._migrations[version]
+                logger.info(f"Applying migration {version}: {name}")
+
+                async with conn.transaction():
+                    await migrate_fn(conn)
+                    await self._record_migration(conn, version, name)
+
+                applied_count += 1
+                logger.info(f"Migration {version} applied successfully")
+
+        return applied_count
+
+    async def status(self) -> dict:
+        """
+        Get migration status.
+
+        Returns:
+            Dict with current_version, pending_count, and migration lists
+        """
+        pool = await self._get_pool()
+
+        async with pool.acquire() as conn:
+            await self._ensure_migrations_table(conn)
+            applied = await self._get_applied_versions(conn)
+
+            all_versions = set(self._migrations.keys())
+            pending = sorted(all_versions - applied)
+            current = max(applied) if applied else 0
+
+            return {
+                "current_version": current,
+                "pending_count": len(pending),
+                "applied": sorted(applied),
+                "pending": pending,
+            }
+
+    async def close(self) -> None:
+        """Close the connection pool."""
+        if self._pool is not None:
+            await self._pool.close()
+            self._pool = None
+
+
+# Singleton instance
+_runner: Optional[PostgresMigrationRunner] = None
+
+
+def get_postgres_migration_runner() -> PostgresMigrationRunner:
+    """Get or create the global PostgreSQL migration runner."""
+    global _runner
+    if _runner is None:
+        _runner = PostgresMigrationRunner()
+        # Register built-in migrations
+        _register_core_migrations(_runner)
+    return _runner
+
+
+def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
+    """Register the core Aragora migrations."""
+
+    # Migration 001: Initial schema
+    runner.register_migration(
+        version=1,
+        name="Initial schema",
+        up_sql="""
+            -- Users table
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                org_id TEXT,
+                role TEXT DEFAULT 'member',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                last_login_at TIMESTAMPTZ,
+                is_active BOOLEAN DEFAULT TRUE,
+                email_verified BOOLEAN DEFAULT FALSE,
+                avatar_url TEXT,
+                preferences JSONB DEFAULT '{}'
+            );
+
+            -- Organizations table
+            CREATE TABLE IF NOT EXISTS organizations (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                slug TEXT UNIQUE NOT NULL,
+                tier TEXT DEFAULT 'free',
+                owner_id TEXT REFERENCES users(id),
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                settings JSONB DEFAULT '{}'
+            );
+
+            -- Add foreign key after both tables exist
+            ALTER TABLE users ADD CONSTRAINT fk_users_org
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+                ON DELETE SET NULL;
+
+            -- Usage events table
+            CREATE TABLE IF NOT EXISTS usage_events (
+                id SERIAL PRIMARY KEY,
+                org_id TEXT NOT NULL REFERENCES organizations(id),
+                event_type TEXT NOT NULL,
+                count INTEGER DEFAULT 1,
+                metadata JSONB DEFAULT '{}',
+                timestamp TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            -- OAuth providers table
+            CREATE TABLE IF NOT EXISTS oauth_providers (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                provider TEXT NOT NULL,
+                provider_user_id TEXT NOT NULL,
+                email TEXT,
+                access_token TEXT,
+                refresh_token TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(provider, provider_user_id)
+            );
+
+            -- Audit log table
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                user_id TEXT,
+                org_id TEXT,
+                action TEXT NOT NULL,
+                resource_type TEXT,
+                resource_id TEXT,
+                details JSONB DEFAULT '{}',
+                ip_address INET,
+                user_agent TEXT
+            );
+
+            -- Organization invitations table
+            CREATE TABLE IF NOT EXISTS org_invitations (
+                id TEXT PRIMARY KEY,
+                org_id TEXT NOT NULL REFERENCES organizations(id),
+                email TEXT NOT NULL,
+                role TEXT DEFAULT 'member',
+                token TEXT UNIQUE NOT NULL,
+                invited_by TEXT REFERENCES users(id),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                accepted_at TIMESTAMPTZ
+            );
+
+            -- Create indexes
+            CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
+            CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug);
+            CREATE INDEX IF NOT EXISTS idx_orgs_stripe ON organizations(stripe_customer_id);
+            CREATE INDEX IF NOT EXISTS idx_usage_org ON usage_events(org_id);
+            CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_events(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
+            CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id);
+            CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_invitations_token ON org_invitations(token);
+            CREATE INDEX IF NOT EXISTS idx_invitations_email ON org_invitations(email);
+        """,
+        down_sql="""
+            DROP TABLE IF EXISTS org_invitations;
+            DROP TABLE IF EXISTS audit_log;
+            DROP TABLE IF EXISTS oauth_providers;
+            DROP TABLE IF EXISTS usage_events;
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS fk_users_org;
+            DROP TABLE IF EXISTS organizations;
+            DROP TABLE IF EXISTS users;
+        """,
+    )
+
+    # Migration 002: Add lockout support
+    runner.register_migration(
+        version=2,
+        name="Add lockout support",
+        up_sql="""
+            -- Add lockout columns to users
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_failed_login TIMESTAMPTZ;
+
+            -- Index for finding locked users
+            CREATE INDEX IF NOT EXISTS idx_users_lockout ON users(lockout_until)
+                WHERE lockout_until IS NOT NULL;
+        """,
+        down_sql="""
+            DROP INDEX IF EXISTS idx_users_lockout;
+            ALTER TABLE users DROP COLUMN IF EXISTS last_failed_login;
+            ALTER TABLE users DROP COLUMN IF EXISTS lockout_until;
+            ALTER TABLE users DROP COLUMN IF EXISTS failed_login_attempts;
+        """,
+    )
+
+    # Migration 003: Debates and memory tables
+    runner.register_migration(
+        version=3,
+        name="Debates and memory tables",
+        up_sql="""
+            -- Debates table
+            CREATE TABLE IF NOT EXISTS debates (
+                id TEXT PRIMARY KEY,
+                task TEXT NOT NULL,
+                org_id TEXT REFERENCES organizations(id),
+                user_id TEXT REFERENCES users(id),
+                status TEXT DEFAULT 'pending',
+                result JSONB,
+                config JSONB DEFAULT '{}',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                completed_at TIMESTAMPTZ,
+                rounds_used INTEGER DEFAULT 0,
+                consensus_reached BOOLEAN DEFAULT FALSE,
+                confidence REAL DEFAULT 0.0
+            );
+
+            -- Debate messages
+            CREATE TABLE IF NOT EXISTS debate_messages (
+                id SERIAL PRIMARY KEY,
+                debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+                agent TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                round INTEGER DEFAULT 1,
+                timestamp TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            -- Agent ELO ratings
+            CREATE TABLE IF NOT EXISTS agent_elo (
+                agent TEXT PRIMARY KEY,
+                rating REAL DEFAULT 1500.0,
+                games_played INTEGER DEFAULT 0,
+                wins INTEGER DEFAULT 0,
+                losses INTEGER DEFAULT 0,
+                last_game_at TIMESTAMPTZ,
+                metadata JSONB DEFAULT '{}'
+            );
+
+            -- Consensus memory
+            CREATE TABLE IF NOT EXISTS consensus_memory (
+                id TEXT PRIMARY KEY,
+                task_hash TEXT NOT NULL,
+                task TEXT NOT NULL,
+                answer TEXT,
+                confidence REAL DEFAULT 0.0,
+                debate_id TEXT REFERENCES debates(id),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                hits INTEGER DEFAULT 0
+            );
+
+            -- Create indexes
+            CREATE INDEX IF NOT EXISTS idx_debates_org ON debates(org_id);
+            CREATE INDEX IF NOT EXISTS idx_debates_user ON debates(user_id);
+            CREATE INDEX IF NOT EXISTS idx_debates_status ON debates(status);
+            CREATE INDEX IF NOT EXISTS idx_debates_created ON debates(created_at);
+            CREATE INDEX IF NOT EXISTS idx_messages_debate ON debate_messages(debate_id);
+            CREATE INDEX IF NOT EXISTS idx_consensus_hash ON consensus_memory(task_hash);
+        """,
+        down_sql="""
+            DROP TABLE IF EXISTS consensus_memory;
+            DROP TABLE IF EXISTS agent_elo;
+            DROP TABLE IF EXISTS debate_messages;
+            DROP TABLE IF EXISTS debates;
+        """,
+    )
+
+    # Migration 004: Knowledge mound tables
+    runner.register_migration(
+        version=4,
+        name="Knowledge mound tables",
+        up_sql="""
+            -- Knowledge items
+            CREATE TABLE IF NOT EXISTS knowledge_items (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_id TEXT,
+                confidence REAL DEFAULT 0.5,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                metadata JSONB DEFAULT '{}',
+                embedding BYTEA
+            );
+
+            -- Knowledge links (relationships)
+            CREATE TABLE IF NOT EXISTS knowledge_links (
+                id SERIAL PRIMARY KEY,
+                source_id TEXT NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
+                target_id TEXT NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
+                relationship TEXT NOT NULL,
+                weight REAL DEFAULT 1.0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(source_id, target_id, relationship)
+            );
+
+            -- Knowledge staleness tracking
+            CREATE TABLE IF NOT EXISTS knowledge_staleness (
+                item_id TEXT PRIMARY KEY REFERENCES knowledge_items(id) ON DELETE CASCADE,
+                last_validated TIMESTAMPTZ DEFAULT NOW(),
+                staleness_score REAL DEFAULT 0.0,
+                validation_count INTEGER DEFAULT 0,
+                needs_revalidation BOOLEAN DEFAULT FALSE
+            );
+
+            -- Create indexes
+            CREATE INDEX IF NOT EXISTS idx_knowledge_workspace ON knowledge_items(workspace_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_source ON knowledge_items(source_type, source_id);
+            CREATE INDEX IF NOT EXISTS idx_knowledge_created ON knowledge_items(created_at);
+            CREATE INDEX IF NOT EXISTS idx_links_source ON knowledge_links(source_id);
+            CREATE INDEX IF NOT EXISTS idx_links_target ON knowledge_links(target_id);
+            CREATE INDEX IF NOT EXISTS idx_staleness_revalidate ON knowledge_staleness(needs_revalidation)
+                WHERE needs_revalidation = TRUE;
+        """,
+        down_sql="""
+            DROP TABLE IF EXISTS knowledge_staleness;
+            DROP TABLE IF EXISTS knowledge_links;
+            DROP TABLE IF EXISTS knowledge_items;
+        """,
+    )

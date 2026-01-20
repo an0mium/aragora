@@ -1,0 +1,23 @@
+{
+  "id": "cp_9c404d0e5f08",
+  "workflow_id": "wf_f1f37fe34c60",
+  "definition_id": "conditional-branch",
+  "current_step": "evaluate",
+  "completed_steps": [
+    "evaluate"
+  ],
+  "step_outputs": {
+    "evaluate": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T19:05:33.537395+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_f1f37fe34c60_20260120_130533"
+}

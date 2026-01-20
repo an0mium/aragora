@@ -82,6 +82,7 @@ class KnowledgeMoundCore:
 
         # Storage backends (initialized lazily)
         self._meta_store: Optional[Any] = None  # SQLite or Postgres
+        self._store: Optional[Any] = None  # Alias for mixin compatibility
         self._cache: Optional[Any] = None  # Redis cache
         self._vector_store: Optional[Any] = None  # Weaviate
         self._semantic_store: Optional[Any] = None  # Local semantic index

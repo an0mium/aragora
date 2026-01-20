@@ -1,0 +1,26 @@
+{
+  "id": "cp_8fc2db5a09d9",
+  "workflow_id": "wf_8040aeb37135",
+  "definition_id": "wf_propagate",
+  "current_step": "s2",
+  "completed_steps": [
+    "s1",
+    "s2"
+  ],
+  "step_outputs": {
+    "s1": {
+      "value": 42
+    },
+    "s2": {
+      "received": 42
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:37:52.187746+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_8040aeb37135_20260120_123752"
+}

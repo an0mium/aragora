@@ -1,0 +1,23 @@
+{
+  "id": "cp_f2dd3fe4966d",
+  "workflow_id": "wf_d8d5752fe7d2",
+  "definition_id": "task-log-test",
+  "current_step": "log-step",
+  "completed_steps": [
+    "log-step"
+  ],
+  "step_outputs": {
+    "log-step": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:57:36.196490+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_d8d5752fe7d2_20260120_125736"
+}

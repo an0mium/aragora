@@ -487,3 +487,154 @@ def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
         return cast(F, wrapper)
 
     return decorator
+
+
+# =============================================================================
+# Decision Pipeline Tracing
+# =============================================================================
+
+
+@contextmanager
+def trace_decision_routing(
+    request_id: str,
+    decision_type: str,
+    source: str,
+    priority: str = "normal",
+) -> Iterator[Any]:
+    """Context manager for tracing decision routing.
+
+    Args:
+        request_id: The unique request ID
+        decision_type: Type of decision (debate, workflow, gauntlet, quick)
+        source: Input source (http_api, slack, voice, etc.)
+        priority: Request priority level
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_decision_routing(request.request_id, "debate", "slack") as span:
+            result = await router.route(request)
+            span.set_attribute("decision.confidence", result.confidence)
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("decision.route") as span:
+        span.set_attribute("decision.request_id", request_id)
+        span.set_attribute("decision.type", decision_type)
+        span.set_attribute("decision.source", source)
+        span.set_attribute("decision.priority", priority)
+        yield span
+
+
+@contextmanager
+def trace_decision_engine(
+    engine_type: str,
+    request_id: str,
+) -> Iterator[Any]:
+    """Context manager for tracing decision engine execution.
+
+    Args:
+        engine_type: Type of engine (debate, workflow, gauntlet, quick)
+        request_id: The request ID being processed
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span(f"decision.engine.{engine_type}") as span:
+        span.set_attribute("decision.engine", engine_type)
+        span.set_attribute("decision.request_id", request_id)
+        yield span
+
+
+@contextmanager
+def trace_response_delivery(
+    platform: str,
+    channel_id: Optional[str] = None,
+    voice_enabled: bool = False,
+) -> Iterator[Any]:
+    """Context manager for tracing response delivery.
+
+    Args:
+        platform: Target platform (slack, discord, http, etc.)
+        channel_id: Optional channel/destination ID
+        voice_enabled: Whether voice response is enabled
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("decision.deliver") as span:
+        span.set_attribute("delivery.platform", platform)
+        if channel_id:
+            span.set_attribute("delivery.channel_id", channel_id)
+        span.set_attribute("delivery.voice_enabled", voice_enabled)
+        yield span
+
+
+def trace_decision(func: F) -> F:
+    """Decorator to trace the entire decision routing lifecycle.
+
+    Automatically extracts request attributes and records result metrics.
+
+    Example:
+        @trace_decision
+        async def route(self, request: DecisionRequest) -> DecisionResult:
+            ...
+    """
+
+    @wraps(func)
+    async def wrapper(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
+        tracer = get_tracer()
+
+        # Extract attributes from request
+        request_id = getattr(request, "request_id", "unknown")
+        decision_type = getattr(request, "decision_type", None)
+        decision_type_str = decision_type.value if hasattr(decision_type, "value") else str(decision_type)
+        source = getattr(request, "source", None)
+        source_str = source.value if hasattr(source, "value") else str(source)
+        priority = getattr(request, "priority", None)
+        priority_str = priority.value if hasattr(priority, "value") else str(priority)
+
+        with tracer.start_as_current_span("decision.route") as span:
+            span.set_attribute("decision.request_id", request_id)
+            span.set_attribute("decision.type", decision_type_str)
+            span.set_attribute("decision.source", source_str)
+            span.set_attribute("decision.priority", priority_str)
+
+            # Extract content length
+            content = getattr(request, "content", "")
+            if isinstance(content, str):
+                span.set_attribute("decision.content_length", len(content))
+
+            # Extract agent config
+            config = getattr(request, "config", None)
+            if config:
+                agents = getattr(config, "agents", [])
+                span.set_attribute("decision.agent_count", len(agents))
+
+            try:
+                result = await func(self, request, *args, **kwargs)
+
+                # Record result attributes
+                if result:
+                    if hasattr(result, "confidence"):
+                        span.set_attribute("decision.confidence", result.confidence)
+                    if hasattr(result, "consensus_reached"):
+                        span.set_attribute("decision.consensus_reached", result.consensus_reached)
+                    if hasattr(result, "success"):
+                        span.set_attribute("decision.success", result.success)
+                    if hasattr(result, "duration_seconds"):
+                        span.set_attribute("decision.duration_seconds", result.duration_seconds)
+                    if hasattr(result, "error") and result.error:
+                        span.set_attribute("decision.error", str(result.error)[:200])
+
+                return result
+
+            except Exception as e:
+                span.record_exception(e)
+                span.set_attribute("decision.error", str(e)[:200])
+                _set_error_status(span)
+                raise
+
+    return cast(F, wrapper)

@@ -30,6 +30,50 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
 
+# Lazy import for tracing to avoid circular imports
+_tracing_imported = False
+_trace_decision = None
+_trace_decision_engine = None
+_trace_response_delivery = None
+
+
+def _import_tracing():
+    """Lazy import tracing utilities."""
+    global _tracing_imported, _trace_decision, _trace_decision_engine, _trace_response_delivery
+    if _tracing_imported:
+        return
+    try:
+        from aragora.observability.tracing import (
+            trace_decision,
+            trace_decision_engine,
+            trace_response_delivery,
+        )
+        _trace_decision = trace_decision
+        _trace_decision_engine = trace_decision_engine
+        _trace_response_delivery = trace_response_delivery
+    except ImportError:
+        pass
+    _tracing_imported = True
+
+
+# Lazy import for caching
+_cache_imported = False
+_decision_cache = None
+
+
+def _import_cache():
+    """Lazy import cache utilities."""
+    global _cache_imported, _decision_cache
+    if _cache_imported:
+        return
+    try:
+        from aragora.core.decision_cache import get_decision_cache
+        _decision_cache = get_decision_cache()
+    except ImportError:
+        pass
+    _cache_imported = True
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -659,6 +703,9 @@ class DecisionRouter:
         workflow_engine: Optional[Any] = None,
         gauntlet_engine: Optional[Any] = None,
         enable_voice_responses: bool = True,
+        enable_caching: bool = True,
+        enable_deduplication: bool = True,
+        cache_ttl_seconds: float = 3600.0,
     ):
         """
         Initialize the router.
@@ -668,6 +715,9 @@ class DecisionRouter:
             workflow_engine: WorkflowEngine instance or factory
             gauntlet_engine: GauntletOrchestrator instance or factory
             enable_voice_responses: Whether to enable TTS for voice responses
+            enable_caching: Whether to cache decision results
+            enable_deduplication: Whether to deduplicate concurrent identical requests
+            cache_ttl_seconds: How long to cache results (default 1 hour)
         """
         self._debate_engine = debate_engine
         self._workflow_engine = workflow_engine
@@ -675,6 +725,11 @@ class DecisionRouter:
         self._response_handlers: Dict[str, Callable] = {}
         self._enable_voice_responses = enable_voice_responses
         self._tts_bridge: Optional[Any] = None
+
+        # Cache configuration
+        self._enable_caching = enable_caching
+        self._enable_deduplication = enable_deduplication
+        self._cache_ttl_seconds = cache_ttl_seconds
 
     def register_response_handler(
         self,
@@ -694,12 +749,60 @@ class DecisionRouter:
         Returns:
             DecisionResult with the outcome
         """
+        # Initialize tracing and caching if available
+        _import_tracing()
+        _import_cache()
+
         logger.info(
             f"Routing decision request {request.request_id} "
             f"(type={request.decision_type.value}, source={request.source.value})"
         )
 
         start_time = datetime.utcnow()
+
+        # Check cache first
+        cache_hit = False
+        if self._enable_caching and _decision_cache:
+            cached_result = await _decision_cache.get(request)
+            if cached_result:
+                logger.info(f"Cache hit for request {request.request_id}")
+                cache_hit = True
+                # Still deliver responses for cached results
+                await self._deliver_responses(request, cached_result)
+                return cached_result
+
+        # Check for in-flight deduplication
+        if self._enable_deduplication and _decision_cache:
+            if await _decision_cache.is_in_flight(request):
+                logger.info(f"Waiting for in-flight request {request.request_id}")
+                dedup_result = await _decision_cache.wait_for_result(request)
+                if dedup_result:
+                    await self._deliver_responses(request, dedup_result)
+                    return dedup_result
+
+        # Mark as in-flight for deduplication
+        if self._enable_deduplication and _decision_cache:
+            await _decision_cache.mark_in_flight(request)
+
+        # Create tracing span if available
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                from aragora.observability.tracing import trace_decision_routing
+                span_ctx = trace_decision_routing(
+                    request_id=request.request_id,
+                    decision_type=request.decision_type.value,
+                    source=request.source.value,
+                    priority=request.priority.value if request.priority else "normal",
+                )
+                span = span_ctx.__enter__()
+                span.set_attribute("decision.content_length", len(request.content))
+                span.set_attribute("decision.cache_hit", cache_hit)
+                if request.config and request.config.agents:
+                    span.set_attribute("decision.agent_count", len(request.config.agents))
+            except Exception as e:
+                logger.debug(f"Tracing not available: {e}")
 
         try:
             if request.decision_type == DecisionType.DEBATE:
@@ -716,6 +819,21 @@ class DecisionRouter:
             # Calculate duration
             result.duration_seconds = (datetime.utcnow() - start_time).total_seconds()
 
+            # Record result in span
+            if span:
+                span.set_attribute("decision.duration_seconds", result.duration_seconds)
+                span.set_attribute("decision.confidence", result.confidence)
+                span.set_attribute("decision.consensus_reached", result.consensus_reached)
+                span.set_attribute("decision.success", result.success)
+
+            # Cache the result
+            if self._enable_caching and _decision_cache and result.success:
+                await _decision_cache.set(request, result, ttl_seconds=self._cache_ttl_seconds)
+
+            # Complete in-flight for deduplication
+            if self._enable_deduplication and _decision_cache:
+                await _decision_cache.complete_in_flight(request, result=result)
+
             # Deliver responses
             await self._deliver_responses(request, result)
 
@@ -723,7 +841,14 @@ class DecisionRouter:
 
         except Exception as e:
             logger.error(f"Decision routing failed: {e}", exc_info=True)
-            return DecisionResult(
+            if span:
+                span.set_attribute("decision.error", str(e)[:200])
+                try:
+                    span.record_exception(e)
+                except Exception:
+                    pass
+
+            error_result = DecisionResult(
                 request_id=request.request_id,
                 decision_type=request.decision_type,
                 answer="",
@@ -734,122 +859,229 @@ class DecisionRouter:
                 duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
             )
 
+            # Complete in-flight with error
+            if self._enable_deduplication and _decision_cache:
+                await _decision_cache.complete_in_flight(request, error=e)
+
+            return error_result
+        finally:
+            # Close span context
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
+
+            # Clean up in-flight status after a delay
+            if self._enable_deduplication and _decision_cache:
+                try:
+                    await _decision_cache.clear_in_flight(request)
+                except Exception:
+                    pass
+
     async def _route_to_debate(self, request: DecisionRequest) -> DecisionResult:
         """Route to debate engine."""
-        if self._debate_engine is None:
-            # Lazy load
-            from aragora.debate import Arena
-            self._debate_engine = Arena
+        # Create engine span if tracing available
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                span_ctx = _trace_decision_engine("debate", request.request_id)
+                span = span_ctx.__enter__()
+            except Exception:
+                pass
 
-        # Convert to debate format
-        from aragora.core_types import Environment
-        from aragora.debate.protocol import DebateProtocol
+        try:
+            if self._debate_engine is None:
+                # Lazy load
+                from aragora.debate import Arena
+                self._debate_engine = Arena
 
-        env = Environment(task=request.content)
-        protocol = DebateProtocol(
-            rounds=request.config.rounds,
-            consensus=request.config.consensus,
-            enable_calibration=request.config.enable_calibration,
-            early_stopping=request.config.early_stopping,
-            timeout_seconds=request.config.timeout_seconds,
-        )
+            # Convert to debate format
+            from aragora.core_types import Environment
+            from aragora.debate.protocol import DebateProtocol
 
-        # Create arena and run
-        arena = self._debate_engine(
-            environment=env,
-            protocol=protocol,
-            agent_names=request.config.agents,
-        )
+            env = Environment(task=request.content)
+            protocol = DebateProtocol(
+                rounds=request.config.rounds,
+                consensus=request.config.consensus,
+                enable_calibration=request.config.enable_calibration,
+                early_stopping=request.config.early_stopping,
+                timeout_seconds=request.config.timeout_seconds,
+            )
 
-        debate_result = await arena.run()
+            if span:
+                span.set_attribute("debate.rounds", request.config.rounds)
+                span.set_attribute("debate.agents", ",".join(request.config.agents or []))
 
-        return DecisionResult(
-            request_id=request.request_id,
-            decision_type=DecisionType.DEBATE,
-            answer=debate_result.final_answer or "",
-            confidence=debate_result.confidence if hasattr(debate_result, "confidence") else 0.8,
-            consensus_reached=debate_result.consensus_reached,
-            reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
-            debate_result=debate_result,
-        )
+            # Create arena and run
+            arena = self._debate_engine(
+                environment=env,
+                protocol=protocol,
+                agent_names=request.config.agents,
+            )
+
+            debate_result = await arena.run()
+
+            if span:
+                span.set_attribute("debate.consensus_reached", debate_result.consensus_reached)
+                if hasattr(debate_result, "rounds_used"):
+                    span.set_attribute("debate.rounds_used", debate_result.rounds_used)
+
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=DecisionType.DEBATE,
+                answer=debate_result.final_answer or "",
+                confidence=debate_result.confidence if hasattr(debate_result, "confidence") else 0.8,
+                consensus_reached=debate_result.consensus_reached,
+                reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
+                debate_result=debate_result,
+            )
+        finally:
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
     async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
         """Route to workflow engine."""
-        if self._workflow_engine is None:
-            from aragora.workflow.engine import get_workflow_engine
-            self._workflow_engine = get_workflow_engine()
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                span_ctx = _trace_decision_engine("workflow", request.request_id)
+                span = span_ctx.__enter__()
+            except Exception:
+                pass
 
-        # Get or create workflow definition
-        workflow_id = request.config.workflow_id
-        if not workflow_id:
-            raise ValueError("Workflow ID required for workflow decision type")
+        try:
+            if self._workflow_engine is None:
+                from aragora.workflow.engine import get_workflow_engine
+                self._workflow_engine = get_workflow_engine()
 
-        # Load workflow definition
-        definition = await self._workflow_engine.get_definition(workflow_id)
-        if not definition:
-            raise ValueError(f"Workflow not found: {workflow_id}")
+            # Get or create workflow definition
+            workflow_id = request.config.workflow_id
+            if not workflow_id:
+                raise ValueError("Workflow ID required for workflow decision type")
 
-        # Execute
-        workflow_result = await self._workflow_engine.execute(
-            definition=definition,
-            inputs={
-                "content": request.content,
-                **request.config.workflow_inputs,
-            },
-        )
+            if span:
+                span.set_attribute("workflow.id", workflow_id)
 
-        # Extract answer from workflow outputs
-        answer = workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+            # Load workflow definition
+            definition = await self._workflow_engine.get_definition(workflow_id)
+            if not definition:
+                raise ValueError(f"Workflow not found: {workflow_id}")
 
-        return DecisionResult(
-            request_id=request.request_id,
-            decision_type=DecisionType.WORKFLOW,
-            answer=str(answer),
-            confidence=0.9 if workflow_result.success else 0.0,
-            consensus_reached=workflow_result.success,
-            workflow_result=workflow_result,
-        )
+            # Execute
+            workflow_result = await self._workflow_engine.execute(
+                definition=definition,
+                inputs={
+                    "content": request.content,
+                    **request.config.workflow_inputs,
+                },
+            )
+
+            if span:
+                span.set_attribute("workflow.success", workflow_result.success)
+
+            # Extract answer from workflow outputs
+            answer = workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=DecisionType.WORKFLOW,
+                answer=str(answer),
+                confidence=0.9 if workflow_result.success else 0.0,
+                consensus_reached=workflow_result.success,
+                workflow_result=workflow_result,
+            )
+        finally:
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
     async def _route_to_gauntlet(self, request: DecisionRequest) -> DecisionResult:
         """Route to gauntlet engine."""
-        if self._gauntlet_engine is None:
-            from aragora.gauntlet.orchestrator import GauntletOrchestrator
-            self._gauntlet_engine = GauntletOrchestrator()
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                span_ctx = _trace_decision_engine("gauntlet", request.request_id)
+                span = span_ctx.__enter__()
+            except Exception:
+                pass
 
-        from aragora.gauntlet.config import GauntletConfig
+        try:
+            if self._gauntlet_engine is None:
+                from aragora.gauntlet.orchestrator import GauntletOrchestrator
+                self._gauntlet_engine = GauntletOrchestrator()
 
-        config = GauntletConfig(
-            agents=request.config.agents,
-            enable_adversarial_probing=request.config.enable_adversarial,
-            enable_formal_verification=request.config.enable_formal_verification,
-            robustness_threshold=request.config.robustness_threshold,
-            timeout_seconds=request.config.timeout_seconds,
-        )
+            from aragora.gauntlet.config import GauntletConfig
 
-        gauntlet_result = await self._gauntlet_engine.run(
-            input_text=request.content,
-            config=config,
-        )
+            config = GauntletConfig(
+                agents=request.config.agents,
+                enable_adversarial_probing=request.config.enable_adversarial,
+                enable_formal_verification=request.config.enable_formal_verification,
+                robustness_threshold=request.config.robustness_threshold,
+                timeout_seconds=request.config.timeout_seconds,
+            )
 
-        return DecisionResult(
-            request_id=request.request_id,
-            decision_type=DecisionType.GAUNTLET,
-            answer=gauntlet_result.verdict_summary or "",
-            confidence=gauntlet_result.confidence,
-            consensus_reached=gauntlet_result.passed,
-            gauntlet_result=gauntlet_result,
-        )
+            if span:
+                span.set_attribute("gauntlet.adversarial", request.config.enable_adversarial)
+                span.set_attribute("gauntlet.formal_verification", request.config.enable_formal_verification)
+
+            gauntlet_result = await self._gauntlet_engine.run(
+                input_text=request.content,
+                config=config,
+            )
+
+            if span:
+                span.set_attribute("gauntlet.passed", gauntlet_result.passed)
+                span.set_attribute("gauntlet.confidence", gauntlet_result.confidence)
+
+            return DecisionResult(
+                request_id=request.request_id,
+                decision_type=DecisionType.GAUNTLET,
+                answer=gauntlet_result.verdict_summary or "",
+                confidence=gauntlet_result.confidence,
+                consensus_reached=gauntlet_result.passed,
+                gauntlet_result=gauntlet_result,
+            )
+        finally:
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
     async def _route_to_quick(self, request: DecisionRequest) -> DecisionResult:
         """Route to quick single-agent response."""
+        span = None
+        span_ctx = None
+        if _trace_decision_engine:
+            try:
+                span_ctx = _trace_decision_engine("quick", request.request_id)
+                span = span_ctx.__enter__()
+            except Exception:
+                pass
+
         # Use first configured agent for quick response
         agent_name = request.config.agents[0] if request.config.agents else "anthropic-api"
+
+        if span:
+            span.set_attribute("quick.agent", agent_name)
 
         try:
             from aragora.agents import get_agent
             agent = get_agent(agent_name)
 
             response = await agent.generate(request.content)
+
+            if span:
+                span.set_attribute("quick.response_length", len(response))
 
             return DecisionResult(
                 request_id=request.request_id,
@@ -861,6 +1093,8 @@ class DecisionRouter:
             )
         except Exception as e:
             logger.error(f"Quick response failed: {e}")
+            if span:
+                span.set_attribute("quick.error", str(e)[:200])
             return DecisionResult(
                 request_id=request.request_id,
                 decision_type=DecisionType.QUICK,
@@ -870,6 +1104,12 @@ class DecisionRouter:
                 success=False,
                 error=str(e),
             )
+        finally:
+            if span_ctx:
+                try:
+                    span_ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
 
     def _get_tts_bridge(self) -> Optional[Any]:
         """Lazy-load TTS bridge for voice responses."""

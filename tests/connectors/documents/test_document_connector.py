@@ -32,13 +32,13 @@ class TestDocumentConnector:
         connector = DocumentConnector(
             max_pages=50,
             extract_tables=False,
-            chunk_size=500,
-            chunk_overlap=100,
+            extract_metadata=True,
+            max_content_size=250_000,
         )
 
-        assert connector.parser._max_pages == 50
-        assert connector.parser._extract_tables is False
-        assert connector.parser._chunk_size == 500
+        assert connector.parser.max_pages == 50
+        assert connector.parser.extract_tables is False
+        assert connector.parser.max_content_size == 250_000
 
     @pytest.mark.asyncio
     async def test_connect_always_succeeds(self):
@@ -272,7 +272,7 @@ class TestDocumentEvidence:
 
         assert len(snippets) == 1
         assert snippets[0]["source"] == "document_table"
-        assert snippets[0]["reliability_score"] == 0.95  # XLSX + 0.05 for table
+        assert abs(snippets[0]["reliability_score"] - 0.95) < 0.001  # XLSX + 0.05 for table
         assert "Quarter" in snippets[0]["content"]
 
     def test_from_parsed_document_truncates_long_content(self):

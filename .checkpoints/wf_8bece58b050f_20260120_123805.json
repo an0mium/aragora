@@ -1,0 +1,23 @@
+{
+  "id": "cp_0686ec4a4ef7",
+  "workflow_id": "wf_8bece58b050f",
+  "definition_id": "empty-config-test",
+  "current_step": "minimal-step",
+  "completed_steps": [
+    "minimal-step"
+  ],
+  "step_outputs": {
+    "minimal-step": {
+      "success": false,
+      "error": "Handler not found: "
+    }
+  },
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-20T18:38:05.536042+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "wf_8bece58b050f_20260120_123805"
+}
