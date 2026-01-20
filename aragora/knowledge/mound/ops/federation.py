@@ -101,8 +101,8 @@ class FederationProtocol(Protocol):
 class KnowledgeFederationMixin:
     """Mixin providing federation operations for KnowledgeMound."""
 
-    # In-memory registry of federated regions (would be persisted in production)
-    _federated_regions: Dict[str, FederatedRegion] = {}
+    # Note: Federation registry is now persisted via FederationRegistryStore
+    # The class-level dict is kept for backward compatibility as a cache
 
     async def register_federated_region(
         self: FederationProtocol,
@@ -135,8 +135,27 @@ class KnowledgeFederationMixin:
             sync_scope=sync_scope,
         )
 
-        # Store in registry
-        KnowledgeFederationMixin._federated_regions[region_id] = region
+        # Persist to storage
+        try:
+            from aragora.storage.federation_registry_store import (
+                FederatedRegionConfig,
+                get_federation_registry_store,
+            )
+
+            store = get_federation_registry_store()
+            config = FederatedRegionConfig(
+                region_id=region_id,
+                endpoint_url=endpoint_url,
+                api_key=api_key,
+                mode=mode.value,
+                sync_scope=sync_scope.value,
+                workspace_id=self.workspace_id,
+            )
+            await store.save(config)
+        except ImportError:
+            logger.debug("Federation registry store not available")
+        except Exception as e:
+            logger.warning(f"Failed to persist federation registry: {e}")
 
         # Also register with CrossWorkspaceCoordinator if available
         await self._register_with_coordinator(region)
@@ -157,11 +176,20 @@ class KnowledgeFederationMixin:
         Returns:
             True if region was unregistered, False if not found
         """
-        if region_id in KnowledgeFederationMixin._federated_regions:
-            del KnowledgeFederationMixin._federated_regions[region_id]
-            logger.info(f"Unregistered federated region {region_id}")
-            return True
-        return False
+        try:
+            from aragora.storage.federation_registry_store import get_federation_registry_store
+
+            store = get_federation_registry_store()
+            result = await store.delete(region_id, self.workspace_id)
+            if result:
+                logger.info(f"Unregistered federated region {region_id}")
+            return result
+        except ImportError:
+            logger.debug("Federation registry store not available")
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to unregister federated region: {e}")
+            return False
 
     async def sync_to_region(
         self: FederationProtocol,
@@ -193,7 +221,8 @@ class KnowledgeFederationMixin:
         start_time = time.time()
         ws_id = workspace_id or self.workspace_id
 
-        region = KnowledgeFederationMixin._federated_regions.get(region_id)
+        # Get region from persistent store
+        region = await self._get_region_from_store(region_id)
         if not region:
             return SyncResult(
                 region_id=region_id,
@@ -257,11 +286,10 @@ class KnowledgeFederationMixin:
             # Send to remote region via coordinator
             nodes_synced = await self._push_to_region(region, items_to_sync)
 
-            # Update last sync time
-            region.last_sync_at = datetime.now()
-            region.last_sync_error = None
-
             duration_ms = (time.time() - start_time) * 1000
+
+            # Update sync status in persistent store
+            await self._update_region_sync_status(region_id, "push", nodes_synced)
 
             logger.info(f"Synced {nodes_synced} items to region {region_id} in {duration_ms:.0f}ms")
 
@@ -275,7 +303,8 @@ class KnowledgeFederationMixin:
             )
 
         except Exception as e:
-            region.last_sync_error = str(e)
+            # Update sync status with error
+            await self._update_region_sync_status(region_id, "push", 0, str(e))
             logger.error(f"Failed to sync to region {region_id}: {e}")
             return SyncResult(
                 region_id=region_id,
@@ -311,7 +340,8 @@ class KnowledgeFederationMixin:
         start_time = time.time()
         ws_id = workspace_id or self.workspace_id
 
-        region = KnowledgeFederationMixin._federated_regions.get(region_id)
+        # Get region from persistent store
+        region = await self._get_region_from_store(region_id)
         if not region:
             return SyncResult(
                 region_id=region_id,
@@ -358,11 +388,10 @@ class KnowledgeFederationMixin:
                     logger.warning(f"Failed to ingest item from {region_id}: {e}")
                     nodes_failed += 1
 
-            # Update last sync time
-            region.last_sync_at = datetime.now()
-            region.last_sync_error = None
-
             duration_ms = (time.time() - start_time) * 1000
+
+            # Update sync status in persistent store
+            await self._update_region_sync_status(region_id, "pull", nodes_synced)
 
             logger.info(
                 f"Pulled {nodes_synced} items from region {region_id} in {duration_ms:.0f}ms"
@@ -378,7 +407,8 @@ class KnowledgeFederationMixin:
             )
 
         except Exception as e:
-            region.last_sync_error = str(e)
+            # Update sync status with error
+            await self._update_region_sync_status(region_id, "pull", 0, str(e))
             logger.error(f"Failed to pull from region {region_id}: {e}")
             return SyncResult(
                 region_id=region_id,
@@ -404,16 +434,16 @@ class KnowledgeFederationMixin:
         """
         results = []
 
-        for region_id, region in KnowledgeFederationMixin._federated_regions.items():
-            if not region.enabled:
-                continue
+        # Get all enabled regions from persistent store
+        regions = await self._list_enabled_regions()
 
+        for region in regions:
             if region.mode in (FederationMode.PUSH, FederationMode.BIDIRECTIONAL):
-                result = await self.sync_to_region(region_id, workspace_id, since)
+                result = await self.sync_to_region(region.region_id, workspace_id, since)
                 results.append(result)
 
             if region.mode in (FederationMode.PULL, FederationMode.BIDIRECTIONAL):
-                result = await self.pull_from_region(region_id, workspace_id, since)
+                result = await self.pull_from_region(region.region_id, workspace_id, since)
                 results.append(result)
 
         return results
@@ -429,17 +459,131 @@ class KnowledgeFederationMixin:
         """
         status = {}
 
-        for region_id, region in KnowledgeFederationMixin._federated_regions.items():
-            status[region_id] = {
+        # Get all regions from persistent store
+        regions = await self._list_all_regions()
+
+        for region in regions:
+            status[region.region_id] = {
                 "endpoint_url": region.endpoint_url,
-                "mode": region.mode.value,
-                "sync_scope": region.sync_scope.value,
+                "mode": region.mode.value if hasattr(region.mode, "value") else region.mode,
+                "sync_scope": region.sync_scope.value if hasattr(region.sync_scope, "value") else region.sync_scope,
                 "enabled": region.enabled,
-                "last_sync_at": region.last_sync_at.isoformat() if region.last_sync_at else None,
+                "last_sync_at": region.last_sync_at,
                 "last_sync_error": region.last_sync_error,
             }
 
         return status
+
+    async def _get_region_from_store(
+        self: FederationProtocol,
+        region_id: str,
+    ) -> Optional[FederatedRegion]:
+        """Get a federated region from persistent storage."""
+        try:
+            from aragora.storage.federation_registry_store import get_federation_registry_store
+
+            store = get_federation_registry_store()
+            config = await store.get(region_id, self.workspace_id)
+            if config:
+                return FederatedRegion(
+                    region_id=config.region_id,
+                    endpoint_url=config.endpoint_url,
+                    api_key=config.api_key,
+                    mode=FederationMode(config.mode),
+                    sync_scope=SyncScope(config.sync_scope),
+                    enabled=config.enabled,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_error=config.last_sync_error,
+                )
+            return None
+        except ImportError:
+            logger.debug("Federation registry store not available")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to get region from store: {e}")
+            return None
+
+    async def _list_enabled_regions(
+        self: FederationProtocol,
+    ) -> List[FederatedRegion]:
+        """List all enabled federated regions from persistent storage."""
+        try:
+            from aragora.storage.federation_registry_store import get_federation_registry_store
+
+            store = get_federation_registry_store()
+            configs = await store.list_enabled(self.workspace_id)
+            return [
+                FederatedRegion(
+                    region_id=config.region_id,
+                    endpoint_url=config.endpoint_url,
+                    api_key=config.api_key,
+                    mode=FederationMode(config.mode),
+                    sync_scope=SyncScope(config.sync_scope),
+                    enabled=config.enabled,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_error=config.last_sync_error,
+                )
+                for config in configs
+            ]
+        except ImportError:
+            logger.debug("Federation registry store not available")
+            return []
+        except Exception as e:
+            logger.warning(f"Failed to list enabled regions: {e}")
+            return []
+
+    async def _list_all_regions(
+        self: FederationProtocol,
+    ) -> List[FederatedRegion]:
+        """List all federated regions from persistent storage."""
+        try:
+            from aragora.storage.federation_registry_store import get_federation_registry_store
+
+            store = get_federation_registry_store()
+            configs = await store.list_all(self.workspace_id)
+            return [
+                FederatedRegion(
+                    region_id=config.region_id,
+                    endpoint_url=config.endpoint_url,
+                    api_key=config.api_key,
+                    mode=FederationMode(config.mode),
+                    sync_scope=SyncScope(config.sync_scope),
+                    enabled=config.enabled,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_error=config.last_sync_error,
+                )
+                for config in configs
+            ]
+        except ImportError:
+            logger.debug("Federation registry store not available")
+            return []
+        except Exception as e:
+            logger.warning(f"Failed to list all regions: {e}")
+            return []
+
+    async def _update_region_sync_status(
+        self: FederationProtocol,
+        region_id: str,
+        direction: str,
+        nodes_synced: int = 0,
+        error: Optional[str] = None,
+    ) -> None:
+        """Update sync status for a region in persistent storage."""
+        try:
+            from aragora.storage.federation_registry_store import get_federation_registry_store
+
+            store = get_federation_registry_store()
+            await store.update_sync_status(
+                region_id=region_id,
+                direction=direction,
+                nodes_synced=nodes_synced,
+                error=error,
+                workspace_id=self.workspace_id,
+            )
+        except ImportError:
+            logger.debug("Federation registry store not available")
+        except Exception as e:
+            logger.warning(f"Failed to update region sync status: {e}")
 
     def _apply_sync_scope(
         self: FederationProtocol,

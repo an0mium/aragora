@@ -59,6 +59,16 @@ from .finding_workflow_store import (
     set_finding_workflow_store,
     reset_finding_workflow_store,
 )
+from .federation_registry_store import (
+    FederatedRegionConfig,
+    FederationRegistryStoreBackend,
+    InMemoryFederationRegistryStore,
+    SQLiteFederationRegistryStore,
+    RedisFederationRegistryStore,
+    get_federation_registry_store,
+    set_federation_registry_store,
+    reset_federation_registry_store,
+)
 
 __all__ = [
     # Legacy base classes
@@ -112,4 +122,13 @@ __all__ = [
     "get_finding_workflow_store",
     "set_finding_workflow_store",
     "reset_finding_workflow_store",
+    # Federation registry storage
+    "FederatedRegionConfig",
+    "FederationRegistryStoreBackend",
+    "InMemoryFederationRegistryStore",
+    "SQLiteFederationRegistryStore",
+    "RedisFederationRegistryStore",
+    "get_federation_registry_store",
+    "set_federation_registry_store",
+    "reset_federation_registry_store",
 ]
