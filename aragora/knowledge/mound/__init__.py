@@ -166,6 +166,16 @@ from aragora.knowledge.mound.resilience import (
     with_retry,
 )
 
+# Checkpoint store for KM state persistence
+from aragora.knowledge.mound.checkpoint import (
+    KMCheckpointStore,
+    KMCheckpointMetadata,
+    KMCheckpointContent,
+    RestoreResult,
+    get_km_checkpoint_store,
+    reset_km_checkpoint_store,
+)
+
 # Singleton instance
 _knowledge_mound_instance: "KnowledgeMound" = None
 _knowledge_mound_config: "MoundConfig" = None
@@ -358,4 +368,11 @@ __all__ = [
     "FederatedResult",
     "QuerySource",
     "EmbeddingRelevanceScorer",
+    # Checkpoint store
+    "KMCheckpointStore",
+    "KMCheckpointMetadata",
+    "KMCheckpointContent",
+    "RestoreResult",
+    "get_km_checkpoint_store",
+    "reset_km_checkpoint_store",
 ]

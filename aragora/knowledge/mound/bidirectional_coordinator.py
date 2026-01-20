@@ -290,6 +290,10 @@ class BidirectionalCoordinator:
             registration.forward_errors += 1
 
         result.duration_ms = int((time.time() - start_time) * 1000)
+
+        # Record Prometheus metrics
+        self._record_prometheus_sync(registration.name, "forward", result.success)
+
         return result
 
     async def _sync_adapter_reverse(
@@ -367,7 +371,29 @@ class BidirectionalCoordinator:
             registration.reverse_errors += 1
 
         result.duration_ms = int((time.time() - start_time) * 1000)
+
+        # Record Prometheus metrics
+        self._record_prometheus_sync(registration.name, "reverse", result.success)
+
         return result
+
+    def _record_prometheus_sync(
+        self,
+        adapter_name: str,
+        direction: str,
+        success: bool,
+    ) -> None:
+        """Record adapter sync to Prometheus metrics."""
+        if not self.config.enable_metrics:
+            return
+
+        try:
+            from aragora.observability.metrics import record_km_adapter_sync
+            record_km_adapter_sync(adapter_name, direction, success)
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Failed to record Prometheus metrics: {e}")
 
     async def sync_all_to_km(self) -> List[SyncResult]:
         """

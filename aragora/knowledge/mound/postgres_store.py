@@ -143,6 +143,72 @@ CREATE TABLE IF NOT EXISTS access_grants (
     UNIQUE(item_id, grantee_type, grantee_id)
 );
 
+-- Federation nodes (Phase 5) - Track federated KM instances
+CREATE TABLE IF NOT EXISTS federation_nodes (
+    id TEXT PRIMARY KEY,
+    node_name TEXT NOT NULL UNIQUE,
+    endpoint_url TEXT NOT NULL,
+    region TEXT,
+    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'syncing', 'offline', 'maintenance')),
+    last_heartbeat TIMESTAMP NOT NULL DEFAULT NOW(),
+    sync_version BIGINT DEFAULT 0,
+    capabilities TEXT[] DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Federation sync state (Phase 5) - Track synchronization between nodes
+CREATE TABLE IF NOT EXISTS federation_sync_state (
+    id TEXT PRIMARY KEY,
+    source_node_id TEXT NOT NULL REFERENCES federation_nodes(id) ON DELETE CASCADE,
+    target_node_id TEXT NOT NULL REFERENCES federation_nodes(id) ON DELETE CASCADE,
+    last_sync_at TIMESTAMP,
+    last_sync_version BIGINT DEFAULT 0,
+    sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'syncing', 'completed', 'failed')),
+    items_synced INTEGER DEFAULT 0,
+    items_failed INTEGER DEFAULT 0,
+    error_message TEXT,
+    next_sync_at TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(source_node_id, target_node_id)
+);
+
+-- Federation item ownership (Phase 5) - Track which node owns each item
+CREATE TABLE IF NOT EXISTS federation_item_ownership (
+    item_id TEXT NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+    owner_node_id TEXT NOT NULL REFERENCES federation_nodes(id) ON DELETE CASCADE,
+    sync_version BIGINT NOT NULL DEFAULT 1,
+    is_authoritative BOOLEAN DEFAULT TRUE,
+    replicated_to TEXT[] DEFAULT '{}',
+    replicated_at TIMESTAMP,
+    PRIMARY KEY (item_id)
+);
+
+-- Distributed locks (Phase 5) - Coordinate access across nodes
+CREATE TABLE IF NOT EXISTS distributed_locks (
+    lock_key TEXT PRIMARY KEY,
+    owner_node_id TEXT NOT NULL REFERENCES federation_nodes(id) ON DELETE CASCADE,
+    owner_process_id TEXT NOT NULL,
+    lock_type TEXT DEFAULT 'exclusive' CHECK (lock_type IN ('exclusive', 'shared')),
+    acquired_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    heartbeat_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    metadata JSONB DEFAULT '{}'
+);
+
+-- Federation events (Phase 5) - Event log for federation operations
+CREATE TABLE IF NOT EXISTS federation_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL CHECK (event_type IN ('sync', 'replicate', 'conflict', 'lock', 'unlock', 'join', 'leave')),
+    source_node_id TEXT REFERENCES federation_nodes(id),
+    target_node_id TEXT REFERENCES federation_nodes(id),
+    item_id TEXT,
+    event_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON knowledge_nodes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_type ON knowledge_nodes(node_type);
@@ -171,6 +237,24 @@ CREATE INDEX IF NOT EXISTS idx_staleness_pending ON staleness_checks(revalidatio
 CREATE INDEX IF NOT EXISTS idx_grants_item ON access_grants(item_id);
 CREATE INDEX IF NOT EXISTS idx_grants_grantee ON access_grants(grantee_id);
 CREATE INDEX IF NOT EXISTS idx_grants_expires ON access_grants(expires_at) WHERE expires_at IS NOT NULL;
+
+-- Federation indexes (Phase 5)
+CREATE INDEX IF NOT EXISTS idx_fed_nodes_status ON federation_nodes(status);
+CREATE INDEX IF NOT EXISTS idx_fed_nodes_heartbeat ON federation_nodes(last_heartbeat DESC);
+
+CREATE INDEX IF NOT EXISTS idx_fed_sync_source ON federation_sync_state(source_node_id);
+CREATE INDEX IF NOT EXISTS idx_fed_sync_target ON federation_sync_state(target_node_id);
+CREATE INDEX IF NOT EXISTS idx_fed_sync_status ON federation_sync_state(sync_status);
+CREATE INDEX IF NOT EXISTS idx_fed_sync_next ON federation_sync_state(next_sync_at) WHERE next_sync_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fed_ownership_owner ON federation_item_ownership(owner_node_id);
+
+CREATE INDEX IF NOT EXISTS idx_dist_locks_owner ON distributed_locks(owner_node_id);
+CREATE INDEX IF NOT EXISTS idx_dist_locks_expires ON distributed_locks(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_fed_events_type ON federation_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_fed_events_source ON federation_events(source_node_id);
+CREATE INDEX IF NOT EXISTS idx_fed_events_created ON federation_events(created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_nodes_visibility ON knowledge_nodes(visibility);
 CREATE INDEX IF NOT EXISTS idx_nodes_public ON knowledge_nodes(workspace_id) WHERE visibility = 'public' OR visibility = 'system';

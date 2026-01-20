@@ -711,6 +711,59 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                 return self.get_node(row["id"])
         return None
 
+    def delete_node(self, node_id: str) -> bool:
+        """Delete a knowledge node and its relationships."""
+        with self.connection() as conn:
+            # Delete relationships
+            conn.execute("DELETE FROM relationships WHERE from_node_id = ? OR to_node_id = ?", (node_id, node_id))
+            # Delete provenance
+            conn.execute("DELETE FROM provenance WHERE node_id = ?", (node_id,))
+            # Delete topics
+            conn.execute("DELETE FROM node_topics WHERE node_id = ?", (node_id,))
+            # Delete node
+            cursor = conn.execute("DELETE FROM knowledge_nodes WHERE id = ?", (node_id,))
+            return cursor.rowcount > 0
+
+    def query_by_provenance(
+        self,
+        source_type: Optional[str] = None,
+        source_id: Optional[str] = None,
+        node_type: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[str]:
+        """Query nodes by provenance attributes."""
+        conditions = ["1=1"]
+        params: list[Any] = []
+
+        if source_type:
+            conditions.append("p.source_type = ?")
+            params.append(source_type)
+        if source_id:
+            conditions.append("p.source_id = ?")
+            params.append(source_id)
+        if node_type:
+            conditions.append("kn.node_type = ?")
+            params.append(node_type)
+        if workspace_id:
+            conditions.append("kn.workspace_id = ?")
+            params.append(workspace_id)
+
+        where_clause = " AND ".join(conditions)
+
+        query = f"""
+            SELECT DISTINCT kn.id FROM knowledge_nodes kn
+            JOIN provenance p ON kn.id = p.node_id
+            WHERE {where_clause}
+            ORDER BY kn.created_at DESC
+            LIMIT ?
+        """
+        params.append(limit)
+
+        with self.connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [row["id"] for row in rows]
+
     def get_stats(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
         """Get statistics about the knowledge mound."""
         with self.connection() as conn:
@@ -1128,6 +1181,69 @@ class KnowledgeMound:
         self._ensure_initialized()
         assert self._meta_store is not None
         return self._meta_store.get_stats(self.workspace_id)
+
+    async def delete_node(self, node_id: str) -> bool:
+        """
+        Delete a knowledge node and its relationships.
+
+        Args:
+            node_id: The node ID to delete
+
+        Returns:
+            True if deleted, False if node not found
+        """
+        self._ensure_initialized()
+        assert self._meta_store is not None
+
+        # Delete from vector store if available
+        if self._vector_store:
+            try:
+                await self._vector_store.delete(node_id)
+            except Exception as e:
+                logger.warning(f"Failed to delete node from vector store: {e}")
+
+        return self._meta_store.delete_node(node_id)
+
+    async def query_by_provenance(
+        self,
+        source_type: Optional[str] = None,
+        source_id: Optional[str] = None,
+        node_type: Optional[str] = None,
+        limit: int = 100,
+        workspace_id: Optional[str] = None,
+    ) -> list[KnowledgeNode]:
+        """
+        Query nodes by provenance attributes.
+
+        Args:
+            source_type: Filter by provenance source type (e.g., "workflow_engine", "debate")
+            source_id: Filter by provenance source ID (e.g., workflow_id, debate_id)
+            node_type: Filter by node type
+            limit: Maximum results to return
+            workspace_id: Filter by workspace (defaults to self.workspace_id)
+
+        Returns:
+            List of matching KnowledgeNodes
+        """
+        self._ensure_initialized()
+        assert self._meta_store is not None
+
+        ws_id = workspace_id or self.workspace_id
+        node_ids = self._meta_store.query_by_provenance(
+            source_type=source_type,
+            source_id=source_id,
+            node_type=node_type,
+            workspace_id=ws_id,
+            limit=limit,
+        )
+
+        nodes = []
+        for node_id in node_ids:
+            node = self._meta_store.get_node(node_id)
+            if node:
+                nodes.append(node)
+
+        return nodes
 
     async def get_relationships(
         self,

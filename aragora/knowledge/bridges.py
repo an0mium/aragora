@@ -144,7 +144,7 @@ class MetaLearnerBridge:
             confidence=confidence,
             provenance=provenance,
             tier=MemoryTier.MEDIUM,  # Meta-learning patterns are medium-term
-            workspace_id=self.mound._workspace_id,
+            workspace_id=self.mound.workspace_id,
             surprise_score=0.5,  # Neutral surprise for meta-learning
         )
 
@@ -198,7 +198,7 @@ class MetaLearnerBridge:
             confidence=base_confidence,
             provenance=provenance,
             tier=MemoryTier.SLOW,  # Summaries are long-term
-            workspace_id=self.mound._workspace_id,
+            workspace_id=self.mound.workspace_id,
         )
 
         node_id = await self.mound.add_node(node)
@@ -278,7 +278,7 @@ class EvidenceBridge:
             confidence=strength,
             provenance=provenance,
             tier=MemoryTier.SLOW,  # Evidence is long-term
-            workspace_id=self.mound._workspace_id,
+            workspace_id=self.mound.workspace_id,
         )
 
         node_id = await self.mound.add_node(node)
@@ -339,7 +339,7 @@ class EvidenceBridge:
             confidence=evidence.strength,
             provenance=provenance,
             tier=MemoryTier.SLOW,
-            workspace_id=self.mound._workspace_id,
+            workspace_id=self.mound.workspace_id,
             supports=supports,
             contradicts=contradicts,
         )
@@ -433,7 +433,7 @@ class PatternBridge:
             confidence=confidence,
             provenance=provenance,
             tier=tier,
-            workspace_id=self.mound._workspace_id,
+            workspace_id=self.mound.workspace_id,
             surprise_score=surprise_score,
             derived_from=source_ids or [],
         )

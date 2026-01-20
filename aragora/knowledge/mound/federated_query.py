@@ -130,6 +130,192 @@ class AdapterRegistration:
 RelevanceScorer = Callable[[Any, str], float]
 
 
+class EmbeddingRelevanceScorer:
+    """
+    Relevance scorer using semantic embeddings for better accuracy.
+
+    Uses cosine similarity between query and content embeddings to compute
+    relevance scores. Falls back to keyword matching if embeddings unavailable.
+
+    Usage:
+        scorer = EmbeddingRelevanceScorer()
+        await scorer.initialize()
+
+        aggregator = FederatedQueryAggregator(
+            relevance_scorer=scorer.score,
+        )
+    """
+
+    def __init__(self, cache_size: int = 1000):
+        """
+        Initialize the embedding scorer.
+
+        Args:
+            cache_size: Max number of embeddings to cache
+        """
+        self._provider = None
+        self._initialized = False
+        self._cache: Dict[str, List[float]] = {}
+        self._cache_size = cache_size
+        self._query_embedding: Optional[List[float]] = None
+        self._current_query: Optional[str] = None
+
+    async def initialize(self) -> bool:
+        """
+        Initialize the embedding provider.
+
+        Returns:
+            True if initialization succeeded
+        """
+        if self._initialized:
+            return True
+
+        try:
+            from aragora.core.embeddings import get_default_provider
+
+            self._provider = get_default_provider()
+            self._initialized = True
+            logger.debug("EmbeddingRelevanceScorer initialized with provider")
+            return True
+        except ImportError:
+            logger.debug("Embedding provider not available, using keyword fallback")
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to initialize embedding provider: {e}")
+            return False
+
+    def _get_content(self, item: Any) -> str:
+        """Extract content from an item."""
+        if hasattr(item, "content"):
+            return str(item.content)
+        if isinstance(item, dict):
+            return str(item.get("content", item))
+        return str(item)
+
+    def _cache_key(self, text: str) -> str:
+        """Generate cache key for text."""
+        import hashlib
+        return hashlib.md5(text.encode()).hexdigest()[:16]
+
+    async def _get_embedding(self, text: str) -> Optional[List[float]]:
+        """Get embedding for text, using cache if available."""
+        if not self._provider:
+            return None
+
+        key = self._cache_key(text)
+        if key in self._cache:
+            return self._cache[key]
+
+        try:
+            embedding = await self._provider.embed_async(text)
+
+            # LRU-style cache management
+            if len(self._cache) >= self._cache_size:
+                # Remove oldest entry
+                oldest = next(iter(self._cache))
+                del self._cache[oldest]
+
+            self._cache[key] = embedding
+            return embedding
+        except Exception as e:
+            logger.debug(f"Failed to get embedding: {e}")
+            return None
+
+    async def prepare_query(self, query: str) -> None:
+        """
+        Pre-compute query embedding for efficient batch scoring.
+
+        Call this before scoring multiple items against the same query.
+
+        Args:
+            query: The search query
+        """
+        if query != self._current_query:
+            self._current_query = query
+            self._query_embedding = await self._get_embedding(query)
+
+    def score(self, item: Any, query: str) -> float:
+        """
+        Score item relevance to query (sync interface for compatibility).
+
+        Note: For best results, call prepare_query() first to pre-compute
+        the query embedding.
+
+        Args:
+            item: The item to score
+            query: The search query
+
+        Returns:
+            Relevance score between 0 and 1
+        """
+        # If we have a cached query embedding, use it
+        if self._query_embedding and query == self._current_query:
+            content = self._get_content(item)
+            content_key = self._cache_key(content)
+
+            if content_key in self._cache:
+                try:
+                    from aragora.core.embeddings.service import cosine_similarity
+                    sim = cosine_similarity(self._query_embedding, self._cache[content_key])
+                    # Normalize from [-1, 1] to [0, 1]
+                    return (sim + 1) / 2
+                except Exception:
+                    pass
+
+        # Fallback to keyword matching
+        return self._keyword_score(item, query)
+
+    def _keyword_score(self, item: Any, query: str) -> float:
+        """Fallback keyword-based scoring."""
+        content = self._get_content(item).lower()
+        query_terms = query.lower().split()
+        if not query_terms:
+            return 0.5
+
+        matches = sum(1 for term in query_terms if term in content)
+        return min(1.0, matches / len(query_terms))
+
+    async def score_async(self, item: Any, query: str) -> float:
+        """
+        Score item relevance using embeddings (async interface).
+
+        Args:
+            item: The item to score
+            query: The search query
+
+        Returns:
+            Relevance score between 0 and 1
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if not self._provider:
+            return self._keyword_score(item, query)
+
+        # Get query embedding (use cached if available)
+        if query != self._current_query:
+            await self.prepare_query(query)
+
+        if not self._query_embedding:
+            return self._keyword_score(item, query)
+
+        # Get content embedding
+        content = self._get_content(item)
+        content_embedding = await self._get_embedding(content)
+
+        if not content_embedding:
+            return self._keyword_score(item, query)
+
+        try:
+            from aragora.core.embeddings.service import cosine_similarity
+            sim = cosine_similarity(self._query_embedding, content_embedding)
+            # Normalize from [-1, 1] to [0, 1]
+            return (sim + 1) / 2
+        except Exception as e:
+            logger.debug(f"Cosine similarity failed: {e}")
+            return self._keyword_score(item, query)
+
+
 class FederatedQueryAggregator:
     """
     Aggregates queries across multiple KM adapters.
@@ -334,7 +520,26 @@ class FederatedQueryAggregator:
         if result.sources_succeeded:
             self._successful_queries += 1
 
+        # Record Prometheus metrics
+        self._record_prometheus_metrics(result)
+
         return result
+
+    def _record_prometheus_metrics(self, result: FederatedQueryResult) -> None:
+        """Record federated query metrics to Prometheus."""
+        try:
+            from aragora.observability.metrics import (
+                record_km_federated_query,
+                set_km_active_adapters,
+            )
+
+            success = len(result.sources_succeeded) > 0
+            record_km_federated_query(len(result.sources_queried), success)
+            set_km_active_adapters(len([r for r in self._adapters.values() if r.enabled]))
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f"Failed to record Prometheus metrics: {e}")
 
     async def _query_parallel(
         self,
@@ -412,8 +617,7 @@ class FederatedQueryAggregator:
         """
         Default relevance scorer based on content similarity.
 
-        Uses simple keyword matching. Replace with embedding-based
-        scoring for better results.
+        Uses simple keyword matching as fallback when embeddings unavailable.
         """
         content = ""
         if hasattr(item, "content"):
@@ -488,4 +692,5 @@ __all__ = [
     "FederatedQueryResult",
     "FederatedResult",
     "QuerySource",
+    "EmbeddingRelevanceScorer",
 ]

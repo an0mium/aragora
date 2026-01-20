@@ -32,7 +32,161 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+
+# Prometheus metrics - optional dependency
+try:
+    from prometheus_client import Counter, Gauge, Histogram
+
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+
+
+# ============================================================================
+# KMEloBridge Prometheus Metrics
+# ============================================================================
+
+if PROMETHEUS_AVAILABLE:
+    # Sync operation metrics
+    KM_ELO_SYNC_TOTAL = Counter(
+        "aragora_km_elo_sync_total",
+        "Total KM → ELO sync operations",
+        ["status"],  # status: completed, failed, skipped
+    )
+
+    KM_ELO_SYNC_DURATION = Histogram(
+        "aragora_km_elo_sync_duration_seconds",
+        "KM → ELO sync operation duration",
+        buckets=[0.1, 0.5, 1, 5, 10, 30, 60, 120],
+    )
+
+    # Pattern detection metrics
+    KM_ELO_PATTERNS_DETECTED = Counter(
+        "aragora_km_elo_patterns_detected_total",
+        "Total KM patterns detected for ELO analysis",
+        ["agent"],
+    )
+
+    KM_ELO_AGENTS_ANALYZED = Counter(
+        "aragora_km_elo_agents_analyzed_total",
+        "Total agents analyzed in KM → ELO sync",
+    )
+
+    # Adjustment metrics
+    KM_ELO_ADJUSTMENTS_RECOMMENDED = Counter(
+        "aragora_km_elo_adjustments_recommended_total",
+        "Total ELO adjustments recommended from KM patterns",
+    )
+
+    KM_ELO_ADJUSTMENTS_APPLIED = Counter(
+        "aragora_km_elo_adjustments_applied_total",
+        "Total ELO adjustments actually applied",
+    )
+
+    KM_ELO_ADJUSTMENTS_SKIPPED = Counter(
+        "aragora_km_elo_adjustments_skipped_total",
+        "Total ELO adjustments skipped (low confidence, etc.)",
+    )
+
+    # ELO change metrics
+    KM_ELO_TOTAL_CHANGE = Histogram(
+        "aragora_km_elo_total_change",
+        "Total ELO rating change per sync operation",
+        buckets=[-100, -50, -25, -10, 0, 10, 25, 50, 100],
+    )
+
+    KM_ELO_CHANGE_PER_AGENT = Histogram(
+        "aragora_km_elo_change_per_agent",
+        "ELO rating change per agent",
+        ["agent"],
+        buckets=[-50, -25, -10, -5, 0, 5, 10, 25, 50],
+    )
+
+    # Status gauges
+    KM_ELO_SYNC_IN_PROGRESS = Gauge(
+        "aragora_km_elo_sync_in_progress",
+        "Whether a sync operation is currently in progress (0/1)",
+    )
+
+    KM_ELO_PENDING_ADJUSTMENTS = Gauge(
+        "aragora_km_elo_pending_adjustments",
+        "Number of pending ELO adjustments waiting to be applied",
+    )
+
+    KM_ELO_TOTAL_SYNCS = Gauge(
+        "aragora_km_elo_total_syncs",
+        "Total number of syncs completed since startup",
+    )
+
+    KM_ELO_LAST_SYNC_TIMESTAMP = Gauge(
+        "aragora_km_elo_last_sync_timestamp",
+        "Timestamp of the last successful sync (Unix epoch)",
+    )
+
+
+def _record_sync_start() -> None:
+    """Record sync operation starting."""
+    if PROMETHEUS_AVAILABLE:
+        KM_ELO_SYNC_IN_PROGRESS.set(1)
+
+
+def _record_sync_end(
+    status: str,
+    duration_ms: int,
+    agents_analyzed: int,
+    patterns_detected: int,
+    adjustments_recommended: int,
+    adjustments_applied: int,
+    adjustments_skipped: int,
+    total_elo_change: float,
+    agents_affected: List[str],
+) -> None:
+    """Record sync operation completion with metrics."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+
+    # Sync status
+    KM_ELO_SYNC_IN_PROGRESS.set(0)
+    KM_ELO_SYNC_TOTAL.labels(status=status).inc()
+    KM_ELO_SYNC_DURATION.observe(duration_ms / 1000.0)
+
+    # Pattern and agent metrics
+    KM_ELO_AGENTS_ANALYZED.inc(agents_analyzed)
+
+    # Adjustment metrics
+    if adjustments_recommended > 0:
+        KM_ELO_ADJUSTMENTS_RECOMMENDED.inc(adjustments_recommended)
+    if adjustments_applied > 0:
+        KM_ELO_ADJUSTMENTS_APPLIED.inc(adjustments_applied)
+    if adjustments_skipped > 0:
+        KM_ELO_ADJUSTMENTS_SKIPPED.inc(adjustments_skipped)
+
+    # ELO change metrics
+    KM_ELO_TOTAL_CHANGE.observe(total_elo_change)
+
+    # Timestamp
+    if status == "completed":
+        KM_ELO_LAST_SYNC_TIMESTAMP.set(time.time())
+
+
+def _record_patterns_for_agent(agent_name: str, pattern_count: int) -> None:
+    """Record patterns detected for a specific agent."""
+    if PROMETHEUS_AVAILABLE and pattern_count > 0:
+        KM_ELO_PATTERNS_DETECTED.labels(agent=agent_name).inc(pattern_count)
+
+
+def _update_pending_adjustments(count: int) -> None:
+    """Update the pending adjustments gauge."""
+    if PROMETHEUS_AVAILABLE:
+        KM_ELO_PENDING_ADJUSTMENTS.set(count)
+
+
+def _update_total_syncs(count: int) -> None:
+    """Update the total syncs gauge."""
+    if PROMETHEUS_AVAILABLE:
+        KM_ELO_TOTAL_SYNCS.set(count)
+
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.elo_adapter import (
@@ -180,11 +334,13 @@ class KMEloBridge:
                     timestamp=datetime.utcnow().isoformat(),
                 )
             self._sync_in_progress = True
+            _record_sync_start()
 
         start_time = time.time()
         result = KMEloBridgeSyncResult(
             timestamp=datetime.utcnow().isoformat(),
         )
+        sync_status = "failed"  # Default status, updated on success
 
         try:
             # Check interval if not forced
@@ -195,12 +351,14 @@ class KMEloBridge:
                         f"Sync interval not reached ({elapsed_hours:.1f}h / "
                         f"{self._config.sync_interval_hours}h)"
                     )
+                    sync_status = "skipped"
                     return result
 
             # Get agents to process
             agents = agent_names or await self._get_all_agents()
             if not agents:
                 result.errors.append("No agents to process")
+                sync_status = "skipped"
                 return result
 
             # Process agents in batches
@@ -215,6 +373,7 @@ class KMEloBridge:
                         if patterns:
                             all_patterns[agent_name] = patterns
                             result.patterns_detected += len(patterns)
+                            _record_patterns_for_agent(agent_name, len(patterns))
                     except Exception as e:
                         error_msg = f"Error analyzing {agent_name}: {e}"
                         logger.error(error_msg)
@@ -240,16 +399,34 @@ class KMEloBridge:
             self._last_sync = time.time()
             self._total_syncs += 1
             self._total_adjustments += result.adjustments_applied
+            sync_status = "completed"
+
+            # Update gauges
+            _update_total_syncs(self._total_syncs)
 
         except Exception as e:
             error_msg = f"Sync error: {e}"
             logger.error(error_msg, exc_info=True)
             result.errors.append(error_msg)
+            sync_status = "failed"
 
         finally:
             self._sync_in_progress = False
 
         result.duration_ms = int((time.time() - start_time) * 1000)
+
+        # Record metrics
+        _record_sync_end(
+            status=sync_status,
+            duration_ms=result.duration_ms,
+            agents_analyzed=result.agents_analyzed,
+            patterns_detected=result.patterns_detected,
+            adjustments_recommended=result.adjustments_recommended,
+            adjustments_applied=result.adjustments_applied,
+            adjustments_skipped=result.adjustments_skipped,
+            total_elo_change=result.total_elo_change,
+            agents_affected=result.agents_affected,
+        )
 
         # Store in history
         if self._config.track_history:

@@ -243,6 +243,34 @@ class KMMetrics:
             if latency_ms > stats.max_latency_ms:
                 stats.max_latency_ms = latency_ms
 
+        # Export to Prometheus (if available)
+        self._export_to_prometheus(operation, latency_ms, success)
+
+    def _export_to_prometheus(
+        self,
+        operation: OperationType,
+        latency_ms: float,
+        success: bool,
+    ) -> None:
+        """Export operation to Prometheus metrics."""
+        try:
+            from aragora.observability.metrics import record_km_operation, record_km_cache_access
+
+            # Convert ms to seconds for Prometheus
+            latency_seconds = latency_ms / 1000.0
+
+            # Handle cache operations specially
+            if operation == OperationType.CACHE_HIT:
+                record_km_cache_access(hit=True)
+            elif operation == OperationType.CACHE_MISS:
+                record_km_cache_access(hit=False)
+            else:
+                record_km_operation(operation.value, success, latency_seconds)
+        except ImportError:
+            pass  # Prometheus not available
+        except Exception as e:
+            logger.debug(f"Failed to export to Prometheus: {e}")
+
     @contextmanager
     def measure_operation(
         self,
