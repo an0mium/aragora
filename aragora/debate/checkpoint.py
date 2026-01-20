@@ -96,6 +96,9 @@ class DebateCheckpoint:
     # Belief network state (if using)
     belief_network_state: Optional[dict] = None
 
+    # Continuum memory state (if using)
+    continuum_memory_state: Optional[dict] = None
+
     # Metadata
     status: CheckpointStatus = CheckpointStatus.COMPLETE
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -151,6 +154,7 @@ class DebateCheckpoint:
             "convergence_status": self.convergence_status,
             "claims_kernel_state": self.claims_kernel_state,
             "belief_network_state": self.belief_network_state,
+            "continuum_memory_state": self.continuum_memory_state,
             "status": self.status.value,
             "created_at": self.created_at,
             "expires_at": self.expires_at,
@@ -190,6 +194,7 @@ class DebateCheckpoint:
             convergence_status=data.get("convergence_status", ""),
             claims_kernel_state=data.get("claims_kernel_state"),
             belief_network_state=data.get("belief_network_state"),
+            continuum_memory_state=data.get("continuum_memory_state"),
             status=CheckpointStatus(data.get("status", "complete")),
             created_at=data["created_at"],
             expires_at=data.get("expires_at"),
@@ -512,7 +517,11 @@ class GitCheckpointStore(CheckpointStore):
                 return False, "git command timed out"
         except FileNotFoundError:
             return False, "git not found in PATH"
+        except (OSError, PermissionError) as e:
+            logger.warning(f"Git command OS error: {e}")
+            return False, str(e)
         except Exception as e:
+            logger.exception(f"Unexpected git command error: {e}")
             return False, str(e)
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
@@ -910,6 +919,7 @@ class CheckpointManager:
         current_consensus: Optional[str] = None,
         claims_kernel_state: Optional[dict] = None,
         belief_network_state: Optional[dict] = None,
+        continuum_memory_state: Optional[dict] = None,
     ) -> DebateCheckpoint:
         """Create and save a checkpoint."""
         checkpoint_id = f"cp-{debate_id[:8]}-{current_round:03d}-{uuid.uuid4().hex[:4]}"
@@ -987,6 +997,7 @@ class CheckpointManager:
             current_consensus=current_consensus,
             claims_kernel_state=claims_kernel_state,
             belief_network_state=belief_network_state,
+            continuum_memory_state=continuum_memory_state,
             expires_at=expiry,
         )
 
@@ -1150,8 +1161,10 @@ class CheckpointWebhook:
                     await handler(data)
                 else:
                     handler(data)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"Checkpoint webhook handler failed for event '{event}': {e}")
+            except Exception as e:
+                logger.exception(f"Unexpected error in checkpoint webhook handler for event '{event}': {e}")
 
         # Send to webhook if configured
         if self.webhook_url:
@@ -1168,8 +1181,12 @@ class CheckpointWebhook:
                     json={"event": event, "data": data},
                     timeout=aiohttp.ClientTimeout(total=10),
                 )
+        except ImportError as e:
+            logger.debug(f"Webhook notification failed - aiohttp not available: {e}")
+        except (ConnectionError, TimeoutError) as e:
+            logger.debug(f"Webhook notification failed - connection error: {e}")
         except Exception as e:
-            logger.debug(f"Webhook notification failed: {e}")
+            logger.warning(f"Unexpected webhook notification error: {e}")
 
 
 # Convenience function for quick checkpointing

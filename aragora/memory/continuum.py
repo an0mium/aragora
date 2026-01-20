@@ -416,7 +416,7 @@ class ContinuumMemory(SQLiteStore):
             )
             conn.commit()
 
-        return ContinuumMemoryEntry(
+        entry = ContinuumMemoryEntry(
             id=id,
             tier=tier,
             content=content,
@@ -430,6 +430,27 @@ class ContinuumMemory(SQLiteStore):
             updated_at=now,
             metadata=metadata or {},
         )
+
+        # Emit MEMORY_STORED event for cross-subsystem tracking
+        if self.event_emitter:
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.MEMORY_STORED,
+                        data={
+                            "memory_id": id,
+                            "tier": tier.value,
+                            "importance": importance,
+                            "content_length": len(content),
+                        },
+                    )
+                )
+            except (ImportError, AttributeError, TypeError):
+                pass  # Events module not available
+
+        return entry
 
     async def add_async(
         self,
@@ -787,6 +808,26 @@ class ContinuumMemory(SQLiteStore):
                 )
             except (ImportError, AttributeError, TypeError):
                 pass  # Stream module not available or emitter misconfigured
+
+            # Also emit MEMORY_RETRIEVED for cross-subsystem tracking
+            try:
+                from aragora.events.types import StreamEvent as CrossEvent
+                from aragora.events.types import StreamEventType as CrossEventType
+
+                for entry in entries:
+                    self.event_emitter.emit(
+                        CrossEvent(
+                            type=CrossEventType.MEMORY_RETRIEVED,
+                            data={
+                                "memory_id": entry.id,
+                                "tier": entry.tier.value,
+                                "importance": entry.importance,
+                                "cache_hit": False,  # DB retrieval, not cache
+                            },
+                        )
+                    )
+            except (ImportError, AttributeError, TypeError):
+                pass  # Events module not available
 
         return AwaitableList(entries)
 
@@ -1382,3 +1423,269 @@ class ContinuumMemory(SQLiteStore):
             "max_entries": self.hyperparams["max_entries_per_tier"]["glacial"],
             "utilization": round((row[0] or 0) / self.hyperparams["max_entries_per_tier"]["glacial"], 3),
         }
+
+    # === Snapshot Methods for Checkpoint Integration ===
+    # These methods enable complete debate state restoration with memory context
+
+    def export_snapshot(
+        self,
+        tiers: Optional[List[MemoryTier]] = None,
+        include_metadata: bool = True,
+        max_entries_per_tier: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Export current memory state as a serializable snapshot.
+
+        Used by checkpoint system to capture memory context for debate restoration.
+        The snapshot includes all memory entries needed to restore the cognitive
+        context that informed debate responses.
+
+        Args:
+            tiers: Specific tiers to export (default: all tiers)
+            include_metadata: Whether to include entry metadata
+            max_entries_per_tier: Maximum entries per tier to export (for size control)
+
+        Returns:
+            Dict with:
+                - entries: List of serialized memory entries
+                - tier_counts: Count per tier
+                - hyperparams: Current hyperparameter values
+                - snapshot_time: ISO timestamp
+                - total_entries: Total entry count
+
+        Example:
+            # In checkpoint creation:
+            snapshot = continuum_memory.export_snapshot()
+            checkpoint.continuum_memory_state = snapshot
+        """
+        if tiers is None:
+            tiers = list(MemoryTier)
+
+        tier_values = [t.value for t in tiers]
+        placeholders = ",".join("?" * len(tier_values))
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            entries = []
+            tier_counts: Dict[str, int] = {}
+
+            for tier in tiers:
+                # Get entries for this tier, sorted by importance
+                cursor.execute(
+                    f"""
+                    SELECT id, tier, content, importance, surprise_score,
+                           consolidation_score, update_count, success_count,
+                           failure_count, created_at, updated_at, metadata,
+                           COALESCE(red_line, 0), COALESCE(red_line_reason, '')
+                    FROM continuum_memory
+                    WHERE tier = ?
+                    ORDER BY importance DESC
+                    LIMIT ?
+                    """,
+                    (tier.value, max_entries_per_tier),
+                )
+
+                rows = cursor.fetchall()
+                tier_counts[tier.value] = len(rows)
+
+                for row in rows:
+                    entry_dict = {
+                        "id": row[0],
+                        "tier": row[1],
+                        "content": row[2],
+                        "importance": row[3],
+                        "surprise_score": row[4],
+                        "consolidation_score": row[5],
+                        "update_count": row[6],
+                        "success_count": row[7],
+                        "failure_count": row[8],
+                        "created_at": row[9],
+                        "updated_at": row[10],
+                        "red_line": bool(row[12]),
+                        "red_line_reason": row[13],
+                    }
+                    if include_metadata:
+                        entry_dict["metadata"] = safe_json_loads(row[11], {})
+                    entries.append(entry_dict)
+
+        return {
+            "entries": entries,
+            "tier_counts": tier_counts,
+            "hyperparams": dict(self.hyperparams),
+            "snapshot_time": datetime.now().isoformat(),
+            "total_entries": sum(tier_counts.values()),
+            "version": CONTINUUM_SCHEMA_VERSION,
+        }
+
+    def restore_snapshot(
+        self,
+        snapshot: Dict[str, Any],
+        merge_mode: str = "replace",
+        restore_hyperparams: bool = False,
+    ) -> Dict[str, int]:
+        """
+        Restore memory state from a snapshot.
+
+        Used by checkpoint system to restore memory context when resuming debates.
+        Entries from the snapshot are inserted into the database, replacing or
+        merging with existing entries.
+
+        Args:
+            snapshot: Snapshot dict from export_snapshot()
+            merge_mode: How to handle existing entries:
+                - "replace": Overwrite existing entries with snapshot data
+                - "keep": Keep existing entries, only insert new ones
+                - "merge": Update existing entries with higher importance wins
+            restore_hyperparams: Whether to restore hyperparameters from snapshot
+
+        Returns:
+            Dict with:
+                - restored: Count of entries restored
+                - skipped: Count of entries skipped (in keep mode)
+                - updated: Count of entries updated (in merge mode)
+
+        Example:
+            # In checkpoint restoration:
+            if checkpoint.continuum_memory_state:
+                result = continuum_memory.restore_snapshot(checkpoint.continuum_memory_state)
+                logger.info(f"Restored {result['restored']} memory entries")
+        """
+        if "entries" not in snapshot:
+            logger.warning("Invalid snapshot: missing 'entries' key")
+            return {"restored": 0, "skipped": 0, "updated": 0}
+
+        entries = snapshot["entries"]
+        restored = 0
+        skipped = 0
+        updated = 0
+
+        # Optionally restore hyperparams
+        if restore_hyperparams and "hyperparams" in snapshot:
+            self.hyperparams.update(snapshot["hyperparams"])
+            self._tier_manager.promotion_cooldown_hours = self.hyperparams.get(
+                "promotion_cooldown_hours", 24.0
+            )
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            for entry in entries:
+                entry_id = entry.get("id")
+                if not entry_id:
+                    continue
+
+                # Check if entry exists
+                cursor.execute(
+                    "SELECT importance FROM continuum_memory WHERE id = ?",
+                    (entry_id,),
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    if merge_mode == "keep":
+                        skipped += 1
+                        continue
+                    elif merge_mode == "merge":
+                        # Keep the one with higher importance
+                        if existing[0] >= entry.get("importance", 0):
+                            skipped += 1
+                            continue
+                        # Update existing entry
+                        cursor.execute(
+                            """
+                            UPDATE continuum_memory
+                            SET importance = ?, surprise_score = ?, consolidation_score = ?,
+                                updated_at = ?
+                            WHERE id = ?
+                            """,
+                            (
+                                entry.get("importance", 0.5),
+                                entry.get("surprise_score", 0.0),
+                                entry.get("consolidation_score", 0.0),
+                                datetime.now().isoformat(),
+                                entry_id,
+                            ),
+                        )
+                        updated += 1
+                        continue
+
+                # Insert or replace entry
+                metadata_str = json.dumps(entry.get("metadata", {}))
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO continuum_memory
+                    (id, tier, content, importance, surprise_score, consolidation_score,
+                     update_count, success_count, failure_count, created_at, updated_at,
+                     metadata, red_line, red_line_reason)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        entry_id,
+                        entry.get("tier", "slow"),
+                        entry.get("content", ""),
+                        entry.get("importance", 0.5),
+                        entry.get("surprise_score", 0.0),
+                        entry.get("consolidation_score", 0.0),
+                        entry.get("update_count", 1),
+                        entry.get("success_count", 0),
+                        entry.get("failure_count", 0),
+                        entry.get("created_at", datetime.now().isoformat()),
+                        entry.get("updated_at", datetime.now().isoformat()),
+                        metadata_str,
+                        1 if entry.get("red_line") else 0,
+                        entry.get("red_line_reason", ""),
+                    ),
+                )
+                restored += 1
+
+            conn.commit()
+
+        logger.info(
+            "continuum_memory_snapshot_restored restored=%d skipped=%d updated=%d",
+            restored,
+            skipped,
+            updated,
+        )
+
+        return {"restored": restored, "skipped": skipped, "updated": updated}
+
+
+# Singleton instance for cross-subsystem access
+_global_continuum_memory: Optional[ContinuumMemory] = None
+
+
+def get_continuum_memory(
+    db_path: Optional[str] = None,
+    event_emitter: Optional["EventEmitterProtocol"] = None,
+) -> ContinuumMemory:
+    """Get the global ContinuumMemory singleton instance.
+
+    Creates a new instance if one doesn't exist, or returns the existing one.
+    Useful for cross-subsystem integration where modules need shared memory access.
+
+    Args:
+        db_path: Optional database path (only used on first call)
+        event_emitter: Optional event emitter for cross-subsystem events
+
+    Returns:
+        ContinuumMemory singleton instance
+    """
+    global _global_continuum_memory
+
+    if _global_continuum_memory is None:
+        _global_continuum_memory = ContinuumMemory(
+            db_path=db_path,
+            event_emitter=event_emitter,
+        )
+        logger.debug("Created global ContinuumMemory instance")
+
+    return _global_continuum_memory
+
+
+def reset_continuum_memory() -> None:
+    """Reset the global ContinuumMemory instance (for testing)."""
+    global _global_continuum_memory
+    if _global_continuum_memory:
+        _global_continuum_memory.close()
+    _global_continuum_memory = None

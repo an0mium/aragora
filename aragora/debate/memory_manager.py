@@ -381,6 +381,8 @@ class MemoryManager:
         Evidence from web research and local docs is valuable for future debates
         on similar topics. This stores each unique snippet with moderate importance.
 
+        Also registers evidence with the EvidenceProvenanceBridge for provenance tracking.
+
         Args:
             evidence_snippets: List of evidence snippets to store
             task: The debate task these snippets relate to
@@ -392,6 +394,14 @@ class MemoryManager:
             domain = self._get_domain()
             stored_count = 0
 
+            # Get evidence bridge for provenance tracking (optional)
+            evidence_bridge = None
+            try:
+                from aragora.reasoning.evidence_bridge import get_evidence_bridge
+                evidence_bridge = get_evidence_bridge()
+            except ImportError:
+                pass  # Bridge not available
+
             for snippet in evidence_snippets[:10]:  # Limit to top 10 snippets
                 # Get content from snippet (handle different formats)
                 content = getattr(snippet, "content", str(snippet))[:500]
@@ -401,10 +411,12 @@ class MemoryManager:
                 if len(content) < 50:  # Skip too-short snippets
                     continue
 
+                evidence_id = f"evidence_{hashlib.sha256(content.encode()).hexdigest()[:10]}"
+
                 # Store as medium-tier memory with moderate importance
                 try:
                     self.continuum_memory.add(
-                        id=f"evidence_{hashlib.sha256(content.encode()).hexdigest()[:10]}",
+                        id=evidence_id,
                         content=f"[Evidence:{domain}] {content} (Source: {source})",
                         tier=MemoryTier.MEDIUM,
                         importance=min(0.7, relevance + 0.2),
@@ -416,6 +428,14 @@ class MemoryManager:
                         },
                     )
                     stored_count += 1
+
+                    # Register with evidence bridge for provenance tracking
+                    if evidence_bridge and hasattr(snippet, "id"):
+                        try:
+                            evidence_bridge.register_evidence(snippet)
+                        except Exception as e:
+                            logger.debug(f"Evidence bridge registration (non-fatal): {e}")
+
                 except (AttributeError, TypeError, ValueError) as e:
                     # Expected: data format or memory configuration issues
                     logger.debug(f"Continuum storage error (non-fatal): {e}")

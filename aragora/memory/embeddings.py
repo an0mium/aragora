@@ -29,7 +29,6 @@ import logging
 import os
 import struct
 import time
-from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -46,60 +45,25 @@ from aragora.core.embeddings.service import (
     unpack_embedding,
 )
 
+# Use unified embedding cache from core
+from aragora.core.embeddings.cache import EmbeddingCache, get_global_cache
+
 logger = logging.getLogger(__name__)
 
 
-class EmbeddingCache:
-    """Simple async-compatible TTL cache for embeddings.
-
-    Uses OrderedDict for O(1) LRU eviction instead of O(n) min() scan.
-    """
-
-    def __init__(self, ttl_seconds: float = 3600, max_size: int = 1000):
-        # OrderedDict maintains insertion order - oldest first for O(1) eviction
-        self._cache: OrderedDict[str, tuple[float, list[float]]] = OrderedDict()
-        self._ttl = ttl_seconds
-        self._max_size = max_size
-
-    def _make_key(self, text: str) -> str:
-        """Generate cache key from text."""
-        return hashlib.sha256(text.lower().strip().encode()).hexdigest()
-
-    def get(self, text: str) -> Optional[list[float]]:
-        """Get cached embedding if valid."""
-        key = self._make_key(text)
-        if key in self._cache:
-            timestamp, embedding = self._cache[key]
-            if time.time() - timestamp < self._ttl:
-                # Move to end to mark as recently used (LRU)
-                self._cache.move_to_end(key)
-                return embedding
-            # Expired - remove
-            del self._cache[key]
-        return None
-
-    def set(self, text: str, embedding: list[float]) -> None:
-        """Cache an embedding."""
-        key = self._make_key(text)
-        # If key exists, update timestamp and move to end
-        if key in self._cache:
-            self._cache[key] = (time.time(), embedding)
-            self._cache.move_to_end(key)
-            return
-        # Evict oldest entry if at capacity - O(1) with popitem(last=False)
-        if len(self._cache) >= self._max_size:
-            self._cache.popitem(last=False)
-        self._cache[key] = (time.time(), embedding)
-
-    def stats(self) -> dict:
-        """Get cache statistics."""
-        now = time.time()
-        valid = sum(1 for ts, _ in self._cache.values() if now - ts < self._ttl)
-        return {"size": len(self._cache), "valid": valid, "ttl_seconds": self._ttl}
+# Global embedding cache (now uses unified cache from core)
+_embedding_cache: Optional[EmbeddingCache] = None
 
 
-# Global embedding cache (shared across providers)
-_embedding_cache = EmbeddingCache(ttl_seconds=CACHE_TTL_EMBEDDINGS, max_size=1000)
+def _get_embedding_cache() -> EmbeddingCache:
+    """Get or create the global embedding cache."""
+    global _embedding_cache
+    if _embedding_cache is None:
+        _embedding_cache = EmbeddingCache(
+            ttl_seconds=CACHE_TTL_EMBEDDINGS,
+            max_size=1000
+        )
+    return _embedding_cache
 
 # Default API timeout
 _API_TIMEOUT = aiohttp.ClientTimeout(total=30)
@@ -117,9 +81,10 @@ def _register_embedding_cache() -> None:
     try:
         from aragora.services import EmbeddingCacheService, ServiceRegistry
 
+        cache = _get_embedding_cache()
         registry = ServiceRegistry.get()
         if not registry.has(EmbeddingCacheService):
-            registry.register(EmbeddingCacheService, _embedding_cache)
+            registry.register(EmbeddingCacheService, cache)
         _embedding_cache_registered = True
         logger.debug("Embedding cache registered with ServiceRegistry")
     except ImportError:
@@ -129,7 +94,7 @@ def _register_embedding_cache() -> None:
 def get_embedding_cache() -> EmbeddingCache:
     """Get the global embedding cache, registering with ServiceRegistry if available."""
     _register_embedding_cache()
-    return _embedding_cache
+    return _get_embedding_cache()
 
 
 async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
@@ -212,7 +177,7 @@ class OpenAIEmbedding(EmbeddingProvider):
 
     async def embed(self, text: str) -> list[float]:
         # Check cache first
-        cached = _embedding_cache.get(text)
+        cached = _get_embedding_cache().get(text)
         if cached is not None:
             logger.debug("Embedding cache hit for OpenAI")
             return cached
@@ -239,7 +204,7 @@ class OpenAIEmbedding(EmbeddingProvider):
                     return data["data"][0]["embedding"]
 
         embedding = await _retry_with_backoff(_call)
-        _embedding_cache.set(text, embedding)
+        _get_embedding_cache().set(text, embedding)
         return embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
@@ -277,7 +242,7 @@ class GeminiEmbedding(EmbeddingProvider):
 
     async def embed(self, text: str) -> list[float]:
         # Check cache first
-        cached = _embedding_cache.get(text)
+        cached = _get_embedding_cache().get(text)
         if cached is not None:
             logger.debug("Embedding cache hit for Gemini")
             return cached
@@ -304,7 +269,7 @@ class GeminiEmbedding(EmbeddingProvider):
                     return data["embedding"]["values"]
 
         embedding = await _retry_with_backoff(_call)
-        _embedding_cache.set(text, embedding)
+        _get_embedding_cache().set(text, embedding)
         return embedding
 
 
@@ -538,4 +503,14 @@ class SemanticRetriever:
 
 def get_embedding_cache_stats() -> dict:
     """Get global embedding cache statistics."""
-    return _embedding_cache.stats()
+    cache = _get_embedding_cache()
+    stats = cache.get_stats()
+    # Convert CacheStats dataclass to dict for backwards compatibility
+    return {
+        "size": stats.size,
+        "valid": stats.valid,
+        "ttl_seconds": stats.ttl_seconds,
+        "hits": stats.hits,
+        "misses": stats.misses,
+        "hit_rate": stats.hit_rate,
+    }

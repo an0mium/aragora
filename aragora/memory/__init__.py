@@ -24,6 +24,12 @@ from aragora.memory.consensus import (
     DissentType,
     SimilarDebate,
 )
+from aragora.memory.continuum import (
+    ContinuumMemory,
+    ContinuumMemoryEntry,
+    get_continuum_memory,
+    reset_continuum_memory,
+)
 from aragora.memory.cross_debate_rlm import AccessTier
 from aragora.memory.embeddings import (
     GeminiEmbedding,
@@ -69,6 +75,11 @@ __all__ = [
     "DissentType",
     "DissentRetriever",
     "SimilarDebate",
+    # Continuum Memory
+    "ContinuumMemory",
+    "ContinuumMemoryEntry",
+    "get_continuum_memory",
+    "reset_continuum_memory",
     # Tier Management
     "TierManager",
     "TierConfig",
