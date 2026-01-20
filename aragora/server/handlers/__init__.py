@@ -109,6 +109,7 @@ from .memory import LearningHandler  # Moved to memory/
 from .debates import MatrixDebatesHandler  # Moved to debates/
 from .memory import MemoryHandler  # memory/ subdirectory
 from .memory import MemoryAnalyticsHandler  # Moved to memory/
+from .memory import CoordinatorHandler  # Memory coordinator API
 from .metrics import MetricsHandler
 from .moments import MomentsHandler
 from .nomic import NomicHandler
@@ -172,6 +173,7 @@ ALL_HANDLERS = [
     ReplaysHandler,
     TournamentHandler,
     MemoryHandler,
+    CoordinatorHandler,
     LeaderboardViewHandler,
     RelationshipHandler,
     MomentsHandler,
@@ -256,6 +258,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
     "MemoryHandler": Stability.STABLE,
+    "CoordinatorHandler": Stability.STABLE,
     "LeaderboardViewHandler": Stability.STABLE,
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
@@ -402,6 +405,7 @@ __all__ = [
     "ReplaysHandler",
     "TournamentHandler",
     "MemoryHandler",
+    "CoordinatorHandler",
     "LeaderboardViewHandler",
     "RelationshipHandler",
     "MomentsHandler",
