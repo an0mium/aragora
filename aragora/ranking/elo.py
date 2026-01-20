@@ -1463,3 +1463,227 @@ class EloSystem:
             "accuracy": correct / total if total > 0 else 0.0,
             "has_meaningful_data": total >= 5,
         }
+
+    # =========================================================================
+    # Learning Efficiency Tracking (Debate Outcomes → Agent Improvement)
+    # =========================================================================
+
+    def get_learning_efficiency(
+        self,
+        agent_name: str,
+        domain: Optional[str] = None,
+        window_debates: int = 20,
+    ) -> dict:
+        """
+        Compute learning efficiency for an agent based on ELO improvement rate.
+
+        Learning efficiency measures how quickly an agent improves over time.
+        Higher efficiency means the agent learns from debate outcomes and
+        improves their performance on similar tasks.
+
+        Args:
+            agent_name: Name of the agent
+            domain: Optional domain filter for domain-specific efficiency
+            window_debates: Number of recent debates to analyze
+
+        Returns:
+            Dict with learning efficiency metrics:
+            - elo_gain_rate: Average ELO gain per debate
+            - win_rate_improvement: Change in win rate over window
+            - consistency_score: How consistent the improvement is (0-1)
+            - learning_category: 'rapid', 'steady', 'slow', or 'declining'
+        """
+        _validate_agent_name(agent_name)
+        rating = self.get_rating(agent_name)
+
+        # Get ELO history for trend analysis
+        history = self.get_elo_history(agent_name, limit=window_debates)
+
+        if len(history) < 3:
+            return {
+                "agent_name": agent_name,
+                "domain": domain,
+                "elo_gain_rate": 0.0,
+                "win_rate_improvement": 0.0,
+                "consistency_score": 0.0,
+                "learning_category": "insufficient_data",
+                "has_meaningful_data": False,
+            }
+
+        # Extract ELO values (history is [(timestamp, elo), ...])
+        elo_values = [h[1] for h in history]
+
+        # Compute learning metrics
+        elo_gain_rate = self._compute_elo_gain_rate(elo_values)
+        consistency = self._compute_consistency_score(elo_values)
+        category = self._categorize_learning(elo_gain_rate, consistency)
+
+        # For domain-specific, use domain ELO trend
+        domain_elo = None
+        if domain and rating.domain_elos:
+            domain_elo = rating.domain_elos.get(domain)
+
+        # Win rate improvement (compare first half vs second half)
+        total_games = rating.wins + rating.losses + rating.draws
+        win_rate_improvement = 0.0
+        if total_games >= 6:
+            # Simple approximation using overall win rate trend
+            # In practice, would need per-debate win tracking
+            current_win_rate = rating.win_rate
+            # Assume starting from baseline of 50%
+            win_rate_improvement = current_win_rate - 0.5
+
+        return {
+            "agent_name": agent_name,
+            "domain": domain,
+            "elo_gain_rate": elo_gain_rate,
+            "win_rate_improvement": win_rate_improvement,
+            "consistency_score": consistency,
+            "learning_category": category,
+            "current_elo": rating.elo,
+            "domain_elo": domain_elo,
+            "debates_analyzed": len(history),
+            "has_meaningful_data": len(history) >= 5,
+        }
+
+    def _compute_elo_gain_rate(self, elo_values: list[float]) -> float:
+        """Compute average ELO gain per debate from history.
+
+        Uses linear regression slope as the gain rate.
+        """
+        if len(elo_values) < 2:
+            return 0.0
+
+        n = len(elo_values)
+        # Simple linear regression: y = mx + b
+        # Slope m = (n*sum(xy) - sum(x)*sum(y)) / (n*sum(x^2) - sum(x)^2)
+        x_values = list(range(n))
+        sum_x = sum(x_values)
+        sum_y = sum(elo_values)
+        sum_xy = sum(x * y for x, y in zip(x_values, elo_values))
+        sum_x2 = sum(x * x for x in x_values)
+
+        denominator = n * sum_x2 - sum_x * sum_x
+        if denominator == 0:
+            return 0.0
+
+        slope = (n * sum_xy - sum_x * sum_y) / denominator
+        return slope
+
+    def _compute_consistency_score(self, elo_values: list[float]) -> float:
+        """Compute consistency of improvement (0-1 scale).
+
+        Measures how steadily the agent improves vs erratic changes.
+        """
+        if len(elo_values) < 3:
+            return 0.0
+
+        # Count positive vs negative changes
+        changes = [elo_values[i] - elo_values[i - 1] for i in range(1, len(elo_values))]
+        positive_changes = sum(1 for c in changes if c > 0)
+        total_changes = len(changes)
+
+        if total_changes == 0:
+            return 0.0
+
+        # Consistency is proportion of positive changes
+        # Adjusted to give 0.5 for random, higher for consistent improvement
+        raw_consistency = positive_changes / total_changes
+        return raw_consistency
+
+    def _categorize_learning(self, gain_rate: float, consistency: float) -> str:
+        """Categorize learning efficiency based on metrics.
+
+        Returns:
+            'rapid': Fast and consistent improvement
+            'steady': Slow but consistent improvement
+            'slow': Little improvement
+            'declining': Getting worse
+        """
+        if gain_rate > 5 and consistency > 0.6:
+            return "rapid"
+        elif gain_rate > 2 and consistency > 0.5:
+            return "steady"
+        elif gain_rate > 0:
+            return "slow"
+        else:
+            return "declining"
+
+    def apply_learning_bonus(
+        self,
+        agent_name: str,
+        domain: str = "general",
+        debate_id: Optional[str] = None,
+        bonus_factor: float = 0.5,
+    ) -> float:
+        """
+        Apply ELO bonus based on agent's learning efficiency.
+
+        Rewards agents who demonstrate consistent improvement over time.
+        This creates a feedback loop where learning from debates is rewarded.
+
+        Args:
+            agent_name: Name of the agent
+            domain: Debate domain
+            debate_id: Optional debate ID for history
+            bonus_factor: Multiplier for learning bonus (default 0.5)
+
+        Returns:
+            ELO change applied (0 if no bonus)
+        """
+        _validate_agent_name(agent_name)
+
+        efficiency = self.get_learning_efficiency(agent_name, domain=domain)
+
+        if not efficiency.get("has_meaningful_data"):
+            return 0.0
+
+        # Compute bonus based on learning category
+        category = efficiency.get("learning_category", "slow")
+        gain_rate = efficiency.get("elo_gain_rate", 0.0)
+        consistency = efficiency.get("consistency_score", 0.0)
+
+        # Base bonus on learning rate and consistency
+        if category == "rapid":
+            bonus = bonus_factor * 3.0  # Significant bonus for rapid learners
+        elif category == "steady":
+            bonus = bonus_factor * 1.5  # Moderate bonus for steady learners
+        elif category == "slow":
+            bonus = bonus_factor * 0.5  # Small bonus for slow but positive learners
+        else:
+            return 0.0  # No bonus for declining
+
+        # Scale by consistency
+        bonus *= consistency
+
+        if bonus <= 0:
+            return 0.0
+
+        # Apply bonus to domain ELO
+        rating = self.get_rating(agent_name)
+        domain_elos = rating.domain_elos or {}
+        old_elo = domain_elos.get(domain, DEFAULT_ELO)
+        domain_elos[domain] = old_elo + bonus
+        rating.domain_elos = domain_elos
+        self._save_rating(rating)
+
+        # Record history
+        if debate_id:
+            self._record_elo_history(
+                agent_name,
+                rating.elo,
+                debate_id=f"learning:{debate_id}:{category}",
+            )
+
+        logger.debug(
+            "learning_bonus agent=%s domain=%s category=%s "
+            "gain_rate=%.2f consistency=%.2f bonus=%.2f",
+            agent_name,
+            domain,
+            category,
+            gain_rate,
+            consistency,
+            bonus,
+        )
+
+        return bonus

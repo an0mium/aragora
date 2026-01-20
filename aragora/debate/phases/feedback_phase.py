@@ -245,6 +245,9 @@ class FeedbackPhase:
         # 1b. Record voting accuracy for agents (cross-pollination feedback)
         self._record_voting_accuracy(ctx)
 
+        # 1c. Apply learning efficiency bonuses (debate outcomes → learning feedback)
+        self._apply_learning_bonuses(ctx)
+
         # 2. Update PersonaManager
         self._update_persona_performance(ctx)
 
@@ -985,6 +988,53 @@ class FeedbackPhase:
 
         except Exception as e:
             logger.debug(f"[voting_accuracy] Recording failed: {e}")
+
+    def _apply_learning_bonuses(self, ctx: "DebateContext") -> None:
+        """
+        Apply learning efficiency bonuses to participating agents.
+
+        Cross-pollinates debate outcomes with agent learning tracking.
+        Agents who demonstrate consistent improvement over time get ELO bonuses.
+
+        This creates a feedback loop where:
+        1. Debate outcomes update agent ELO
+        2. Learning efficiency is computed from ELO history
+        3. Bonuses are applied to reward consistent learners
+
+        Args:
+            ctx: DebateContext with result and agents
+        """
+        if not self.elo_system:
+            return
+
+        result = ctx.result
+        if not result or not result.winner:
+            return
+
+        # Only apply learning bonuses for successful debates
+        if not result.consensus_reached:
+            return
+
+        try:
+            domain = ctx.domain or "general"
+            for agent in ctx.agents:
+                try:
+                    bonus = self.elo_system.apply_learning_bonus(
+                        agent_name=agent.name,
+                        domain=domain,
+                        debate_id=ctx.debate_id,
+                        bonus_factor=0.5,  # Moderate bonus factor
+                    )
+                    if bonus > 0:
+                        logger.debug(
+                            f"[learning] Applied learning bonus {bonus:.2f} "
+                            f"to {agent.name} in domain {domain}"
+                        )
+                except Exception as e:
+                    logger.debug(f"[learning] Bonus failed for {agent.name}: {e}")
+
+        except Exception as e:
+            logger.debug(f"[learning] Learning bonus application failed: {e}")
 
     def _update_persona_performance(self, ctx: "DebateContext") -> None:
         """Update PersonaManager with performance feedback."""

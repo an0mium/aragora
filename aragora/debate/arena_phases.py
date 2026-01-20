@@ -266,6 +266,7 @@ def init_phases(arena: "Arena") -> None:
         position_ledger=arena.position_ledger,
         recorder=arena.recorder,
         hooks=arena.hooks,
+        calibration_tracker=arena.calibration_tracker,
         build_proposal_prompt=arena._build_proposal_prompt,
         generate_with_agent=arena.autonomic.generate,
         with_timeout=arena.autonomic.with_timeout,

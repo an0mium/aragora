@@ -201,6 +201,131 @@ class TestVotingAccuracyTracking:
             assert stats["accuracy"] == 1.0
 
 
+class TestCalibrationToProposals:
+    """Test calibration → proposal confidence scaling."""
+
+    def test_proposal_phase_has_calibration_tracker(self):
+        """ProposalPhase accepts calibration_tracker parameter."""
+        from aragora.debate.phases.proposal_phase import ProposalPhase
+
+        tracker = MagicMock()
+        phase = ProposalPhase(calibration_tracker=tracker)
+        assert phase.calibration_tracker is tracker
+
+    def test_get_calibrated_confidence_without_tracker(self):
+        """Returns raw confidence when no tracker available."""
+        from aragora.debate.phases.proposal_phase import ProposalPhase
+
+        phase = ProposalPhase()
+        ctx = MagicMock()
+
+        result = phase._get_calibrated_confidence("test_agent", 0.7, ctx)
+        assert result == 0.7
+
+    def test_get_calibrated_confidence_with_tracker(self):
+        """Applies calibration when tracker available."""
+        from aragora.debate.phases.proposal_phase import ProposalPhase
+
+        # Create mock calibration summary with enough predictions
+        summary = MagicMock()
+        summary.total_predictions = 50
+        summary.adjust_confidence.return_value = 0.55  # Scaled down (overconfident agent)
+
+        tracker = MagicMock()
+        tracker.get_calibration_summary.return_value = summary
+
+        phase = ProposalPhase(calibration_tracker=tracker)
+        ctx = MagicMock()
+        ctx.domain = "testing"
+
+        result = phase._get_calibrated_confidence("test_agent", 0.7, ctx)
+        assert result == 0.55
+        summary.adjust_confidence.assert_called_once_with(0.7, domain="testing")
+
+    def test_calibration_skipped_with_insufficient_data(self):
+        """Skips calibration when insufficient prediction history."""
+        from aragora.debate.phases.proposal_phase import ProposalPhase
+
+        # Summary with too few predictions
+        summary = MagicMock()
+        summary.total_predictions = 5  # Less than 10 threshold
+        summary.adjust_confidence.return_value = 0.55
+
+        tracker = MagicMock()
+        tracker.get_calibration_summary.return_value = summary
+
+        phase = ProposalPhase(calibration_tracker=tracker)
+        ctx = MagicMock()
+
+        result = phase._get_calibrated_confidence("test_agent", 0.7, ctx)
+        assert result == 0.7  # Returns raw, doesn't call adjust
+        summary.adjust_confidence.assert_not_called()
+
+
+class TestLearningEfficiency:
+    """Test debate outcomes → learning efficiency tracking."""
+
+    def test_elo_system_has_learning_efficiency_methods(self):
+        """EloSystem has learning efficiency tracking methods."""
+        import tempfile
+        from aragora.ranking.elo import EloSystem
+
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            elo = EloSystem(db_path=f.name)
+            assert hasattr(elo, "get_learning_efficiency")
+            assert hasattr(elo, "apply_learning_bonus")
+            assert callable(elo.get_learning_efficiency)
+            assert callable(elo.apply_learning_bonus)
+
+    def test_learning_efficiency_with_insufficient_data(self):
+        """Learning efficiency returns insufficient_data with few debates."""
+        import tempfile
+        from aragora.ranking.elo import EloSystem
+
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            elo = EloSystem(db_path=f.name)
+            efficiency = elo.get_learning_efficiency("new_agent")
+
+            assert efficiency["learning_category"] == "insufficient_data"
+            assert efficiency["has_meaningful_data"] is False
+            assert efficiency["elo_gain_rate"] == 0.0
+
+    def test_learning_efficiency_computation(self):
+        """Learning efficiency computes metrics from ELO history."""
+        import tempfile
+        from aragora.ranking.elo import EloSystem
+
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            elo = EloSystem(db_path=f.name)
+
+            # Simulate improving agent by recording multiple matches
+            for i in range(6):
+                participants = ["improving_agent", f"opponent_{i}"]
+                elo.record_match(
+                    debate_id=f"debate_{i}",
+                    winner="improving_agent",
+                    participants=participants,
+                    domain="testing",
+                    scores={"improving_agent": 0.8, f"opponent_{i}": 0.2},
+                )
+
+            efficiency = elo.get_learning_efficiency("improving_agent", domain="testing")
+
+            assert "elo_gain_rate" in efficiency
+            assert "consistency_score" in efficiency
+            assert "learning_category" in efficiency
+            # Should have positive gain rate after consistent wins
+            assert efficiency["elo_gain_rate"] >= 0
+
+    def test_feedback_phase_applies_learning_bonuses(self):
+        """FeedbackPhase has learning bonus method."""
+        from aragora.debate.phases.feedback_phase import FeedbackPhase
+
+        phase = FeedbackPhase(elo_system=MagicMock())
+        assert hasattr(phase, "_apply_learning_bonuses")
+        assert callable(phase._apply_learning_bonuses)
+
+
 class TestKnowledgeMoundThreshold:
     """Test knowledge mound confidence threshold."""
 

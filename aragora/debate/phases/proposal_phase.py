@@ -50,6 +50,8 @@ class ProposalPhase:
         position_ledger: Any = None,
         recorder: Any = None,
         hooks: Optional[dict] = None,
+        # Calibration for proposal confidence scaling
+        calibration_tracker: Any = None,
         # Callbacks for orchestrator methods
         build_proposal_prompt: Optional[Callable] = None,
         generate_with_agent: Optional[Callable] = None,
@@ -68,6 +70,7 @@ class ProposalPhase:
             position_ledger: Optional PositionLedger for grounded personas
             recorder: Optional ReplayRecorder
             hooks: Optional hooks dict for events
+            calibration_tracker: Optional CalibrationTracker for confidence scaling
             build_proposal_prompt: Callback to build proposal prompt
             generate_with_agent: Async callback to generate with agent
             with_timeout: Async callback for timeout wrapper
@@ -81,6 +84,7 @@ class ProposalPhase:
         self.position_ledger = position_ledger
         self.recorder = recorder
         self.hooks = hooks or {}
+        self.calibration_tracker = calibration_tracker
 
         # Callbacks
         self._build_proposal_prompt = build_proposal_prompt
@@ -295,6 +299,12 @@ class ProposalPhase:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
 
+        # Base proposal confidence (default heuristic)
+        raw_confidence = 0.7
+
+        # Apply calibration scaling if available
+        calibrated_confidence = self._get_calibrated_confidence(agent.name, raw_confidence, ctx)
+
         # Legacy position tracker
         if self.position_tracker:
             try:
@@ -304,14 +314,50 @@ class ProposalPhase:
                     position_type="proposal",
                     position_text=proposal[:1000],
                     round_num=0,
-                    confidence=0.7,
+                    confidence=calibrated_confidence,
                 )
             except Exception as e:
                 logger.debug(f"Position tracking error: {e}")
 
         # New grounded position system
         if self._record_grounded_position:
-            self._record_grounded_position(agent.name, proposal, debate_id, 0, 0.7)
+            self._record_grounded_position(agent.name, proposal, debate_id, 0, calibrated_confidence)
+
+    def _get_calibrated_confidence(
+        self, agent_name: str, raw_confidence: float, ctx: "DebateContextType"
+    ) -> float:
+        """Apply calibration scaling to confidence value.
+
+        Uses temperature scaling from CalibrationTracker if available and agent
+        has sufficient prediction history.
+
+        Args:
+            agent_name: Name of the agent
+            raw_confidence: Raw confidence value (0-1)
+            ctx: Debate context for domain information
+
+        Returns:
+            Calibrated confidence, or raw confidence if calibration unavailable
+        """
+        if not self.calibration_tracker:
+            return raw_confidence
+
+        try:
+            domain = getattr(ctx, "domain", None) or "general"
+            summary = self.calibration_tracker.get_calibration_summary(agent_name)
+
+            if summary and summary.total_predictions >= 10:
+                calibrated = summary.adjust_confidence(raw_confidence, domain=domain)
+                if calibrated != raw_confidence:
+                    logger.debug(
+                        f"[calibration] {agent_name} proposal confidence: "
+                        f"{raw_confidence:.2f} -> {calibrated:.2f}"
+                    )
+                return calibrated
+        except Exception as e:
+            logger.debug(f"[calibration] Failed for {agent_name}: {e}")
+
+        return raw_confidence
 
     def _emit_message_event(self, agent: "AgentType", content: str) -> None:
         """Emit on_message hook event."""
