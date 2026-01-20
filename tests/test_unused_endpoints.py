@@ -110,7 +110,7 @@ class TestDebateBatchEndpoints:
 
     def test_debates_batch_mixin_exists(self):
         """Verify debates batch functionality exists as a mixin."""
-        from aragora.server.handlers.debates_batch import BatchOperationsMixin
+        from aragora.server.handlers.debates.batch import BatchOperationsMixin
 
         assert BatchOperationsMixin is not None
 
@@ -439,7 +439,7 @@ class TestVerificationEndpoints:
 
     def test_formal_verification_handler_exists(self):
         """Verify FormalVerificationHandler can be imported."""
-        from aragora.server.handlers.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import FormalVerificationHandler
 
         assert FormalVerificationHandler is not None
 
