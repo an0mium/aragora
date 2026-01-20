@@ -47,3 +47,25 @@ data:
   JWT_ALGORITHM: "HS256"
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
   JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
+
+  # Observability - Metrics and Tracing
+  METRICS_ENABLED: "true"
+  TRACING_ENABLED: "true"
+  DECISION_METRICS_ENABLED: "true"
+
+  # OpenTelemetry configuration
+  OTEL_SERVICE_NAME: "aragora"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "prometheus"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability:4317"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_RESOURCE_ATTRIBUTES: "service.namespace=aragora,deployment.environment=production"
+
+  # Decision Router Configuration
+  DECISION_CACHE_ENABLED: "true"
+  DECISION_CACHE_TTL: "3600"
+  DECISION_DEDUP_ENABLED: "true"
+  DECISION_DEDUP_TIMEOUT: "60"
+
+  # Prometheus metrics endpoint
+  PROMETHEUS_MULTIPROC_DIR: "/tmp/prometheus_multiproc"

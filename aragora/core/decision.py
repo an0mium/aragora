@@ -782,9 +782,10 @@ class DecisionRouter:
         Returns:
             DecisionResult with the outcome
         """
-        # Initialize tracing and caching if available
+        # Initialize tracing, caching, and metrics if available
         _import_tracing()
         _import_cache()
+        _import_metrics()
 
         logger.info(
             f"Routing decision request {request.request_id} "
@@ -793,13 +794,36 @@ class DecisionRouter:
 
         start_time = datetime.utcnow()
 
+        # Record incoming request metric
+        if _record_decision_request:
+            _record_decision_request(
+                decision_type=request.decision_type.value,
+                source=request.source.value,
+                priority=request.priority.value if request.priority else "normal",
+            )
+
         # Check cache first
         cache_hit = False
+        dedup_hit = False
         if self._enable_caching and _decision_cache:
             cached_result = await _decision_cache.get(request)
             if cached_result:
                 logger.info(f"Cache hit for request {request.request_id}")
                 cache_hit = True
+                # Record cache hit metric
+                if _record_decision_cache_hit:
+                    _record_decision_cache_hit(request.decision_type.value)
+                # Record result metric for cached response
+                if _record_decision_result:
+                    _record_decision_result(
+                        decision_type=request.decision_type.value,
+                        source=request.source.value,
+                        success=cached_result.success,
+                        confidence=cached_result.confidence,
+                        duration_seconds=0.001,  # Near-instant for cache hit
+                        consensus_reached=cached_result.consensus_reached,
+                        cache_hit=True,
+                    )
                 # Still deliver responses for cached results
                 await self._deliver_responses(request, cached_result)
                 return cached_result
@@ -810,6 +834,21 @@ class DecisionRouter:
                 logger.info(f"Waiting for in-flight request {request.request_id}")
                 dedup_result = await _decision_cache.wait_for_result(request)
                 if dedup_result:
+                    dedup_hit = True
+                    # Record dedup hit metric
+                    if _record_decision_dedup_hit:
+                        _record_decision_dedup_hit(request.decision_type.value)
+                    # Record result metric for dedup response
+                    if _record_decision_result:
+                        _record_decision_result(
+                            decision_type=request.decision_type.value,
+                            source=request.source.value,
+                            success=dedup_result.success,
+                            confidence=dedup_result.confidence,
+                            duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
+                            consensus_reached=dedup_result.consensus_reached,
+                            dedup_hit=True,
+                        )
                     await self._deliver_responses(request, dedup_result)
                     return dedup_result
 
@@ -859,6 +898,21 @@ class DecisionRouter:
                 span.set_attribute("decision.consensus_reached", result.consensus_reached)
                 span.set_attribute("decision.success", result.success)
 
+            # Record successful result metric
+            if _record_decision_result:
+                agent_count = len(request.config.agents) if request.config.agents else 0
+                _record_decision_result(
+                    decision_type=request.decision_type.value,
+                    source=request.source.value,
+                    success=result.success,
+                    confidence=result.confidence,
+                    duration_seconds=result.duration_seconds,
+                    consensus_reached=result.consensus_reached,
+                    cache_hit=False,
+                    dedup_hit=False,
+                    agent_count=agent_count,
+                )
+
             # Cache the result
             if self._enable_caching and _decision_cache and result.success:
                 await _decision_cache.set(request, result, ttl_seconds=self._cache_ttl_seconds)
@@ -881,6 +935,27 @@ class DecisionRouter:
                 except Exception:
                     pass
 
+            error_duration = (datetime.utcnow() - start_time).total_seconds()
+
+            # Record error metrics
+            error_type = type(e).__name__
+            if _record_decision_error:
+                _record_decision_error(
+                    decision_type=request.decision_type.value,
+                    error_type=error_type,
+                )
+
+            if _record_decision_result:
+                _record_decision_result(
+                    decision_type=request.decision_type.value,
+                    source=request.source.value,
+                    success=False,
+                    confidence=0.0,
+                    duration_seconds=error_duration,
+                    consensus_reached=False,
+                    error_type=error_type,
+                )
+
             error_result = DecisionResult(
                 request_id=request.request_id,
                 decision_type=request.decision_type,
@@ -889,7 +964,7 @@ class DecisionRouter:
                 consensus_reached=False,
                 success=False,
                 error=str(e),
-                duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
+                duration_seconds=error_duration,
             )
 
             # Complete in-flight with error

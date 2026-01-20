@@ -1187,3 +1187,66 @@ def record_round_latency(latency_seconds: float) -> None:
     """
     _init_metrics()
     DEBATE_ROUND_LATENCY.observe(latency_seconds)
+
+
+# =============================================================================
+# New Feature Metrics (TTS, Convergence, Vote Bonuses)
+# =============================================================================
+
+
+def record_tts_synthesis(voice: str, platform: str = "unknown") -> None:
+    """Record a TTS synthesis operation.
+
+    Args:
+        voice: Voice type used (e.g., narrator, moderator, analyst)
+        platform: Chat platform (telegram, whatsapp, web)
+    """
+    _init_metrics()
+    TTS_SYNTHESIS_TOTAL.labels(voice=voice, platform=platform).inc()
+
+
+def record_tts_latency(latency_seconds: float) -> None:
+    """Record TTS synthesis latency.
+
+    Args:
+        latency_seconds: Synthesis duration in seconds
+    """
+    _init_metrics()
+    TTS_SYNTHESIS_LATENCY.observe(latency_seconds)
+
+
+def record_convergence_check(status: str, blocked: bool = False) -> None:
+    """Record a convergence check event.
+
+    Args:
+        status: Convergence status (converged, diverged, partial)
+        blocked: Whether convergence was blocked by trickster
+    """
+    _init_metrics()
+    CONVERGENCE_CHECKS_TOTAL.labels(status=status, blocked=str(blocked)).inc()
+
+
+def record_evidence_citation_bonus(agent: str) -> None:
+    """Record an evidence citation vote bonus.
+
+    Args:
+        agent: Agent name that received the bonus
+    """
+    _init_metrics()
+    EVIDENCE_CITATION_BONUSES.labels(agent=agent).inc()
+
+
+def record_process_evaluation_bonus(agent: str) -> None:
+    """Record a process evaluation vote bonus.
+
+    Args:
+        agent: Agent name that received the bonus
+    """
+    _init_metrics()
+    PROCESS_EVALUATION_BONUSES.labels(agent=agent).inc()
+
+
+def record_rlm_ready_quorum() -> None:
+    """Record an RLM ready signal quorum event."""
+    _init_metrics()
+    RLM_READY_QUORUM_EVENTS.inc()

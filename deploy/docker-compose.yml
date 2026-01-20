@@ -37,9 +37,17 @@ services:
     environment:
       # Redis URL (can be overridden in .env)
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Observability
+      - METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - TRACING_ENABLED=${TRACING_ENABLED:-true}
+      - DECISION_METRICS_ENABLED=${DECISION_METRICS_ENABLED:-true}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-aragora}
+      # Decision router
+      - DECISION_CACHE_ENABLED=${DECISION_CACHE_ENABLED:-true}
+      - DECISION_DEDUP_ENABLED=${DECISION_DEDUP_ENABLED:-true}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2/health"]
       interval: 30s
       timeout: 10s
       retries: 3

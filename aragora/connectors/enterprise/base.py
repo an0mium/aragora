@@ -17,10 +17,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Protocol
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
+
+if TYPE_CHECKING:
+    from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -162,20 +165,33 @@ class SyncResult:
         }
 
 
-class CredentialProvider(Protocol):
-    """Protocol for credential providers."""
+# Import credential providers from dedicated module
+try:
+    from aragora.connectors.credentials import (
+        CredentialProvider,
+        get_credential_provider,
+    )
+except ImportError:
+    # Fallback for backwards compatibility
+    from typing import Protocol as CredentialProtocol
 
-    async def get_credential(self, key: str) -> Optional[str]:
-        """Get a credential by key."""
-        ...
+    class CredentialProvider(CredentialProtocol):  # type: ignore
+        """Protocol for credential providers."""
 
-    async def set_credential(self, key: str, value: str) -> None:
-        """Set a credential."""
-        ...
+        async def get_credential(self, key: str) -> Optional[str]:
+            """Get a credential by key."""
+            ...
+
+        async def set_credential(self, key: str, value: str) -> None:
+            """Set a credential."""
+            ...
+
+    def get_credential_provider(**kwargs) -> "EnvCredentialProvider":
+        return EnvCredentialProvider()
 
 
 class EnvCredentialProvider:
-    """Credential provider using environment variables."""
+    """Credential provider using environment variables (backwards compatibility)."""
 
     def __init__(self, prefix: str = "ARAGORA_"):
         self.prefix = prefix
@@ -234,6 +250,8 @@ class EnterpriseConnector(BaseConnector):
     - Knowledge Mound ingestion
     - Multi-tenant isolation
     - Webhook support for real-time sync
+    - Circuit breaker protection for API calls
+    - OAuth token refresh handling
 
     Subclasses must implement:
     - source_type: The SourceType for this connector
@@ -243,19 +261,39 @@ class EnterpriseConnector(BaseConnector):
     - fetch(): Fetch specific evidence (inherited from BaseConnector)
     """
 
+    # Circuit breaker configuration
+    DEFAULT_CIRCUIT_BREAKER_FAILURES = 5
+    DEFAULT_CIRCUIT_BREAKER_COOLDOWN = 60.0  # seconds
+
     def __init__(
         self,
         connector_id: str,
         tenant_id: str = "default",
         credentials: Optional[CredentialProvider] = None,
         state_dir: Optional[Path] = None,
+        enable_circuit_breaker: bool = True,
+        circuit_breaker_failures: int = DEFAULT_CIRCUIT_BREAKER_FAILURES,
+        circuit_breaker_cooldown: float = DEFAULT_CIRCUIT_BREAKER_COOLDOWN,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.connector_id = connector_id
         self.tenant_id = tenant_id
-        self.credentials = credentials or EnvCredentialProvider()
+        # Use factory function for flexible credential provider auto-detection
+        self.credentials = credentials or get_credential_provider()
         self.state_dir = state_dir or Path.home() / ".aragora" / "sync_state"
+
+        # Circuit breaker
+        self._enable_circuit_breaker = enable_circuit_breaker
+        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        if enable_circuit_breaker:
+            from aragora.resilience import get_circuit_breaker
+
+            self._circuit_breaker = get_circuit_breaker(
+                name=f"connector_{connector_id}_{tenant_id}",
+                failure_threshold=circuit_breaker_failures,
+                cooldown_seconds=circuit_breaker_cooldown,
+            )
 
         # Sync state
         self._state: Optional[SyncState] = None
@@ -286,6 +324,79 @@ class EnterpriseConnector(BaseConnector):
         """Persist sync state."""
         if self._state:
             self._state.save(self.state_path)
+
+    def check_circuit_breaker(self) -> bool:
+        """
+        Check if API requests are allowed by the circuit breaker.
+
+        Returns:
+            True if requests are allowed, False if circuit is open
+        """
+        if self._circuit_breaker is None:
+            return True
+        return self._circuit_breaker.can_proceed()
+
+    def record_success(self) -> None:
+        """Record a successful API call for circuit breaker."""
+        if self._circuit_breaker is not None:
+            self._circuit_breaker.record_success()
+
+    def record_failure(self) -> None:
+        """Record a failed API call for circuit breaker."""
+        if self._circuit_breaker is not None:
+            self._circuit_breaker.record_failure()
+
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get current circuit breaker status."""
+        if self._circuit_breaker is None:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "status": self._circuit_breaker.get_status(),
+            "failures": self._circuit_breaker.failures,
+            "failure_threshold": self._circuit_breaker.failure_threshold,
+            "cooldown_seconds": self._circuit_breaker.cooldown_seconds,
+        }
+
+    async def execute_with_circuit_breaker(
+        self,
+        request_func: Callable[[], Any],
+        operation: str = "request",
+    ) -> Any:
+        """
+        Execute a request with circuit breaker protection.
+
+        Combines circuit breaker checks with the retry logic from BaseConnector.
+
+        Args:
+            request_func: Async callable to execute
+            operation: Description for logging
+
+        Returns:
+            Result from request_func
+
+        Raises:
+            ConnectorAPIError: If circuit is open or request fails
+        """
+        from aragora.connectors.exceptions import ConnectorAPIError
+
+        # Check circuit breaker first
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectorAPIError(
+                f"Circuit breaker open for {self.connector_id}. "
+                f"Cooldown: {cb_status.get('cooldown_seconds', 60)}s",
+                connector_name=self.name,
+            )
+
+        try:
+            # Use base class retry logic
+            result = await self._request_with_retry(request_func, operation)
+            self.record_success()
+            return result
+        except Exception as e:
+            self.record_failure()
+            raise
 
     @abstractmethod
     async def sync_items(

@@ -40,9 +40,9 @@ RUN mkdir -p /app/data /app/.nomic /app/logs && \
 # Switch to non-root user
 USER aragora
 
-# Health check
+# Health check using v2 health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/api/health || exit 1
+    CMD curl -f http://localhost:8080/api/v2/health || exit 1
 
 # Expose ports
 # 8080: HTTP API server

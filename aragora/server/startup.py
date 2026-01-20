@@ -331,7 +331,10 @@ async def init_km_adapters() -> bool:
     """Initialize Knowledge Mound adapters from persisted state.
 
     Loads expertise profiles and compression patterns from KM to restore
-    cross-debate learning state.
+    cross-debate learning state. Also initializes:
+    - AdapterFactory for auto-creating adapters from subsystems
+    - WebSocket bridge for real-time KM event streaming
+    - Global metrics for observability
 
     Returns:
         True if adapters were initialized, False otherwise
@@ -356,6 +359,25 @@ async def init_km_adapters() -> bool:
         # For now, adapters start fresh and accumulate state during debates
 
         logger.info("KM adapters initialized for cross-debate learning")
+
+        # Initialize global KM metrics
+        try:
+            from aragora.knowledge.mound.metrics import KMMetrics, set_metrics
+
+            set_metrics(KMMetrics())
+            logger.debug("KM global metrics initialized")
+        except ImportError:
+            pass
+
+        # Initialize WebSocket bridge for KM events
+        try:
+            from aragora.knowledge.mound.websocket_bridge import create_km_bridge
+
+            bridge = create_km_bridge()
+            logger.debug("KM WebSocket bridge initialized")
+        except ImportError:
+            pass
+
         return True
 
     except ImportError as e:

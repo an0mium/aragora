@@ -82,14 +82,27 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ARAGORA_NOMIC_DIR=/app/.nomic \
     ARAGORA_LOG_FORMAT=json \
-    ARAGORA_LOG_LEVEL=INFO
+    ARAGORA_LOG_LEVEL=INFO \
+    # Metrics and observability
+    METRICS_ENABLED=true \
+    TRACING_ENABLED=true \
+    DECISION_METRICS_ENABLED=true \
+    # OpenTelemetry defaults (override via env)
+    OTEL_SERVICE_NAME=aragora \
+    OTEL_TRACES_EXPORTER=otlp \
+    OTEL_METRICS_EXPORTER=prometheus \
+    OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317 \
+    # Decision router settings
+    DECISION_CACHE_ENABLED=true \
+    DECISION_CACHE_TTL=3600 \
+    DECISION_DEDUP_ENABLED=true
 
-# Expose ports (HTTP API and WebSocket)
-EXPOSE 8080 8765
+# Expose ports (HTTP API, WebSocket, Prometheus metrics)
+EXPOSE 8080 8765 9090
 
-# Health check using the health endpoint
+# Health check using the v2 health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/api/health || exit 1
+    CMD curl -f http://localhost:8080/api/v2/health || exit 1
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="Aragora" \
@@ -118,6 +131,6 @@ USER aragora
 
 # Override health check for faster dev iteration
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=2 \
-    CMD curl -f http://localhost:8080/api/health || exit 1
+    CMD curl -f http://localhost:8080/api/v2/health || exit 1
 
 CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]
