@@ -533,3 +533,99 @@ class TestMetricsEndpoint:
         """Should return 503 when coordinator not initialized."""
         result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
         assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test RBAC Permission Enforcement
+# ===========================================================================
+
+
+@pytest.fixture
+def mock_member_user():
+    """Create a mock member user (without admin permissions)."""
+    mock_user = MagicMock()
+    mock_user.user_id = "user-member"
+    mock_user.role = "member"
+    return mock_user
+
+
+class TestRBACPermissionDenied:
+    """Tests for RBAC permission enforcement - users without correct role should get 403."""
+
+    def test_register_agent_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+        """Member users should not be able to register agents."""
+        mock_http_handler.command = "POST"
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
+                ):
+                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+
+        assert get_status(result) == 403
+        assert "controlplane:agents" in get_body(result)["error"]
+
+    def test_submit_task_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+        """Member users should not be able to submit tasks."""
+        mock_http_handler.command = "POST"
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"task_type": "debate", "payload": {}}, None),
+                ):
+                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+
+        assert get_status(result) == 403
+        assert "controlplane:tasks" in get_body(result)["error"]
+
+    def test_unregister_agent_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+        """Member users should not be able to unregister agents."""
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                )
+
+        assert get_status(result) == 403
+        assert "controlplane:agents" in get_body(result)["error"]
+
+    def test_user_without_role_denied(self, handler, mock_http_handler, mock_coordinator):
+        """Users without a role attribute should be denied."""
+        mock_http_handler.command = "POST"
+        mock_user_no_role = MagicMock(spec=["user_id"])  # No role attribute
+        mock_user_no_role.user_id = "user-no-role"
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_user_no_role, None)):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"agent_id": "agent-1"}, None),
+                ):
+                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+
+        assert get_status(result) == 403
+
+    def test_owner_role_allowed(self, handler, mock_http_handler, mock_coordinator):
+        """Owner role should have access to all operations."""
+        mock_http_handler.command = "POST"
+        mock_owner = MagicMock()
+        mock_owner.user_id = "user-owner"
+        mock_owner.role = "owner"
+
+        with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
+            with patch.object(handler, "require_auth_or_error", return_value=(mock_owner, None)):
+                with patch.object(
+                    handler,
+                    "read_json_body_validated",
+                    return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
+                ):
+                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+
+        assert get_status(result) == 201  # Success - owner is allowed

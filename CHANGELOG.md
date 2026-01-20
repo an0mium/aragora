@@ -40,6 +40,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **ELO System Tests** - Fixed tests to properly persist ratings to database
+- **Metrics Package Import** - Fixed missing submodules in metrics package refactoring:
+  - Created `aragora/observability/metrics/bridge.py` for cross-pollination metrics
+  - Created `aragora/observability/metrics/km.py` for Knowledge Mound metrics
+  - Created `aragora/observability/metrics/notification.py` for notification metrics
+  - Added backward compatibility shims for `_init_metrics` and `_init_noop_metrics`
+- **Workflow Templates Schema** - Removed pattern templates from `WORKFLOW_TEMPLATES` registry
+  as they use a different schema (factory patterns vs fixed step workflows)
+
+### Changed
+
+- **Belief Module Refactoring** - Reduced `belief.py` (1,593 → 1,001 lines):
+  - Extracted `CruxDetector`, `CruxClaim`, `CruxAnalysisResult` to `crux_detector.py`
+  - Extracted `BeliefPropagationAnalyzer` to `crux_detector.py`
+  - Backward compatible re-exports maintained
 
 ### Documentation
 

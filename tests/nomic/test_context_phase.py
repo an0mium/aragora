@@ -68,16 +68,14 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
-                mock_claude.return_value = ("Claude found modules", 1.5)
-                mock_codex.return_value = ("Codex found handlers", 1.2)
+        with patch.object(phase, "_gather_with_agent", new_callable=AsyncMock) as mock_gather:
+            # Return format: (name, harness, content)
+            mock_gather.return_value = ("claude", "Claude Code", "Found modules")
 
-                result = await phase.run()
+            result = await phase.execute()
 
-                assert isinstance(result, ContextResult)
-                mock_claude.assert_called_once()
-                mock_codex.assert_called_once()
+            assert isinstance(result, dict)  # ContextResult is a TypedDict
+            assert "codebase_summary" in result
 
     @pytest.mark.asyncio
     async def test_run_handles_agent_timeout(
@@ -91,14 +89,12 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
-                mock_claude.side_effect = asyncio.TimeoutError("Agent timeout")
-                mock_codex.return_value = ("Codex found handlers", 1.2)
+        with patch.object(phase, "_gather_with_agent", new_callable=AsyncMock) as mock_gather:
+            mock_gather.side_effect = asyncio.TimeoutError("Agent timeout")
 
-                # Should not raise, should handle gracefully
-                result = await phase.run()
-                assert result is not None
+            # Should not raise, should handle gracefully
+            result = await phase.execute()
+            assert result is not None
 
     @pytest.mark.asyncio
     async def test_run_uses_fallback_on_empty_context(
@@ -113,15 +109,14 @@ class TestContextPhaseExecution:
             get_features_fn=lambda: "Fallback features list",
         )
 
-        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
-                mock_claude.return_value = (None, 0)
-                mock_codex.return_value = (None, 0)
+        with patch.object(phase, "_gather_with_agent", new_callable=AsyncMock) as mock_gather:
+            # Return error content to trigger fallback
+            mock_gather.return_value = ("claude", "Claude Code", "Error: timeout")
 
-                result = await phase.run()
+            result = await phase.execute()
 
-                # Should still return a result using fallback
-                assert result is not None
+            # Should still return a result using fallback
+            assert result is not None
 
 
 class TestContextPhaseMetrics:
@@ -148,12 +143,11 @@ class TestContextPhaseMetrics:
             log_fn=mock_log_fn,
         )
 
-        with patch.object(phase, "_gather_claude_context", new_callable=AsyncMock) as mock_claude:
-            with patch.object(phase, "_gather_codex_context", new_callable=AsyncMock) as mock_codex:
-                mock_claude.return_value = ("Context", 1.0)
-                mock_codex.return_value = ("Context", 1.0)
+        with patch.object(phase, "_gather_with_agent", new_callable=AsyncMock) as mock_gather:
+            # Return format: (name, harness, content)
+            mock_gather.return_value = ("claude", "Claude Code", "Context gathered")
 
-                await phase.run()
+            await phase.execute()
 
         # Reset metrics recorder
         set_metrics_recorder(None, None)
@@ -164,31 +158,34 @@ class TestContextPhaseMetrics:
 
 
 class TestContextResult:
-    """Tests for ContextResult dataclass."""
+    """Tests for ContextResult TypedDict."""
 
     def test_context_result_creation(self):
         """Should create ContextResult with expected fields."""
         result = ContextResult(
-            claude_context="Claude found modules",
-            codex_context="Codex found handlers",
-            combined_context="Combined: modules and handlers",
-            elapsed_seconds=2.5,
+            success=True,
+            data={"agents_succeeded": 2},
+            codebase_summary="Combined: modules and handlers",
+            recent_changes="",
+            open_issues=[],
+            duration_seconds=2.5,
         )
 
-        assert result.claude_context == "Claude found modules"
-        assert result.codex_context == "Codex found handlers"
-        assert result.combined_context == "Combined: modules and handlers"
-        assert result.elapsed_seconds == 2.5
+        assert result["success"] is True
+        assert result["codebase_summary"] == "Combined: modules and handlers"
+        assert result["recent_changes"] == ""
+        assert result["duration_seconds"] == 2.5
 
     def test_context_result_with_empty_values(self):
         """Should allow empty context values."""
         result = ContextResult(
-            claude_context=None,
-            codex_context=None,
-            combined_context="Fallback context",
-            elapsed_seconds=0.1,
+            success=True,
+            data={},
+            codebase_summary="Fallback context",
+            recent_changes="",
+            open_issues=[],
+            duration_seconds=0.1,
         )
 
-        assert result.claude_context is None
-        assert result.codex_context is None
-        assert result.combined_context == "Fallback context"
+        assert result["codebase_summary"] == "Fallback context"
+        assert result["open_issues"] == []

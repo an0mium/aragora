@@ -416,6 +416,124 @@ await adapter.sync()  # Sync critique patterns to mound
 
 ---
 
+## Bidirectional Adapter Integration
+
+The Knowledge Mound supports bidirectional integration with all major subsystems through specialized adapters. These adapters enable:
+
+- **Data Flow IN**: Subsystems automatically sync relevant data to KM
+- **Data Flow OUT**: Subsystems query KM for existing knowledge before creating new data
+- **WebSocket Events**: Real-time dashboard updates when data syncs to KM
+
+### Available Adapters
+
+| Adapter | Subsystem | Data Flow IN | Data Flow OUT |
+|---------|-----------|--------------|---------------|
+| `EvidenceAdapter` | Evidence Store | Evidence snippets with reliability >= 0.6 | Similar evidence for deduplication |
+| `BeliefAdapter` | Belief Network | Converged beliefs with confidence >= 0.8, Cruxes | Related beliefs, historical cruxes |
+| `InsightsAdapter` | Insight Store, Flip Detector | Insights, Flip events | Similar patterns |
+| `EloAdapter` | ELO System, Team Selector | Agent ratings, match history | Skill history, domain expertise |
+| `PulseAdapter` | Pulse Scheduler | Trending topics, debate outcomes | Past debates on topic |
+| `CostAdapter` | Cost Tracker | Budget alerts, cost anomalies | Cost patterns, alert history |
+
+### Automatic Wiring
+
+When handlers are initialized, KM adapters are automatically wired:
+
+```python
+# Evidence handler creates adapter with bidirectional sync
+from aragora.server.handlers.features.evidence import EvidenceHandler
+
+handler = EvidenceHandler(server_context)
+# Adapter is lazily created with dual-write enabled
+adapter = handler._get_km_adapter()  # Returns EvidenceAdapter
+```
+
+### Using Adapters Directly
+
+```python
+from aragora.knowledge.mound.adapters import (
+    EvidenceAdapter,
+    BeliefAdapter,
+    InsightsAdapter,
+    EloAdapter,
+    PulseAdapter,
+    CostAdapter,
+)
+
+# Evidence adapter for deduplication
+evidence_adapter = EvidenceAdapter(store=evidence_store, enable_dual_write=True)
+
+# Query KM for existing evidence before collecting new
+existing = evidence_adapter.search_by_topic("AI safety", limit=10)
+if not existing:
+    # Collect new evidence - will sync to KM automatically
+    new_evidence = await collector.collect_evidence("AI safety")
+
+# Belief adapter for crux tracking
+belief_adapter = BeliefAdapter(enable_dual_write=True)
+network = BeliefNetwork(debate_id="debate_123", km_adapter=belief_adapter)
+
+# After propagation, high-confidence beliefs sync to KM
+result = network.propagate()
+
+# Query historical cruxes for similar topics
+historical_cruxes = network.query_km_historical_cruxes("consciousness")
+```
+
+### WebSocket Events
+
+When data syncs to KM, events are emitted for real-time dashboard updates:
+
+| Event Type | Trigger | Data |
+|------------|---------|------|
+| `KNOWLEDGE_INDEXED` | New content stored in KM | `{node_id, source, content_preview}` |
+| `BELIEF_CONVERGED` | Belief network convergence | `{debate_id, converged_count, avg_confidence}` |
+| `CRUX_DETECTED` | Crux claim identified | `{debate_id, crux_id, statement, score}` |
+| `MOUND_UPDATED` | General KM update | `{update_type, item_count}` |
+
+### Event Callback Wiring
+
+```python
+from aragora.events.types import StreamEvent, StreamEventType
+
+def emit_km_event(event_type: str, data: dict) -> None:
+    stream_type_map = {
+        "knowledge_indexed": StreamEventType.KNOWLEDGE_INDEXED,
+        "belief_converged": StreamEventType.BELIEF_CONVERGED,
+        "crux_detected": StreamEventType.CRUX_DETECTED,
+    }
+    event = StreamEvent(type=stream_type_map.get(event_type), data=data)
+    event_emitter.emit(event)
+
+# Wire callback to adapter
+adapter.set_event_callback(emit_km_event)
+```
+
+### Configuration
+
+Enable/disable adapters in `MoundConfig`:
+
+```python
+config = MoundConfig(
+    # Adapter feature flags (all True by default)
+    enable_evidence_adapter=True,
+    enable_pulse_adapter=True,
+    enable_insights_adapter=True,
+    enable_elo_adapter=True,
+    enable_belief_adapter=True,
+    enable_cost_adapter=False,  # Opt-in for cost tracking
+
+    # Confidence thresholds for data flow IN
+    evidence_min_reliability=0.6,
+    pulse_min_quality=0.6,
+    insight_min_confidence=0.7,
+    crux_min_score=0.3,
+    belief_min_confidence=0.8,
+)
+```
+
+---
+
 ## Vertical Knowledge
 
 Domain-specific knowledge bases for vertical specialists.

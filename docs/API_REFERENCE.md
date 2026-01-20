@@ -22,7 +22,7 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Total Endpoints** | 316 | All API routes from 78+ handler modules |
+| **Total Endpoints** | 330 | All API routes from 79+ handler modules |
 | **Actively Used** | ~55 | Called from frontend components |
 | **Ready to Wire** | ~10 | High-value, not yet connected to frontend |
 | **Advanced/Analytics** | ~251 | Specialized features, plugins, analytics |
@@ -103,6 +103,19 @@ add or change endpoints, update both to keep tests and docs in sync.
 | `GET /api/gauntlet/receipts/:id/export` | Export receipt (JSON/HTML/MD/SARIF) | NEW |
 | `POST /api/gauntlet/receipts/:id/share` | Create shareable receipt link | NEW |
 | `GET /api/gauntlet/receipts/stats` | Get receipt statistics | NEW |
+| `POST /api/v1/explainability/batch` | Create batch explanation job | NEW |
+| `GET /api/v1/explainability/batch/:id/status` | Get batch job status | NEW |
+| `GET /api/v1/explainability/batch/:id/results` | Get batch job results | NEW |
+| `POST /api/v1/explainability/compare` | Compare explanations across debates | NEW |
+| `GET /api/marketplace/templates` | Browse template marketplace | NEW |
+| `GET /api/marketplace/templates/:id` | Get marketplace template details | NEW |
+| `POST /api/marketplace/templates` | Publish template to marketplace | NEW |
+| `POST /api/marketplace/templates/:id/rate` | Rate a template | NEW |
+| `POST /api/marketplace/templates/:id/review` | Review a template | NEW |
+| `POST /api/marketplace/templates/:id/import` | Import template to workspace | NEW |
+| `GET /api/marketplace/featured` | Get featured templates | NEW |
+| `GET /api/marketplace/trending` | Get trending templates | NEW |
+| `GET /api/marketplace/categories` | Get marketplace categories | NEW |
 
 ### New Endpoints (2026-01-18)
 
@@ -4657,6 +4670,149 @@ Authorization: Bearer <token>
   "confidence": 0.87,
   "format": "detailed",
   "word_count": 250
+}
+```
+
+### Batch Explainability
+
+Process multiple debates in a single request for efficiency.
+
+#### Create Batch Job
+
+```http
+POST /api/v1/explainability/batch
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "debate_ids": ["debate-1", "debate-2", "debate-3"],
+  "options": {
+    "include_evidence": true,
+    "include_counterfactuals": false,
+    "include_vote_pivots": false,
+    "format": "full"  // "full", "summary", or "minimal"
+  }
+}
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "batch_id": "batch-a1b2c3d4e5f6",
+  "status": "pending",
+  "total_debates": 3,
+  "status_url": "/api/v1/explainability/batch/batch-a1b2c3d4e5f6/status",
+  "results_url": "/api/v1/explainability/batch/batch-a1b2c3d4e5f6/results"
+}
+```
+
+#### Get Batch Status
+
+```http
+GET /api/v1/explainability/batch/{batch_id}/status
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "batch_id": "batch-a1b2c3d4e5f6",
+  "status": "processing",
+  "total_debates": 3,
+  "processed_count": 2,
+  "success_count": 2,
+  "error_count": 0,
+  "created_at": 1737356400.0,
+  "started_at": 1737356401.0,
+  "progress_pct": 66.7
+}
+```
+
+#### Get Batch Results
+
+```http
+GET /api/v1/explainability/batch/{batch_id}/results
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `include_partial` (boolean, default: false): Include results while still processing
+- `offset` (int, default: 0): Pagination offset
+- `limit` (int, default: 50, max: 100): Results per page
+
+**Response:**
+```json
+{
+  "batch_id": "batch-a1b2c3d4e5f6",
+  "status": "completed",
+  "total_debates": 3,
+  "processed_count": 3,
+  "success_count": 3,
+  "error_count": 0,
+  "results": [
+    {
+      "debate_id": "debate-1",
+      "status": "success",
+      "processing_time_ms": 125.4,
+      "explanation": {
+        "confidence": 0.87,
+        "consensus_reached": true,
+        "contributing_factors": [...]
+      }
+    }
+  ],
+  "pagination": {
+    "offset": 0,
+    "limit": 50,
+    "total": 3,
+    "has_more": false
+  }
+}
+```
+
+### Compare Explanations
+
+Compare decision factors across multiple debates.
+
+```http
+POST /api/v1/explainability/compare
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "debate_ids": ["debate-1", "debate-2"],
+  "compare_fields": ["confidence", "consensus_reached", "contributing_factors", "evidence_quality"]
+}
+```
+
+**Response:**
+```json
+{
+  "debates_compared": ["debate-1", "debate-2"],
+  "comparison": {
+    "confidence": {
+      "debate-1": 0.87,
+      "debate-2": 0.92
+    },
+    "confidence_stats": {
+      "min": 0.87,
+      "max": 0.92,
+      "avg": 0.895,
+      "spread": 0.05
+    },
+    "consensus_reached": {
+      "debate-1": true,
+      "debate-2": true
+    },
+    "consensus_agreement": true,
+    "contributing_factors": {
+      "evidence_quality": {
+        "debate-1": 0.35,
+        "debate-2": 0.42
+      }
+    },
+    "common_factors": ["evidence_quality", "argument_strength"]
+  }
 }
 ```
 

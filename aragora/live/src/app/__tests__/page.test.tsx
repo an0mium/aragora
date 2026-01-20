@@ -183,6 +183,50 @@ jest.mock('@/context/FeaturesContext', () => ({
   FeaturesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Mock LayoutContext
+jest.mock('@/context/LayoutContext', () => ({
+  LayoutProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useLayout: () => ({
+    leftSidebarOpen: false,
+    leftSidebarCollapsed: false,
+    openLeftSidebar: jest.fn(),
+    closeLeftSidebar: jest.fn(),
+    toggleLeftSidebar: jest.fn(),
+    setLeftSidebarCollapsed: jest.fn(),
+    rightSidebarOpen: false,
+    openRightSidebar: jest.fn(),
+    closeRightSidebar: jest.fn(),
+    toggleRightSidebar: jest.fn(),
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    leftSidebarWidth: 256,
+    rightSidebarWidth: 280,
+  }),
+}));
+
+// Mock RightSidebarContext
+const mockSetContext = jest.fn();
+const mockClearContext = jest.fn();
+jest.mock('@/context/RightSidebarContext', () => ({
+  RightSidebarProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useRightSidebar: () => ({
+    title: 'Context',
+    subtitle: undefined,
+    statsContent: null,
+    propertiesContent: null,
+    actionsContent: null,
+    activityContent: null,
+    setTitle: jest.fn(),
+    setStatsContent: jest.fn(),
+    setPropertiesContent: jest.fn(),
+    setActionsContent: jest.fn(),
+    setActivityContent: jest.fn(),
+    setContext: mockSetContext,
+    clearContext: mockClearContext,
+  }),
+}));
+
 // Mock FeatureGuard - render children by default
 jest.mock('@/components/FeatureGuard', () => ({
   FeatureGuard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -360,13 +404,14 @@ describe('Home Page', () => {
     });
 
     it('shows dashboard for returning users', async () => {
-      localStorageMock.setItem('aragora-has-visited', 'true');
+      // User must have explicitly set site-mode to 'dashboard' to see dashboard
+      localStorageMock.setItem('aragora-site-mode', 'dashboard');
       sessionStorageMock.setItem('aragora-boot-shown', 'true');
 
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
 
@@ -377,24 +422,28 @@ describe('Home Page', () => {
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
   });
 
   describe('boot sequence', () => {
-    it('shows boot sequence on first visit to dashboard', async () => {
+    // Note: Boot sequence is disabled by default for cleaner UX
+    // The component sets showBoot=false and skipBoot=true
+
+    it('does not show boot sequence by default (disabled for cleaner UX)', async () => {
       localStorageMock.setItem('aragora-site-mode', 'dashboard');
-      // Don't set boot-shown, so boot sequence should appear
 
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('boot-sequence')).toBeInTheDocument();
+        // Boot sequence is disabled by default, so it should not appear
+        expect(screen.queryByTestId('boot-sequence')).not.toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
 
-    it('skips boot sequence if already shown in session', async () => {
+    it('goes directly to dashboard view', async () => {
       localStorageMock.setItem('aragora-site-mode', 'dashboard');
       sessionStorageMock.setItem('aragora-boot-shown', 'true');
 
@@ -402,27 +451,7 @@ describe('Home Page', () => {
 
       await waitFor(() => {
         expect(screen.queryByTestId('boot-sequence')).not.toBeInTheDocument();
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
-      });
-    });
-
-    it('proceeds to dashboard after boot sequence completes', async () => {
-      const user = userEvent.setup();
-      localStorageMock.setItem('aragora-site-mode', 'dashboard');
-
-      render(<Home />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('boot-sequence')).toBeInTheDocument();
-      });
-
-      await act(async () => {
-        await user.click(screen.getByTestId('skip-boot'));
-      });
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('boot-sequence')).not.toBeInTheDocument();
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
   });
@@ -441,9 +470,9 @@ describe('Home Page', () => {
         await user.click(screen.getByTestId('enter-dashboard'));
       });
 
-      // After clicking, boot sequence should show (since it's first visit)
+      // After clicking, dashboard should show directly (boot sequence is disabled)
       await waitFor(() => {
-        expect(screen.getByTestId('boot-sequence')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
   });
@@ -467,17 +496,17 @@ describe('Home Page', () => {
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
-        expect(screen.getByTestId('quick-links-bar')).toBeInTheDocument();
         expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
 
-    it('renders status bar', async () => {
+    it('renders dashboard mode controls', async () => {
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('status-bar')).toBeInTheDocument();
+        // Check for view mode controls that exist in the dashboard
+        expect(screen.getByText('VIEW:')).toBeInTheDocument();
+        expect(screen.getByText('TABS')).toBeInTheDocument();
       });
     });
 
@@ -552,7 +581,7 @@ describe('Home Page', () => {
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
     });
   });
@@ -575,7 +604,7 @@ describe('Home Page', () => {
       render(<Home />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+        expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
       });
 
       // The handleStartDebateFromTrend callback would be passed to TrendingTopicsPanel
@@ -690,7 +719,7 @@ describe('Home Page with events', () => {
     render(<Home />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('dashboard-header')).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-footer')).toBeInTheDocument();
     });
   });
 });

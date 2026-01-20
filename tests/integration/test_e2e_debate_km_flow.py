@@ -172,8 +172,6 @@ def consensus_event(debate_result):
             "dissenting_agents": debate_result["voting"]["disagree"],
             "dissenting_views": debate_result["dissenting_views"],
         },
-        timestamp=datetime.now().isoformat(),
-        source="debate_orchestrator",
     )
 
 
@@ -255,9 +253,10 @@ class TestConsensusEventGeneration:
         """Test event has a timestamp."""
         assert consensus_event.timestamp is not None
 
-    def test_event_has_source(self, consensus_event):
-        """Test event has source identifier."""
-        assert consensus_event.source == "debate_orchestrator"
+    def test_event_has_correlation_id(self, consensus_event):
+        """Test event has correlation_id for tracing."""
+        # StreamEvent has correlation_id for distributed tracing
+        assert hasattr(consensus_event, "correlation_id")
 
 
 # ============================================================================
@@ -268,7 +267,7 @@ class TestConsensusEventGeneration:
 class TestKMIngestion:
     """Tests for Knowledge Mound ingestion of consensus."""
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     @patch("aragora.events.cross_subscribers.record_km_inbound_event")
     def test_consensus_ingested_to_km(
         self, mock_record, mock_get_mound, subscriber_manager, consensus_event, mock_knowledge_mound
@@ -290,7 +289,7 @@ class TestKMIngestion:
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_high_confidence_stored_in_slow_tier(
         self, mock_get_mound, subscriber_manager, consensus_event, mock_knowledge_mound
     ):
@@ -311,7 +310,7 @@ class TestKMIngestion:
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             consensus_handler(consensus_event)
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_low_confidence_not_ingested(
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
     ):
@@ -327,8 +326,6 @@ class TestKMIngestion:
                 "confidence": 0.3,
                 "strength": "contested",
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -404,7 +401,7 @@ class TestKnowledgeQuery:
 class TestFullE2EFlow:
     """Tests for the complete end-to-end flow."""
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     @patch("aragora.events.cross_subscribers.record_km_inbound_event")
     @pytest.mark.asyncio
     async def test_debate_to_query_flow(
@@ -433,8 +430,6 @@ class TestFullE2EFlow:
                 "agreeing_agents": debate_result["voting"]["agree"],
                 "dissenting_agents": debate_result["voting"]["disagree"],
             },
-            timestamp=datetime.now().isoformat(),
-            source="debate_orchestrator",
         )
 
         # Step 2: Trigger consensus_to_mound handler
@@ -467,7 +462,7 @@ class TestFullE2EFlow:
         assert "token bucket" in results[0]["content"].lower()
         assert results[0]["metadata"]["source"] == "debate_consensus"
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     @pytest.mark.asyncio
     async def test_multiple_debates_accumulate(
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
@@ -510,7 +505,7 @@ class TestFullE2EFlow:
         assert len(cache_results) == 1
         assert len(auth_results) == 1
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     @pytest.mark.asyncio
     async def test_dissent_tracking(
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
@@ -547,7 +542,7 @@ class TestFullE2EFlow:
 class TestEdgeCasesAndErrors:
     """Tests for edge cases and error handling in E2E flow."""
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_km_unavailable_graceful_handling(
         self, mock_get_mound, subscriber_manager
     ):
@@ -563,8 +558,6 @@ class TestEdgeCasesAndErrors:
                 "conclusion": "Test conclusion",
                 "confidence": 0.8,
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -578,7 +571,7 @@ class TestEdgeCasesAndErrors:
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)  # Should not raise
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_store_failure_graceful_handling(
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
     ):
@@ -595,8 +588,6 @@ class TestEdgeCasesAndErrors:
                 "conclusion": "Test conclusion",
                 "confidence": 0.8,
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -619,8 +610,6 @@ class TestEdgeCasesAndErrors:
                 "debate_id": "debate_malformed",
                 # Missing consensus_reached, topic, conclusion, etc.
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -631,7 +620,7 @@ class TestEdgeCasesAndErrors:
                 break
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
-            with patch("aragora.events.cross_subscribers.get_knowledge_mound", return_value=None):
+            with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=None):
                 consensus_handler(event)  # Should handle gracefully
 
     @pytest.mark.asyncio
@@ -725,10 +714,10 @@ class TestIntegrationVerification:
         stats = subscriber_manager._stats.get("consensus_to_mound")
 
         assert stats is not None
-        # Stats should have call_count attribute
-        assert hasattr(stats, "call_count")
+        # Stats should have events_processed attribute
+        assert hasattr(stats, "events_processed")
 
-    @patch("aragora.events.cross_subscribers.get_knowledge_mound")
+    @patch("aragora.knowledge.mound.get_knowledge_mound")
     def test_event_flow_emits_metrics(
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
     ):
@@ -744,8 +733,6 @@ class TestIntegrationVerification:
                 "conclusion": "Test conclusion",
                 "confidence": 0.8,
             },
-            timestamp=datetime.now().isoformat(),
-            source="test",
         )
 
         handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])
@@ -755,7 +742,7 @@ class TestIntegrationVerification:
                 consensus_handler = handler
                 break
 
-        initial_count = subscriber_manager._stats.get("consensus_to_mound").call_count
+        initial_count = subscriber_manager._stats.get("consensus_to_mound").events_processed
 
         with patch.object(subscriber_manager, "_is_km_handler_enabled", return_value=True):
             consensus_handler(event)
