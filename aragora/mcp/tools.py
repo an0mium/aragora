@@ -53,6 +53,21 @@ from aragora.mcp.tools_module import (
     get_audit_findings_tool,
     update_finding_status_tool,
     run_quick_audit_tool,
+    # Knowledge tools
+    query_knowledge_tool,
+    store_knowledge_tool,
+    get_knowledge_stats_tool,
+    get_decision_receipt_tool,
+    # Workflow tools
+    run_workflow_tool,
+    get_workflow_status_tool,
+    list_workflow_templates_tool,
+    cancel_workflow_tool,
+    # External integration tools
+    trigger_external_webhook_tool,
+    list_integrations_tool,
+    test_integration_tool,
+    get_integration_events_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -401,6 +416,123 @@ TOOLS_METADATA = [
             },
         },
     },
+    # Knowledge tools
+    {
+        "name": "query_knowledge",
+        "description": "Query the Knowledge Mound for relevant information",
+        "function": query_knowledge_tool,
+        "parameters": {
+            "query": {"type": "string", "required": True},
+            "node_types": {"type": "string", "default": "all"},
+            "min_confidence": {"type": "number", "default": 0.0},
+            "limit": {"type": "integer", "default": 10},
+            "include_relationships": {"type": "boolean", "default": False},
+        },
+    },
+    {
+        "name": "store_knowledge",
+        "description": "Store a new knowledge node in the Knowledge Mound",
+        "function": store_knowledge_tool,
+        "parameters": {
+            "content": {"type": "string", "required": True},
+            "node_type": {"type": "string", "default": "fact"},
+            "confidence": {"type": "number", "default": 0.8},
+            "tier": {"type": "string", "default": "medium"},
+            "topics": {"type": "string", "default": ""},
+            "source_debate_id": {"type": "string"},
+        },
+    },
+    {
+        "name": "get_knowledge_stats",
+        "description": "Get statistics about the Knowledge Mound",
+        "function": get_knowledge_stats_tool,
+        "parameters": {},
+    },
+    {
+        "name": "get_decision_receipt",
+        "description": "Get a formal decision receipt for a completed debate",
+        "function": get_decision_receipt_tool,
+        "parameters": {
+            "debate_id": {"type": "string", "required": True},
+            "format": {"type": "string", "default": "json"},
+            "include_proofs": {"type": "boolean", "default": True},
+            "include_evidence": {"type": "boolean", "default": True},
+        },
+    },
+    # Workflow tools
+    {
+        "name": "run_workflow",
+        "description": "Execute a workflow from a template",
+        "function": run_workflow_tool,
+        "parameters": {
+            "template": {"type": "string", "required": True},
+            "inputs": {"type": "string", "default": ""},
+            "async_execution": {"type": "boolean", "default": False},
+            "timeout_seconds": {"type": "integer", "default": 300},
+        },
+    },
+    {
+        "name": "get_workflow_status",
+        "description": "Get the status of a workflow execution",
+        "function": get_workflow_status_tool,
+        "parameters": {
+            "execution_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "list_workflow_templates",
+        "description": "List available workflow templates",
+        "function": list_workflow_templates_tool,
+        "parameters": {
+            "category": {"type": "string", "default": "all"},
+        },
+    },
+    {
+        "name": "cancel_workflow",
+        "description": "Cancel a running workflow execution",
+        "function": cancel_workflow_tool,
+        "parameters": {
+            "execution_id": {"type": "string", "required": True},
+            "reason": {"type": "string", "default": ""},
+        },
+    },
+    # External integration tools
+    {
+        "name": "trigger_external_webhook",
+        "description": "Trigger an external automation webhook (Zapier, Make, n8n)",
+        "function": trigger_external_webhook_tool,
+        "parameters": {
+            "platform": {"type": "string", "required": True},
+            "event_type": {"type": "string", "required": True},
+            "data": {"type": "string", "default": "{}"},
+        },
+    },
+    {
+        "name": "list_integrations",
+        "description": "List configured external integrations",
+        "function": list_integrations_tool,
+        "parameters": {
+            "platform": {"type": "string", "default": "all"},
+            "workspace_id": {"type": "string"},
+        },
+    },
+    {
+        "name": "test_integration",
+        "description": "Test an integration connection",
+        "function": test_integration_tool,
+        "parameters": {
+            "platform": {"type": "string", "required": True},
+            "integration_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "get_integration_events",
+        "description": "Get available event types for an integration platform",
+        "function": get_integration_events_tool,
+        "parameters": {
+            "platform": {"type": "string", "required": True},
+        },
+    },
 ]
 
 
@@ -445,5 +577,20 @@ __all__ = [
     "get_audit_findings_tool",
     "update_finding_status_tool",
     "run_quick_audit_tool",
+    # Knowledge tools
+    "query_knowledge_tool",
+    "store_knowledge_tool",
+    "get_knowledge_stats_tool",
+    "get_decision_receipt_tool",
+    # Workflow tools
+    "run_workflow_tool",
+    "get_workflow_status_tool",
+    "list_workflow_templates_tool",
+    "cancel_workflow_tool",
+    # External integration tools
+    "trigger_external_webhook_tool",
+    "list_integrations_tool",
+    "test_integration_tool",
+    "get_integration_events_tool",
     "TOOLS_METADATA",
 ]

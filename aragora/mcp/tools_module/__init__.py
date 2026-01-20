@@ -59,6 +59,24 @@ from aragora.mcp.tools_module.audit import (
     update_finding_status_tool,
     run_quick_audit_tool,
 )
+from aragora.mcp.tools_module.knowledge import (
+    query_knowledge_tool,
+    store_knowledge_tool,
+    get_knowledge_stats_tool,
+    get_decision_receipt_tool,
+)
+from aragora.mcp.tools_module.workflow import (
+    run_workflow_tool,
+    get_workflow_status_tool,
+    list_workflow_templates_tool,
+    cancel_workflow_tool,
+)
+from aragora.mcp.tools_module.integrations import (
+    trigger_external_webhook_tool,
+    list_integrations_tool,
+    test_integration_tool,
+    get_integration_events_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -103,4 +121,19 @@ __all__ = [
     "get_audit_findings_tool",
     "update_finding_status_tool",
     "run_quick_audit_tool",
+    # Knowledge tools
+    "query_knowledge_tool",
+    "store_knowledge_tool",
+    "get_knowledge_stats_tool",
+    "get_decision_receipt_tool",
+    # Workflow tools
+    "run_workflow_tool",
+    "get_workflow_status_tool",
+    "list_workflow_templates_tool",
+    "cancel_workflow_tool",
+    # External integration tools
+    "trigger_external_webhook_tool",
+    "list_integrations_tool",
+    "test_integration_tool",
+    "get_integration_events_tool",
 ]
