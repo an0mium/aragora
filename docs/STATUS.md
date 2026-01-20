@@ -98,6 +98,23 @@
 - Entropy bonuses, temporal discounting, margin-based rewards
 
 #### Recent Changes (2026-01-20)
+- **Test Performance Fix** - Added `fast_convergence_backend` autouse fixture:
+  - By default, tests use Jaccard backend (fast) instead of SentenceTransformer (slow)
+  - Tests marked `@pytest.mark.slow` still use real ML models
+  - Reduces test suite time by avoiding model loading on every ConvergenceDetector
+  - Set via `ARAGORA_CONVERGENCE_BACKEND=jaccard` environment variable
+- **Cross-Pollination Verified** - All 21 integration tests pass:
+  - ELO → Vote Weighting integration
+  - Calibration → Proposal confidence
+  - Verification → Confidence adjustment
+  - Learning efficiency → ELO bonuses
+  - Memory → Debate strategy
+  - RLM hierarchy caching
+- **Gauntlet CLI** - All 30 stress tests pass:
+  - Large input handling (10KB, 100KB, 1MB)
+  - Concurrent execution (5, 20 parallel runners)
+  - Error recovery from all phases
+  - Edge cases (empty, whitespace, null bytes)
 - **Whisper Transcription Fixes** - 7 test failures resolved:
   - Fixed `OpenAIWhisperBackend` initialization (model property, API key validation)
   - Added "auto" backend selection support to `get_transcription_backend()`
@@ -334,8 +351,9 @@ else:
 - Relevance-based context retrieval
 - Fixed: Race condition in concurrent reads via snapshot pattern
 
-**Knowledge Mound** (PHASE 2 COMPLETE)
+**Knowledge Mound** (STABLE - Production Ready)
 - `aragora/knowledge/mound/` - Unified enterprise knowledge storage
+- **146 tests passing**, 7 skipped (optional deps)
 - SemanticStore with mandatory embeddings for semantic search
 - KnowledgeGraphStore for relationship tracking and lineage
 - DomainTaxonomy for hierarchical organization

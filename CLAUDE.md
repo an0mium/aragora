@@ -218,10 +218,14 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Backup/DR - Incremental backups, retention policies, disaster recovery drills
 - Control Plane - Agent registry, task scheduler, health monitoring (142 tests)
 
+**Integrated:**
+- Knowledge Mound - STABLE (Phase 2 complete, 146+ tests passing)
+  - Visibility, sharing, federation, global knowledge
+  - Cross-pollination with debate, memory, RLM subsystems
+
 **Partial:**
 - Pulse (trending topics) - works but may need API keys
 - Evidence collection - functional but limited connectors
-- Knowledge Mound - Phase 1 complete (357 tests passing)
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.
 
