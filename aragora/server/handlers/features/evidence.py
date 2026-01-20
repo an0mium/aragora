@@ -89,6 +89,31 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         self._evidence_collector: Optional[EvidenceCollector] = None
         self._km_adapter: Optional["EvidenceAdapter"] = None
 
+    def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
+        """Emit a KM event to WebSocket clients.
+
+        Args:
+            event_emitter: The EventEmitter from server context
+            event_type: Type of event (e.g., 'knowledge_indexed')
+            data: Event data payload
+        """
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            # Map adapter event types to StreamEventType
+            type_map = {
+                "knowledge_indexed": StreamEventType.KNOWLEDGE_INDEXED,
+                "knowledge_queried": StreamEventType.KNOWLEDGE_QUERIED,
+                "mound_updated": StreamEventType.MOUND_UPDATED,
+                "evidence_found": StreamEventType.EVIDENCE_FOUND,
+            }
+
+            stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
+            event = StreamEvent(type=stream_type, data=data)
+            event_emitter.emit(event)
+        except Exception as e:
+            logger.debug(f"Failed to emit KM event {event_type}: {e}")
+
     def _get_km_adapter(self) -> Optional["EvidenceAdapter"]:
         """Get or create Knowledge Mound adapter for evidence."""
         if self._km_adapter is not None:
@@ -111,6 +136,13 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 store=store,
                 enable_dual_write=True,  # Enable bidirectional sync
             )
+
+            # Wire event callback for WebSocket notifications
+            event_emitter = self.ctx.get("event_emitter")
+            if event_emitter:
+                self._km_adapter.set_event_callback(
+                    lambda event_type, data: self._emit_km_event(event_emitter, event_type, data)
+                )
 
             # Wire adapter back to store
             store.set_km_adapter(self._km_adapter)

@@ -621,11 +621,16 @@ class ConvergenceDetector:
 
     def _select_backend(self) -> SimilarityBackend:
         """
-        Select best available similarity backend.
+        Select best available similarity backend using SimilarityFactory.
 
-        Tries: SentenceTransformer -> TF-IDF -> Jaccard
-        Passes debate_id to SentenceTransformerBackend for scoped caching.
+        Uses the unified SimilarityFactory for backend selection, which:
+        - Respects ARAGORA_SIMILARITY_BACKEND environment variable
+        - Auto-selects best available backend based on input size
+        - Handles debate_id for scoped caching
         """
+        from aragora.debate.similarity.factory import get_backend
+
+        # Check for legacy env override
         env_override = _normalize_backend_name(os.getenv(_ENV_CONVERGENCE_BACKEND, ""))
         if env_override:
             try:
@@ -634,39 +639,25 @@ class ConvergenceDetector:
                 return backend
             except (ImportError, RuntimeError, OSError) as e:
                 logger.warning(
-                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to auto."
+                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to factory."
                 )
             except Exception as e:
                 logger.exception(
-                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} unexpected error: {e}. Falling back to auto."
+                    f"{_ENV_CONVERGENCE_BACKEND}={env_override} unexpected error: {e}. Falling back to factory."
                 )
 
-        # Try sentence transformers (best)
+        # Use SimilarityFactory for unified backend selection
         try:
-            backend = SentenceTransformerBackend(debate_id=self.debate_id)
-            logger.info("Using SentenceTransformerBackend (best accuracy)")
+            backend = get_backend(
+                preferred="auto",
+                input_size=10,  # Default for typical debate sizes
+                debate_id=self.debate_id,
+            )
+            logger.info(f"Using {backend.__class__.__name__} via SimilarityFactory")
             return backend
-        except ImportError as e:
-            logger.debug(f"sentence-transformers not available: {e}")
-        except (RuntimeError, AttributeError) as e:
-            # RuntimeError/AttributeError: transformers/scipy/numpy compatibility issues
-            logger.debug(f"sentence-transformers failed to initialize: {e}")
-        except OSError as e:
-            # OSError can occur when model files are corrupted or missing
-            logger.debug(f"sentence-transformers model error: {e}")
-
-        # Try TF-IDF (good)
-        try:
-            backend = TFIDFBackend()
-            logger.info("Using TFIDFBackend (good accuracy)")
-            return backend
-        except (ImportError, AttributeError, RuntimeError) as e:
-            # AttributeError/RuntimeError: scipy/numpy version mismatch
-            logger.debug(f"scikit-learn/scipy not available: {e}")
-
-        # Fallback to Jaccard (always available)
-        logger.info("Using JaccardBackend (fallback)")
-        return JaccardBackend()
+        except Exception as e:
+            logger.warning(f"SimilarityFactory failed: {e}. Using JaccardBackend fallback.")
+            return JaccardBackend()
 
     def check_convergence(
         self,
@@ -748,6 +739,172 @@ class ConvergenceDetector:
     def reset(self) -> None:
         """Reset the consecutive stable count."""
         self.consecutive_stable_count = 0
+
+    def check_within_round_convergence(
+        self,
+        responses: dict[str, str],
+        threshold: Optional[float] = None,
+    ) -> tuple[bool, float, float]:
+        """
+        Check if all agents' responses within a single round have converged.
+
+        Uses ANN-optimized vectorized operations with early termination for O(n log n)
+        complexity instead of O(n²) pairwise comparison.
+
+        This is useful for detecting when agents agree with each other within a round,
+        which can indicate premature consensus or echo chamber effects.
+
+        Args:
+            responses: Agent name -> response text for current round
+            threshold: Convergence threshold (defaults to self.convergence_threshold)
+
+        Returns:
+            Tuple of (converged: bool, min_similarity: float, avg_similarity: float)
+        """
+        import numpy as np
+
+        from aragora.debate.similarity.ann import (
+            compute_batch_similarity_fast,
+            find_convergence_threshold,
+        )
+
+        if threshold is None:
+            threshold = self.convergence_threshold
+
+        texts = list(responses.values())
+        if len(texts) < 2:
+            return True, 1.0, 1.0
+
+        # Get embeddings using backend
+        embeddings = None
+        if hasattr(self.backend, "_get_embedding"):
+            # SentenceTransformerBackend
+            embeddings_list = [self.backend._get_embedding(t) for t in texts]
+            embeddings = np.vstack(embeddings_list).astype(np.float32)
+        elif hasattr(self.backend, "vectorizer"):
+            # TFIDFBackend
+            from scipy.sparse import issparse
+
+            tfidf_matrix = self.backend.vectorizer.fit_transform(texts)
+            if issparse(tfidf_matrix):
+                embeddings = tfidf_matrix.toarray().astype(np.float32)
+            else:
+                embeddings = np.array(tfidf_matrix).astype(np.float32)
+
+        if embeddings is not None:
+            # Use optimized ANN functions with early termination
+            converged, min_sim = find_convergence_threshold(embeddings, threshold=threshold)
+            avg_sim = compute_batch_similarity_fast(embeddings)
+            return converged, min_sim, avg_sim
+
+        # Fallback to individual comparisons for JaccardBackend
+        similarities = []
+        for i, t1 in enumerate(texts):
+            for t2 in texts[i + 1 :]:
+                sim = self.backend.compute_similarity(t1, t2)
+                similarities.append(sim)
+                # Early termination
+                if sim < threshold:
+                    return False, sim, sum(similarities) / len(similarities)
+
+        min_sim = min(similarities) if similarities else 1.0
+        avg_sim = sum(similarities) / len(similarities) if similarities else 1.0
+        return min_sim >= threshold, min_sim, avg_sim
+
+    def check_convergence_fast(
+        self,
+        current_responses: dict[str, str],
+        previous_responses: dict[str, str],
+        round_number: int,
+    ) -> Optional[ConvergenceResult]:
+        """
+        Fast convergence check with ANN optimizations and early termination.
+
+        Same interface as check_convergence but uses vectorized operations
+        for better performance with many agents.
+
+        Args:
+            current_responses: Agent name -> response text for current round
+            previous_responses: Agent name -> response text for previous round
+            round_number: Current round number (1-indexed)
+
+        Returns:
+            ConvergenceResult or None if too early to check
+        """
+        import numpy as np
+
+        from aragora.debate.similarity.ann import find_convergence_threshold
+
+        # Don't check before minimum rounds
+        if round_number <= self.min_rounds_before_check:
+            return None
+
+        # Match agents between rounds
+        common_agents = set(current_responses.keys()) & set(previous_responses.keys())
+        if not common_agents:
+            logger.warning("No matching agents between rounds")
+            return None
+
+        agent_list = list(common_agents)
+
+        # Try optimized path with embeddings
+        embeddings_curr = None
+        embeddings_prev = None
+
+        if hasattr(self.backend, "_get_embedding"):
+            embeddings_curr = np.vstack(
+                [self.backend._get_embedding(current_responses[a]) for a in agent_list]
+            ).astype(np.float32)
+            embeddings_prev = np.vstack(
+                [self.backend._get_embedding(previous_responses[a]) for a in agent_list]
+            ).astype(np.float32)
+
+        if embeddings_curr is not None and embeddings_prev is not None:
+            # Compute pairwise similarities between current and previous
+            # Normalize embeddings
+            norms_curr = np.linalg.norm(embeddings_curr, axis=1, keepdims=True)
+            norms_prev = np.linalg.norm(embeddings_prev, axis=1, keepdims=True)
+            norms_curr = np.where(norms_curr == 0, 1, norms_curr)
+            norms_prev = np.where(norms_prev == 0, 1, norms_prev)
+            norm_curr = embeddings_curr / norms_curr
+            norm_prev = embeddings_prev / norms_prev
+
+            # Diagonal of matrix product gives per-agent similarity
+            per_agent_sims = np.sum(norm_curr * norm_prev, axis=1)
+            per_agent = dict(zip(agent_list, per_agent_sims.tolist()))
+
+            min_similarity = float(np.min(per_agent_sims))
+            avg_similarity = float(np.mean(per_agent_sims))
+        else:
+            # Fallback to standard computation
+            return self.check_convergence(current_responses, previous_responses, round_number)
+
+        # Determine status
+        if min_similarity >= self.convergence_threshold:
+            self.consecutive_stable_count += 1
+            if self.consecutive_stable_count >= self.consecutive_rounds_needed:
+                status = "converged"
+                converged = True
+            else:
+                status = "refining"
+                converged = False
+        elif min_similarity < self.divergence_threshold:
+            status = "diverging"
+            converged = False
+            self.consecutive_stable_count = 0
+        else:
+            status = "refining"
+            converged = False
+            self.consecutive_stable_count = 0
+
+        return ConvergenceResult(
+            converged=converged,
+            status=status,
+            min_similarity=min_similarity,
+            avg_similarity=avg_similarity,
+            per_agent_similarity=per_agent,
+            consecutive_stable_rounds=self.consecutive_stable_count,
+        )
 
 
 __all__ = [

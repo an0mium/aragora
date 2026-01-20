@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    pass
+    from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 from aragora.server.validation import validate_debate_id, validate_id
 from aragora.utils.optional_imports import try_import
@@ -69,6 +69,109 @@ class BeliefHandler(BaseHandler):
         "/api/debate/*/graph-stats",
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
+
+    def __init__(self, server_context: dict):
+        """Initialize with server context."""
+        super().__init__(server_context)
+        self._km_adapter: Optional["BeliefAdapter"] = None
+
+    def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
+        """Emit a KM event to WebSocket clients.
+
+        Args:
+            event_emitter: The EventEmitter from server context
+            event_type: Type of event (e.g., 'belief_converged')
+            data: Event data payload
+        """
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            # Map adapter event types to StreamEventType
+            type_map = {
+                "belief_converged": StreamEventType.BELIEF_CONVERGED,
+                "crux_detected": StreamEventType.CRUX_DETECTED,
+                "mound_updated": StreamEventType.MOUND_UPDATED,
+            }
+
+            stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
+            event = StreamEvent(type=stream_type, data=data)
+            event_emitter.emit(event)
+        except Exception as e:
+            logger.debug(f"Failed to emit KM event {event_type}: {e}")
+
+    def _get_km_adapter(self) -> Optional["BeliefAdapter"]:
+        """Get or create Knowledge Mound adapter for belief networks.
+
+        Returns:
+            BeliefAdapter instance, or None if KM not available
+        """
+        if self._km_adapter is not None:
+            return self._km_adapter
+
+        # Check if adapter exists in context
+        if "belief_km_adapter" in self.ctx:
+            self._km_adapter = self.ctx["belief_km_adapter"]
+            return self._km_adapter
+
+        # Try to create adapter if KM is available
+        try:
+            from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
+
+            self._km_adapter = BeliefAdapter(
+                enable_dual_write=True,  # Enable bidirectional sync
+            )
+
+            # Wire event callback for WebSocket notifications
+            event_emitter = self.ctx.get("event_emitter")
+            if event_emitter:
+                self._km_adapter.set_event_callback(
+                    lambda event_type, data: self._emit_km_event(event_emitter, event_type, data)
+                )
+
+            # Store in context for sharing
+            self.ctx["belief_km_adapter"] = self._km_adapter
+            logger.info("Belief KM adapter initialized")
+            return self._km_adapter
+
+        except ImportError:
+            logger.debug("Knowledge Mound BeliefAdapter not available")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to initialize Belief KM adapter: {e}")
+            return None
+
+    def _create_belief_network(
+        self,
+        debate_id: str,
+        topic: Optional[str] = None,
+        seed_from_km: bool = False,
+    ) -> Any:
+        """Create a BeliefNetwork with KM adapter wired.
+
+        Implements query-before-action: optionally seeds the network with
+        prior beliefs from Knowledge Mound before propagation.
+
+        Args:
+            debate_id: The debate ID for this network
+            topic: Optional topic for KM seeding
+            seed_from_km: If True and topic provided, seed beliefs from KM
+
+        Returns:
+            BeliefNetwork instance with optional KM adapter and seeded beliefs
+        """
+        km_adapter = self._get_km_adapter()
+        network = BeliefNetwork(
+            debate_id=debate_id,
+            km_adapter=km_adapter,
+        )
+
+        # Query-before-action: Seed network with prior beliefs from KM
+        if seed_from_km and topic and km_adapter:
+            seeded = network.seed_from_km(topic, min_confidence=0.7)
+            if seeded > 0:
+                logger.info(f"Seeded belief network with {seeded} prior beliefs from KM")
+
+        return network
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -212,8 +315,8 @@ class BeliefHandler(BaseHandler):
         trace = DebateTrace.load(trace_path)
         result = trace.to_debate_result()
 
-        # Build belief network from debate
-        network = BeliefNetwork(debate_id=debate_id)
+        # Build belief network from debate with KM adapter
+        network = self._create_belief_network(debate_id)
         for msg in result.messages:
             network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
@@ -248,8 +351,8 @@ class BeliefHandler(BaseHandler):
         trace = DebateTrace.load(trace_path)
         result = trace.to_debate_result()
 
-        # Build belief network from debate
-        network = BeliefNetwork(debate_id=debate_id)
+        # Build belief network from debate with KM adapter
+        network = self._create_belief_network(debate_id)
         for msg in result.messages:
             network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
@@ -424,8 +527,8 @@ class BeliefHandler(BaseHandler):
         trace = DebateTrace.load(trace_path)
         result = trace.to_debate_result()
 
-        # Build belief network
-        network = BeliefNetwork(debate_id=debate_id)
+        # Build belief network with KM adapter
+        network = self._create_belief_network(debate_id)
         for msg in result.messages:
             network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 
@@ -524,8 +627,8 @@ class BeliefHandler(BaseHandler):
         trace = DebateTrace.load(trace_path)
         result = trace.to_debate_result()
 
-        # Build belief network
-        network = BeliefNetwork(debate_id=debate_id)
+        # Build belief network with KM adapter
+        network = self._create_belief_network(debate_id)
         for msg in result.messages:
             network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
 

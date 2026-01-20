@@ -7,12 +7,23 @@ Provides endpoints for understanding debate decisions:
 - GET /api/v1/debates/{id}/votes/pivots - Vote influence analysis
 - GET /api/v1/debates/{id}/counterfactuals - Counterfactual analysis
 - GET /api/v1/debates/{id}/summary - Human-readable summary
+
+Batch operations:
+- POST /api/v1/explainability/batch - Process multiple debates
+- GET /api/v1/explainability/batch/{batch_id}/status - Get batch status
+- GET /api/v1/explainability/batch/{batch_id}/results - Get batch results
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-from typing import Any, Dict, Optional
+import time
+import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -49,8 +60,6 @@ def _get_cached_decision(debate_id: str) -> Optional[Any]:
 
 def _cache_decision(debate_id: str, decision: Any) -> None:
     """Cache a decision."""
-    import time
-
     _decision_cache[debate_id] = decision
     _cache_timestamps[debate_id] = time.time()
 
@@ -59,6 +68,88 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
         oldest = min(_cache_timestamps, key=_cache_timestamps.get)  # type: ignore
         del _decision_cache[oldest]
         del _cache_timestamps[oldest]
+
+
+# ============================================================================
+# Batch Processing Types
+# ============================================================================
+
+
+class BatchStatus(Enum):
+    """Status of a batch explainability job."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    PARTIAL = "partial"  # Some debates failed
+    FAILED = "failed"
+
+
+@dataclass
+class BatchDebateResult:
+    """Result for a single debate in a batch."""
+    debate_id: str
+    status: str  # success, error, not_found
+    explanation: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    processing_time_ms: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        result = {
+            "debate_id": self.debate_id,
+            "status": self.status,
+            "processing_time_ms": self.processing_time_ms,
+        }
+        if self.explanation:
+            result["explanation"] = self.explanation
+        if self.error:
+            result["error"] = self.error
+        return result
+
+
+@dataclass
+class BatchJob:
+    """A batch explainability job."""
+    batch_id: str
+    debate_ids: List[str]
+    status: BatchStatus = BatchStatus.PENDING
+    created_at: float = field(default_factory=time.time)
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    results: List[BatchDebateResult] = field(default_factory=list)
+    processed_count: int = 0
+    options: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "batch_id": self.batch_id,
+            "status": self.status.value,
+            "total_debates": len(self.debate_ids),
+            "processed_count": self.processed_count,
+            "success_count": sum(1 for r in self.results if r.status == "success"),
+            "error_count": sum(1 for r in self.results if r.status in ("error", "not_found")),
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "progress_pct": round((self.processed_count / len(self.debate_ids)) * 100, 1)
+            if self.debate_ids else 0,
+        }
+
+
+# Batch job storage (in-memory, production would use Redis/DB)
+_batch_jobs: Dict[str, BatchJob] = {}
+BATCH_JOB_TTL = 3600  # 1 hour retention
+MAX_BATCH_SIZE = 100
+
+
+def _prune_old_batches() -> None:
+    """Remove old batch jobs."""
+    now = time.time()
+    expired = [
+        batch_id for batch_id, job in _batch_jobs.items()
+        if now - job.created_at > BATCH_JOB_TTL
+    ]
+    for batch_id in expired:
+        del _batch_jobs[batch_id]
 
 
 class ExplainabilityHandler(BaseHandler):
@@ -72,6 +163,12 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/debates/*/counterfactuals",
         "/api/v1/debates/*/summary",
         "/api/v1/explain/*",
+        # Batch endpoints
+        "/api/v1/explainability/batch",
+        "/api/v1/explainability/batch/*/status",
+        "/api/v1/explainability/batch/*/results",
+        # Compare endpoint
+        "/api/v1/explainability/compare",
         # Legacy routes (deprecated)
         "/api/debates/*/explanation",
         "/api/explain/*",
@@ -91,6 +188,19 @@ class ExplainabilityHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
+        # Batch endpoints support POST and GET
+        if path == "/api/v1/explainability/batch":
+            return method == "POST"
+        if path.startswith("/api/v1/explainability/batch/") and path.endswith("/status"):
+            return method == "GET"
+        if path.startswith("/api/v1/explainability/batch/") and path.endswith("/results"):
+            return method == "GET"
+
+        # Compare endpoint supports POST
+        if path == "/api/v1/explainability/compare":
+            return method == "POST"
+
+        # Single debate endpoints only support GET
         if method != "GET":
             return False
 
@@ -122,6 +232,20 @@ class ExplainabilityHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route explainability requests."""
+        # Handle batch endpoints first
+        if path == "/api/v1/explainability/batch":
+            return self._handle_batch_create(handler)
+        if path.startswith("/api/v1/explainability/batch/") and path.endswith("/status"):
+            batch_id = path.split("/")[-2]
+            return self._handle_batch_status(batch_id)
+        if path.startswith("/api/v1/explainability/batch/") and path.endswith("/results"):
+            batch_id = path.split("/")[-2]
+            return self._handle_batch_results(batch_id, query_params)
+
+        # Handle compare endpoint
+        if path == "/api/v1/explainability/compare":
+            return self._handle_compare(handler)
+
         # Add deprecation headers for legacy routes
         is_legacy = self._is_legacy_route(path)
 
@@ -457,6 +581,369 @@ h3 {{ color: #666; }}
             logger.error(f"Summary error for {debate_id}: {e}")
             return error_response(f"Failed to generate summary: {str(e)[:100]}", 500)
 
+    # ========================================================================
+    # Batch Processing Methods
+    # ========================================================================
+
+    @rate_limit(rpm=20)
+    def _handle_batch_create(self, handler: Any) -> HandlerResult:
+        """Create a new batch explainability job.
+
+        Request body:
+        {
+            "debate_ids": ["debate-1", "debate-2", ...],
+            "options": {
+                "include_evidence": true,
+                "include_counterfactuals": false,
+                "include_vote_pivots": false,
+                "format": "full"  # full, summary, minimal
+            }
+        }
+        """
+        _prune_old_batches()
+
+        try:
+            # Parse request body
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length == 0:
+                return error_response("Request body required", 400)
+
+            body = handler.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        debate_ids = data.get("debate_ids", [])
+        if not debate_ids:
+            return error_response("debate_ids array required", 400)
+
+        if not isinstance(debate_ids, list):
+            return error_response("debate_ids must be an array", 400)
+
+        if len(debate_ids) > MAX_BATCH_SIZE:
+            return error_response(f"Maximum batch size is {MAX_BATCH_SIZE}", 400)
+
+        # Validate IDs are strings
+        debate_ids = [str(d) for d in debate_ids]
+
+        # Create batch job
+        batch_id = f"batch-{uuid.uuid4().hex[:12]}"
+        options = data.get("options", {})
+
+        job = BatchJob(
+            batch_id=batch_id,
+            debate_ids=debate_ids,
+            options=options,
+        )
+        _batch_jobs[batch_id] = job
+
+        # Start processing in background
+        self._start_batch_processing(job)
+
+        return json_response({
+            "batch_id": batch_id,
+            "status": job.status.value,
+            "total_debates": len(debate_ids),
+            "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
+            "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
+        }, status_code=202)
+
+    def _start_batch_processing(self, job: BatchJob) -> None:
+        """Start processing batch job asynchronously."""
+        import threading
+
+        def process():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(self._process_batch(job))
+            except Exception as e:
+                logger.error(f"Batch processing error for {job.batch_id}: {e}")
+                job.status = BatchStatus.FAILED
+            finally:
+                loop.close()
+
+        thread = threading.Thread(target=process, daemon=True)
+        thread.start()
+
+    async def _process_batch(self, job: BatchJob) -> None:
+        """Process all debates in the batch."""
+        job.status = BatchStatus.PROCESSING
+        job.started_at = time.time()
+
+        options = job.options
+        include_evidence = options.get("include_evidence", True)
+        include_counterfactuals = options.get("include_counterfactuals", False)
+        include_vote_pivots = options.get("include_vote_pivots", False)
+        format_type = options.get("format", "full")
+
+        # Process debates (could parallelize with asyncio.gather for performance)
+        for debate_id in job.debate_ids:
+            start_time = time.time()
+            try:
+                decision = await self._get_or_build_decision(debate_id)
+
+                if decision is None:
+                    job.results.append(BatchDebateResult(
+                        debate_id=debate_id,
+                        status="not_found",
+                        error=f"Debate not found: {debate_id}",
+                        processing_time_ms=(time.time() - start_time) * 1000,
+                    ))
+                else:
+                    # Build explanation based on options
+                    explanation = self._build_explanation_dict(
+                        decision,
+                        include_evidence=include_evidence,
+                        include_counterfactuals=include_counterfactuals,
+                        include_vote_pivots=include_vote_pivots,
+                        format_type=format_type,
+                    )
+
+                    job.results.append(BatchDebateResult(
+                        debate_id=debate_id,
+                        status="success",
+                        explanation=explanation,
+                        processing_time_ms=(time.time() - start_time) * 1000,
+                    ))
+
+            except Exception as e:
+                logger.error(f"Error processing {debate_id} in batch: {e}")
+                job.results.append(BatchDebateResult(
+                    debate_id=debate_id,
+                    status="error",
+                    error=str(e)[:200],
+                    processing_time_ms=(time.time() - start_time) * 1000,
+                ))
+
+            job.processed_count += 1
+
+        # Set final status
+        job.completed_at = time.time()
+        error_count = sum(1 for r in job.results if r.status != "success")
+
+        if error_count == 0:
+            job.status = BatchStatus.COMPLETED
+        elif error_count == len(job.debate_ids):
+            job.status = BatchStatus.FAILED
+        else:
+            job.status = BatchStatus.PARTIAL
+
+        # Emit WebSocket event
+        try:
+            from aragora.events.types import StreamEventType
+            from aragora.events.emitter import global_emitter
+
+            global_emitter().emit(StreamEventType.EXPLAINABILITY_COMPLETE.value, {
+                "batch_id": job.batch_id,
+                "status": job.status.value,
+                "total": len(job.debate_ids),
+                "success_count": len(job.debate_ids) - error_count,
+                "error_count": error_count,
+            })
+        except Exception:
+            pass  # WebSocket events are optional
+
+    def _build_explanation_dict(
+        self,
+        decision: Any,
+        include_evidence: bool = True,
+        include_counterfactuals: bool = False,
+        include_vote_pivots: bool = False,
+        format_type: str = "full",
+    ) -> Dict[str, Any]:
+        """Build explanation dictionary based on options."""
+        if format_type == "minimal":
+            return {
+                "debate_id": getattr(decision, "debate_id", None),
+                "confidence": decision.confidence,
+                "consensus_reached": decision.consensus_reached,
+                "primary_factors": [
+                    {"name": f.name, "contribution": f.contribution}
+                    for f in decision.contributing_factors[:3]
+                ] if hasattr(decision, "contributing_factors") else [],
+            }
+
+        if format_type == "summary":
+            from aragora.explainability import ExplanationBuilder
+            builder = ExplanationBuilder()
+            return {
+                "debate_id": getattr(decision, "debate_id", None),
+                "summary": builder.generate_summary(decision),
+                "confidence": decision.confidence,
+            }
+
+        # Full format
+        result = decision.to_dict() if hasattr(decision, "to_dict") else {}
+
+        if not include_evidence and "evidence_chain" in result:
+            del result["evidence_chain"]
+
+        if not include_counterfactuals and "counterfactuals" in result:
+            del result["counterfactuals"]
+
+        if not include_vote_pivots and "vote_pivots" in result:
+            del result["vote_pivots"]
+
+        return result
+
+    def _handle_batch_status(self, batch_id: str) -> HandlerResult:
+        """Get status of a batch job."""
+        _prune_old_batches()
+
+        job = _batch_jobs.get(batch_id)
+        if not job:
+            return error_response(f"Batch job not found: {batch_id}", 404)
+
+        return json_response(job.to_dict())
+
+    def _handle_batch_results(
+        self, batch_id: str, query_params: Dict[str, Any]
+    ) -> HandlerResult:
+        """Get results of a completed batch job."""
+        _prune_old_batches()
+
+        job = _batch_jobs.get(batch_id)
+        if not job:
+            return error_response(f"Batch job not found: {batch_id}", 404)
+
+        # Allow fetching partial results while processing
+        include_partial = get_string_param(query_params, "include_partial", "false").lower() == "true"
+
+        if job.status == BatchStatus.PENDING:
+            return error_response("Batch job not yet started", 202)
+
+        if job.status == BatchStatus.PROCESSING and not include_partial:
+            return json_response({
+                **job.to_dict(),
+                "message": "Batch still processing. Use ?include_partial=true for partial results.",
+            }, status_code=202)
+
+        # Pagination
+        offset = int(get_string_param(query_params, "offset", "0"))
+        limit = int(get_string_param(query_params, "limit", "50"))
+        limit = min(limit, 100)  # Cap at 100
+
+        paginated_results = job.results[offset:offset + limit]
+
+        return json_response({
+            **job.to_dict(),
+            "results": [r.to_dict() for r in paginated_results],
+            "pagination": {
+                "offset": offset,
+                "limit": limit,
+                "total": len(job.results),
+                "has_more": offset + limit < len(job.results),
+            },
+        })
+
+    # ========================================================================
+    # Compare Explanations
+    # ========================================================================
+
+    @rate_limit(rpm=30)
+    def _handle_compare(self, handler: Any) -> HandlerResult:
+        """Compare explanations between multiple debates.
+
+        Request body:
+        {
+            "debate_ids": ["debate-1", "debate-2"],
+            "compare_fields": ["contributing_factors", "evidence_quality", "confidence"]
+        }
+        """
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length == 0:
+                return error_response("Request body required", 400)
+
+            body = handler.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError) as e:
+            return error_response(f"Invalid JSON: {e}", 400)
+
+        debate_ids = data.get("debate_ids", [])
+        if len(debate_ids) < 2:
+            return error_response("At least 2 debate_ids required for comparison", 400)
+
+        if len(debate_ids) > 10:
+            return error_response("Maximum 10 debates can be compared at once", 400)
+
+        compare_fields = data.get("compare_fields", [
+            "confidence", "consensus_reached", "contributing_factors", "evidence_quality"
+        ])
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        try:
+            # Fetch all decisions
+            debates = {}
+            for debate_id in debate_ids:
+                decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+                if decision:
+                    debates[debate_id] = decision
+
+            if len(debates) < 2:
+                return error_response("Need at least 2 valid debates to compare", 404)
+
+            # Build comparison
+            comparison = {
+                "debates_compared": list(debates.keys()),
+                "comparison": {},
+            }
+
+            if "confidence" in compare_fields:
+                comparison["comparison"]["confidence"] = {
+                    debate_id: decision.confidence
+                    for debate_id, decision in debates.items()
+                }
+                confidences = list(comparison["comparison"]["confidence"].values())
+                comparison["comparison"]["confidence_stats"] = {
+                    "min": min(confidences),
+                    "max": max(confidences),
+                    "avg": sum(confidences) / len(confidences),
+                    "spread": max(confidences) - min(confidences),
+                }
+
+            if "consensus_reached" in compare_fields:
+                comparison["comparison"]["consensus_reached"] = {
+                    debate_id: decision.consensus_reached
+                    for debate_id, decision in debates.items()
+                }
+                comparison["comparison"]["consensus_agreement"] = len(
+                    set(d.consensus_reached for d in debates.values())
+                ) == 1
+
+            if "contributing_factors" in compare_fields:
+                factor_names = {}
+                for debate_id, decision in debates.items():
+                    if hasattr(decision, "contributing_factors"):
+                        for f in decision.contributing_factors[:5]:
+                            if f.name not in factor_names:
+                                factor_names[f.name] = {}
+                            factor_names[f.name][debate_id] = f.contribution
+
+                comparison["comparison"]["contributing_factors"] = factor_names
+                comparison["comparison"]["common_factors"] = [
+                    name for name, vals in factor_names.items()
+                    if len(vals) == len(debates)
+                ]
+
+            if "evidence_quality" in compare_fields:
+                comparison["comparison"]["evidence_quality"] = {
+                    debate_id: getattr(decision, "evidence_quality_score", None)
+                    for debate_id, decision in debates.items()
+                }
+
+            return json_response(comparison)
+
+        except Exception as e:
+            logger.error(f"Compare error: {e}")
+            return error_response(f"Failed to compare debates: {str(e)[:100]}", 500)
+
 
 # Handler factory
 _explainability_handler: Optional["ExplainabilityHandler"] = None
@@ -472,4 +959,10 @@ def get_explainability_handler(server_context: Optional[Dict] = None) -> "Explai
     return _explainability_handler
 
 
-__all__ = ["ExplainabilityHandler", "get_explainability_handler"]
+__all__ = [
+    "ExplainabilityHandler",
+    "get_explainability_handler",
+    "BatchStatus",
+    "BatchJob",
+    "BatchDebateResult",
+]

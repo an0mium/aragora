@@ -792,6 +792,25 @@ class EvidenceCollector:
         all_snippets = []
         total_searched = 0
 
+        # Query-before-action: Check KM for existing evidence on this topic
+        # This avoids redundant external API calls and leverages organizational memory
+        km_evidence = self.query_km_for_existing(task, limit=10, min_reliability=0.6)
+        if km_evidence:
+            logger.info(f"Found {len(km_evidence)} existing evidence items in KM for: {task[:50]}...")
+            # Convert KM results to EvidenceSnippet format
+            for ev in km_evidence:
+                snippet = EvidenceSnippet(
+                    id=ev.get("id", f"km_{hashlib.sha256(ev.get('snippet', '').encode()).hexdigest()[:8]}"),
+                    source=f"km:{ev.get('source', 'knowledge_mound')}",
+                    title=ev.get("title", "Knowledge Mound Evidence"),
+                    snippet=ev.get("snippet", ""),
+                    url=ev.get("url", ""),
+                    reliability_score=ev.get("reliability_score", 0.7),
+                    metadata={"km_origin": True, **ev.get("metadata", {})},
+                )
+                all_snippets.append(snippet)
+            total_searched += 1  # Count KM as one source searched
+
         # Parse explicitly provided document files
         if document_files:
             for file_path in document_files:

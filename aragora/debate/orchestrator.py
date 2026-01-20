@@ -185,7 +185,7 @@ class Arena:
         evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
         breakpoint_manager=None,  # Optional BreakpointManager for human-in-the-loop
         checkpoint_manager=None,  # Optional CheckpointManager for debate resume
-        enable_checkpointing: bool = False,  # Auto-create CheckpointManager if True
+        enable_checkpointing: bool = True,  # Auto-create CheckpointManager if True (enables debate resume)
         performance_monitor=None,  # Optional AgentPerformanceMonitor for telemetry
         enable_performance_monitor: bool = True,  # Auto-create PerformanceMonitor if True
         enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission

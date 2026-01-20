@@ -603,6 +603,26 @@ class PulseDebateScheduler:
             f"(platform={topic.platform}, score={scored.score:.2f})"
         )
 
+        # Query-before-action: Check KM for past debates on similar topics
+        # This avoids redundant debates and leverages organizational memory
+        past_debates = self.query_km_for_past_debates(topic.topic, limit=5)
+        if past_debates:
+            # Check if any recent debate reached consensus on this topic
+            recent_consensus = [
+                d for d in past_debates
+                if d.get("consensus_reached") and d.get("confidence", 0) >= 0.7
+            ]
+            if recent_consensus:
+                logger.info(
+                    f"Skipping debate - KM has {len(recent_consensus)} recent consensus on topic: "
+                    f"{topic.topic[:50]}... (confidence >= 0.7)"
+                )
+                return  # Skip creating a new debate
+            else:
+                logger.info(
+                    f"KM has {len(past_debates)} past debates on topic, but none with strong consensus"
+                )
+
         debate_id = f"pulse-{int(time.time())}-{uuid.uuid4().hex[:6]}"
         record_id = f"sched-{int(time.time())}-{uuid.uuid4().hex[:6]}"
 

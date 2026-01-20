@@ -93,10 +93,9 @@ WORKFLOW_TEMPLATES = {
     "product/feature-spec": FEATURE_SPEC_TEMPLATE,
     "product/user-research": USER_RESEARCH_TEMPLATE,
     "product/launch-readiness": LAUNCH_READINESS_TEMPLATE,
-    # Patterns
-    "pattern/hive-mind": HIVE_MIND_TEMPLATE,
-    "pattern/map-reduce": MAP_REDUCE_TEMPLATE,
-    "pattern/review-cycle": REVIEW_CYCLE_TEMPLATE,
+    # Note: Pattern templates (hive-mind, map-reduce, review-cycle) are not included
+    # in WORKFLOW_TEMPLATES as they are factory patterns with a different schema.
+    # Use PATTERN_TEMPLATES or create_*_workflow() functions instead.
 }
 
 

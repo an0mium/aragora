@@ -842,7 +842,10 @@ _cost_tracker: Optional[CostTracker] = None
 
 
 def get_cost_tracker() -> CostTracker:
-    """Get or create the global cost tracker."""
+    """Get or create the global cost tracker.
+
+    Includes KM adapter wiring for alert/anomaly persistence when available.
+    """
     global _cost_tracker
     if _cost_tracker is None:
         try:
@@ -857,6 +860,19 @@ def get_cost_tracker() -> CostTracker:
             logger.exception(f"Unexpected error creating UsageTracker: {e}")
             usage_tracker = None
         _cost_tracker = CostTracker(usage_tracker=usage_tracker)
+
+        # Wire KM adapter for bidirectional sync
+        try:
+            from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
+
+            adapter = CostAdapter(enable_dual_write=True)
+            _cost_tracker.set_km_adapter(adapter)
+            logger.info("CostTracker KM adapter wired for bidirectional sync")
+        except ImportError:
+            logger.debug("KM CostAdapter not available, cost tracking will run without KM sync")
+        except Exception as km_e:
+            logger.warning(f"Failed to wire KM CostAdapter: {km_e}")
+
     return _cost_tracker
 
 

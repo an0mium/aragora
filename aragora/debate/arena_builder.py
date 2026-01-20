@@ -227,7 +227,7 @@ class ArenaBuilder:
 
         # Checkpointing
         self._checkpoint_manager: Any = None
-        self._enable_checkpointing: bool = False
+        self._enable_checkpointing: bool = True  # Enabled by default for debate resume support
         self._breakpoint_manager: Any = None
 
         # Agent selection

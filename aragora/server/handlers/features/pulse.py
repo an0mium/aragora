@@ -115,6 +115,8 @@ def get_pulse_scheduler():
 
     Note: The scheduler is created but not started automatically.
     Call scheduler.start() to begin scheduling debates.
+
+    Includes KM adapter wiring for bidirectional sync when available.
     """
     global _shared_scheduler
     if _shared_scheduler is None:
@@ -129,6 +131,35 @@ def get_pulse_scheduler():
 
                     _shared_scheduler = PulseDebateScheduler(manager, store)
                     logger.info("PulseDebateScheduler singleton created")
+
+                    # Wire KM adapter for bidirectional sync
+                    try:
+                        from aragora.knowledge.mound.adapters.pulse_adapter import PulseAdapter
+                        from aragora.events.types import StreamEvent, StreamEventType
+
+                        adapter = PulseAdapter(enable_dual_write=True)
+
+                        # Wire event callback for WebSocket notifications
+                        def emit_km_event(event_type: str, data: dict) -> None:
+                            try:
+                                type_map = {
+                                    "trending_topic_stored": StreamEventType.MOUND_UPDATED,
+                                    "debate_scheduled": StreamEventType.MOUND_UPDATED,
+                                }
+                                stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
+                                # Note: Event will be emitted when event_emitter is available
+                                logger.debug(f"KM event: {event_type}")
+                            except Exception as e:
+                                logger.debug(f"Failed to emit KM event {event_type}: {e}")
+
+                        adapter.set_event_callback(emit_km_event)
+                        _shared_scheduler.set_km_adapter(adapter)
+                        logger.info("PulseDebateScheduler KM adapter wired for bidirectional sync")
+                    except ImportError:
+                        logger.debug("KM PulseAdapter not available, scheduler will run without KM sync")
+                    except Exception as km_e:
+                        logger.warning(f"Failed to wire KM PulseAdapter: {km_e}")
+
                 except (ImportError, OSError, sqlite3.Error, RuntimeError) as e:
                     logger.warning(f"Failed to initialize PulseDebateScheduler: {e}")
                     return None

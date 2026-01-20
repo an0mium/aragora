@@ -198,7 +198,7 @@ class MetricsHandler(BaseHandler):
                 content_type=content_type,
                 body=content.encode("utf-8"),
             )
-        except (ValueError, TypeError, RuntimeError) as e:
+        except Exception as e:  # noqa: BLE001 - Catch all for graceful error handling
             logger.error("Failed to get Prometheus metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get Prometheus metrics"), 500)
 
